@@ -150,17 +150,18 @@ internal static class WorksheetElementReader
 
     private static void LoadSheetViewProperties(SheetView sheetView, XLWorksheet ws)
     {
-        if (sheetView.RightToLeft != null) ws.RightToLeft = sheetView.RightToLeft.Value;
-        if (sheetView.ShowFormulas != null) ws.ShowFormulas = sheetView.ShowFormulas.Value;
-        if (sheetView.ShowGridLines != null) ws.ShowGridLines = sheetView.ShowGridLines.Value;
+        var view = ws.SheetView;
+        if (sheetView.RightToLeft != null) view.RightToLeft = sheetView.RightToLeft.Value;
+        if (sheetView.ShowFormulas != null) view.ShowFormulas = sheetView.ShowFormulas.Value;
+        if (sheetView.ShowGridLines != null) view.ShowGridLines = sheetView.ShowGridLines.Value;
         if (sheetView.ShowOutlineSymbols != null)
-            ws.ShowOutlineSymbols = sheetView.ShowOutlineSymbols.Value;
-        if (sheetView.ShowRowColHeaders != null) ws.ShowRowColHeaders = sheetView.ShowRowColHeaders.Value;
-        if (sheetView.ShowRuler != null) ws.ShowRuler = sheetView.ShowRuler.Value;
-        if (sheetView.ShowWhiteSpace != null) ws.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
-        if (sheetView.ShowZeros != null) ws.ShowZeros = sheetView.ShowZeros.Value;
-        if (sheetView.TabSelected != null) ws.TabSelected = sheetView.TabSelected.Value;
-        if (sheetView.View != null) ws.SheetView.View = sheetView.View.Value.ToXLibur();
+            view.ShowOutlineSymbols = sheetView.ShowOutlineSymbols.Value;
+        if (sheetView.ShowRowColHeaders != null) view.ShowRowColHeaders = sheetView.ShowRowColHeaders.Value;
+        if (sheetView.ShowRuler != null) view.ShowRuler = sheetView.ShowRuler.Value;
+        if (sheetView.ShowWhiteSpace != null) view.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
+        if (sheetView.ShowZeros != null) view.ShowZeros = sheetView.ShowZeros.Value;
+        if (sheetView.TabSelected != null) view.TabSelected = sheetView.TabSelected.Value;
+        if (sheetView.View != null) view.View = sheetView.View.Value.ToXLibur();
     }
 
     private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
