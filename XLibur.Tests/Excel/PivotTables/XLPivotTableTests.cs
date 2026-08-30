@@ -250,6 +250,96 @@ public class XLPivotTableTests
         await Assert.That(ptAssert.ShowLastColumn).IsFalse().Because("ShowLastColumn must be read from its own attribute, not showColStripes");
     }
 
+    [Test]
+    [Property("Description", "spec 39: Title/Description are public and settable but were persisted nowhere")]
+    public async Task Title_and_description_round_trip_through_save_and_reload()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("PastrySalesData");
+        var table = ws.Table("PastrySalesData");
+        var ptSheet = wb.Worksheets.Add("TitleDescriptionTest");
+        var pt = ptSheet.PivotTables.Add("pvtTitleDesc", ptSheet.Cell(1, 1), table);
+
+        pt.SetTitle("Pastry sales overview");
+        pt.SetDescription("Summarizes orders by pastry and month.");
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
+        ms.Position = 0;
+
+        using var wbAssert = new XLWorkbook(ms);
+        var ptAssert = wbAssert.Worksheet("TitleDescriptionTest").PivotTable("pvtTitleDesc");
+        await Assert.That(ptAssert.Title).IsEqualTo("Pastry sales overview").Because("Title must survive save/reload");
+        await Assert.That(ptAssert.Description).IsEqualTo("Summarizes orders by pastry and month.").Because("Description must survive save/reload");
+    }
+
+    [Test]
+    [Property("Description", "spec 39: CopyTo silently reset settings that both the reader and writer carry but the hand-written copy list omitted")]
+    public async Task CopyTo_preserves_settings_the_hand_written_list_used_to_miss()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws1 = wb.Worksheet("pvt1");
+        var pt1 = (XLPivotTable)ws1.PivotTables.First();
+
+        pt1.DataCaption = "Total orders";
+        pt1.EnableEditingMechanism = false;
+        pt1.ShowLastColumn = true;
+
+        var pt2 = (XLPivotTable)pt1.CopyTo(ws1.Cell("AB200"));
+
+        await Assert.That(pt2.DataCaption).IsEqualTo("Total orders").Because("DataCaption is carried by both reader and writer");
+        await Assert.That(pt2.EnableEditingMechanism).IsFalse().Because("EnableEditingMechanism (enableWizard) is carried by both reader and writer");
+        await Assert.That(pt2.ShowLastColumn).IsTrue().Because("ShowLastColumn has four siblings that already survive a copy");
+    }
+
+    [Test]
+    [Property("Description", "spec 39: a pivot whose axis references the values field must carry dataPosition, or Excel repairs the file; the loader never set it, so a re-saved file lost it")]
+    public async Task DataPosition_is_written_after_a_reload_when_an_axis_references_the_values_field()
+    {
+        var pastries = new List<Pastry>
+        {
+            new Pastry("Croissant", 101, 150, 60.2, "April", null),
+            new Pastry("Doughnut", 102, 250, 89.99, "April", null),
+        };
+
+        using var firstSave = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Data");
+            var table = ws.FirstCell().InsertTable(pastries, "Data", true);
+
+            var pvtSheet = wb.Worksheets.Add("pvt");
+            var pt = table.CreatePivotTable(pvtSheet.FirstCell(), "Pvt");
+
+            pt.RowLabels.Add("Name");
+            pt.RowLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+            pt.Values.Add("NumberOfOrders").SetSummaryFormula(XLPivotSummary.Sum);
+
+            wb.SaveAs(firstSave);
+        }
+
+        // Reload and re-save without touching the pivot: the axis fields (including the -2 'data'
+        // sentinel) go through the loader on this pass, which is the path that used to lose track
+        // of dataPosition.
+        firstSave.Position = 0;
+        using var secondSave = new MemoryStream();
+        using (var wb = new XLWorkbook(firstSave))
+        {
+            wb.SaveAs(secondSave);
+        }
+
+        secondSave.Position = 0;
+        using var archive = new ZipArchive(secondSave, ZipArchiveMode.Read, leaveOpen: true);
+        using var entry = archive.Entries.First(e => e.FullName.StartsWith("xl/pivotTables/pivotTable", StringComparison.Ordinal)).Open();
+        using var reader = new StreamReader(entry);
+        var pivotTableXml = await reader.ReadToEndAsync();
+
+        await Assert.That(pivotTableXml).Contains("dataPosition=")
+            .Because("The row axis still references the values field (-2), so dataPosition is required for Excel to open the file without repair");
+    }
+
     private class Pastry
     {
         public Pastry(string name, int? code, int numberOfOrders, double quality, string month, DateTime? bakeDate)
