@@ -726,7 +726,7 @@ internal static class PivotTableDefinitionPartReader
             xlPivotTable.ShowColumnHeaders = pivotTableStyle.ShowColumnHeaders?.Value ?? false;
             xlPivotTable.ShowRowStripes = pivotTableStyle.ShowRowStripes?.Value ?? false;
             xlPivotTable.ShowColumnStripes = pivotTableStyle.ShowColumnStripes?.Value ?? false;
-            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowColumnStripes?.Value ?? false;
+            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowLastColumn?.Value ?? false;
         }
     }
 

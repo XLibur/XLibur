@@ -226,6 +226,30 @@ public class XLPivotTableTests
         await Assert.That(comparer.Equals(original, copy)).IsTrue();
     }
 
+    [Test]
+    [Property("Description", "spec 39: showLastColumn was read from showColStripes, so the two settings could not vary independently")]
+    public async Task ShowLastColumn_reads_from_its_own_attribute_not_column_stripes()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("PastrySalesData");
+        var table = ws.Table("PastrySalesData");
+        var ptSheet = wb.Worksheets.Add("ShowLastColumnTest");
+        var pt = (XLPivotTable)ptSheet.PivotTables.Add("pvtShowLastColumn", ptSheet.Cell(1, 1), table);
+
+        pt.ShowColumnStripes = true;
+        pt.ShowLastColumn = false;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms, true);
+        ms.Position = 0;
+
+        using var wbAssert = new XLWorkbook(ms);
+        var ptAssert = (XLPivotTable)wbAssert.Worksheet("ShowLastColumnTest").PivotTable("pvtShowLastColumn");
+        await Assert.That(ptAssert.ShowColumnStripes).IsTrue().Because("ShowColumnStripes must round-trip on its own");
+        await Assert.That(ptAssert.ShowLastColumn).IsFalse().Because("ShowLastColumn must be read from its own attribute, not showColStripes");
+    }
+
     private class Pastry
     {
         public Pastry(string name, int? code, int numberOfOrders, double quality, string month, DateTime? bakeDate)
