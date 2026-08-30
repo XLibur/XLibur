@@ -229,6 +229,44 @@ public class XLSheetViewTests
         await Assert.That(SelectedTabCount(ms)).IsEqualTo(1);
     }
 
+    /// <summary>
+    /// <see cref="IXLSheetView.ZoomScale"/> is the zoom of the view the sheet is currently in, and
+    /// its setter mirrors the value onto the named scale for that view. Which named scale is not a
+    /// free choice: <see cref="IXLSheetView.ZoomScalePageLayoutView"/> is Page Layout and
+    /// <see cref="IXLSheetView.ZoomScaleSheetLayoutView"/> is Page Break Preview — per its own
+    /// summary on <c>IXLSheetView</c>, and per ECMA-376 18.3.1.87, where <c>zoomScaleSheetLayoutView</c>
+    /// is documented as "Zoom Scale Page Break Preview". The two arms were swapped, so setting the
+    /// zoom of a page-layout sheet wrote the page-break-preview scale and left page layout at 100.
+    /// </summary>
+    [Test]
+    public async Task ZoomScale_mirrors_onto_the_scale_named_by_the_current_view()
+    {
+        using var wb = new XLWorkbook();
+
+        var pageLayout = wb.AddWorksheet("PL");
+        pageLayout.SheetView.SetView(XLSheetViewOptions.PageLayout);
+        pageLayout.SheetView.ZoomScale = 140;
+
+        await Assert.That(pageLayout.SheetView.ZoomScalePageLayoutView).IsEqualTo(140)
+            .Because("Page Layout's zoom belongs in zoomScalePageLayoutView");
+        await Assert.That(pageLayout.SheetView.ZoomScaleSheetLayoutView).IsEqualTo(100)
+            .Because("nothing set a Page Break Preview zoom on this sheet");
+
+        var pageBreak = wb.AddWorksheet("PB");
+        pageBreak.SheetView.SetView(XLSheetViewOptions.PageBreakPreview);
+        pageBreak.SheetView.ZoomScale = 60;
+
+        await Assert.That(pageBreak.SheetView.ZoomScaleSheetLayoutView).IsEqualTo(60)
+            .Because("Page Break Preview's zoom belongs in zoomScaleSheetLayoutView");
+        await Assert.That(pageBreak.SheetView.ZoomScalePageLayoutView).IsEqualTo(100)
+            .Because("nothing set a Page Layout zoom on this sheet");
+
+        var normal = wb.AddWorksheet("N");
+        normal.SheetView.ZoomScale = 75;
+
+        await Assert.That(normal.SheetView.ZoomScaleNormal).IsEqualTo(75);
+    }
+
     /// <summary>How many worksheet parts in the package carry <c>tabSelected="1"</c>.</summary>
     private static int SelectedTabCount(MemoryStream package)
     {

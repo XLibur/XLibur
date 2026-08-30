@@ -172,12 +172,17 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
                     ZoomScaleNormal = value;
                     break;
 
+                // The two names read as if they were swapped, and OOXML's are the ones that are
+                // confusing rather than these: ECMA-376 18.3.1.87 defines zoomScaleSheetLayoutView
+                // as "Zoom Scale Page Break Preview" and zoomScalePageLayoutView as "Zoom Scale
+                // Page Layout View". IXLSheetView's own summaries say the same. Do not "correct"
+                // this back.
                 case XLSheetViewOptions.PageBreakPreview:
-                    ZoomScalePageLayoutView = value;
+                    ZoomScaleSheetLayoutView = value;
                     break;
 
                 case XLSheetViewOptions.PageLayout:
-                    ZoomScaleSheetLayoutView = value;
+                    ZoomScalePageLayoutView = value;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(value), View, "Unsupported sheet view option.");

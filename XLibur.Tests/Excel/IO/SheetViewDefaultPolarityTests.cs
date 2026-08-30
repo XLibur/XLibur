@@ -133,6 +133,54 @@ public class SheetViewDefaultPolarityTests
             .Because("view mode was flipped to PageLayout after load and should be written on resave");
     }
 
+    /// <summary>
+    /// Excel writes <c>zoomScale</c> alone on a sheet whose other views have never been zoomed, so a
+    /// re-save must not fabricate a zoom for a view the file never mentioned. This builds that
+    /// shape by stripping the three named scales back out of an XLibur-saved package, loads it, and
+    /// re-saves: the page-layout zoom the file does carry must land in
+    /// <c>zoomScalePageLayoutView</c> (ECMA-376 18.3.1.87), and <c>zoomScaleSheetLayoutView</c> —
+    /// Page Break Preview — must stay absent.
+    /// </summary>
+    [Test]
+    public async Task LoadResave_does_not_invent_a_zoom_for_a_view_the_file_never_zoomed()
+    {
+        var fixture = SavePageLayoutZoom(140).RewriteSheet1(xml =>
+            Regex.Replace(xml, "\\s(?:zoomScaleNormal|zoomScalePageLayoutView|zoomScaleSheetLayoutView)=\"[^\"]*\"", ""));
+
+        // Guard the fixture itself: if the strip stopped matching, the test below would pass for
+        // the wrong reason.
+        await Assert.That(Attribute(SheetViewTag(fixture), "zoomScale")).IsEqualTo("140");
+        await Assert.That(Attribute(SheetViewTag(fixture), "zoomScaleSheetLayoutView")).IsNull();
+        await Assert.That(Attribute(SheetViewTag(fixture), "zoomScalePageLayoutView")).IsNull();
+
+        fixture.Position = 0;
+        var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(fixture))
+            wb.SaveAs(resaved);
+
+        var sheetView = SheetViewTag(resaved);
+
+        await Assert.That(Attribute(sheetView, "zoomScale")).IsEqualTo("140");
+        await Assert.That(Attribute(sheetView, "zoomScalePageLayoutView")).IsEqualTo("140")
+            .Because("the sheet is in Page Layout view, so its zoom is the page-layout zoom");
+        await Assert.That(Attribute(sheetView, "zoomScaleSheetLayoutView")).IsNull()
+            .Because("the file never carried a Page Break Preview zoom and a re-save must not invent one");
+    }
+
+    private static MemoryStream SavePageLayoutZoom(int zoomScale)
+    {
+        var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.SheetView.SetView(XLSheetViewOptions.PageLayout);
+            ws.SheetView.ZoomScale = zoomScale;
+            wb.SaveAs(ms);
+        }
+
+        return ms;
+    }
+
     private static MemoryStream SaveDefaultWorksheet()
     {
         var ms = new MemoryStream();
