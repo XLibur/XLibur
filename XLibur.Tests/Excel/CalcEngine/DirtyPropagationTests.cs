@@ -431,7 +431,7 @@ internal class DirtyPropagationTests
     {
         var cell = (XLCell)sheet.Cell(address);
         cell.Formula = XLCellFormula.NormalA1(formula);
-        cell.Formula.MarkClean(((XLWorksheet)sheet).Workbook);
+        cell.Formula.MarkClean();
         var cellArea = new SheetArea(sheet.Name, new Area(cell.SheetPoint, cell.SheetPoint));
         tree.AddFormula(cellArea, cell.Formula, sheet.Workbook);
         return cell.Formula;
@@ -446,13 +446,12 @@ internal class DirtyPropagationTests
     private static async Task AssertDirty(IXLWorksheet sheet, params string[] dirtyRanges)
     {
         var ws = (XLWorksheet)sheet;
-        var wb = ws.Workbook;
         foreach (var dirtyRange in dirtyRanges)
         {
             foreach (var dirtyCell in ws.Cells(dirtyRange))
             {
                 await Assert.That(dirtyCell.Formula).IsNotNull();
-                await Assert.That(dirtyCell.Formula!.IsDirty(wb)).IsTrue();
+                await Assert.That(dirtyCell.Formula!.IsDirty()).IsTrue();
             }
         }
     }

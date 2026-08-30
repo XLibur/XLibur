@@ -129,7 +129,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
             // A formula-less cell may still be a spilled cell of a dynamic array. If its owning
             // anchor is dirty, the stored value is stale — force the anchor to evaluate first.
             if (CalcEngine.HasSpillOwners &&
-                CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, Workbook, out var spillAnchor))
+                CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, out var spillAnchor))
             {
                 if (RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value)
                     return valueSlice.GetCellValue(point);
@@ -147,7 +147,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
             return valueSlice.GetCellValue(point);
         }
 
-        if (formula.IsClean(Workbook))
+        if (formula.IsClean())
             return valueSlice.GetCellValue(point);
 
         // Used when only one sheet should be recalculated, leaving other sheets with their data.
