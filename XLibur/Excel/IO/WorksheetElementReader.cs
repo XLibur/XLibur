@@ -160,6 +160,7 @@ internal static class WorksheetElementReader
         if (sheetView.ShowWhiteSpace != null) ws.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
         if (sheetView.ShowZeros != null) ws.ShowZeros = sheetView.ShowZeros.Value;
         if (sheetView.TabSelected != null) ws.TabSelected = sheetView.TabSelected.Value;
+        if (sheetView.View != null) ws.SheetView.View = sheetView.View.Value.ToXLibur();
     }
 
     private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
