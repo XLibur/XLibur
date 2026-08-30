@@ -43,6 +43,11 @@
 - **`IXLPivotTable.CopyTo` no longer silently resets thirty-five settings** — including compact/outline form, visual totals, the grand-total caption and the data caption — that both the reader and the writer already carry. The hand-written copy list carried 29 of the definition's 65 attributes and dropped the other 36; the copy now uses the same attribute-by-attribute description the reader and writer are driven from, so a setting can no longer be present in the round trip and dropped by copy. One of the 36 is deliberately still not copied: `chartFormat` is the next free id for the pivot charts pointing at the source table, and a copy has none of them.
 
 - **A pivot table whose row or column axis references the values field now keeps the `dataPosition` attribute across a reload.** The loader never set it — a documented crash condition the subsystem's own notes call out — so a file that needed it could be re-saved without it and fail to open in Excel without a repair prompt.
+- **Copying a worksheet now keeps its gridlines, header visibility, zoom, view mode and tab colour** instead of resetting them to the destination workbook's defaults.
+
+- **Copying a worksheet into a different workbook now keeps the source sheet's own appearance** instead of adopting the destination workbook's display defaults.
+
+- **A workbook saved in Page Layout or Page Break Preview view now reopens in that view** instead of Normal — `sheetView/@view` was written on save but never read back on load.
 
 - **A pivot table XLibur creates is now stamped with a version that supports slicers.** `createdVersion` and `updatedVersion` were left at zero on a created pivot table, and the writer omits an attribute sitting at its default, so both were absent. Excel reads a pivot table stamped version 0 as one written before the features that came later and silently refuses to attach a slicer to it — the slicer, its cache, its registration and its drawing are all written correctly and the panel simply never appears, with no repair prompt and no validation error. A pivot table loaded from a file still keeps whatever version its file declares.
 
