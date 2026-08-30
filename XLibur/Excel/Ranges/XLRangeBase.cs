@@ -669,7 +669,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public int RowCount()
     {
-        return RangeAddress.LastAddress.RowNumber - RangeAddress.FirstAddress.RowNumber + 1;
+        return SheetRange.Height;
     }
 
     public int RowCount(XLCellsUsedOptions cellsUsedOptions)
@@ -690,7 +690,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public int ColumnCount()
     {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
+        return SheetRange.Width;
     }
 
     public int ColumnCount(XLCellsUsedOptions cellsUsedOptions)
