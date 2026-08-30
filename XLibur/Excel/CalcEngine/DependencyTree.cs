@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using RBush;
@@ -222,6 +223,23 @@ internal sealed class DependencyTree
     private readonly Queue<SheetArea> _walkQueue = new();
 
     /// <summary>
+    /// Capacity above which <see cref="MarkDirty"/> releases the reused queue's backing array
+    /// instead of holding it for the tree's lifetime. One unusually wide walk on a long-lived
+    /// workbook would otherwise retain a slot per node it visited, along with a sheet-name
+    /// reference each, long after the small walks that follow could use them. The threshold is
+    /// well above any ordinary closure, so the common path never trims.
+    /// </summary>
+    private const int WalkQueueRetainedCapacity = 4096;
+
+    /// <summary>
+    /// Guards the assumption that <see cref="MarkDirty"/> is never re-entered, which is what makes
+    /// a single reused <see cref="_walkQueue"/> safe. Nothing the walk calls evaluates a formula or
+    /// re-enters the tree today; a future change that did would silently corrupt the outer walk's
+    /// queue rather than fail, so it is asserted in debug builds instead of left to comments.
+    /// </summary>
+    private bool _walkInProgress;
+
+    /// <summary>
     /// Mark all formulas that depend (directly or transitively) on the area as dirty.
     /// </summary>
     /// <remarks>
@@ -235,31 +253,49 @@ internal sealed class DependencyTree
     /// </remarks>
     internal void MarkDirty(SheetArea dirtyArea)
     {
+        Debug.Assert(!_walkInProgress, "MarkDirty is not re-entrant: it reuses a single walk queue.");
+        _walkInProgress = true;
+
         var walkId = Interlocked.Increment(ref _walkGeneration);
 
         // BFS vs DFS: Although the longest chain found in the wild is 1000
         // formulas long, attacker could supply malicious excel with recursion
         // leading to stack overflow => use queue even with extra allocation cost.
         var queue = _walkQueue;
-        queue.Clear();
-        queue.Enqueue(dirtyArea);
-        while (queue.Count > 0)
+        try
         {
-            var affectedArea = queue.Dequeue();
-            var sheetTree = _sheetTrees[affectedArea.Name];
-            foreach (var area in sheetTree.FindDependentsAreas(affectedArea.Area))
+            queue.Enqueue(dirtyArea);
+            while (queue.Count > 0)
             {
-                foreach (var dependent in area.Dependents)
+                var affectedArea = queue.Dequeue();
+                var sheetTree = _sheetTrees[affectedArea.Name];
+                foreach (var area in sheetTree.FindDependentsAreas(affectedArea.Area))
                 {
-                    // Ensure we don't end up in an infinite cycle: a formula already enqueued by
-                    // this walk is not enqueued again, regardless of its dirty state.
-                    if (!dependent.Formula.TryVisit(walkId))
-                        continue;
+                    foreach (var dependent in area.Dependents)
+                    {
+                        // Ensure we don't end up in an infinite cycle: a formula already enqueued
+                        // by this walk is not enqueued again, regardless of its dirty state.
+                        if (!dependent.Formula.TryVisit(walkId))
+                            continue;
 
-                    dependent.MarkDirty();
-                    queue.Enqueue(dependent.FormulaArea);
+                        dependent.MarkDirty();
+                        queue.Enqueue(dependent.FormulaArea);
+                    }
                 }
             }
+        }
+        finally
+        {
+            // Clear on the way out, not on the way in, so a walk that threw does not leave its
+            // entries — and their sheet-name references — reachable until the next MarkDirty.
+            queue.Clear();
+
+            // EnsureCapacity(0) grows nothing and returns the capacity, which Queue<T> does not
+            // otherwise expose on every target framework.
+            if (queue.EnsureCapacity(0) > WalkQueueRetainedCapacity)
+                queue.TrimExcess();
+
+            _walkInProgress = false;
         }
     }
 

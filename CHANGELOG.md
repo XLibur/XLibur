@@ -74,6 +74,8 @@
 
 - **Editing a cell now recalculates every dependent, even when something else already marked one of them dirty first.** Calling `InvalidateFormula`, renaming a sheet, moving a range, or shifting references on a row/column insert could each leave a formula flagged dirty for a reason unrelated to the current edit; the recalculation walk mistook that pre-existing flag for "already visited by this walk," stopped there, and left everything downstream silently stale. `A1=1, B1=A1+1, C1=B1+1, D1=C1+1; C1.InvalidateFormula(); A1.Value = 10` used to leave `D1` at `4` instead of `13`.
 
+  This costs something on one shape. Treating "already dirty" as "already visited" also stopped the walk early *between* edits, so writing many cells that feed the same model without reading anything in between used to mark that model dirty once and skip it thereafter. Each such write now walks the model again, because there is no longer any sound way to tell "dirty because a walk reached it" from "dirty for some unrelated reason" — the conflation that caused the bug. Writing 20,000 inputs of a 50-formula-deep shared model with no intervening read goes from roughly 50 ms to 190 ms; reading or saving between edits, or writing cells nothing depends on, is unaffected and now allocates less than before.
+
 ## v0.311.1 - 2026-08-11
 
 A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.
