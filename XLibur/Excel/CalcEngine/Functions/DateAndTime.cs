@@ -601,20 +601,7 @@ internal static class DateAndTime
     /// cell has to be unwrapped here.
     /// </summary>
     private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-            return scalar;
-
-        if (collection.TryPickT0(out var array, out var reference))
-            return array[0, 0];
-
-        if (reference.TryGetSingleCellValue(out var single, ctx))
-            return single;
-
-        return value.ImplicitIntersection(ctx).TryPickScalar(out var intersected, out _)
-            ? intersected
-            : XLError.IncompatibleValue;
-    }
+        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
 
     #endregion
 

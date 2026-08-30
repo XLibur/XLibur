@@ -942,22 +942,10 @@ internal static class Financial
     /// </summary>
     private static bool TryScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
     {
-        error = default;
         number = 0;
 
-        if (!value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (collection.TryPickT0(out var array, out var reference))
-            {
-                scalar = array[0, 0];
-            }
-            else if (!reference.TryGetSingleCellValue(out scalar, ctx)
-                     && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
-        }
+        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
+            return false;
 
         return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
