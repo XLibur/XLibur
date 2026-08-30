@@ -55,15 +55,11 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         if (!rangeAddress.IsValid)
             yield break;
 
-        var normalizedAddress = ((XLRangeAddress)rangeAddress).Normalize();
-        var minRow = normalizedAddress.FirstAddress.RowNumber;
-        var maxRow = normalizedAddress.LastAddress.RowNumber;
-        var minColumn = normalizedAddress.FirstAddress.ColumnNumber;
-        var maxColumn = normalizedAddress.LastAddress.ColumnNumber;
+        var area = Area.FromRangeAddress(rangeAddress);
 
-        for (var ro = minRow; ro <= maxRow; ro++)
+        for (var ro = area.TopRow; ro <= area.BottomRow; ro++)
         {
-            for (var co = minColumn; co <= maxColumn; co++)
+            for (var co = area.LeftColumn; co <= area.RightColumn; co++)
             {
                 yield return new Point(ro, co);
             }
@@ -165,11 +161,11 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
     {
         if (!rangeAddress.IsValid)
             yield break;
-        var normalizedAddress = rangeAddress.Normalize();
-        var minRow = normalizedAddress.FirstAddress.RowNumber;
-        var maxRow = normalizedAddress.LastAddress.RowNumber;
-        var minColumn = normalizedAddress.FirstAddress.ColumnNumber;
-        var maxColumn = normalizedAddress.LastAddress.ColumnNumber;
+        var area = Area.FromRangeAddress(rangeAddress);
+        var minRow = area.TopRow;
+        var maxRow = area.BottomRow;
+        var minColumn = area.LeftColumn;
+        var maxColumn = area.RightColumn;
 
         var cellRange = worksheet.Internals.CellsCollection
             .GetCells(minRow, minColumn, maxRow, maxColumn, _predicate);
