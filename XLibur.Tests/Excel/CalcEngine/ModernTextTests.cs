@@ -309,6 +309,22 @@ public class ModernTextTests
     }
 
     [Test]
+    public async Task TextSplit_ReadsIgnoreEmptyFromACellReference()
+    {
+        // Spec 37 — was #VALUE! before the fix, because ignore_empty was a single-cell reference
+        // rather than a literal.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("H1").Value = true;
+            ws.Range("E1:F1").FormulaArrayA1 = "TEXTSPLIT(\"a,,b\", \",\", , H1)";
+
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo("a");
+            await Assert.That(ws.Cell("F1").Value).IsEqualTo("b");
+        }
+    }
+
+    [Test]
     public async Task TextSplit_SpillsIntoTheGrid()
     {
         var ws = NewSheet(out var wb);
