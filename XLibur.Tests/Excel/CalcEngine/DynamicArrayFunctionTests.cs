@@ -216,4 +216,121 @@ public class DynamicArrayFunctionTests
             await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, -1)")).IsEqualTo(2);
         }
     }
+
+    // Spec 37 — a cell reference in a scalar slot must work exactly like a literal. Each of these
+    // was #VALUE! before the fix, because the argument was a single-cell reference rather than a
+    // literal.
+
+    [Test]
+    public async Task Sequence_ReadsRowAndColumnCountsFromCellReferences()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("F1").Value = 3;
+            ws.Cell("F2").Value = 2;
+            ws.Range("A1:B3").FormulaArrayA1 = "SEQUENCE(F1, F2)";
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(5);
+            await Assert.That(ws.Cell("B3").Value).IsEqualTo(6);
+        }
+    }
+
+    [Test]
+    public async Task Sort_ReadsSortIndexFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "b";
+            ws.Cell("B1").Value = 2;
+            ws.Cell("A2").Value = "a";
+            ws.Cell("B2").Value = 1;
+            ws.Cell("F1").Value = 2; // Sort by column 2 of the range.
+
+            ws.Range("D1:E2").FormulaArrayA1 = "SORT(A1:B2, F1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("a");
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo("b");
+        }
+    }
+
+    [Test]
+    public async Task SortBy_ReadsOrderFromACellReference()
+    {
+        // The order argument's shape (scalar vs. a new by_array) is detected before it is reduced;
+        // a single-cell reference must still be recognised as the order, not mistaken for another
+        // by_array.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "a";
+            ws.Cell("A2").Value = "b";
+            ws.Cell("A3").Value = "c";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("B2").Value = 2;
+            ws.Cell("B3").Value = 3;
+            ws.Cell("F1").Value = -1; // Descending.
+
+            ws.Range("D1:D3").FormulaArrayA1 = "SORTBY(A1:A3, B1:B3, F1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("c");
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo("b");
+            await Assert.That(ws.Cell("D3").Value).IsEqualTo("a");
+        }
+    }
+
+    [Test]
+    public async Task Unique_ReadsByColumnFlagFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("B1").Value = 2;
+            ws.Cell("A2").Value = 1;
+            ws.Cell("B2").Value = 2;
+            ws.Cell("A3").Value = 3;
+            ws.Cell("B3").Value = 4;
+            ws.Cell("F1").Value = true; // by_col.
+
+            // Columns A and B repeat once (1,2) and then differ (3,4), so by-column UNIQUE keeps
+            // all three columns.
+            ws.Range("D1:F3").FormulaArrayA1 = "UNIQUE(A1:C3, F1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo(2);
+        }
+    }
+
+    [Test]
+    public async Task XLookup_ReadsMatchModeFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 3;
+            ws.Cell("A3").Value = 5;
+            ws.Cell("B1").Value = "low";
+            ws.Cell("B2").Value = "mid";
+            ws.Cell("B3").Value = "high";
+            ws.Cell("F1").Value = -1; // Next-smaller match mode.
+
+            await Assert.That(ws.Evaluate("XLOOKUP(4, A1:A3, B1:B3, , F1)")).IsEqualTo("mid");
+        }
+    }
+
+    [Test]
+    public async Task XMatch_ReadsMatchModeFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 3;
+            ws.Cell("D3").Value = 5;
+            ws.Cell("F1").Value = -1; // Next-smaller match mode.
+
+            await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, F1)")).IsEqualTo(2);
+        }
+    }
 }
