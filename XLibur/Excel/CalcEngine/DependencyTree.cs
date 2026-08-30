@@ -214,6 +214,14 @@ internal sealed class DependencyTree
     private static long _walkGeneration;
 
     /// <summary>
+    /// Queue reused across <see cref="MarkDirty"/> calls. The walk never re-enters itself (it only
+    /// reads the sheet trees and sets a flag per formula), so one queue per tree is enough, and it
+    /// keeps a bulk edit from allocating and regrowing a queue per written cell. Like the rest of
+    /// the tree — and the workbook it belongs to — this assumes a single thread at a time.
+    /// </summary>
+    private readonly Queue<SheetArea> _walkQueue = new();
+
+    /// <summary>
     /// Mark all formulas that depend (directly or transitively) on the area as dirty.
     /// </summary>
     /// <remarks>
@@ -232,7 +240,8 @@ internal sealed class DependencyTree
         // BFS vs DFS: Although the longest chain found in the wild is 1000
         // formulas long, attacker could supply malicious excel with recursion
         // leading to stack overflow => use queue even with extra allocation cost.
-        var queue = new Queue<SheetArea>();
+        var queue = _walkQueue;
+        queue.Clear();
         queue.Enqueue(dirtyArea);
         while (queue.Count > 0)
         {

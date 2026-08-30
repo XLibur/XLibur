@@ -19,15 +19,17 @@ public static class BulkEditDirtyWalkProfile
     private const int Edits = 200_000;
     private const int Chains = 200;
     private const int ChainDepth = 10;
+    private const int UnsettledInputs = 20_000;
+    private const int UnsettledDepth = 50;
 
     public static void Run()
     {
         SixLaborsV1FontBootstrap.Register();
 
-        RunProbe(("warmup", () => EditRootsWithDependents(chains: 10, depth: 5, edits: 1_000)));
+        RunProbe(("warmup", () => EditRootsWithDependents(chains: 10, depth: 5, edits: 1_000), 1));
 
         Console.WriteLine();
-        Console.WriteLine($"{Edits:N0} single-cell value writes per probe");
+        Console.WriteLine("Single-cell value writes; edit count is named per probe.");
         Console.WriteLine("| Probe                                             |    Total |    ms |   us/edit |");
         Console.WriteLine("|---------------------------------------------------|----------|-------|-----------|");
 
@@ -38,11 +40,51 @@ public static class BulkEditDirtyWalkProfile
         Console.WriteLine("Bytes are exact. Times are single-shot — use BenchmarkDotNet for time claims.");
     }
 
-    private static (string Name, Action Action)[] Probes() =>
+    private static (string Name, Action Action, int Edits)[] Probes() =>
     [
-        ($"{Edits:N0} edits, {Chains}x{ChainDepth} chains (real walk)", () => EditRootsWithDependents(Chains, ChainDepth, Edits)),
-        ($"{Edits:N0} edits, no dependents (walk finds nothing)", () => EditCellsWithNoDependents(Edits)),
+        ($"{Edits:N0} edits, {Chains}x{ChainDepth} chains (real walk)", () => EditRootsWithDependents(Chains, ChainDepth, Edits), Edits),
+        ($"{Edits:N0} edits, no dependents (walk finds nothing)", () => EditCellsWithNoDependents(Edits), Edits),
+        ($"{UnsettledInputs:N0} unsettled edits, {UnsettledDepth}-deep shared model", () => EditSharedModelWithoutSettling(UnsettledInputs, UnsettledDepth), UnsettledInputs),
     ];
+
+    /// <summary>
+    /// The worst case for a walk that tracks visits per call rather than reusing the dirty flag:
+    /// every input of a shared model is written with no read in between, so nothing ever cleans
+    /// the model and every edit re-walks the same dependent closure.
+    /// </summary>
+    /// <remarks>
+    /// This is the one workload spec 40's fix genuinely makes more expensive, and it is measured
+    /// here rather than assumed away. Reusing the dirty flag as the visited marker also
+    /// short-circuited <i>across</i> calls: once the model was dirty from the first edit, every
+    /// later edit stopped at the first hop, making the sequence roughly O(N + M) instead of
+    /// O(N x M). That saving was never sound — it is the same shortcut that pruned legitimate
+    /// walks and produced stale values, which is why it is gone — so the numbers below are the
+    /// price of correctness on this shape, not a regression to be optimised away by restoring it.
+    /// Anyone tempted to reintroduce a cross-call skip needs a marker that distinguishes "this
+    /// subtree is dirty because a walk reached it" from "dirty for some unrelated reason";
+    /// the dirty flag alone cannot.
+    /// </remarks>
+    private static void EditSharedModelWithoutSettling(int inputs, int depth)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        for (var r = 1; r <= inputs; r++)
+            ws.Cell(r, 1).Value = r;
+
+        // Every input feeds the head of the model, and each link feeds the next, so a walk from
+        // any single input has the whole depth-deep chain downstream of it.
+        ws.Cell(1, 2).FormulaA1 = $"SUM(A1:A{inputs})";
+        for (var r = 2; r <= depth; r++)
+            ws.Cell(r, 2).FormulaA1 = $"B{r - 1}+1";
+
+        foreach (var cell in ws.CellsUsed(x => x.HasFormula))
+            _ = cell.Value;
+
+        // No read between edits: the model stays dirty throughout.
+        for (var r = 1; r <= inputs; r++)
+            ws.Cell(r, 1).Value = r + 1;
+    }
 
     /// <summary>
     /// Every root feeds a chain of <paramref name="depth"/> formulas, so each edit's walk has real
@@ -113,7 +155,7 @@ public static class BulkEditDirtyWalkProfile
             ws.Cell(100 + i % 1000, 50).Value = i;
     }
 
-    private static void RunProbe((string Name, Action Action) probe)
+    private static void RunProbe((string Name, Action Action, int Edits) probe)
     {
         ForceGC();
 
@@ -127,7 +169,7 @@ public static class BulkEditDirtyWalkProfile
             return;
 
         Console.WriteLine(
-            $"| {probe.Name,-49} | {bytes / 1048576.0,5:F1} MB | {watch.Elapsed.TotalMilliseconds,5:F0} | {watch.Elapsed.TotalMicroseconds / Edits,9:F2} |");
+            $"| {probe.Name,-49} | {bytes / 1048576.0,5:F1} MB | {watch.Elapsed.TotalMilliseconds,5:F0} | {watch.Elapsed.TotalMicroseconds / probe.Edits,9:F2} |");
     }
 
     private static void ForceGC()
