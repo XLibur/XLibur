@@ -84,75 +84,13 @@ internal static class PivotTableDefinitionPartWriter2
     {
         xml.WriteAttribute("name", pt.Name);
         xml.WriteAttribute("cacheId", context.GetPivotCacheId(pt.PivotCache));
-        xml.WriteAttributeDefault("dataOnRows", pt.DataOnRows, false);
+
+        // Not in PivotTableAttributes.All: derived from RowAxis/ColumnAxis rather than round-tripped
+        // as stored state. See XLPivotTable.DataPosition.
         xml.WriteAttributeOptional("dataPosition", pt.DataPosition);
-        xml.WriteAttributeOptional("autoFormatId", pt.AutoFormatId);
 
-        // Although apply*Formats do have the default value `false`, Excel always writes them.
-        xml.WriteAttribute("applyNumberFormats", pt.ApplyNumberFormats);
-        xml.WriteAttribute("applyBorderFormats", pt.ApplyBorderFormats);
-        xml.WriteAttribute("applyFontFormats", pt.ApplyFontFormats);
-        xml.WriteAttribute("applyPatternFormats", pt.ApplyPatternFormats);
-        xml.WriteAttribute("applyAlignmentFormats", pt.ApplyAlignmentFormats);
-        xml.WriteAttribute("applyWidthHeightFormats", pt.ApplyWidthHeightFormats);
-
-        xml.WriteAttribute("dataCaption", pt.DataCaption);
-        xml.WriteAttributeOptional("grandTotalCaption", pt.GrandTotalCaption);
-        xml.WriteAttributeOptional("errorCaption", pt.ErrorValueReplacement);
-        xml.WriteAttributeDefault("showError", pt.ShowError, false);
-        xml.WriteAttributeOptional("missingCaption", pt.MissingCaption);
-        xml.WriteAttributeDefault("showMissing", pt.ShowMissing, true);
-        xml.WriteAttributeOptional("pageStyle", pt.PageStyle);
-        xml.WriteAttributeOptional("pivotTableStyle", pt.PivotTableStyleName);
-        xml.WriteAttributeOptional("vacatedStyle", pt.VacatedStyle);
-        xml.WriteAttributeOptional("tag", pt.Tag);
-        xml.WriteAttributeDefault("updatedVersion", pt.UpdatedVersion, 0);
-        xml.WriteAttributeDefault("minRefreshableVersion", pt.MinRefreshableVersion, 0);
-        xml.WriteAttributeDefault("asteriskTotals", pt.AsteriskTotals, false);
-        xml.WriteAttributeDefault("showItems", pt.DisplayItemLabels, true);
-        xml.WriteAttributeDefault("editData", pt.EditData, false);
-        xml.WriteAttributeDefault("disableFieldList", pt.DisableFieldList, false);
-        xml.WriteAttributeDefault("showCalcMbrs", pt.ShowCalculatedMembers, true);
-        xml.WriteAttributeDefault("visualTotals", pt.VisualTotals, true);
-        xml.WriteAttributeDefault("showMultipleLabel", pt.ShowMultipleLabel, true);
-        xml.WriteAttributeDefault("showDataDropDown", pt.ShowDataDropDown, true);
-        xml.WriteAttributeDefault("showDrill", pt.ShowExpandCollapseButtons, true);
-        xml.WriteAttributeDefault("printDrill", pt.PrintExpandCollapsedButtons, false);
-        xml.WriteAttributeDefault("showMemberPropertyTips", pt.ShowPropertiesInTooltips, true);
-        xml.WriteAttributeDefault("showDataTips", pt.ShowContextualTooltips, true);
-        xml.WriteAttributeDefault("enableWizard", pt.EnableEditingMechanism, true);
-        xml.WriteAttributeDefault("enableDrill", pt.EnableShowDetails, true);
-        xml.WriteAttributeDefault("enableFieldProperties", pt.EnableFieldProperties, true);
-        xml.WriteAttributeDefault("preserveFormatting", pt.PreserveCellFormatting, true);
-        xml.WriteAttributeDefault("useAutoFormatting", pt.AutofitColumns, false);
-        xml.WriteAttributeDefault("pageWrap", checked((uint)pt.FilterFieldsPageWrap), 0);
-        xml.WriteAttributeDefault("pageOverThenDown", pt.FilterAreaOrder == XLFilterAreaOrder.OverThenDown, false);
-        xml.WriteAttributeDefault("subtotalHiddenItems", pt.FilteredItemsInSubtotals, false);
-        xml.WriteAttributeDefault("rowGrandTotals", pt.ShowGrandTotalsRows, true);
-        xml.WriteAttributeDefault("colGrandTotals", pt.ShowGrandTotalsColumns, true);
-        xml.WriteAttributeDefault("fieldPrintTitles", pt.PrintTitles, false);
-        xml.WriteAttributeDefault("itemPrintTitles", pt.RepeatRowLabels, false);
-        xml.WriteAttributeDefault("mergeItem", pt.MergeAndCenterWithLabels, false);
-        xml.WriteAttributeDefault("showDropZones", pt.ShowDropZones, true);
-        xml.WriteAttributeDefault("createdVersion", pt.PivotCacheCreatedVersion, 0);
-        xml.WriteAttributeDefault("indent", checked((uint)pt.RowLabelIndent), 1);
-        xml.WriteAttributeDefault("showEmptyRow", pt.ShowEmptyItemsOnRows, false);
-        xml.WriteAttributeDefault("showEmptyCol", pt.ShowEmptyItemsOnColumns, false);
-        xml.WriteAttributeDefault("showHeaders", pt.DisplayCaptionsAndDropdowns, true);
-        xml.WriteAttributeDefault("compact", pt.Compact, true);
-        xml.WriteAttributeDefault("outline", pt.Outline, false);
-        xml.WriteAttributeDefault("outlineData", pt.OutlineData, false);
-        xml.WriteAttributeDefault("compactData", pt.CompactData, true);
-        xml.WriteAttributeDefault("published", pt.Published, false);
-        xml.WriteAttributeDefault("gridDropZones", pt.ClassicPivotTableLayout, false);
-        xml.WriteAttributeDefault("immersive", pt.StopImmersiveUi, true);
-        xml.WriteAttributeDefault("multipleFieldFilters", pt.AllowMultipleFilters, true);
-        xml.WriteAttributeDefault("chartFormat", pt.ChartFormat, 0);
-        xml.WriteAttributeOptional("rowHeaderCaption", pt.RowHeaderCaption);
-        xml.WriteAttributeOptional("colHeaderCaption", pt.ColumnHeaderCaption);
-        xml.WriteAttributeDefault("fieldListSortAscending", pt.SortFieldsAtoZ, false);
-        xml.WriteAttributeDefault("mdxSubqueries", pt.MdxSubQueries, false);
-        xml.WriteAttributeDefault("customListSort", pt.UseCustomListsForSorting, true);
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Write(xml, pt);
     }
 
     private static void WritePivotFields(XmlWriter xml, XLPivotTable pt, SaveContext context)
