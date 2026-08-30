@@ -92,6 +92,94 @@ public class ReferenceOperatorsTests
 
     #endregion
 
+    #region Cell-content scalar reduction (spec 37's AnyValue.TryReduceToScalar ladder)
+
+    // A formula whose own top-level result is a reference — no function in between — is reduced to
+    // the cell's stored value by the same ladder a function's scalar argument uses. These mirror the
+    // "Implicit intersection" cases above one-for-one, but exercise the ladder through
+    // XLCalcEngine.ToCellContentValue directly (a bare reference) rather than through a function
+    // argument (ABS(reference), pre-reduced by the function-definition intersection pass). Spec 37
+    // moves the ladder onto AnyValue.TryReduceToScalar and makes ToCellContentValue its first caller;
+    // these pin the existing correct behaviour before that move, so a regression would show here.
+
+    [Test]
+    public async Task CellContent_SingleCellReferenceReadsTheCellUnchanged()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = -1;
+        ws.Cell("D5").FormulaA1 = "B3:B3";
+
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(-1);
+    }
+
+    [Test]
+    public async Task CellContent_VerticalLineIntersectsAtTheFormulasOwnRow()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = -1;
+        ws.Cell("D3").FormulaA1 = "B1:B10";
+
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(-1);
+    }
+
+    [Test]
+    public async Task CellContent_HorizontalLineIntersectsAtTheFormulasOwnColumn()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = -1;
+        ws.Cell("B5").FormulaA1 = "A3:Z3";
+
+        await Assert.That(ws.Cell("B5").Value).IsEqualTo(-1);
+    }
+
+    [Test]
+    public async Task CellContent_BlankCellReadsAsZero()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("D5").FormulaA1 = "B3:B3";
+
+        // A blank cell's stored scalar is 0, same as reading it any other way (e.g. =B3).
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CellContent_WithoutIntersectionResultsInValueError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = -1;
+        ws.Cell("D5").FormulaA1 = "B1:B4";
+
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task CellContent_CanIntersectOnlyASingleArea()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = -1;
+        ws.Cell("D3").FormulaA1 = "(B1:B2,B3:B5)"; // A continuous range made of two areas.
+
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task CellContent_ARectangleHasNoIntersectionToTake()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("D3").FormulaA1 = "A1:B5";
+
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    #endregion
+
     #region Reference range operator
 
     [Test]
