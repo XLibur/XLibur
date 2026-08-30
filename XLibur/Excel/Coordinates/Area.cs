@@ -252,15 +252,28 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
         return new Area(FirstPoint, new Point(LastPoint.Row, column));
     }
 
+    /// <summary>
+    /// The single conversion point from an address to a rectangle: every consumer that needs
+    /// geometry reads the result of this method rather than working it out from the address's
+    /// two corners itself. Normalises per axis, matching the rule <see cref="XLRangeAddress.Normalize"/>
+    /// already implements for the address type - row and column are ordered independently, not
+    /// by swapping both corners whenever either one is inverted. A whole-corner swap is correct
+    /// only when both axes are inverted; when just one is (e.g. "B5:E2", rows reversed, columns
+    /// not) it fixes that axis by breaking the other one, producing a rectangle with a negative
+    /// width or height that every downstream consumer trusts as already normalised.
+    /// </summary>
     internal static Area FromRangeAddress<T>(T address)
         where T : IXLRangeAddress
     {
         var firstPoint = Point.FromAddress(address.FirstAddress);
         var lastPoint = Point.FromAddress(address.LastAddress);
-        if (firstPoint.Row > lastPoint.Row || firstPoint.Column > lastPoint.Column)
-            return new Area(lastPoint, firstPoint);
 
-        return new Area(firstPoint, lastPoint);
+        var topRow = Math.Min(firstPoint.Row, lastPoint.Row);
+        var bottomRow = Math.Max(firstPoint.Row, lastPoint.Row);
+        var leftColumn = Math.Min(firstPoint.Column, lastPoint.Column);
+        var rightColumn = Math.Max(firstPoint.Column, lastPoint.Column);
+
+        return new Area(new Point(topRow, leftColumn), new Point(bottomRow, rightColumn));
     }
 
     public bool Contains(Point point)
