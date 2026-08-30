@@ -46,8 +46,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         DataFields = new XLPivotDataFields(this);
         Theme = XLPivotTableTheme.PivotStyleLight16;
         _cache = cache;
-
-        SetExcelDefaults();
     }
 
     IXLPivotCache IXLPivotTable.PivotCache
@@ -635,7 +633,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         return this;
     }
 
-    public bool ShowRowHeaders { get; set; }
+    public bool ShowRowHeaders { get; set; } = true;
 
     public IXLPivotTable SetShowRowHeaders()
     {
@@ -649,7 +647,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         return this;
     }
 
-    public bool ShowColumnHeaders { get; set; }
+    public bool ShowColumnHeaders { get; set; } = true;
 
     public IXLPivotTable SetShowColumnHeaders()
     {
@@ -773,39 +771,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal string? RelId { get; set; }
 
     internal string? CacheDefinitionRelId { get; set; }
-
-    private void SetExcelDefaults()
-    {
-        ShowMissing = true;
-        MissingCaption = string.Empty;
-        ShowColumnHeaders = true;
-        ShowRowHeaders = true;
-
-        // source http://www.datypic.com/sc/ooxml/e-ssml_pivotTableDefinition.html
-        DisplayItemLabels = true; //	Show Item Names
-        ShowExpandCollapseButtons = true; //	Show Expand Collapse
-        PrintExpandCollapsedButtons = false; //	Print Drill Indicators
-        ShowPropertiesInTooltips = true; //	Show Member Property ToolTips
-        ShowContextualTooltips = true; //	Show ToolTips on Data
-        EnableShowDetails = true; //	Enable Drill Down
-        PreserveCellFormatting = true; //	Preserve Formatting
-        AutofitColumns = false; //	Auto Formatting
-        FilterAreaOrder = XLFilterAreaOrder.DownThenOver; //	Page Over Then Down
-        FilteredItemsInSubtotals = false; //	Subtotal Hidden Items
-        ShowGrandTotalsRows = true; //	Row Grand Totals
-        ShowGrandTotalsColumns = true; //	Grand Totals On Columns
-        PrintTitles = false; //	Field Print Titles
-        RepeatRowLabels = false; //	Item Print Titles
-        MergeAndCenterWithLabels = false; //	Merge Titles
-        RowLabelIndent = 1; //	Indentation for Compact Axis
-        ShowEmptyItemsOnRows = false; //	Show Empty Row
-        ShowEmptyItemsOnColumns = false; //	Show Empty Column
-        DisplayCaptionsAndDropdowns = true; //	Show Field Headers
-        ClassicPivotTableLayout = false; //	Enable Drop Zones
-        AllowMultipleFilters = true; //	Multiple Field Filters
-        SortFieldsAtoZ = false; //	Default Sort Order
-        UseCustomListsForSorting = true; //	Custom List AutoSort
-    }
 
     public IXLWorksheet Worksheet => _worksheet;
 
@@ -1178,7 +1143,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     public bool PrintExpandCollapsedButtons { get; set; }
 
     /// <remarks>OLAP only. Also called ShowMemberPropertyTips.</remarks>
-    public bool ShowPropertiesInTooltips { get; set; }
+    public bool ShowPropertiesInTooltips { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should display a tooltip on data items of pivot table. The
@@ -1187,7 +1152,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// tool tip, rather than the note.
     /// </summary>
     /// <remarks>Also called ShowDataTips.</remarks>
-    public bool ShowContextualTooltips { get; set; }
+    public bool ShowContextualTooltips { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should provide a mechanism to edit the pivot table. If the
@@ -1485,7 +1450,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// captions, and later when the user applies a sort.
     /// </summary>
     /// <remarks>Also called <em>customSortList</em>.</remarks>
-    public bool UseCustomListsForSorting { get; set; }
+    public bool UseCustomListsForSorting { get; set; } = true;
 
     #endregion
 
