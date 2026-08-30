@@ -268,10 +268,31 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
         var firstPoint = Point.FromAddress(address.FirstAddress);
         var lastPoint = Point.FromAddress(address.LastAddress);
 
-        var topRow = Math.Min(firstPoint.Row, lastPoint.Row);
-        var bottomRow = Math.Max(firstPoint.Row, lastPoint.Row);
-        var leftColumn = Math.Min(firstPoint.Column, lastPoint.Column);
-        var rightColumn = Math.Max(firstPoint.Column, lastPoint.Column);
+        return FromCorners(firstPoint.Row, firstPoint.Column, lastPoint.Row, lastPoint.Column);
+    }
+
+    /// <summary>
+    /// Overload for the common case where the address is already the concrete
+    /// <see cref="XLRangeAddress"/> struct. <see cref="FromRangeAddress{T}"/> reads
+    /// <c>FirstAddress</c>/<c>LastAddress</c> through the <see cref="IXLRangeAddress"/>
+    /// constraint, which boxes the <see cref="XLAddress"/> struct into <see cref="IXLAddress"/>
+    /// on every call; this overload reads the concrete, non-boxing properties directly. Picked
+    /// automatically by overload resolution wherever a caller already holds an
+    /// <see cref="XLRangeAddress"/> - needed by callers on the merged-range check that runs on
+    /// every cell write.
+    /// </summary>
+    internal static Area FromRangeAddress(XLRangeAddress address)
+    {
+        return FromCorners(address.FirstAddress.RowNumber, address.FirstAddress.ColumnNumber,
+            address.LastAddress.RowNumber, address.LastAddress.ColumnNumber);
+    }
+
+    private static Area FromCorners(int firstRow, int firstColumn, int lastRow, int lastColumn)
+    {
+        var topRow = Math.Min(firstRow, lastRow);
+        var bottomRow = Math.Max(firstRow, lastRow);
+        var leftColumn = Math.Min(firstColumn, lastColumn);
+        var rightColumn = Math.Max(firstColumn, lastColumn);
 
         return new Area(new Point(topRow, leftColumn), new Point(bottomRow, rightColumn));
     }

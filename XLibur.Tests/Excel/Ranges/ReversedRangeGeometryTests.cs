@@ -140,6 +140,63 @@ public class ReversedRangeGeometryTests
     }
 
     /// <summary>
+    /// Follow-up finding, flagged by the branch's own code review: below the QuadTree's
+    /// 20-range promotion threshold, <c>XLRangeIndex</c> compares ranges with a linear
+    /// scan through <c>IXLRangeAddress.Intersects</c> directly - which, like the QuadTree's own
+    /// pre-fix comparisons, assumes both sides are already normalised. A data validation's
+    /// *first* range is indexed from the already-normalised <c>Ranges</c> projection, so this
+    /// only shows up for a range added to an existing validation's coverage after the fact,
+    /// where the raw (possibly reversed) address reaches the index directly.
+    /// </summary>
+    [Test]
+    public async Task DataValidationIndexFindsReversedRangeBeforePromotion()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Cell("J1").CreateDataValidation().WholeNumber.Between(0, 100);
+        ws.Cell("J2").CreateDataValidation().WholeNumber.Between(0, 100);
+        var dv = ws.Cell("A1").CreateDataValidation();
+        dv.WholeNumber.Between(0, 100);
+        dv.AddRange(ws.Range("B5:E2")); // reversed rows, added to already-registered coverage
+
+        var found = ws.DataValidations.GetAllInRange(ws.Range("C3").RangeAddress).ToList();
+
+        await Assert.That(found.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// Follow-up finding: merged ranges are backed by the same range index, and a lone merge
+    /// never reaches the 20-range promotion threshold, so <c>Merge()</c> on a reversed range hit
+    /// the flat-list defect above. Separately, <c>Quadrant.CoversAnyRange</c> and
+    /// <c>GetIntersectedRanges(IXLAddress)</c> - reached only once an index promotes - compared a
+    /// stored range's raw corners against a point directly via
+    /// <c>XLRangeAddress.Contains(in XLAddress)</c>, the same unguarded assumption one level
+    /// down. Twenty merges past the reversed one forces promotion, isolating that second path.
+    /// </summary>
+    [Test]
+    public async Task MergedReversedRangeIsRecognisedBeforeAndAfterPromotion()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Range("B5:E2").Merge(); // reversed rows, forward columns
+
+        await Assert.That(ws.Cell("C3").IsMerged()).IsTrue();
+        var mergedRange = ws.Cell("C3").MergedRange();
+        await Assert.That(mergedRange).IsNotNull();
+        await Assert.That(mergedRange!.RowCount()).IsEqualTo(4);
+        await Assert.That(mergedRange.ColumnCount()).IsEqualTo(4);
+
+        for (var i = 1; i <= 20; i++)
+            ws.Range(i, 10, i, 11).Merge(checkIntersect: false);
+
+        await Assert.That(ws.Cell("C3").IsMerged()).IsTrue();
+        var mergedRangeAfterPromotion = ws.Cell("C3").MergedRange();
+        await Assert.That(mergedRangeAfterPromotion).IsNotNull();
+        await Assert.That(mergedRangeAfterPromotion!.RowCount()).IsEqualTo(4);
+        await Assert.That(mergedRangeAfterPromotion.ColumnCount()).IsEqualTo(4);
+    }
+
+    /// <summary>
     /// User story 9: a reversed range used as a formula reference evaluates rather than
     /// throwing. The calc engine's <c>Reference</c> type used to reject an un-normalised
     /// <c>XLRangeAddress</c> defensively; that precondition is now removed because every path

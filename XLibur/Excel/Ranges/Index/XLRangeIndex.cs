@@ -101,7 +101,13 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
         if (_quadTree == null)
         {
-            return _rangeList.Where(r => r.RangeAddress.Intersects(rangeAddress));
+            // IXLRangeAddress.Intersects assumes both sides are already normalised, which a
+            // range in this list need not be (only a range's *first* area is guaranteed
+            // normalised on entry; a later AddRange can add a reversed one - see
+            // ReversedRangeGeometryTests.DataValidationIndexFindsReversedRangeBeforePromotion).
+            // Area.FromRangeAddress is the single place that normalisation happens.
+            var area = Area.FromRangeAddress(rangeAddress);
+            return _rangeList.Where(r => Area.FromRangeAddress(r.RangeAddress).Intersects(area));
         }
 
         return _quadTree.GetIntersectedRanges(rangeAddress);
@@ -113,7 +119,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
         if (_quadTree == null)
         {
-            return _rangeList.Where(r => r.RangeAddress.Contains(address));
+            return _rangeList.Where(r => XLAddressableHelper.Contains(r, in address));
         }
 
         return _quadTree.GetIntersectedRanges(address);
@@ -125,8 +131,8 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
         if (_quadTree == null)
         {
-            var addr = rangeAddress;
-            return _rangeList.Any(r => r.RangeAddress.Intersects(addr));
+            var area = Area.FromRangeAddress(rangeAddress);
+            return _rangeList.Any(r => Area.FromRangeAddress(r.RangeAddress).Intersects(area));
         }
 
         return _quadTree.GetIntersectedRanges(rangeAddress).Any();
