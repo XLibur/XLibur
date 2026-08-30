@@ -161,7 +161,14 @@ internal static class WorksheetElementReader
         if (sheetView.ShowWhiteSpace != null) view.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
         if (sheetView.ShowZeros != null) view.ShowZeros = sheetView.ShowZeros.Value;
         if (sheetView.TabSelected != null) view.TabSelected = sheetView.TabSelected.Value;
-        if (sheetView.View != null) view.View = sheetView.View.Value.ToXLibur();
+
+        // Two ways a file can name a view this build cannot resolve: text that is not any member of
+        // the SDK's enumeration (HasValue is false, and reading Value throws FormatException), and a
+        // member the SDK knows but XLibur has no option for. Neither is a reason to refuse the file
+        // - every other attribute read here treats what it cannot parse as absent, and so does this.
+        if (sheetView.View is { HasValue: true } declaredView
+            && declaredView.Value.TryToXLibur(out var viewOption))
+            view.View = viewOption;
     }
 
     private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
