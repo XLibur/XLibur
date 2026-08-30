@@ -97,7 +97,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         Pictures = new XLPictures(this);
         DefinedNames = new XLDefinedNames(this);
-        SheetView = new XLSheetView(this);
+        SheetView = new XLSheetView(this, workbook);
         Tables = [];
         Hyperlinks = new XLHyperlinks(this);
         DataValidations = new XLDataValidations(this);
@@ -117,15 +117,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         XLHelper.ValidateSheetName(sheetName);
         _name = sheetName;
         Charts = new XLCharts(this);
-        ShowFormulas = workbook.ShowFormulas;
-        ShowGridLines = workbook.ShowGridLines;
-        ShowOutlineSymbols = workbook.ShowOutlineSymbols;
-        ShowRowColHeaders = workbook.ShowRowColHeaders;
-        ShowRuler = workbook.ShowRuler;
-        ShowWhiteSpace = workbook.ShowWhiteSpace;
-        ShowZeros = workbook.ShowZeros;
-        RightToLeft = workbook.RightToLeft;
-        TabColor = XLColor.Automatic;
         _selectedRanges = new XLRanges();
 
         Author = workbook.Author;
@@ -871,19 +862,47 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return GetRangeForSort().SortLeftToRight(sortOrder, matchCase, ignoreBlanks);
     }
 
-    public bool ShowFormulas { get; set; }
+    public bool ShowFormulas
+    {
+        get => SheetView.ShowFormulas;
+        set => SheetView.ShowFormulas = value;
+    }
 
-    public bool ShowGridLines { get; set; }
+    public bool ShowGridLines
+    {
+        get => SheetView.ShowGridLines;
+        set => SheetView.ShowGridLines = value;
+    }
 
-    public bool ShowOutlineSymbols { get; set; }
+    public bool ShowOutlineSymbols
+    {
+        get => SheetView.ShowOutlineSymbols;
+        set => SheetView.ShowOutlineSymbols = value;
+    }
 
-    public bool ShowRowColHeaders { get; set; }
+    public bool ShowRowColHeaders
+    {
+        get => SheetView.ShowRowColHeaders;
+        set => SheetView.ShowRowColHeaders = value;
+    }
 
-    public bool ShowRuler { get; set; }
+    public bool ShowRuler
+    {
+        get => SheetView.ShowRuler;
+        set => SheetView.ShowRuler = value;
+    }
 
-    public bool ShowWhiteSpace { get; set; }
+    public bool ShowWhiteSpace
+    {
+        get => SheetView.ShowWhiteSpace;
+        set => SheetView.ShowWhiteSpace = value;
+    }
 
-    public bool ShowZeros { get; set; }
+    public bool ShowZeros
+    {
+        get => SheetView.ShowZeros;
+        set => SheetView.ShowZeros = value;
+    }
 
     public IXLWorksheet SetShowFormulas()
     {
@@ -969,7 +988,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public XLColor TabColor { get; set; }
+    public XLColor TabColor
+    {
+        get => SheetView.TabColor;
+        set => SheetView.TabColor = value;
+    }
 
     public IXLWorksheet SetTabColor(XLColor color)
     {
@@ -977,7 +1000,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public bool TabSelected { get; set; }
+    public bool TabSelected
+    {
+        get => SheetView.TabSelected;
+        set => SheetView.TabSelected = value;
+    }
 
     public bool TabActive
     {
@@ -1027,7 +1054,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public XLPivotTables PivotTables { get; }
 
-    public bool RightToLeft { get; set; }
+    public bool RightToLeft
+    {
+        get => SheetView.RightToLeft;
+        set => SheetView.RightToLeft = value;
+    }
 
     public IXLWorksheet SetRightToLeft()
     {

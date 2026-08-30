@@ -14,8 +14,44 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         ZoomScaleNormal = 100;
         ZoomScalePageLayoutView = 100;
         ZoomScaleSheetLayoutView = 100;
+
+        ShowFormulas = false;
+        ShowGridLines = true;
+        ShowOutlineSymbols = true;
+        ShowRowColHeaders = true;
+        ShowRuler = true;
+        ShowWhiteSpace = true;
+        ShowZeros = true;
+        RightToLeft = false;
+        TabSelected = false;
+
+        TabColor = XLColor.Automatic;
     }
 
+    /// <summary>
+    /// Seeds a new sheet's view state from the workbook's current defaults. A distinct operation
+    /// from the copy constructor below: a new sheet takes the workbook's defaults, a copied sheet
+    /// takes the source sheet's actual values, and the two must never be conflated.
+    /// </summary>
+    public XLSheetView(XLWorksheet worksheet, XLWorkbook workbook)
+        : this(worksheet)
+    {
+        ShowFormulas = workbook.ShowFormulas;
+        ShowGridLines = workbook.ShowGridLines;
+        ShowOutlineSymbols = workbook.ShowOutlineSymbols;
+        ShowRowColHeaders = workbook.ShowRowColHeaders;
+        ShowRuler = workbook.ShowRuler;
+        ShowWhiteSpace = workbook.ShowWhiteSpace;
+        ShowZeros = workbook.ShowZeros;
+        RightToLeft = workbook.RightToLeft;
+    }
+
+    /// <summary>
+    /// Copies a source sheet's whole view state onto a fresh sheet. The single operation
+    /// <see cref="XLWorksheet.CopyTo(XLWorkbook, string, int)"/> relies on: every property below is
+    /// copied from <paramref name="sheetView"/>, so nothing falls through to the workbook-default
+    /// seeding above.
+    /// </summary>
     public XLSheetView(XLWorksheet worksheet, XLSheetView sheetView)
         : this(worksheet)
     {
@@ -29,9 +65,50 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         if (sheetView.PaneTopLeftCellAddress is { } pane)
             PaneTopLeftCellAddress = new XLAddress(Worksheet, pane.RowNumber, pane.ColumnNumber,
                 pane.FixedRow, pane.FixedColumn);
+
+        View = sheetView.View;
+
+        // ZoomScale's setter also overwrites whichever of the three scales below matches the view
+        // it is set against, so it is assigned first and the explicit copies afterwards are the
+        // ones that make the final value stick.
+        ZoomScale = sheetView.ZoomScale;
+        ZoomScaleNormal = sheetView.ZoomScaleNormal;
+        ZoomScalePageLayoutView = sheetView.ZoomScalePageLayoutView;
+        ZoomScaleSheetLayoutView = sheetView.ZoomScaleSheetLayoutView;
+
+        ShowFormulas = sheetView.ShowFormulas;
+        ShowGridLines = sheetView.ShowGridLines;
+        ShowOutlineSymbols = sheetView.ShowOutlineSymbols;
+        ShowRowColHeaders = sheetView.ShowRowColHeaders;
+        ShowRuler = sheetView.ShowRuler;
+        ShowWhiteSpace = sheetView.ShowWhiteSpace;
+        ShowZeros = sheetView.ShowZeros;
+        RightToLeft = sheetView.RightToLeft;
+        TabSelected = sheetView.TabSelected;
+        TabColor = sheetView.TabColor;
     }
 
     public bool FreezePanes { get; set; }
+
+    public bool ShowFormulas { get; set; }
+
+    public bool ShowGridLines { get; set; }
+
+    public bool ShowOutlineSymbols { get; set; }
+
+    public bool ShowRowColHeaders { get; set; }
+
+    public bool ShowRuler { get; set; }
+
+    public bool ShowWhiteSpace { get; set; }
+
+    public bool ShowZeros { get; set; }
+
+    public bool RightToLeft { get; set; }
+
+    public bool TabSelected { get; set; }
+
+    public XLColor TabColor { get; set; }
 
     public int SplitColumn { get; set; }
 
