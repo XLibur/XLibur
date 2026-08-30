@@ -200,9 +200,14 @@ internal class Quadrant
 
         if (Ranges != null)
         {
+            // Reads through XLAddressableHelper.Contains (Area-based) rather than
+            // IXLRangeAddress.Contains directly: the latter assumes FirstAddress is the top-left
+            // corner, which does not hold for a range added with its corners reversed - see
+            // ReversedRangeGeometryTests.MergedReversedRangeIsRecognisedBeforeAndAfterPromotion.
+            var xlAddress = (XLAddress)address;
             foreach (var range in Ranges)
             {
-                if (range.RangeAddress.Contains(address))
+                if (XLAddressableHelper.Contains(range, in xlAddress))
                     yield return range;
             }
         }
