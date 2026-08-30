@@ -743,21 +743,25 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public XLRange Range(int firstCellRow, int firstCellColumn, int lastCellRow, int lastCellColumn)
     {
+        // Offsets are relative to the top-left of this range's rectangle, not to
+        // RangeAddress.FirstAddress: that corner is only the top-left when the address happens
+        // to be normalised, and this spec's whole point is that a range need not be.
+        var sheetRange = SheetRange;
         var rangeAddress = new XLRangeAddress
         (
             new XLAddress
             (
                 Worksheet,
-                firstCellRow + RangeAddress.FirstAddress.RowNumber - 1,
-                firstCellColumn + RangeAddress.FirstAddress.ColumnNumber - 1,
+                firstCellRow + sheetRange.TopRow - 1,
+                firstCellColumn + sheetRange.LeftColumn - 1,
                 fixedRow: false,
                 fixedColumn: false
             ),
             new XLAddress
             (
                 Worksheet,
-                lastCellRow + RangeAddress.FirstAddress.RowNumber - 1,
-                lastCellColumn + RangeAddress.FirstAddress.ColumnNumber - 1,
+                lastCellRow + sheetRange.TopRow - 1,
+                lastCellColumn + sheetRange.LeftColumn - 1,
                 fixedRow: false,
                 fixedColumn: false
             )
@@ -806,13 +810,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         if (!Worksheet.Equals(newLastCellAddress.Worksheet))
             throw new ArgumentException("The address refers to a different worksheet.", nameof(newLastCellAddress));
 
+        // Bounds are the normalised rectangle's, not RangeAddress.FirstAddress/LastAddress
+        // directly: those are only the top-left/bottom-right corners when the address happens
+        // to be normalised, which this spec does not require of it.
+        var sheetRange = SheetRange;
         if (
-            newFirstCellAddress.RowNumber < RangeAddress.FirstAddress.RowNumber
-            || newFirstCellAddress.RowNumber > RangeAddress.LastAddress.RowNumber
-            || newLastCellAddress.RowNumber > RangeAddress.LastAddress.RowNumber
-            || newFirstCellAddress.ColumnNumber < RangeAddress.FirstAddress.ColumnNumber
-            || newFirstCellAddress.ColumnNumber > RangeAddress.LastAddress.ColumnNumber
-            || newLastCellAddress.ColumnNumber > RangeAddress.LastAddress.ColumnNumber
+            newFirstCellAddress.RowNumber < sheetRange.TopRow
+            || newFirstCellAddress.RowNumber > sheetRange.BottomRow
+            || newLastCellAddress.RowNumber > sheetRange.BottomRow
+            || newFirstCellAddress.ColumnNumber < sheetRange.LeftColumn
+            || newFirstCellAddress.ColumnNumber > sheetRange.RightColumn
+            || newLastCellAddress.ColumnNumber > sheetRange.RightColumn
         )
         {
             throw new ArgumentOutOfRangeException(

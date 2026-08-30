@@ -197,6 +197,29 @@ public class ReversedRangeGeometryTests
     }
 
     /// <summary>
+    /// Follow-up finding: <c>XLTable.DataRange</c> computes its cells via the relative
+    /// <c>Range(int,int,int,int)</c> overload, which anchored its offsets to
+    /// <c>RangeAddress.FirstAddress</c> directly - the top-left corner only when the address
+    /// happens to be normalised. For "B5:E2" that corner is row 5, so the computed data range
+    /// fell entirely outside the table's own bounds and <c>GetRange</c>'s bounds check (the same
+    /// unguarded assumption, one level down) threw on save.
+    /// </summary>
+    [Test]
+    public async Task TableOverReversedRangeSavesWithTheForwardRangeAsRef()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Range("B5:E2").CreateTable("MyTable");
+
+        using var ms = new MemoryStream();
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
+
+        using var wb2 = new XLWorkbook(ms);
+        var table = wb2.Worksheet("Sheet1").Table(0);
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("B2:E5");
+    }
+
+    /// <summary>
     /// User story 9: a reversed range used as a formula reference evaluates rather than
     /// throwing. The calc engine's <c>Reference</c> type used to reject an un-normalised
     /// <c>XLRangeAddress</c> defensively; that precondition is now removed because every path

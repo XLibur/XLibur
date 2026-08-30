@@ -55,7 +55,9 @@ internal static class TablePartWriter
         // write order rather than anything the model holds, so it is only knowable here.
         context.TableIds[xlTable] = context.TableId;
 
-        var reference = xlTable.RangeAddress.FirstAddress + ":" + xlTable.RangeAddress.LastAddress;
+        // Area.FromRangeAddress normalises per axis; RangeAddress.FirstAddress/LastAddress
+        // directly would write "B5:E2" verbatim for a table created over a reversed selection.
+        var reference = xlTable.SheetRange.ToString();
         var tableName = GetTableName(xlTable.Name, context);
         var table = new Table
         {
