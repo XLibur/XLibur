@@ -420,7 +420,9 @@ internal class XLRange : XLStoredRangeBase, IXLRange
                 Area.FromRangeAddress(RangeAddress),
                 options);
 
-            return firstColumnUsed == 0 ? null : Column(firstColumnUsed - RangeAddress.FirstAddress.ColumnNumber + 1);
+            // The search above ran over the normalised rectangle, so the absolute column it found
+            // has to be turned back into a relative index against that same rectangle.
+            return firstColumnUsed == 0 ? null : Column(firstColumnUsed - SheetRangeUnchecked.LeftColumn + 1);
         }
 
         var columnCount = ColumnCount();
@@ -458,7 +460,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
                 Area.FromRangeAddress(RangeAddress),
                 options);
 
-            return lastColumnUsed == 0 ? null : Column(lastColumnUsed - RangeAddress.FirstAddress.ColumnNumber + 1);
+            return lastColumnUsed == 0 ? null : Column(lastColumnUsed - SheetRangeUnchecked.LeftColumn + 1);
         }
 
         var columnCount = ColumnCount();
@@ -535,7 +537,8 @@ internal class XLRange : XLStoredRangeBase, IXLRange
             var rowFromCells = Worksheet.Internals.CellsCollection.FirstRowUsed(
                 Area.FromRangeAddress(RangeAddress), options);
 
-            return rowFromCells == 0 ? null : Row(rowFromCells - RangeAddress.FirstAddress.RowNumber + 1);
+            // Relative to the same rectangle the search ran over - see FirstColumnUsed.
+            return rowFromCells == 0 ? null : Row(rowFromCells - SheetRangeUnchecked.TopRow + 1);
         }
 
         var rowCount = RowCount();
@@ -572,7 +575,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
             var lastRowUsed = Worksheet.Internals.CellsCollection.LastRowUsed(
                 Area.FromRangeAddress(RangeAddress), options);
 
-            return lastRowUsed == 0 ? null : Row(lastRowUsed - RangeAddress.FirstAddress.RowNumber + 1);
+            return lastRowUsed == 0 ? null : Row(lastRowUsed - SheetRangeUnchecked.TopRow + 1);
         }
 
         var rowCount = RowCount();
@@ -651,19 +654,26 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     public XLRangeRow Row(int row)
     {
-        if (row <= 0 || row > XLHelper.MaxRowNumber + RangeAddress.FirstAddress.RowNumber - 1)
+        // The offset is relative to the top-left of this range's rectangle, not to
+        // RangeAddress.FirstAddress: Rows() walks 1..RowCount(), and RowCount() measures the
+        // rectangle, so anchoring on the raw first corner made a reversed range's rows run off its
+        // own bottom edge - "B5:E2" yielded B5:E5..B8:E8, three of them outside the range.
+        var sheetRange = SheetRangeUnchecked;
+        if (row <= 0 || row > XLHelper.MaxRowNumber + sheetRange.TopRow - 1)
             throw new ArgumentOutOfRangeException(nameof(row),
-                $"Row number must be between 1 and {XLHelper.MaxRowNumber + RangeAddress.FirstAddress.RowNumber - 1}");
+                $"Row number must be between 1 and {XLHelper.MaxRowNumber + sheetRange.TopRow - 1}");
+
+        var absRow = sheetRange.TopRow + row - 1;
 
         var firstCellAddress = new XLAddress(Worksheet,
-            RangeAddress.FirstAddress.RowNumber + row - 1,
-            RangeAddress.FirstAddress.ColumnNumber,
+            absRow,
+            sheetRange.LeftColumn,
             false,
             false);
 
         var lastCellAddress = new XLAddress(Worksheet,
-            RangeAddress.FirstAddress.RowNumber + row - 1,
-            RangeAddress.LastAddress.ColumnNumber,
+            absRow,
+            sheetRange.RightColumn,
             false,
             false);
         return Worksheet.RangeRow(new XLRangeAddress(firstCellAddress, lastCellAddress));
@@ -671,18 +681,22 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     public virtual XLRangeColumn Column(int columnNumber)
     {
-        if (columnNumber <= 0 || columnNumber > XLHelper.MaxColumnNumber + RangeAddress.FirstAddress.ColumnNumber - 1)
+        // Relative to the rectangle's left column, for the reason given in Row(int).
+        var sheetRange = SheetRangeUnchecked;
+        if (columnNumber <= 0 || columnNumber > XLHelper.MaxColumnNumber + sheetRange.LeftColumn - 1)
             throw new ArgumentOutOfRangeException(nameof(columnNumber),
-                $"Column number must be between 1 and {XLHelper.MaxColumnNumber + RangeAddress.FirstAddress.ColumnNumber - 1}");
+                $"Column number must be between 1 and {XLHelper.MaxColumnNumber + sheetRange.LeftColumn - 1}");
+
+        var absColumn = sheetRange.LeftColumn + columnNumber - 1;
 
         var firstCellAddress = new XLAddress(Worksheet,
-            RangeAddress.FirstAddress.RowNumber,
-            RangeAddress.FirstAddress.ColumnNumber + columnNumber - 1,
+            sheetRange.TopRow,
+            absColumn,
             false,
             false);
         var lastCellAddress = new XLAddress(Worksheet,
-            RangeAddress.LastAddress.RowNumber,
-            RangeAddress.FirstAddress.ColumnNumber + columnNumber - 1,
+            sheetRange.BottomRow,
+            absColumn,
             false,
             false);
         return Worksheet.RangeColumn(new XLRangeAddress(firstCellAddress, lastCellAddress));

@@ -238,6 +238,122 @@ public class ReversedRangeGeometryTests
     }
 
     /// <summary>
+    /// Follow-up finding, from the branch's own code review: <c>RowCount()</c>/<c>ColumnCount()</c>
+    /// were normalised onto the rectangle but the members that *address* a cell relative to the
+    /// range - <c>Cell(row, column)</c>, and <c>FirstCell()</c>/<c>LastCell()</c> through it - still
+    /// anchored on <c>RangeAddress.FirstAddress</c>. The two then disagreed, and the range walked
+    /// off its own bottom edge: <c>LastCell()</c> on "B5:E2" is row 5 + 4 - 1 = 8.
+    /// </summary>
+    [Test]
+    public async Task CellsAddressedRelativeToAReversedRangeStayInsideIt()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var range = ws.Range("B5:E2");
+
+        await Assert.That(range.FirstCell().Address.ToString()).IsEqualTo("B2");
+        await Assert.That(range.LastCell().Address.ToString()).IsEqualTo("E5");
+        await Assert.That(range.Cell(2, 3).Address.ToString()).IsEqualTo("D3");
+    }
+
+    /// <summary>
+    /// The same defect one level up: <c>Rows()</c>/<c>Columns()</c> walk 1..RowCount() through
+    /// <c>Row(int)</c>/<c>Column(int)</c>, which anchored on <c>RangeAddress.FirstAddress</c> too.
+    /// For "B5:E2" that produced B5:E5..B8:E8 - three rows entirely outside the range - so a style
+    /// or value written through <c>Rows()</c> landed on unrelated cells.
+    /// </summary>
+    [Test]
+    public async Task RowsAndColumnsOfAReversedRangeAreTheForwardRangeMembers()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        var rows = ws.Range("B5:E2").Rows().Select(r => r.RangeAddress.ToString()!).ToList();
+        await Assert.That(rows).IsEquivalentTo(new[] { "B2:E2", "B3:E3", "B4:E4", "B5:E5" });
+
+        // Columns reversed instead of rows, to pin the other axis independently.
+        var columns = ws.Range("E2:B5").Columns().Select(c => c.RangeAddress.ToString()!).ToList();
+        await Assert.That(columns).IsEquivalentTo(new[] { "B2:B5", "C2:C5", "D2:D5", "E2:E5" });
+    }
+
+    /// <summary>
+    /// The user-visible consequence of the two defects above: writing through <c>Rows()</c> used to
+    /// style rows 5..8 instead of 2..5, silently mutating cells the caller never named.
+    /// </summary>
+    [Test]
+    public async Task StylingThroughRowsOfAReversedRangeTouchesOnlyItsOwnCells()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+
+        foreach (var row in ws.Range("B5:E2").Rows())
+            row.Style.Fill.SetBackgroundColor(XLColor.Yellow);
+
+        foreach (var cell in ws.Range("B2:E5").Cells())
+            await Assert.That(cell.Style.Fill.BackgroundColor).IsEqualTo(XLColor.Yellow);
+
+        await Assert.That(ws.Cell("B8").Style.Fill.BackgroundColor).IsNotEqualTo(XLColor.Yellow);
+    }
+
+    /// <summary>
+    /// The used-cell probes search the normalised rectangle but converted the absolute row/column
+    /// they found back to a relative index against <c>RangeAddress.FirstAddress</c>, so on a
+    /// reversed range the two halves disagreed and the resulting index was negative.
+    /// </summary>
+    [Test]
+    public async Task UsedRowsAndColumnsOfAReversedRangeAreInsideIt()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Cell("C3").Value = 1;
+        ws.Cell("D4").Value = 1;
+        var range = ws.Range("B5:E2");
+
+        await Assert.That(range.FirstRowUsed()!.RangeAddress.ToString()).IsEqualTo("B3:E3");
+        await Assert.That(range.LastRowUsed()!.RangeAddress.ToString()).IsEqualTo("B4:E4");
+        await Assert.That(range.FirstColumnUsed()!.RangeAddress.ToString()).IsEqualTo("C2:C5");
+        await Assert.That(range.LastColumnUsed()!.RangeAddress.ToString()).IsEqualTo("D2:D5");
+    }
+
+    /// <summary>
+    /// A merged reversed range reaches the same relative addressing through
+    /// <c>MergedRange()</c>, so its last cell used to sit outside the merge.
+    /// </summary>
+    [Test]
+    public async Task LastCellOfAMergedReversedRangeIsInsideTheMerge()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Range("B5:E2").Merge();
+
+        var mergedRange = ws.Cell("C3").MergedRange();
+
+        await Assert.That(mergedRange).IsNotNull();
+        await Assert.That(mergedRange!.FirstCell().Address.ToString()).IsEqualTo("B2");
+        await Assert.That(mergedRange.LastCell().Address.ToString()).IsEqualTo("E5");
+    }
+
+    /// <summary>
+    /// Follow-up finding: <c>XLRangeBase.SheetRange</c> throws for a <c>#REF!</c> address, and a
+    /// range destroyed by a delete keeps exactly that - <c>XLRangeShiftHelper</c> assigns
+    /// <c>XLWorksheet.InvalidAddress</c> to both corners. Routing the counts through it therefore
+    /// turned a working public-API call into a throw, and added throw sites to the save and copy
+    /// paths that call these on stored ranges. The normalisation has to tolerate <c>#REF!</c>.
+    /// </summary>
+    [Test]
+    public async Task CountsOnARangeDestroyedByADeleteDoNotThrow()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var range = ws.Range("A2:B3");
+
+        ws.Rows(1, 5).Delete(); // swallows the range whole, leaving it #REF!
+
+        await Assert.That(() => _ = range.RowCount()).ThrowsNothing();
+        await Assert.That(() => _ = range.ColumnCount()).ThrowsNothing();
+    }
+
+    /// <summary>
     /// User story 9: a reversed range used as a formula reference evaluates rather than
     /// throwing. The calc engine's <c>Reference</c> type used to reject an un-normalised
     /// <c>XLRangeAddress</c> defensively; that precondition is now removed because every path
