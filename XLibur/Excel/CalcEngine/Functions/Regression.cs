@@ -947,13 +947,8 @@ internal static class Regression
     private static bool TryGetBoolean(CalcContext ctx, in AnyValue value, out bool flag, out XLError error)
     {
         flag = false;
-        error = default;
-        if (!value.TryPickScalar(out var scalar, out _)
-            && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-        {
-            error = XLError.IncompatibleValue;
+        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
             return false;
-        }
 
         if (scalar.IsBlank)
             return true;
