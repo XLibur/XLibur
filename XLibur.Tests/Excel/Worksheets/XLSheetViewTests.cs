@@ -163,6 +163,36 @@ public class XLSheetViewTests
         }
     }
 
+    /// <summary>
+    /// <see cref="XLViewProperties.All"/>'s <c>TabColor</c> entry uses a plain RGB colour and copies
+    /// within one workbook, so it cannot see a bug specific to a themed colour crossing into a
+    /// workbook whose theme assigns different RGB values to the same theme slot. A themed
+    /// <see cref="XLColor"/> carries a theme slot and a tint, not a baked RGB value — Excel resolves
+    /// it against whichever workbook's theme contains it — so the correct behaviour on copy is to
+    /// carry the (slot, tint) pair across unchanged, not to resolve and rebake it against either
+    /// workbook's theme.
+    /// </summary>
+    [Test]
+    public async Task Copy_preserves_themed_TabColor_across_workbooks_with_different_themes()
+    {
+        using var wb1 = new XLWorkbook();
+        using var wb2 = new XLWorkbook();
+
+        // Give the destination workbook's theme a visibly different Accent1 than the source's, so
+        // a bug that resolved the colour against the wrong workbook's theme would be observable.
+        wb2.Theme.Accent1 = XLColor.FromArgb(10, 20, 30);
+
+        var ws1 = wb1.AddWorksheet("S1");
+        ws1.TabColor = XLColor.FromTheme(XLThemeColor.Accent1, 0.25);
+
+        var ws2 = ws1.CopyTo(wb2, "S2");
+
+        await Assert.That(ws2.TabColor.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(ws2.TabColor.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+        await Assert.That(ws2.TabColor.ThemeTint).IsEqualTo(0.25);
+        await Assert.That(ws2.TabColor).IsEqualTo(ws1.TabColor);
+    }
+
     #endregion Spec 38 regressions
 
     [Test]
