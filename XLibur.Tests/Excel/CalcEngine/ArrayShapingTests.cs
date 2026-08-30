@@ -565,4 +565,144 @@ public class ArrayShapingTests
             await Assert.That((double)ws.Cell("G4").Value).IsEqualTo(6d);
         }
     }
+
+    // Spec 37 — a cell reference in a scalar slot must work exactly like a literal. Each of these
+    // was #VALUE! before the fix, because the argument was a single-cell reference rather than a
+    // literal.
+
+    [Test]
+    public async Task Take_ReadsRowCountFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("J1").Value = 1;
+            ws.Range("E1:G1").FormulaArrayA1 = "TAKE(A1:C2, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("G1").Value).IsEqualTo(3d);
+        }
+    }
+
+    [Test]
+    public async Task Drop_ReadsRowCountFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("J1").Value = 1;
+            ws.Range("E1:G1").FormulaArrayA1 = "DROP(A1:C2, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(4d);
+        }
+    }
+
+    [Test]
+    public async Task ChooseRows_ReadsIndexFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("J1").Value = 2;
+            ws.Range("E1:G1").FormulaArrayA1 = "CHOOSEROWS(A1:C2, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(4d);
+        }
+    }
+
+    [Test]
+    public async Task ChooseCols_ReadsIndexFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("J1").Value = 3;
+            ws.Range("E1:E2").FormulaArrayA1 = "CHOOSECOLS(A1:C2, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(3d);
+            await Assert.That((double)ws.Cell("E2").Value).IsEqualTo(6d);
+        }
+    }
+
+    [Test]
+    public async Task Expand_ReadsRowCountFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("J1").Value = 3;
+            ws.Range("E1:F3").FormulaArrayA1 = "EXPAND({1,2;3,4}, J1)";
+
+            await Assert.That(ws.Cell("E3").Value).IsEqualTo(XLError.NoValueAvailable);
+            await Assert.That((double)ws.Cell("F2").Value).IsEqualTo(4d);
+        }
+    }
+
+    [Test]
+    public async Task ToCol_ReadsIgnoreModeFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            // A2 left blank.
+            ws.Cell("A3").Value = 2;
+            ws.Cell("J1").Value = 1; // Ignore blanks.
+
+            ws.Range("D1:D2").FormulaArrayA1 = "TOCOL(A1:A3, J1)";
+            await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("D2").Value).IsEqualTo(2d);
+        }
+    }
+
+    [Test]
+    public async Task ToRow_ReadsScanByColumnFlagFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            SeedGrid(ws);
+            ws.Cell("J1").Value = true;
+            ws.Range("E1:J1").FormulaArrayA1 = "TOROW(A1:C2, 0, J1)";
+
+            // Column order over 1 2 3 / 4 5 6 is 1 4 2 5 3 6.
+            var expected = new[] { 1d, 4d, 2d, 5d, 3d, 6d };
+            for (var i = 0; i < expected.Length; i++)
+                await Assert.That((double)ws.Cell(1, 5 + i).Value).IsEqualTo(expected[i]);
+        }
+    }
+
+    [Test]
+    public async Task WrapRows_ReadsWrapCountFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("J1").Value = 2;
+            ws.Range("E1:F3").FormulaArrayA1 = "WRAPROWS({1,2,3,4,5}, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("F1").Value).IsEqualTo(2d);
+            await Assert.That((double)ws.Cell("E3").Value).IsEqualTo(5d);
+        }
+    }
+
+    [Test]
+    public async Task WrapCols_ReadsWrapCountFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("J1").Value = 2;
+            ws.Range("E1:G2").FormulaArrayA1 = "WRAPCOLS({1,2,3,4,5}, J1)";
+
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(1d);
+            await Assert.That((double)ws.Cell("E2").Value).IsEqualTo(2d);
+            await Assert.That((double)ws.Cell("F1").Value).IsEqualTo(3d);
+        }
+    }
 }
