@@ -63,6 +63,76 @@ public class SheetViewDefaultPolarityTests
         }
     }
 
+    /// <summary>
+    /// The two tests above only ever write from a freshly-created, in-memory worksheet. On a
+    /// re-save of a loaded file, the writer instead mutates the <c>SheetView</c> element the reader
+    /// kept a reference to — so a polarity bug that only shows up when an attribute already present
+    /// from the load needs to be cleared or overwritten, rather than written for the first time,
+    /// would not be caught above. This loads an XLibur-authored fixture, flips every boolean and the
+    /// view mode the opposite way, re-saves, and reads the bytes again.
+    /// </summary>
+    [Test]
+    public async Task LoadMutateResave_flip_to_default_omits_every_attribute()
+    {
+        var fixture = SaveNonDefaultWorksheet(XLSheetViewOptions.PageLayout);
+
+        fixture.Position = 0;
+        var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(fixture))
+        {
+            var ws = wb.Worksheets.First();
+            ws.ShowFormulas = false;
+            ws.ShowGridLines = true;
+            ws.ShowOutlineSymbols = true;
+            ws.ShowRowColHeaders = true;
+            ws.ShowRuler = true;
+            ws.ShowWhiteSpace = true;
+            ws.ShowZeros = true;
+            ws.RightToLeft = false;
+            ws.TabSelected = false;
+            ws.SheetView.SetView(XLSheetViewOptions.Normal);
+            wb.SaveAs(resaved);
+        }
+
+        var sheetView = SheetViewTag(resaved);
+
+        foreach (var (attribute, _, _) in BooleanAttributes)
+            await Assert.That(Attribute(sheetView, attribute)).IsNull()
+                .Because($"{attribute} was flipped back to its OOXML default after load and should be omitted on resave");
+
+        await Assert.That(Attribute(sheetView, "view")).IsNull()
+            .Because("view mode was flipped back to Normal after load and should be omitted on resave");
+    }
+
+    [Test]
+    public async Task LoadMutateResave_flip_to_non_default_writes_correct_polarity()
+    {
+        var fixture = SaveDefaultWorksheet();
+
+        fixture.Position = 0;
+        var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(fixture))
+        {
+            var ws = wb.Worksheets.First();
+            foreach (var (_, _, setNonDefault) in BooleanAttributes)
+                setNonDefault(ws);
+            ws.SheetView.SetView(XLSheetViewOptions.PageLayout);
+            wb.SaveAs(resaved);
+        }
+
+        var sheetView = SheetViewTag(resaved);
+
+        foreach (var (attribute, ooxmlDefault, _) in BooleanAttributes)
+        {
+            var expected = ooxmlDefault ? "0" : "1";
+            await Assert.That(Attribute(sheetView, attribute)).IsEqualTo(expected)
+                .Because($"{attribute} was flipped away from default after load; resave should write \"{expected}\"");
+        }
+
+        await Assert.That(Attribute(sheetView, "view")).IsEqualTo("pageLayout")
+            .Because("view mode was flipped to PageLayout after load and should be written on resave");
+    }
+
     private static MemoryStream SaveDefaultWorksheet()
     {
         var ms = new MemoryStream();
@@ -75,7 +145,7 @@ public class SheetViewDefaultPolarityTests
         return ms;
     }
 
-    private static MemoryStream SaveNonDefaultWorksheet()
+    private static MemoryStream SaveNonDefaultWorksheet(XLSheetViewOptions view = XLSheetViewOptions.Normal)
     {
         var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -83,6 +153,7 @@ public class SheetViewDefaultPolarityTests
             var ws = wb.AddWorksheet("S");
             foreach (var (_, _, setNonDefault) in BooleanAttributes)
                 setNonDefault(ws);
+            ws.SheetView.SetView(view);
 
             wb.SaveAs(ms);
         }
