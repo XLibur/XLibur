@@ -87,7 +87,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     public int CellCount()
     {
-        return RangeAddress.LastAddress.RowNumber - RangeAddress.FirstAddress.RowNumber + 1;
+        return RowCount();
     }
 
     public IXLRangeColumn Sort(XLSortOrder sortOrder = XLSortOrder.Ascending, bool matchCase = false, bool ignoreBlanks = true)

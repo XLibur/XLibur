@@ -220,6 +220,24 @@ public class ReversedRangeGeometryTests
     }
 
     /// <summary>
+    /// Follow-up finding, from the codebase-wide audit: <c>XLRangeColumn.CellCount()</c> and
+    /// <c>XLRangeRow.CellCount()</c> each duplicated the exact defect already fixed on
+    /// <c>XLRangeBase.RowCount()</c>/<c>ColumnCount()</c> - computing directly from
+    /// <c>RangeAddress.LastAddress - RangeAddress.FirstAddress</c> instead of delegating to the
+    /// now-fixed base method.
+    /// </summary>
+    [Test]
+    public async Task RangeColumnAndRangeRowCellCountOnReversedRangeReturnPositiveMagnitudes()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var range = ws.Range("B5:E2");
+
+        await Assert.That(range.Column(1).CellCount()).IsEqualTo(4);
+        await Assert.That(range.Row(1).CellCount()).IsEqualTo(4);
+    }
+
+    /// <summary>
     /// User story 9: a reversed range used as a formula reference evaluates rather than
     /// throwing. The calc engine's <c>Reference</c> type used to reject an un-normalised
     /// <c>XLRangeAddress</c> defensively; that precondition is now removed because every path

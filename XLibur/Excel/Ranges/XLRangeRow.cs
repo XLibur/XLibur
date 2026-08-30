@@ -83,7 +83,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
 
     public int CellCount()
     {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
+        return ColumnCount();
     }
 
     public new IXLRangeRow Sort()
