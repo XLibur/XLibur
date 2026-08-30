@@ -99,15 +99,19 @@ internal class Quadrant
     /// <returns>True, if range was successfully added, false if it has been added before.</returns>
     public bool Add(IXLAddressable range)
     {
+        return Add(range, Area.FromRangeAddress(range.RangeAddress));
+    }
+
+    private bool Add(IXLAddressable range, in Area area)
+    {
         var res = false;
         var children = Children ?? CreateChildren().ToList();
         var addToChild = false;
         foreach (var childQuadrant in children)
         {
-            var rangeAddress = range.RangeAddress;
-            if (childQuadrant.Covers(in rangeAddress))
+            if (childQuadrant.Covers(in area))
             {
-                res |= childQuadrant.Add(range);
+                res |= childQuadrant.Add(range, in area);
                 addToChild = true;
                 break;
             }
@@ -158,6 +162,18 @@ internal class Quadrant
     /// </summary>
     public IEnumerable<IXLAddressable> GetIntersectedRanges(IXLRangeAddress rangeAddress)
     {
+        return GetIntersectedRanges(Area.FromRangeAddress(rangeAddress));
+    }
+
+    /// <summary>
+    /// Same traversal as <see cref="GetIntersectedRanges(IXLRangeAddress)"/>, but keyed on the
+    /// normalised rectangle rather than the address: <see cref="XLRangeAddress.Intersects(IXLRangeAddress)"/>
+    /// assumes both sides are already normalised and gives wrong answers for a reversed address,
+    /// which is exactly the input this index cannot assume once it holds more than a handful of
+    /// ranges (see <see cref="Quadrant{T}"/> and its promotion threshold).
+    /// </summary>
+    private IEnumerable<IXLAddressable> GetIntersectedRanges(Area area)
+    {
         if (_subtreeCount == 0)
             yield break;
 
@@ -165,12 +181,12 @@ internal class Quadrant
         {
             foreach (var range in Ranges)
             {
-                if (range.RangeAddress.Intersects(rangeAddress))
+                if (Area.FromRangeAddress(range.RangeAddress).Intersects(area))
                     yield return range;
             }
         }
 
-        foreach (var range in GetIntersectedRangesFromChildren(rangeAddress))
+        foreach (var range in GetIntersectedRangesFromChildren(area))
             yield return range;
     }
 
@@ -232,16 +248,16 @@ internal class Quadrant
         return false;
     }
 
-    private IEnumerable<IXLAddressable> GetIntersectedRangesFromChildren(IXLRangeAddress rangeAddress)
+    private IEnumerable<IXLAddressable> GetIntersectedRangesFromChildren(Area area)
     {
         if (Children == null)
             yield break;
 
         foreach (var childQuadrant in Children)
         {
-            if (childQuadrant._subtreeCount > 0 && childQuadrant.Intersects(in rangeAddress))
+            if (childQuadrant._subtreeCount > 0 && childQuadrant.Intersects(in area))
             {
-                foreach (var range in childQuadrant.GetIntersectedRanges(rangeAddress))
+                foreach (var range in childQuadrant.GetIntersectedRanges(area))
                     yield return range;
             }
         }
@@ -268,6 +284,11 @@ internal class Quadrant
     /// <returns>True if the range was removed, false if it does not exist in the QuadTree.</returns>
     public bool Remove(IXLRangeAddress rangeAddress)
     {
+        return Remove(rangeAddress, Area.FromRangeAddress(rangeAddress));
+    }
+
+    private bool Remove(IXLRangeAddress rangeAddress, in Area area)
+    {
         if (_subtreeCount == 0)
             return false;
 
@@ -278,9 +299,9 @@ internal class Quadrant
         {
             foreach (var childQuadrant in Children)
             {
-                if (childQuadrant.Covers(rangeAddress))
+                if (childQuadrant.Covers(in area))
                 {
-                    res |= childQuadrant.Remove(rangeAddress);
+                    res |= childQuadrant.Remove(rangeAddress, in area);
                     coveredByChild = true;
                 }
             }
@@ -406,14 +427,14 @@ internal class Quadrant
     }
 
     /// <summary>
-    /// Check if the current quadrant fully covers the specified address.
+    /// Check if the current quadrant fully covers the specified rectangle.
     /// </summary>
-    private bool Covers(in IXLRangeAddress rangeAddress)
+    private bool Covers(in Area area)
     {
-        return MinimumColumn <= rangeAddress.FirstAddress.ColumnNumber &&
-               MaximumColumn >= rangeAddress.LastAddress.ColumnNumber &&
-               MinimumRow <= rangeAddress.FirstAddress.RowNumber &&
-               MaximumRow >= rangeAddress.LastAddress.RowNumber;
+        return MinimumColumn <= area.LeftColumn &&
+               MaximumColumn >= area.RightColumn &&
+               MinimumRow <= area.TopRow &&
+               MaximumRow >= area.BottomRow;
     }
 
     /// <summary>
@@ -440,15 +461,15 @@ internal class Quadrant
     }
 
     /// <summary>
-    /// Check if the current quadrant intersects the specified address.
+    /// Check if the current quadrant intersects the specified rectangle.
     /// </summary>
-    private bool Intersects(in IXLRangeAddress rangeAddress)
+    private bool Intersects(in Area area)
     {
-        return ((MinimumRow <= rangeAddress.FirstAddress.RowNumber && rangeAddress.FirstAddress.RowNumber <= MaximumRow) ||
-                (rangeAddress.FirstAddress.RowNumber <= MinimumRow && MinimumRow <= rangeAddress.LastAddress.RowNumber))
+        return ((MinimumRow <= area.TopRow && area.TopRow <= MaximumRow) ||
+                (area.TopRow <= MinimumRow && MinimumRow <= area.BottomRow))
                &&
-               ((MinimumColumn <= rangeAddress.FirstAddress.ColumnNumber && rangeAddress.FirstAddress.ColumnNumber <= MaximumColumn) ||
-                (rangeAddress.FirstAddress.ColumnNumber <= MinimumColumn && MinimumColumn <= rangeAddress.LastAddress.ColumnNumber));
+               ((MinimumColumn <= area.LeftColumn && area.LeftColumn <= MaximumColumn) ||
+                (area.LeftColumn <= MinimumColumn && MinimumColumn <= area.RightColumn));
     }
 
     /// <summary>

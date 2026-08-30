@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Excel.Patterns;
 
 namespace XLibur.Tests.Excel.Ranges;
 
@@ -103,5 +104,38 @@ public class ReversedRangeGeometryTests
 
         await Assert.That(consolidated.Count).IsEqualTo(1);
         await Assert.That(consolidated[0].RangeAddress.ToString()).IsEqualTo("B2:E5");
+    }
+
+    private sealed class AddressableStub : IXLAddressable
+    {
+        public AddressableStub(IXLRangeAddress rangeAddress) => RangeAddress = rangeAddress;
+        public IXLRangeAddress RangeAddress { get; }
+    }
+
+    /// <summary>
+    /// A sixth, related defect (spec user story 10, not one of the five named ones): the
+    /// range-index QuadTree (behind data validations, conditional formats and <c>XLRanges</c>
+    /// once a worksheet holds 20 or more of them) compared a reversed range's raw corners
+    /// directly against each quadrant's bounds and, at the leaf, against the query via
+    /// <c>XLRangeAddress.Intersects</c> - which itself assumes both sides are already
+    /// normalised. E8194:E8190 (rows reversed) straddles the boundary between the QuadTree's
+    /// two level-1 row bands (1..8192 and 8193..), so <c>Covers</c> is false for both children
+    /// and the range is stored at the root - isolating the leaf-level <c>Intersects</c> check,
+    /// which returned false for a query cell that is inside the range.
+    /// </summary>
+    [Test]
+    public async Task QuadTreeFindsReversedRangeThatSpansAQuadrantBoundary()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var entryAddress = ws.Range("E8194:E8190").RangeAddress;
+        var queryAddress = ws.Range("E8192").RangeAddress;
+
+        var quadrant = new Quadrant();
+        quadrant.Add(new AddressableStub(entryAddress));
+
+        var found = quadrant.GetIntersectedRanges(queryAddress).ToList();
+
+        await Assert.That(found.Count).IsEqualTo(1);
     }
 }
