@@ -138,4 +138,22 @@ public class ReversedRangeGeometryTests
 
         await Assert.That(found.Count).IsEqualTo(1);
     }
+
+    /// <summary>
+    /// User story 9: a reversed range used as a formula reference evaluates rather than
+    /// throwing. The calc engine's <c>Reference</c> type used to reject an un-normalised
+    /// <c>XLRangeAddress</c> defensively; that precondition is now removed because every path
+    /// that reaches it already normalises first (formula-text parsing per axis in
+    /// <c>AstNode.BuildAddress</c>, or geometry sourced from <c>Area</c>).
+    /// </summary>
+    [Test]
+    public async Task FormulaReferencingReversedRangeEvaluates()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Range("B2:E5").Value = 2;
+        ws.Cell("G1").FormulaA1 = "=SUM(B5:E2)";
+
+        await Assert.That(ws.Cell("G1").GetValue<double>()).IsEqualTo(32d);
+    }
 }

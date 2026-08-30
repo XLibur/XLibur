@@ -22,9 +22,6 @@ namespace XLibur.Excel.CalcEngine
 
         public Reference(XLRangeAddress area)
         {
-            if (!area.IsNormalized)
-                throw new ArgumentException("Range address must be normalized.", nameof(area));
-
             _firstArea = area;
         }
 
