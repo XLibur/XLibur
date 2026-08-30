@@ -55,9 +55,14 @@ internal static class TablePartWriter
         // write order rather than anything the model holds, so it is only knowable here.
         context.TableIds[xlTable] = context.TableId;
 
-        // Area.FromRangeAddress normalises per axis; RangeAddress.FirstAddress/LastAddress
-        // directly would write "B5:E2" verbatim for a table created over a reversed selection.
-        var reference = xlTable.SheetRange.ToString();
+        // Normalise per axis so a table created over a reversed selection is written as "B2:E5"
+        // rather than "B5:E2" verbatim. Normalize() is the address-level twin of
+        // Area.FromRangeAddress and is what this needs rather than the Area itself: Area.ToString
+        // collapses a one-cell rectangle to "A1" where a table's ST_Ref wants both corners, and
+        // XLRangeBase.SheetRange throws for a table whose address a delete has invalidated, where
+        // the corner-by-corner form still renders the "#REF!:#REF!" the writer emitted before.
+        var tableAddress = xlTable.RangeAddress.Normalize();
+        var reference = tableAddress.FirstAddress + ":" + tableAddress.LastAddress;
         var tableName = GetTableName(xlTable.Name, context);
         var table = new Table
         {

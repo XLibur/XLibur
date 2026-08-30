@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Patterns;
 
 namespace XLibur.Tests.Excel.Ranges;
@@ -351,6 +353,51 @@ public class ReversedRangeGeometryTests
 
         await Assert.That(() => _ = range.RowCount()).ThrowsNothing();
         await Assert.That(() => _ = range.ColumnCount()).ThrowsNothing();
+    }
+
+    /// <summary>
+    /// Follow-up finding: the calc engine's <c>Reference</c> used to reject an un-normalised area
+    /// with an <see cref="System.ArgumentException"/>. Removing that check left its own internals
+    /// - which iterate first-to-last, and size <c>Apply</c>'s rectangle off <c>FirstAddress</c>
+    /// with the absolute spans - trusting an invariant nothing enforced any more, so a reversed
+    /// area would have produced a silently wrong formula result rather than an exception. The
+    /// constructors normalise instead of refusing.
+    /// </summary>
+    [Test]
+    public async Task ReferenceNormalisesAReversedAreaInsteadOfStoringItVerbatim()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var reversed = (XLRangeAddress)ws.Range("B5:E2").RangeAddress;
+        var alsoReversed = (XLRangeAddress)ws.Range("H4:G1").RangeAddress;
+
+        var single = new Reference(reversed);
+        await Assert.That(single[0].ToString()).IsEqualTo("B2:E5");
+
+        var fromList = new Reference(new List<XLRangeAddress> { reversed, alsoReversed });
+        await Assert.That(fromList[0].ToString()).IsEqualTo("B2:E5");
+        await Assert.That(fromList[1].ToString()).IsEqualTo("G1:H4");
+
+        // XLRanges orders what it stores, so compare as a set rather than by index.
+        var fromRanges = new Reference(new XLRanges { ws.Range("B5:E2"), ws.Range("H4:G1") });
+        var areas = new List<string> { fromRanges[0].ToString()!, fromRanges[1].ToString()! };
+        await Assert.That(areas).IsEquivalentTo(new[] { "B2:E5", "G1:H4" });
+    }
+
+    /// <summary>
+    /// The normalised areas have to be usable, not merely tidy: iterating a reference built from a
+    /// reversed area yields its cells rather than nothing, which is what the first-to-last loop in
+    /// <c>GetCellsValues</c> did while the invariant went unenforced.
+    /// </summary>
+    [Test]
+    public async Task ReferenceBuiltFromAReversedAreaCoversItsCells()
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        var reference = new Reference((XLRangeAddress)ws.Range("B5:E2").RangeAddress);
+
+        await Assert.That(reference.NumberOfCells).IsEqualTo(16);
+        await Assert.That(reference[0].Contains(ws.Cell("C3").Address)).IsTrue();
     }
 
     /// <summary>
