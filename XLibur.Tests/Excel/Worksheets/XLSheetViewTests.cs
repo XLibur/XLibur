@@ -34,6 +34,83 @@ public class XLSheetViewTests
         await Assert.That(() => ws1.SheetView.TopLeftCellAddress = ws2.Cell("A1").Address).Throws<ArgumentException>();
     }
 
+    #region Spec 38 regressions
+
+    /// <summary>
+    /// Defect: <see cref="XLWorksheet.CopyTo(string)"/> never touches
+    /// <see cref="IXLWorksheet.ShowGridLines"/>, so a copy is seeded from the destination
+    /// workbook's default (always on for a fresh workbook) instead of the source sheet's value.
+    /// </summary>
+    [Test]
+    public async Task Copy_loses_gridlines()
+    {
+        using var wb = new XLWorkbook();
+        var ws1 = wb.AddWorksheet("S1");
+        ws1.ShowGridLines = false;
+
+        var ws2 = ws1.CopyTo("S2");
+
+        await Assert.That(ws2.ShowGridLines).IsFalse();
+    }
+
+    /// <summary>
+    /// Defect: <see cref="XLSheetView"/>'s copy constructor only copies the pane fields; the zoom
+    /// scales are left at whatever the parameterless constructor it chains to set them to (100).
+    /// </summary>
+    [Test]
+    public async Task Copy_loses_zoom()
+    {
+        using var wb = new XLWorkbook();
+        var ws1 = wb.AddWorksheet("S1");
+        ws1.SheetView.ZoomScale = 150;
+
+        var ws2 = ws1.CopyTo("S2");
+
+        await Assert.That(ws2.SheetView.ZoomScale).IsEqualTo(150);
+    }
+
+    /// <summary>
+    /// Defect: <c>sheetView/@view</c> is written on save but never read on load, so a workbook
+    /// saved in Page Layout or Page Break Preview view reopens as Normal.
+    /// </summary>
+    [Test]
+    public async Task ViewMode_lost_on_round_trip()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S1");
+            ws.SheetView.SetView(XLSheetViewOptions.PageLayout);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var wb2 = new XLWorkbook(ms);
+        var reloaded = wb2.Worksheets.First();
+
+        await Assert.That(reloaded.SheetView.View).IsEqualTo(XLSheetViewOptions.PageLayout);
+    }
+
+    /// <summary>
+    /// Defect: because the copy never touches the boolean display flags, copying a sheet into a
+    /// different workbook picks up that workbook's defaults rather than the source sheet's values.
+    /// </summary>
+    [Test]
+    public async Task CrossWorkbookCopy_adopts_targets_defaults()
+    {
+        using var wb1 = new XLWorkbook();
+        using var wb2 = new XLWorkbook();
+        wb2.ShowGridLines = false;
+
+        var ws1 = wb1.AddWorksheet("S1");
+
+        var ws2 = ws1.CopyTo(wb2, "S2");
+
+        await Assert.That(ws2.ShowGridLines).IsTrue();
+    }
+
+    #endregion Spec 38 regressions
+
     [Test]
     public async Task SheetViews()
     {
