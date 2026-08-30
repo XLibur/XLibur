@@ -694,7 +694,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Part of the pivot table style.
     /// </summary>
-    internal bool ShowLastColumn { get; set; } = false;
+    public bool ShowLastColumn { get; set; }
+
+    public IXLPivotTable SetShowLastColumn()
+    {
+        ShowLastColumn = true;
+        return this;
+    }
+
+    public IXLPivotTable SetShowLastColumn(bool value)
+    {
+        ShowLastColumn = value;
+        return this;
+    }
 
     public XLPivotSubtotals Subtotals { get; set; }
 
