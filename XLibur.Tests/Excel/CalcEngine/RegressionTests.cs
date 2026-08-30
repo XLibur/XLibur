@@ -400,6 +400,28 @@ public class RegressionTests
     }
 
     [Test]
+    public async Task Linest_ReadsConstFlagFromACellReference()
+    {
+        // Spec 37 — was #VALUE! before the fix, because the const flag was a single-cell reference
+        // rather than a literal.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = 3 * row; // Exactly y = 3x, no intercept.
+            }
+
+            ws.Cell("H1").Value = false;
+            ws.Range("D1:E1").FormulaArrayA1 = "LINEST(B1:B4, A1:A4, H1)";
+
+            await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(3d).Within(1e-9);
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(0d).Within(1e-12);
+        }
+    }
+
+    [Test]
     public async Task Linest_FitsSeveralPredictorsAtOnce()
     {
         var ws = NewSheet(out var wb);
@@ -465,6 +487,72 @@ public class RegressionTests
             await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(3d).Within(1e-9); // The base.
             await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(2d).Within(1e-9); // The factor.
             await Assert.That((double)ws.Cell("G1").Value).IsEqualTo(486d).Within(1e-6); // 2 * 3^5.
+        }
+    }
+
+    [Test]
+    public async Task Logest_ReadsConstFlagFromACellReference()
+    {
+        // Spec 37 — was #VALUE! before the fix, because the const flag was a single-cell reference
+        // rather than a literal.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = Math.Pow(3, row); // y = 3^x, factor exactly 1.
+            }
+
+            ws.Cell("H1").Value = false;
+            ws.Range("D1:E1").FormulaArrayA1 = "LOGEST(B1:B4, A1:A4, H1)";
+
+            await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(3d).Within(1e-9); // The base.
+            await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(1d).Within(1e-9); // The factor, pinned to 1.
+        }
+    }
+
+    [Test]
+    public async Task Trend_ReadsConstFlagFromACellReference()
+    {
+        // Spec 37 — was #VALUE! before the fix, because the const flag was a single-cell reference
+        // rather than a literal.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = 2 * row; // Exactly y = 2x, no intercept.
+            }
+
+            ws.Cell("F1").Value = 10;
+            ws.Cell("H1").Value = false;
+            ws.Range("G1:G1").FormulaArrayA1 = "TREND(B1:B4, A1:A4, F1, H1)";
+
+            await Assert.That((double)ws.Cell("G1").Value).IsEqualTo(20d).Within(1e-9);
+        }
+    }
+
+    [Test]
+    public async Task Growth_ReadsConstFlagFromACellReference()
+    {
+        // Spec 37 — was #VALUE! before the fix, because the const flag was a single-cell reference
+        // rather than a literal.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = Math.Pow(3, row); // y = 3^x, factor exactly 1.
+            }
+
+            ws.Cell("F1").Value = 5;
+            ws.Cell("H1").Value = false;
+            ws.Range("G1:G1").FormulaArrayA1 = "GROWTH(B1:B4, A1:A4, F1, H1)";
+
+            await Assert.That((double)ws.Cell("G1").Value).IsEqualTo(243d).Within(1e-6);
         }
     }
 
