@@ -74,20 +74,32 @@ public class ReversedRangePropertyTests
             await Assert.That(consolidated.Count).IsEqualTo(1);
             await Assert.That(consolidated[0].RangeAddress.ToString()).IsEqualTo(forwardAddress);
 
-            // A table over the range has one field per column (defect 4's table consequence).
-            // A fresh workbook: creating a table here and then saving the same workbook below
-            // (for the data-validation check) hits an unrelated, pre-existing defect - XLTable's
-            // relative Range(int,int,int,int) anchors to RangeAddress.FirstAddress directly
-            // rather than the normalised top-left, so DataRange throws on save for a reversed
-            // source range. Out of this spec's scope (Table isn't in its consumer list); see the
-            // final report. ColumnCount() itself - what field count is derived from - is already
-            // covered by RowCountAndColumnCountOnReversedRangeReturnPositiveMagnitudes.
+            // A table over the range has one field per column (defect 4's table consequence),
+            // and now saves successfully with the forward address as its own ref (follow-up
+            // finding: XLTable.DataRange/relative Range(int,int,int,int) anchored to
+            // RangeAddress.FirstAddress directly, which threw on save for a reversed source
+            // range; TablePartWriter separately wrote the table's own ref unnormalised). A fresh
+            // workbook per corner order, since a table changes what the sheet's used range looks
+            // like for the other checks in this loop.
             {
                 var tableWb = new XLWorkbook();
                 var tableWs = tableWb.Worksheets.Add("Sheet1");
                 var tableRange = tableWs.Range($"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}");
                 var table = tableRange.CreateTable();
                 await Assert.That(table.Fields.Count()).IsEqualTo(expectedWidth);
+
+                using var tableMs = new MemoryStream();
+                await Assert.That(() => tableWb.SaveAs(tableMs)).ThrowsNothing();
+
+                // A 1x1 table is a degenerate case XLibur auto-expands with a data row
+                // regardless of corner order (not corner-order-sensitive, so not interesting to
+                // pin here) - skip the exact-ref comparison for it.
+                if (expectedCellCount > 1)
+                {
+                    using var tableWb2 = new XLWorkbook(tableMs);
+                    var reloadedTable = tableWb2.Worksheet("Sheet1").Table(0);
+                    await Assert.That(reloadedTable.RangeAddress.ToString()).IsEqualTo(forwardAddress);
+                }
             }
 
             // A data validation on the range survives a save/reload at its forward address
@@ -105,6 +117,56 @@ public class ReversedRangePropertyTests
                 var reloadedRanges = reloadedValidations[0].Ranges.ToList();
                 await Assert.That(reloadedRanges.Count).IsEqualTo(1);
                 await Assert.That(reloadedRanges[0].RangeAddress.ToString()).IsEqualTo(forwardAddress);
+            }
+
+            // Merging the range makes every cell in it report merged, and the merged range it
+            // reports back has the rectangle's own dimensions (user story 8: merge behaviour is
+            // identical regardless of corner order). A 1x1 rectangle is a degenerate case -
+            // Merge() on a single cell is a no-op that never reaches the range index - so it is
+            // skipped here rather than asserted on.
+            if (expectedCellCount > 1)
+            {
+                var mergeWb = new XLWorkbook();
+                var mergeWs = mergeWb.Worksheets.Add("Sheet1");
+                var mergeRange = mergeWs.Range($"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}");
+                mergeRange.Merge();
+
+                foreach (var address in expectedCellAddresses)
+                {
+                    var cell = mergeWs.Cell(address);
+                    await Assert.That(cell.IsMerged()).IsTrue();
+                    var merged = cell.MergedRange();
+                    await Assert.That(merged).IsNotNull();
+                    await Assert.That(merged!.RowCount()).IsEqualTo(expectedHeight);
+                    await Assert.That(merged.ColumnCount()).IsEqualTo(expectedWidth);
+                }
+            }
+
+            // Index intersection (spec user story 10 and its flat-list/point-containment
+            // follow-ups): an overlap query finds the range both below and at/above the range
+            // index's 20-item QuadTree promotion threshold. The range is added via AddRange to
+            // an already-registered validation rather than CreateDataValidation directly: a
+            // validation's *first* range is indexed from its already-normalised Ranges
+            // projection, which would make this check pass even with every fix in this area
+            // reverted (see ReversedRangeGeometryTests.DataValidationIndexFindsReversedRangeBeforePromotion).
+            // Twenty filler data validations, well away from the rectangle, force promotion
+            // without touching its own coverage.
+            {
+                var indexWb = new XLWorkbook();
+                var indexWs = indexWb.Worksheets.Add("Sheet1");
+                var indexDv = indexWs.Cell(1000, 200).CreateDataValidation();
+                indexDv.WholeNumber.Between(0, 100);
+                indexDv.AddRange(indexWs.Range($"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}"));
+
+                var probeAddress = indexWs.Range($"{ColumnLetter(leftColumn)}{topRow}").RangeAddress;
+                var foundBeforePromotion = indexWs.DataValidations.GetAllInRange(probeAddress).ToList();
+                await Assert.That(foundBeforePromotion.Count).IsEqualTo(1);
+
+                for (var i = 1; i <= 20; i++)
+                    indexWs.Cell(i, 300).CreateDataValidation().WholeNumber.Between(0, 100);
+
+                var foundAfterPromotion = indexWs.DataValidations.GetAllInRange(probeAddress).ToList();
+                await Assert.That(foundAfterPromotion.Count).IsEqualTo(1);
             }
         }
     }
