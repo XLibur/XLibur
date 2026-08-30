@@ -97,7 +97,7 @@ public class XLSheetViewTests
     /// different workbook picks up that workbook's defaults rather than the source sheet's values.
     /// </summary>
     [Test]
-    public async Task CrossWorkbookCopy_adopts_targets_defaults()
+    public async Task CrossWorkbookCopy_keeps_source_appearance_not_targets_defaults()
     {
         using var wb1 = new XLWorkbook();
         using var wb2 = new XLWorkbook();
