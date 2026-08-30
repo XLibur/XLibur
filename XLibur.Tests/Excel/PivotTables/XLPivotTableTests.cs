@@ -241,6 +241,36 @@ public class XLPivotTableTests
     }
 
     [Test]
+    [Property("Description", "spec 39: CopyTo carried the table's own compact/outline pair but not the per-field one, so a copy of a tabular table said tabular at the table level and compact on every field")]
+    public async Task CopyTo_carries_the_layout_of_every_pivot_field_not_just_the_table()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("PastrySalesData");
+        var table = ws.Table("PastrySalesData");
+        var ptSheet = wb.Worksheets.Add("LayoutCopyTest");
+        var pt = (XLPivotTable)ptSheet.PivotTables.Add("pvtLayoutCopy", ptSheet.Cell(1, 1), table);
+
+        // The setter moves the table's pair and every field's pair together; only both halves
+        // arriving in the copy make it a tabular table.
+        pt.SetLayout(XLPivotLayout.Tabular);
+
+        var copy = (XLPivotTable)pt.CopyTo(ptSheet.Cell("AB1"));
+
+        await Assert.That(copy.PivotFields.Count).IsEqualTo(pt.PivotFields.Count)
+            .Because("both tables are built over the same pivot cache");
+        await Assert.That(copy.PivotFields.Count).IsGreaterThan(0)
+            .Because("a table with no fields would pass the field assertions vacuously");
+
+        await Assert.That(copy.Compact).IsFalse().Because("the table's own compact flag must survive the copy");
+        await Assert.That(copy.Outline).IsFalse().Because("the table's own outline flag must survive the copy");
+        await Assert.That(copy.PivotFields.Any(f => f.Compact)).IsFalse()
+            .Because("no field of a tabular table is compact, and Excel lays the table out from the fields");
+        await Assert.That(copy.PivotFields.Any(f => f.Outline)).IsFalse()
+            .Because("no field of a tabular table is outlined, and Excel lays the table out from the fields");
+    }
+
+    [Test]
     [Property("Description", "spec 39: showLastColumn was read from showColStripes, so the two settings could not vary independently")]
     public async Task ShowLastColumn_reads_from_its_own_attribute_not_column_stripes()
     {

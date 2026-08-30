@@ -205,6 +205,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         foreach (var attribute in PivotTableAttributes.All)
             attribute.Copy(this, newPivotTable);
 
+        // The table's own compact/outline pair is only the default for fields added later; each
+        // pivotField carries its own pair, which is what Excel actually lays the table out from and
+        // what the Layout setter keeps in step with the table's. Copy them too, or a copy of a
+        // tabular table says tabular at the table level and compact on every field, and Excel
+        // renders the copy compact. Both tables are built over the same pivot cache, so the two
+        // field lists are index-aligned.
+        var fieldCount = Math.Min(PivotFields.Count, newPivotTable.PivotFields.Count);
+        for (var fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+        {
+            newPivotTable.PivotFields[fieldIndex].Compact = PivotFields[fieldIndex].Compact;
+            newPivotTable.PivotFields[fieldIndex].Outline = PivotFields[fieldIndex].Outline;
+        }
+
         // Not in PivotTableAttributes.All: the x14 extension flags and the pivotTableStyleInfo
         // group, both handled next to where they are written/read rather than folded into the
         // flat attribute table (see the reader/writer for why).
