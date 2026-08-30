@@ -21,7 +21,7 @@ public class SheetViewDefaultPolarityTests
 {
     /// <summary>
     /// (Name, OOXML default, expected written value when the worksheet property is set to the
-    /// non-default value below.) Mirrors <see cref="XLibur.Excel.XLViewProperties"/>'s polarity
+    /// non-default value below.) Mirrors <see cref="Worksheets.XLViewProperties"/>'s polarity
     /// column for the nine boolean sheet-view attributes.
     /// </summary>
     private static readonly (string Attribute, bool OoxmlDefault, Action<IXLWorksheet> SetNonDefault)[]

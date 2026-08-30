@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using XLibur.Excel;
 
-namespace XLibur.Excel;
+namespace XLibur.Tests.Excel.Worksheets;
 
 /// <summary>
 /// One entry of the sheet-view property table: a name, the OOXML attribute it maps to (or the
@@ -12,9 +13,14 @@ namespace XLibur.Excel;
 /// </summary>
 /// <remarks>
 /// This is the list spec 38 promotes to data: copying and default-seeding are driven from the
-/// matching constructors on <see cref="XLSheetView"/>, and this table is what lets a test iterate
-/// every view property instead of restating them by hand — see the property-enumerating tests in
-/// <c>XLSheetViewTests</c>.
+/// matching constructors on <c>XLSheetView</c>, and this table is what lets a test iterate every
+/// view property instead of restating them by hand — see the property-enumerating tests in
+/// <see cref="XLSheetViewTests"/>.
+/// <para>
+/// It lives in the test project deliberately. No production code reads it: the four consumers each
+/// list the properties themselves, and a table of delegates that only tests call would otherwise
+/// ship in the library where nothing could catch it drifting from the writer it describes.
+/// </para>
 /// </remarks>
 internal readonly record struct XLViewProperty(
     string Name,
