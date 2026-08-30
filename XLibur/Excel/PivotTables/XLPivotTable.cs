@@ -1021,43 +1021,43 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// ISO-29500 Annex G.3 for how auto formats look like.
     /// </para>
     /// </summary>
-    internal uint? AutoFormatId { get; init; }
+    internal uint? AutoFormatId { get; set; }
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format number format properties.
     /// </summary>
-    internal bool ApplyNumberFormats { get; init; } = false;
+    internal bool ApplyNumberFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format border properties.
     /// </summary>
-    internal bool ApplyBorderFormats { get; init; } = false;
+    internal bool ApplyBorderFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format font properties.
     /// </summary>
-    internal bool ApplyFontFormats { get; init; } = false;
+    internal bool ApplyFontFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format pattern properties.
     /// </summary>
-    internal bool ApplyPatternFormats { get; init; } = false;
+    internal bool ApplyPatternFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format alignment properties.
     /// </summary>
-    internal bool ApplyAlignmentFormats { get; init; } = false;
+    internal bool ApplyAlignmentFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format width/height properties.
     /// </summary>
-    internal bool ApplyWidthHeightFormats { get; init; } = false;
+    internal bool ApplyWidthHeightFormats { get; set; } = false;
 
     /// <summary>
     /// Initial text of 'data' field. This is doesn't do anything, Excel always displays
@@ -1065,7 +1065,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     internal string DataCaption { get; set; } = "Values";
 
-    internal string? GrandTotalCaption { get; init; }
+    internal string? GrandTotalCaption { get; set; }
 
     /// <summary>
     /// Text to display when in cells that contain error.
@@ -1075,7 +1075,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Flag indicating if <see cref="ErrorValueReplacement"/> should be shown when cell contain an error.
     /// </summary>
-    internal bool ShowError { get; init; } = false;
+    internal bool ShowError { get; set; } = false;
 
     /// <summary>
     /// Test to display for missing items, when <see cref="ShowMissing"/> is <c>true</c>.
@@ -1091,17 +1091,17 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Name of style to apply to <see cref="XLPivotPageField"/> items headers in <see cref="XLPivotAxis.AxisPage"/>.
     /// </summary>
-    internal string? PageStyle { get; init; }
+    internal string? PageStyle { get; set; }
 
     /// <remarks>Doesn't seem to work in Excel.</remarks>
-    internal string? PivotTableStyleName { get; init; }
+    internal string? PivotTableStyleName { get; set; }
 
     /// <summary>
     /// Name of a style to apply to the cells left blank when a pivot table shrinks during a refresh operation.
     /// </summary>
-    internal string? VacatedStyle { get; init; }
+    internal string? VacatedStyle { get; set; }
 
-    internal string? Tag { get; init; }
+    internal string? Tag { get; set; }
 
     /// <summary>
     /// Version of the application that last updated the pivot table. Application-dependent.
@@ -1110,15 +1110,15 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Defaulted rather than left at zero, and it is not cosmetic — see
     /// <see cref="PivotCacheCreatedVersion"/>.
     /// </remarks>
-    internal byte UpdatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
+    internal byte UpdatedVersion { get; set; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// Minimum version of the application required to update the pivot table. Application-dependent.
     /// </summary>
-    internal byte MinRefreshableVersion { get; init; } = XLConstants.PivotTable.MinRefreshableVersion;
+    internal byte MinRefreshableVersion { get; set; } = XLConstants.PivotTable.MinRefreshableVersion;
 
     /// <remarks>OLAP related.</remarks>
-    internal bool AsteriskTotals { get; init; } = false;
+    internal bool AsteriskTotals { get; set; } = false;
 
     /// <summary>
     /// <para>
@@ -1136,19 +1136,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Flag indicating if user is allowed to edit cells in data area.
     /// </summary>
-    internal bool EditData { get; init; } = false;
+    internal bool EditData { get; set; } = false;
 
     /// <summary>
     /// Flag indicating if UI to modify the fields of pivot table is disabled. In Excel, the
     /// whole field area is hidden.
     /// </summary>
-    internal bool DisableFieldList { get; init; } = false;
+    internal bool DisableFieldList { get; set; } = false;
 
     /// <remarks>OLAP only.</remarks>
-    internal bool ShowCalculatedMembers { get; init; } = true;
+    internal bool ShowCalculatedMembers { get; set; } = true;
 
     /// <remarks>OLAP only.</remarks>
-    internal bool VisualTotals { get; init; } = true;
+    internal bool VisualTotals { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether a page field that has selected multiple items (but not
@@ -1156,12 +1156,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// page fields will display "All" regardless of whether only item subset is selected or
     /// all items are selected.
     /// </summary>
-    internal bool ShowMultipleLabel { get; init; } = true;
+    internal bool ShowMultipleLabel { get; set; } = true;
 
     /// <summary>
     /// Doesn't seem to do anything. Should hide drop down filters.
     /// </summary>
-    internal bool ShowDataDropDown { get; init; } = true;
+    internal bool ShowDataDropDown { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should display collapse/expand (drill) buttons in pivot
@@ -1205,7 +1205,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Not very consistent in Excel, e.g. can't display field properties through context menu
     /// of a pivot table, but can display properties menu through context menu in editing wizard.
     /// </summary>
-    internal bool EnableFieldProperties { get; init; } = true;
+    internal bool EnableFieldProperties { get; set; } = true;
 
     /// <summary>
     /// A flag that indicates whether the formatting applied by the user to the pivot table
@@ -1289,7 +1289,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Here</em>). Only works in legacy layout mode (i.e. <see cref="ClassicPivotTableLayout"/>
     /// is <c>true</c>).
     /// </summary>
-    internal bool ShowDropZones { get; init; } = true;
+    internal bool ShowDropZones { get; set; } = true;
 
     /// <summary>
     /// Specifies the version of the application that created the pivot cache. Application-dependent.
@@ -1309,7 +1309,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// only ever applies to one XLibur created.
     /// </para>
     /// </remarks>
-    internal byte PivotCacheCreatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
+    internal byte PivotCacheCreatedVersion { get; set; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// A row indentation increment for row axis when pivot table is in compact layout. Units
@@ -1348,7 +1348,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool Compact
     {
         get => _compact;
-        init => _compact = value;
+        set => _compact = value;
     }
 
     /// <summary>
@@ -1359,7 +1359,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool Outline
     {
         get => _outline;
-        init => _outline = value;
+        set => _outline = value;
     }
 
     /// <summary>
@@ -1381,7 +1381,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool OutlineData
     {
         get => _outlineData;
-        init => _outlineData = value;
+        set => _outlineData = value;
     }
 
     /// <summary>
@@ -1403,7 +1403,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool CompactData
     {
         get => _compactData;
-        init => _compactData = value;
+        set => _compactData = value;
     }
 
     /// <summary>
@@ -1412,7 +1412,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     /// <remarks>No idea what this does. Likely flag for other components that display table
     ///     on a web page.</remarks>
-    internal bool Published { get; init; } = false;
+    internal bool Published { get; set; } = false;
 
     /// <summary>
     /// A flag that indicates whether to apply the classic layout. Classic layout displays the
@@ -1426,7 +1426,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Likely a flag whether immersive reader should be turned off. Not sure if immersive
     /// reader was ever used outside Word, though Excel for Web added some support in 2023.
     /// </summary>
-    internal bool StopImmersiveUi { get; init; } = true;
+    internal bool StopImmersiveUi { get; set; } = true;
 
     /// <summary>
     /// <para>
@@ -1446,7 +1446,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// actually used identifier should be 1. The format is used in <c>/chartSpace/pivotSource/
     /// fmtId/@val</c>.
     /// </summary>
-    internal uint ChartFormat { get; init; } = 0;
+    internal uint ChartFormat { get; set; } = 0;
 
     /// <summary>
     /// The text that will be displayed in row header in compact mode. It is next to drop down
@@ -1477,7 +1477,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// A flag indicating whether MDX sub-queries are supported by OLAP data provider of this
     /// pivot table.
     /// </summary>
-    internal bool MdxSubQueries { get; init; } = false;
+    internal bool MdxSubQueries { get; set; } = false;
 
     /// <summary>
     /// A flag that indicates whether custom lists are used for sorting items of fields, both
