@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using RBush;
 using XLibur.Excel.Coordinates;
 
@@ -191,6 +192,7 @@ internal sealed class DependencyTree
     }
 
     /// <summary>
+    /// <para>
     /// Monotonically increasing walk id, handed out one per <see cref="MarkDirty"/> call and
     /// stamped onto each formula the walk enqueues (see <see cref="XLCellFormula.TryVisit"/>).
     /// Distinguishing "enqueued by walk N" from "dirty for any other reason" this way costs one
@@ -198,8 +200,18 @@ internal sealed class DependencyTree
     /// visited set was measured first and cost roughly 7x the allocation and 3x the wall time on
     /// a bulk-edit workload with real dependents (see XLibur.Benchmarks.BulkEditDirtyWalkProfile,
     /// "bulkedit" profile mode) before this replaced it.
+    /// </para>
+    /// <para>
+    /// The counter is process-wide rather than per-tree because the stamps outlive any single
+    /// tree: <c>XLCalcEngine.Purge</c> discards and rebuilds the whole dependency tree on a sheet
+    /// add or rename and on every row/column insert or delete, but the <see cref="XLCellFormula"/>
+    /// objects holding the stamps are not recreated. A per-tree counter would restart at zero and
+    /// hand a surviving formula an id it is already stamped with, so the first walk after each
+    /// rebuild would prune at its first hop. One interlocked increment per walk — not per node —
+    /// buys ids that are never reused for the life of the process.
+    /// </para>
     /// </summary>
-    private long _walkGeneration;
+    private static long _walkGeneration;
 
     /// <summary>
     /// Mark all formulas that depend (directly or transitively) on the area as dirty.
@@ -215,7 +227,7 @@ internal sealed class DependencyTree
     /// </remarks>
     internal void MarkDirty(SheetArea dirtyArea)
     {
-        var walkId = ++_walkGeneration;
+        var walkId = Interlocked.Increment(ref _walkGeneration);
 
         // BFS vs DFS: Although the longest chain found in the wild is 1000
         // formulas long, attacker could supply malicious excel with recursion

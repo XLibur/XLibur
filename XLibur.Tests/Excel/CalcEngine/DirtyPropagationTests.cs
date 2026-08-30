@@ -245,6 +245,34 @@ internal class DirtyPropagationTests
         await Assert.That((double)ws.Cell("E1").Value).IsEqualTo(12);
     }
 
+    /// <summary>
+    /// The dependency tree is thrown away and rebuilt from scratch by <c>XLCalcEngine.Purge</c>,
+    /// which any row/column insert or delete and any sheet add or rename triggers, but the
+    /// <c>XLCellFormula</c> objects carrying the walk stamp survive that rebuild. A walk id that
+    /// restarted per tree would therefore be handed out a second time to formulas still stamped
+    /// with it from the previous tree, and the first walk after every purge would prune at its
+    /// first hop — the very defect this spec removes, reinstated in a narrower window.
+    /// </summary>
+    [Test]
+    public async Task Walk_ids_are_not_reused_after_the_dependency_tree_is_rebuilt()
+    {
+        using var wb = new XLWorkbook();
+        var ws = BuildChain(wb);
+
+        // First walk on the original tree; stamps B1, C1 and D1.
+        ws.Cell("A1").Value = 5;
+        await AssertChain(ws, a1: 5, b1: 6, c1: 7, d1: 8);
+
+        // Discards the dependency tree. A row far below the chain keeps the addresses stable.
+        ws.Row(50).InsertRowsAbove(1);
+        await ForceEvaluation(ws);
+
+        // First walk on the rebuilt tree.
+        ws.Cell("A1").Value = 10;
+
+        await AssertChain(ws, a1: 10, b1: 11, c1: 12, d1: 13);
+    }
+
     #endregion
 
     #region Graph-shape tests (chain covered above; diamond, cross-sheet, cycle here)

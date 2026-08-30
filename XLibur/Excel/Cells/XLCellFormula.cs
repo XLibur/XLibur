@@ -47,7 +47,8 @@ internal sealed class XLCellFormula
     /// The id of the last <see cref="DependencyTree.MarkDirty"/> walk that enqueued this formula,
     /// or <c>0</c> if none has. Distinct from <see cref="_isClean"/>: this tracks whether the
     /// current walk has already visited the formula, regardless of whether it is dirty for some
-    /// other reason (see <see cref="TryVisit"/>).
+    /// other reason (see <see cref="TryVisit"/>). Walk ids are process-wide and never reused, so
+    /// a stamp stays meaningful across a dependency tree rebuild, which this formula outlives.
     /// </summary>
     private long _visitedByWalk;
 
