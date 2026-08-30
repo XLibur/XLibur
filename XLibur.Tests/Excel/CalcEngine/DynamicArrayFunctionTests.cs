@@ -300,6 +300,58 @@ public class DynamicArrayFunctionTests
     }
 
     [Test]
+    public async Task XLookup_ArrayConstantInAScalarSlotUsesItsFirstElement()
+    {
+        // A scalar parameter handed a multi-element array reduces to that array's first element.
+        // Excel would lift the array and spill one result per element; XLibur does not array-lift
+        // the dynamic-array functions, so the choice is between the first element and #VALUE!, and
+        // the first element is what the rest of the library has always done — DATE({2020;2021},1,1)
+        // is 2020, and a cell holding a non-spilled =SEQUENCE(3) stores 1. Before the reduction
+        // ladder was consolidated this slot rejected arrays instead; that split is the bug, not the
+        // rule, so the 5 is dropped here rather than turning the whole call into an error.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 3;
+            ws.Cell("A3").Value = 5;
+            ws.Cell("B1").Value = "low";
+            ws.Cell("B2").Value = "mid";
+            ws.Cell("B3").Value = "high";
+
+            await Assert.That(ws.Evaluate("XLOOKUP({3;5}, A1:A3, B1:B3)")).IsEqualTo("mid");
+        }
+    }
+
+    [Test]
+    public async Task SortBy_OrderRangeIsIntersectedAgainstTheCallingFormula()
+    {
+        // The order argument is a scalar parameter, so a range in that slot resolves by implicit
+        // intersection against the calling formula's own address, like every other scalar parameter
+        // in the library. C1:C3 cannot be a by_array for a two-row sort, so it is read as the order,
+        // and the answer therefore depends on where the formula sits: row 2 sees C2.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "a";
+            ws.Cell("A2").Value = "b";
+            ws.Cell("B1").Value = 2;
+            ws.Cell("B2").Value = 1;
+            ws.Cell("C1").Value = 1;
+            ws.Cell("C2").Value = 1;
+            ws.Cell("C3").Value = 1;
+
+            ws.Cell("E2").FormulaA1 = "SORTBY(A1:A2, B1:B2, C1:C3)";
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo("b"); // C2 = 1, ascending.
+
+            // The same formula outside C1:C3's rows has nothing to intersect with, so it errors.
+            // This position dependence is what implicit intersection is, not a SORTBY quirk.
+            ws.Cell("E5").FormulaA1 = "SORTBY(A1:A2, B1:B2, C1:C3)";
+            await Assert.That(ws.Cell("E5").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
     public async Task Unique_ReadsByColumnFlagFromACellReference()
     {
         var ws = NewSheet(out var wb);

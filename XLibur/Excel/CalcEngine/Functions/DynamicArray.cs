@@ -539,6 +539,9 @@ internal static class DynamicArray
             // first, rather than checking for a 1x1 shape, is what keeps a genuine one-row sort with
             // two single-cell by_arrays (SORTBY(A1,B1,C1)) working: there height is 1, so a 1x1
             // reference is ambiguous by shape alone, and Excel prefers the by_array reading.
+            // A wrong-shaped range here is therefore read as the order and implicitly intersected
+            // rather than rejected on its shape, which is what a scalar parameter does everywhere
+            // else in the library; SortBy_OrderRangeIsIntersectedAgainstTheCallingFormula pins it.
             if (i < args.Length && !IsValidByArray(args[i], ctx, height))
             {
                 if (!TryIntArg(ctx, args[i], out order, out var orderError))

@@ -238,6 +238,11 @@ internal readonly struct AnyValue
             return true;
         }
 
+        // Any array reduces to its first element, not just a 1x1 one. This is what makes a cell
+        // store a non-spilled =SEQUENCE(3) as 1, so the branch cannot be narrowed to the 1x1 case
+        // without breaking cell content. It does mean the few callers that used to reject arrays
+        // outright now drop the remaining elements instead of erroring; that is the point of having
+        // one ladder, since the majority of scalar parameters already behaved this way.
         if (collection.TryPickT0(out var array, out var reference))
         {
             scalar = array![0, 0];
