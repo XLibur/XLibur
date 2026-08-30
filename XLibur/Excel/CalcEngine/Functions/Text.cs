@@ -473,12 +473,8 @@ internal static class Text
     private static bool TryOptionalInt(CalcContext ctx, in AnyValue value, int fallback, out int result, out XLError error)
     {
         result = fallback;
-        error = default;
-        if (!value.TryPickScalar(out var scalar, out _))
-        {
-            error = XLError.IncompatibleValue;
+        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
             return false;
-        }
 
         if (scalar.IsBlank)
             return true;
@@ -517,20 +513,7 @@ internal static class Text
     /// time — so they have to do the reduction themselves.
     /// </summary>
     private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-            return scalar;
-
-        if (collection.TryPickT0(out var array, out var reference))
-            return array[0, 0];
-
-        if (reference.TryGetSingleCellValue(out var single, ctx))
-            return single;
-
-        return value.ImplicitIntersection(ctx).TryPickScalar(out var intersected, out _)
-            ? intersected
-            : XLError.IncompatibleValue;
-    }
+        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
 
     private static bool TryGetText(CalcContext ctx, in AnyValue value, out string text, out XLError error)
     {
