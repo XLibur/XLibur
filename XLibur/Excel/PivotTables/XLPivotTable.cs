@@ -203,7 +203,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         // Everything the reader and writer carry between them is copied from the same table they
         // are driven from, so a setting can't be present in the round trip and dropped by copy.
         foreach (var attribute in PivotTableAttributes.All)
-            attribute.Copy(this, newPivotTable);
+            attribute.Copy?.Invoke(this, newPivotTable);
 
         // The table's own compact/outline pair is only the default for fields added later; each
         // pivotField carries its own pair, which is what Excel actually lays the table out from and

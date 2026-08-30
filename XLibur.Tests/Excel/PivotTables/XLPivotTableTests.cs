@@ -154,11 +154,18 @@ public class XLPivotTableTests
 
         var copy = (XLPivotTable)pt.CopyTo(ptSheet.Cell("AB1"));
 
-        foreach (var attribute in PivotTableAttributes.All)
+        foreach (var attribute in PivotTableAttributes.All.Where(a => a.Copy is not null))
         {
             await Assert.That(attribute.GetValue(copy)).IsEqualTo(attribute.GetValue(pt))
                 .Because($"{attribute.Name} must survive CopyTo");
         }
+
+        // The one deliberate exemption: chartFormat is the next free id for the charts pointing at
+        // the source table, and the copy has none of them.
+        await Assert.That(PivotTableAttributes.All.Count(a => a.Copy is null)).IsEqualTo(1)
+            .Because("a new copy exemption needs a reason and an assertion of its own here");
+        await Assert.That(pt.ChartFormat).IsNotEqualTo(0u).Because("the source must differ, or the exemption proves nothing");
+        await Assert.That(copy.ChartFormat).IsEqualTo(0u).Because("a copy has no pivot charts, so its next free chart format id is 0");
 
         await Assert.That(copy.Title).IsEqualTo("Test title").Because("Title copy failure");
         await Assert.That(copy.Description).IsEqualTo("Test description").Because("Description copy failure");

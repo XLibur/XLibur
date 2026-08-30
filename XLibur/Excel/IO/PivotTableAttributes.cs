@@ -16,7 +16,8 @@ namespace XLibur.Excel.IO;
 /// the pivot table's ~60 settings (reader, writer, copy — the fourth, the Excel-defaults
 /// initialiser, is now just the properties' own field initializers, and the fifth was the
 /// hand-written round-trip test). A setting can no longer be present in the writer and missing from
-/// copy, because both consume this same list. <see cref="XLPivotTable.DataPosition"/> and the
+/// copy, because both consume this same list — an attribute is copied unless its row says in so
+/// many words that it must not be. <see cref="XLPivotTable.DataPosition"/> and the
 /// location element's row/column page counts are deliberately not rows here: both are derived from
 /// other state and computed fresh on write rather than round-tripped.
 /// </remarks>
@@ -25,7 +26,14 @@ internal sealed class PivotTableAttribute
     internal required string Name { get; init; }
     internal required Action<XmlWriter, XLPivotTable> Write { get; init; }
     internal required Action<PivotTableDefinition, XLPivotTable> Read { get; init; }
-    internal required Action<XLPivotTable, XLPivotTable> Copy { get; init; }
+
+    /// <summary>
+    /// How the value moves from one pivot table to another in
+    /// <see cref="XLPivotTable.CopyTo"/>, or <c>null</c> for the rare attribute that describes the
+    /// table's relationship to something outside it and so must not follow a copy. Copying is the
+    /// default: a setting the round trip carries should not be silently dropped by a copy.
+    /// </summary>
+    internal required Action<XLPivotTable, XLPivotTable>? Copy { get; init; }
 
     /// <summary>
     /// Test-only accessors: a boxed reader of the current value, and a setter that assigns a
@@ -118,7 +126,11 @@ internal static class PivotTableAttributes
         Bool("gridDropZones", pt => pt.ClassicPivotTableLayout, (pt, v) => pt.ClassicPivotTableLayout = v, false, s => s.GridDropZones),
         Bool("immersive", pt => pt.StopImmersiveUi, (pt, v) => pt.StopImmersiveUi = v, true, s => s.StopImmersiveUi),
         Bool("multipleFieldFilters", pt => pt.AllowMultipleFilters, (pt, v) => pt.AllowMultipleFilters = v, true, s => s.MultipleFieldFilters),
-        UInt("chartFormat", pt => pt.ChartFormat, (pt, v) => pt.ChartFormat = v, 0, s => s.ChartFormat),
+        // Not copied: this is the next free id for the pivot charts pointing at *this* table
+        // through /chartSpace/pivotSource/fmtId/@val. A copy has no chart pointing at it and an
+        // empty XLPivotTable.ChartFormats, so its next free id is 0; carrying the source's counter
+        // over would have the copy claim formats it does not have.
+        UInt("chartFormat", pt => pt.ChartFormat, (pt, v) => pt.ChartFormat = v, 0, s => s.ChartFormat, copy: false),
         OptionalString("rowHeaderCaption", pt => pt.RowHeaderCaption, (pt, v) => pt.RowHeaderCaption = v, s => s.RowHeaderCaption),
         OptionalString("colHeaderCaption", pt => pt.ColumnHeaderCaption, (pt, v) => pt.ColumnHeaderCaption = v, s => s.ColumnHeaderCaption),
         Bool("fieldListSortAscending", pt => pt.SortFieldsAtoZ, (pt, v) => pt.SortFieldsAtoZ = v, false, s => s.FieldListSortAscending),
@@ -196,13 +208,14 @@ internal static class PivotTableAttributes
         string name,
         Func<XLPivotTable, uint> get, Action<XLPivotTable, uint> set,
         uint defaultValue,
-        Func<PivotTableDefinition, UInt32Value?> source)
+        Func<PivotTableDefinition, UInt32Value?> source,
+        bool copy = true)
         => new()
         {
             Name = name,
             Write = (xml, pt) => xml.WriteAttributeDefault(name, get(pt), defaultValue),
             Read = (src, pt) => set(pt, source(src)?.Value ?? defaultValue),
-            Copy = (s, t) => set(t, get(s)),
+            Copy = copy ? (s, t) => set(t, get(s)) : null,
             GetValue = pt => get(pt),
             SetNonDefault = pt => set(pt, defaultValue + 7),
         };
