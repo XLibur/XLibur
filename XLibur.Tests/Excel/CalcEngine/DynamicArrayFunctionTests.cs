@@ -280,6 +280,26 @@ public class DynamicArrayFunctionTests
     }
 
     [Test]
+    public async Task SortBy_TwoSingleCellByArraysStayByArraysWhenTheSortedRangeIsOneRow()
+    {
+        // A one-row sort makes every by_array a 1x1 shape, the same shape a reference-typed order
+        // argument has — the ambiguity SortBy_ReadsOrderFromACellReference's fix has to resolve the
+        // other way for here: B1 is by_array1, and C1 must be read as by_array2, not as an order.
+        // C1's value (2) is deliberately not 1 or -1, so if it were misread as an order the "order
+        // != 1 && order != -1" guard would report #VALUE! instead of silently sorting the one row.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "only-row";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("C1").Value = 2;
+
+            ws.Cell("D1").FormulaA1 = "SORTBY(A1, B1, C1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("only-row");
+        }
+    }
+
+    [Test]
     public async Task Unique_ReadsByColumnFlagFromACellReference()
     {
         var ws = NewSheet(out var wb);
