@@ -22,6 +22,10 @@
 
 - **`IXLSheetView` gains a `FreezePanes` property**, which is source-breaking for anyone implementing that interface outside the library. It is the value that distinguishes a freeze from a split; the declaration already existed in the file, commented out.
 
+#### Pivot tables
+
+- **`IXLPivotTable` gains a `ShowLastColumn` property and its two `SetShowLastColumn` overloads**, which is source- and binary-breaking for anyone implementing that interface outside the library. The setting already existed and already round-tripped; it was simply the one of the five table-style emphasis flags (`ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`, `ShowColumnStripes`) that had never been put on the interface, so it could not be reached through `IXLPivotTable`.
+
 ### ✨ New Features
 
 - **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped.
@@ -33,8 +37,6 @@
 ### 🐛 Bug Fixes
 
 - **A pivot table's "show last column" emphasis no longer follows its column-stripes setting.** The reader read `ShowLastColumn` from the `showColStripes` attribute instead of `showLastColumn`, so the two settings could not vary independently and a round trip could switch the emphasis on or off on its own.
-
-- **`IXLPivotTable.ShowLastColumn` is now public**, alongside its four siblings (`ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`, `ShowColumnStripes`).
 
 - **A pivot table's `Title` and `Description` now survive a save and reload.** Both are public and settable, but were persisted nowhere; a reload always came back with them empty.
 
