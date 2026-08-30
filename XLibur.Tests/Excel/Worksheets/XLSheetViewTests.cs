@@ -1,6 +1,7 @@
 
 using XLibur.Excel;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -107,6 +108,59 @@ public class XLSheetViewTests
         var ws2 = ws1.CopyTo(wb2, "S2");
 
         await Assert.That(ws2.ShowGridLines).IsTrue();
+    }
+
+    /// <summary>
+    /// Sets every property in <see cref="XLViewProperties.All"/> to a non-default value, saves and
+    /// reloads, and checks each one came back. Because the module owns the list, a property added
+    /// later is covered here without a new test being written for it.
+    /// </summary>
+    [Test]
+    public async Task AllViewProperties_survive_save_and_reload()
+    {
+        List<object> expected;
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("S1");
+            foreach (var property in XLViewProperties.All)
+                property.SetNonDefault(ws);
+
+            expected = XLViewProperties.All.Select(property => property.Get(ws)).ToList();
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloadedWorkbook = new XLWorkbook(ms);
+        var reloaded = reloadedWorkbook.Worksheets.First();
+
+        for (var i = 0; i < XLViewProperties.All.Count; i++)
+        {
+            var property = XLViewProperties.All[i];
+            await Assert.That(property.Get(reloaded)).IsEqualTo(expected[i])
+                .Because($"{property.Name} did not survive save/reload");
+        }
+    }
+
+    /// <summary>
+    /// The same property list, this time run against <see cref="XLWorksheet.CopyTo(string)"/>
+    /// instead of a save/reload round trip — the mechanism the spec says must not diverge again.
+    /// </summary>
+    [Test]
+    public async Task AllViewProperties_survive_copy()
+    {
+        using var wb = new XLWorkbook();
+        var ws1 = wb.AddWorksheet("S1");
+        foreach (var property in XLViewProperties.All)
+            property.SetNonDefault(ws1);
+
+        var ws2 = ws1.CopyTo("S2");
+
+        foreach (var property in XLViewProperties.All)
+        {
+            await Assert.That(property.Get(ws2)).IsEqualTo(property.Get(ws1))
+                .Because($"{property.Name} did not survive copy");
+        }
     }
 
     #endregion Spec 38 regressions
