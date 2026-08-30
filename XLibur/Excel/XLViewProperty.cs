@@ -22,7 +22,11 @@ internal readonly record struct XLViewProperty(
     string Default,
     string Polarity,
     Action<IXLWorksheet> SetNonDefault,
-    Func<IXLWorksheet, object> Get);
+    Func<IXLWorksheet, object> Get,
+    // Whether copying a sheet is expected to carry this property onto the copy: true for every
+    // property that describes how the sheet *looks*, false for TabSelected alone, which describes
+    // which tab the user is on and must not be duplicated onto a second sheet.
+    bool SurvivesCopy = true);
 
 internal static class XLViewProperties
 {
@@ -72,7 +76,8 @@ internal static class XLViewProperties
         new(
             "TabSelected", "tabSelected", "false",
             "written (true) when non-default; omitted when default",
-            ws => ws.TabSelected = true, ws => ws.TabSelected),
+            ws => ws.TabSelected = true, ws => ws.TabSelected,
+            SurvivesCopy: false),
         new(
             "TabColor", "sheetPr/tabColor (not on sheetView)", "no colour (XLColor.Automatic)",
             "omitted when the colour has no value; written when it does",

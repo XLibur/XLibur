@@ -84,8 +84,12 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         ShowWhiteSpace = sheetView.ShowWhiteSpace;
         ShowZeros = sheetView.ShowZeros;
         RightToLeft = sheetView.RightToLeft;
-        TabSelected = sheetView.TabSelected;
         TabColor = sheetView.TabColor;
+
+        // TabSelected is deliberately absent. It is the one property here that is selection rather
+        // than appearance: two sheets both carrying tabSelected="1" is how Excel encodes a *group*,
+        // so copying it from a sheet that happened to be the active tab reopens the file with the
+        // two sheets grouped and the next edit applied to both. The copy starts unselected.
     }
 
     public bool FreezePanes { get; set; }

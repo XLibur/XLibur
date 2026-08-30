@@ -3,7 +3,9 @@ using XLibur.Excel;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Worksheets;
@@ -145,6 +147,8 @@ public class XLSheetViewTests
     /// <summary>
     /// The same property list, this time run against <see cref="XLWorksheet.CopyTo(string)"/>
     /// instead of a save/reload round trip — the mechanism the spec says must not diverge again.
+    /// The one property excluded is <c>TabSelected</c>, which is selection rather than appearance;
+    /// <see cref="Copy_does_not_duplicate_the_selected_tab"/> covers it from the other side.
     /// </summary>
     [Test]
     public async Task AllViewProperties_survive_copy()
@@ -156,7 +160,7 @@ public class XLSheetViewTests
 
         var ws2 = ws1.CopyTo("S2");
 
-        foreach (var property in XLViewProperties.All)
+        foreach (var property in XLViewProperties.All.Where(p => p.SurvivesCopy))
         {
             await Assert.That(property.Get(ws2)).IsEqualTo(property.Get(ws1))
                 .Because($"{property.Name} did not survive copy");
@@ -191,6 +195,53 @@ public class XLSheetViewTests
         await Assert.That(ws2.TabColor.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
         await Assert.That(ws2.TabColor.ThemeTint).IsEqualTo(0.25);
         await Assert.That(ws2.TabColor).IsEqualTo(ws1.TabColor);
+    }
+
+    /// <summary>
+    /// Selection is not appearance. <c>tabSelected</c> says "this is the tab the user is looking at",
+    /// and a sheet loaded from a real file carries it on whichever sheet was active when Excel saved.
+    /// Copying that sheet must not hand the copy the same claim: two sheets both carrying
+    /// <c>tabSelected="1"</c> is how Excel encodes a <em>group</em>, so the reopened file shows
+    /// "[Group]" in the title bar and the user's next edit lands on both sheets at once. The copy
+    /// therefore starts unselected, and the source keeps the selection it had.
+    /// </summary>
+    [Test]
+    public async Task Copy_does_not_duplicate_the_selected_tab()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws1 = wb.AddWorksheet("S1");
+            ws1.TabSelected = true;
+
+            var ws2 = ws1.CopyTo("S2");
+
+            await Assert.That(ws2.TabSelected).IsFalse()
+                .Because("the copy must not inherit the source's selection");
+            await Assert.That(ws1.TabSelected).IsTrue()
+                .Because("copying must not deselect the source either");
+
+            wb.SaveAs(ms);
+        }
+
+        // The in-memory assertions above are the mechanism; this is the outcome that matters — a
+        // saved package must never claim two selected tabs.
+        await Assert.That(SelectedTabCount(ms)).IsEqualTo(1);
+    }
+
+    /// <summary>How many worksheet parts in the package carry <c>tabSelected="1"</c>.</summary>
+    private static int SelectedTabCount(MemoryStream package)
+    {
+        package.Position = 0;
+        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
+
+        return archive.Entries
+            .Where(e => e.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase))
+            .Count(e =>
+            {
+                using var reader = new StreamReader(e.Open());
+                return Regex.IsMatch(reader.ReadToEnd(), "\\btabSelected=\"(1|true)\"");
+            });
     }
 
     #endregion Spec 38 regressions
