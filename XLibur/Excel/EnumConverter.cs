@@ -1022,6 +1022,59 @@ internal static class EnumConverter
         _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
     };
 
+    public static PivotTableAxisValues ToOpenXml(this XLPivotAxis value) => value switch
+    {
+        XLPivotAxis.AxisRow => PivotTableAxisValues.AxisRow,
+        XLPivotAxis.AxisCol => PivotTableAxisValues.AxisColumn,
+        XLPivotAxis.AxisPage => PivotTableAxisValues.AxisPage,
+        XLPivotAxis.AxisValues => PivotTableAxisValues.AxisValues,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
+    };
+
+    public static ItemValues ToOpenXml(this XLPivotItemType value) => value switch
+    {
+        XLPivotItemType.Data => ItemValues.Data,
+        XLPivotItemType.Default => ItemValues.Default,
+        XLPivotItemType.Sum => ItemValues.Sum,
+        XLPivotItemType.CountA => ItemValues.CountA,
+        XLPivotItemType.Avg => ItemValues.Average,
+        XLPivotItemType.Max => ItemValues.Maximum,
+        XLPivotItemType.Min => ItemValues.Minimum,
+        XLPivotItemType.Product => ItemValues.Product,
+        XLPivotItemType.Count => ItemValues.Count,
+        XLPivotItemType.StdDev => ItemValues.StandardDeviation,
+        XLPivotItemType.StdDevP => ItemValues.StandardDeviationP,
+        XLPivotItemType.Var => ItemValues.Variance,
+        XLPivotItemType.VarP => ItemValues.VarianceP,
+        XLPivotItemType.Grand => ItemValues.Grand,
+        XLPivotItemType.Blank => ItemValues.Blank,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
+    };
+
+    public static FormatActionValues ToOpenXml(this XLPivotFormatAction value) => value switch
+    {
+        XLPivotFormatAction.Blank => FormatActionValues.Blank,
+        XLPivotFormatAction.Formatting => FormatActionValues.Formatting,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
+    };
+
+    public static ScopeValues ToOpenXml(this XLPivotCfScope value) => value switch
+    {
+        XLPivotCfScope.SelectedCells => ScopeValues.Selection,
+        XLPivotCfScope.DataFields => ScopeValues.Data,
+        XLPivotCfScope.FieldIntersections => ScopeValues.Field,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
+    };
+
+    public static RuleValues ToOpenXml(this XLPivotCfRuleType value) => value switch
+    {
+        XLPivotCfRuleType.None => RuleValues.None,
+        XLPivotCfRuleType.All => RuleValues.All,
+        XLPivotCfRuleType.Row => RuleValues.Row,
+        XLPivotCfRuleType.Column => RuleValues.Column,
+        _ => throw new ArgumentOutOfRangeException(nameof(value), NotImplementedValue),
+    };
+
     public static X14.DataBarAxisPositionValues ToOpenXml(this XLDataBarAxisPosition value)
     {
         if (value == XLDataBarAxisPosition.Automatic) return X14.DataBarAxisPositionValues.Automatic;
