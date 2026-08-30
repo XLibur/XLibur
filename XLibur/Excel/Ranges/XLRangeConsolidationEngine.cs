@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 
@@ -121,14 +122,13 @@ internal sealed class XLRangeConsolidationEngine
 
         #region Private Methods
 
-        private void AddToBitMatrix(IXLRangeAddress rangeAddress)
+        private void AddToBitMatrix(Area area)
         {
             var rows = _bitMatrix.Keys
-                .Where(k => k >= rangeAddress.FirstAddress.RowNumber &&
-                            k <= rangeAddress.LastAddress.RowNumber);
+                .Where(k => k >= area.TopRow && k <= area.BottomRow);
 
-            var minIndex = rangeAddress.FirstAddress.ColumnNumber - _minColumn + 1;
-            var maxIndex = rangeAddress.LastAddress.ColumnNumber - _minColumn + 1;
+            var minIndex = area.LeftColumn - _minColumn + 1;
+            var maxIndex = area.RightColumn - _minColumn + 1;
 
             foreach (var rowNum in rows)
             {
@@ -151,7 +151,7 @@ internal sealed class XLRangeConsolidationEngine
         {
             foreach (var range in ranges)
             {
-                AddToBitMatrix(range.RangeAddress);
+                AddToBitMatrix(Area.FromRangeAddress(range.RangeAddress));
             }
 
             Debug.Assert(
@@ -175,18 +175,18 @@ internal sealed class XLRangeConsolidationEngine
             _bitMatrix = new Dictionary<int, BitArray>();
             foreach (var range in ranges)
             {
-                var address = range.RangeAddress;
-                _minColumn = (_minColumn <= address.FirstAddress.ColumnNumber)
+                var area = Area.FromRangeAddress(range.RangeAddress);
+                _minColumn = (_minColumn <= area.LeftColumn)
                     ? _minColumn
-                    : address.FirstAddress.ColumnNumber;
-                _maxColumn = (_maxColumn >= address.LastAddress.ColumnNumber)
+                    : area.LeftColumn;
+                _maxColumn = (_maxColumn >= area.RightColumn)
                     ? _maxColumn
-                    : address.LastAddress.ColumnNumber;
+                    : area.RightColumn;
 
-                _bitMatrix.TryAdd(address.FirstAddress.RowNumber, null!);
-                _bitMatrix.TryAdd(address.LastAddress.RowNumber, null!);
-                if (!_bitMatrix.ContainsKey(address.LastAddress.RowNumber + 1))
-                    _bitMatrix.Add(address.LastAddress.RowNumber + 1, null!);
+                _bitMatrix.TryAdd(area.TopRow, null!);
+                _bitMatrix.TryAdd(area.BottomRow, null!);
+                if (!_bitMatrix.ContainsKey(area.BottomRow + 1))
+                    _bitMatrix.Add(area.BottomRow + 1, null!);
             }
 
             var keys = _bitMatrix.Keys.ToList();
