@@ -247,6 +247,102 @@ internal class DirtyPropagationTests
 
     #endregion
 
+    #region Graph-shape tests (chain covered above; diamond, cross-sheet, cycle here)
+
+    /// <summary>
+    /// The interfered-with cell (B1) sits mid-arm, one hop before the join (D1). D1 is reachable
+    /// through the OTHER arm (C1) regardless of what happens to B1's arm, so a naive diamond test
+    /// that only checks the join can pass even with the defect present — the join gets lucky via
+    /// its unaffected route. B2, which is downstream of B1 on the SAME arm and has no other route
+    /// to the root, is where the defect actually shows: nothing else can reach it if the walk
+    /// stops at B1.
+    /// </summary>
+    [Test]
+    public async Task Diamond_shaped_graph_recalculates_every_path_despite_interference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = BuildDiamond(wb);
+
+        ws.Cell("B1").InvalidateFormula(); // mid-arm, one hop before the join
+        ws.Cell("A1").Value = 10;
+
+        await AssertDiamond(ws, a1: 10, b1: 11, b2: 12, c1: 12, d1: 24);
+    }
+
+    [Test]
+    public async Task Diamond_shaped_graph_control_without_interference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = BuildDiamond(wb);
+
+        ws.Cell("A1").Value = 10;
+
+        await AssertDiamond(ws, a1: 10, b1: 11, b2: 12, c1: 12, d1: 24);
+    }
+
+    [Test]
+    public async Task Cross_sheet_chain_recalculates_despite_interference()
+    {
+        using var wb = new XLWorkbook();
+        var (sheet1, sheet2) = BuildCrossSheetChain(wb);
+
+        sheet2.Cell("B1").InvalidateFormula(); // intermediate node, lives on Sheet2
+        sheet1.Cell("A1").Value = 10;
+
+        await AssertCrossSheetChain(sheet1, sheet2, a1: 10, b1: 11, c1: 12, d1: 13);
+    }
+
+    [Test]
+    public async Task Cross_sheet_chain_control_without_interference()
+    {
+        using var wb = new XLWorkbook();
+        var (sheet1, sheet2) = BuildCrossSheetChain(wb);
+
+        sheet1.Cell("A1").Value = 10;
+
+        await AssertCrossSheetChain(sheet1, sheet2, a1: 10, b1: 11, c1: 12, d1: 13);
+    }
+
+    [Test]
+    public async Task Cycle_with_externally_dirtied_node_still_reaches_tail()
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        AddFormula(tree, ws, "B1", "=D1 + A1");
+        AddFormula(tree, ws, "C1", "=B1");
+        AddFormula(tree, ws, "D1", "=C1"); // B1 -> C1 -> D1 -> B1 is a cycle
+        AddFormula(tree, ws, "E1", "=D1"); // tail hanging off the cycle
+
+        // A node inside the cycle is already dirty for a reason unrelated to this walk (as
+        // InvalidateFormula would do) before the walk even starts.
+        ((XLCell)ws.Cell("C1")).Formula!.MarkExplicitlyDirty();
+
+        MarkDirty(tree, ws, "A1");
+
+        await AssertDirty(ws, "B1", "C1", "D1", "E1");
+    }
+
+    [Test]
+    public async Task Cycle_control_without_interference()
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        AddFormula(tree, ws, "B1", "=D1 + A1");
+        AddFormula(tree, ws, "C1", "=B1");
+        AddFormula(tree, ws, "D1", "=C1");
+        AddFormula(tree, ws, "E1", "=D1");
+
+        MarkDirty(tree, ws, "A1");
+
+        await AssertDirty(ws, "B1", "C1", "D1", "E1");
+    }
+
+    #endregion
+
     #region Helpers
 
     private static IXLWorksheet BuildChain(XLWorkbook wb, string sheetName = "Sheet1", bool intermediateReferencesOwnSheetByName = false)
@@ -281,6 +377,54 @@ internal class DirtyPropagationTests
         await Assert.That((double)ws.Cell("B1").Value).IsEqualTo(b1);
         await Assert.That((double)ws.Cell("C1").Value).IsEqualTo(c1);
         await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(d1);
+    }
+
+    /// <summary>
+    /// A1 feeds two arms that join at D1: a two-hop arm A1 -> B1 -> B2 -> D1, and a one-hop arm
+    /// A1 -> C1 -> D1.
+    /// </summary>
+    private static IXLWorksheet BuildDiamond(XLWorkbook wb)
+    {
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = 1;
+        ws.Cell("B1").FormulaA1 = "A1+1";
+        ws.Cell("B2").FormulaA1 = "B1+1";
+        ws.Cell("C1").FormulaA1 = "A1+2";
+        ws.Cell("D1").FormulaA1 = "B2+C1";
+
+        ForceEvaluation(ws).GetAwaiter().GetResult();
+        return ws;
+    }
+
+    private static (IXLWorksheet Sheet1, IXLWorksheet Sheet2) BuildCrossSheetChain(XLWorkbook wb)
+    {
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet1.Cell("A1").Value = 1;
+        sheet2.Cell("B1").FormulaA1 = "Sheet1!A1+1";
+        sheet1.Cell("C1").FormulaA1 = "Sheet2!B1+1";
+        sheet2.Cell("D1").FormulaA1 = "Sheet1!C1+1";
+
+        ForceEvaluation(sheet1).GetAwaiter().GetResult();
+        ForceEvaluation(sheet2).GetAwaiter().GetResult();
+        return (sheet1, sheet2);
+    }
+
+    private static async Task AssertDiamond(IXLWorksheet ws, double a1, double b1, double b2, double c1, double d1)
+    {
+        await Assert.That((double)ws.Cell("A1").Value).IsEqualTo(a1);
+        await Assert.That((double)ws.Cell("B1").Value).IsEqualTo(b1);
+        await Assert.That((double)ws.Cell("B2").Value).IsEqualTo(b2);
+        await Assert.That((double)ws.Cell("C1").Value).IsEqualTo(c1);
+        await Assert.That((double)ws.Cell("D1").Value).IsEqualTo(d1);
+    }
+
+    private static async Task AssertCrossSheetChain(IXLWorksheet sheet1, IXLWorksheet sheet2, double a1, double b1, double c1, double d1)
+    {
+        await Assert.That((double)sheet1.Cell("A1").Value).IsEqualTo(a1);
+        await Assert.That((double)sheet2.Cell("B1").Value).IsEqualTo(b1);
+        await Assert.That((double)sheet1.Cell("C1").Value).IsEqualTo(c1);
+        await Assert.That((double)sheet2.Cell("D1").Value).IsEqualTo(d1);
     }
 
     private static XLCellFormula AddFormula(DependencyTree tree, IXLWorksheet sheet, string address, string formula)
