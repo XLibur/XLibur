@@ -24,8 +24,13 @@ internal static class PivotTableDefinitionPartWriter2
     /// The OOXML attribute string for a strongly-typed OpenXml enum value, via the shared
     /// <see cref="EnumConverter"/> rather than a private string table of the writer's own.
     /// </summary>
-    private static string ToAttr<T>(T value) where T : struct, IEnumValue, IEnumValueFactory<T>
-        => new EnumValue<T>(value).InnerText!;
+    /// <remarks>
+    /// Reads the string straight off the enum struct rather than wrapping it in an
+    /// <c>EnumValue&lt;T&gt;</c> first. The wrapper allocates, and this runs once per axis item and
+    /// once per pivot field item — tens of thousands of times on a large table's save.
+    /// </remarks>
+    private static string ToAttr<T>(T value) where T : struct, IEnumValue
+        => value.Value;
 
     internal static void WriteContent(PivotTablePart pivotTablePart, XLPivotTable pt, SaveContext context)
     {
