@@ -45,6 +45,14 @@ internal sealed class XLCellFormula
     private long _evalEpoch;
 
     /// <summary>
+    /// The id of the last <see cref="DependencyTree.MarkDirty"/> walk that enqueued this formula,
+    /// or <c>0</c> if none has. Distinct from <see cref="_evalEpoch"/>: this tracks whether the
+    /// current walk has already visited the formula, regardless of whether it is dirty for some
+    /// other reason (see <see cref="TryVisit"/>).
+    /// </summary>
+    private long _visitedByWalk;
+
+    /// <summary>
     /// Lazily allocated holder for fields used only by Array/DataTable formulas
     /// (Range, Input1, Input2). Null for Normal formulas — saves ~32 bytes per
     /// instance on the dominant case where most cells in a workbook are non-array.
@@ -86,11 +94,19 @@ internal sealed class XLCellFormula
     internal void MarkExplicitlyDirty() => _evalEpoch = 0;
 
     /// <summary>
-    /// True if the formula is in the explicitly-dirty state (epoch <c>0</c>). Used
-    /// by dependency-tree cycle detection to avoid revisiting a formula already
-    /// flagged in the current MarkDirty walk.
+    /// Records that <paramref name="walkId"/>'s <see cref="DependencyTree.MarkDirty"/> walk has
+    /// enqueued this formula, so it can be skipped if the same walk reaches it again (a diamond
+    /// shape, or a cycle). Returns <c>false</c> when this walk already visited it; <c>true</c> the
+    /// first time, including when the formula is already dirty for an unrelated reason.
     /// </summary>
-    internal bool IsExplicitlyDirty => _evalEpoch == 0;
+    internal bool TryVisit(long walkId)
+    {
+        if (_visitedByWalk == walkId)
+            return false;
+
+        _visitedByWalk = walkId;
+        return true;
+    }
 
     /// <summary>
     /// Formula in A1 notation. Doesn't start with <c>=</c> sign.

@@ -17,6 +17,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //               model, optionally taking a row count
     //   structural  the cost of repeated row inserts split into its range-shift and
     //               formula-shift halves
+    //   bulkedit    the dependency-tree MarkDirty walk's cost on repeated single-cell value
+    //               writes, with and without dependents to walk
     //   template    the open->edit->save round trip of an existing workbook, split into parse
     //               and serialise; optionally takes a path to a real .xlsx template
     // Every other mode attaches dotMemory and targets the load path.
@@ -40,6 +42,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         DirtyFormulaReadProfile.Run();
     else if (args.Length > 1 && args[1].Equals("hyperlinks", StringComparison.OrdinalIgnoreCase))
         HyperlinkScalingProfile.Run();
+    else if (args.Length > 1 && args[1].Equals("bulkedit", StringComparison.OrdinalIgnoreCase))
+        BulkEditDirtyWalkProfile.Run();
     else
         MemoryProfile.Run(args);
 

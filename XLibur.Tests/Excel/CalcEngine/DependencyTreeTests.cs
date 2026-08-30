@@ -227,8 +227,14 @@ internal class DependencyTreeTests
         await AssertNotDirty(ws2, "B1", "D1");
     }
 
+    /// <summary>
+    /// Spec 40: a formula already dirty for a reason unrelated to this walk (the same primitive
+    /// <c>InvalidateFormula</c>, a sheet rename or a reference shift use) must still be traversed,
+    /// so anything downstream of it is reached. Before that fix, the walk used "already dirty" as
+    /// its own "already visited" marker and stopped at A3, leaving A4 stale.
+    /// </summary>
     [Test]
-    public async Task Mark_dirty_stops_at_dirty_cell()
+    public async Task Mark_dirty_continues_through_a_cell_already_dirty_for_an_unrelated_reason()
     {
         using var wb = new XLWorkbook();
         var tree = new DependencyTree();
@@ -238,12 +244,12 @@ internal class DependencyTreeTests
         AddFormula(tree, ws, "A3", "=A2");
         AddFormula(tree, ws, "A4", "=A3");
 
-        // Mark the middle one dirty, but A4 is still clear
+        // Simulate an external dirtier (e.g. InvalidateFormula) marking the middle cell dirty
+        // before this walk starts.
         ((XLCell)ws.Cell("A3")).Formula!.MarkExplicitlyDirty();
 
         MarkDirty(tree, ws, "A1");
-        await AssertDirty(ws, "A2", "A3");
-        await AssertNotDirty(ws, "A4"); // Propagation stopped at the dirty cell A3.
+        await AssertDirty(ws, "A2", "A3", "A4");
     }
 
     [Test]
