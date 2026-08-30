@@ -286,18 +286,18 @@ public class DynamicArrayFunctionTests
         using (wb)
         {
             ws.Cell("A1").Value = 1;
-            ws.Cell("B1").Value = 2;
-            ws.Cell("A2").Value = 1;
-            ws.Cell("B2").Value = 2;
-            ws.Cell("A3").Value = 3;
-            ws.Cell("B3").Value = 4;
-            ws.Cell("F1").Value = true; // by_col.
+            ws.Cell("B1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("B2").Value = 3;
+            ws.Cell("H1").Value = true; // by_col.
 
-            // Columns A and B repeat once (1,2) and then differ (3,4), so by-column UNIQUE keeps
-            // all three columns.
-            ws.Range("D1:F3").FormulaArrayA1 = "UNIQUE(A1:C3, F1)";
+            // Columns A and B differ (row 1 is 1,1 but row 2 is 2,3), so by-column UNIQUE keeps
+            // both columns.
+            ws.Range("D1:E2").FormulaArrayA1 = "UNIQUE(A1:B2, H1)";
             await Assert.That(ws.Cell("D1").Value).IsEqualTo(1);
-            await Assert.That(ws.Cell("E1").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo(3);
         }
     }
 

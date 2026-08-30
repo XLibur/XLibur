@@ -532,7 +532,11 @@ internal static class DynamicArray
             i++;
 
             var order = 1;
-            if (i < args.Length && args[i].TryPickScalar(out _, out _))
+            // A following argument is the order for this key when it is 1x1-shaped — a literal, a
+            // one-cell array or a single-cell reference — rather than the (Height x 1) shape a
+            // by_array needs. Checking the shape, not IsScalarType, is what lets a single-cell
+            // reference be recognised as the order instead of being mistaken for a new by_array.
+            if (i < args.Length && args[i].GetArraySize() is (1, 1))
             {
                 if (!TryIntArg(ctx, args[i], out order, out var orderError))
                     return orderError;
@@ -770,12 +774,7 @@ internal static class DynamicArray
         => transposed ? new TransposedArray(array) : array;
 
     private static bool TryScalarArg(CalcContext ctx, in AnyValue arg, out ScalarValue scalar)
-    {
-        if (arg.TryPickScalar(out scalar, out _))
-            return true;
-
-        return arg.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _);
-    }
+        => arg.TryReduceToScalar(ctx, out scalar, out _);
 
     private static bool TryNumberArg(CalcContext ctx, in AnyValue arg, out double number, out XLError error)
     {

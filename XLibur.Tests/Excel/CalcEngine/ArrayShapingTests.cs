@@ -666,8 +666,8 @@ public class ArrayShapingTests
         using (wb)
         {
             SeedGrid(ws);
-            ws.Cell("J1").Value = true;
-            ws.Range("E1:J1").FormulaArrayA1 = "TOROW(A1:C2, 0, J1)";
+            ws.Cell("L1").Value = true;
+            ws.Range("E1:J1").FormulaArrayA1 = "TOROW(A1:C2, 0, L1)";
 
             // Column order over 1 2 3 / 4 5 6 is 1 4 2 5 3 6.
             var expected = new[] { 1d, 4d, 2d, 5d, 3d, 6d };
