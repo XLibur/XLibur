@@ -48,14 +48,14 @@ where a fixture can only be authored by the library, the input that breaks it ca
 
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
-| [36](36-one-normalised-rectangle.md) | One rectangle, normalised once | M | — | 🟩 **Implemented** on `task/36` (`80a5b77a`, 15 commits; green on both TFMs at head — net8.0 14,268 verified by the orchestrator); not yet merged. Residual class recorded as D24. See Results |
-| [37](37-scalar-argument-reduction.md) | One way to reduce an argument to a scalar | M | — (**must precede 32**) | 🟩 **Implemented** on `task/37` (`42bf46f8`, 13 commits, 14,285 green ×2 TFMs); not yet merged. See Results |
-| [38](38-sheet-view-state.md) | Sheet view state gets one module | M | — (**conflicts with 31**) | 🟩 **Implemented** on `task/38` (`ba9af10d`, 11 commits, 28,516 green ×2 TFMs); not yet merged. Inverted-polarity premise disproved. See Results |
-| [39](39-pivot-definition-attribute-table.md) | One attribute table for the pivot definition | M–L | — | 🟩 **Implemented** on `task/39` (`d5d73267`, 14 commits; 28,526 green ×2 TFMs at `f78a2fe8` verified by the orchestrator, net10.0 green at head after the owner's review pass); not yet merged. Eight golden fixtures regenerated. PR must be `feat!`/`fix!`: `ShowLastColumn` on `IXLPivotTable` breaks external implementers |
-| [40](40-dirty-versus-visited.md) | The dirty flag stops doubling as a visited marker | S–M | — | 🟩 **Implemented** on `task/40` (`9a070669`, 9 commits, 14,265 green ×2 TFMs); not yet merged. **One open decision**: 4×/17× cost on the unsettled bulk-edit shape, accepted for correctness — see Results |
+| [36](36-one-normalised-rectangle.md) | One rectangle, normalised once | M | — | ✅ **Merged** ([#419](https://github.com/XLibur/XLibur/pull/419), squash `9e0587e1`, 2026-08-31). A 4th pass closed the `Reference.cs` lead. Residual class D24. See Results |
+| [37](37-scalar-argument-reduction.md) | One way to reduce an argument to a scalar | M | — (**must precede 32**) | ✅ **Merged** ([#421](https://github.com/XLibur/XLibur/pull/421), squash `b1871e9e`, 2026-08-31). See Results |
+| [38](38-sheet-view-state.md) | Sheet view state gets one module | M | — (**conflicts with 31**) | ✅ **Merged** ([#422](https://github.com/XLibur/XLibur/pull/422), squash `54ffb8d3`, 2026-08-31). Inverted-polarity premise disproved; also fixed the swapped Page Layout / Page Break Preview zoom slots. See Results |
+| [39](39-pivot-definition-attribute-table.md) | One attribute table for the pivot definition | M–L | — | ✅ **Merged** ([#420](https://github.com/XLibur/XLibur/pull/420), squash `81c515c7`, 2026-08-31, **breaking** — `ShowLastColumn` on `IXLPivotTable`). Eight golden fixtures regenerated. See Results |
+| [40](40-dirty-versus-visited.md) | The dirty flag stops doubling as a visited marker | S–M | — | ✅ **Merged** ([#418](https://github.com/XLibur/XLibur/pull/418), squash `2c7150c7`, 2026-08-31). The unsettled bulk-edit cost shipped and is documented in the CHANGELOG entry; a sound cross-call skip (`_dirtiedByWalk`) remains a follow-up. See Results |
 | [41](41-pivot-cache-value-codec.md) | One codec for a pivot cache value | M | — | ⬜ Ready |
-| [42](42-formula-write-invalidation.md) | One formula write path, and it invalidates | S–M | soft: 40 (implemented, unmerged — branch off `task/40` or wait for its merge); **takes D26** | ⬜ Ready |
-| [43](43-spill-aware-cell-read.md) | Reading a cell is spill-aware, once | M | soft: 40 (implemented, unmerged), 42 | ⬜ Ready |
+| [42](42-formula-write-invalidation.md) | One formula write path, and it invalidates | S–M | soft: 40 ✅ merged (#418); **takes D26** | ⬜ Ready |
+| [43](43-spill-aware-cell-read.md) | Reading a cell is spill-aware, once | M | soft: 40 ✅ merged (#418), 42 | ⬜ Ready |
 | [44](44-data-validation-mapping.md) | Data validation: one mapping, two adapters | M | — (**conflicts with 48/49**) | ⬜ Ready |
 | [45](45-text-codec-at-the-seam.md) | The text codec applies at the seam | **S** | — (**conflicts with 31**) | ⬜ Ready |
 | [46](46-table-part-reader.md) | The table part gets a reader | M | — | ⬜ Ready |
@@ -63,7 +63,7 @@ where a fixture can only be authored by the library, the input that breaks it ca
 | [48](48-conditional-format-defects.md) | Conditional format defects | S–M | — (**before 49**) | ⬜ Ready |
 | [49](49-conditional-format-value-object.md) | One conditional format value object | M–L | **48** | ⬜ Blocked |
 | [50](50-intersection-one-convention.md) | One `Intersection`, one absence convention | **S** | soft: 36 | ⬜ Ready |
-| [51](51-one-consolidation-engine.md) | One consolidation engine, two adapters | S–M | **36** (implemented, unmerged — unblocks on merge) | ⬜ Blocked |
+| [51](51-one-consolidation-engine.md) | One consolidation engine, two adapters | S–M | 36 ✅ merged (#419) | ⬜ **Now ready** |
 
 ## 2. Dependency graph
 

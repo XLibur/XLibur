@@ -4,7 +4,7 @@
 **Effort:** M–L (~6–8 days)
 **Dependencies:** None hard. Shares no file with spec 35, which is complete. Fold in the pivot
 write-path enum duplication noted below.
-**Status:** 🟩 Implemented on `task/39` (2026-08-30), unmerged — see Results. From the 2026-08-30 architecture review (round 3).
+**Status:** ✅ Merged — [#420](https://github.com/XLibur/XLibur/pull/420) (**breaking**, squash `81c515c7`, 2026-08-31). From the 2026-08-30 architecture review (round 3). See Results.
 
 ## Problem Statement
 
@@ -223,7 +223,7 @@ The other seven were not individually diffed; a reviewer should spot-check the t
 (`PivotTables.xlsx`, `PivotSubtotalsSource/output.xlsx`), which should show the x14 alt-text and/or
 `dataPosition` changes and nothing else.
 
-**Owner's review pass, 2026-08-30 evening — committed as `5e3a0a27`, `27f54e6a`, `d5d73267` (head `d5d73267`, 14 commits).** Four `/code-review` findings: (1)
+**Owner's review pass, 2026-08-30 evening — committed as `5e3a0a27`, `27f54e6a`, `d5d73267`.** PR [#420](https://github.com/XLibur/XLibur/pull/420) opened 2026-08-31 at head `2088efc0` (16 commits, one further regression test; suite 28,528 per TFM at head). The PR body records that the regenerated fixture set carries package-metadata churn (`.psmdcp` rename, `_rels/.rels`) from being resaved. Four `/code-review` findings: (1)
 `CopyTo` copied the table-level layout but not each field's Compact/Outline pair — now copied
 per field, since fields in a loaded file can legitimately differ; test
 `CopyTo_carries_the_layout_of_every_pivot_field_not_just_the_table`, shown to fail with one line
@@ -241,3 +241,8 @@ future silent exemption fails. Suite green on net10.0 across all four projects a
 should mirror the shape for the cache. Spec 38 built the same shape for sheet view; the two should be
 read together as the round's pattern. `CHANGELOG.md` carries five `### Fixed` entries under
 `## Unreleased`.
+
+**Merged 2026-08-31** as [#420](https://github.com/XLibur/XLibur/pull/420) (squash `81c515c7`,
+branch tip `2088efc0`). The merged CHANGELOG refines the copy numbers: the hand-written list carried
+29 of the definition's 65 attributes and dropped 36; 35 are now copied and `chartFormat` is the one
+deliberate, documented exemption.

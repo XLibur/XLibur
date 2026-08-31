@@ -4,7 +4,7 @@
 **Effort:** M (~5–6 days)
 **Dependencies:** None hard. **Should land before spec 51** — the consolidation engines' only live
 divergence is the one this spec removes.
-**Status:** 🟩 Implemented on `task/36` (2026-08-30), unmerged — see Results. From the 2026-08-30 architecture review (round 3).
+**Status:** ✅ Merged — [#419](https://github.com/XLibur/XLibur/pull/419) (squash `9e0587e1`, 2026-08-31). From the 2026-08-30 architecture review (round 3). See Results.
 
 ## Problem Statement
 
@@ -232,3 +232,14 @@ shifters and `XLAutoFilter`/`XLWorkbook_Load` is unverified.
 any new consumer reads `Area`/`SheetRange` bounds, never `RangeAddress.FirstAddress`/`LastAddress`.
 Spec 51 now receives normalised input to both consolidation engines. Spec 50 (`Intersection`) should
 build on `Area`. D24 is the follow-on spec.
+
+**Fourth pass and merge, 2026-08-31.** `cb59de68` closed the `Reference.cs` lead named above:
+`Reference`'s constructors now normalise each area on the way in instead of refusing un-normalised
+input — its own internals assumed the invariant (`GetCellsValues` iterates first-to-last and yields
+nothing for a reversed area; `Apply` hung its rectangle off the wrong corner), so a caller would have
+got a silently wrong formula result, not an exception. `TablePartWriter` now takes its `ST_Ref` from
+the normalised address rather than the rectangle, keeping both corners and keeping `#REF!` rendering
+for a destroyed table address — hardening, not a reachable defect. **Merged as
+[#419](https://github.com/XLibur/XLibur/pull/419) (squash `9e0587e1`), the last of the five round-3
+wave-1 PRs** (branch tip `cdaf40f5`). The `Reference.cs` item in the D24 lead list is closed; the
+rest of D24 stands.

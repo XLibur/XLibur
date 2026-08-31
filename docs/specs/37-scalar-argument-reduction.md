@@ -5,7 +5,7 @@
 **Dependencies:** None hard. File-disjoint from spec 30, which owns the function-definition array
 path. **Must land before spec 32** — 32 rewrites 411 registrations across the same function families
 and would collide head-on.
-**Status:** 🟩 Implemented on `task/37` (2026-08-30), unmerged — see Results. From the 2026-08-30 architecture review (round 3).
+**Status:** ✅ Merged — [#421](https://github.com/XLibur/XLibur/pull/421) (squash `b1871e9e`, 2026-08-31). From the 2026-08-30 architecture review (round 3). See Results.
 
 ## Problem Statement
 
@@ -172,7 +172,7 @@ All the wrong answers above were reproduced against a scratch build before this 
 ## Results
 
 **Implemented 2026-08-30 on `task/37` (worktree `xl-wt-37`), head `42bf46f8`,
-13 commits, cut from `upstream/main` `37c986bb`. Not yet pushed or merged.** Full suite green on
+13 commits, cut from `upstream/main` `37c986bb`; PR [#421](https://github.com/XLibur/XLibur/pull/421) opened 2026-08-31 at head `43f2ddf9` (15 commits — two pinning tests added by the owner's review pass, suite 14,287 per TFM, 40 new tests).** Full suite green on
 both TFMs: 14,285 total, 14,280 passed, 5 pre-existing skips, per TFM.
 
 **What the spec predicted that turned out wrong.**
@@ -219,3 +219,7 @@ census came from targeted greps, not an end-to-end read of `Functions/`.
 rebase onto this branch; every scalar slot now has a reference-argument test that will notice if a
 rewrite regresses it. Spec 30's per-element array application should call `TryReduceToScalar` rather
 than reintroduce a ladder.
+
+**Merged 2026-08-31** as [#421](https://github.com/XLibur/XLibur/pull/421) (squash `b1871e9e`).
+Spec 32 now waits only on spec 30; any branch cut before this merge rebases with
+`--onto upstream/main 37c986bb`.

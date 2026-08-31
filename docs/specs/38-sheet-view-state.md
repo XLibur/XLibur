@@ -3,7 +3,7 @@
 **Area:** Architecture · **Defect (4 shipped)**
 **Effort:** M (~4–5 days)
 **Dependencies:** None. Checked against specs 29 and 31 — neither claims these properties.
-**Status:** 🟩 Implemented on `task/38` (2026-08-30), unmerged — see Results. From the 2026-08-30 architecture review (round 3).
+**Status:** ✅ Merged — [#422](https://github.com/XLibur/XLibur/pull/422) (squash `54ffb8d3`, 2026-08-31). From the 2026-08-30 architecture review (round 3). See Results.
 
 ## Problem Statement
 
@@ -158,7 +158,7 @@ was verified directly against the reader and writer while writing this spec.
 ## Results
 
 **Implemented 2026-08-30 on `task/38` (worktree `xl-wt-38`), head `ba9af10d`, 11 commits, cut from
-`upstream/main` `37c986bb`. Not yet pushed or merged.** Full suite green on both TFMs: 28,516 total,
+`upstream/main` `37c986bb`; PR [#422](https://github.com/XLibur/XLibur/pull/422) opened 2026-08-31 at head `c18b1d2c` (15 commits). The owner's review pass added: `XLViewProperty.All` moved into the test project (`165163e2` — nothing in `XLibur/` read it), a fix so an unknown `sheetView/@view` value no longer fails the load (`b2dd1ce5`), a changelog fold (`6ef12602`); suite at head 28,524 per TFM.** Full suite green on both TFMs: 28,516 total,
 0 failed, 10 pre-existing skips. `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` untouched.
 
 **Named regression tests** (`XLSheetViewTests.cs`, all seen red at `286920d0`): `Copy_loses_gridlines`,
@@ -197,3 +197,9 @@ cover; whether streaming *should* emit them is spec 31's §5.1 question.
 **What the next consumer inherits.** Spec 31 rebases onto a `SheetViewWriter` whose flag emission
 reads from `XLSheetView`, and inherits `SheetViewDefaultPolarityTests` as a byte gate for the
 sheet-view element. Spec 29's pane resolver is untouched.
+
+**Merged 2026-08-31** as [#422](https://github.com/XLibur/XLibur/pull/422) (squash `54ffb8d3`,
+branch tip `3f000bc5`). The merged CHANGELOG shows the PR also fixed the **swapped Page Layout /
+Page Break Preview zoom mirrors** (`ZoomScale` wrote each view's zoom onto the other named scale —
+reachable from a file for the first time once `@view` is read on load): the exact defect class this
+spec predicted the module would surface. Spec 31 rebases onto the merged sheet-view writer.
