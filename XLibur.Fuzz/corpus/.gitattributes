@@ -1,0 +1,4 @@
+# Seed corpus files are fuzzer input, not source. The repository checks source out as CRLF
+# (`* text=auto eol=crlf` at the root), which would rewrite a seed's bytes and change the input
+# it represents — silently, and differently on different machines. Every byte here is meant.
+* -text
