@@ -66,10 +66,20 @@ internal static class WorkbookPackageGenerator
     /// </summary>
     private const int HostileOdds = 8;
 
-    /// <summary>Whether this particular field should take its hostile shape.</summary>
+    /// <summary>
+    /// Whether this particular field should take its hostile shape.
+    ///
+    /// The comparison is against the <em>last</em> value in the range rather than zero, and that
+    /// matters more than it looks. <see cref="FuzzBytes"/> returns zero once the input is spent,
+    /// so a comparison against zero makes an empty or short input the <em>most</em> hostile
+    /// package the generator can build — every field broken at once. libFuzzer tries the empty
+    /// input first, so the very first execution of every run produced a workbook with no loadable
+    /// sheet at all. The degenerate input should describe the ordinary workbook, not the worst
+    /// one.
+    /// </summary>
     private static bool Hostile(FuzzBytes input)
     {
-        return input.Int(0, HostileOdds - 1) == 0;
+        return input.Int(0, HostileOdds - 1) == HostileOdds - 1;
     }
 
     public static byte[] Generate(FuzzBytes input)
@@ -180,9 +190,16 @@ internal static class WorkbookPackageGenerator
         {
             // The relationship id either names the sheet's own part, or names nothing at all.
             // A dangling r:id is the single most likely shape to be mishandled, because the
-            // happy path never produces one — and, until D28 is fixed, it also ends the load
-            // before anything else in the package is read. Hence the low frequency.
-            var relationshipId = Hostile(input) ? $"rIdMissing{input.Int(0, 9)}" : sheet.RelationshipId;
+            // happy path never produces one.
+            //
+            // The first sheet always keeps a valid one. A workbook where *every* sheet is
+            // unloadable cannot be saved at all (D31, open), so generating one ends the run on a
+            // defect that is already recorded and hides everything behind it. Guaranteeing one
+            // loadable sheet keeps dangling ids in play while leaving the workbook saveable.
+            var mayDangle = sheet.Ordinal > 1;
+            var relationshipId = mayDangle && Hostile(input)
+                ? $"rIdMissing{input.Int(0, 9)}"
+                : sheet.RelationshipId;
 
             // Sheet ids that collide, and ids outside the range Excel writes.
             var sheetId = Hostile(input) ? input.Pick(0, 1, int.MaxValue) : sheet.Ordinal;

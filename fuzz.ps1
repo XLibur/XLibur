@@ -190,4 +190,33 @@ if ($Target -eq 'workbook') { $arguments += '-max_len=1048576' } else { $argumen
 if ($LibFuzzerArgument) { $arguments += $LibFuzzerArgument }
 $arguments += $corpusPath
 
-Invoke-Native $libFuzzerPath $arguments
+if ($MaxTotalTime -le 0) {
+    Invoke-Native $libFuzzerPath $arguments
+    return
+}
+
+# Watchdog. If the harness fails during startup -- which it will if instrumented XLibur code runs
+# before Fuzzer.LibFuzzer.Run has allocated SharpFuzz's trace buffer -- libFuzzer notices only an
+# exit code and then waits forever for a target that is already gone. It ignores its own
+# -max_total_time in that state. One such run sat for 25 minutes on a 600-second budget, produced
+# no output and grew the corpus by nothing, and looked from the outside exactly like a slow run.
+$grace = 120
+Write-Host "> $libFuzzerPath $($arguments -join ' ')" -ForegroundColor DarkGray
+$process = Start-Process -FilePath $libFuzzerPath -ArgumentList $arguments -NoNewWindow -PassThru
+
+if (-not $process.WaitForExit(($MaxTotalTime + $grace) * 1000)) {
+    try { $process.Kill($true) } catch { Write-Warning "Could not kill libFuzzer: $($_.Exception.Message)" }
+    throw @"
+libFuzzer overran -max_total_time ($MaxTotalTime s) by more than $grace s and was killed.
+
+The usual cause is the harness failing at startup rather than a slow run: libFuzzer reports that
+only as an exit code and then waits indefinitely. Run the published harness in replay mode to see
+the real exception:
+
+  ./fuzz.ps1 -Target $Target -Replay XLibur.Fuzz/corpus/$Target
+"@
+}
+
+if ($process.ExitCode -ne 0) {
+    throw "libFuzzer exited with code $($process.ExitCode). A non-zero exit after a fuzzing run usually means a crash artifact was written to $artifactRoot; replay it with -Replay to see what it is."
+}
