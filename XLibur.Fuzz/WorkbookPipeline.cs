@@ -90,6 +90,10 @@ internal static class WorkbookPipeline
     /// <summary>
     /// The frame a rejection came from. The type and message alone cannot distinguish a
     /// deliberate refusal from an internal bounds check that happens to share the type.
+    ///
+    /// Prefers the outermost XLibur frame over the true outermost one. A bounds check reached
+    /// through LINQ reports <c>System.Linq.ThrowHelper</c> at the top, which says nothing about
+    /// which part of XLibur asked the question — and that is the only thing worth knowing.
     /// </summary>
     private static string FirstFrame(Exception exception)
     {
@@ -97,13 +101,15 @@ internal static class WorkbookPipeline
         if (string.IsNullOrEmpty(stack))
             return "(no stack)";
 
-        foreach (var line in stack.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Length > 0)
-                return trimmed;
-        }
+        var frames = stack.Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToArray();
 
-        return "(no stack)";
+        if (frames.Length == 0)
+            return "(no stack)";
+
+        var xlibur = Array.Find(frames, f => f.Contains("XLibur.", StringComparison.Ordinal));
+        return xlibur ?? frames[0];
     }
 }
