@@ -235,6 +235,60 @@ public class MalformedPackageLoadingTests
         await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
     }
 
+    /// <summary>
+    /// A loadable sheet and an unloadable one sharing a name. Neither collection alone sees the
+    /// duplicate — the unloadable sheet goes to <c>UnsupportedSheets</c> — so the load used to
+    /// succeed, and the save then wrote both declarations, producing a file XLibur itself refused
+    /// to read (D34).
+    ///
+    /// This is the defect that only a round-trip check can find: the first load is clean, the save
+    /// is clean, and the corruption exists solely in the bytes written out. It was found by the
+    /// fuzz harness's load-save-load oracle rather than by any exception on the way in.
+    /// </summary>
+    [Test]
+    public async Task Loadable_and_unloadable_sheets_sharing_a_name_are_rejected_rather_than_written_back_corrupt()
+    {
+        using var package = BuildPackage(
+            ("[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+                  <Default Extension="xml" ContentType="application/xml" />
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" />
+                </Types>
+                """),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets>
+                    <sheet name="Twin" sheetId="1" r:id="rIdGhost" />
+                    <sheet name="Twin" sheetId="2" r:id="rIdReal" />
+                  </sheets>
+                </workbook>
+                """),
+            ("xl/_rels/workbook.xml.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rIdReal" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml" />
+                </Relationships>
+                """),
+            ("xl/worksheets/sheet1.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                  <sheetData />
+                </worksheet>
+                """));
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
     private const string MinimalContentTypes =
         """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>

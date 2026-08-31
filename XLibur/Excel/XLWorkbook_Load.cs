@@ -303,8 +303,16 @@ public partial class XLWorkbook
             if (!XLHelper.TryValidateSheetName(sheetName, out var invalidNameReason))
                 throw PartStructureException.InvalidSheetName(invalidNameReason);
 
-            if (WorksheetsInternal.Contains(sheetName))
+            // Both collections have to be consulted. A sheet XLibur cannot model is still declared
+            // in the file and is still written back out, so a duplicate between an unsupported
+            // sheet and a loaded one is a duplicate in the saved file even though neither
+            // collection alone can see it. Checking only the worksheets let XLibur write a
+            // workbook it then refused to read (D34).
+            if (WorksheetsInternal.Contains(sheetName) ||
+                UnsupportedSheets.Exists(s => s.Name.Equals(sheetName, StringComparison.Ordinal)))
+            {
                 throw PartStructureException.DuplicateSheetName(sheetName);
+            }
 
             if (string.IsNullOrEmpty(dSheet.Id))
             {
@@ -326,7 +334,7 @@ public partial class XLWorkbook
             // fabricating a sheet the file never had.
             if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) || sheetPart is not WorksheetPart)
             {
-                UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position });
+                UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position, Name = sheetName });
                 continue;
             }
 

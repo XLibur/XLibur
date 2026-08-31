@@ -1052,6 +1052,14 @@ public partial class XLWorkbook : IXLWorkbook
         public bool IsActive;
         public uint SheetId;
         public int Position;
+
+        /// <summary>
+        /// The name this sheet was declared with. Carried so that the duplicate-name check on
+        /// load can see it: without it a workbook could hold a loadable sheet and an unsupported
+        /// one sharing a name, pass the check, and be written back out with both declarations —
+        /// producing a file XLibur then refuses to read (D34).
+        /// </summary>
+        public string Name = string.Empty;
     }
 
     #endregion Nested type: UnsupportedSheet
