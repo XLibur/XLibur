@@ -92,9 +92,13 @@ public class CellStylingBenchmarks
     {
         _workbook.Dispose();
 
+        // A settled heap between iterations is the measurement, not a workaround for one:
+        // without it the previous iteration's garbage lands in this one's allocation figure.
+#pragma warning disable S1215 // Deliberate: benchmark iteration cleanup, not production code.
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+#pragma warning restore S1215
     }
 
     [Benchmark(Baseline = true)]

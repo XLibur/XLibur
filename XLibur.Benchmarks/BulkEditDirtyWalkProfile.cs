@@ -174,10 +174,16 @@ public static class BulkEditDirtyWalkProfile
             $"| {probe.Name,-49} | {bytes / 1048576.0,5:F1} MB | {watch.Elapsed.TotalMilliseconds,5:F0} | {watch.Elapsed.TotalMicroseconds / probe.Edits,9:F2} |");
     }
 
+    /// <summary>
+    /// Settles the heap so a probe's <c>GetTotalAllocatedBytes</c> delta is its own allocation and
+    /// not the previous probe's garbage. Forcing the collector is the measurement here.
+    /// </summary>
+#pragma warning disable S1215 // Deliberate: benchmark harness, not production code.
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
+#pragma warning restore S1215
 }

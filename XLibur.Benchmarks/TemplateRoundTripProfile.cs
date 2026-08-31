@@ -497,12 +497,18 @@ public static class TemplateRoundTripProfile
         return new Sample(times[Iterations / 2], times[0], allocations[Iterations / 2]);
     }
 
+    /// <summary>
+    /// Settles the heap so a probe's <c>GetTotalAllocatedBytes</c> delta is its own allocation and
+    /// not the previous probe's garbage. Forcing the collector is the measurement here.
+    /// </summary>
+#pragma warning disable S1215 // Deliberate: benchmark harness, not production code.
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
+#pragma warning restore S1215
 
     /// <summary>
     /// The sheet the grid probes write into: the generated fixture's data sheet when present,

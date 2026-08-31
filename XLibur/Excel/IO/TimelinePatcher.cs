@@ -54,6 +54,17 @@ internal static class TimelinePatcher
         Apply(timeline, xlTimeline);
     }
 
+    /// <summary>
+    /// Writes back only the attributes the caller actually assigned, one flat guard per attribute.
+    /// </summary>
+    /// <remarks>
+    /// Sonar scores this at 21 against a threshold of 15, but the count is measuring the wrong
+    /// thing: the guards are independent, unnested and in schema order, and each carries the note
+    /// explaining what Excel does with that attribute's default. Any split here would be an
+    /// arbitrary cut through an attribute table — the shape spec 39 settled on for pivot
+    /// definitions — and would separate each guard from the comment that justifies it.
+    /// </remarks>
+#pragma warning disable S3776
     private static void Apply(X15.Timeline timeline, XLTimeline xlTimeline)
     {
         var assigned = xlTimeline.AssignedFormat;
@@ -95,6 +106,7 @@ internal static class TimelinePatcher
         if (assigned.HasFlag(XLTimelineFormat.Level))
             timeline.Level = xlTimeline.LevelRaw == 0 ? (UInt32Value?)null : xlTimeline.LevelRaw;
     }
+#pragma warning restore S3776
 
     /// <summary>
     /// The timelines part a loaded timeline was read from.
