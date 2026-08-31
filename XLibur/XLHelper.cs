@@ -235,16 +235,35 @@ public static partial class XLHelper
         if (string.IsNullOrWhiteSpace(address))
             return false;
 
-        address = address.Replace("$", "");
-        var rowPos = 0;
-        var addressLength = address.Length;
-        while (rowPos < addressLength && (address[rowPos] > '9' || address[rowPos] < '0'))
-            rowPos++;
+        // A '$' is an anchor, and it is only meaningful in two places: before the column letters
+        // and before the row digits. Its position has to be checked rather than ignored.
+        //
+        // This previously did `address.Replace("$", "")` and validated what was left, which
+        // accepted a '$' anywhere at all — 'A$2$', 'A2$', '$$A$$2' were all reported as valid A1
+        // addresses. IsValidRangeAddress, which matches a real pattern, disagreed on every one of
+        // them, so the two predicates contradicted each other about the same string (D36).
+        var index = 0;
+        var length = address.Length;
 
-        return
-            rowPos < addressLength
-            && IsValidRow(address[rowPos..])
-            && IsValidColumn(address[..rowPos]);
+        if (address[index] == '$')
+            index++;
+
+        // Letters only. Scanning "up to the first digit" would swallow the anchor in 'A$2' into
+        // the column and leave IsValidColumn to reject 'A$'.
+        var columnStart = index;
+        while (index < length && char.IsAsciiLetter(address[index]))
+            index++;
+
+        var column = address[columnStart..index];
+        if (column.Length == 0)
+            return false;
+
+        if (index < length && address[index] == '$')
+            index++;
+
+        return index < length
+            && IsValidRow(address[index..])
+            && IsValidColumn(column);
     }
 
     public static bool IsValidRCAddress(string address)
