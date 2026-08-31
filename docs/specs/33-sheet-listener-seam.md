@@ -1333,19 +1333,17 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
   because making the shifter's area agree with `XLRangeInsertHelper`'s `insertedRange` changes output
   for existing documents. This spec pinned the defect instead, in
   `SheetEditAreaTests.The_listener_area_is_the_whole_range_extended_by_shift_minus_one`, so that
-  whoever fixed it had to change that test deliberately. **It has since been fixed on `fix/D15`**,
-  which re-pointed both pins rather than deleting them; `XLWorksheetRangeShifter` now trims the area
-  to the edited range's leading edge before extending it, and the delete branch turned out to need no
-  change at all.
+  whoever fixed it had to change that test deliberately. **It has since been fixed and merged as
+  PR #415** (`199b3e2b`), which re-pointed both pins rather than deleting them; `XLWorksheetRangeShifter` now trims
+  the area to the edited range's leading edge before extending it, and the delete branch turned out to
+  need no change at all.
 - **`XLRangeShiftHelper`'s `destroyedByShift` branch is untouched.** D16 is fixed for drawing anchors
   by moving them onto `GridShift`; an ordinary stored range still behaves the old way, because
   "destroyed" may well be the right answer for a range and that is a separate question.
-- **D17 is recorded, not decided.** It needs Excel.
-  *Update, 2026-08-27: since decided, on `fix/D17-D18`, and without Excel — the two fields were
-  collapsed onto one storage location, so the question of which of them should drive the file no
-  longer arises. The surviving value means move-and-size-with-cells, which is what `Anchor` had
-  always said. The sentence above records what spec 33 decided at the time and is left standing.
-  See `CHANGELOG.md`.*
+- **D17 is recorded, not decided.** It needs Excel. *(Decided on 2026-08-27 on [#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`), and
+  without Excel: the two fields were collapsed onto one storage location, so the question of which
+  of them should drive the file no longer arises. The surviving value means move-and-size-with-cells,
+  which is what `Anchor` had always said. See `CHANGELOG.md`.)*
 - **No public API change.** `PublicAPI.Unshipped.txt` untouched.
 - **`briefs/` was not copied into the repo's `docs/specs`, and never should be.** The sync that keeps
   `docs/specs` in step with this folder copies the specs and the tasklists only. The `briefs/`
@@ -1369,16 +1367,23 @@ task 7 is for**, and caching the listener list would have hidden it rather than 
   the other was a defect.** The difference was documented on the type and repeated at both call
   sites. This is the trap task 3 step 2 warned about; the arithmetic was checked rather than assumed,
   and they differed whenever the edited range was more than one line tall on the shift axis — because
-  `Area` carried D15 and `CoverageArea` did not. **The D15 fix on `fix/D15` makes the two agree for
-  every reachable call**, so the two are now redundant rather than distinct; collapsing them was left
-  out of that fix to keep it minimal, and is the follow-on this bullet now points at.
+  `Area` carried D15 and `CoverageArea` did not. **The D15 fix on [#415](https://github.com/XLibur/XLibur/pull/415) (`199b3e2b`) makes the two
+  agree for every reachable call**, so the two are now redundant rather than distinct; collapsing them
+  was left out of that fix to keep it minimal, and is the follow-on this bullet now points at.
+- **⚠️ `SheetEdit.Shift`'s justification is gone, and the remark on it is now stale.** Task 3 step 1's
+  probe concluded that `Shift` is not recoverable from `Area`, and that premise is why the field
+  exists. **After the D15 fix it is recoverable, in both directions** — the areas now differ by the
+  shift on the shift axis and by nothing else. `Range` still earns its place; `Shift` does not, on
+  the old argument. Whoever collapses `Area` and `CoverageArea` should re-examine `Shift` in the same
+  pass rather than wave it through on a remark that no longer holds. Raised by the D15 agent's
+  retrospective, 2026-08-28.
 - **`GridShift` is the transform for anything holding a raw position.** A line index, a line count,
   or an area. It is `XLRangeShiftHelper` reduced to the integers, so a feature that adopts it moves
   the way a feature in the range repository already moves — by construction, not by coincidence.
 - **Three new defects to pick up:** D15 (hyperlink detaches from its cell for a multi-line edited
   range), D16 (a delete starting on a range's leading edge leaves its first address invalid), D17
   (a note's anchoring mode is stated twice and the two disagree). **D15 and D17 have since been
-  fixed**, on `fix/D15` and `fix/D17-D18`; D16 stands.
+  fixed**, on [#415](https://github.com/XLibur/XLibur/pull/415) (`199b3e2b`) and [#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`); D16 stands.
 
 ### The code review found three defects in this spec's own new work
 
