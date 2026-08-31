@@ -98,6 +98,15 @@ public sealed class PartStructureException : Exception
     }
 
     /// <summary>
+    /// Create a new exception for a sheet name a workbook is not allowed to contain.
+    /// </summary>
+    /// <param name="reason">Why the name is not legal, from the shared validation rules.</param>
+    internal static PartStructureException InvalidSheetName(string reason)
+    {
+        return new PartStructureException($"The workbook declares a sheet with an invalid name. {reason}");
+    }
+
+    /// <summary>
     /// Create a new exception for a workbook that declares two sheets with the same name.
     /// </summary>
     /// <param name="sheetName">The name declared more than once.</param>

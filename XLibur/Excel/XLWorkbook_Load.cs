@@ -293,12 +293,16 @@ public partial class XLWorkbook
             var sheetName = dSheet.Name!.Value!;
             var sheetIdValue = dSheet.SheetId!.Value;
 
-            // A workbook may declare the same sheet name twice. Excel does not write such a file,
-            // but nothing stops another producer doing so, and the collection this loads into
-            // guards duplicates with an ArgumentException naming 'sheetName' — correct for
-            // AddWorksheet("Sheet1"), where the caller did supply that argument, and wrong here,
-            // where the name came out of a file the caller merely handed us (D32). The guard is
-            // written for the public API; the loader needs its own rejection.
+            // Sheet names out of a file get the loader's own rejection, not the public API's.
+            //
+            // Both checks below guard rules that are enforced elsewhere by throwing
+            // ArgumentException naming 'sheetName' — correct for AddWorksheet("Sheet1"), where the
+            // caller supplied that argument and can fix it, and wrong here, where the name came
+            // out of a file the caller merely handed over. Naming a parameter they never passed
+            // tells them nothing about which file is broken (D32, D33).
+            if (!XLHelper.TryValidateSheetName(sheetName, out var invalidNameReason))
+                throw PartStructureException.InvalidSheetName(invalidNameReason);
+
             if (WorksheetsInternal.Contains(sheetName))
                 throw PartStructureException.DuplicateSheetName(sheetName);
 

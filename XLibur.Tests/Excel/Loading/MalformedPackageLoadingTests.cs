@@ -208,6 +208,33 @@ public class MalformedPackageLoadingTests
         await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
     }
 
+    /// <summary>
+    /// A workbook declaring a sheet name the format does not permit — here one ending in an
+    /// apostrophe. <c>XLHelper.ValidateSheetName</c> guards that rule with an ArgumentException
+    /// naming 'sheetName', right for <c>AddWorksheet</c> and wrong for a name read from a file
+    /// (D33). Third instance of the same shape, after D32 and the collection's duplicate guard.
+    /// </summary>
+    [Test]
+    public async Task Workbook_declaring_an_illegal_sheet_name_is_rejected_rather_than_faulting()
+    {
+        using var package = BuildPackage(
+            ("[Content_Types].xml", MinimalContentTypes),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets>
+                    <sheet name="trailing quote'" sheetId="1" r:id="rIdA" />
+                  </sheets>
+                </workbook>
+                """),
+            ("xl/_rels/workbook.xml.rels", EmptyRelationshipsXml));
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
     private const string MinimalContentTypes =
         """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>

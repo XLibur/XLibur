@@ -14,6 +14,7 @@
 ==================================================================== */
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace XLibur.Excel;
@@ -86,25 +87,56 @@ public static partial class XLHelper
     // This method was ported from the POI project at https://github.com/apache/poi/blob/trunk/src/java/org/apache/poi/ss/util/WorkbookUtil.java
     public static void ValidateSheetName(string sheetName)
     {
+        if (!TryValidateSheetName(sheetName, out var reason))
+            throw new ArgumentException(reason);
+    }
+
+    /// <summary>
+    /// Test a sheet name against the same rules as <see cref="ValidateSheetName"/>, reporting the
+    /// reason rather than throwing.
+    /// </summary>
+    /// <remarks>
+    /// The rules are the same; who is being told off is not. <see cref="ValidateSheetName"/>
+    /// answers a caller who passed the name in and can correct it, so
+    /// <see cref="ArgumentException"/> is right there. A name read out of a workbook has no such
+    /// caller — the person loading the file never chose it — and reporting a bad *argument* names
+    /// a parameter they never supplied. The load path uses this overload and raises its own
+    /// rejection instead (D33).
+    /// </remarks>
+    /// <param name="sheetName">Name of the sheet.</param>
+    /// <param name="reason">Why the name is invalid, or <c>null</c> when it is valid.</param>
+    /// <returns><c>true</c> when the name is a legal sheet name.</returns>
+    internal static bool TryValidateSheetName(string sheetName, [NotNullWhen(false)] out string? reason)
+    {
         if (string.IsNullOrWhiteSpace(sheetName))
         {
-            throw new ArgumentException("sheetName must not be null or whitespace");
+            reason = "sheetName must not be null or whitespace";
+            return false;
         }
 
         var len = sheetName.Length;
         if (len is < 1 or > MaxWorksheetNameCharsCount)
         {
-            throw new ArgumentException($"sheetName '{sheetName}' is invalid - character count MUST be greater than or equal to 1 and less than or equal to {MaxWorksheetNameCharsCount}");
+            reason = $"sheetName '{sheetName}' is invalid - character count MUST be greater than or equal to 1 and less than or equal to {MaxWorksheetNameCharsCount}";
+            return false;
         }
 
         for (var i = 0; i < len; i++)
         {
             if (IllegalWorksheetCharacters.Contains(sheetName[i]))
-                throw new ArgumentException($"Invalid char ({sheetName[i]}) found at index ({i}) in sheet name '{sheetName}'");
+            {
+                reason = $"Invalid char ({sheetName[i]}) found at index ({i}) in sheet name '{sheetName}'";
+                return false;
+            }
         }
+
         if (sheetName[0] == '\'' || sheetName[len - 1] == '\'')
         {
-            throw new ArgumentException($"Invalid sheet name '{sheetName}'. Sheet names must not begin or end with (').");
+            reason = $"Invalid sheet name '{sheetName}'. Sheet names must not begin or end with (').";
+            return false;
         }
+
+        reason = null;
+        return true;
     }
 }
