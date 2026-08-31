@@ -42,13 +42,44 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 26 | [Give the grid one axis](26-grid-axis.md) | Arch · Refactor · **3 defects** | L | ✅ **Merged** (#409; see Results) | One `IGridAxis`, two adapters; 3 defects fixed; allocations down 12–50% |
 | 27 | [One font conformance module](27-font-conformance-suite.md) | Test · Arch (seam) | S–M | Proposed | Single owner; **gates 34** |
 | 28 | [One OOXML style decoder](28-single-style-decoder.md) | Arch · Refactor · **Defect (data loss)** | M | ✅ **Merged** (#411; see Results) | Single owner; 3 defects fixed; one premise disproved; load allocations flat or down |
-| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | ✅ **Merged** ([#413](https://github.com/XLibur/XLibur/pull/413) as `8d2acfc7`, 2026-08-27; see Results) | 10 commits, 28,358 green both TFMs; pane divergence fixed; **D18 found here, fixed 2026-08-27 on `fix/D17-D18`**; merged before 33 as planned; **31 is now unblocked** |
+| 29 | [One resolver per emitted element](29-write-path-resolvers.md) | Arch · **Correctness (divergence)** | M | ✅ **Merged** ([#413](https://github.com/XLibur/XLibur/pull/413) as `8d2acfc7`, 2026-08-27; see Results) | 10 commits, 28,358 green both TFMs; pane divergence fixed; **D18 found here and since fixed on [#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`)**, which revived `IXLSheetView.FreezePanes` and made `XLPaneSettings.Resolve` return `Split` rather than hardcoding `Frozen`; merged before 33 as planned; **31 is now unblocked** |
 | 30 | [Array application gets an interface](30-array-application-seam.md) | Arch · **Defect (241 functions)** | S–M | Proposed | Single owner; **before 32** |
 | 31 | [Worksheet element writers get one interface](31-worksheet-element-writers.md) | Arch · Refactor | M–L | Proposed (**29 has merged — unblocked**) | Single owner; tasks sequential |
 | 32 | [Collapse the 61-overload registration](32-function-argument-spec.md) | Arch · Refactor | L | Proposed (**needs 30**) | Single owner; task 2 is a go/no-go gate |
-| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | ✅ **Merged** ([#414](https://github.com/XLibur/XLibur/pull/414) as `ca3ed3d5`, 2026-08-27; see Results) | 29,542 green across **all four** test projects, both TFMs. Shifter 222→65 lines, names no feature; 11 adapters (was 2); the 4 dead features move; **D15–D17 recorded**, D15 pinned here and since fixed on `fix/D15`, D17 fixed on `fix/D17-D18`, D16 still live; criterion 2 reported unreachable. Merged up onto `8d2acfc7` after #413 landed. Does **not** unblock 34, which waits on 27 |
+| 33 | [Every sheet feature reacts through one seam](33-sheet-listener-seam.md) | Arch · **Defect (4 unshifted)** | M–L | ✅ **Merged** ([#414](https://github.com/XLibur/XLibur/pull/414) as `ca3ed3d5`, 2026-08-27; see Results) | 29,542 green across **all four** test projects, both TFMs. Shifter 222→65 lines, names no feature; 11 adapters (was 2); the 4 dead features move; **D15–D17 recorded; D15 since fixed by [#415](https://github.com/XLibur/XLibur/pull/415) (`199b3e2b`), D17 by [#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`), D16 still live**; criterion 2 reported unreachable. Landed after #413 as planned. Does **not** unblock 34, which waits on 27 |
 | 34 | [Split the font port: mechanism vs policy](34-font-port-split.md) | Arch · Refactor | M | Proposed (**needs 27**) | Single owner; tasks sequential |
 | 35 | [Pivot table timelines](35-pivot-timelines.md) | Feature · Compat | M | ✅ **Done** (#406; see Results) | Task 1 (extraction) standalone; 2→3→4 ordered |
+| 36 | [One rectangle, normalised once](36-one-normalised-rectangle.md) | Arch · **Defect (5, one fatal)** | M | 🟩 **Implemented**, `task/36` unmerged (see Results; residual D24) | Conversion fix first, then one consumer per commit; **before 51** |
+| 37 | [One way to reduce an argument to a scalar](37-scalar-argument-reduction.md) | Arch · **Defect (22 functions)** | M | 🟩 **Implemented**, `task/37` unmerged (see Results) | Single owner; **must precede 32** |
+| 38 | [Sheet view state gets one module](38-sheet-view-state.md) | Arch · **Defect (4)** | M | 🟩 **Implemented**, `task/38` unmerged (see Results) | Single owner; **conflicts with 31** — 38 landed first, as planned |
+| 39 | [One attribute table for the pivot definition](39-pivot-definition-attribute-table.md) | Arch · **Defect** · API (additive) | M–L | 🟩 **Implemented**, `task/39` unmerged (see Results) | Wrong-source fix standalone first, then the table |
+| 40 | [The dirty flag stops doubling as a visited marker](40-dirty-versus-visited.md) | Arch · **Defect (propagation)** | S–M | 🟩 **Implemented**, `task/40` unmerged (see Results; one open perf decision) | One owner with 42 and 43, in that order |
+| 41 | [One codec for a pivot cache value](41-pivot-cache-value-codec.md) | Arch · **Defect (2, data-destroying)** | M | Proposed | File-disjoint from 39 — genuinely parallel |
+| 42 | [One formula write path, and it invalidates](42-formula-write-invalidation.md) | Arch · **Defect (stale reads)** | S–M | Proposed | After 40; before 47 |
+| 43 | [Reading a cell is spill-aware, once](43-spill-aware-cell-read.md) | Arch · **Defect (order-dependent)** | M | Proposed | After 40 and 42 |
+| 44 | [Data validation: one mapping, two adapters](44-data-validation-mapping.md) | Arch · **Correctness (divergence)** | M | Proposed | **Before 48/49** — removes code from the file they edit |
+| 45 | [The text codec applies at the seam](45-text-codec-at-the-seam.md) | Arch · **Defect (crash + corruption)** | **S** | Proposed | One commit; **conflicts with 31**. Cheapest real win |
+| 46 | [The table part gets a reader](46-table-part-reader.md) | Arch · **Defect (wrong colour filter)** | M | Proposed | Colour-filter fix standalone first, then the reader |
+| 47 | [One implementation of assigning a value](47-value-assignment-protocol.md) | Arch · **Defect (quote prefix)** | S–M | Proposed | Soft: after 42 |
+| 48 | [Conditional format defects](48-conditional-format-defects.md) | **Defect (load crash)** · Compat | S–M | Proposed | **No API change** — ships before 49; Excel-authored fixtures |
+| 49 | [One conditional format value object](49-conditional-format-value-object.md) | Arch · **API (breaking)** | M–L | Proposed (**needs 48**) | Single owner; obsolete-then-remove migration |
+| 50 | [One `Intersection`, one absence convention](50-intersection-one-convention.md) | Arch · Correctness | **S** | Proposed | Soft: after 36 |
+| 51 | [One consolidation engine, two adapters](51-one-consolidation-engine.md) | Arch · Refactor | S–M | Proposed (**needs 36**) | **Prevention, not a fix** — 400-case fuzz found no divergence |
+
+**Specs 36–51 came out of a third architecture review on 2026-08-30.** Their progress board,
+dependency graph, conflict map, wave plan and the backlog notes for four candidates that did *not*
+earn a spec live in [TASKLIST-architecture-deepening-3.md](TASKLIST-architecture-deepening-3.md).
+
+Same shape as the two rounds before it — **one fact with two or more implementations, kept in
+agreement by hand** — found fifteen times, with most of the agreements already failed in shipped code.
+**Every defect was executed against a scratch build, not inferred**, except where a spec marks a
+finding unverified. Round 3 also names a second pattern: **XLibur's readers are written against
+XLibur's writer rather than against the format**, so the inputs that break them cannot be authored by
+the library — which is why several of these specs deliver Excel-authored fixtures as their real
+product.
+
+**Start with 37** (22 shipped functions unusable with cell references), then **36** (the only failure
+in the round a user cannot work around), then **45** (a crash and a silent corruption, days of work).
 
 **Specs 26–34 came out of a second architecture review on 2026-08-24.** Their progress board,
 dependency graph, conflict map and wave plan live in
