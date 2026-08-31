@@ -720,27 +720,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </list>
     /// </summary>
     private static ScalarValue ToCellContentValue(AnyValue value, CalcContext ctx)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-            return scalar;
-
-        if (collection.TryPickT0(out var array, out var reference))
-        {
-            return array[0, 0];
-        }
-
-        if (reference.TryGetSingleCellValue(out var cellValue, ctx))
-            return cellValue;
-
-        var intersected = reference.ImplicitIntersection(ctx.FormulaAddress);
-        if (!intersected.TryPickT0(out var singleCellReference, out var error))
-            return error;
-
-        if (!singleCellReference.TryGetSingleCellValue(out var singleCellValue, ctx))
-            throw new InvalidOperationException("Got multi cell reference instead of single cell reference.");
-
-        return singleCellValue;
-    }
+        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
 
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {

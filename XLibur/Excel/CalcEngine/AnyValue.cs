@@ -218,6 +218,60 @@ internal readonly struct AnyValue
 
     /// <summary>
     /// <para>
+    /// Reduce this value to the single scalar a function's scalar parameter wants: already a
+    /// scalar; the first element of an array; the one cell of a single-cell reference; the
+    /// implicit intersection of a larger reference against the calling formula's own address; or
+    /// the appropriate error for a multi-area reference or an intersection that selects nothing.
+    /// </para>
+    /// <para>
+    /// This is the one place the reduction is implemented — every caller that needs a scalar out
+    /// of an argument uses this, rather than re-deriving the ladder (or a subset of it) itself.
+    /// It reproduces what <see cref="XLCalcEngine"/> has always done to reduce a cell's own
+    /// formula result to the value stored in the cell.
+    /// </para>
+    /// </summary>
+    public bool TryReduceToScalar(CalcContext ctx, out ScalarValue scalar, out XLError error)
+    {
+        if (TryPickScalar(out scalar, out var collection))
+        {
+            error = default;
+            return true;
+        }
+
+        // Any array reduces to its first element, not just a 1x1 one. This is what makes a cell
+        // store a non-spilled =SEQUENCE(3) as 1, so the branch cannot be narrowed to the 1x1 case
+        // without breaking cell content. It does mean the few callers that used to reject arrays
+        // outright now drop the remaining elements instead of erroring; that is the point of having
+        // one ladder, since the majority of scalar parameters already behaved this way.
+        if (collection.TryPickT0(out var array, out var reference))
+        {
+            scalar = array![0, 0];
+            error = default;
+            return true;
+        }
+
+        if (reference.TryGetSingleCellValue(out scalar, ctx))
+        {
+            error = default;
+            return true;
+        }
+
+        var intersected = reference.ImplicitIntersection(ctx.FormulaAddress);
+        if (!intersected.TryPickT0(out var singleCellReference, out error))
+        {
+            scalar = default;
+            return false;
+        }
+
+        if (!singleCellReference.TryGetSingleCellValue(out scalar, ctx))
+            throw new InvalidOperationException("Got multi cell reference instead of single cell reference.");
+
+        error = default;
+        return true;
+    }
+
+    /// <summary>
+    /// <para>
     /// Try to get a value more in line with an array formula semantic. The output is always
     /// either single value or an array.
     /// </para>

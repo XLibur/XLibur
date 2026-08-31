@@ -216,4 +216,284 @@ public class DynamicArrayFunctionTests
             await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, -1)")).IsEqualTo(2);
         }
     }
+
+    // Spec 37 — a cell reference in a scalar slot must work exactly like a literal. Each of these
+    // was #VALUE! before the fix, because the argument was a single-cell reference rather than a
+    // literal.
+
+    [Test]
+    public async Task Sequence_ReadsRowAndColumnCountsFromCellReferences()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("F1").Value = 3;
+            ws.Cell("F2").Value = 2;
+            ws.Range("A1:B3").FormulaArrayA1 = "SEQUENCE(F1, F2)";
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(5);
+            await Assert.That(ws.Cell("B3").Value).IsEqualTo(6);
+        }
+    }
+
+    [Test]
+    public async Task Sort_ReadsSortIndexFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "b";
+            ws.Cell("B1").Value = 2;
+            ws.Cell("A2").Value = "a";
+            ws.Cell("B2").Value = 1;
+            ws.Cell("F1").Value = 2; // Sort by column 2 of the range.
+
+            ws.Range("D1:E2").FormulaArrayA1 = "SORT(A1:B2, F1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("a");
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo("b");
+        }
+    }
+
+    [Test]
+    public async Task SortBy_ReadsOrderFromACellReference()
+    {
+        // The order argument's shape (scalar vs. a new by_array) is detected before it is reduced;
+        // a single-cell reference must still be recognised as the order, not mistaken for another
+        // by_array.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "a";
+            ws.Cell("A2").Value = "b";
+            ws.Cell("A3").Value = "c";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("B2").Value = 2;
+            ws.Cell("B3").Value = 3;
+            ws.Cell("F1").Value = -1; // Descending.
+
+            ws.Range("D1:D3").FormulaArrayA1 = "SORTBY(A1:A3, B1:B3, F1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("c");
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo("b");
+            await Assert.That(ws.Cell("D3").Value).IsEqualTo("a");
+        }
+    }
+
+    [Test]
+    public async Task SortBy_TwoSingleCellByArraysStayByArraysWhenTheSortedRangeIsOneRow()
+    {
+        // A one-row sort makes every by_array a 1x1 shape, the same shape a reference-typed order
+        // argument has — the ambiguity SortBy_ReadsOrderFromACellReference's fix has to resolve the
+        // other way for here: B1 is by_array1, and C1 must be read as by_array2, not as an order.
+        // C1's value (2) is deliberately not 1 or -1, so if it were misread as an order the "order
+        // != 1 && order != -1" guard would report #VALUE! instead of silently sorting the one row.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "only-row";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("C1").Value = 2;
+
+            ws.Cell("D1").FormulaA1 = "SORTBY(A1, B1, C1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo("only-row");
+        }
+    }
+
+    [Test]
+    public async Task XLookup_ArrayConstantInAScalarSlotUsesItsFirstElement()
+    {
+        // A scalar parameter handed a multi-element array reduces to that array's first element.
+        // Excel would lift the array and spill one result per element; XLibur does not array-lift
+        // the dynamic-array functions, so the choice is between the first element and #VALUE!, and
+        // the first element is what the rest of the library has always done — DATE({2020;2021},1,1)
+        // is 2020, and a cell holding a non-spilled =SEQUENCE(3) stores 1. Before the reduction
+        // ladder was consolidated this slot rejected arrays instead; that split is the bug, not the
+        // rule, so the 5 is dropped here rather than turning the whole call into an error.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 3;
+            ws.Cell("A3").Value = 5;
+            ws.Cell("B1").Value = "low";
+            ws.Cell("B2").Value = "mid";
+            ws.Cell("B3").Value = "high";
+
+            await Assert.That(ws.Evaluate("XLOOKUP({3;5}, A1:A3, B1:B3)")).IsEqualTo("mid");
+        }
+    }
+
+    [Test]
+    public async Task SortBy_OrderRangeIsIntersectedAgainstTheCallingFormula()
+    {
+        // The order argument is a scalar parameter, so a range in that slot resolves by implicit
+        // intersection against the calling formula's own address, like every other scalar parameter
+        // in the library. C1:C3 cannot be a by_array for a two-row sort, so it is read as the order,
+        // and the answer therefore depends on where the formula sits: row 2 sees C2.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = "a";
+            ws.Cell("A2").Value = "b";
+            ws.Cell("B1").Value = 2;
+            ws.Cell("B2").Value = 1;
+            ws.Cell("C1").Value = 1;
+            ws.Cell("C2").Value = 1;
+            ws.Cell("C3").Value = 1;
+
+            ws.Cell("E2").FormulaA1 = "SORTBY(A1:A2, B1:B2, C1:C3)";
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo("b"); // C2 = 1, ascending.
+
+            // The same formula outside C1:C3's rows has nothing to intersect with, so it errors.
+            // This position dependence is what implicit intersection is, not a SORTBY quirk.
+            ws.Cell("E5").FormulaA1 = "SORTBY(A1:A2, B1:B2, C1:C3)";
+            await Assert.That(ws.Cell("E5").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
+    public async Task Unique_ReadsByColumnFlagFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("B1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("B2").Value = 3;
+            ws.Cell("H1").Value = true; // by_col.
+
+            // Columns A and B differ (row 1 is 1,1 but row 2 is 2,3), so by-column UNIQUE keeps
+            // both columns.
+            ws.Range("D1:E2").FormulaArrayA1 = "UNIQUE(A1:B2, H1)";
+            await Assert.That(ws.Cell("D1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("D2").Value).IsEqualTo(2);
+            await Assert.That(ws.Cell("E1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task XLookup_ReadsMatchModeFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 3;
+            ws.Cell("A3").Value = 5;
+            ws.Cell("B1").Value = "low";
+            ws.Cell("B2").Value = "mid";
+            ws.Cell("B3").Value = "high";
+            ws.Cell("F1").Value = -1; // Next-smaller match mode.
+
+            await Assert.That(ws.Evaluate("XLOOKUP(4, A1:A3, B1:B3, , F1)")).IsEqualTo("mid");
+        }
+    }
+
+    [Test]
+    public async Task XMatch_ReadsMatchModeFromACellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("D1").Value = 1;
+            ws.Cell("D2").Value = 3;
+            ws.Cell("D3").Value = 5;
+            ws.Cell("F1").Value = -1; // Next-smaller match mode.
+
+            await Assert.That(ws.Evaluate("XMATCH(4, D1:D3, F1)")).IsEqualTo(2);
+        }
+    }
+
+    // The shape matrix (spec 37): SEQUENCE's row-count argument, in every shape the reduction
+    // ladder has to handle. A representative for the dynamic-array family — TAKE/DROP/SORT/etc. all
+    // reduce their scalar arguments through the same ladder (AnyValue.TryReduceToScalar via
+    // TryScalarArg), so this exercises every step of it, not just SEQUENCE's own logic.
+
+    [Test]
+    public async Task Sequence_RowCount_Literal()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE(3)";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_SingleCellReference()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 3;
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE(Z1)";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_OneCellArray()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Range("A1:A3").FormulaArrayA1 = "SEQUENCE({3})";
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_ColumnRangeNeedsImplicitIntersection()
+    {
+        // A column-vector reference intersects at the formula's own row. Placing the array formula's
+        // top-left cell at row 2 (via a dynamic, single-anchor-cell spill) makes it intersect Z2.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 9;
+            ws.Cell("Z2").Value = 3;
+            ws.Cell("Z3").Value = 9;
+            ws.Cell("B2").SetDynamicFormulaA1("SEQUENCE(Z1:Z3)");
+
+            await Assert.That(ws.Cell("B2").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("B4").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_RowRangeNeedsImplicitIntersection()
+    {
+        // A row-vector reference intersects at the formula's own column. The formula sits in column
+        // AA, well clear of row 10 where the row-vector lives, so there is no overlap between the
+        // reference and the spill it produces.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Y10").Value = 9;
+            ws.Cell("Z10").Value = 9;
+            ws.Cell("AA10").Value = 3;
+            ws.Cell("AB10").Value = 9;
+            ws.Cell("AA5").SetDynamicFormulaA1("SEQUENCE(Y10:AB10)");
+
+            await Assert.That(ws.Cell("AA5").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("AA7").Value).IsEqualTo(3);
+        }
+    }
+
+    [Test]
+    public async Task Sequence_RowCount_MultiAreaReferenceIsIncompatibleValue()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("Z1").Value = 3;
+            ws.Cell("Z2").Value = 3;
+            ws.Cell("A1").FormulaA1 = "SEQUENCE((Z1,Z2))";
+
+            await Assert.That(ws.Cell("A1").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
 }

@@ -532,7 +532,17 @@ internal static class DynamicArray
             i++;
 
             var order = 1;
-            if (i < args.Length && args[i].TryPickScalar(out _, out _))
+            // A following argument is the order for this key when it does NOT itself validate as a
+            // by_array (the (Height x 1) shape by_array needs) — rather than when it fails
+            // IsScalarType, which is what let a single-cell reference be mistaken for the start of a
+            // new by_array instead of being read as the order. Trying the by_array interpretation
+            // first, rather than checking for a 1x1 shape, is what keeps a genuine one-row sort with
+            // two single-cell by_arrays (SORTBY(A1,B1,C1)) working: there height is 1, so a 1x1
+            // reference is ambiguous by shape alone, and Excel prefers the by_array reading.
+            // A wrong-shaped range here is therefore read as the order and implicitly intersected
+            // rather than rejected on its shape, which is what a scalar parameter does everywhere
+            // else in the library; SortBy_OrderRangeIsIntersectedAgainstTheCallingFormula pins it.
+            if (i < args.Length && !IsValidByArray(args[i], ctx, height))
             {
                 if (!TryIntArg(ctx, args[i], out order, out var orderError))
                     return orderError;
@@ -562,6 +572,10 @@ internal static class DynamicArray
         return BuildRows(array, indices);
     }
 #pragma warning restore S3776
+
+    /// <summary>Does <paramref name="value"/> have the (Height x 1) shape a SORTBY by_array needs?</summary>
+    private static bool IsValidByArray(in AnyValue value, CalcContext ctx, int height)
+        => value.TryPickCollectionArray(out var array, ctx) && array!.Width == 1 && array.Height == height;
 
 #pragma warning disable S3776 // Mask-shape detection then one mask walk; already reduced from 27
     private static AnyValue Filter(CalcContext ctx, Span<AnyValue> args)
@@ -770,12 +784,7 @@ internal static class DynamicArray
         => transposed ? new TransposedArray(array) : array;
 
     private static bool TryScalarArg(CalcContext ctx, in AnyValue arg, out ScalarValue scalar)
-    {
-        if (arg.TryPickScalar(out scalar, out _))
-            return true;
-
-        return arg.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _);
-    }
+        => arg.TryReduceToScalar(ctx, out scalar, out _);
 
     private static bool TryNumberArg(CalcContext ctx, in AnyValue arg, out double number, out XLError error)
     {

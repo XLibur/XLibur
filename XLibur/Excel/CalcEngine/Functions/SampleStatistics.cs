@@ -18,21 +18,9 @@ internal static class SampleStatistics
     internal static bool TryGetScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
     {
         number = 0;
-        error = default;
 
-        if (!value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (collection.TryPickT0(out var array, out var reference))
-            {
-                scalar = array[0, 0];
-            }
-            else if (!reference.TryGetSingleCellValue(out scalar, ctx)
-                     && !value.ImplicitIntersection(ctx).TryPickScalar(out scalar, out _))
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
-        }
+        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
+            return false;
 
         return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
