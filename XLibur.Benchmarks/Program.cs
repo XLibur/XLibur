@@ -22,30 +22,23 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //   template    the open->edit->save round trip of an existing workbook, split into parse
     //               and serialise; optionally takes a path to a real .xlsx template
     // Every other mode attaches dotMemory and targets the load path.
-    if (args.Length > 1 && args[1].Equals("alloc", StringComparison.OrdinalIgnoreCase))
-        SaveAllocationProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("create", StringComparison.OrdinalIgnoreCase))
-        CreatePhaseProbe.Run();
-    else if (args.Length > 1 && args[1].Equals("streaming", StringComparison.OrdinalIgnoreCase))
-        StreamingMemoryProfile.Run(args);
-    else if (args.Length > 1 && args[1].Equals("structural", StringComparison.OrdinalIgnoreCase))
-        StructuralEditProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("template", StringComparison.OrdinalIgnoreCase))
-        TemplateRoundTripProfile.Run(args);
-    else if (args.Length > 1 && args[1].Equals("shiftercorpus", StringComparison.OrdinalIgnoreCase))
-        ShifterCorpusDump.Run();
-    else if (args.Length > 1 && args[1].Equals("compression", StringComparison.OrdinalIgnoreCase))
-        CompressionProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("loadalloc", StringComparison.OrdinalIgnoreCase))
-        LoadDecompositionProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("dirtyread", StringComparison.OrdinalIgnoreCase))
-        DirtyFormulaReadProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("hyperlinks", StringComparison.OrdinalIgnoreCase))
-        HyperlinkScalingProfile.Run();
-    else if (args.Length > 1 && args[1].Equals("bulkedit", StringComparison.OrdinalIgnoreCase))
-        BulkEditDirtyWalkProfile.Run();
-    else
-        MemoryProfile.Run(args);
+    // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
+    // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.
+    switch (args.Length > 1 ? args[1].ToLowerInvariant() : string.Empty)
+    {
+        case "alloc": SaveAllocationProfile.Run(); break;
+        case "create": CreatePhaseProbe.Run(); break;
+        case "streaming": StreamingMemoryProfile.Run(args); break;
+        case "structural": StructuralEditProfile.Run(); break;
+        case "template": TemplateRoundTripProfile.Run(args); break;
+        case "shiftercorpus": ShifterCorpusDump.Run(); break;
+        case "compression": CompressionProfile.Run(); break;
+        case "loadalloc": LoadDecompositionProfile.Run(); break;
+        case "dirtyread": DirtyFormulaReadProfile.Run(); break;
+        case "hyperlinks": HyperlinkScalingProfile.Run(); break;
+        case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
+        default: MemoryProfile.Run(args); break;
+    }
 
     return;
 }
