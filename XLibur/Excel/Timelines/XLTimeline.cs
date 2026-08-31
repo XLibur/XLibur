@@ -150,8 +150,7 @@ internal sealed class XLTimeline : IXLTimeline
         get => FromMarker?.Cell ?? _worksheet.Cell(1, 1);
         set
         {
-            if (value is null)
-                throw new ArgumentNullException(nameof(value));
+            ArgumentNullException.ThrowIfNull(value);
 
             // A fresh marker rather than a mutated one, because a marker registers itself with the
             // workbook's range repository so that inserting rows above the timeline moves it.

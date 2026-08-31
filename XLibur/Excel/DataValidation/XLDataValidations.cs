@@ -141,29 +141,50 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener
     private void Shift<TAxis>(in SheetEdit edit)
         where TAxis : struct, IGridAxis
     {
+        // The two halves have different scopes, which is the whole point of the split: a rule's
+        // areas move only on the sheet that was edited, its criteria formulas on every sheet.
+        if (edit.Sheet == _worksheet && _dataValidations.Count > 0)
+            ShiftAreas<TAxis>(in edit);
+
+        ShiftCriteriaFormulas<TAxis>(in edit);
+    }
+
+    /// <summary>
+    /// Moves the ranges each rule applies to.
+    /// </summary>
+    private void ShiftAreas<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
         var axis = default(TAxis);
 
-        if (edit.Sheet == _worksheet && _dataValidations.Count > 0)
+        // CoverageArea, not edit.Area: coverage derives the |Shift| lines the edit moves from
+        // the range and the shift rather than trusting the shifter's area. See SheetEdit.
+        var affected = edit.CoverageArea<TAxis>();
+        foreach (var dv in _dataValidations.OfType<XLDataValidation>().ToList())
         {
-            // CoverageArea, not edit.Area: coverage derives the |Shift| lines the edit moves from
-            // the range and the shift rather than trusting the shifter's area. See SheetEdit.
-            var affected = edit.CoverageArea<TAxis>();
-            foreach (var dv in _dataValidations.OfType<XLDataValidation>().ToList())
-            {
-                // Coverage is the area model, not live repository ranges, so the transform is pure
-                // and can never alias or double-shift (ClosedXML issue #2850), and the write-back
-                // reindexes without split-on-add — an extended range can no longer split a
-                // not-yet-shifted rule it transiently overlaps (the drop-on-insert bug).
-                var newAreas = edit.Shift > 0
-                    ? axis.InsertAndShift(dv.Areas, affected)
-                    : axis.DeleteAndShift(dv.Areas, affected);
+            // Coverage is the area model, not live repository ranges, so the transform is pure
+            // and can never alias or double-shift (ClosedXML issue #2850), and the write-back
+            // reindexes without split-on-add — an extended range can no longer split a
+            // not-yet-shifted rule it transiently overlaps (the drop-on-insert bug).
+            var newAreas = edit.Shift > 0
+                ? axis.InsertAndShift(dv.Areas, affected)
+                : axis.DeleteAndShift(dv.Areas, affected);
 
-                if (newAreas.Count == 0)
-                    Delete(v => v == dv);
-                else
-                    dv.SetAreas(newAreas);
-            }
+            if (newAreas.Count == 0)
+                Delete(v => v == dv);
+            else
+                dv.SetAreas(newAreas);
         }
+    }
+
+    /// <summary>
+    /// Rewrites the <c>formula1</c>/<c>formula2</c> criteria behind
+    /// <see cref="IXLDataValidation.MinValue"/> and <see cref="IXLDataValidation.MaxValue"/>.
+    /// </summary>
+    private void ShiftCriteriaFormulas<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
 
         foreach (var dv in _dataValidations.ToList())
         {

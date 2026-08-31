@@ -92,6 +92,10 @@ public class CellStylingBenchmarks
     {
         _workbook.Dispose();
 
+        // Collected here because BenchmarkDotNet runs cleanup outside the measured region, so the
+        // work is charged to nobody's timing rather than to whichever variant runs next. It does
+        // not touch the allocation figures: those come from a counter that is cumulative, and a
+        // delta across an iteration already excludes everything collected here.
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);

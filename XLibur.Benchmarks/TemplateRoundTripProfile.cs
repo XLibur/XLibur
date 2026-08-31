@@ -497,6 +497,16 @@ public static class TemplateRoundTripProfile
         return new Sample(times[Iterations / 2], times[0], allocations[Iterations / 2]);
     }
 
+    /// <summary>
+    /// Settles the heap before a probe starts, for the sake of the <em>time</em>, not the bytes.
+    /// </summary>
+    /// <remarks>
+    /// <c>GC.GetTotalAllocatedBytes(precise: true)</c> is cumulative since process start, so the
+    /// delta either side of a probe already counts only what that probe allocated; collecting
+    /// first cannot move that number in either direction. What it does move is the stopwatch:
+    /// draining the collection and finalizer work owed by the previous probe here keeps it out of
+    /// the next probe's timed sample instead of landing part-way through it.
+    /// </remarks>
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
@@ -509,7 +519,7 @@ public static class TemplateRoundTripProfile
     /// otherwise the first worksheet. Falling back positionally is what lets an arbitrary external
     /// template be used without knowing its sheet names.
     /// </summary>
-    private static IXLWorksheet ResolveDataSheet(IXLWorkbook workbook) =>
+    private static IXLWorksheet ResolveDataSheet(XLWorkbook workbook) =>
         workbook.Worksheets.TryGetWorksheet(DataSheet, out var sheet)
             ? sheet
             : workbook.Worksheets.First();
@@ -519,7 +529,7 @@ public static class TemplateRoundTripProfile
     /// present, otherwise the last worksheet — chosen so it is not the same sheet as
     /// <see cref="ResolveDataSheet"/> in a multi-sheet template.
     /// </summary>
-    private static IXLWorksheet ResolveLookupSheet(IXLWorkbook workbook) =>
+    private static IXLWorksheet ResolveLookupSheet(XLWorkbook workbook) =>
         workbook.Worksheets.TryGetWorksheet(FirstLookupSheet, out var sheet)
             ? sheet
             : workbook.Worksheets.Last();

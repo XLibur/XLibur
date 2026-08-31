@@ -32,8 +32,13 @@ public class BatchStylingBenchmarks
     private XLWorkbook _workbook = null!;
     private IXLWorksheet _worksheet = null!;
 
+    // CA1822: BenchmarkDotNet discovers [GlobalSetup] as an instance method on the benchmark
+    // object it constructs. Making it static hides it from the runner, so the font bootstrap
+    // never runs and every benchmark in the class fails on the first text measurement.
+#pragma warning disable CA1822
     [GlobalSetup]
     public void GlobalSetup() => SixLaborsV1FontBootstrap.Register();
+#pragma warning restore CA1822
 
     [IterationSetup]
     public void IterationSetup()
@@ -52,6 +57,10 @@ public class BatchStylingBenchmarks
     {
         _workbook.Dispose();
 
+        // Collected here because BenchmarkDotNet runs cleanup outside the measured region, so the
+        // work is charged to nobody's timing rather than to whichever variant runs next. It does
+        // not touch the allocation figures: those come from a counter that is cumulative, and a
+        // delta across an iteration already excludes everything collected here.
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);

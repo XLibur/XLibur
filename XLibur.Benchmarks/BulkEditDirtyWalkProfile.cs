@@ -128,7 +128,9 @@ public static class BulkEditDirtyWalkProfile
         foreach (var cell in ws.CellsUsed(x => x.HasFormula))
             _ = cell.Value;
 
+#pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var rnd = new Random(42);
+#pragma warning restore S2245
         for (var i = 0; i < edits; i++)
         {
             var column = rnd.Next(1, chains + 1);
@@ -172,6 +174,16 @@ public static class BulkEditDirtyWalkProfile
             $"| {probe.Name,-49} | {bytes / 1048576.0,5:F1} MB | {watch.Elapsed.TotalMilliseconds,5:F0} | {watch.Elapsed.TotalMicroseconds / probe.Edits,9:F2} |");
     }
 
+    /// <summary>
+    /// Settles the heap before a probe starts, for the sake of the <em>time</em>, not the bytes.
+    /// </summary>
+    /// <remarks>
+    /// <c>GC.GetTotalAllocatedBytes(precise: true)</c> is cumulative since process start, so the
+    /// delta either side of a probe already counts only what that probe allocated; collecting
+    /// first cannot move that number in either direction. What it does move is the stopwatch:
+    /// draining the collection and finalizer work owed by the previous probe here keeps it out of
+    /// the next probe's timed sample instead of landing part-way through it.
+    /// </remarks>
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);

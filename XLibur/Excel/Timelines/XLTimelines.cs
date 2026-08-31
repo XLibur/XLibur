@@ -56,7 +56,7 @@ internal sealed class XLTimelines : IXLTimelines
 
     internal XLTimeline AddTimeline(XLPivotTable pivotTable, string dateFieldName)
     {
-        var pivotCache = (XLPivotCache)pivotTable.PivotCache;
+        var pivotCache = pivotTable.PivotCache;
         if (!pivotCache.TryGetFieldIndex(dateFieldName, out var fieldIndex))
         {
             throw new ArgumentException(
@@ -83,12 +83,19 @@ internal sealed class XLTimelines : IXLTimelines
             // Excel rounds the field's range outward to whole years — the round-trip fixture's field
             // runs 1998-05-19 to 2004-02-06 and its bounds read 1998-01-01 to 2005-01-01.
             //
+            // Unspecified, stated rather than defaulted: a serial date in a workbook is wall-clock
+            // with no zone, so converting one is always wrong. DateTime.MaxValue below is
+            // Unspecified for the same reason, which keeps both bounds on the same footing.
+            //
+            // S125 reads the DateTime.MaxValue sentence below as commented-out code.
+#pragma warning disable S125
             // A field whose last date falls in year 9999 has no next-year boundary to round up to;
             // DateTime.MaxValue is the outermost bound there is, so it stands in rather than letting
             // the constructor throw on year 10000.
-            BoundsStart = new DateTime(minDate.Year, 1, 1),
+            BoundsStart = new DateTime(minDate.Year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
+#pragma warning restore S125
             BoundsEnd = maxDate.Year < 9999
-                ? new DateTime(maxDate.Year + 1, 1, 1)
+                ? new DateTime(maxDate.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Unspecified)
                 : DateTime.MaxValue,
         };
         cache.PivotTables.Add(pivotTable);
@@ -134,7 +141,7 @@ internal sealed class XLTimelines : IXLTimelines
     /// XLibur creates is given a marker before the factory sees it, and that fallback stays
     /// unreachable from here.
     /// </remarks>
-    private IXLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
+    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
         _worksheet.Cell(
             Math.Max(1, topRow),
             Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));
@@ -156,12 +163,16 @@ internal sealed class XLTimelines : IXLTimelines
         if (!taken.Contains(stem))
             return stem;
 
+        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
+        // and the loop returns within `taken.Count + 1` iterations.
+#pragma warning disable S1994
         for (var suffix = 1; ; suffix++)
         {
             var candidate = stem + suffix.ToString(CultureInfo.InvariantCulture);
             if (!taken.Contains(candidate))
                 return candidate;
         }
+#pragma warning restore S1994
     }
 
     /// <summary>
@@ -186,12 +197,16 @@ internal sealed class XLTimelines : IXLTimelines
         if (!taken.Contains(sourceName))
             return sourceName;
 
+        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
+        // and the loop returns within `taken.Count + 1` iterations.
+#pragma warning disable S1994
         for (var suffix = 1; ; suffix++)
         {
             var candidate = sourceName + " " + suffix.ToString(CultureInfo.InvariantCulture);
             if (!taken.Contains(candidate))
                 return candidate;
         }
+#pragma warning restore S1994
     }
 
     private HashSet<string> WorkbookCacheNames()

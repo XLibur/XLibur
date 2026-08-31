@@ -88,18 +88,9 @@ internal sealed class XLFill : IXLFill
         _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
     }
 
-    private void ApplyKeyUpdate(Func<XLFillKey, XLFillKey> update)
-    {
-        if (_style.IsCellContainer)
-            SetKey(update(Key));
-        else
-            Modify(update);
-    }
-
     /// <summary>
-    /// <see cref="ApplyKeyUpdate(Func{XLFillKey, XLFillKey})"/> for a caller that has already read
-    /// <see cref="Key"/>, so the cell path does not read it a second time. The delta is still
-    /// needed for the non-cell path,
+    /// Applies a key delta on behalf of a caller that has already read <see cref="Key"/>, so the
+    /// cell path does not read it a second time. The delta is still needed for the non-cell path,
     /// which must apply it to each cell's own key rather than to this facade's.
     /// </summary>
     private void ApplyKeyUpdate(in XLFillKey key, Func<XLFillKey, XLFillKey> update)

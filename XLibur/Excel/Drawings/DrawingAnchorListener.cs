@@ -60,23 +60,35 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
         if (edit.Sheet != worksheet)
             return;
 
-        if (worksheet.Charts.Count > 0)
-        {
-            foreach (var chart in worksheet.Charts.OfType<XLChart>())
-            {
-                if (chart.Anchor == XLDrawingAnchor.Absolute)
-                    continue;
-
-                // 0-based: the chart's markers are written straight into xdr:from / xdr:to.
-                Move<TAxis>(chart.Position, edit, oneBased: false);
-
-                if (chart.Anchor == XLDrawingAnchor.MoveAndSizeWithCells)
-                    Move<TAxis>(chart.SecondPosition, edit, oneBased: false);
-            }
-        }
-
+        // One method per kind of drawing, in the order they were always moved in. A note is not
+        // simply a third case of the same loop — see MoveNotes.
+        MoveCharts<TAxis>(in edit);
         MoveNotes<TAxis>(in edit);
+        MovePictures<TAxis>(in edit);
+    }
 
+    private void MoveCharts<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (worksheet.Charts.Count == 0)
+            return;
+
+        foreach (var chart in worksheet.Charts.OfType<XLChart>())
+        {
+            if (chart.Anchor == XLDrawingAnchor.Absolute)
+                continue;
+
+            // 0-based: the chart's markers are written straight into xdr:from / xdr:to.
+            Move<TAxis>(chart.Position, edit, oneBased: false);
+
+            if (chart.Anchor == XLDrawingAnchor.MoveAndSizeWithCells)
+                Move<TAxis>(chart.SecondPosition, edit, oneBased: false);
+        }
+    }
+
+    private void MovePictures<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
         if (worksheet.Pictures.Count == 0)
             return;
 
@@ -171,6 +183,11 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             // floored at the first line, because a callout sits *above* its cell and so runs out of
             // grid before the cell does. A note on A6 anchors its box on row 5; delete rows 1:5 and
             // the cell lands on row 1 while the box would want row 0, which is not a cell.
+            //
+            // S125 reads the quotation below as commented-out code. It is a citation of the line
+            // this rule is deliberately matching, and it is load-bearing: drop it and the next
+            // reader has no way to check that the two concessions still agree.
+#pragma warning disable S125
             // XLComment.Initialize already makes exactly this concession when a note is created on
             // row 1 — "if (previousRowNumber > 1) previousRowNumber--" — so the box shares the
             // note's own line at the top of the sheet rather than sitting off it.
@@ -178,6 +195,7 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
                 note.Position.SetRow(Math.Max(1, note.Position.Row + edit.Shift));
             else
                 note.Position.SetColumn(Math.Max(1, note.Position.Column + edit.Shift));
+#pragma warning restore S125
         }
     }
 

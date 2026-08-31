@@ -63,7 +63,7 @@ internal sealed class XLSlicers : IXLSlicers
     /// </summary>
     internal XLSlicer AddPivotSlicer(XLPivotTable pivotTable, string fieldName)
     {
-        var cache = (XLPivotCache)pivotTable.PivotCache;
+        var cache = pivotTable.PivotCache;
         if (!cache.TryGetFieldIndex(fieldName, out var fieldIndex))
         {
             throw new ArgumentException(
@@ -160,7 +160,7 @@ internal sealed class XLSlicers : IXLSlicers
     /// source without guessing at column widths.
     /// </para>
     /// </remarks>
-    private IXLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
+    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
         _worksheet.Cell(
             Math.Max(1, topRow),
             Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));
@@ -182,12 +182,16 @@ internal sealed class XLSlicers : IXLSlicers
         if (!taken.Contains(stem))
             return stem;
 
+        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
+        // and the loop returns within `taken.Count + 1` iterations.
+#pragma warning disable S1994
         for (var suffix = 1; ; suffix++)
         {
             var candidate = stem + suffix.ToString(CultureInfo.InvariantCulture);
             if (!taken.Contains(candidate))
                 return candidate;
         }
+#pragma warning restore S1994
     }
 
     /// <summary>
@@ -212,12 +216,16 @@ internal sealed class XLSlicers : IXLSlicers
         if (!taken.Contains(sourceName))
             return sourceName;
 
+        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
+        // and the loop returns within `taken.Count + 1` iterations.
+#pragma warning disable S1994
         for (var suffix = 1; ; suffix++)
         {
             var candidate = sourceName + " " + suffix.ToString(CultureInfo.InvariantCulture);
             if (!taken.Contains(candidate))
                 return candidate;
         }
+#pragma warning restore S1994
     }
 
     private HashSet<string> WorkbookCacheNames()

@@ -910,21 +910,30 @@ public partial class XLWorkbook
                 continue;
             }
 
-            switch (slot)
-            {
-                case "lt1": theme.Background1 = color; break;
-                case "dk1": theme.Text1 = color; break;
-                case "lt2": theme.Background2 = color; break;
-                case "dk2": theme.Text2 = color; break;
-                case "accent1": theme.Accent1 = color; break;
-                case "accent2": theme.Accent2 = color; break;
-                case "accent3": theme.Accent3 = color; break;
-                case "accent4": theme.Accent4 = color; break;
-                case "accent5": theme.Accent5 = color; break;
-                case "accent6": theme.Accent6 = color; break;
-                case "hlink": theme.Hyperlink = color; break;
-                case "folHlink": theme.FollowedHyperlink = color; break;
-            }
+            ApplyThemeSlot(theme, slot, color);
+        }
+    }
+
+    /// <summary>
+    /// Assigns a parsed colour to the theme property its <c>clrScheme</c> slot names. A slot this
+    /// table does not list is ignored, leaving that theme property at its default.
+    /// </summary>
+    private static void ApplyThemeSlot(IXLTheme theme, string slot, XLColor color)
+    {
+        switch (slot)
+        {
+            case "lt1": theme.Background1 = color; break;
+            case "dk1": theme.Text1 = color; break;
+            case "lt2": theme.Background2 = color; break;
+            case "dk2": theme.Text2 = color; break;
+            case "accent1": theme.Accent1 = color; break;
+            case "accent2": theme.Accent2 = color; break;
+            case "accent3": theme.Accent3 = color; break;
+            case "accent4": theme.Accent4 = color; break;
+            case "accent5": theme.Accent5 = color; break;
+            case "accent6": theme.Accent6 = color; break;
+            case "hlink": theme.Hyperlink = color; break;
+            case "folHlink": theme.FollowedHyperlink = color; break;
         }
     }
 

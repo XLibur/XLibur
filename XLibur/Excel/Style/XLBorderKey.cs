@@ -52,6 +52,12 @@ internal readonly record struct XLBorderKey
     /// </remarks>
     private static readonly XLColorKey StylelessEdgeColor = XLColorKey.FromArgb(0xFF000000);
 
+    // S2292 asks for the seven passthrough properties below to become auto-implemented, which would
+    // hand their field layout to the compiler and undo exactly what the next paragraph measures:
+    // grouped explicitly the struct is 88 bytes, interleaved it is 96. The rule cannot see that the
+    // fields are declared together on purpose.
+#pragma warning disable S2292
+
     // Every backing field is declared here rather than left implicit on the properties, because the
     // runtime lays a struct's fields out in declaration order where alignment allows and does not
     // reorder across the eight-byte-aligned colours. Interleaved with the properties - a style byte,
@@ -143,6 +149,7 @@ internal readonly record struct XLBorderKey
         get => _diagonalDown;
         init => _diagonalDown = value;
     }
+#pragma warning restore S2292
 
     /// <summary>
     /// Replace the colour of every edge whose style is <see cref="XLBorderStyleValues.None"/> with
