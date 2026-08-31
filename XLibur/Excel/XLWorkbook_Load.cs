@@ -287,6 +287,7 @@ public partial class XLWorkbook
     private void LoadSheetsPass1(WorkbookPart workbookPart, Sheets sheets)
     {
         var position = 0;
+        var declaredSheetIds = new HashSet<uint>();
         foreach (var dSheet in sheets.OfType<Sheet>())
         {
             position++;
@@ -313,6 +314,19 @@ public partial class XLWorkbook
             {
                 throw PartStructureException.DuplicateSheetName(sheetName);
             }
+
+            // Sheet ids must be unique, and the write path silently depends on it:
+            // WorkbookPartWriter.ReorderUnsupportedSheet locates a sheet element by sheetId alone
+            // (`Elements<Sheet>().First(s => s.SheetId == id)`). Given two sheets sharing an id it
+            // selects the wrong element, and the workbook XLibur writes out then declares one
+            // sheet's name twice and drops the other's — a file XLibur cannot read back (D35).
+            //
+            // The precondition belongs at the door. Enforcing it here also keeps the writer's
+            // lookup honest rather than making it defensive about a state that should never load.
+            if (declaredSheetIds.Contains(sheetIdValue))
+                throw PartStructureException.DuplicateSheetId(sheetIdValue);
+
+            declaredSheetIds.Add(sheetIdValue);
 
             if (string.IsNullOrEmpty(dSheet.Id))
             {

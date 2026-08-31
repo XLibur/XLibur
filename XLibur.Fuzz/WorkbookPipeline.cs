@@ -2,6 +2,20 @@ using XLibur.Excel;
 
 namespace XLibur.Fuzz;
 
+/// <summary>
+/// Thrown when XLibur cannot read back a workbook it has just written.
+///
+/// A distinct type because this is the most serious thing the harness can find and the least
+/// visible: the input was accepted correctly, the save reported success, and the damage exists
+/// only in the bytes. Wrapping it also puts the phase in the message, which the stack trace
+/// cannot supply — reading written bytes runs the same code as reading given bytes.
+/// </summary>
+internal sealed class ReloadFailedException(int writtenLength, Exception innerException)
+    : Exception(
+        $"XLibur could not read back the {writtenLength} bytes it wrote. " +
+        "The input loaded and saved without complaint, so this is a defect in the write path.",
+        innerException);
+
 /// <summary>How far a candidate package got before the pipeline stopped with it.</summary>
 internal enum WorkbookOutcome
 {
@@ -89,8 +103,45 @@ internal static class WorkbookPipeline
             // Unreachable by construction; present so the phase reads the same as the others
             // and so widening the rule is a one-line change in Oracle rather than here.
         }
+        catch (Exception exception)
+        {
+            // Say which phase this was. The stack cannot: reading the bytes XLibur just wrote runs
+            // exactly the same code as reading the bytes it was given, so a reload failure and a
+            // load failure produce an identical top frame while meaning opposite things — one is
+            // XLibur correctly refusing someone else's bad file, the other is XLibur producing a
+            // bad file of its own. Triage guessed wrong once before this was added.
+            Dump(candidate, written);
+            throw new ReloadFailedException(written.Length, exception);
+        }
 
         return WorkbookOutcome.RoundTripped;
     }
 
+    /// <summary>
+    /// Write the package XLibur was given and the package it produced, side by side, when
+    /// <c>XLIBUR_FUZZ_DUMP_DIR</c> asks for them.
+    ///
+    /// A write-path defect is a claim about two documents — what went in and what came out — and
+    /// neither an exception type nor a stack frame carries either of them. Reconstructing the pair
+    /// by hand from a fuzzer's input bytes means re-running the generator, so the harness hands
+    /// them over instead.
+    /// </summary>
+    private static void Dump(byte[] given, byte[] produced)
+    {
+        var directory = Environment.GetEnvironmentVariable("XLIBUR_FUZZ_DUMP_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+            return;
+
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var stamp = DateTime.UtcNow.ToString("HHmmss_fff", System.Globalization.CultureInfo.InvariantCulture);
+            File.WriteAllBytes(Path.Combine(directory, $"{stamp}-given.xlsx"), given);
+            File.WriteAllBytes(Path.Combine(directory, $"{stamp}-produced.xlsx"), produced);
+        }
+        catch (IOException)
+        {
+            // Diagnostics must never be the reason a run fails.
+        }
+    }
 }
