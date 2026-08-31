@@ -4,7 +4,7 @@
 **Effort:** S–M (~3 days)
 **Dependencies:** None hard. Shares the calc-engine staleness model with specs 42 and 43; one owner
 should take all three, in the order 40 → 42 → 43.
-**Status:** 🟩 Implemented on `task/40` (2026-08-30), unmerged — see Results, including the one open performance decision. From the 2026-08-30 architecture review (round 3).
+**Status:** ✅ Merged — [#418](https://github.com/XLibur/XLibur/pull/418) (squash `2c7150c7`, 2026-08-31). From the 2026-08-30 architecture review (round 3). See Results.
 
 ## Problem Statement
 
@@ -159,7 +159,7 @@ Both wrong answers above were reproduced against a scratch build before this spe
 ## Results
 
 **Implemented 2026-08-30 on `task/40` (worktree `xl-wt-40`), head `9a070669`, 9 commits, cut from
-`upstream/main` `37c986bb`. Not yet pushed or merged.** Full suite green on both TFMs: 14,265 per
+`upstream/main` `37c986bb`; PR [#418](https://github.com/XLibur/XLibur/pull/418) opened 2026-08-31 at head `edc3b88c` (10 commits, docs sync). The PR body also points at `docs/dirty-walk-bulk-edit.md` for the follow-ups.** Full suite green on both TFMs: 14,265 per
 TFM, 0 failed, 5 pre-existing skips; Report 481, Fonts.SixLabors 31, Fonts.SkiaSharp 37 all green.
 
 **The commit order the brief demanded held**: cycle-termination safety net green first (`6fbab32a`),
@@ -217,3 +217,11 @@ shippable. `WalkQueueRetainedCapacity = 4096` is a judgement, not a measurement.
 path and now has a walk that will actually propagate it; it should also take D26. Spec 43 builds on
 both. `Mark_dirty_stops_at_dirty_cell` was rewritten — it had asserted the defect's symptom as
 intended behaviour.
+
+**Merged 2026-08-31** as [#418](https://github.com/XLibur/XLibur/pull/418) (squash `2c7150c7`,
+branch tip `edc3b88c`), the first of the five. **The open performance decision was resolved by
+merging as-is**: the merged CHANGELOG documents the cost in user terms (20k unsettled edits of a
+50-deep shared model ~50 ms → ~190 ms; reading or saving between edits unaffected, allocations
+otherwise lower). A sound cross-call skip (`_dirtiedByWalk` third state, guarded by
+`BulkEditDirtyWalkProfile`) remains an un-specced follow-up. Specs 42 and 43 build on the merged
+walk.
