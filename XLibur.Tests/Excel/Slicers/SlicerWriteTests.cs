@@ -163,12 +163,12 @@ public class SlicerWriteTests
         // names one part per slicer. That is the shape the manual check confirmed working.
         foreach (var part in SlicerParts(saved))
         {
-            var count = System.Text.RegularExpressions.Regex.Matches(ReadPart(saved, part), "<[^>]*:?slicer ").Count;
+            var count = System.Text.RegularExpressions.Regex.Count(ReadPart(saved, part), "<[^>]*:?slicer ");
             await Assert.That(count).IsEqualTo(1).Because($"{part} should define exactly one slicer.");
         }
 
         var sheetXml = ReadPart(saved, "xl/worksheets/sheet2.xml");
-        var refs = System.Text.RegularExpressions.Regex.Matches(sheetXml, "<x14:slicer r:id=").Count;
+        var refs = System.Text.RegularExpressions.Regex.Count(sheetXml, "<x14:slicer r:id=");
         await Assert.That(refs).IsEqualTo(2).Because("The sheet now points at two slicer parts.");
     }
 

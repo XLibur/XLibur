@@ -85,10 +85,16 @@ internal sealed class XLTimelines : IXLTimelines
             //
             // A field whose last date falls in year 9999 has no next-year boundary to round up to;
             // DateTime.MaxValue is the outermost bound there is, so it stands in rather than letting
-            // the constructor throw on year 10000.
-            BoundsStart = new DateTime(minDate.Year, 1, 1),
+            // the constructor throw on year 10000. (S125 reads that sentence as commented-out code.)
+            //
+            // Unspecified, stated rather than defaulted: a serial date in a workbook is wall-clock
+            // with no zone, so converting one is always wrong. DateTime.MaxValue below is
+            // Unspecified for the same reason, which keeps both bounds on the same footing.
+#pragma warning disable S125
+            BoundsStart = new DateTime(minDate.Year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
+#pragma warning restore S125
             BoundsEnd = maxDate.Year < 9999
-                ? new DateTime(maxDate.Year + 1, 1, 1)
+                ? new DateTime(maxDate.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Unspecified)
                 : DateTime.MaxValue,
         };
         cache.PivotTables.Add(pivotTable);
@@ -134,7 +140,7 @@ internal sealed class XLTimelines : IXLTimelines
     /// XLibur creates is given a marker before the factory sees it, and that fallback stays
     /// unreachable from here.
     /// </remarks>
-    private IXLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
+    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
         _worksheet.Cell(
             Math.Max(1, topRow),
             Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));

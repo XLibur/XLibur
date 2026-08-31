@@ -49,6 +49,13 @@ dotnet_diagnostic.TUnit0057.severity = none
 # and wrong assertion.
 dotnet_diagnostic.TUnitAssertions0016.severity = none
 
+# SYSLIB1045: use [GeneratedRegex] so the pattern is compiled at build time. The gain is real on
+# a hot path and absent here - each of the six patterns runs a handful of times in one test, and
+# the source generator's price is a partial class plus a partial method declaration sited away
+# from the assertion that uses it. In a test the pattern belongs beside the thing it asserts,
+# the same argument the repo already accepted for CA1861 above.
+dotnet_diagnostic.SYSLIB1045.severity = none
+
 # Naming rules that disagree with XLibur's own conventions, everywhere.
 # See docs/sonar.md for the finding-by-finding reasoning.
 [*.cs]
@@ -97,3 +104,13 @@ dotnet_diagnostic.S3267.severity = none
 # with Titles/Revenue/RangeSpec constants makes the sample harder to read, not easier. Same
 # argument the repo already accepted for CA1861 in tests.
 dotnet_diagnostic.S1192.severity = none
+
+# S1215: do not call GC.Collect. In measurement code the forced collection IS the measurement -
+# a probe that does not settle the heap first charges the previous probe's garbage to this one's
+# GetTotalAllocatedBytes delta, and a BenchmarkDotNet [IterationCleanup] that does not collect
+# lets one iteration's survivors distort the next. Scoped here rather than fenced per site
+# because every hit is the same two-collect-with-a-finalizer-wait idiom, and the rule is right
+# everywhere outside these four projects. Five earlier hits were resolved by hand in the
+# SonarCloud UI instead; those marks are keyed to a line and did not survive the code moving,
+# which is why the same idiom reappeared as new findings in the newer profiles.
+dotnet_diagnostic.S1215.severity = none

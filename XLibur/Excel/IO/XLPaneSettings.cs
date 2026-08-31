@@ -82,23 +82,40 @@ internal readonly struct XLPaneSettings
             // Excel omits the unused axis rather than writing 0. Before spec 29 the DOM path wrote
             // xSplit="0" for a rows-only freeze where the streaming path omitted the attribute;
             // task 1's harness read both packages and confirmed it.
+            //
+            // S125 reads the line above as commented-out code; it is prose quoting the attribute
+            // that used to be written.
+#pragma warning disable S125
             SplitColumn = splitColumn > 0 ? splitColumn : null,
+#pragma warning restore S125
             SplitRow = splitRow > 0 ? splitRow : null,
-            // split + 1 is the first unfrozen cell, and only means that for a freeze: an unfrozen
-            // split states its position in twentieths of a point, so the same arithmetic would name
-            // a cell hundreds of columns away, or none at all. Such a pane anchors at A1 unless the
-            // caller named a cell.
-            TopLeftCell = paneTopLeftCell is { IsValid: true } p
-                ? p.ToStringRelative(false)
-                : frozen
-                    ? XLHelper.GetColumnLetterFromNumber(splitColumn + 1) + (splitRow + 1)
-                    : "A1",
+            TopLeftCell = ResolveTopLeftCell(splitColumn, splitRow, frozen, paneTopLeftCell),
             ActivePane = ResolveCorner(splitColumn, splitRow, activeCell),
             // XLibur never produces a split-then-frozen pane, so the choice is the sheet view's
             // own: a freeze, or the draggable split bar a caller gets by setting SplitRow and
             // SplitColumn without freezing.
             State = frozen ? XLPaneState.Frozen : XLPaneState.Split,
         };
+    }
+
+    /// <summary>
+    /// The cell the unfrozen pane scrolls to: the caller's, else split + 1 for a freeze, else A1.
+    /// </summary>
+    /// <remarks>
+    /// split + 1 is the first unfrozen cell, and only means that for a freeze: an unfrozen split
+    /// states its position in twentieths of a point, so the same arithmetic would name a cell
+    /// hundreds of columns away, or none at all. Such a pane anchors at A1 unless the caller
+    /// named a cell.
+    /// </remarks>
+    private static string ResolveTopLeftCell(
+        int splitColumn, int splitRow, bool frozen, XLAddress? paneTopLeftCell)
+    {
+        if (paneTopLeftCell is { IsValid: true } p)
+            return p.ToStringRelative(false);
+
+        return frozen
+            ? XLHelper.GetColumnLetterFromNumber(splitColumn + 1) + (splitRow + 1)
+            : "A1";
     }
 
     /// <summary>

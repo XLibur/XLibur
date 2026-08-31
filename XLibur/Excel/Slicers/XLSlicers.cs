@@ -160,7 +160,7 @@ internal sealed class XLSlicers : IXLSlicers
     /// source without guessing at column widths.
     /// </para>
     /// </remarks>
-    private IXLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
+    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
         _worksheet.Cell(
             Math.Max(1, topRow),
             Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));

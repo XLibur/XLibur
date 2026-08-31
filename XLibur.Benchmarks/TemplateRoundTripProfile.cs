@@ -501,21 +501,19 @@ public static class TemplateRoundTripProfile
     /// Settles the heap so a probe's <c>GetTotalAllocatedBytes</c> delta is its own allocation and
     /// not the previous probe's garbage. Forcing the collector is the measurement here.
     /// </summary>
-#pragma warning disable S1215 // Deliberate: benchmark harness, not production code.
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
-#pragma warning restore S1215
 
     /// <summary>
     /// The sheet the grid probes write into: the generated fixture's data sheet when present,
     /// otherwise the first worksheet. Falling back positionally is what lets an arbitrary external
     /// template be used without knowing its sheet names.
     /// </summary>
-    private static IXLWorksheet ResolveDataSheet(IXLWorkbook workbook) =>
+    private static IXLWorksheet ResolveDataSheet(XLWorkbook workbook) =>
         workbook.Worksheets.TryGetWorksheet(DataSheet, out var sheet)
             ? sheet
             : workbook.Worksheets.First();
@@ -525,7 +523,7 @@ public static class TemplateRoundTripProfile
     /// present, otherwise the last worksheet — chosen so it is not the same sheet as
     /// <see cref="ResolveDataSheet"/> in a multi-sheet template.
     /// </summary>
-    private static IXLWorksheet ResolveLookupSheet(IXLWorkbook workbook) =>
+    private static IXLWorksheet ResolveLookupSheet(XLWorkbook workbook) =>
         workbook.Worksheets.TryGetWorksheet(FirstLookupSheet, out var sheet)
             ? sheet
             : workbook.Worksheets.Last();

@@ -23,7 +23,7 @@ internal static class XLRangeInsertHelper
         => Insert<RowAxis>(range, onlyUsedCells, numberOfRows, formatFromAbove, nullReturn, nameof(numberOfRows))
             ?.Rows();
 
-    private static IXLRange? Insert<TAxis>(XLRangeBase range, bool onlyUsedCells, int count,
+    private static XLRange? Insert<TAxis>(XLRangeBase range, bool onlyUsedCells, int count,
         bool formatFromPrevious, bool nullReturn, string countParamName)
         where TAxis : struct, IGridAxis
     {
