@@ -306,7 +306,12 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to the list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart)
+            //
+            // A relationship id naming no part at all lands here too. The sheet element exists in
+            // the source XML but nothing backs it, which is exactly the "cannot load, copy it
+            // through" case — and treating it as such preserves the original element rather than
+            // fabricating a sheet the file never had.
+            if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) || sheetPart is not WorksheetPart)
             {
                 UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position });
                 continue;
@@ -339,8 +344,12 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to a list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart worksheetPart)
+            // A relationship id naming no part is skipped for the same reason.
+            if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) ||
+                sheetPart is not WorksheetPart worksheetPart)
+            {
                 continue;
+            }
 
             var sheetName = dSheet.Name!.Value!;
             if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
@@ -852,8 +861,10 @@ public partial class XLWorkbook
                 continue;
             }
 
-            // The referenced sheet can also be ChartsheetPart. Only look for pivot tables in normal sheet parts.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is WorksheetPart worksheetPart)
+            // The referenced sheet can also be ChartsheetPart, or the relationship id may name no
+            // part at all. Only look for pivot tables in normal sheet parts.
+            if (workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) &&
+                sheetPart is WorksheetPart worksheetPart)
             {
                 var ws = (XLWorksheet)WorksheetsInternal.Worksheet(dSheet.Name!.Value!);
 

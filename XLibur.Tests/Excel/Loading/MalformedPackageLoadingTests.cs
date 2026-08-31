@@ -89,6 +89,52 @@ public class MalformedPackageLoadingTests
         await Assert.That(() => new XLWorkbook(notAPackage)).Throws<FileFormatException>();
     }
 
+    /// <summary>
+    /// A workbook declaring a sheet whose relationship id names no relationship. The line above
+    /// the failing one already guarded an *empty* relId, described as something non-Excel
+    /// producers emit; a dangling non-empty one had not been considered, and OpenXml's
+    /// <c>GetPartById</c> answers it with <see cref="ArgumentOutOfRangeException"/> naming a
+    /// parameter the caller never passed (D28).
+    ///
+    /// The sheet is treated as one XLibur cannot load and copies through, which is how the same
+    /// method already handles a relationship pointing at a chartsheet.
+    /// </summary>
+    [Test]
+    public async Task Sheet_whose_relationship_id_names_no_part_does_not_fault()
+    {
+        using var package = BuildPackage(
+            ("[Content_Types].xml", MinimalContentTypes),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml", WorkbookWithDanglingSheetRelationship),
+            ("xl/_rels/workbook.xml.rels", EmptyRelationshipsXml));
+
+        using var workbook = new XLWorkbook(package);
+
+        // The declaration is preserved rather than dropped or fabricated into a real sheet.
+        await Assert.That(workbook.Worksheets.Count).IsEqualTo(0);
+    }
+
+    private const string MinimalContentTypes =
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+          <Default Extension="xml" ContentType="application/xml" />
+          <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
+        </Types>
+        """;
+
+    private const string WorkbookWithDanglingSheetRelationship =
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <sheets>
+            <sheet name="Ghost" sheetId="1" r:id="rIdThatDoesNotExist" />
+          </sheets>
+        </workbook>
+        """;
+
     private static MemoryStream BuildPackage(params (string Name, string Content)[] entries)
     {
         var buffer = new MemoryStream();
