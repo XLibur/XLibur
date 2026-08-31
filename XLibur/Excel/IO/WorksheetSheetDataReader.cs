@@ -1062,6 +1062,14 @@ internal static class WorksheetSheetDataReader
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
+
+        // A literal like 1e309 is well-formed and parses to infinity, which no cell can hold.
+        // Reject it deliberately: letting it through means XLCellValue's own precondition escapes
+        // the public constructor as an ArgumentException naming the internal parameter 'number',
+        // which tells a caller nothing about the file being at fault (D29).
+        if (!double.IsFinite(number))
+            throw PartStructureException.CellValueOutOfRange(cellValue.ToString());
+
         var numberDataType = GetCachedNumberDataType(cellStyleValue.NumberFormat, numberDataTypeCache);
         var cellNumber = numberDataType switch
         {

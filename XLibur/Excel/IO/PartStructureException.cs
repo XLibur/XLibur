@@ -98,6 +98,18 @@ public sealed class PartStructureException : Exception
     }
 
     /// <summary>
+    /// Create a new exception for a numeric literal that no cell can hold. A literal such as
+    /// <c>1e309</c> is well-formed XML and parses to infinity, which is outside the range a
+    /// workbook represents.
+    /// </summary>
+    /// <param name="literal">The literal as it appeared in the file.</param>
+    internal static PartStructureException CellValueOutOfRange(string literal)
+    {
+        return new PartStructureException(
+            $"The cell value '{literal}' is outside the range of numbers a workbook can represent.");
+    }
+
+    /// <summary>
     /// Create a new exception for a package that could not be opened as an OPC package at all —
     /// a malformed archive, or one whose content types are unusable.
     /// </summary>

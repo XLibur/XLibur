@@ -710,6 +710,16 @@ public partial class XLWorkbook : IXLWorkbook
 
     private void CheckForWorksheetsPresent()
     {
+        // D31: this refuses a workbook made only of sheets XLibur cannot model — a chartsheet, or
+        // one whose relationship names no part. Those are held in UnsupportedSheets and copied
+        // through on save, so arguably the count below should include them and the round trip
+        // should work.
+        //
+        // Relaxing it alone is not the fix, and that was measured rather than assumed: with the
+        // guard widened, saving such a workbook fails further down with "Id conflicts with the Id
+        // of an existing relationship", because the write path re-creates a relationship for a
+        // sheet element it is also copying through. One guard hides the other. Fixing this needs
+        // the relationship-writing path examined, not a wider condition here.
         if (Worksheets.Count == 0)
             throw new InvalidOperationException("Workbooks need at least one worksheet.");
     }

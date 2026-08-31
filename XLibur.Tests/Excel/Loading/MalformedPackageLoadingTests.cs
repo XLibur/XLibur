@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -112,6 +113,42 @@ public class MalformedPackageLoadingTests
 
         // The declaration is preserved rather than dropped or fabricated into a real sheet.
         await Assert.That(workbook.Worksheets.Count).IsEqualTo(0);
+
+        // Saving it is a separate, still-open problem (D31): a workbook made only of sheets
+        // XLibur cannot model is refused by CheckForWorksheetsPresent, and widening that guard
+        // only moves the failure to a relationship-id conflict in the write path. The load is
+        // what this test pins; the save is pinned as currently-known-wrong so that fixing D31
+        // fails here and forces this test to be revisited rather than silently diverging.
+        using var output = new MemoryStream();
+        await Assert.That(() => workbook.SaveAs(output)).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// A cell whose numeric literal overflows a double. Well-formed XML, but no cell can hold
+    /// infinity, so the load is refused with XLibur's own type rather than letting XLCellValue's
+    /// precondition escape as an ArgumentException naming the parameter 'number' (D29).
+    /// </summary>
+    [Test]
+    public async Task Cell_value_that_overflows_a_double_is_rejected_rather_than_faulting()
+    {
+        using var package = BuildSheetPackage("""<row r="1"><c r="A1"><v>1e309</v></c></row>""", cellFormatCount: 1);
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
+    /// <summary>
+    /// A cell naming a style index past the end of &lt;cellXfs&gt;. Excel repairs this by using
+    /// the default format; a file Excel opens without complaint must not be one XLibur refuses
+    /// (D30). The cost of the repair is cosmetic, where refusing costs the whole document.
+    /// </summary>
+    [Test]
+    public async Task Cell_style_index_past_the_end_of_the_table_falls_back_to_the_default_format()
+    {
+        using var package = BuildSheetPackage("""<row r="1"><c r="A1" s="17"><v>1</v></c></row>""", cellFormatCount: 1);
+
+        using var workbook = new XLWorkbook(package);
+
+        await Assert.That(workbook.Worksheet("Sheet1").Cell("A1").GetDouble()).IsEqualTo(1d);
     }
 
     private const string MinimalContentTypes =
@@ -134,6 +171,64 @@ public class MalformedPackageLoadingTests
           </sheets>
         </workbook>
         """;
+
+    /// <summary>
+    /// A one-sheet package whose sheet data is <paramref name="rowsXml"/> and whose stylesheet
+    /// declares <paramref name="cellFormatCount"/> cell formats.
+    /// </summary>
+    private static MemoryStream BuildSheetPackage(string rowsXml, int cellFormatCount)
+    {
+        var cellFormats = string.Concat(
+            Enumerable.Repeat("""<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" />""", cellFormatCount));
+
+        return BuildPackage(
+            ("[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+                  <Default Extension="xml" ContentType="application/xml" />
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
+                  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" />
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" />
+                </Types>
+                """),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets><sheet name="Sheet1" sheetId="1" r:id="rIdSheet1" /></sheets>
+                </workbook>
+                """),
+            ("xl/_rels/workbook.xml.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rIdSheet1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml" />
+                  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml" />
+                </Relationships>
+                """),
+            ("xl/styles.xml",
+                $"""
+                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                   <fonts count="1"><font><sz val="11" /><name val="Calibri" /></font></fonts>
+                   <fills count="1"><fill><patternFill patternType="none" /></fill></fills>
+                   <borders count="1"><border /></borders>
+                   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" /></cellStyleXfs>
+                   <cellXfs count="{cellFormatCount}">{cellFormats}</cellXfs>
+                 </styleSheet>
+                 """),
+            ("xl/worksheets/sheet1.xml",
+                $"""
+                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                   <sheetData>{rowsXml}</sheetData>
+                 </worksheet>
+                 """));
+    }
 
     private static MemoryStream BuildPackage(params (string Name, string Content)[] entries)
     {
