@@ -98,6 +98,16 @@ public sealed class PartStructureException : Exception
     }
 
     /// <summary>
+    /// Create a new exception for a workbook that declares two sheets with the same name.
+    /// </summary>
+    /// <param name="sheetName">The name declared more than once.</param>
+    internal static PartStructureException DuplicateSheetName(string sheetName)
+    {
+        return new PartStructureException(
+            $"The workbook declares more than one sheet named '{sheetName}'.");
+    }
+
+    /// <summary>
     /// Create a new exception for a numeric literal that no cell can hold. A literal such as
     /// <c>1e309</c> is well-formed XML and parses to infinity, which is outside the range a
     /// workbook represents.

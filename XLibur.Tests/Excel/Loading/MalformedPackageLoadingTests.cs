@@ -151,6 +151,63 @@ public class MalformedPackageLoadingTests
         await Assert.That(workbook.Worksheet("Sheet1").Cell("A1").GetDouble()).IsEqualTo(1d);
     }
 
+    /// <summary>
+    /// A workbook declaring two sheets with the same name. The collection it loads into guards
+    /// duplicates with an ArgumentException naming 'sheetName' — right for the public
+    /// <c>AddWorksheet</c>, wrong for a name that came out of a file (D32).
+    /// </summary>
+    [Test]
+    public async Task Workbook_declaring_two_sheets_with_the_same_name_is_rejected_rather_than_faulting()
+    {
+        // Both sheets must be genuinely loadable. With dangling relationship ids they would go to
+        // UnsupportedSheets and never reach the worksheet collection, so the duplicate would not
+        // be detected and the test would pass for the wrong reason.
+        const string emptySheetXml =
+            """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+              <sheetData />
+            </worksheet>
+            """;
+
+        using var package = BuildPackage(
+            ("[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+                  <Default Extension="xml" ContentType="application/xml" />
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" />
+                  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" />
+                </Types>
+                """),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets>
+                    <sheet name="Twin" sheetId="1" r:id="rIdA" />
+                    <sheet name="Twin" sheetId="2" r:id="rIdB" />
+                  </sheets>
+                </workbook>
+                """),
+            ("xl/_rels/workbook.xml.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rIdA" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml" />
+                  <Relationship Id="rIdB" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml" />
+                </Relationships>
+                """),
+            ("xl/worksheets/sheet1.xml", emptySheetXml),
+            ("xl/worksheets/sheet2.xml", emptySheetXml));
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
     private const string MinimalContentTypes =
         """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
