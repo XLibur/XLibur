@@ -190,6 +190,18 @@ public class MalformedPackageLoadingTests
         var sheet = workbook.Worksheets.First();
         await Assert.That(sheet.Name).IsEqualTo(sheetName);
         await Assert.That(sheet.Cell("A1").GetDouble()).IsEqualTo(7d);
+
+        // The writer had the same defect at a third site, in WorkbookPartWriter's sheet reorder,
+        // and it was only reachable once the load-side fixes let such a workbook exist. Fixing
+        // the load moved the ArgumentException from the constructor to SaveAs.
+        using var saved = new MemoryStream();
+        workbook.SaveAs(saved);
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedSheet = reloaded.Worksheets.First();
+        await Assert.That(reloadedSheet.Name).IsEqualTo(sheetName);
+        await Assert.That(reloadedSheet.Cell("A1").GetDouble()).IsEqualTo(7d);
     }
 
     /// <summary>

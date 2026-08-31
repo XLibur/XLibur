@@ -185,7 +185,15 @@ internal static class WorkbookPartWriter
         workbook.Sheets!.RemoveChild(sheet);
         workbook.Sheets.AppendChild(sheet);
 
-        var xlSheet = xlWorkbook.Worksheet(sheet.Name!.Value!);
+        // sheet.Name is the name as it stands in <sheet>, not a name out of a formula, so try it
+        // as written first. XLWorkbook.Worksheet unescapes, which turns a legal name containing ''
+        // into one no sheet has and threw ArgumentException out of SaveAs (D40, third site — the
+        // load-side fixes are what let such a workbook reach the writer at all). The fallback
+        // keeps the old lookup, and its throw, for anything the raw name does not match.
+        var sheetName = sheet.Name!.Value!;
+        var xlSheet = xlWorkbook.WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out var rawMatch)
+            ? rawMatch
+            : (XLWorksheet)xlWorkbook.Worksheet(sheetName);
         sheet.State = xlSheet.Visibility != XLWorksheetVisibility.Visible
             ? xlSheet.Visibility.ToOpenXml()
             : null;
