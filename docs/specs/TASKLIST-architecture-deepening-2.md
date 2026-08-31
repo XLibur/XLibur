@@ -152,7 +152,9 @@ Branch `refactor/29-write-path-resolvers`, **merged as [#413](https://github.com
 exactly the predicted two — `docs/specs` and the `## Unreleased` changelog entries — with no source
 file shared; resolved on #414's branch by keeping both. Suite green on both TFMs:
 28,358 tests, 0 failed. Found and recorded **D18** on the way (an unfrozen split pane is lost on
-load, and any split is written back as a freeze) — not fixed, it needs a public API change.
+load, and any split is written back as a freeze) — not fixed here, because it needs a public API
+change. **That change was authorised and D18 is now fixed on [#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`)**: `IXLSheetView.FreezePanes`
+is public again and `XLPaneSettings.Resolve` returns `Split` instead of hardcoding `Frozen`.
 
 ### Spec 30 — Array application seam ⬜ Ready
 
@@ -233,7 +235,9 @@ brief template**: a spec that changes library behaviour can break a consumer pac
 port, up from 2; all four dead features move. Full suite green on net8.0 and net10.0, five assertions
 deliberately reversed and renamed, no other test changed. Structural-edit profile: full workload
 −0.9% time, −0.0% bytes on medians of three runs. Three defects recorded (D15, D16, D17) and one
-criterion reported as unreachable (≥12 adapter types; the design lists 11).
+criterion reported as unreachable (≥12 adapter types; the design lists 11). **D15 and D17 have since
+been fixed** — D15 by [#415](https://github.com/XLibur/XLibur/pull/415) (`199b3e2b`), D17 by
+[#416](https://github.com/XLibur/XLibur/pull/416) (`37c986bb`) — leaving D16, which is fixed for drawing anchors here and still live at the source.
 
 **Two gates each caught something the other could not.** Task 7 caught a regression it had itself
 introduced — the note pass materialised an `XLCell` per used cell on every edit — fixed at source
