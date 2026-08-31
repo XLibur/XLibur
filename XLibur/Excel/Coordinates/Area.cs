@@ -252,15 +252,49 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
         return new Area(FirstPoint, new Point(LastPoint.Row, column));
     }
 
+    /// <summary>
+    /// The single conversion point from an address to a rectangle: every consumer that needs
+    /// geometry reads the result of this method rather than working it out from the address's
+    /// two corners itself. Normalises per axis, matching the rule <see cref="XLRangeAddress.Normalize"/>
+    /// already implements for the address type - row and column are ordered independently, not
+    /// by swapping both corners whenever either one is inverted. A whole-corner swap is correct
+    /// only when both axes are inverted; when just one is (e.g. "B5:E2", rows reversed, columns
+    /// not) it fixes that axis by breaking the other one, producing a rectangle with a negative
+    /// width or height that every downstream consumer trusts as already normalised.
+    /// </summary>
     internal static Area FromRangeAddress<T>(T address)
         where T : IXLRangeAddress
     {
         var firstPoint = Point.FromAddress(address.FirstAddress);
         var lastPoint = Point.FromAddress(address.LastAddress);
-        if (firstPoint.Row > lastPoint.Row || firstPoint.Column > lastPoint.Column)
-            return new Area(lastPoint, firstPoint);
 
-        return new Area(firstPoint, lastPoint);
+        return FromCorners(firstPoint.Row, firstPoint.Column, lastPoint.Row, lastPoint.Column);
+    }
+
+    /// <summary>
+    /// Overload for the common case where the address is already the concrete
+    /// <see cref="XLRangeAddress"/> struct. <see cref="FromRangeAddress{T}"/> reads
+    /// <c>FirstAddress</c>/<c>LastAddress</c> through the <see cref="IXLRangeAddress"/>
+    /// constraint, which boxes the <see cref="XLAddress"/> struct into <see cref="IXLAddress"/>
+    /// on every call; this overload reads the concrete, non-boxing properties directly. Picked
+    /// automatically by overload resolution wherever a caller already holds an
+    /// <see cref="XLRangeAddress"/> - needed by callers on the merged-range check that runs on
+    /// every cell write.
+    /// </summary>
+    internal static Area FromRangeAddress(XLRangeAddress address)
+    {
+        return FromCorners(address.FirstAddress.RowNumber, address.FirstAddress.ColumnNumber,
+            address.LastAddress.RowNumber, address.LastAddress.ColumnNumber);
+    }
+
+    private static Area FromCorners(int firstRow, int firstColumn, int lastRow, int lastColumn)
+    {
+        var topRow = Math.Min(firstRow, lastRow);
+        var bottomRow = Math.Max(firstRow, lastRow);
+        var leftColumn = Math.Min(firstColumn, lastColumn);
+        var rightColumn = Math.Max(firstColumn, lastColumn);
+
+        return new Area(new Point(topRow, leftColumn), new Point(bottomRow, rightColumn));
     }
 
     public bool Contains(Point point)

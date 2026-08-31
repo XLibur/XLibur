@@ -20,16 +20,27 @@ namespace XLibur.Excel.CalcEngine
         private readonly XLRangeAddress _firstArea;
         private readonly XLRangeAddress[]? _additionalAreas;
 
+        /// <remarks>
+        /// The area is normalized on the way in, and the constructors below do the same. Every
+        /// area a Reference holds is therefore top-left to bottom-right, which the rest of this
+        /// type relies on: <see cref="GetCellsValues"/> iterates first-to-last and would yield
+        /// nothing for a reversed area, <see cref="Apply"/> takes its origin from
+        /// <c>FirstAddress</c> while sizing from the absolute spans and would read a rectangle
+        /// hung off the wrong corner, and <c>RangeOp</c>'s bounding box compares only matching
+        /// corners. This used to be a precondition rejected with an <see cref="ArgumentException"/>,
+        /// which stopped working once reversed range addresses became legal elsewhere in the object
+        /// model - a caller passing one would now get a silently wrong formula result rather than
+        /// an exception, so the constructor fixes the area instead of refusing it.
+        /// <see cref="XLRangeAddress.Normalize"/> returns the address unchanged when it is already
+        /// normalized, so the common path costs a pair of comparisons.
+        /// </remarks>
         public Reference(XLRangeAddress area)
         {
-            if (!area.IsNormalized)
-                throw new ArgumentException("Range address must be normalized.", nameof(area));
-
-            _firstArea = area;
+            _firstArea = area.Normalize();
         }
 
         /// <summary>
-        /// Constructor that copies from a list. Pass a list with at least one normalized area.
+        /// Constructor that copies from a list of at least one area. Each area is normalized.
         /// </summary>
         public Reference(List<XLRangeAddress> areas)
         {
@@ -37,19 +48,21 @@ namespace XLibur.Excel.CalcEngine
             if (areas.Count < 1)
                 throw new ArgumentException("Reference must contain at least one area.", nameof(areas));
 
-            _firstArea = areas[0];
+            _firstArea = areas[0].Normalize();
             if (areas.Count > 1)
             {
                 _additionalAreas = new XLRangeAddress[areas.Count - 1];
                 for (var i = 1; i < areas.Count; i++)
-                    _additionalAreas[i - 1] = areas[i];
+                    _additionalAreas[i - 1] = areas[i].Normalize();
             }
         }
 
         /// <summary>
         /// Constructor for the inline-first storage. <paramref name="additionalAreas"/> may be
         /// <c>null</c> or empty for a single-area reference; otherwise the array is taken
-        /// over verbatim (do not mutate after construction).
+        /// over verbatim (do not mutate after construction). Unlike the constructors above this
+        /// one does not normalize, because its only caller (<see cref="UnionOp"/>) assembles it
+        /// from the areas of two existing references, which are normalized by construction.
         /// </summary>
         internal Reference(XLRangeAddress firstArea, XLRangeAddress[]? additionalAreas)
         {
@@ -66,7 +79,7 @@ namespace XLibur.Excel.CalcEngine
 
             using var enumerator = ranges.GetEnumerator();
             enumerator.MoveNext();
-            _firstArea = (XLRangeAddress)enumerator.Current.RangeAddress;
+            _firstArea = ((XLRangeAddress)enumerator.Current.RangeAddress).Normalize();
 
             if (count > 1)
             {
@@ -74,7 +87,7 @@ namespace XLibur.Excel.CalcEngine
                 for (var i = 0; i < count - 1; i++)
                 {
                     enumerator.MoveNext();
-                    _additionalAreas[i] = (XLRangeAddress)enumerator.Current.RangeAddress;
+                    _additionalAreas[i] = ((XLRangeAddress)enumerator.Current.RangeAddress).Normalize();
                 }
             }
         }
@@ -166,7 +179,7 @@ namespace XLibur.Excel.CalcEngine
             static void ExpandBoundingBox(in XLRangeAddress area,
                 ref int minRow, ref int maxRow, ref int minCol, ref int maxCol)
             {
-                // Areas are normalized, so opposite corners don't have to be checked.
+                // Areas are normalized by the constructors, so opposite corners can't be extremes.
                 if (area.FirstAddress.RowNumber < minRow) minRow = area.FirstAddress.RowNumber;
                 if (area.LastAddress.RowNumber > maxRow) maxRow = area.LastAddress.RowNumber;
                 if (area.FirstAddress.ColumnNumber < minCol) minCol = area.FirstAddress.ColumnNumber;

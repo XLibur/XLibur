@@ -48,6 +48,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         ? throw new InvalidOperationException("Range address is invalid.")
         : Area.FromRangeAddress(RangeAddress);
 
+    /// <summary>
+    /// The same normalised rectangle as <see cref="SheetRange"/>, but tolerant of a <c>#REF!</c>
+    /// address. A range swallowed whole by a delete keeps <see cref="XLWorksheet.InvalidAddress"/>
+    /// (row 0, column 0) in both corners - see <c>XLRangeShiftHelper</c> - which normalises to
+    /// itself, so the members below go on producing whatever they produced for a destroyed range
+    /// before normalisation was introduced. <see cref="SheetRange"/>'s guard is the right answer
+    /// for a consumer that needs real geometry; it is the wrong answer for a plain count or a
+    /// relative lookup, several of which run on stored ranges during save and copy.
+    /// </summary>
+    internal Area SheetRangeUnchecked => Area.FromRangeAddress(RangeAddress);
+
     public IXLDataValidation CreateDataValidation()
     {
         var newRange = AsRange();
@@ -644,8 +655,13 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public XLCell Cell(in XLAddress cellAddressInRange)
     {
-        var absRow = cellAddressInRange.RowNumber + RangeAddress.FirstAddress.RowNumber - 1;
-        var absColumn = cellAddressInRange.ColumnNumber + RangeAddress.FirstAddress.ColumnNumber - 1;
+        // Offsets are relative to the top-left of this range's rectangle. Anchoring on
+        // RangeAddress.FirstAddress instead would disagree with RowCount()/ColumnCount(), which
+        // measure the rectangle: on "B5:E2" that corner is row 5, so LastCell() - Cell(RowCount(),
+        // ColumnCount()) - would land on row 8, outside the range entirely.
+        var sheetRange = SheetRangeUnchecked;
+        var absRow = cellAddressInRange.RowNumber + sheetRange.TopRow - 1;
+        var absColumn = cellAddressInRange.ColumnNumber + sheetRange.LeftColumn - 1;
 
         if (absRow is <= 0 or > XLHelper.MaxRowNumber)
         {
@@ -669,7 +685,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public int RowCount()
     {
-        return RangeAddress.LastAddress.RowNumber - RangeAddress.FirstAddress.RowNumber + 1;
+        return SheetRangeUnchecked.Height;
     }
 
     public int RowCount(XLCellsUsedOptions cellsUsedOptions)
@@ -690,7 +706,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public int ColumnCount()
     {
-        return RangeAddress.LastAddress.ColumnNumber - RangeAddress.FirstAddress.ColumnNumber + 1;
+        return SheetRangeUnchecked.Width;
     }
 
     public int ColumnCount(XLCellsUsedOptions cellsUsedOptions)
@@ -743,21 +759,25 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public XLRange Range(int firstCellRow, int firstCellColumn, int lastCellRow, int lastCellColumn)
     {
+        // Offsets are relative to the top-left of this range's rectangle, not to
+        // RangeAddress.FirstAddress: that corner is only the top-left when the address happens
+        // to be normalised, and this spec's whole point is that a range need not be.
+        var sheetRange = SheetRangeUnchecked;
         var rangeAddress = new XLRangeAddress
         (
             new XLAddress
             (
                 Worksheet,
-                firstCellRow + RangeAddress.FirstAddress.RowNumber - 1,
-                firstCellColumn + RangeAddress.FirstAddress.ColumnNumber - 1,
+                firstCellRow + sheetRange.TopRow - 1,
+                firstCellColumn + sheetRange.LeftColumn - 1,
                 fixedRow: false,
                 fixedColumn: false
             ),
             new XLAddress
             (
                 Worksheet,
-                lastCellRow + RangeAddress.FirstAddress.RowNumber - 1,
-                lastCellColumn + RangeAddress.FirstAddress.ColumnNumber - 1,
+                lastCellRow + sheetRange.TopRow - 1,
+                lastCellColumn + sheetRange.LeftColumn - 1,
                 fixedRow: false,
                 fixedColumn: false
             )
@@ -806,13 +826,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         if (!Worksheet.Equals(newLastCellAddress.Worksheet))
             throw new ArgumentException("The address refers to a different worksheet.", nameof(newLastCellAddress));
 
+        // Bounds are the normalised rectangle's, not RangeAddress.FirstAddress/LastAddress
+        // directly: those are only the top-left/bottom-right corners when the address happens
+        // to be normalised, which this spec does not require of it.
+        var sheetRange = SheetRangeUnchecked;
         if (
-            newFirstCellAddress.RowNumber < RangeAddress.FirstAddress.RowNumber
-            || newFirstCellAddress.RowNumber > RangeAddress.LastAddress.RowNumber
-            || newLastCellAddress.RowNumber > RangeAddress.LastAddress.RowNumber
-            || newFirstCellAddress.ColumnNumber < RangeAddress.FirstAddress.ColumnNumber
-            || newFirstCellAddress.ColumnNumber > RangeAddress.LastAddress.ColumnNumber
-            || newLastCellAddress.ColumnNumber > RangeAddress.LastAddress.ColumnNumber
+            newFirstCellAddress.RowNumber < sheetRange.TopRow
+            || newFirstCellAddress.RowNumber > sheetRange.BottomRow
+            || newLastCellAddress.RowNumber > sheetRange.BottomRow
+            || newFirstCellAddress.ColumnNumber < sheetRange.LeftColumn
+            || newFirstCellAddress.ColumnNumber > sheetRange.RightColumn
+            || newLastCellAddress.ColumnNumber > sheetRange.RightColumn
         )
         {
             throw new ArgumentOutOfRangeException(
@@ -1254,14 +1278,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public XLRangeColumn ColumnQuick(int column)
     {
+        // Offsets are relative to the rectangle, exactly as in Column(int) - see the note there.
+        var sheetRange = SheetRangeUnchecked;
+        var absColumn = sheetRange.LeftColumn + column - 1;
         var firstCellAddress = new XLAddress(Worksheet,
-            RangeAddress.FirstAddress.RowNumber,
-            RangeAddress.FirstAddress.ColumnNumber + column - 1,
+            sheetRange.TopRow,
+            absColumn,
             false,
             false);
         var lastCellAddress = new XLAddress(Worksheet,
-            RangeAddress.LastAddress.RowNumber,
-            RangeAddress.FirstAddress.ColumnNumber + column - 1,
+            sheetRange.BottomRow,
+            absColumn,
             false,
             false);
         return Worksheet.RangeColumn(new XLRangeAddress(firstCellAddress, lastCellAddress));
