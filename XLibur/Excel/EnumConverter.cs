@@ -1232,6 +1232,16 @@ internal static class EnumConverter
         return SheetViewMap[value];
     }
 
+    /// <summary>
+    /// As <see cref="ToXLibur(SheetViewValues)"/>, but for the load path, where the value comes from
+    /// a file rather than from XLibur's own code and a view this build has never heard of must cost
+    /// the attribute, not the whole workbook.
+    /// </summary>
+    public static bool TryToXLibur(this SheetViewValues value, out XLSheetViewOptions option)
+    {
+        return SheetViewMap.TryGetValue(value, out option);
+    }
+
     public static XLLineStyle ToXLibur(this Vml.StrokeLineStyleValues value)
     {
         return StrokeLineStyleMap[value];

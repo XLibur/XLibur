@@ -150,16 +150,25 @@ internal static class WorksheetElementReader
 
     private static void LoadSheetViewProperties(SheetView sheetView, XLWorksheet ws)
     {
-        if (sheetView.RightToLeft != null) ws.RightToLeft = sheetView.RightToLeft.Value;
-        if (sheetView.ShowFormulas != null) ws.ShowFormulas = sheetView.ShowFormulas.Value;
-        if (sheetView.ShowGridLines != null) ws.ShowGridLines = sheetView.ShowGridLines.Value;
+        var view = ws.SheetView;
+        if (sheetView.RightToLeft != null) view.RightToLeft = sheetView.RightToLeft.Value;
+        if (sheetView.ShowFormulas != null) view.ShowFormulas = sheetView.ShowFormulas.Value;
+        if (sheetView.ShowGridLines != null) view.ShowGridLines = sheetView.ShowGridLines.Value;
         if (sheetView.ShowOutlineSymbols != null)
-            ws.ShowOutlineSymbols = sheetView.ShowOutlineSymbols.Value;
-        if (sheetView.ShowRowColHeaders != null) ws.ShowRowColHeaders = sheetView.ShowRowColHeaders.Value;
-        if (sheetView.ShowRuler != null) ws.ShowRuler = sheetView.ShowRuler.Value;
-        if (sheetView.ShowWhiteSpace != null) ws.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
-        if (sheetView.ShowZeros != null) ws.ShowZeros = sheetView.ShowZeros.Value;
-        if (sheetView.TabSelected != null) ws.TabSelected = sheetView.TabSelected.Value;
+            view.ShowOutlineSymbols = sheetView.ShowOutlineSymbols.Value;
+        if (sheetView.ShowRowColHeaders != null) view.ShowRowColHeaders = sheetView.ShowRowColHeaders.Value;
+        if (sheetView.ShowRuler != null) view.ShowRuler = sheetView.ShowRuler.Value;
+        if (sheetView.ShowWhiteSpace != null) view.ShowWhiteSpace = sheetView.ShowWhiteSpace.Value;
+        if (sheetView.ShowZeros != null) view.ShowZeros = sheetView.ShowZeros.Value;
+        if (sheetView.TabSelected != null) view.TabSelected = sheetView.TabSelected.Value;
+
+        // Two ways a file can name a view this build cannot resolve: text that is not any member of
+        // the SDK's enumeration (HasValue is false, and reading Value throws FormatException), and a
+        // member the SDK knows but XLibur has no option for. Neither is a reason to refuse the file
+        // - every other attribute read here treats what it cannot parse as absent, and so does this.
+        if (sheetView.View is { HasValue: true } declaredView
+            && declaredView.Value.TryToXLibur(out var viewOption))
+            view.View = viewOption;
     }
 
     private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
