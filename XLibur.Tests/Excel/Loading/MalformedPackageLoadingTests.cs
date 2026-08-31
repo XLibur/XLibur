@@ -153,6 +153,46 @@ public class MalformedPackageLoadingTests
     }
 
     /// <summary>
+    /// A sheet whose legal name contains a doubled apostrophe loads, keeps its name, and keeps
+    /// its cells.
+    /// </summary>
+    /// <remarks>
+    /// D40. Excel forbids an apostrophe only as the first or last character, so <c>Ann''s</c> is a
+    /// legal sheet name. The loader looked the sheet up through <c>TryGetWorksheet</c> and
+    /// <c>Worksheet</c>, which call <c>UnescapeSheetName</c> to collapse <c>''</c> to <c>'</c> —
+    /// correct for a name lifted out of a formula, wrong for the <c>name</c> attribute of
+    /// <c>&lt;sheet&gt;</c>, which is the name itself.
+    ///
+    /// <para>
+    /// The cell assertion is the important one. The lookup that reads sheet contents failed
+    /// silently, into a branch commented "this shouldn't be possible", so the sheet loaded with
+    /// its name intact and <em>no cells at all</em>. Asserting only that the load does not throw
+    /// would pass against the unfixed code for the wrong reason, because the throwing symptom is
+    /// in the pivot-table pass and needs a pivot table to reach.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments("Ann''s")]
+    [Arguments("a''''b")]
+    [Arguments("It's")]
+    public async Task Sheet_name_containing_apostrophes_keeps_its_name_and_its_cells(string sheetName)
+    {
+        var escaped = sheetName.Replace("'", "&apos;", StringComparison.Ordinal);
+        using var package = BuildSheetPackage(
+            """<row r="1"><c r="A1"><v>7</v></c></row>""",
+            cellFormatCount: 1,
+            sheetName: escaped);
+
+        using var workbook = new XLWorkbook(package);
+
+        await Assert.That(workbook.Worksheets.Count).IsEqualTo(1);
+
+        var sheet = workbook.Worksheets.First();
+        await Assert.That(sheet.Name).IsEqualTo(sheetName);
+        await Assert.That(sheet.Cell("A1").GetDouble()).IsEqualTo(7d);
+    }
+
+    /// <summary>
     /// A number that no date can be made from, in a cell whose format says it is a date.
     /// </summary>
     /// <remarks>
@@ -378,7 +418,11 @@ public class MalformedPackageLoadingTests
     /// The built-in number format every cell format uses. <c>0</c> is General; <c>14</c> is the
     /// short date, which is what makes the reader type a numeric cell as a date.
     /// </param>
-    private static MemoryStream BuildSheetPackage(string rowsXml, int cellFormatCount, int numberFormatId = 0)
+    /// <param name="sheetName">
+    /// The sheet's name, already XML-escaped, since a name may legally contain an apostrophe.
+    /// </param>
+    private static MemoryStream BuildSheetPackage(
+        string rowsXml, int cellFormatCount, int numberFormatId = 0, string sheetName = "Sheet1")
     {
         var cellFormats = string.Concat(
             Enumerable.Repeat(
@@ -399,13 +443,13 @@ public class MalformedPackageLoadingTests
                 """),
             ("_rels/.rels", WorkbookRelationshipXml),
             ("xl/workbook.xml",
-                """
-                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-                  <sheets><sheet name="Sheet1" sheetId="1" r:id="rIdSheet1" /></sheets>
-                </workbook>
-                """),
+                $"""
+                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                           xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                   <sheets><sheet name="{sheetName}" sheetId="1" r:id="rIdSheet1" /></sheets>
+                 </workbook>
+                 """),
             ("xl/_rels/workbook.xml.rels",
                 """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>

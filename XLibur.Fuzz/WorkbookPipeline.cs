@@ -72,6 +72,16 @@ internal static class WorkbookPipeline
             rejection = $"{exception.GetType().Name} at {StackSummary.FirstMeaningfulFrame(exception)}: {exception.Message}";
             return WorkbookOutcome.Rejected;
         }
+        catch
+        {
+            // A load-phase Finding. The package is dumped for the same reason a reload failure is:
+            // for the structured target the bytes are built by the generator from the fuzzer's
+            // input, so an artifact file alone cannot be opened or reduced by hand — recovering
+            // the package means re-running the generator on those bytes. Rethrown unchanged; this
+            // catch exists only to keep the evidence.
+            Dump("load", candidate);
+            throw;
+        }
 
         byte[] written;
         using (workbook)
@@ -128,6 +138,13 @@ internal static class WorkbookPipeline
     /// </summary>
     private static void Dump(byte[] given, byte[] produced)
     {
+        Dump("given", given);
+        Dump("produced", produced);
+    }
+
+    /// <summary>Write one package under <c>XLIBUR_FUZZ_DUMP_DIR</c>, when it is set.</summary>
+    private static void Dump(string label, byte[] package)
+    {
         var directory = Environment.GetEnvironmentVariable("XLIBUR_FUZZ_DUMP_DIR");
         if (string.IsNullOrWhiteSpace(directory))
             return;
@@ -136,8 +153,7 @@ internal static class WorkbookPipeline
         {
             Directory.CreateDirectory(directory);
             var stamp = DateTime.UtcNow.ToString("HHmmss_fff", System.Globalization.CultureInfo.InvariantCulture);
-            File.WriteAllBytes(Path.Combine(directory, $"{stamp}-given.xlsx"), given);
-            File.WriteAllBytes(Path.Combine(directory, $"{stamp}-produced.xlsx"), produced);
+            File.WriteAllBytes(Path.Combine(directory, $"{stamp}-{label}.xlsx"), package);
         }
         catch (IOException)
         {

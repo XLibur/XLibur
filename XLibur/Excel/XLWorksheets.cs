@@ -78,6 +78,33 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         return false;
     }
 
+    /// <summary>
+    /// Find a sheet by the name it actually has, without treating the name as formula syntax.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="TryGetWorksheet(string,out XLWorksheet)"/> and
+    /// <see cref="Worksheet(string)"/> both call <c>UnescapeSheetName</c>, which strips surrounding
+    /// apostrophes and collapses <c>''</c> to <c>'</c>. That is right for a name lifted out of a
+    /// formula, where <c>'It''s'!A1</c> refers to the sheet <c>It's</c>. It is wrong for a name read
+    /// from the <c>name</c> attribute of <c>&lt;sheet&gt;</c>, which is the name itself: Excel
+    /// permits an apostrophe anywhere but the first and last character, so <c>Ann''s</c> is a legal
+    /// sheet name that unescaping turns into <c>Ann's</c> — a sheet that does not exist.
+    /// </para>
+    /// <para>
+    /// The loader used the unescaping lookups on raw names and had two symptoms for it (D40): the
+    /// pass that reads sheet contents took its "this shouldn't be possible" branch and skipped the
+    /// sheet, loading it empty and silently; the pass that reads pivot tables threw
+    /// <see cref="ArgumentException"/> out of <c>new XLWorkbook(stream)</c>. Use this from anything
+    /// holding a name that came from the file rather than from a formula.
+    /// </para>
+    /// </remarks>
+    internal bool TryGetWorksheetByRawName(string sheetName, [NotNullWhen(true)] out XLWorksheet? worksheet)
+    {
+        ArgumentNullException.ThrowIfNull(sheetName);
+        return _worksheets.TryGetValue(sheetName, out worksheet);
+    }
+
     public IXLWorksheet Worksheet(string sheetName)
     {
         ArgumentNullException.ThrowIfNull(sheetName);

@@ -387,7 +387,12 @@ public partial class XLWorkbook
             }
 
             var sheetName = dSheet.Name!.Value!;
-            if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
+
+            // By raw name: this is the name attribute of <sheet>, not a name out of a formula, so
+            // it must not be unescaped. A legal name containing '' unescaped to a name no sheet
+            // has, and this branch then skipped the sheet's contents entirely — the sheet loaded,
+            // empty, with nothing reported (D40).
+            if (!WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out var ws))
             {
                 // This shouldn't be possible, as all worksheets should have already been added in the loop before this loop
                 continue;
@@ -901,7 +906,11 @@ public partial class XLWorkbook
             if (workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) &&
                 sheetPart is WorksheetPart worksheetPart)
             {
-                var ws = (XLWorksheet)WorksheetsInternal.Worksheet(dSheet.Name!.Value!);
+                // By raw name, for the reason given on TryGetWorksheetByRawName: unescaping a name
+                // that came from the file threw ArgumentException out of the constructor for any
+                // workbook holding a sheet whose legal name contains '' (D40).
+                if (!WorksheetsInternal.TryGetWorksheetByRawName(dSheet.Name!.Value!, out var ws))
+                    continue;
 
                 foreach (var pivotTablePart in worksheetPart.PivotTableParts)
                 {
