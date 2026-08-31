@@ -22,6 +22,10 @@
 
 - **`IXLSheetView` gains a `FreezePanes` property**, which is source-breaking for anyone implementing that interface outside the library. It is the value that distinguishes a freeze from a split; the declaration already existed in the file, commented out.
 
+#### Pivot tables
+
+- **`IXLPivotTable` gains a `ShowLastColumn` property and its two `SetShowLastColumn` overloads**, which is source- and binary-breaking for anyone implementing that interface outside the library. The setting already existed and already round-tripped; it was simply the one of the five table-style emphasis flags (`ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`, `ShowColumnStripes`) that had never been put on the interface, so it could not be reached through `IXLPivotTable`.
+
 ### ✨ New Features
 
 - **Slicers loaded from a workbook can now be read.** `IXLWorksheet.Slicers` lists the slicers drawn on a sheet, and `IXLPivotTable.Slicers` shows which of them filter a given pivot table. A slicer reports its name, caption, style, column count, row height, the field it filters and the items currently selected — for both kinds Excel writes: pivot slicers, which read their selection from the slicer cache, and table slicers, which read it from the bound column's auto filter. Styling XLibur has no model for, such as a custom slicer style name, is reported rather than dropped.
@@ -31,6 +35,14 @@
 - **A loaded slicer's caption, style, column count, row height and caption visibility can now be changed.** The change is patched into the part the slicer was read from rather than the part being regenerated, so everything alongside the edited attribute survives — the slicer's `xr10:uid`, its `startItem`, its extension list. A slicer nobody assigns to is not written to at all: its part is not even opened, and comes through a save byte for byte. Changing a slicer's *selection* is not supported yet, because it has to move the pivot table's item visibility with it.
 
 ### 🐛 Bug Fixes
+
+- **A pivot table's "show last column" emphasis no longer follows its column-stripes setting.** The reader read `ShowLastColumn` from the `showColStripes` attribute instead of `showLastColumn`, so the two settings could not vary independently and a round trip could switch the emphasis on or off on its own.
+
+- **A pivot table's `Title` and `Description` now survive a save and reload.** Both are public and settable, but were persisted nowhere; a reload always came back with them empty.
+
+- **`IXLPivotTable.CopyTo` no longer silently resets thirty-five settings** — including compact/outline form, visual totals, the grand-total caption and the data caption — that both the reader and the writer already carry. The hand-written copy list carried 29 of the definition's 65 attributes and dropped the other 36; the copy now uses the same attribute-by-attribute description the reader and writer are driven from, so a setting can no longer be present in the round trip and dropped by copy. One of the 36 is deliberately still not copied: `chartFormat` is the next free id for the pivot charts pointing at the source table, and a copy has none of them.
+
+- **A pivot table whose row or column axis references the values field now keeps the `dataPosition` attribute across a reload.** The loader never set it — a documented crash condition the subsystem's own notes call out — so a file that needed it could be re-saved without it and fail to open in Excel without a repair prompt.
 
 - **A pivot table XLibur creates is now stamped with a version that supports slicers.** `createdVersion` and `updatedVersion` were left at zero on a created pivot table, and the writer omits an attribute sitting at its default, so both were absent. Excel reads a pivot table stamped version 0 as one written before the features that came later and silently refuses to attach a slicer to it — the slicer, its cache, its registration and its drawing are all written correctly and the panel simply never appears, with no repair prompt and no validation error. A pivot table loaded from a file still keeps whatever version its file declares.
 

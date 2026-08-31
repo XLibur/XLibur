@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.IO;
 using XLibur.Excel.PivotTables.Areas;
 using XLibur.Extensions;
 
@@ -46,8 +47,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         DataFields = new XLPivotDataFields(this);
         Theme = XLPivotTableTheme.PivotStyleLight16;
         _cache = cache;
-
-        SetExcelDefaults();
     }
 
     IXLPivotCache IXLPivotTable.PivotCache
@@ -201,43 +200,36 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             pivotValue.NumberFormat.Format = v.NumberFormat.Format;
         }
 
+        // Everything the reader and writer carry between them is copied from the same table they
+        // are driven from, so a setting can't be present in the round trip and dropped by copy.
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Copy?.Invoke(this, newPivotTable);
+
+        // The table's own compact/outline pair is only the default for fields added later; each
+        // pivotField carries its own pair, which is what Excel actually lays the table out from and
+        // what the Layout setter keeps in step with the table's. Copy them too, or a copy of a
+        // tabular table says tabular at the table level and compact on every field, and Excel
+        // renders the copy compact. Both tables are built over the same pivot cache, so the two
+        // field lists are index-aligned.
+        var fieldCount = Math.Min(PivotFields.Count, newPivotTable.PivotFields.Count);
+        for (var fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
+        {
+            newPivotTable.PivotFields[fieldIndex].Compact = PivotFields[fieldIndex].Compact;
+            newPivotTable.PivotFields[fieldIndex].Outline = PivotFields[fieldIndex].Outline;
+        }
+
+        // Not in PivotTableAttributes.All: the x14 extension flags and the pivotTableStyleInfo
+        // group, both handled next to where they are written/read rather than folded into the
+        // flat attribute table (see the reader/writer for why).
         newPivotTable.Title = Title;
         newPivotTable.Description = Description;
-        newPivotTable.ColumnHeaderCaption = ColumnHeaderCaption;
-        newPivotTable.RowHeaderCaption = RowHeaderCaption;
-        newPivotTable.MergeAndCenterWithLabels = MergeAndCenterWithLabels;
-        newPivotTable.RowLabelIndent = RowLabelIndent;
-        newPivotTable.FilterAreaOrder = FilterAreaOrder;
-        newPivotTable.FilterFieldsPageWrap = FilterFieldsPageWrap;
-        newPivotTable.ErrorValueReplacement = ErrorValueReplacement;
-        newPivotTable.ShowMissing = ShowMissing;
-        newPivotTable.MissingCaption = MissingCaption;
-        newPivotTable.AutofitColumns = AutofitColumns;
-        newPivotTable.PreserveCellFormatting = PreserveCellFormatting;
-        newPivotTable.ShowGrandTotalsColumns = ShowGrandTotalsColumns;
-        newPivotTable.ShowGrandTotalsRows = ShowGrandTotalsRows;
-        newPivotTable.FilteredItemsInSubtotals = FilteredItemsInSubtotals;
-        newPivotTable.AllowMultipleFilters = AllowMultipleFilters;
-        newPivotTable.UseCustomListsForSorting = UseCustomListsForSorting;
-        newPivotTable.ShowExpandCollapseButtons = ShowExpandCollapseButtons;
-        newPivotTable.ShowContextualTooltips = ShowContextualTooltips;
-        newPivotTable.ShowPropertiesInTooltips = ShowPropertiesInTooltips;
-        newPivotTable.DisplayCaptionsAndDropdowns = DisplayCaptionsAndDropdowns;
-        newPivotTable.ClassicPivotTableLayout = ClassicPivotTableLayout;
         newPivotTable.ShowValuesRow = ShowValuesRow;
-        newPivotTable.ShowEmptyItemsOnColumns = ShowEmptyItemsOnColumns;
-        newPivotTable.ShowEmptyItemsOnRows = ShowEmptyItemsOnRows;
-        newPivotTable.DisplayItemLabels = DisplayItemLabels;
-        newPivotTable.SortFieldsAtoZ = SortFieldsAtoZ;
-        newPivotTable.PrintExpandCollapsedButtons = PrintExpandCollapsedButtons;
-        newPivotTable.RepeatRowLabels = RepeatRowLabels;
-        newPivotTable.PrintTitles = PrintTitles;
-        newPivotTable.EnableShowDetails = EnableShowDetails;
         newPivotTable.EnableCellEditing = EnableCellEditing;
         newPivotTable.ShowRowHeaders = ShowRowHeaders;
         newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
         newPivotTable.ShowRowStripes = ShowRowStripes;
         newPivotTable.ShowColumnStripes = ShowColumnStripes;
+        newPivotTable.ShowLastColumn = ShowLastColumn;
         newPivotTable.Theme = Theme;
         return newPivotTable;
     }
@@ -635,7 +627,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         return this;
     }
 
-    public bool ShowRowHeaders { get; set; }
+    public bool ShowRowHeaders { get; set; } = true;
 
     public IXLPivotTable SetShowRowHeaders()
     {
@@ -649,7 +641,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         return this;
     }
 
-    public bool ShowColumnHeaders { get; set; }
+    public bool ShowColumnHeaders { get; set; } = true;
 
     public IXLPivotTable SetShowColumnHeaders()
     {
@@ -694,7 +686,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Part of the pivot table style.
     /// </summary>
-    internal bool ShowLastColumn { get; set; } = false;
+    public bool ShowLastColumn { get; set; }
+
+    public IXLPivotTable SetShowLastColumn()
+    {
+        ShowLastColumn = true;
+        return this;
+    }
+
+    public IXLPivotTable SetShowLastColumn(bool value)
+    {
+        ShowLastColumn = value;
+        return this;
+    }
 
     public XLPivotSubtotals Subtotals { get; set; }
 
@@ -761,39 +765,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal string? RelId { get; set; }
 
     internal string? CacheDefinitionRelId { get; set; }
-
-    private void SetExcelDefaults()
-    {
-        ShowMissing = true;
-        MissingCaption = string.Empty;
-        ShowColumnHeaders = true;
-        ShowRowHeaders = true;
-
-        // source http://www.datypic.com/sc/ooxml/e-ssml_pivotTableDefinition.html
-        DisplayItemLabels = true; //	Show Item Names
-        ShowExpandCollapseButtons = true; //	Show Expand Collapse
-        PrintExpandCollapsedButtons = false; //	Print Drill Indicators
-        ShowPropertiesInTooltips = true; //	Show Member Property ToolTips
-        ShowContextualTooltips = true; //	Show ToolTips on Data
-        EnableShowDetails = true; //	Enable Drill Down
-        PreserveCellFormatting = true; //	Preserve Formatting
-        AutofitColumns = false; //	Auto Formatting
-        FilterAreaOrder = XLFilterAreaOrder.DownThenOver; //	Page Over Then Down
-        FilteredItemsInSubtotals = false; //	Subtotal Hidden Items
-        ShowGrandTotalsRows = true; //	Row Grand Totals
-        ShowGrandTotalsColumns = true; //	Grand Totals On Columns
-        PrintTitles = false; //	Field Print Titles
-        RepeatRowLabels = false; //	Item Print Titles
-        MergeAndCenterWithLabels = false; //	Merge Titles
-        RowLabelIndent = 1; //	Indentation for Compact Axis
-        ShowEmptyItemsOnRows = false; //	Show Empty Row
-        ShowEmptyItemsOnColumns = false; //	Show Empty Column
-        DisplayCaptionsAndDropdowns = true; //	Show Field Headers
-        ClassicPivotTableLayout = false; //	Enable Drop Zones
-        AllowMultipleFilters = true; //	Multiple Field Filters
-        SortFieldsAtoZ = false; //	Default Sort Order
-        UseCustomListsForSorting = true; //	Custom List AutoSort
-    }
 
     public IXLWorksheet Worksheet => _worksheet;
 
@@ -995,7 +966,35 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// 0 = first (e.g. before all column/row fields), 1 = second (i.e. after first row/column field) and so on.
     /// &gt; number of fields or <c>null</c> indicates the last position.
     /// </summary>
-    internal int? DataPosition { get; set; }
+    /// <remarks>
+    /// Derived from <see cref="RowAxis"/>/<see cref="ColumnAxis"/> rather than stored: a loaded
+    /// file adds the 'data' field straight to the axis' field list (<see cref="XLPivotTableAxis.AddField(FieldIndex)"/>),
+    /// bypassing <see cref="AddFieldToAxis"/>, so a stored value would never be set on load and
+    /// would be silently dropped from a re-saved file that still needs it.
+    /// </remarks>
+    internal int? DataPosition
+    {
+        get
+        {
+            var rowPosition = IndexOfDataField(RowAxis.Fields);
+            if (rowPosition >= 0)
+                return rowPosition;
+
+            var columnPosition = IndexOfDataField(ColumnAxis.Fields);
+            return columnPosition >= 0 ? columnPosition : null;
+        }
+    }
+
+    private static int IndexOfDataField(IReadOnlyList<FieldIndex> fields)
+    {
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i].IsDataField)
+                return i;
+        }
+
+        return -1;
+    }
 
     /// <summary>
     /// <para>
@@ -1009,43 +1008,43 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// ISO-29500 Annex G.3 for how auto formats look like.
     /// </para>
     /// </summary>
-    internal uint? AutoFormatId { get; init; }
+    internal uint? AutoFormatId { get; set; }
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format number format properties.
     /// </summary>
-    internal bool ApplyNumberFormats { get; init; } = false;
+    internal bool ApplyNumberFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format border properties.
     /// </summary>
-    internal bool ApplyBorderFormats { get; init; } = false;
+    internal bool ApplyBorderFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format font properties.
     /// </summary>
-    internal bool ApplyFontFormats { get; init; } = false;
+    internal bool ApplyFontFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format pattern properties.
     /// </summary>
-    internal bool ApplyPatternFormats { get; init; } = false;
+    internal bool ApplyPatternFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format alignment properties.
     /// </summary>
-    internal bool ApplyAlignmentFormats { get; init; } = false;
+    internal bool ApplyAlignmentFormats { get; set; } = false;
 
     /// <summary>
     /// If auto-format should be applied (<see cref="AutofitColumns"/> and <see cref="AutoFormatId"/>
     /// are set), apply legacy auto-format width/height properties.
     /// </summary>
-    internal bool ApplyWidthHeightFormats { get; init; } = false;
+    internal bool ApplyWidthHeightFormats { get; set; } = false;
 
     /// <summary>
     /// Initial text of 'data' field. This is doesn't do anything, Excel always displays
@@ -1053,7 +1052,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     internal string DataCaption { get; set; } = "Values";
 
-    internal string? GrandTotalCaption { get; init; }
+    internal string? GrandTotalCaption { get; set; }
 
     /// <summary>
     /// Text to display when in cells that contain error.
@@ -1063,7 +1062,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Flag indicating if <see cref="ErrorValueReplacement"/> should be shown when cell contain an error.
     /// </summary>
-    internal bool ShowError { get; init; } = false;
+    internal bool ShowError { get; set; } = false;
 
     /// <summary>
     /// Test to display for missing items, when <see cref="ShowMissing"/> is <c>true</c>.
@@ -1079,17 +1078,17 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Name of style to apply to <see cref="XLPivotPageField"/> items headers in <see cref="XLPivotAxis.AxisPage"/>.
     /// </summary>
-    internal string? PageStyle { get; init; }
+    internal string? PageStyle { get; set; }
 
     /// <remarks>Doesn't seem to work in Excel.</remarks>
-    internal string? PivotTableStyleName { get; init; }
+    internal string? PivotTableStyleName { get; set; }
 
     /// <summary>
     /// Name of a style to apply to the cells left blank when a pivot table shrinks during a refresh operation.
     /// </summary>
-    internal string? VacatedStyle { get; init; }
+    internal string? VacatedStyle { get; set; }
 
-    internal string? Tag { get; init; }
+    internal string? Tag { get; set; }
 
     /// <summary>
     /// Version of the application that last updated the pivot table. Application-dependent.
@@ -1098,15 +1097,15 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Defaulted rather than left at zero, and it is not cosmetic — see
     /// <see cref="PivotCacheCreatedVersion"/>.
     /// </remarks>
-    internal byte UpdatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
+    internal byte UpdatedVersion { get; set; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// Minimum version of the application required to update the pivot table. Application-dependent.
     /// </summary>
-    internal byte MinRefreshableVersion { get; init; } = XLConstants.PivotTable.MinRefreshableVersion;
+    internal byte MinRefreshableVersion { get; set; } = XLConstants.PivotTable.MinRefreshableVersion;
 
     /// <remarks>OLAP related.</remarks>
-    internal bool AsteriskTotals { get; init; } = false;
+    internal bool AsteriskTotals { get; set; } = false;
 
     /// <summary>
     /// <para>
@@ -1124,19 +1123,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Flag indicating if user is allowed to edit cells in data area.
     /// </summary>
-    internal bool EditData { get; init; } = false;
+    internal bool EditData { get; set; } = false;
 
     /// <summary>
     /// Flag indicating if UI to modify the fields of pivot table is disabled. In Excel, the
     /// whole field area is hidden.
     /// </summary>
-    internal bool DisableFieldList { get; init; } = false;
+    internal bool DisableFieldList { get; set; } = false;
 
     /// <remarks>OLAP only.</remarks>
-    internal bool ShowCalculatedMembers { get; init; } = true;
+    internal bool ShowCalculatedMembers { get; set; } = true;
 
     /// <remarks>OLAP only.</remarks>
-    internal bool VisualTotals { get; init; } = true;
+    internal bool VisualTotals { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether a page field that has selected multiple items (but not
@@ -1144,12 +1143,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// page fields will display "All" regardless of whether only item subset is selected or
     /// all items are selected.
     /// </summary>
-    internal bool ShowMultipleLabel { get; init; } = true;
+    internal bool ShowMultipleLabel { get; set; } = true;
 
     /// <summary>
     /// Doesn't seem to do anything. Should hide drop down filters.
     /// </summary>
-    internal bool ShowDataDropDown { get; init; } = true;
+    internal bool ShowDataDropDown { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should display collapse/expand (drill) buttons in pivot
@@ -1166,7 +1165,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     public bool PrintExpandCollapsedButtons { get; set; }
 
     /// <remarks>OLAP only. Also called ShowMemberPropertyTips.</remarks>
-    public bool ShowPropertiesInTooltips { get; set; }
+    public bool ShowPropertiesInTooltips { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should display a tooltip on data items of pivot table. The
@@ -1175,7 +1174,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// tool tip, rather than the note.
     /// </summary>
     /// <remarks>Also called ShowDataTips.</remarks>
-    public bool ShowContextualTooltips { get; set; }
+    public bool ShowContextualTooltips { get; set; } = true;
 
     /// <summary>
     /// A flag indicating whether UI should provide a mechanism to edit the pivot table. If the
@@ -1193,7 +1192,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Not very consistent in Excel, e.g. can't display field properties through context menu
     /// of a pivot table, but can display properties menu through context menu in editing wizard.
     /// </summary>
-    internal bool EnableFieldProperties { get; init; } = true;
+    internal bool EnableFieldProperties { get; set; } = true;
 
     /// <summary>
     /// A flag that indicates whether the formatting applied by the user to the pivot table
@@ -1277,7 +1276,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Here</em>). Only works in legacy layout mode (i.e. <see cref="ClassicPivotTableLayout"/>
     /// is <c>true</c>).
     /// </summary>
-    internal bool ShowDropZones { get; init; } = true;
+    internal bool ShowDropZones { get; set; } = true;
 
     /// <summary>
     /// Specifies the version of the application that created the pivot cache. Application-dependent.
@@ -1297,7 +1296,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// only ever applies to one XLibur created.
     /// </para>
     /// </remarks>
-    internal byte PivotCacheCreatedVersion { get; init; } = XLConstants.PivotTable.CreatedVersion;
+    internal byte PivotCacheCreatedVersion { get; set; } = XLConstants.PivotTable.CreatedVersion;
 
     /// <summary>
     /// A row indentation increment for row axis when pivot table is in compact layout. Units
@@ -1336,7 +1335,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool Compact
     {
         get => _compact;
-        init => _compact = value;
+        set => _compact = value;
     }
 
     /// <summary>
@@ -1347,7 +1346,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool Outline
     {
         get => _outline;
-        init => _outline = value;
+        set => _outline = value;
     }
 
     /// <summary>
@@ -1369,7 +1368,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool OutlineData
     {
         get => _outlineData;
-        init => _outlineData = value;
+        set => _outlineData = value;
     }
 
     /// <summary>
@@ -1391,7 +1390,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal bool CompactData
     {
         get => _compactData;
-        init => _compactData = value;
+        set => _compactData = value;
     }
 
     /// <summary>
@@ -1400,7 +1399,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     /// <remarks>No idea what this does. Likely flag for other components that display table
     ///     on a web page.</remarks>
-    internal bool Published { get; init; } = false;
+    internal bool Published { get; set; } = false;
 
     /// <summary>
     /// A flag that indicates whether to apply the classic layout. Classic layout displays the
@@ -1414,7 +1413,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Likely a flag whether immersive reader should be turned off. Not sure if immersive
     /// reader was ever used outside Word, though Excel for Web added some support in 2023.
     /// </summary>
-    internal bool StopImmersiveUi { get; init; } = true;
+    internal bool StopImmersiveUi { get; set; } = true;
 
     /// <summary>
     /// <para>
@@ -1434,7 +1433,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// actually used identifier should be 1. The format is used in <c>/chartSpace/pivotSource/
     /// fmtId/@val</c>.
     /// </summary>
-    internal uint ChartFormat { get; init; } = 0;
+    internal uint ChartFormat { get; set; } = 0;
 
     /// <summary>
     /// The text that will be displayed in row header in compact mode. It is next to drop down
@@ -1465,7 +1464,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// A flag indicating whether MDX sub-queries are supported by OLAP data provider of this
     /// pivot table.
     /// </summary>
-    internal bool MdxSubQueries { get; init; } = false;
+    internal bool MdxSubQueries { get; set; } = false;
 
     /// <summary>
     /// A flag that indicates whether custom lists are used for sorting items of fields, both
@@ -1473,7 +1472,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// captions, and later when the user applies a sort.
     /// </summary>
     /// <remarks>Also called <em>customSortList</em>.</remarks>
-    public bool UseCustomListsForSorting { get; set; }
+    public bool UseCustomListsForSorting { get; set; } = true;
 
     #endregion
 
@@ -1496,7 +1495,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             var isRowAxis = axis == XLPivotAxis.AxisRow;
 
             DataOnRows = isRowAxis;
-            DataPosition = isRowAxis ? RowAxis.Fields.Count : ColumnAxis.Fields.Count;
             DataCaption = "Values"; // Custom captions don't do anything.
             return FieldIndex.DataField;
         }
@@ -1556,7 +1554,6 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         if (index.IsDataField)
         {
             DataOnRows = false;
-            DataPosition = null;
             DataCaption = "Values";
         }
         else

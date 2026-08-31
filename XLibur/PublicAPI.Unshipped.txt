@@ -444,3 +444,7 @@ XLibur.Excel.XLTimelineLevel.Days = 3 -> XLibur.Excel.XLTimelineLevel
 XLibur.Excel.XLTimelineLevel.Months = 2 -> XLibur.Excel.XLTimelineLevel
 XLibur.Excel.XLTimelineLevel.Quarters = 1 -> XLibur.Excel.XLTimelineLevel
 XLibur.Excel.XLTimelineLevel.Years = 0 -> XLibur.Excel.XLTimelineLevel
+XLibur.Excel.IXLPivotTable.ShowLastColumn.get -> bool
+XLibur.Excel.IXLPivotTable.ShowLastColumn.set -> void
+XLibur.Excel.IXLPivotTable.SetShowLastColumn() -> XLibur.Excel.IXLPivotTable!
+XLibur.Excel.IXLPivotTable.SetShowLastColumn(bool value) -> XLibur.Excel.IXLPivotTable!

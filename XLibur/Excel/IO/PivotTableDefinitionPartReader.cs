@@ -324,148 +324,17 @@ internal static class PivotTableDefinitionPartReader
     {
         var name = pivotTable.Name?.Value ?? throw PartStructureException.MissingAttribute();
         _ = pivotTable.CacheId?.Value ?? throw PartStructureException.MissingAttribute();
-        var dataOnRows = pivotTable.DataOnRows?.Value ?? false;
 
-        // DataPosition attribute is skipped because it basically represents a field on one of the axes.
+        // DataPosition is skipped because it basically represents a field on one of the axes.
         // Excel requires that dataPosition and field with index -2 must be in the list of respective axis at the
         // correct place; otherwise it crashes. To make things simple, we set the value when it is
         // encountered on the correct axis (plus there is a check that field is not used on multiple axes
         // that would cause exception).
-        var autoFormatId = pivotTable.AutoFormatId?.Value;
-        var applyNumberFormats = pivotTable.ApplyNumberFormats?.Value ?? false;
-        var applyBorderFormats = pivotTable.ApplyBorderFormats?.Value ?? false;
-        var applyFontFormats = pivotTable.ApplyFontFormats?.Value ?? false;
-        var applyPatternFormats = pivotTable.ApplyPatternFormats?.Value ?? false;
-        var applyAlignmentFormats = pivotTable.ApplyAlignmentFormats?.Value ?? false;
-        var applyWidthHeightFormats = pivotTable.ApplyWidthHeightFormats?.Value ?? false;
-        var dataCaption = pivotTable.DataCaption?.Value ?? throw PartStructureException.MissingAttribute();
-        var grandTotalCaption = pivotTable.GrandTotalCaption?.Value;
-        var errorCaption = pivotTable.ErrorCaption?.Value;
-        var showError = pivotTable.ShowError?.Value ?? false;
-        var missingCaption = pivotTable.MissingCaption?.Value ?? string.Empty;
-        var showMissing = pivotTable.ShowMissing?.Value ?? true;
-        var pageStyle = pivotTable.PageStyle?.Value;
-        var pivotTableStyleName = pivotTable.PivotTableStyleName?.Value;
-        var vacatedStyle = pivotTable.VacatedStyle?.Value;
-        var tag = pivotTable.Tag?.Value;
-        var updatedVersion = pivotTable.UpdatedVersion?.Value ?? 0;
-        var minRefreshableVersion = pivotTable.MinRefreshableVersion?.Value ?? 0;
-        var asteriskTotals = pivotTable.AsteriskTotals?.Value ?? false;
-        var showItems = pivotTable.ShowItems?.Value ?? true;
-        var editData = pivotTable.EditData?.Value ?? false;
-        var disableFieldList = pivotTable.DisableFieldList?.Value ?? false;
-        var showCalculatedMembers = pivotTable.ShowCalculatedMembers?.Value ?? true;
-        var visualTotals = pivotTable.VisualTotals?.Value ?? true;
-        var showMultipleLabel = pivotTable.ShowMultipleLabel?.Value ?? true;
-        var showDataDropDown = pivotTable.ShowDataDropDown?.Value ?? true;
-        var showDrill = pivotTable.ShowDrill?.Value ?? true;
-        var printDrill = pivotTable.PrintDrill?.Value ?? false;
-        var showMemberPropertyTips = pivotTable.ShowMemberPropertyTips?.Value ?? true;
-        var showDataTips = pivotTable.ShowDataTips?.Value ?? true;
-        var enableWizard = pivotTable.EnableWizard?.Value ?? true;
-        var enableDrill = pivotTable.EnableDrill?.Value ?? true;
-        var enableFieldProperties = pivotTable.EnableFieldProperties?.Value ?? true;
-        var preserveFormatting = pivotTable.PreserveFormatting?.Value ?? true;
-        var useAutoFormatting = pivotTable.UseAutoFormatting?.Value ?? false;
-        var pageWrap = pivotTable.PageWrap?.Value ?? 0;
-        var pageOverThenDown = pivotTable.PageOverThenDown?.Value ?? false;
-        var subtotalHiddenItems = pivotTable.SubtotalHiddenItems?.Value ?? false;
-        var rowGrandTotals = pivotTable.RowGrandTotals?.Value ?? true;
-        var columnGrandTotals = pivotTable.ColumnGrandTotals?.Value ?? true;
-        var fieldPrintTitles = pivotTable.FieldPrintTitles?.Value ?? false;
-        var itemPrintTitles = pivotTable.ItemPrintTitles?.Value ?? false;
-        var mergeItem = pivotTable.MergeItem?.Value ?? false;
-        var showDropZones = pivotTable.ShowDropZones?.Value ?? true;
-        var createdVersion = pivotTable.CreatedVersion?.Value ?? 0;
-        var indent = pivotTable.Indent?.Value ?? 1;
-        var showEmptyRow = pivotTable.ShowEmptyRow?.Value ?? false;
-        var showEmptyColumn = pivotTable.ShowEmptyColumn?.Value ?? false;
-        var showHeaders = pivotTable.ShowHeaders?.Value ?? true;
-        var compact = pivotTable.Compact?.Value ?? true;
-        var outline = pivotTable.Outline?.Value ?? false;
-        var outlineData = pivotTable.OutlineData?.Value ?? false;
-        var compactData = pivotTable.CompactData?.Value ?? true;
-        var published = pivotTable.Published?.Value ?? false;
-        var gridDropZones = pivotTable.GridDropZones?.Value ?? false;
-        var stopImmersiveUi = pivotTable.StopImmersiveUi?.Value ?? true;
-        var multipleFieldFilters = pivotTable.MultipleFieldFilters?.Value ?? true;
-        var chartFormat = pivotTable.ChartFormat?.Value ?? 0;
-        var rowHeaderCaption = pivotTable.RowHeaderCaption?.Value;
-        var columnHeaderCaption = pivotTable.ColumnHeaderCaption?.Value;
-        var fieldListSortAscending = pivotTable.FieldListSortAscending?.Value ?? false;
-        var mdxSubQueries = pivotTable.MdxSubqueries?.Value ?? false;
-        var customSortList = pivotTable.CustomListSort?.Value ?? true;
+        var xlPivotTable = new XLPivotTable(sheet, cache) { Name = name };
 
-        var xlPivotTable = new XLPivotTable(sheet, cache)
-        {
-            Name = name,
-            DataOnRows = dataOnRows,
-            DataPosition = null, // 'data' field is set when during axis loading (if present).
-            AutoFormatId = autoFormatId,
-            ApplyNumberFormats = applyNumberFormats,
-            ApplyBorderFormats = applyBorderFormats,
-            ApplyFontFormats = applyFontFormats,
-            ApplyPatternFormats = applyPatternFormats,
-            ApplyAlignmentFormats = applyAlignmentFormats,
-            ApplyWidthHeightFormats = applyWidthHeightFormats,
-            DataCaption = dataCaption,
-            GrandTotalCaption = grandTotalCaption,
-            ErrorValueReplacement = errorCaption,
-            ShowError = showError,
-            MissingCaption = missingCaption,
-            ShowMissing = showMissing,
-            PageStyle = pageStyle,
-            PivotTableStyleName = pivotTableStyleName,
-            VacatedStyle = vacatedStyle,
-            Tag = tag,
-            UpdatedVersion = updatedVersion,
-            MinRefreshableVersion = minRefreshableVersion,
-            AsteriskTotals = asteriskTotals,
-            DisplayItemLabels = showItems,
-            EditData = editData,
-            DisableFieldList = disableFieldList,
-            ShowCalculatedMembers = showCalculatedMembers,
-            VisualTotals = visualTotals,
-            ShowMultipleLabel = showMultipleLabel,
-            ShowDataDropDown = showDataDropDown,
-            ShowExpandCollapseButtons = showDrill,
-            PrintExpandCollapsedButtons = printDrill,
-            ShowPropertiesInTooltips = showMemberPropertyTips,
-            ShowContextualTooltips = showDataTips,
-            EnableEditingMechanism = enableWizard,
-            EnableShowDetails = enableDrill,
-            EnableFieldProperties = enableFieldProperties,
-            PreserveCellFormatting = preserveFormatting,
-            AutofitColumns = useAutoFormatting,
-            FilterFieldsPageWrap = checked((int)pageWrap),
-            FilterAreaOrder = pageOverThenDown ? XLFilterAreaOrder.OverThenDown : XLFilterAreaOrder.DownThenOver,
-            FilteredItemsInSubtotals = subtotalHiddenItems,
-            ShowGrandTotalsRows = rowGrandTotals,
-            ShowGrandTotalsColumns = columnGrandTotals,
-            PrintTitles = fieldPrintTitles,
-            RepeatRowLabels = itemPrintTitles,
-            MergeAndCenterWithLabels = mergeItem,
-            ShowDropZones = showDropZones,
-            PivotCacheCreatedVersion = createdVersion,
-            RowLabelIndent = checked((int)indent),
-            ShowEmptyItemsOnRows = showEmptyRow,
-            ShowEmptyItemsOnColumns = showEmptyColumn,
-            DisplayCaptionsAndDropdowns = showHeaders,
-            Compact = compact,
-            Outline = outline,
-            OutlineData = outlineData,
-            CompactData = compactData,
-            Published = published,
-            ClassicPivotTableLayout = gridDropZones,
-            StopImmersiveUi = stopImmersiveUi,
-            AllowMultipleFilters = multipleFieldFilters,
-            ChartFormat = chartFormat,
-            RowHeaderCaption = rowHeaderCaption,
-            ColumnHeaderCaption = columnHeaderCaption,
-            SortFieldsAtoZ = fieldListSortAscending,
-            MdxSubQueries = mdxSubQueries,
-            UseCustomListsForSorting = customSortList,
-        };
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Read(pivotTable, xlPivotTable);
+
         return xlPivotTable;
     }
 
@@ -726,7 +595,7 @@ internal static class PivotTableDefinitionPartReader
             xlPivotTable.ShowColumnHeaders = pivotTableStyle.ShowColumnHeaders?.Value ?? false;
             xlPivotTable.ShowRowStripes = pivotTableStyle.ShowRowStripes?.Value ?? false;
             xlPivotTable.ShowColumnStripes = pivotTableStyle.ShowColumnStripes?.Value ?? false;
-            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowColumnStripes?.Value ?? false;
+            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowLastColumn?.Value ?? false;
         }
     }
 
@@ -783,6 +652,8 @@ internal static class PivotTableDefinitionPartReader
         var ptExt2010 = ext2010?.GetFirstChild<DocumentFormat.OpenXml.Office2010.Excel.PivotTableDefinition>();
         if (ptExt2010 is not null)
         {
+            xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;
+            xlPivotTable.Description = ptExt2010.AltTextSummary?.Value ?? string.Empty;
             xlPivotTable.EnableCellEditing = ptExt2010.EnableEdit?.Value ?? false;
             var hideValuesRow = ptExt2010.HideValuesRow?.Value ?? false;
             xlPivotTable.ShowValuesRow = !hideValuesRow;

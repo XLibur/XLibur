@@ -167,6 +167,7 @@ public interface IXLPivotTable
     bool ShowColumnHeaders { get; set; }
     bool ShowRowStripes { get; set; }
     bool ShowColumnStripes { get; set; }
+    bool ShowLastColumn { get; set; }
     XLPivotSubtotals Subtotals { get; set; }
 
     /// <summary>
@@ -185,6 +186,8 @@ public interface IXLPivotTable
     IXLPivotTable SetShowRowStripes(); IXLPivotTable SetShowRowStripes(bool value);
 
     IXLPivotTable SetShowColumnStripes(); IXLPivotTable SetShowColumnStripes(bool value);
+
+    IXLPivotTable SetShowLastColumn(); IXLPivotTable SetShowLastColumn(bool value);
 
     IXLPivotTable SetSubtotals(XLPivotSubtotals value);
 

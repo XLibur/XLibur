@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Xml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
@@ -18,6 +19,18 @@ internal static class PivotTableDefinitionPartWriter2
     // Attribute names repeated across the pivot definition elements.
     private const string CountAttr = "count";
     private const string FieldAttr = "field";
+
+    /// <summary>
+    /// The OOXML attribute string for a strongly-typed OpenXml enum value, via the shared
+    /// <see cref="EnumConverter"/> rather than a private string table of the writer's own.
+    /// </summary>
+    /// <remarks>
+    /// Reads the string straight off the enum struct rather than wrapping it in an
+    /// <c>EnumValue&lt;T&gt;</c> first. The wrapper allocates, and this runs once per axis item and
+    /// once per pivot field item — tens of thousands of times on a large table's save.
+    /// </remarks>
+    private static string ToAttr<T>(T value) where T : struct, IEnumValue
+        => value.Value;
 
     internal static void WriteContent(PivotTablePart pivotTablePart, XLPivotTable pt, SaveContext context)
     {
@@ -68,6 +81,8 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
         xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
         xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
+        xml.WriteAttributeOptional("altText", pt.Title);
+        xml.WriteAttributeOptional("altTextSummary", pt.Description);
         xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
         xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
         xml.WriteEndElement(); // pivotTableDefinition
@@ -84,75 +99,13 @@ internal static class PivotTableDefinitionPartWriter2
     {
         xml.WriteAttribute("name", pt.Name);
         xml.WriteAttribute("cacheId", context.GetPivotCacheId(pt.PivotCache));
-        xml.WriteAttributeDefault("dataOnRows", pt.DataOnRows, false);
+
+        // Not in PivotTableAttributes.All: derived from RowAxis/ColumnAxis rather than round-tripped
+        // as stored state. See XLPivotTable.DataPosition.
         xml.WriteAttributeOptional("dataPosition", pt.DataPosition);
-        xml.WriteAttributeOptional("autoFormatId", pt.AutoFormatId);
 
-        // Although apply*Formats do have the default value `false`, Excel always writes them.
-        xml.WriteAttribute("applyNumberFormats", pt.ApplyNumberFormats);
-        xml.WriteAttribute("applyBorderFormats", pt.ApplyBorderFormats);
-        xml.WriteAttribute("applyFontFormats", pt.ApplyFontFormats);
-        xml.WriteAttribute("applyPatternFormats", pt.ApplyPatternFormats);
-        xml.WriteAttribute("applyAlignmentFormats", pt.ApplyAlignmentFormats);
-        xml.WriteAttribute("applyWidthHeightFormats", pt.ApplyWidthHeightFormats);
-
-        xml.WriteAttribute("dataCaption", pt.DataCaption);
-        xml.WriteAttributeOptional("grandTotalCaption", pt.GrandTotalCaption);
-        xml.WriteAttributeOptional("errorCaption", pt.ErrorValueReplacement);
-        xml.WriteAttributeDefault("showError", pt.ShowError, false);
-        xml.WriteAttributeOptional("missingCaption", pt.MissingCaption);
-        xml.WriteAttributeDefault("showMissing", pt.ShowMissing, true);
-        xml.WriteAttributeOptional("pageStyle", pt.PageStyle);
-        xml.WriteAttributeOptional("pivotTableStyle", pt.PivotTableStyleName);
-        xml.WriteAttributeOptional("vacatedStyle", pt.VacatedStyle);
-        xml.WriteAttributeOptional("tag", pt.Tag);
-        xml.WriteAttributeDefault("updatedVersion", pt.UpdatedVersion, 0);
-        xml.WriteAttributeDefault("minRefreshableVersion", pt.MinRefreshableVersion, 0);
-        xml.WriteAttributeDefault("asteriskTotals", pt.AsteriskTotals, false);
-        xml.WriteAttributeDefault("showItems", pt.DisplayItemLabels, true);
-        xml.WriteAttributeDefault("editData", pt.EditData, false);
-        xml.WriteAttributeDefault("disableFieldList", pt.DisableFieldList, false);
-        xml.WriteAttributeDefault("showCalcMbrs", pt.ShowCalculatedMembers, true);
-        xml.WriteAttributeDefault("visualTotals", pt.VisualTotals, true);
-        xml.WriteAttributeDefault("showMultipleLabel", pt.ShowMultipleLabel, true);
-        xml.WriteAttributeDefault("showDataDropDown", pt.ShowDataDropDown, true);
-        xml.WriteAttributeDefault("showDrill", pt.ShowExpandCollapseButtons, true);
-        xml.WriteAttributeDefault("printDrill", pt.PrintExpandCollapsedButtons, false);
-        xml.WriteAttributeDefault("showMemberPropertyTips", pt.ShowPropertiesInTooltips, true);
-        xml.WriteAttributeDefault("showDataTips", pt.ShowContextualTooltips, true);
-        xml.WriteAttributeDefault("enableWizard", pt.EnableEditingMechanism, true);
-        xml.WriteAttributeDefault("enableDrill", pt.EnableShowDetails, true);
-        xml.WriteAttributeDefault("enableFieldProperties", pt.EnableFieldProperties, true);
-        xml.WriteAttributeDefault("preserveFormatting", pt.PreserveCellFormatting, true);
-        xml.WriteAttributeDefault("useAutoFormatting", pt.AutofitColumns, false);
-        xml.WriteAttributeDefault("pageWrap", checked((uint)pt.FilterFieldsPageWrap), 0);
-        xml.WriteAttributeDefault("pageOverThenDown", pt.FilterAreaOrder == XLFilterAreaOrder.OverThenDown, false);
-        xml.WriteAttributeDefault("subtotalHiddenItems", pt.FilteredItemsInSubtotals, false);
-        xml.WriteAttributeDefault("rowGrandTotals", pt.ShowGrandTotalsRows, true);
-        xml.WriteAttributeDefault("colGrandTotals", pt.ShowGrandTotalsColumns, true);
-        xml.WriteAttributeDefault("fieldPrintTitles", pt.PrintTitles, false);
-        xml.WriteAttributeDefault("itemPrintTitles", pt.RepeatRowLabels, false);
-        xml.WriteAttributeDefault("mergeItem", pt.MergeAndCenterWithLabels, false);
-        xml.WriteAttributeDefault("showDropZones", pt.ShowDropZones, true);
-        xml.WriteAttributeDefault("createdVersion", pt.PivotCacheCreatedVersion, 0);
-        xml.WriteAttributeDefault("indent", checked((uint)pt.RowLabelIndent), 1);
-        xml.WriteAttributeDefault("showEmptyRow", pt.ShowEmptyItemsOnRows, false);
-        xml.WriteAttributeDefault("showEmptyCol", pt.ShowEmptyItemsOnColumns, false);
-        xml.WriteAttributeDefault("showHeaders", pt.DisplayCaptionsAndDropdowns, true);
-        xml.WriteAttributeDefault("compact", pt.Compact, true);
-        xml.WriteAttributeDefault("outline", pt.Outline, false);
-        xml.WriteAttributeDefault("outlineData", pt.OutlineData, false);
-        xml.WriteAttributeDefault("compactData", pt.CompactData, true);
-        xml.WriteAttributeDefault("published", pt.Published, false);
-        xml.WriteAttributeDefault("gridDropZones", pt.ClassicPivotTableLayout, false);
-        xml.WriteAttributeDefault("immersive", pt.StopImmersiveUi, true);
-        xml.WriteAttributeDefault("multipleFieldFilters", pt.AllowMultipleFilters, true);
-        xml.WriteAttributeDefault("chartFormat", pt.ChartFormat, 0);
-        xml.WriteAttributeOptional("rowHeaderCaption", pt.RowHeaderCaption);
-        xml.WriteAttributeOptional("colHeaderCaption", pt.ColumnHeaderCaption);
-        xml.WriteAttributeDefault("fieldListSortAscending", pt.SortFieldsAtoZ, false);
-        xml.WriteAttributeDefault("mdxSubqueries", pt.MdxSubQueries, false);
-        xml.WriteAttributeDefault("customListSort", pt.UseCustomListsForSorting, true);
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Write(xml, pt);
     }
 
     private static void WritePivotFields(XmlWriter xml, XLPivotTable pt, SaveContext context)
@@ -166,10 +119,7 @@ internal static class PivotTableDefinitionPartWriter2
             xml.WriteAttributeOptional("name", pf.Name);
 
             if (pf.Axis is not null)
-            {
-                var axisAttr = GetAxisAttr(pf.Axis.Value);
-                xml.WriteAttribute("axis", axisAttr);
-            }
+                xml.WriteAttribute("axis", ToAttr(pf.Axis.Value.ToOpenXml()));
 
             xml.WriteAttributeDefault("dataField", pf.DataField, false);
             xml.WriteAttributeOptional("subtotalCaption", pf.SubtotalCaption);
@@ -198,16 +148,7 @@ internal static class PivotTableDefinitionPartWriter2
             xml.WriteAttributeDefault("includeNewItemsInFilter", pf.IncludeNewItemsInFilter, false);
             xml.WriteAttributeDefault("itemPageCount", pf.ItemPageCount, 10);
             if (pf.SortType != XLPivotSortType.Default)
-            {
-                var sortTypeAttr = pf.SortType switch
-                {
-                    XLPivotSortType.Default => "manual",
-                    XLPivotSortType.Ascending => "ascending",
-                    XLPivotSortType.Descending => "descending",
-                    _ => throw new UnreachableException(),
-                };
-                xml.WriteAttribute("sortType", sortTypeAttr);
-            }
+                xml.WriteAttribute("sortType", ToAttr(pf.SortType.ToOpenXml()));
 
             xml.WriteAttributeOptional("dataSourceSort", pf.DataSourceSort);
             xml.WriteAttributeDefault("nonAutoSortDefault", pf.NonAutoSortDefault, false);
@@ -262,10 +203,7 @@ internal static class PivotTableDefinitionPartWriter2
                 xml.WriteStartElement("item", Main2006SsNs);
                 xml.WriteAttributeOptional("n", pfItem.ItemUserCaption);
                 if (pfItem.ItemType != XLPivotItemType.Data)
-                {
-                    var itemTypeAttr = GetItemTypeAttr(pfItem.ItemType);
-                    xml.WriteAttribute("t", itemTypeAttr);
-                }
+                    xml.WriteAttribute("t", ToAttr(pfItem.ItemType.ToOpenXml()));
 
                 xml.WriteAttributeDefault("h", pfItem.Hidden, false);
                 xml.WriteAttributeDefault("s", pfItem.ValueIsString, false);
@@ -332,10 +270,10 @@ internal static class PivotTableDefinitionPartWriter2
                 xml.WriteAttributeOptional("name", dataField.DataFieldName);
                 xml.WriteAttribute("fld", dataField.Field);
                 if (dataField.Subtotal != XLPivotSummary.Sum)
-                    xml.WriteAttribute("subtotal", GetSubtotalAttr(dataField.Subtotal));
+                    xml.WriteAttribute("subtotal", ToAttr(dataField.Subtotal.ToOpenXml()));
 
                 if (dataField.ShowDataAsFormat != XLPivotCalculation.Normal)
-                    xml.WriteAttribute("showDataAs", GetShowDataAsAttr(dataField.ShowDataAsFormat));
+                    xml.WriteAttribute("showDataAs", ToAttr(dataField.ShowDataAsFormat.ToOpenXml()));
 
                 xml.WriteAttributeDefault("baseField", dataField.BaseField, -1);
                 xml.WriteAttributeDefault("baseItem", dataField.BaseItem, 1048832);
@@ -348,42 +286,6 @@ internal static class PivotTableDefinitionPartWriter2
         }
     }
 
-    private static string GetSubtotalAttr(XLPivotSummary subtotal)
-    {
-        return subtotal switch
-        {
-            XLPivotSummary.Sum => "sum",
-            XLPivotSummary.Count => CountAttr,
-            XLPivotSummary.Average => "average",
-            XLPivotSummary.Minimum => "min",
-            XLPivotSummary.Maximum => "max",
-            XLPivotSummary.Product => "product",
-            XLPivotSummary.CountNumbers => "countNums",
-            XLPivotSummary.StandardDeviation => "stdDev",
-            XLPivotSummary.PopulationStandardDeviation => "stdDevp",
-            XLPivotSummary.Variance => "var",
-            XLPivotSummary.PopulationVariance => "varp",
-            _ => throw new UnreachableException(),
-        };
-    }
-
-    private static string GetShowDataAsAttr(XLPivotCalculation showDataAs)
-    {
-        return showDataAs switch
-        {
-            XLPivotCalculation.Normal => "normal",
-            XLPivotCalculation.DifferenceFrom => "difference",
-            XLPivotCalculation.PercentageOf => "percent",
-            XLPivotCalculation.PercentageDifferenceFrom => "percentDiff",
-            XLPivotCalculation.RunningTotal => "runTotal",
-            XLPivotCalculation.PercentageOfRow => "percentOfRow",
-            XLPivotCalculation.PercentageOfColumn => "percentOfCol",
-            XLPivotCalculation.PercentageOfTotal => "percentOfTotal",
-            XLPivotCalculation.Index => "index",
-            _ => throw new UnreachableException(),
-        };
-    }
-
     private static void WriteFormats(XmlWriter xml, XLPivotTable pt, SaveContext context)
     {
         if (pt.Formats.Count > 0)
@@ -394,15 +296,7 @@ internal static class PivotTableDefinitionPartWriter2
             {
                 xml.WriteStartElement("format", Main2006SsNs);
                 if (format.Action != XLPivotFormatAction.Formatting)
-                {
-                    var actionAttr = format.Action switch
-                    {
-                        XLPivotFormatAction.Blank => "blank",
-                        XLPivotFormatAction.Formatting => "formatting",
-                        _ => throw new UnreachableException(),
-                    };
-                    xml.WriteAttribute("action", actionAttr);
-                }
+                    xml.WriteAttribute("action", ToAttr(format.Action.ToOpenXml()));
 
                 // DxfId is optional.
                 if (format.DxfStyleValue != XLStyleValue.Default)
@@ -534,29 +428,10 @@ internal static class PivotTableDefinitionPartWriter2
     {
         xml.WriteStartElement("conditionalFormat", Main2006SsNs);
         if (conditionalFormat.Scope != XLPivotCfScope.SelectedCells)
-        {
-            var scopeAttr = conditionalFormat.Scope switch
-            {
-                XLPivotCfScope.SelectedCells => "selection",
-                XLPivotCfScope.DataFields => "data",
-                XLPivotCfScope.FieldIntersections => FieldAttr,
-                _ => throw new UnreachableException(),
-            };
-            xml.WriteAttribute("scope", scopeAttr);
-        }
+            xml.WriteAttribute("scope", ToAttr(conditionalFormat.Scope.ToOpenXml()));
 
         if (conditionalFormat.Type != XLPivotCfRuleType.None)
-        {
-            var typeAttr = conditionalFormat.Type switch
-            {
-                XLPivotCfRuleType.All => "all",
-                XLPivotCfRuleType.Column => "column",
-                XLPivotCfRuleType.None => "none",
-                XLPivotCfRuleType.Row => "row",
-                _ => throw new UnreachableException(),
-            };
-            xml.WriteAttribute("type", typeAttr);
-        }
+            xml.WriteAttribute("type", ToAttr(conditionalFormat.Type.ToOpenXml()));
 
         xml.WriteAttribute("priority", conditionalFormat.Format.Priority);
         xml.WriteStartElement("pivotAreas", Main2006SsNs);
@@ -617,10 +492,7 @@ internal static class PivotTableDefinitionPartWriter2
         {
             xml.WriteStartElement("i", Main2006SsNs);
             if (axisItem.ItemType != XLPivotItemType.Data)
-            {
-                var itemTypeAttr = GetItemTypeAttr(axisItem.ItemType);
-                xml.WriteAttribute("t", itemTypeAttr);
-            }
+                xml.WriteAttribute("t", ToAttr(axisItem.ItemType.ToOpenXml()));
 
             // 'r' attribute means repeat data from previous axis item.
             var r = 0;
@@ -655,21 +527,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteStartElement("pivotArea", Main2006SsNs);
         xml.WriteAttributeOptional(FieldAttr, pivotArea.Field?.Value);
         if (pivotArea.Type != XLPivotAreaType.Normal)
-        {
-            var typeAttr = pivotArea.Type switch
-            {
-                XLPivotAreaType.None => "none",
-                XLPivotAreaType.Normal => "normal",
-                XLPivotAreaType.Data => "data",
-                XLPivotAreaType.All => "all",
-                XLPivotAreaType.Origin => "origin",
-                XLPivotAreaType.Button => "button",
-                XLPivotAreaType.TopRight => "topRight",
-                XLPivotAreaType.TopEnd => "topEnd",
-                _ => throw new UnreachableException(),
-            };
-            xml.WriteAttribute("type", typeAttr);
-        }
+            xml.WriteAttribute("type", ToAttr(pivotArea.Type.ToOpenXml()));
 
         xml.WriteAttributeDefault("dataOnly", pivotArea.DataOnly, true);
         xml.WriteAttributeDefault("labelOnly", pivotArea.LabelOnly, false);
@@ -682,7 +540,7 @@ internal static class PivotTableDefinitionPartWriter2
 
         xml.WriteAttributeDefault("collapsedLevelsAreSubtotals", pivotArea.CollapsedLevelsAreSubtotals, false);
         if (pivotArea.Axis is not null)
-            xml.WriteAttribute("axis", GetAxisAttr(pivotArea.Axis.Value));
+            xml.WriteAttribute("axis", ToAttr(pivotArea.Axis.Value.ToOpenXml()));
 
         xml.WriteAttributeOptional("fieldPosition", pivotArea.FieldPosition);
 
@@ -728,39 +586,4 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteEndElement(); // pivotArea
     }
 
-    private static string GetItemTypeAttr(XLPivotItemType itemType)
-    {
-        var itemTypeAttr = itemType switch
-        {
-            XLPivotItemType.Avg => "avg",
-            XLPivotItemType.Blank => "blank",
-            XLPivotItemType.Count => CountAttr,
-            XLPivotItemType.CountA => "countA",
-            XLPivotItemType.Data => "data",
-            XLPivotItemType.Default => "default",
-            XLPivotItemType.Grand => "grand",
-            XLPivotItemType.Max => "max",
-            XLPivotItemType.Min => "min",
-            XLPivotItemType.Product => "product",
-            XLPivotItemType.StdDev => "stdDev",
-            XLPivotItemType.StdDevP => "stdDevP",
-            XLPivotItemType.Sum => "sum",
-            XLPivotItemType.Var => "var",
-            XLPivotItemType.VarP => "varP",
-            _ => throw new UnreachableException(),
-        };
-        return itemTypeAttr;
-    }
-
-    private static string GetAxisAttr(XLPivotAxis axis)
-    {
-        return axis switch
-        {
-            XLPivotAxis.AxisRow => "axisRow",
-            XLPivotAxis.AxisCol => "axisCol",
-            XLPivotAxis.AxisPage => "axisPage",
-            XLPivotAxis.AxisValues => "axisValues",
-            _ => throw new UnreachableException(),
-        };
-    }
 }
