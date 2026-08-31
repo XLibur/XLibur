@@ -1,11 +1,34 @@
+<#
+.SYNOPSIS
+    Fuzz XLibur, or replay saved inputs through the same oracle.
+
+.DESCRIPTION
+    Publishes XLibur.Fuzz, instruments XLibur.dll with SharpFuzz, and runs libFuzzer over a
+    corpus. Seeds come from the committed corpus under XLibur.Fuzz\corpus\<target>, so a fresh
+    clone starts where the last person started.
+
+    With -Replay, no fuzzing happens: the published harness runs over saved inputs and prints
+    what each one did, grouped by exception type and originating XLibur frame. That is the step
+    between a crash artifact and a defect entry, and it deliberately uses the same oracle as
+    fuzzing, so triage can never disagree with the run that produced the artifact.
+
+.EXAMPLE
+    ./fuzz.ps1 -Target workbook-structured -MaxTotalTime 600
+
+.EXAMPLE
+    ./fuzz.ps1 -Target workbook -Replay temp/fuzz/artifacts
+#>
 [CmdletBinding()]
 param(
-    [ValidateSet('workbook', 'formula', 'address', 'all')]
+    [ValidateSet('workbook', 'workbook-structured', 'formula', 'address', 'all')]
     [string] $Target = 'workbook',
 
     [string] $LibFuzzer = (Join-Path $PSScriptRoot 'tools\libfuzzer-dotnet-windows.exe'),
 
     [string] $Corpus,
+
+    # A file or directory of saved inputs to run through the oracle and report on. No fuzzing.
+    [string] $Replay,
 
     [int] $Timeout = 10,
 
@@ -18,9 +41,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$allTargets = @('workbook', 'workbook-structured', 'formula', 'address')
+
 if ($Target -eq 'all') {
     $failedTargets = [Collections.Generic.List[string]]::new()
-    foreach ($targetName in @('workbook', 'formula', 'address')) {
+    foreach ($targetName in $allTargets) {
         Write-Host "=== Fuzz target: $targetName ===" -ForegroundColor Cyan
         try {
             $childArguments = @{
@@ -30,6 +55,7 @@ if ($Target -eq 'all') {
                 MaxTotalTime = $MaxTotalTime
             }
             if ($Corpus) { $childArguments.Corpus = $Corpus }
+            if ($Replay) { $childArguments.Replay = $Replay }
             if ($LibFuzzerArgument) { $childArguments.LibFuzzerArgument = $LibFuzzerArgument }
             & $PSCommandPath @childArguments
             if ($LASTEXITCODE -ne 0) { throw "libFuzzer exited with code $LASTEXITCODE" }
@@ -62,18 +88,19 @@ function Invoke-Native([string] $File, [string[]] $Arguments) {
 }
 
 $repoRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
-$libFuzzerPath = Resolve-ExistingPath $LibFuzzer 'libfuzzer-dotnet-windows.exe'
 $project = Join-Path $repoRoot 'XLibur.Fuzz\XLibur.Fuzz.csproj'
 $workRoot = Join-Path $repoRoot 'temp\fuzz'
 $publishRoot = Join-Path $workRoot 'publish'
 $toolsRoot = Join-Path $workRoot 'tools'
+$artifactRoot = Join-Path $workRoot 'artifacts'
+$seedRoot = Join-Path $repoRoot (Join-Path 'XLibur.Fuzz\corpus' $Target)
+
 $corpusPath = if ([string]::IsNullOrWhiteSpace($Corpus)) {
     Join-Path $workRoot (Join-Path 'corpus' $Target)
 }
 else {
     [IO.Path]::GetFullPath($Corpus, $repoRoot)
 }
-$artifactRoot = Join-Path $workRoot 'artifacts'
 
 New-Item -ItemType Directory -Force -Path $publishRoot, $toolsRoot, $corpusPath, $artifactRoot | Out-Null
 
@@ -85,37 +112,64 @@ if (Test-Path -LiteralPath $publishRoot) {
 }
 New-Item -ItemType Directory -Force -Path $publishRoot | Out-Null
 
+Invoke-Native 'dotnet' @('publish', $project, '--configuration', 'Release', '--framework', 'net10.0', '--output', $publishRoot, '--no-self-contained')
+
+$harness = Join-Path $publishRoot 'XLibur.Fuzz.exe'
+$env:XLIBUR_FUZZ_TARGET = $Target
+
+# Replay runs the harness directly. It must NOT be instrumented: SharpFuzz rewrites the assembly
+# to report coverage to a libFuzzer process that is not there.
+if ($Replay) {
+    $replayPath = [IO.Path]::GetFullPath($Replay, $repoRoot)
+    if (-not (Test-Path -LiteralPath $replayPath)) {
+        throw "Replay path was not found: $replayPath"
+    }
+
+    $env:XLIBUR_FUZZ_REPLAY = $replayPath
+    try {
+        & $harness
+        $replayExit = $LASTEXITCODE
+    }
+    finally {
+        Remove-Item Env:\XLIBUR_FUZZ_REPLAY -ErrorAction SilentlyContinue
+    }
+
+    exit $replayExit
+}
+
+$libFuzzerPath = Resolve-ExistingPath $LibFuzzer 'libfuzzer-dotnet-windows.exe'
+
 $tool = Join-Path $toolsRoot 'sharpfuzz.exe'
 if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) {
     Invoke-Native 'dotnet' @('tool', 'install', 'SharpFuzz.CommandLine', '--tool-path', $toolsRoot, '--version', '2.3.0')
 }
 
-Invoke-Native 'dotnet' @('publish', $project, '--configuration', 'Release', '--framework', 'net10.0', '--output', $publishRoot, '--no-self-contained', '--no-restore')
-
 $targetAssembly = Join-Path $publishRoot 'XLibur.dll'
 Invoke-Native $tool @($targetAssembly)
 
+# Seed from the committed corpus. Previously the seeds were written inline here, which meant the
+# starting point existed only on the machine that had run the script before.
 $seedFiles = @(Get-ChildItem -LiteralPath $corpusPath -File -ErrorAction SilentlyContinue)
 if ($seedFiles.Count -eq 0) {
-    if ($Target -eq 'workbook') {
-        $seed = Join-Path $repoRoot 'XLibur.Tests\Resource\TryToLoad\LO\xlsx\empty.xlsx'
-        Copy-Item -LiteralPath $seed -Destination (Join-Path $corpusPath 'empty.xlsx')
-    }
-    elseif ($Target -eq 'formula') {
-        [IO.File]::WriteAllText((Join-Path $corpusPath 'formula.txt'), 'SUM(1,2)', [Text.UTF8Encoding]::new($false))
-        [IO.File]::WriteAllText((Join-Path $corpusPath 'formula-2.txt'), 'IF(A1>0,"yes","no")', [Text.UTF8Encoding]::new($false))
+    if (Test-Path -LiteralPath $seedRoot -PathType Container) {
+        Write-Host "Seeding corpus from $seedRoot" -ForegroundColor DarkGray
+        Copy-Item -Path (Join-Path $seedRoot '*') -Destination $corpusPath -Force
     }
     else {
-        [IO.File]::WriteAllText((Join-Path $corpusPath 'address.txt'), 'Sheet1!$A$1:$C$10', [Text.UTF8Encoding]::new($false))
-        [IO.File]::WriteAllText((Join-Path $corpusPath 'address-2.txt'), 'R1C1', [Text.UTF8Encoding]::new($false))
+        Write-Warning "No committed seed corpus at $seedRoot; starting from an empty corpus."
     }
 }
 
-$env:XLIBUR_FUZZ_TARGET = $Target
-$harness = Join-Path $publishRoot 'XLibur.Fuzz.exe'
+# Tolerated-but-notable events (an input that exhausts memory in the writer, say) are appended
+# here rather than dropped. A run that finds no crash is not necessarily a run that found nothing.
+$env:XLIBUR_FUZZ_REPORT_DIR = $artifactRoot
+
 $artifactPrefix = $artifactRoot + [IO.Path]::DirectorySeparatorChar
 $arguments = @("--target_path=$harness", "-timeout=$Timeout", "-artifact_prefix=$artifactPrefix")
 if ($MaxTotalTime -gt 0) { $arguments += "-max_total_time=$MaxTotalTime" }
+
+# The blind target mutates whole packages and needs room for one; every other target decodes a
+# short byte string into its own input, where a large max_len only wastes the budget.
 if ($Target -eq 'workbook') { $arguments += '-max_len=1048576' } else { $arguments += '-max_len=4096' }
 if ($LibFuzzerArgument) { $arguments += $LibFuzzerArgument }
 $arguments += $corpusPath

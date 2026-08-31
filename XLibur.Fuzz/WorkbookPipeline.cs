@@ -39,17 +39,23 @@ internal static class WorkbookPipeline
     {
         rejection = null;
 
+        // The input stream must outlive the save. XLWorkbook keeps a reference to the stream it
+        // loaded from and rewinds it during SaveAs, so disposing it earlier produces an
+        // ObjectDisposedException out of the write path that looks exactly like a write-path
+        // defect and is not one. An earlier version of this method scoped the stream to the load
+        // and cost a false finding.
+        using var input = new MemoryStream(candidate, writable: false);
+
         XLWorkbook workbook;
         try
         {
-            using var input = new MemoryStream(candidate, writable: false);
             workbook = new XLWorkbook(input);
         }
         catch (Exception exception) when (!Oracle.IsLeakedPackageReaderType(exception)
                                           && Oracle.IsRejectionDuringLoad(exception))
         {
             // XLibur declined the input. That is the whole point of a rejection: nothing to see.
-            rejection = $"{exception.GetType().Name} at {FirstFrame(exception)}: {exception.Message}";
+            rejection = $"{exception.GetType().Name} at {StackSummary.FirstMeaningfulFrame(exception)}: {exception.Message}";
             return WorkbookOutcome.Rejected;
         }
 
@@ -87,29 +93,4 @@ internal static class WorkbookPipeline
         return WorkbookOutcome.RoundTripped;
     }
 
-    /// <summary>
-    /// The frame a rejection came from. The type and message alone cannot distinguish a
-    /// deliberate refusal from an internal bounds check that happens to share the type.
-    ///
-    /// Prefers the outermost XLibur frame over the true outermost one. A bounds check reached
-    /// through LINQ reports <c>System.Linq.ThrowHelper</c> at the top, which says nothing about
-    /// which part of XLibur asked the question — and that is the only thing worth knowing.
-    /// </summary>
-    private static string FirstFrame(Exception exception)
-    {
-        var stack = exception.StackTrace;
-        if (string.IsNullOrEmpty(stack))
-            return "(no stack)";
-
-        var frames = stack.Split('\n')
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .ToArray();
-
-        if (frames.Length == 0)
-            return "(no stack)";
-
-        var xlibur = Array.Find(frames, f => f.Contains("XLibur.", StringComparison.Ordinal));
-        return xlibur ?? frames[0];
-    }
 }

@@ -72,9 +72,9 @@ internal static class Program
             }
             catch (Exception exception)
             {
-                signature = Signature(exception);
+                signature = StackSummary.Signature(exception);
                 Console.WriteLine($"{name}\t{bytes.Length} bytes\t{exception.GetType().FullName}\t{exception.Message}");
-                Console.WriteLine($"    {FirstFrame(exception)}");
+                Console.WriteLine($"    {StackSummary.FirstMeaningfulFrame(exception)}");
             }
 
             if (!distinct.TryGetValue(signature, out var members))
@@ -93,29 +93,4 @@ internal static class Program
         return 0;
     }
 
-    /// <summary>
-    /// Group inputs by exception type and originating frame, so that identical bugs collapse and
-    /// different bugs do not. Deliberately excludes the message, which often carries input-derived
-    /// text and would split one bug into many.
-    /// </summary>
-    private static string Signature(Exception exception)
-    {
-        return $"{exception.GetType().FullName} at {FirstFrame(exception)}";
-    }
-
-    private static string FirstFrame(Exception exception)
-    {
-        var stack = exception.StackTrace;
-        if (string.IsNullOrEmpty(stack))
-            return "(no stack)";
-
-        foreach (var line in stack.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Length > 0)
-                return trimmed;
-        }
-
-        return "(no stack)";
-    }
 }

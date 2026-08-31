@@ -1,0 +1,1 @@
+TEXT(A5,"yyyy-mm-dd")

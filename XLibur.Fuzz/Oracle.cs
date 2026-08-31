@@ -32,6 +32,25 @@ internal static class Oracle
     /// structured as a spreadsheet. <see cref="FileFormatException"/> comes from the packaging
     /// layer for an archive that is corrupt at the container level. The rest are the BCL's
     /// ordinary vocabulary for malformed data.
+    ///
+    /// <para>
+    /// <b><see cref="ArgumentException"/> is deliberately absent</b>, and that is the most
+    /// load-bearing decision in this file. An argument exception names a parameter of a method
+    /// the caller never invoked — <c>id</c>, <c>index</c>, <c>number</c> — so it can only ever be
+    /// an internal precondition escaping, never a considered refusal of a file. Tolerating it
+    /// hid an entire family of defects: on the first structure-aware run, a dangling sheet
+    /// relationship id, a cell value that overflows a double, and a style index past the end of
+    /// the table all classified as rejections and the run reported clean.
+    /// XLibur's way of saying "this file is wrong" is <see cref="PartStructureException"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="FormatException"/> and <see cref="OverflowException"/> are still tolerated, and
+    /// probably should not be for the same reason. They are left in only because narrowing them
+    /// has not been examined against real findings yet; do it once this list stops producing new
+    /// ones. Note <see cref="FileFormatException"/> derives from <see cref="FormatException"/>,
+    /// so removing the base needs the derived type kept explicitly.
+    /// </para>
     /// </summary>
     public static bool IsRejectionDuringLoad(Exception exception)
     {
@@ -41,7 +60,6 @@ internal static class Oracle
             or XmlException
             or FormatException
             or OverflowException
-            or ArgumentException
             or IOException;
     }
 
