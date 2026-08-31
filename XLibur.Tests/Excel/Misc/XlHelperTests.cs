@@ -56,12 +56,22 @@ public class XlHelperTests
         await Assert.That(XLHelper.IsValidA1Address("A+1")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("$A$+1")).IsFalse();
 
+        // A trailing NUL survived the first fix: the number parser stops at a null terminator, so
+        // NumberStyles.None still let "1\0" through. IsValidRow counts digits itself now.
+        await Assert.That(XLHelper.IsValidA1Address("CC1\0")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("CC1\0\0\0\0\0\0\0\0")).IsFalse();
+
         await Assert.That(XLHelper.IsValidRow(" 1")).IsFalse();
         await Assert.That(XLHelper.IsValidRow("1 ")).IsFalse();
         await Assert.That(XLHelper.IsValidRow("+1")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1\0")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("0")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("00000001")).IsFalse();
         await Assert.That(XLHelper.IsValidRow("1")).IsTrue();
         await Assert.That(XLHelper.IsValidRow("1048576")).IsTrue();
         await Assert.That(XLHelper.IsValidRow("1048577")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("9999999")).IsFalse();
 
         await Assert.That(XLHelper.IsValidA1Address("A1@")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("AA1@")).IsFalse();

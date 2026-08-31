@@ -225,19 +225,40 @@ public static partial class XLHelper
 
     public static bool IsValidRow(string rowString)
     {
-        // NumberStyles.None: digits only. The default for int.TryParse is NumberStyles.Integer,
-        // which also permits leading and trailing whitespace and a leading sign, so " 1", "1 "
-        // and "+1" were all reported as valid rows — and through IsValidA1Address, "$A 1" and
-        // "A+1" were reported as valid addresses while IsValidRangeAddress, which matches a real
-        // pattern, rejected them. Two public predicates disagreeing about the same string, the
-        // same contradiction D36 was, one layer down (D41).
+        // Digits, counted by hand, rather than int.TryParse. A row reference in A1 notation is
+        // ASCII digits and nothing else — which is what IsValidRangeAddress's own pattern says
+        // with `\d{1,7}` — and every attempt to express that through the number parser let
+        // something else in (D41):
         //
-        // A row reference in A1 notation is digits and nothing else; there is no locale in which
-        // it is otherwise, hence the invariant culture.
-        if (int.TryParse(rowString, NumberStyles.None, CultureInfo.InvariantCulture, out var row))
-            return row is > 0 and <= MaxRowNumber;
-        return false;
+        //   int.TryParse(s, out row)                       accepts " 1", "1 " and "+1", because
+        //                                                  the default is NumberStyles.Integer
+        //   int.TryParse(s, NumberStyles.None, …, out row) still accepts "1\0\0\0", because the
+        //                                                  parser stops at a null terminator
+        //
+        // Both were found by the harness's consistency property, the second one within minutes of
+        // the first being fixed. The parser is answering a different question — "is this a number
+        // a user might have typed" — so it is the wrong instrument, not one to keep narrowing.
+        var length = rowString.Length;
+        if (length is 0 or > MaxRowDigits)
+            return false;
+
+        var row = 0;
+        foreach (var digit in rowString)
+        {
+            if (!char.IsAsciiDigit(digit))
+                return false;
+
+            row = (row * 10) + (digit - '0');
+        }
+
+        return row is > 0 and <= MaxRowNumber;
     }
+
+    /// <summary>
+    /// Digits in <see cref="MaxRowNumber"/>, and so the longest a row reference can be. Bounds the
+    /// accumulator in <see cref="IsValidRow"/> well below overflow.
+    /// </summary>
+    private const int MaxRowDigits = 7;
 
     public static bool IsValidA1Address(string address)
     {
