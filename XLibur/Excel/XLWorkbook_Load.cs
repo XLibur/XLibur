@@ -34,14 +34,31 @@ public partial class XLWorkbook
 
     private void LoadSheets(string fileName)
     {
-        using var dSpreadsheet = SpreadsheetDocument.Open(fileName, false);
+        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(fileName, false));
         LoadSpreadsheetDocument(dSpreadsheet);
     }
 
     private void LoadSheets(Stream stream)
     {
-        using var dSpreadsheet = SpreadsheetDocument.Open(stream, false);
+        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(stream, false));
         LoadSpreadsheetDocument(dSpreadsheet);
+    }
+
+    /// <summary>
+    /// Open a package, converting the package reader's own exception types into
+    /// <see cref="PartStructureException"/>. A caller of a public XLibur constructor should not
+    /// have to catch a <c>DocumentFormat.OpenXml</c> type to handle a malformed file.
+    /// </summary>
+    private static SpreadsheetDocument OpenPackage(Func<SpreadsheetDocument> open)
+    {
+        try
+        {
+            return open();
+        }
+        catch (OpenXmlPackageException e)
+        {
+            throw PartStructureException.PackageCannotBeOpened(e);
+        }
     }
 
     private void LoadSheetsFromTemplate(string fileName)
@@ -87,6 +104,28 @@ public partial class XLWorkbook
         }
     }
 
+    /// <summary>
+    /// Get the package's workbook part, or throw a <see cref="PartStructureException"/> naming it.
+    /// The property is nullable for a reason: a well-formed package need not contain a workbook,
+    /// and reading it can also fail when a relationship names a part the package does not hold.
+    /// Neither case is a fault in XLibur, so neither may surface as a <see cref="NullReferenceException"/>
+    /// or as a package-reader exception type.
+    /// </summary>
+    private static WorkbookPart GetWorkbookPart(SpreadsheetDocument dSpreadsheet)
+    {
+        WorkbookPart? workbookPart;
+        try
+        {
+            workbookPart = dSpreadsheet.WorkbookPart;
+        }
+        catch (InvalidOperationException e)
+        {
+            throw PartStructureException.ReferencedPartIsMissing(e);
+        }
+
+        return workbookPart ?? throw PartStructureException.MissingPart("/xl/workbook.xml");
+    }
+
     private void LoadSpreadsheetDocument(SpreadsheetDocument dSpreadsheet)
     {
         var context = new LoadContext();
@@ -94,7 +133,7 @@ public partial class XLWorkbook
         SetProperties(dSpreadsheet);
 
         SharedStringEntry[]? sharedStrings = null;
-        var workbookPart = dSpreadsheet.WorkbookPart!;
+        var workbookPart = GetWorkbookPart(dSpreadsheet);
         var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
         if (shareStringPart is not null)
         {
