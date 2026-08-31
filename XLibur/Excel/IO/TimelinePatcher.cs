@@ -84,6 +84,12 @@ internal static class TimelinePatcher
 
         // The four booleans default to true; writing a value that is already the default is legal
         // but noisy, and it is not what Excel does.
+        //
+        // S1125 reads `x ? null : false` as a boolean literal that folds away. It does not: the
+        // expression is three-valued, its type is BooleanValue? rather than bool, and the false
+        // branch is the only way to write the attribute out as false. Removing the literal is not
+        // available — there is nothing for `!x` to produce when the answer is "omit the attribute".
+#pragma warning disable S1125
         if (assigned.HasFlag(XLTimelineFormat.ShowHeader))
             timeline.ShowHeader = xlTimeline.ShowHeader ? (BooleanValue?)null : false;
 
@@ -98,6 +104,7 @@ internal static class TimelinePatcher
             timeline.ShowHorizontalScrollbar =
                 xlTimeline.ShowHorizontalScrollbar ? (BooleanValue?)null : false;
         }
+#pragma warning restore S1125
 
         if (assigned.HasFlag(XLTimelineFormat.Style))
             timeline.Style = xlTimeline.Style is { } style ? style : (StringValue?)null;

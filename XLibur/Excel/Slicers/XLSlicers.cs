@@ -63,7 +63,7 @@ internal sealed class XLSlicers : IXLSlicers
     /// </summary>
     internal XLSlicer AddPivotSlicer(XLPivotTable pivotTable, string fieldName)
     {
-        var cache = (XLPivotCache)pivotTable.PivotCache;
+        var cache = pivotTable.PivotCache;
         if (!cache.TryGetFieldIndex(fieldName, out var fieldIndex))
         {
             throw new ArgumentException(

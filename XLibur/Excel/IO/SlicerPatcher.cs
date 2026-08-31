@@ -84,8 +84,14 @@ internal static class SlicerPatcher
 
         // showCaption and columnCount default to true and 1. Writing a value that is already the
         // default as an explicit attribute is legal but noisy, and it is not what Excel does.
+        //
+        // S1125 reads `x ? null : false` as a boolean literal that folds away. It does not: the
+        // expression is three-valued, its type is BooleanValue? rather than bool, and the false
+        // branch is the only way to write the attribute out as false.
+#pragma warning disable S1125
         if (assigned.HasFlag(XLSlicerFormat.ShowCaption))
             slicer.ShowCaption = xlSlicer.ShowCaption ? (BooleanValue?)null : false;
+#pragma warning restore S1125
 
         if (assigned.HasFlag(XLSlicerFormat.Style))
             slicer.Style = xlSlicer.Style is { } style ? style : (StringValue?)null;

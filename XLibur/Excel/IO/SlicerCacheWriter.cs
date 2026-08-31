@@ -197,7 +197,7 @@ internal static class SlicerCacheWriter
             var sheetId = ((XLWorksheet)pivotTable.Worksheet).SheetId;
             pivotTables.AppendChild(new X14.SlicerCachePivotTable
             {
-                TabId = (uint)sheetId,
+                TabId = sheetId,
                 Name = pivotTable.Name,
             });
         }

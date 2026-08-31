@@ -56,7 +56,7 @@ internal sealed class XLTimelines : IXLTimelines
 
     internal XLTimeline AddTimeline(XLPivotTable pivotTable, string dateFieldName)
     {
-        var pivotCache = (XLPivotCache)pivotTable.PivotCache;
+        var pivotCache = pivotTable.PivotCache;
         if (!pivotCache.TryGetFieldIndex(dateFieldName, out var fieldIndex))
         {
             throw new ArgumentException(

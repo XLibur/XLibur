@@ -5,6 +5,12 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
 using XLibur.Utils;
 
+// S4136 wants the three Decode overloads adjacent. They are ordered by layer instead: the two
+// entry points a caller reaches from a style index come first, then the element decoders those
+// call. Making the overloads adjacent would move an entry point below the machinery it delegates
+// to, for an ordering nothing else in the file follows.
+#pragma warning disable S4136
+
 namespace XLibur.Excel.IO;
 
 /// <summary>

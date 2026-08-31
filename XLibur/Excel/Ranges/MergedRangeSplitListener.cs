@@ -41,7 +41,7 @@ internal sealed class MergedRangeSplitListener(XLWorksheet worksheet) : ISheetLi
 
         var first = range.RangeAddress.FirstAddress;
         var last = range.RangeAddress.LastAddress;
-        var model = new XLRangeAddress((XLAddress)first, axis.AddressAtMaxIndex(last));
+        var model = new XLRangeAddress(first, axis.AddressAtMaxIndex(last));
         var rangesToSplit = worksheet.MergedRanges
             .GetIntersectedRanges(model)
             .Where(r => axis.CrossOf(r.RangeAddress.FirstAddress) < axis.CrossOf(first) ||

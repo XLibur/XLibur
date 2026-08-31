@@ -173,7 +173,7 @@ internal static class TimelineCacheWriter
             var sheetId = ((XLWorksheet)pivotTable.Worksheet).SheetId;
             pivotTables.AppendChild(new X15.TimelineCachePivotTable
             {
-                TabId = (uint)sheetId,
+                TabId = sheetId,
                 Name = pivotTable.Name,
             });
         }

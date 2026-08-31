@@ -245,7 +245,7 @@ internal readonly struct AnyValue
         // one ladder, since the majority of scalar parameters already behaved this way.
         if (collection.TryPickT0(out var array, out var reference))
         {
-            scalar = array![0, 0];
+            scalar = array[0, 0];
             error = default;
             return true;
         }

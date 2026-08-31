@@ -1,5 +1,13 @@
 using System.Collections.Generic;
 
+// S4136 wants every IndexOf together and then every CrossOf. The members here are grouped by the
+// parameter they project instead — the `in XLAddress` pair, the `IXLAddress` pair, the `Point`
+// pair — because index and cross are always used together and each pair carries one doc comment
+// covering both. Satisfying the rule would split three documented pairs to make one alphabetical
+// run, and would separate the `in XLAddress` overloads from the measurement that explains why
+// they exist at all.
+#pragma warning disable S4136
+
 namespace XLibur.Excel.Coordinates;
 
 /// <summary>

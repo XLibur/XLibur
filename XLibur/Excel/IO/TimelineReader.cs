@@ -207,7 +207,7 @@ internal static class TimelineReader
             // relationship may point at a chartsheet rather than a worksheet.
             if (string.IsNullOrEmpty(sheet.Id?.Value)
                 || sheet.Name?.Value is not { } sheetName
-                || workbookPart.GetPartById(sheet.Id!.Value!) is not WorksheetPart worksheetPart
+                || workbookPart.GetPartById(sheet.Id.Value) is not WorksheetPart worksheetPart
                 || !worksheets.TryGetWorksheet(sheetName, out var worksheet))
             {
                 continue;
