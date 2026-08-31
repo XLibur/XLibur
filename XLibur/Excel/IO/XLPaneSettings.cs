@@ -79,13 +79,12 @@ internal readonly struct XLPaneSettings
     {
         return new XLPaneSettings
         {
+            // S125 reads the xSplit line below as commented-out code; it is prose quoting the
+            // attribute that used to be written.
+#pragma warning disable S125
             // Excel omits the unused axis rather than writing 0. Before spec 29 the DOM path wrote
             // xSplit="0" for a rows-only freeze where the streaming path omitted the attribute;
             // task 1's harness read both packages and confirmed it.
-            //
-            // S125 reads the line above as commented-out code; it is prose quoting the attribute
-            // that used to be written.
-#pragma warning disable S125
             SplitColumn = splitColumn > 0 ? splitColumn : null,
 #pragma warning restore S125
             SplitRow = splitRow > 0 ? splitRow : null,

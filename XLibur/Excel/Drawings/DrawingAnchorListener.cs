@@ -183,14 +183,14 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             // floored at the first line, because a callout sits *above* its cell and so runs out of
             // grid before the cell does. A note on A6 anchors its box on row 5; delete rows 1:5 and
             // the cell lands on row 1 while the box would want row 0, which is not a cell.
+            //
+            // S125 reads the quotation below as commented-out code. It is a citation of the line
+            // this rule is deliberately matching, and it is load-bearing: drop it and the next
+            // reader has no way to check that the two concessions still agree.
+#pragma warning disable S125
             // XLComment.Initialize already makes exactly this concession when a note is created on
             // row 1 — "if (previousRowNumber > 1) previousRowNumber--" — so the box shares the
             // note's own line at the top of the sheet rather than sitting off it.
-            //
-            // S125 reads that quotation as commented-out code. It is a citation of the line this
-            // rule is deliberately matching, and it is load-bearing: drop it and the next reader
-            // has no way to check that the two concessions still agree.
-#pragma warning disable S125
             if (axis.ShiftsRows)
                 note.Position.SetRow(Math.Max(1, note.Position.Row + edit.Shift));
             else

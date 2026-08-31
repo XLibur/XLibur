@@ -83,14 +83,15 @@ internal sealed class XLTimelines : IXLTimelines
             // Excel rounds the field's range outward to whole years — the round-trip fixture's field
             // runs 1998-05-19 to 2004-02-06 and its bounds read 1998-01-01 to 2005-01-01.
             //
-            // A field whose last date falls in year 9999 has no next-year boundary to round up to;
-            // DateTime.MaxValue is the outermost bound there is, so it stands in rather than letting
-            // the constructor throw on year 10000. (S125 reads that sentence as commented-out code.)
-            //
             // Unspecified, stated rather than defaulted: a serial date in a workbook is wall-clock
             // with no zone, so converting one is always wrong. DateTime.MaxValue below is
             // Unspecified for the same reason, which keeps both bounds on the same footing.
+            //
+            // S125 reads the DateTime.MaxValue sentence below as commented-out code.
 #pragma warning disable S125
+            // A field whose last date falls in year 9999 has no next-year boundary to round up to;
+            // DateTime.MaxValue is the outermost bound there is, so it stands in rather than letting
+            // the constructor throw on year 10000.
             BoundsStart = new DateTime(minDate.Year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
 #pragma warning restore S125
             BoundsEnd = maxDate.Year < 9999

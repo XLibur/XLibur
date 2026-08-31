@@ -498,9 +498,15 @@ public static class TemplateRoundTripProfile
     }
 
     /// <summary>
-    /// Settles the heap so a probe's <c>GetTotalAllocatedBytes</c> delta is its own allocation and
-    /// not the previous probe's garbage. Forcing the collector is the measurement here.
+    /// Settles the heap before a probe starts, for the sake of the <em>time</em>, not the bytes.
     /// </summary>
+    /// <remarks>
+    /// <c>GC.GetTotalAllocatedBytes(precise: true)</c> is cumulative since process start, so the
+    /// delta either side of a probe already counts only what that probe allocated; collecting
+    /// first cannot move that number in either direction. What it does move is the stopwatch:
+    /// draining the collection and finalizer work owed by the previous probe here keeps it out of
+    /// the next probe's timed sample instead of landing part-way through it.
+    /// </remarks>
     private static void ForceGC()
     {
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);

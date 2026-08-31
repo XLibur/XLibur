@@ -105,10 +105,13 @@ dotnet_diagnostic.S3267.severity = none
 # argument the repo already accepted for CA1861 in tests.
 dotnet_diagnostic.S1192.severity = none
 
-# S1215: do not call GC.Collect. In measurement code the forced collection IS the measurement -
-# a probe that does not settle the heap first charges the previous probe's garbage to this one's
-# GetTotalAllocatedBytes delta, and a BenchmarkDotNet [IterationCleanup] that does not collect
-# lets one iteration's survivors distort the next. Scoped here rather than fenced per site
+# S1215: do not call GC.Collect. In measurement code the forced collection is what keeps the
+# previous sample's cleanup out of the next sample's timing - collection and finalizer work that
+# would otherwise land part-way through a stopwatch region, or through a BenchmarkDotNet
+# iteration, and show up as gen2 collections and high outliers on the cheapest benchmarks. It is
+# not about the byte figures: GetTotalAllocatedBytes is cumulative since process start, so a
+# delta across a probe already counts only that probe's allocation either way.
+# Scoped here rather than fenced per site
 # because every hit is the same two-collect-with-a-finalizer-wait idiom, and the rule is right
 # everywhere outside these four projects. Five earlier hits were resolved by hand in the
 # SonarCloud UI instead; those marks are keyed to a line and did not survive the code moving,
