@@ -96,12 +96,28 @@ internal static class Oracle
     /// </summary>
     public static bool ShouldReport(Exception exception)
     {
-        return exception is OutOfMemoryException;
+        return exception is OutOfMemoryException or NotImplementedException;
     }
+
+    /// <summary>
+    /// Messages already written, so a gap the fuzzer reaches a million times is recorded once.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on the message rather than the type: <c>NotImplementedException</c> is one type
+    /// covering seven distinct gaps in the calc engine, and
+    /// <c>CalculationVisitor.Visit(FutureFunctionNode)</c> interpolates a function name into its
+    /// message, so the type alone would collapse the inventory to a single useless line.
+    /// </remarks>
+    private static readonly HashSet<string> Reported = [];
 
     /// <summary>Write a tolerated-but-notable event where a human will find it after the run.</summary>
     public static void Report(string target, string phase, Exception exception)
     {
+        // A fuzzing run executes millions of inputs and will rediscover the same gap constantly.
+        // Without this, tolerated.tsv becomes a multi-gigabyte file saying one thing.
+        if (!Reported.Add($"{exception.GetType().FullName}\t{exception.Message}"))
+            return;
+
         // Console output is unreliable under a fuzzing driver, so this goes to a file. The
         // directory is supplied by fuzz.ps1; when it is absent the harness is being run by hand
         // and the console is fine.

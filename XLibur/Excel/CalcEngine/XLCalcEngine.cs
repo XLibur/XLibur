@@ -475,10 +475,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // always translated it here; these entry points did not, and threw the internal type
         // instead — while IXLWorkbook and IXLWorksheet documented it by cref and
         // PublicSurfaceTests asserted it must never become visible. Found by fuzzing (D37).
-        AnyValue result;
+        //
+        // The whole body is inside the try, not just the evaluation. The first version of this
+        // fix wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
+        // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
+        // the formula address just as much, so `V1,VBL1` still threw the internal type.
         try
         {
-            result = EvaluateFormula(expression, ctx);
+            return EvaluateAndReduce(expression, ctx);
         }
         catch (MissingContextException e)
         {
@@ -487,6 +491,19 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.",
                 e);
         }
+    }
+
+    /// <summary>
+    /// Evaluate <paramref name="expression"/> in <paramref name="ctx"/> and reduce the result to
+    /// the single value a cell would hold.
+    /// </summary>
+    /// <remarks>
+    /// Split out so the missing-context translation in the caller covers every step that can read
+    /// <see cref="CalcContext.FormulaAddress"/>, rather than only the first one.
+    /// </remarks>
+    private ScalarValue EvaluateAndReduce(string expression, CalcContext ctx)
+    {
+        var result = EvaluateFormula(expression, ctx);
 
         if (CalcContext.UseImplicitIntersection)
         {

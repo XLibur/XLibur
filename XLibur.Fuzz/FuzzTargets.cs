@@ -96,6 +96,18 @@ internal static class FuzzTargets
         {
             // A function called with arguments it cannot accept.
         }
+        catch (NotImplementedException e)
+        {
+            // A part of the formula language XLibur has not built yet — the range-intersection
+            // operator, an array-formula signature, a future function. Honest and deliberate, so
+            // not a Finding; but it must not vanish either, or every run spends its budget
+            // rediscovering the same gaps and reports itself clean.
+            //
+            // Reported rather than ignored, deduplicated by message. The result is an inventory
+            // of what the calc engine cannot yet evaluate, gathered by search rather than by
+            // someone grepping for `throw new NotImplementedException`. See tolerated.tsv.
+            Oracle.Report(Formula, "evaluate", e);
+        }
         catch (XLNoWorksheetContextException)
         {
             // The expression needs to know which cell it sits in — ROW(), COLUMN(), or anything

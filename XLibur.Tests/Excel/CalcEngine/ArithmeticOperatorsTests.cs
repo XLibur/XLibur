@@ -257,6 +257,41 @@ public class ArithmeticOperatorsTests
         await Assert.That(ws.Evaluate("TYPE((A1:A1,A1:A2)+1)")).IsEqualTo(16); // The result is a scalar error, not an array of errors
     }
 
+    /// <summary>
+    /// An operand that is a reference should be reduced by implicit intersection before the
+    /// operator sees it, the way a scalar function's arguments already are.
+    /// </summary>
+    /// <remarks>
+    /// D38, open. With <c>B1 = 100</c> and <c>B3 = 5</c>, a formula at <c>C3</c> intersects
+    /// <c>B:B</c> to <c>B3</c>, so <c>A1+B:B</c> is <c>42 + 5 = 47</c>. XLibur answers
+    /// <c>142</c> — it takes the array's first element, <c>B1</c> — and builds the whole
+    /// 1,048,576-element array to do it, at roughly 600 ms per full column. The fuzzer found this
+    /// as a 366-second timeout on <c>VLO…+A.+UU:B</c>, a 16-byte input spanning 566 columns.
+    ///
+    /// <para>
+    /// A bare <c>B:B</c> at <c>C3</c> already answers <c>5</c> in no measurable time, so the
+    /// engine has the right behaviour and does not reach it from an operand. The two-line fix —
+    /// intersect both operands in <c>AnyValue.BinaryOperation</c> — fails six tests, of which
+    /// <c>MIN(A1:A2-B1)</c> is the instructive one: inside a range-accepting function the operand
+    /// must stay an array. See the comment at that call site before attempting it.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Skip("D38: implicit intersection is not applied to operator operands. Open — see the comment in AnyValue.BinaryOperation.")]
+    [Arguments("A1+B:B", 47.0)]
+    [Arguments("A1+B1:B10", 47.0)]
+    [Arguments("A1*B:B", 210.0)]
+    public async Task ImplicitIntersection_AppliesToAnOperandOfABinaryOperator(string formula, double expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = 42;
+        ws.Cell("B1").Value = 100;
+        ws.Cell("B3").Value = 5;
+
+        await Assert.That(ws.Evaluate(formula, "C3")).IsEqualTo(expected);
+    }
+
     [Test]
     public async Task ArrayOperation_SameSizeArrayPerformsOperationIndividually()
     {

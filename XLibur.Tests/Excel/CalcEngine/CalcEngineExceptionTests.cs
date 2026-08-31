@@ -67,6 +67,11 @@ public class CalcEngineExceptionTests
     // The fuzzer's own input: A1:B341 lands in VLOOKUP's scalar lookup_value parameter, and
     // implicit intersection needs to know which row the formula is on.
     [Arguments("VLOOKUP(A1:B341,,1,FALSE)")]
+    // A union of two references. This one reduces to a scalar *after* evaluation returns, in
+    // ToCellContentValue, and so escaped the first version of this fix — the fuzzer found it
+    // seven minutes later. Any case reading the formula address belongs here, whichever step
+    // reaches for it.
+    [Arguments("V1,VBL1")]
     public async Task Worksheet_evaluate_without_a_formula_address_throws_a_public_exception(string expression)
     {
         using var wb = new XLWorkbook();
