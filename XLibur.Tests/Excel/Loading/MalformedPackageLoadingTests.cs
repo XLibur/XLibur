@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -149,6 +150,63 @@ public class MalformedPackageLoadingTests
         using var workbook = new XLWorkbook(package);
 
         await Assert.That(workbook.Worksheet("Sheet1").Cell("A1").GetDouble()).IsEqualTo(1d);
+    }
+
+    /// <summary>
+    /// A number that no date can be made from, in a cell whose format says it is a date.
+    /// </summary>
+    /// <remarks>
+    /// D39, found by the structure-aware fuzz target in the <em>save</em> phase. The load typed the
+    /// cell <c>DateTime</c> on the strength of the number format alone, without asking whether the
+    /// number was in range. Nothing complained until <c>SaveAs</c>, where <c>CellXmlWriter</c> asks
+    /// for <c>GetDateTime()</c> and <c>DateTime.FromOADate</c> throws
+    /// <c>ArgumentException("Not a legal OleAut date.")</c> — a file XLibur read and then could not
+    /// write. Excel keeps such a cell as a number and renders <c>####</c>.
+    /// </remarks>
+    [Test]
+    [Arguments("1e308")]
+    [Arguments("-1e308")]
+    [Arguments("2958466")]
+    [Arguments("-657436")]
+    public async Task Out_of_range_number_in_a_date_formatted_cell_stays_a_number_and_still_saves(string literal)
+    {
+        using var package = BuildSheetPackage(
+            $"""<row r="1"><c r="A1" s="0"><v>{literal}</v></c></row>""",
+            cellFormatCount: 1,
+            numberFormatId: 14);
+
+        using var workbook = new XLWorkbook(package);
+        var cell = workbook.Worksheet("Sheet1").Cell("A1");
+
+        await Assert.That(cell.DataType).IsEqualTo(XLDataType.Number);
+        await Assert.That(cell.GetDouble()).IsEqualTo(double.Parse(literal, CultureInfo.InvariantCulture));
+
+        // The half that actually failed: a workbook that loads must be one that saves.
+        using var saved = new MemoryStream();
+        workbook.SaveAs(saved);
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Sheet1").Cell("A1").DataType).IsEqualTo(XLDataType.Number);
+    }
+
+    /// <summary>
+    /// A date-formatted cell holding a number a date <em>can</em> be made from is still a date.
+    /// The range check must not cost the ordinary case.
+    /// </summary>
+    [Test]
+    public async Task In_range_number_in_a_date_formatted_cell_is_still_a_date()
+    {
+        using var package = BuildSheetPackage(
+            """<row r="1"><c r="A1" s="0"><v>44561</v></c></row>""",
+            cellFormatCount: 1,
+            numberFormatId: 14);
+
+        using var workbook = new XLWorkbook(package);
+        var cell = workbook.Worksheet("Sheet1").Cell("A1");
+
+        await Assert.That(cell.DataType).IsEqualTo(XLDataType.DateTime);
+        await Assert.That(cell.GetDateTime()).IsEqualTo(new DateTime(2021, 12, 31, 0, 0, 0, DateTimeKind.Unspecified));
     }
 
     /// <summary>
@@ -314,10 +372,18 @@ public class MalformedPackageLoadingTests
     /// A one-sheet package whose sheet data is <paramref name="rowsXml"/> and whose stylesheet
     /// declares <paramref name="cellFormatCount"/> cell formats.
     /// </summary>
-    private static MemoryStream BuildSheetPackage(string rowsXml, int cellFormatCount)
+    /// <param name="rowsXml">The contents of &lt;sheetData&gt;.</param>
+    /// <param name="cellFormatCount">How many entries &lt;cellXfs&gt; declares.</param>
+    /// <param name="numberFormatId">
+    /// The built-in number format every cell format uses. <c>0</c> is General; <c>14</c> is the
+    /// short date, which is what makes the reader type a numeric cell as a date.
+    /// </param>
+    private static MemoryStream BuildSheetPackage(string rowsXml, int cellFormatCount, int numberFormatId = 0)
     {
         var cellFormats = string.Concat(
-            Enumerable.Repeat("""<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" />""", cellFormatCount));
+            Enumerable.Repeat(
+                $"""<xf numFmtId="{numberFormatId}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" />""",
+                cellFormatCount));
 
         return BuildPackage(
             ("[Content_Types].xml",

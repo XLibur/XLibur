@@ -46,6 +46,8 @@
 
 - **XLibur no longer writes a workbook it then refuses to read.** A workbook containing two sheets with the same name — or the same sheet id — where one of them was a sheet XLibur cannot model, such as a chartsheet, loaded and saved without complaint and produced a document that failed to open. In the sheet-id case the write path also *renamed* one of the sheets, losing the original name. Both are now rejected on load.
 
+- **A date-formatted cell holding a number no date can be made from no longer breaks the save.** A cell whose format was a date but whose value was outside the range `DateTime` can represent — `1e308`, say — loaded without complaint and then threw `ArgumentException: "Not a legal OleAut date."` out of `SaveAs`, so a file XLibur read was one it could not write. The cell now stays a number, which is what Excel does with it (the format is kept, and Excel renders `####`); a date-formatted cell holding a number in range is still read as a date.
+
 - **`XLHelper.IsValidA1Address` no longer accepts a `$` in the wrong place.** It stripped every `$` before validating, so `A$2$`, `A2$` and `$$A$$2` were all reported as valid addresses while `IsValidRangeAddress` rejected them — two public predicates disagreeing about the same string. The anchor's position is now checked; `A1`, `$A1`, `A$1` and `$A$1` are unaffected.
 
 - **A pivot table's "show last column" emphasis no longer follows its column-stripes setting.** The reader read `ShowLastColumn` from the `showColStripes` attribute instead of `showLastColumn`, so the two settings could not vary independently and a round trip could switch the emphasis on or off on its own.
