@@ -298,7 +298,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 }
             }
 
-            formula.MarkClean(sheet.Workbook);
+            formula.MarkClean();
             _needsDependencyTree = true;
             return true;
         }
@@ -364,13 +364,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             if (cellFormula is null)
                 throw new InvalidOperationException($"Calculation chain contains a '${sheetInfo.Sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
 
-            if (cellFormula.IsClean(sheetInfo.Sheet.Workbook))
+            if (cellFormula.IsClean())
                 break;
 
             try
             {
                 ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice, recalculateSheetId);
-                cellFormula.MarkClean(sheetInfo.Sheet.Workbook);
+                cellFormula.MarkClean();
                 break;
             }
             catch (GettingDataException ex)
@@ -599,11 +599,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// is dirty, returns the anchor point so the caller can force the anchor to evaluate first.
     /// The anchor cell itself holds a formula, so it never reaches this lookup.
     /// </summary>
-    internal bool TryGetDirtySpillOwner(uint sheetId, Point point, XLWorkbook wb, out Point anchor)
+    internal bool TryGetDirtySpillOwner(uint sheetId, Point point, out Point anchor)
     {
         foreach (var footprint in _spillOwners)
         {
-            if (footprint.SheetId == sheetId && footprint.Range.Contains(point) && footprint.Owner.IsDirty(wb))
+            if (footprint.SheetId == sheetId && footprint.Range.Contains(point) && footprint.Owner.IsDirty())
             {
                 anchor = footprint.Range.FirstPoint;
                 return true;

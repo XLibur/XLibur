@@ -120,15 +120,13 @@ internal static class SheetDataWriter
     /// </remarks>
     private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet)
     {
-        var workbook = xlWorksheet.Workbook;
-
         List<(Point Point, XLCellFormula Formula)>? dirty = null;
         using (var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full))
         {
             while (enumerator.MoveNext())
             {
                 var formula = enumerator.Current;
-                if (formula.IsDirty(workbook))
+                if (formula.IsDirty())
                     (dirty ??= []).Add((enumerator.Point, formula));
             }
         }
@@ -138,7 +136,7 @@ internal static class SheetDataWriter
 
         foreach (var (point, formula) in dirty)
         {
-            if (formula.IsDirty(workbook))
+            if (formula.IsDirty())
                 EvaluateFormulaForSave(xlWorksheet, formula, point);
         }
     }
@@ -315,7 +313,7 @@ internal static class SheetDataWriter
         var xlWorksheet = cellsCollection.Worksheet;
         var saveContext = ctx.SaveContext;
 
-        if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty(xlWorksheet.Workbook))
+        if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty())
             EvaluateFormulaForSave(xlWorksheet, formula, point);
 
         // Determine cell type from cached value (preserves type round-trip for formulas
@@ -377,7 +375,7 @@ internal static class SheetDataWriter
 
         // Write cached value if present and the formula isn't dirty. Spilled (non-master)
         // array-formula cells also fall through here so their cached values round-trip.
-        if (cachedValueType != XLDataType.Blank && formula.IsClean(xlWorksheet.Workbook))
+        if (cachedValueType != XLDataType.Blank && formula.IsClean())
         {
             WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
         }

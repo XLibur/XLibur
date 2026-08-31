@@ -3,8 +3,35 @@
 **Area:** Architecture · Refactor
 **Effort:** M–L (~1–1.5 weeks)
 **Dependencies:** **Spec 29 must land first** — it touches `SheetViewWriter.cs` and `ColumnWriter.cs`,
-which this spec rewrites wholesale. See Conflicts.
-**Status:** Proposed.
+which this spec rewrites wholesale. See Conflicts. **Spec 29 landed as #413 (`8d2acfc7`) on
+2026-08-27, so this is unblocked.**
+**Status:** Proposed — unblocked.
+
+> ## ⚠️ Read this before touching `SheetViewWriter`
+>
+> **`SplitRow` and `SplitColumn` carry two different units, and the unit lives in a sibling boolean
+> rather than in the type.** After D18 (PR #416, `37c986bb`) a pane is a freeze or an unfrozen split:
+> for a freeze the two numbers count frozen lines, for a split they are the split bar's position in
+> twentieths of a point. `FreezePanes` is what says which. `int SplitRow` carries no unit and its
+> public setter validates nothing.
+>
+> **This spec is the next set of hands on exactly that code**, and the agent that fixed D18 named it
+> as the most likely place the distinction gets broken next. Its guidance, carried here verbatim
+> because it will not be obvious from the code:
+>
+> - **Never read `SplitRow`/`SplitColumn` without `FreezePanes` in the same expression.** When
+>   auditing, grep for the three together.
+> - **Any new copy or clone path that takes the two numbers without the flag flips the units
+>   silently.** `XLSheetView`'s copy constructor is correct only because it happens to copy all three.
+> - **Any expression deriving a cell from `split + 1` is a landmine.** That is a cell address for a
+>   freeze and meaningless for a split; an unfrozen split anchors its `topLeftCell` at `A1`.
+>   `ScrollIntoView` was one instance of a pattern, not a one-off.
+> - **No round-trip test can catch a unit error here**, because the reader normalises both spellings
+>   into the same ints. Only byte-level assertions can — the same blindness spec 29 was written about.
+>
+> **The durable fix, deliberately not done by D18:** make the numbers and the mode inseparable — one
+> struct holding both values and the unit, so the values cannot be obtained without the unit. If this
+> spec is rewriting these writers anyway, that is the moment to do it.
 
 ## Goal
 

@@ -453,7 +453,7 @@ internal static class WorksheetSheetDataReader
         }
 
         if (formula is not null && (cellHasValue || cellWasSetWithEmptyValue))
-            formula.MarkClean(ws.Workbook);
+            formula.MarkClean();
 
         if (IsMainElement(reader, "is"))
             LoadInlineStringXml(reader, dataType, cellsCollection, cellAddress, ws);

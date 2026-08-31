@@ -38,11 +38,19 @@ internal sealed class XLCellFormula
     private FormulaFlags _flags;
 
     /// <summary>
-    /// Workbook edit epoch at which this formula was last successfully evaluated.
-    /// <c>0</c> means "never evaluated / explicitly dirty"; any positive value is
-    /// compared against <see cref="XLWorkbook.EditEpoch"/> to determine cleanliness.
+    /// Is this formula's cached value up to date? Defaults to <see langword="false"/> (dirty), so
+    /// a freshly constructed formula is dirty until it is evaluated.
     /// </summary>
-    private long _evalEpoch;
+    private bool _isClean;
+
+    /// <summary>
+    /// The id of the last <see cref="DependencyTree.MarkDirty"/> walk that enqueued this formula,
+    /// or <c>0</c> if none has. Distinct from <see cref="_isClean"/>: this tracks whether the
+    /// current walk has already visited the formula, regardless of whether it is dirty for some
+    /// other reason (see <see cref="TryVisit"/>). Walk ids are process-wide and never reused, so
+    /// a stamp stays meaningful across a dependency tree rebuild, which this formula outlives.
+    /// </summary>
+    private long _visitedByWalk;
 
     /// <summary>
     /// Lazily allocated holder for fields used only by Array/DataTable formulas
@@ -63,34 +71,40 @@ internal sealed class XLCellFormula
     private int _maxShiftableColumn;
 
     /// <summary>
-    /// Is this formula clean, i.e. evaluated against the workbook's current edit epoch?
+    /// Is this formula clean, i.e. is its cached value up to date?
     /// </summary>
-    internal bool IsClean(XLWorkbook wb) => _evalEpoch == wb.EditEpoch;
+    internal bool IsClean() => _isClean;
 
     /// <summary>
     /// Is this formula dirty, i.e. potentially out of date due to changes to precedent cells?
     /// </summary>
-    internal bool IsDirty(XLWorkbook wb) => _evalEpoch != wb.EditEpoch;
+    internal bool IsDirty() => !_isClean;
 
     /// <summary>
-    /// Mark this formula as freshly evaluated against the workbook's current edit epoch.
+    /// Mark this formula as freshly evaluated.
     /// </summary>
-    internal void MarkClean(XLWorkbook wb) => _evalEpoch = wb.EditEpoch;
+    internal void MarkClean() => _isClean = true;
 
     /// <summary>
-    /// Mark this formula as explicitly dirty regardless of the workbook epoch. Used
-    /// when the formula text itself changed (rename, shift) and dependency-tree based
-    /// dirty propagation needs to flag a single formula without bumping the workbook
-    /// epoch.
+    /// Mark this formula as dirty. Used when the formula text itself changed (rename, shift, a
+    /// range move) and dependency-tree based dirty propagation needs to flag a single formula.
     /// </summary>
-    internal void MarkExplicitlyDirty() => _evalEpoch = 0;
+    internal void MarkExplicitlyDirty() => _isClean = false;
 
     /// <summary>
-    /// True if the formula is in the explicitly-dirty state (epoch <c>0</c>). Used
-    /// by dependency-tree cycle detection to avoid revisiting a formula already
-    /// flagged in the current MarkDirty walk.
+    /// Records that <paramref name="walkId"/>'s <see cref="DependencyTree.MarkDirty"/> walk has
+    /// enqueued this formula, so it can be skipped if the same walk reaches it again (a diamond
+    /// shape, or a cycle). Returns <c>false</c> when this walk already visited it; <c>true</c> the
+    /// first time, including when the formula is already dirty for an unrelated reason.
     /// </summary>
-    internal bool IsExplicitlyDirty => _evalEpoch == 0;
+    internal bool TryVisit(long walkId)
+    {
+        if (_visitedByWalk == walkId)
+            return false;
+
+        _visitedByWalk = walkId;
+        return true;
+    }
 
     /// <summary>
     /// Formula in A1 notation. Doesn't start with <c>=</c> sign.
