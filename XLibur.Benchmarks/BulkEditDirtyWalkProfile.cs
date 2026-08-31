@@ -128,7 +128,9 @@ public static class BulkEditDirtyWalkProfile
         foreach (var cell in ws.CellsUsed(x => x.HasFormula))
             _ = cell.Value;
 
+#pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var rnd = new Random(42);
+#pragma warning restore S2245
         for (var i = 0; i < edits; i++)
         {
             var column = rnd.Next(1, chains + 1);
