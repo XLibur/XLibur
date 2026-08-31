@@ -22,6 +22,10 @@
 
 - **`IXLSheetView` gains a `FreezePanes` property**, which is source-breaking for anyone implementing that interface outside the library. It is the value that distinguishes a freeze from a split; the declaration already existed in the file, commented out.
 
+#### Formula evaluation
+
+- **`Evaluate` now throws `XLNoWorksheetContextException` where it used to throw an `InvalidOperationException`.** `IXLWorksheet.Evaluate`, `IXLWorkbook.Evaluate` and `XLWorkbook.EvaluateExpr` raised an *internal* exception type when the expression needed to know which cell it was being evaluated in — `ROW()`, `COLUMN()`, or anything reaching implicit intersection, such as `VLOOKUP(A1:B341,,1,FALSE)`. A caller outside the assembly could not name that type, so it could not be told apart from a library bug, even though `IXLWorkbook` and `IXLWorksheet` both documented it by name in their XML docs. All three overloads now throw the public `XLNoWorksheetContextException`, which `XLFunctionLibrary.TryInvoke` already threw for exactly this situation. **This breaks a `catch (InvalidOperationException)` placed around `Evaluate`**: the new type derives from `XLiburException`, which derives from `Exception`, so such a handler no longer runs and the exception escapes. As with the split-pane change above, **there is no compile-time signal** — catch `XLNoWorksheetContextException` instead. Passing a formula address, `worksheet.Evaluate("ROW()", "B7")`, is unaffected and still returns a value.
+
 #### Pivot tables
 
 - **`IXLPivotTable` gains a `ShowLastColumn` property and its two `SetShowLastColumn` overloads**, which is source- and binary-breaking for anyone implementing that interface outside the library. The setting already existed and already round-tripped; it was simply the one of the five table-style emphasis flags (`ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`, `ShowColumnStripes`) that had never been put on the interface, so it could not be reached through `IXLPivotTable`.

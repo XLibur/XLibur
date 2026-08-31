@@ -443,18 +443,51 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </param>
     /// <returns>The value of the expression.</returns>
     /// <remarks>
+    /// <para>
     /// If you are going to evaluate the same expression several times,
     /// it is more efficient to parse it only once using the <see cref="Parse"/>
     /// method and then using the Expression.Evaluate method to evaluate
     /// the parsed expression.
+    /// </para>
+    /// <para>
+    /// This overload is the funnel for every "evaluate this string" entry point —
+    /// <see cref="XLWorkbook.Evaluate"/>, <see cref="XLWorkbook.EvaluateExpr"/>,
+    /// <c>XLWorkbook.EvaluateExprCurrent</c> and <see cref="XLWorksheet.Evaluate"/> — all of which
+    /// may be called with no <paramref name="address"/>, and two of which with no
+    /// <paramref name="ws"/> either. That is why the missing-context translation below lives here
+    /// rather than at each caller. The two recalculation call sites that also use this overload
+    /// always pass a real workbook, sheet and address, so they cannot reach it.
+    /// </para>
     /// </remarks>
+    /// <exception cref="XLNoWorksheetContextException">
+    /// The expression needed to know where it was being evaluated, and was given no
+    /// <paramref name="address"/> (or no <paramref name="ws"/>) to answer from.
+    /// </exception>
     internal ScalarValue EvaluateFormula(string expression, XLWorkbook? wb = null, XLWorksheet? ws = null, IXLAddress? address = null, bool recursive = false, uint? recalculateSheetId = null)
     {
         var ctx = new CalcContext(this, _culture, wb, ws, address, recursive)
         {
             RecalculateSheetId = recalculateSheetId
         };
-        var result = EvaluateFormula(expression, ctx);
+
+        // MissingContextException is internal, so letting it out of a public Evaluate hands the
+        // caller an exception they cannot name, let alone catch. XLFunctionLibrary.TryInvoke has
+        // always translated it here; these entry points did not, and threw the internal type
+        // instead — while IXLWorkbook and IXLWorksheet documented it by cref and
+        // PublicSurfaceTests asserted it must never become visible. Found by fuzzing (D37).
+        AnyValue result;
+        try
+        {
+            result = EvaluateFormula(expression, ctx);
+        }
+        catch (MissingContextException e)
+        {
+            throw new XLNoWorksheetContextException(
+                $"'{expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
+                + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.",
+                e);
+        }
+
         if (CalcContext.UseImplicitIntersection)
         {
             result = result.Match(

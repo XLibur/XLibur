@@ -1,6 +1,7 @@
 using System.Text;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 namespace XLibur.Fuzz;
 
@@ -94,6 +95,16 @@ internal static class FuzzTargets
         catch (ArgumentException)
         {
             // A function called with arguments it cannot accept.
+        }
+        catch (XLNoWorksheetContextException)
+        {
+            // The expression needs to know which cell it sits in — ROW(), COLUMN(), or anything
+            // reaching implicit intersection — and this target deliberately supplies no formula
+            // address. A named, public refusal, so it is a Rejection rather than a Finding.
+            //
+            // It is caught by its public type on purpose. Before D37 the same inputs raised the
+            // *internal* MissingContextException, which this harness could not have named here
+            // even if it wanted to; that unnameability was the defect.
         }
     }
 
