@@ -40,7 +40,7 @@
 
 - **A pivot table's `Title` and `Description` now survive a save and reload.** Both are public and settable, but were persisted nowhere; a reload always came back with them empty.
 
-- **`IXLPivotTable.CopyTo` no longer silently resets around twenty settings** — including compact/outline form, visual totals, the grand-total caption and the data caption — that both the reader and the writer already carry. The copy now uses the same attribute-by-attribute description the reader and writer are driven from, so a setting can no longer be present in the round trip and dropped by copy.
+- **`IXLPivotTable.CopyTo` no longer silently resets thirty-five settings** — including compact/outline form, visual totals, the grand-total caption and the data caption — that both the reader and the writer already carry. The hand-written copy list carried 29 of the definition's 65 attributes and dropped the other 36; the copy now uses the same attribute-by-attribute description the reader and writer are driven from, so a setting can no longer be present in the round trip and dropped by copy. One of the 36 is deliberately still not copied: `chartFormat` is the next free id for the pivot charts pointing at the source table, and a copy has none of them.
 
 - **A pivot table whose row or column axis references the values field now keeps the `dataPosition` attribute across a reload.** The loader never set it — a documented crash condition the subsystem's own notes call out — so a file that needed it could be re-saved without it and fail to open in Excel without a repair prompt.
 
