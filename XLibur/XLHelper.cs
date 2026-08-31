@@ -225,7 +225,16 @@ public static partial class XLHelper
 
     public static bool IsValidRow(string rowString)
     {
-        if (int.TryParse(rowString, out var row))
+        // NumberStyles.None: digits only. The default for int.TryParse is NumberStyles.Integer,
+        // which also permits leading and trailing whitespace and a leading sign, so " 1", "1 "
+        // and "+1" were all reported as valid rows — and through IsValidA1Address, "$A 1" and
+        // "A+1" were reported as valid addresses while IsValidRangeAddress, which matches a real
+        // pattern, rejected them. Two public predicates disagreeing about the same string, the
+        // same contradiction D36 was, one layer down (D41).
+        //
+        // A row reference in A1 notation is digits and nothing else; there is no locale in which
+        // it is otherwise, hence the invariant culture.
+        if (int.TryParse(rowString, NumberStyles.None, CultureInfo.InvariantCulture, out var row))
             return row is > 0 and <= MaxRowNumber;
         return false;
     }

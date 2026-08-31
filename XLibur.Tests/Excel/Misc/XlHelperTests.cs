@@ -46,6 +46,23 @@ public class XlHelperTests
         await Assert.That(XLHelper.IsValidA1Address("$")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("$$")).IsFalse();
 
+        // A row reference is digits and nothing else. IsValidRow used int.TryParse's default
+        // NumberStyles.Integer, which also accepts surrounding whitespace and a leading sign, so
+        // these reached the same contradiction with IsValidRangeAddress one layer down (D41).
+        await Assert.That(XLHelper.IsValidA1Address("$A 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A1 ")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A\t1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A+1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$A$+1")).IsFalse();
+
+        await Assert.That(XLHelper.IsValidRow(" 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1 ")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("+1")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1")).IsTrue();
+        await Assert.That(XLHelper.IsValidRow("1048576")).IsTrue();
+        await Assert.That(XLHelper.IsValidRow("1048577")).IsFalse();
+
         await Assert.That(XLHelper.IsValidA1Address("A1@")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("AA1@")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("AAA1@")).IsFalse();
