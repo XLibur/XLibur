@@ -137,6 +137,22 @@ if ($Replay) {
     exit $replayExit
 }
 
+if (-not (Test-Path -LiteralPath $LibFuzzer -PathType Leaf)) {
+    # .gitignore excludes *.exe, so this binary cannot be committed alongside the harness. Say
+    # where it comes from rather than only that it is absent: everything else needed to run a
+    # fuzzing session is now in the repository, and this is the one remaining manual step.
+    throw @"
+libfuzzer-dotnet-windows.exe was not found at: $LibFuzzer
+
+It is a prebuilt binary and cannot be committed (.gitignore excludes *.exe). Download it from
+https://github.com/Metalnem/libfuzzer-dotnet/releases and place it at tools\libfuzzer-dotnet-windows.exe,
+or pass -LibFuzzer with its path.
+
+Replay needs none of this: ./fuzz.ps1 -Target $Target -Replay <path> runs saved inputs through the
+same oracle without libFuzzer.
+"@
+}
+
 $libFuzzerPath = Resolve-ExistingPath $LibFuzzer 'libfuzzer-dotnet-windows.exe'
 
 $tool = Join-Path $toolsRoot 'sharpfuzz.exe'
