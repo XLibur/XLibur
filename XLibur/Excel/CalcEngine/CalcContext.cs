@@ -78,6 +78,21 @@ internal sealed class CalcContext : IStructuredReferenceScope
     public bool IsArrayCalculation { get; set; }
 
     /// <summary>
+    /// <para>
+    /// Should a reference operand of an operator be passed through implicit intersection before the
+    /// operator sees it? Excel does this for a legacy formula: <c>=A1+B1:B3</c> in <c>C3</c> is
+    /// stored as <c>=A1+@B1:B3</c> and answers <c>42 + B3</c>, not <c>42 + B1</c> (D38).
+    /// </para>
+    /// <para>
+    /// This is the per-position flag the formula-level <see cref="IsArrayCalculation"/> cannot be.
+    /// <see cref="CalculationVisitor"/> owns it: it is set once for the whole formula and cleared
+    /// while a function's arguments are evaluated, because the enclosing function supplies the
+    /// context there and several range-accepting functions need the array intact.
+    /// </para>
+    /// </summary>
+    internal bool IntersectOperands { get; set; }
+
+    /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty
     /// values from other sheets, but not from this sheetId.
     /// </summary>

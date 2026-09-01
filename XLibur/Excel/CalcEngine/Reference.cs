@@ -305,29 +305,24 @@ namespace XLibur.Excel.CalcEngine
             return new ReferenceArray(_firstArea, context);
         }
 
+        /// <remarks>
+        /// Lazy, like <see cref="ToArray"/> above it and for the same reason: this used to fill a
+        /// <c>ScalarValue[height, width]</c> for the whole area, which for a whole-column reference
+        /// is ~24 MB per million cells however few elements the caller goes on to read (D38).
+        /// <para>
+        /// <b>It has no callers today</b>, so that was a latent cost rather than a live one — the
+        /// live instances were <see cref="Array.Apply(Func{ScalarValue, ScalarValue})"/> and
+        /// <c>Text.TArray</c>. It was rewritten alongside them because leaving one member of the
+        /// family eager is how the next caller reintroduces the defect, and delegating to
+        /// <see cref="ReferenceArray"/> is what the method should have said in the first place.
+        /// </para>
+        /// </remarks>
         public OneOf<Array, XLError> Apply(Func<ScalarValue, ScalarValue> op, CalcContext context)
         {
             if (AreaCount != 1)
                 return XLError.IncompatibleValue;
 
-            var area = _firstArea;
-            var width = area.ColumnSpan;
-            var height = area.RowSpan;
-            var startColumn = area.FirstAddress.ColumnNumber;
-            var startRow = area.FirstAddress.RowNumber;
-            var data = new ScalarValue[height, width];
-            for (int y = 0; y < height; ++y)
-            {
-                for (int x = 0; x < width; ++x)
-                {
-                    var row = startRow + y;
-                    var column = startColumn + x;
-                    var cellValue = context.GetCellValue(area.Worksheet, row, column);
-                    data[y, x] = op(cellValue);
-                }
-            }
-
-            return new ConstArray(data);
+            return new ReferenceArray(_firstArea, context).Apply(op);
         }
 
         /// <summary>

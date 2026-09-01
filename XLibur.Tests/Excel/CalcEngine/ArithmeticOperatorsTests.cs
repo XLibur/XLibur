@@ -277,7 +277,6 @@ public class ArithmeticOperatorsTests
     /// </para>
     /// </remarks>
     [Test]
-    [Skip("D38: implicit intersection is not applied to operator operands. Open — see the comment in AnyValue.BinaryOperation.")]
     [Arguments("A1+B:B", 47.0)]
     [Arguments("A1+B1:B10", 47.0)]
     [Arguments("A1*B:B", 210.0)]
@@ -290,6 +289,116 @@ public class ArithmeticOperatorsTests
         ws.Cell("B3").Value = 5;
 
         await Assert.That(ws.Evaluate(formula, "C3")).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Every operator kind intersects a reference operand, not only the arithmetic ones.
+    /// </summary>
+    /// <remarks>
+    /// D38. Each expectation was read off Excel 16.0 with the formula in <c>C3</c> and
+    /// <c>A1 = 42</c>, <c>B1 = 100</c>, <c>B2 = 7</c>, <c>B3 = 5</c>; Excel stores them as
+    /// <c>=A1&amp;@B1:B3</c>, <c>=-@B1:B3</c> and so on.
+    /// </remarks>
+    [Test]
+    [Arguments("A1&B1:B3", "425")]
+    [Arguments("A1>B1:B3", true)]
+    [Arguments("A1<B1:B3", false)]
+    [Arguments("-B1:B3", -5.0)]
+    [Arguments("B1:B3%", 0.05)]
+    [Arguments("B1:B3+B1:B3", 10.0)]
+    public async Task ImplicitIntersection_AppliesToEveryOperatorKind(string formula, object expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = 42;
+        ws.Cell("B1").Value = 100;
+        ws.Cell("B2").Value = 7;
+        ws.Cell("B3").Value = 5;
+
+        await Assert.That(ws.Evaluate(formula, "C3")).IsEqualTo(XLCellValue.FromObject(expected));
+    }
+
+    /// <summary>
+    /// An operand the formula's own cell does not line up with is <c>#VALUE!</c>, not the operand's
+    /// first cell.
+    /// </summary>
+    /// <remarks>
+    /// D38. Excel intersects a column vector on the formula's row and a row vector on its column,
+    /// and answers <c>#VALUE!</c> when the formula lies outside that span — all three rows below
+    /// were read off Excel 16.0. XLibur used to answer with element <c>[0,0]</c> instead, so
+    /// <c>A1+B1:B2</c> in <c>C3</c> was <c>142</c>.
+    /// </remarks>
+    [Test]
+    [Arguments("A1+B1:B2", "C3")] // column vector, formula's row is below it
+    [Arguments("A1+B1:B3", "C5")] // column vector, formula's row is below it
+    [Arguments("A1+B1:D1", "G3")] // row vector, formula's column is right of it
+    public async Task ImplicitIntersection_OperandThatDoesNotSpanTheFormulaIsAnError(string formula, string address)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = 42;
+        ws.Cell("B1").Value = 100;
+        ws.Cell("B2").Value = 7;
+        ws.Cell("B3").Value = 5;
+
+        await Assert.That(ws.Evaluate(formula, address)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    /// <summary>
+    /// A function call inside an operand does not leave the following operator in array context.
+    /// </summary>
+    /// <remarks>
+    /// D38. The visitor clears the intersection flag while a function's arguments are evaluated and
+    /// has to put it back afterwards, not assume it was off. Excel stores this as
+    /// <c>=A1+SUM(B1:B3)*@B1:B3</c> and answers <c>42 + 112 * 5 = 602</c>; a visitor that failed to
+    /// restore would take <c>B1</c> and answer <c>11242</c>.
+    /// </remarks>
+    [Test]
+    [Arguments("A1+SUM(B1:B3)*B1:B3", 602.0)]
+    [Arguments("SUM(B1:B3)+B1:B3", 117.0)]
+    public async Task ImplicitIntersection_SurvivesAFunctionCallInsideTheExpression(string formula, double expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = 42;
+        ws.Cell("B1").Value = 100;
+        ws.Cell("B2").Value = 7;
+        ws.Cell("B3").Value = 5;
+
+        await Assert.That(ws.Evaluate(formula, "C3")).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// The three places that keep array semantics: a dynamic-array formula, an expression with no
+    /// cell to intersect against, and a function's argument.
+    /// </summary>
+    /// <remarks>
+    /// D38. The middle one is forced — implicit intersection needs a row and a column, and
+    /// <c>Evaluate(expression)</c> supplies neither. The last one is narrower than Excel, which
+    /// intersects inside <c>SUM</c> too and would answer <c>5</c> to the third case; closing that
+    /// gap needs a per-parameter array/range classification XLibur does not have. See spec 53.
+    /// </remarks>
+    [Test]
+    public async Task ImplicitIntersection_DoesNotApplyWithoutAScalarContext()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Cell("A1").Value = 42;
+        ws.Cell("B1").Value = 100;
+        ws.Cell("B2").Value = 7;
+        ws.Cell("B3").Value = 5;
+
+        // No formula address: nothing to intersect against, so the array survives and reduces.
+        await Assert.That(ws.Evaluate("A1+B1:B3")).IsEqualTo(142.0);
+
+        // Inside a function argument the enclosing function supplies the context.
+        await Assert.That(ws.Evaluate("SUM(B1:B3+0)", "C3")).IsEqualTo(112.0);
+
+        // A dynamic-array formula spills, and each element keeps its own operand.
+        ws.Cell("D3").SetDynamicFormulaA1("A1+B1:B3");
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(142.0);
+        await Assert.That(ws.Cell("D4").Value).IsEqualTo(49.0);
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(47.0);
     }
 
     [Test]
