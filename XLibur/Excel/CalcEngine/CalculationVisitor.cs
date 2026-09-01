@@ -96,7 +96,10 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             for (var i = 0; i < parameters.Count; ++i)
                 args[i] = parameters[i].Accept(context, this);
 
-            context.IntersectOperands = outerIntersectOperands;
+            // The flag stays off for the call itself, not just for the arguments. A few functions
+            // apply an operator to their own arguments from inside the body — SWITCH compares with
+            // AnyValue.IsEqual — and an operator reached that way is not a top-level operator of
+            // the formula, whatever the enclosing context was. The finally restores it.
             return !context.IsArrayCalculation
                 ? fn!.CallFunction(context, args)
                 : fn!.CallAsArray(context, args);
