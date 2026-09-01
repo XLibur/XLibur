@@ -134,7 +134,11 @@
 
   The fix applies to a legacy formula evaluated in a cell, or through `IXLWorksheet.Evaluate(expression, formulaAddress)` where the address supplies the cell to intersect against. Three things are deliberately unchanged: a dynamic-array formula still spills (`SetDynamicFormulaA1("A1+B1:B3")` is still `142, 49, 47`); `Evaluate(expression)` with no address keeps array semantics, because with no cell there is nothing to intersect against; and an operator inside a function argument does not intersect, so `MIN(A1:A2-B1)` and `SUMPRODUCT((A1:C2-E1:G2)^2/E1:G2)` are unaffected.
 
-  As a side effect, `=A1+B:B` in a cell stopped building a 1,048,576-element array to discard all but one element of it: it now costs no measurable time and no allocation, against 692 ms and 24.1 MB before. Reaching the same operand through a function argument still materialises it.
+  As a side effect, `=A1+B:B` in a cell stopped building a 1,048,576-element array to discard all but one element of it: it now costs no measurable time and no allocation, against 692 ms and 24.1 MB before.
+
+- **An operator or function applied to a whole-column range no longer allocates the whole rectangle before anyone looks at it.** Applying an operator to a range built a `ScalarValue` array for every cell it covered, whatever the formula went on to use — about 24 MB per million cells, so a 566-column reference cost roughly 13.6 GB and several minutes of one core, and `EvaluateFormulasBeforeSaving` or `RecalculateAllFormulas` on an untrusted workbook walked straight into it. The elements are now computed as they are read. Measured around a single evaluation: `SUMPRODUCT(B:B*2)` 24.00 MB → 0.00 MB, `SUMPRODUCT(B:Q*2)` 384.00 MB → 0.00 MB, and `T(B1:C1/V+AM/U/+QU:B%+1)` — which `T` accepting a range made 480 million elements — 11,088 MB and 59.8 s → 0.00 MB and 7 ms. No formula changes its answer.
+
+  Time is unchanged where the work is real rather than wasted: an aggregate that genuinely reads every cell, such as `SUMPRODUCT(B:Q*2)`, still scans 16 million of them in about 900 ms. The trade-off of computing on access is that a consumer reading the same element twice computes it twice; element access is cheap and allocates nothing, which is what makes that acceptable.
 
 ## v0.311.1 - 2026-08-11
 
