@@ -79,17 +79,31 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         var parameters = node.Parameters;
         var pool = _argsPool.Rent(parameters.Count);
         var args = new Span<AnyValue>(pool, 0, parameters.Count);
+
+        // D38. An argument is evaluated in the context its function supplies, not the one the
+        // formula started in, so operand intersection stops at the argument boundary. Excel is
+        // finer-grained than this — it intersects inside SUM and MIN as well, and stops only at a
+        // genuinely array-typed parameter such as SUMPRODUCT's — but XLibur has no data telling
+        // SUM apart from SUMPRODUCT, and the suite's SUMPRODUCT/AVERAGE expectations are written
+        // for array semantics. See specs/53 for the evidence and what closing the gap would cost.
+        // Whatever the boundary, it must be restored rather than assumed false: a function call can
+        // appear inside an operand of a top-level operator (`=A1+SUM(B1:B3)*C1:C3`), and the
+        // operator after the call still has to intersect.
+        var outerIntersectOperands = context.IntersectOperands;
         try
         {
+            context.IntersectOperands = false;
             for (var i = 0; i < parameters.Count; ++i)
                 args[i] = parameters[i].Accept(context, this);
 
+            context.IntersectOperands = outerIntersectOperands;
             return !context.IsArrayCalculation
                 ? fn!.CallFunction(context, args)
                 : fn!.CallAsArray(context, args);
         }
         finally
         {
+            context.IntersectOperands = outerIntersectOperands;
             _argsPool.Return(pool);
         }
     }

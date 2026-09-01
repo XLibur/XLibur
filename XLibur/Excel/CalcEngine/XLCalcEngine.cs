@@ -467,7 +467,15 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         var ctx = new CalcContext(this, _culture, wb, ws, address, recursive)
         {
-            RecalculateSheetId = recalculateSheetId
+            RecalculateSheetId = recalculateSheetId,
+
+            // D38. This overload is the legacy (non-array, non-spilling) formula path, so an
+            // operator's reference operand intersects here — but only when there is a cell to
+            // intersect against. Without an address there is no row and no column, which is why
+            // `worksheet.Evaluate("MIN(A1:A2-B1)")` keeps array semantics while the same formula
+            // in a cell does not. EvaluateArrayFormula builds its context separately and leaves
+            // this false, so array and dynamic-array formulas are unaffected.
+            IntersectOperands = CalcContext.UseImplicitIntersection && address is not null
         };
 
         // MissingContextException is internal, so letting it out of a public Evaluate hands the

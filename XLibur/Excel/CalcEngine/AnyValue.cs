@@ -423,7 +423,12 @@ internal readonly struct AnyValue
 
     private static AnyValue UnaryOperation(in AnyValue value, Func<double, double> operatorFn, CalcContext context)
     {
-        var isSingle = value.TryPickSingleOrMultiValue(out var single, out var array, context);
+        // D38. A unary operator intersects its operand for the same reason a binary one does:
+        // Excel stores `=-B1:B3` in C3 as `=-@B1:B3` and shows -B3. Postfix `%` takes this path
+        // too (`=B1:B3%` is stored as `=@B1:B3%`).
+        var intersected = context.IntersectOperands ? value.ImplicitIntersection(context) : value;
+
+        var isSingle = intersected.TryPickSingleOrMultiValue(out var single, out var array, context);
         if (isSingle)
             return UnaryArithmeticOp(single, operatorFn, context).ToAnyValue();
 
@@ -574,21 +579,20 @@ internal readonly struct AnyValue
 
     private static AnyValue BinaryOperation(in AnyValue left, in AnyValue right, BinaryFunc func, CalcContext context)
     {
-        // D38 (open): a reference operand is NOT passed through implicit intersection here, so
-        // `=A1+B:B` in C3 answers with the array's first element (B1) rather than the
-        // intersection (B3), and materialises all 1,048,576 elements to get it — about 600 ms per
-        // full column. FunctionDefinition.CallFunction intersects function arguments and
-        // TryReduceToScalar intersects a bare reference; only operands are missed.
+        // D38. A reference operand is intersected against the formula's own cell before the
+        // operator sees it, so `=A1+B:B` in C3 is `42 + B3`, not `42 + B1`. CalculationVisitor
+        // decides where that applies; see CalcContext.IntersectOperands. Gating this on the
+        // formula-level `!IsArrayCalculation` instead — the shape the first attempt used — fails
+        // six tests, because `MIN(A1:A2-B1)` and `SUMPRODUCT((A1:C2-E1:G2)^2/E1:G2)` are legacy
+        // formulas too and must keep the array. Do not reapply that version.
         //
-        // The obvious fix does not work, and was measured rather than assumed. Intersecting both
-        // operands here whenever `UseImplicitIntersection && !ctx.IsArrayCalculation` fails six
-        // tests, and `MIN(A1:A2-B1)` says why: whether an operand should intersect depends on the
-        // context the operator's *result* flows into, not on the operator. Inside MIN, which
-        // accepts ranges, `A1:A2` must stay an array; at the top level of a cell formula it must
-        // reduce to one cell. The visitor does not track that distinction, so a real fix has to
-        // introduce it. Do not reapply the two-line version.
-        var isLeftSingle = left.TryPickSingleOrMultiValue(out var leftSingle, out var leftArray, context);
-        var isRightSingle = right.TryPickSingleOrMultiValue(out var rightSingle, out var rightArray, context);
+        // Intersecting also spares the materialisation: an intersected operand is one cell, so the
+        // whole-column case stops building a 1,048,576-element array to discard all but one of it.
+        var intersectedLeft = context.IntersectOperands ? left.ImplicitIntersection(context) : left;
+        var intersectedRight = context.IntersectOperands ? right.ImplicitIntersection(context) : right;
+
+        var isLeftSingle = intersectedLeft.TryPickSingleOrMultiValue(out var leftSingle, out var leftArray, context);
+        var isRightSingle = intersectedRight.TryPickSingleOrMultiValue(out var rightSingle, out var rightArray, context);
 
         if (isLeftSingle && isRightSingle)
             return func(in leftSingle, in rightSingle, context).ToAnyValue();

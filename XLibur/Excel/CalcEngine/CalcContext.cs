@@ -39,6 +39,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         Workbook = workbook;
         Worksheet = worksheet;
         FormulaAddress = formulaAddress;
+        HasFormulaAddress = formulaAddress is not null;
         _recursive = recursive;
         Culture = culture;
     }
@@ -73,9 +74,31 @@ internal sealed class CalcContext : IStructuredReferenceScope
     public static bool UseImplicitIntersection => true;
 
     /// <summary>
+    /// Was the formula given a cell to be evaluated in? <see cref="FormulaAddress"/> throws when it
+    /// was not, and implicit intersection needs a row and a column to intersect against, so the
+    /// operand rule below has to be able to ask without throwing.
+    /// </summary>
+    internal bool HasFormulaAddress { get; }
+
+    /// <summary>
     /// Should functions be calculated per item of multi-values argument in the scalar parameters.
     /// </summary>
     public bool IsArrayCalculation { get; set; }
+
+    /// <summary>
+    /// <para>
+    /// Should a reference operand of an operator be passed through implicit intersection before the
+    /// operator sees it? Excel does this for a legacy formula: <c>=A1+B1:B3</c> in <c>C3</c> is
+    /// stored as <c>=A1+@B1:B3</c> and answers <c>42 + B3</c>, not <c>42 + B1</c> (D38).
+    /// </para>
+    /// <para>
+    /// This is the per-position flag the formula-level <see cref="IsArrayCalculation"/> cannot be.
+    /// <see cref="CalculationVisitor"/> owns it: it is set once for the whole formula and cleared
+    /// while a function's arguments are evaluated, because the enclosing function supplies the
+    /// context there and several range-accepting functions need the array intact.
+    /// </para>
+    /// </summary>
+    internal bool IntersectOperands { get; set; }
 
     /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty
