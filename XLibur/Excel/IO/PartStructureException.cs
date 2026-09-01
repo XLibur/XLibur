@@ -107,6 +107,18 @@ public sealed class PartStructureException : Exception
     }
 
     /// <summary>
+    /// Create a new exception for an element that omits an attribute the format requires.
+    /// </summary>
+    /// <param name="elementName">The element as it appears in the XML, such as <c>&lt;sheet&gt;</c>.</param>
+    /// <param name="attributeName">The attribute that is missing.</param>
+    /// <param name="position">Which occurrence of the element it was, counting from one.</param>
+    internal static PartStructureException MissingAttribute(string elementName, string attributeName, int position)
+    {
+        return new PartStructureException(
+            $"The {elementName} element at position {position} has no '{attributeName}' attribute, which the format requires.");
+    }
+
+    /// <summary>
     /// Create a new exception for a workbook that declares two sheets with the same id.
     /// </summary>
     /// <param name="sheetId">The id declared more than once.</param>

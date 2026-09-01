@@ -238,8 +238,12 @@ public static partial class XLHelper
         // Both were found by the harness's consistency property, the second one within minutes of
         // the first being fixed. The parser is answering a different question — "is this a number
         // a user might have typed" — so it is the wrong instrument, not one to keep narrowing.
-        var length = rowString.Length;
-        if (length is 0 or > MaxRowDigits)
+        // IsNullOrEmpty rather than a length read: int.TryParse returned false for null, so
+        // reading .Length turned a public predicate that answered "no" into one that threw
+        // NullReferenceException. The annotation says non-nullable, but this is a public API and
+        // an external caller may not have nullable enabled. IsValidColumn guards the same way.
+        // Raised by CodeRabbit's review of this PR.
+        if (string.IsNullOrEmpty(rowString) || rowString.Length > MaxRowDigits)
             return false;
 
         var row = 0;

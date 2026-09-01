@@ -153,6 +153,100 @@ public class MalformedPackageLoadingTests
     }
 
     /// <summary>
+    /// A <c>&lt;sheet&gt;</c> element that omits an attribute the format requires.
+    /// </summary>
+    /// <remarks>
+    /// D42, from CodeRabbit's review of PR #426 — the PR whose entire subject is that a malformed
+    /// workbook must not fault. <c>dSheet.Name!.Value!</c> and <c>dSheet.SheetId!.Value</c>
+    /// suppressed the compiler without guarding anything, so a sheet declared without
+    /// <c>name</c> or <c>sheetId</c> threw <see cref="NullReferenceException"/> straight out of
+    /// the constructor. The fuzz generator always writes both attributes, so it could not reach
+    /// this; only a reader looking at the diff could.
+    /// </remarks>
+    [Test]
+    [Arguments("""<sheet sheetId="1" r:id="rIdSheet1" />""", "name")]
+    [Arguments("""<sheet name="Sheet1" r:id="rIdSheet1" />""", "sheetId")]
+    public async Task Sheet_missing_a_required_attribute_is_rejected_rather_than_faulting(
+        string sheetXml, string missingAttribute)
+    {
+        using var package = BuildSheetPackage(
+            """<row r="1"><c r="A1"><v>1</v></c></row>""",
+            cellFormatCount: 1,
+            sheetElementXml: sheetXml);
+
+        await Assert.That(() => new XLWorkbook(package))
+            .Throws<PartStructureException>()
+            .WithMessageContaining(missingAttribute);
+    }
+
+    /// <summary>
+    /// Two sheets whose names differ only in case, one of them a sheet XLibur cannot model.
+    /// </summary>
+    /// <remarks>
+    /// D42, from CodeRabbit's review of PR #426. Excel sheet names are case-insensitive and
+    /// <c>XLWorksheets</c> keys its collection with <see cref="StringComparer.OrdinalIgnoreCase"/>,
+    /// but the duplicate check compared the *unsupported* sheets ordinally. The two halves
+    /// disagreed, so an unsupported sheet named <c>Data</c> followed by a worksheet named
+    /// <c>DATA</c> passed the check and was written back out with both declarations — which is
+    /// D34 exactly, through the one door D34's own fix left open.
+    ///
+    /// <para>
+    /// The unsupported sheet is one whose relationship id names no part, which is the cheapest
+    /// way to reach <c>UnsupportedSheets</c>: a chartsheet would need its part to exist in the
+    /// package or the SDK fails while loading referenced parts, before XLibur sees anything.
+    /// </para>
+    ///
+    /// <para>
+    /// The unsupported sheet has to come first: it is the ordering the ordinal comparison let
+    /// through, and reversing it would pass against the unfixed code because
+    /// <c>WorksheetsInternal.Contains</c> was already case-insensitive.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task Sheets_whose_names_differ_only_in_case_are_rejected()
+    {
+        using var package = BuildPackage(
+            ("[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+                  <Default Extension="xml" ContentType="application/xml" />
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
+                  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" />
+                </Types>
+                """),
+            ("_rels/.rels", WorkbookRelationshipXml),
+            ("xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets>
+                    <sheet name="Data" sheetId="1" r:id="rIdMissing" />
+                    <sheet name="DATA" sheetId="2" r:id="rIdSheet2" />
+                  </sheets>
+                </workbook>
+                """),
+            ("xl/_rels/workbook.xml.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rIdSheet2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml" />
+                </Relationships>
+                """),
+            ("xl/worksheets/sheet2.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                  <sheetData />
+                </worksheet>
+                """));
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
+    /// <summary>
     /// A sheet whose legal name contains a doubled apostrophe loads, keeps its name, and keeps
     /// its cells.
     /// </summary>
@@ -433,9 +527,20 @@ public class MalformedPackageLoadingTests
     /// <param name="sheetName">
     /// The sheet's name, already XML-escaped, since a name may legally contain an apostrophe.
     /// </param>
+    /// <param name="sheetElementXml">
+    /// The whole <c>&lt;sheet&gt;</c> element, for tests about the element's own attributes.
+    /// Overrides <paramref name="sheetName"/> when given.
+    /// </param>
     private static MemoryStream BuildSheetPackage(
-        string rowsXml, int cellFormatCount, int numberFormatId = 0, string sheetName = "Sheet1")
+        string rowsXml,
+        int cellFormatCount,
+        int numberFormatId = 0,
+        string sheetName = "Sheet1",
+        string? sheetElementXml = null)
     {
+        var sheetElement = sheetElementXml
+            ?? $"""<sheet name="{sheetName}" sheetId="1" r:id="rIdSheet1" />""";
+
         var cellFormats = string.Concat(
             Enumerable.Repeat(
                 $"""<xf numFmtId="{numberFormatId}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" />""",
@@ -459,7 +564,7 @@ public class MalformedPackageLoadingTests
                  <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                  <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
                            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-                   <sheets><sheet name="{sheetName}" sheetId="1" r:id="rIdSheet1" /></sheets>
+                   <sheets>{sheetElement}</sheets>
                  </workbook>
                  """),
             ("xl/_rels/workbook.xml.rels",

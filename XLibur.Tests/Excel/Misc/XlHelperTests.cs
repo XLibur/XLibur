@@ -61,6 +61,12 @@ public class XlHelperTests
         await Assert.That(XLHelper.IsValidA1Address("CC1\0")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("CC1\0\0\0\0\0\0\0\0")).IsFalse();
 
+        // A public predicate answers, it does not throw. int.TryParse returned false for null;
+        // reading .Length turned that into a NullReferenceException. IsValidColumn guards the
+        // same way. Raised by CodeRabbit's review of PR #426.
+        await Assert.That(XLHelper.IsValidRow(null!)).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn(null!)).IsFalse();
+
         await Assert.That(XLHelper.IsValidRow(" 1")).IsFalse();
         await Assert.That(XLHelper.IsValidRow("1 ")).IsFalse();
         await Assert.That(XLHelper.IsValidRow("+1")).IsFalse();

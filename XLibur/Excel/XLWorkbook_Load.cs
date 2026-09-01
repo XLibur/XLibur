@@ -291,8 +291,18 @@ public partial class XLWorkbook
         foreach (var dSheet in sheets.OfType<Sheet>())
         {
             position++;
-            var sheetName = dSheet.Name!.Value!;
-            var sheetIdValue = dSheet.SheetId!.Value;
+
+            // `name` and `sheetId` are required by the format, and the `!` suppressions these
+            // replaced only silenced the compiler — a <sheet> element omitting either is
+            // well-formed XML and threw NullReferenceException straight out of the constructor,
+            // which is the exact fault this whole change exists to remove. Raised by CodeRabbit's
+            // review of this PR, not by the suite or by the fuzzer: the generator always writes
+            // both attributes, so it cannot reach this (D42).
+            if (dSheet.Name?.Value is not { } sheetName)
+                throw PartStructureException.MissingAttribute("<sheet>", "name", position);
+
+            if (dSheet.SheetId?.Value is not { } sheetIdValue)
+                throw PartStructureException.MissingAttribute("<sheet>", "sheetId", position);
 
             // Sheet names out of a file get the loader's own rejection, not the public API's.
             //
@@ -309,8 +319,14 @@ public partial class XLWorkbook
             // sheet and a loaded one is a duplicate in the saved file even though neither
             // collection alone can see it. Checking only the worksheets let XLibur write a
             // workbook it then refused to read (D34).
+            // Case-insensitively, because Excel sheet names are: a workbook cannot hold both
+            // "Data" and "DATA", and XLWorksheets keys its collection with
+            // StringComparer.OrdinalIgnoreCase. Comparing the unsupported sheets ordinally left
+            // the two halves of this check disagreeing, so "Data" as a chartsheet followed by
+            // "DATA" as a worksheet passed it and was written back out as a duplicate — D34 again,
+            // through the one door its own fix left open. Raised by CodeRabbit's review of this PR.
             if (WorksheetsInternal.Contains(sheetName) ||
-                UnsupportedSheets.Exists(s => s.Name.Equals(sheetName, StringComparison.Ordinal)))
+                UnsupportedSheets.Exists(s => XLHelper.SheetComparer.Equals(s.Name, sheetName)))
             {
                 throw PartStructureException.DuplicateSheetName(sheetName);
             }

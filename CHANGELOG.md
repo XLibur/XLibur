@@ -46,6 +46,12 @@
 
 - **XLibur no longer writes a workbook it then refuses to read.** A workbook containing two sheets with the same name — or the same sheet id — where one of them was a sheet XLibur cannot model, such as a chartsheet, loaded and saved without complaint and produced a document that failed to open. In the sheet-id case the write path also *renamed* one of the sheets, losing the original name. Both are now rejected on load.
 
+- **A `<sheet>` element missing a required attribute is now rejected instead of faulting.** A workbook declaring a sheet without a `name` or a `sheetId` threw `NullReferenceException` out of `new XLWorkbook(stream)`; it now raises `PartStructureException` naming the element, the attribute and its position.
+
+- **Two sheets whose names differ only in case are now rejected.** Sheet names are case-insensitive in Excel, but the duplicate-name check compared sheets XLibur cannot model — a chartsheet, or one whose relationship names no part — case-*sensitively*. A workbook holding `Data` as one of those and `DATA` as a worksheet loaded and saved without complaint, and produced a document that failed to open.
+
+- **`XLHelper.IsValidRow(null)` returns `false` again** instead of throwing `NullReferenceException`. It answered `false` before the row check was rewritten in this release; `IsValidColumn(null)` is likewise `false`.
+
 - **A sheet whose name contains a doubled apostrophe no longer loads empty.** Excel permits an apostrophe anywhere but the first and last character, so `Ann''s` is a legal sheet name — but the loader collapsed `''` to `'` before looking the sheet up, as it would for a name lifted out of a formula. The lookup then failed: the sheet loaded with its name and **none of its cells**, silently; a workbook that also held a pivot table threw `ArgumentException: "There isn't a worksheet named …"` out of `new XLWorkbook(stream)`; and the writer threw the same from `SaveAs`. Names that came from the file are now looked up as written.
 
 - **A date-formatted cell holding a number no date can be made from no longer breaks the save.** A cell whose format was a date but whose value was outside the range `DateTime` can represent — `1e308`, say — loaded without complaint and then threw `ArgumentException: "Not a legal OleAut date."` out of `SaveAs`, so a file XLibur read was one it could not write. The cell now stays a number, which is what Excel does with it (the format is kept, and Excel renders `####`); a date-formatted cell holding a number in range is still read as a date.

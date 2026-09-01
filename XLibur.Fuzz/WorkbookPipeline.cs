@@ -155,9 +155,11 @@ internal static class WorkbookPipeline
             var stamp = DateTime.UtcNow.ToString("HHmmss_fff", System.Globalization.CultureInfo.InvariantCulture);
             File.WriteAllBytes(Path.Combine(directory, $"{stamp}-{label}.xlsx"), package);
         }
-        catch (IOException)
+        catch (Exception e) when (Oracle.IsDiagnosticsFailure(e))
         {
-            // Diagnostics must never be the reason a run fails.
+            // Diagnostics must never be the reason a run fails. Catching only IOException did not
+            // honour that: an unwritable or malformed XLIBUR_FUZZ_DUMP_DIR threw past it and
+            // replaced the load or reload failure being dumped. See Oracle.IsDiagnosticsFailure.
         }
     }
 }

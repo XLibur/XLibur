@@ -134,10 +134,36 @@ internal static class Oracle
             Directory.CreateDirectory(directory);
             File.AppendAllText(Path.Combine(directory, "tolerated.tsv"), line + Environment.NewLine);
         }
-        catch (IOException)
+        catch (Exception e) when (IsDiagnosticsFailure(e))
         {
             // Reporting must never be the reason a fuzzing run fails.
         }
+    }
+
+    /// <summary>
+    /// Whether an exception from writing a diagnostics file may be swallowed.
+    /// </summary>
+    /// <remarks>
+    /// Both this and <c>WorkbookPipeline.Dump</c> said "diagnostics must never fail the run" and
+    /// then caught only <see cref="IOException"/>. A report directory that is unwritable, on a
+    /// read-only volume, or spelled with characters the platform rejects raises
+    /// <see cref="UnauthorizedAccessException"/>, <see cref="NotSupportedException"/> or
+    /// <see cref="ArgumentException"/> — none of which derive from <see cref="IOException"/>, so
+    /// each escaped and *replaced the finding it was recording*. A misconfigured
+    /// <c>XLIBUR_FUZZ_REPORT_DIR</c> would have been reported as a defect in XLibur. Raised by
+    /// CodeRabbit's review of PR #426.
+    /// <para>
+    /// Deliberately a list rather than a bare <c>catch</c>: a <see cref="NullReferenceException"/>
+    /// from this code is a bug in the harness and should still stop the run.
+    /// </para>
+    /// </remarks>
+    public static bool IsDiagnosticsFailure(Exception exception)
+    {
+        return exception is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or ArgumentException
+            or System.Security.SecurityException;
     }
 
     /// <summary>
