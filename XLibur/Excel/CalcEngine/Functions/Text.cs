@@ -1122,25 +1122,23 @@ internal static class Text
         return cellValue.IsText ? cellValue.GetText() : string.Empty;
     }
 
+    /// <remarks>
+    /// Lazy, for the reason <see cref="Array.Apply(Func{ScalarValue, ScalarValue})"/> is: this used
+    /// to fill a <c>ScalarValue[array.Height, array.Width]</c> before returning. <c>T</c> accepts a
+    /// range, so a 458-column operand made that 480 million elements — the fuzzer reached it as
+    /// <c>T(B1:C1/V+AM/U/+QU:B%+1)</c>, 11 GB and 60 seconds for a result the caller reduced to one
+    /// cell (D38).
+    /// </remarks>
     private static AnyValue TArray(CalcContext ctx, Array array)
-    {
-        var arrayResult = new ScalarValue[array.Height, array.Width];
-        for (var row = 0; row < array.Height; ++row)
-        {
-            for (var col = 0; col < array.Width; ++col)
-            {
-                ctx.ThrowIfCancelled();
-                var element = array[row, col];
-                if (element.TryPickError(out var arrayError))
-                    arrayResult[row, col] = arrayError;
-                else if (element.IsText)
-                    arrayResult[row, col] = element.GetText();
-                else
-                    arrayResult[row, col] = string.Empty;
-            }
-        }
+        => array.Apply(element => ToTextElement(ctx, element));
 
-        return new ConstArray(arrayResult);
+    private static ScalarValue ToTextElement(CalcContext ctx, ScalarValue element)
+    {
+        ctx.ThrowIfCancelled();
+        if (element.TryPickError(out var elementError))
+            return elementError;
+
+        return element.IsText ? element.GetText() : string.Empty;
     }
 
     private static ScalarValue _Text(CalcContext ctx, ScalarValue value, string format)

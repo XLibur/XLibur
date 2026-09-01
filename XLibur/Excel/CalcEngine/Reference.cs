@@ -305,29 +305,18 @@ namespace XLibur.Excel.CalcEngine
             return new ReferenceArray(_firstArea, context);
         }
 
+        /// <remarks>
+        /// Lazy, like <see cref="ToArray"/> above it and for the same reason: this used to fill a
+        /// <c>ScalarValue[height, width]</c> for the whole area, so applying a function to a
+        /// whole-column reference cost ~24 MB per million cells however few elements the caller
+        /// went on to read (D38).
+        /// </remarks>
         public OneOf<Array, XLError> Apply(Func<ScalarValue, ScalarValue> op, CalcContext context)
         {
             if (AreaCount != 1)
                 return XLError.IncompatibleValue;
 
-            var area = _firstArea;
-            var width = area.ColumnSpan;
-            var height = area.RowSpan;
-            var startColumn = area.FirstAddress.ColumnNumber;
-            var startRow = area.FirstAddress.RowNumber;
-            var data = new ScalarValue[height, width];
-            for (int y = 0; y < height; ++y)
-            {
-                for (int x = 0; x < width; ++x)
-                {
-                    var row = startRow + y;
-                    var column = startColumn + x;
-                    var cellValue = context.GetCellValue(area.Worksheet, row, column);
-                    data[y, x] = op(cellValue);
-                }
-            }
-
-            return new ConstArray(data);
+            return new ReferenceArray(_firstArea, context).Apply(op);
         }
 
         /// <summary>
