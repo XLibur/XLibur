@@ -1062,7 +1062,26 @@ internal static class WorksheetSheetDataReader
         Dictionary<XLNumberFormatValue, XLDataType>? numberDataTypeCache = null)
     {
         if (!TryParseOoxmlDouble(cellValue, out var number)) return;
+
+        // A literal like 1e309 is well-formed and parses to infinity, which no cell can hold.
+        // Reject it deliberately: letting it through means XLCellValue's own precondition escapes
+        // the public constructor as an ArgumentException naming the internal parameter 'number',
+        // which tells a caller nothing about the file being at fault (D29).
+        if (!double.IsFinite(number))
+            throw PartStructureException.CellValueOutOfRange(cellValue.ToString());
+
         var numberDataType = GetCachedNumberDataType(cellStyleValue.NumberFormat, numberDataTypeCache);
+
+        // The number format says "this is a date", but the number may be one no date can be made
+        // from — a cell holding 1e308 formatted as a date is well-formed OOXML, and Excel keeps it
+        // as a number and renders ####. Typing it DateTime anyway loaded without complaint and
+        // then threw ArgumentException("Not a legal OleAut date.") out of SaveAs, because
+        // CellXmlWriter asks for GetDateTime() on the way out and DateTime.FromOADate refuses.
+        // A file that loads must save, so the range is checked here, with the same predicate
+        // XLCellValue.TryConvert already uses (D39).
+        if (numberDataType is XLDataType.DateTime or XLDataType.TimeSpan && !number.IsValidOADateNumber())
+            numberDataType = XLDataType.Number;
+
         var cellNumber = numberDataType switch
         {
             XLDataType.DateTime => XLCellValue.FromSerialDateTime(number),

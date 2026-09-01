@@ -27,15 +27,23 @@ internal static class StyleDecoder
 {
     /// <summary>
     /// Decodes the <c>&lt;xf&gt;</c> at <paramref name="styleIndex"/> in <c>&lt;cellXfs&gt;</c>.
-    /// A workbook with no stylesheet, or one whose stylesheet declares no cell formats, leaves
-    /// <paramref name="defaults"/> untouched.
+    /// A workbook with no stylesheet, one whose stylesheet declares no cell formats, or one whose
+    /// cell names a format that is not there, leaves <paramref name="defaults"/> untouched.
     /// </summary>
     internal static XLStyleKey Decode(int styleIndex, StylesheetData styles, XLStyleKey defaults)
     {
         if (styles.Stylesheet is not { CellFormats: not null } s)
             return defaults; // No stylesheet, no styles.
 
-        return Decode((CellFormat)s.CellFormats.ElementAt(styleIndex), styles, defaults);
+        // A cell may name a format index past the end of the table. Excel repairs that by using
+        // the default format, and a file Excel opens without complaint should not be one XLibur
+        // refuses — the cost of the repair is cosmetic, where refusing costs the whole document.
+        // Previously the index went straight to ElementAt, whose ArgumentOutOfRangeException
+        // escaped the public constructor naming the internal parameter 'index' (D30).
+        if (s.CellFormats.ElementAtOrDefault(styleIndex) is not CellFormat cellFormat)
+            return defaults;
+
+        return Decode(cellFormat, styles, defaults);
     }
 
     /// <summary>

@@ -43,6 +43,11 @@ internal static class StackSummary
     /// </summary>
     public static string Signature(Exception exception)
     {
-        return $"{exception.GetType().FullName} at {FirstMeaningfulFrame(exception)}";
+        // Group by the underlying fault, but keep the wrapper's identity: a defect reached on the
+        // way in and the same defect reached on the way back out are different findings, and the
+        // frames are identical.
+        return exception.InnerException is null
+            ? $"{exception.GetType().FullName} at {FirstMeaningfulFrame(exception)}"
+            : $"{exception.GetType().Name} -> {exception.InnerException.GetType().FullName} at {FirstMeaningfulFrame(exception.InnerException)}";
     }
 }

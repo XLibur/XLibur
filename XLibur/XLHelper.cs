@@ -225,26 +225,79 @@ public static partial class XLHelper
 
     public static bool IsValidRow(string rowString)
     {
-        if (int.TryParse(rowString, out var row))
-            return row is > 0 and <= MaxRowNumber;
-        return false;
+        // Digits, counted by hand, rather than int.TryParse. A row reference in A1 notation is
+        // ASCII digits and nothing else — which is what IsValidRangeAddress's own pattern says
+        // with `\d{1,7}` — and every attempt to express that through the number parser let
+        // something else in (D41):
+        //
+        //   int.TryParse(s, out row)                       accepts " 1", "1 " and "+1", because
+        //                                                  the default is NumberStyles.Integer
+        //   int.TryParse(s, NumberStyles.None, …, out row) still accepts "1\0\0\0", because the
+        //                                                  parser stops at a null terminator
+        //
+        // Both were found by the harness's consistency property, the second one within minutes of
+        // the first being fixed. The parser is answering a different question — "is this a number
+        // a user might have typed" — so it is the wrong instrument, not one to keep narrowing.
+        // IsNullOrEmpty rather than a length read: int.TryParse returned false for null, so
+        // reading .Length turned a public predicate that answered "no" into one that threw
+        // NullReferenceException. The annotation says non-nullable, but this is a public API and
+        // an external caller may not have nullable enabled. IsValidColumn guards the same way.
+        // Raised by CodeRabbit's review of this PR.
+        if (string.IsNullOrEmpty(rowString) || rowString.Length > MaxRowDigits)
+            return false;
+
+        var row = 0;
+        foreach (var digit in rowString)
+        {
+            if (!char.IsAsciiDigit(digit))
+                return false;
+
+            row = (row * 10) + (digit - '0');
+        }
+
+        return row is > 0 and <= MaxRowNumber;
     }
+
+    /// <summary>
+    /// Digits in <see cref="MaxRowNumber"/>, and so the longest a row reference can be. Bounds the
+    /// accumulator in <see cref="IsValidRow"/> well below overflow.
+    /// </summary>
+    private const int MaxRowDigits = 7;
 
     public static bool IsValidA1Address(string address)
     {
         if (string.IsNullOrWhiteSpace(address))
             return false;
 
-        address = address.Replace("$", "");
-        var rowPos = 0;
-        var addressLength = address.Length;
-        while (rowPos < addressLength && (address[rowPos] > '9' || address[rowPos] < '0'))
-            rowPos++;
+        // A '$' is an anchor, and it is only meaningful in two places: before the column letters
+        // and before the row digits. Its position has to be checked rather than ignored.
+        //
+        // This previously did `address.Replace("$", "")` and validated what was left, which
+        // accepted a '$' anywhere at all — 'A$2$', 'A2$', '$$A$$2' were all reported as valid A1
+        // addresses. IsValidRangeAddress, which matches a real pattern, disagreed on every one of
+        // them, so the two predicates contradicted each other about the same string (D36).
+        var index = 0;
+        var length = address.Length;
 
-        return
-            rowPos < addressLength
-            && IsValidRow(address[rowPos..])
-            && IsValidColumn(address[..rowPos]);
+        if (address[index] == '$')
+            index++;
+
+        // Letters only. Scanning "up to the first digit" would swallow the anchor in 'A$2' into
+        // the column and leave IsValidColumn to reject 'A$'.
+        var columnStart = index;
+        while (index < length && char.IsAsciiLetter(address[index]))
+            index++;
+
+        var column = address[columnStart..index];
+        if (column.Length == 0)
+            return false;
+
+        if (index < length && address[index] == '$')
+            index++;
+
+        return index < length
+            && IsValidRow(address[index..])
+            && IsValidColumn(column);
     }
 
     public static bool IsValidRCAddress(string address)

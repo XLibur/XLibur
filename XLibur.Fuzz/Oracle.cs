@@ -96,12 +96,28 @@ internal static class Oracle
     /// </summary>
     public static bool ShouldReport(Exception exception)
     {
-        return exception is OutOfMemoryException;
+        return exception is OutOfMemoryException or NotImplementedException;
     }
+
+    /// <summary>
+    /// Messages already written, so a gap the fuzzer reaches a million times is recorded once.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on the message rather than the type: <c>NotImplementedException</c> is one type
+    /// covering seven distinct gaps in the calc engine, and
+    /// <c>CalculationVisitor.Visit(FutureFunctionNode)</c> interpolates a function name into its
+    /// message, so the type alone would collapse the inventory to a single useless line.
+    /// </remarks>
+    private static readonly HashSet<string> Reported = [];
 
     /// <summary>Write a tolerated-but-notable event where a human will find it after the run.</summary>
     public static void Report(string target, string phase, Exception exception)
     {
+        // A fuzzing run executes millions of inputs and will rediscover the same gap constantly.
+        // Without this, tolerated.tsv becomes a multi-gigabyte file saying one thing.
+        if (!Reported.Add($"{exception.GetType().FullName}\t{exception.Message}"))
+            return;
+
         // Console output is unreliable under a fuzzing driver, so this goes to a file. The
         // directory is supplied by fuzz.ps1; when it is absent the harness is being run by hand
         // and the console is fine.
@@ -118,10 +134,36 @@ internal static class Oracle
             Directory.CreateDirectory(directory);
             File.AppendAllText(Path.Combine(directory, "tolerated.tsv"), line + Environment.NewLine);
         }
-        catch (IOException)
+        catch (Exception e) when (IsDiagnosticsFailure(e))
         {
             // Reporting must never be the reason a fuzzing run fails.
         }
+    }
+
+    /// <summary>
+    /// Whether an exception from writing a diagnostics file may be swallowed.
+    /// </summary>
+    /// <remarks>
+    /// Both this and <c>WorkbookPipeline.Dump</c> said "diagnostics must never fail the run" and
+    /// then caught only <see cref="IOException"/>. A report directory that is unwritable, on a
+    /// read-only volume, or spelled with characters the platform rejects raises
+    /// <see cref="UnauthorizedAccessException"/>, <see cref="NotSupportedException"/> or
+    /// <see cref="ArgumentException"/> — none of which derive from <see cref="IOException"/>, so
+    /// each escaped and *replaced the finding it was recording*. A misconfigured
+    /// <c>XLIBUR_FUZZ_REPORT_DIR</c> would have been reported as a defect in XLibur. Raised by
+    /// CodeRabbit's review of PR #426.
+    /// <para>
+    /// Deliberately a list rather than a bare <c>catch</c>: a <see cref="NullReferenceException"/>
+    /// from this code is a bug in the harness and should still stop the run.
+    /// </para>
+    /// </remarks>
+    public static bool IsDiagnosticsFailure(Exception exception)
+    {
+        return exception is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or ArgumentException
+            or System.Security.SecurityException;
     }
 
     /// <summary>

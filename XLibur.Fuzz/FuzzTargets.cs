@@ -1,6 +1,7 @@
 using System.Text;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 namespace XLibur.Fuzz;
 
@@ -94,6 +95,28 @@ internal static class FuzzTargets
         catch (ArgumentException)
         {
             // A function called with arguments it cannot accept.
+        }
+        catch (NotImplementedException e)
+        {
+            // A part of the formula language XLibur has not built yet — the range-intersection
+            // operator, an array-formula signature, a future function. Honest and deliberate, so
+            // not a Finding; but it must not vanish either, or every run spends its budget
+            // rediscovering the same gaps and reports itself clean.
+            //
+            // Reported rather than ignored, deduplicated by message. The result is an inventory
+            // of what the calc engine cannot yet evaluate, gathered by search rather than by
+            // someone grepping for `throw new NotImplementedException`. See tolerated.tsv.
+            Oracle.Report(Formula, "evaluate", e);
+        }
+        catch (XLNoWorksheetContextException)
+        {
+            // The expression needs to know which cell it sits in — ROW(), COLUMN(), or anything
+            // reaching implicit intersection — and this target deliberately supplies no formula
+            // address. A named, public refusal, so it is a Rejection rather than a Finding.
+            //
+            // It is caught by its public type on purpose. Before D37 the same inputs raised the
+            // *internal* MissingContextException, which this harness could not have named here
+            // even if it wanted to; that unnameability was the defect.
         }
     }
 

@@ -33,6 +33,52 @@ public class XlHelperTests
         await Assert.That(XLHelper.IsValidA1Address("{AA1")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("{AAA1")).IsFalse();
 
+        // A '$' is an anchor and is only meaningful before the column letters or before the row
+        // digits. These were all reported valid while the implementation stripped every '$' and
+        // validated what was left, which put IsValidA1Address in direct contradiction with
+        // IsValidRangeAddress about the same string (D36).
+        await Assert.That(XLHelper.IsValidA1Address("A$2$")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A2$")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$A2$")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A$$2")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$$A$$2")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A1$")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$$")).IsFalse();
+
+        // A row reference is digits and nothing else. IsValidRow used int.TryParse's default
+        // NumberStyles.Integer, which also accepts surrounding whitespace and a leading sign, so
+        // these reached the same contradiction with IsValidRangeAddress one layer down (D41).
+        await Assert.That(XLHelper.IsValidA1Address("$A 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A1 ")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A\t1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("A+1")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("$A$+1")).IsFalse();
+
+        // A trailing NUL survived the first fix: the number parser stops at a null terminator, so
+        // NumberStyles.None still let "1\0" through. IsValidRow counts digits itself now.
+        await Assert.That(XLHelper.IsValidA1Address("CC1\0")).IsFalse();
+        await Assert.That(XLHelper.IsValidA1Address("CC1\0\0\0\0\0\0\0\0")).IsFalse();
+
+        // A public predicate answers, it does not throw. int.TryParse returned false for null;
+        // reading .Length turned that into a NullReferenceException. IsValidColumn guards the
+        // same way. Raised by CodeRabbit's review of PR #426.
+        await Assert.That(XLHelper.IsValidRow(null!)).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn(null!)).IsFalse();
+
+        await Assert.That(XLHelper.IsValidRow(" 1")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1 ")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("+1")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1\0")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("0")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("00000001")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("1")).IsTrue();
+        await Assert.That(XLHelper.IsValidRow("1048576")).IsTrue();
+        await Assert.That(XLHelper.IsValidRow("1048577")).IsFalse();
+        await Assert.That(XLHelper.IsValidRow("9999999")).IsFalse();
+
         await Assert.That(XLHelper.IsValidA1Address("A1@")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("AA1@")).IsFalse();
         await Assert.That(XLHelper.IsValidA1Address("AAA1@")).IsFalse();
@@ -89,6 +135,13 @@ public class XlHelperTests
         await Assert.That(XLHelper.IsValidA1Address("AAA" + XLHelper.MaxRowNumber)).IsTrue();
         await Assert.That(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + "1")).IsTrue();
         await Assert.That(XLHelper.IsValidA1Address(XLHelper.MaxColumnLetter + XLHelper.MaxRowNumber)).IsTrue();
+
+        // The four anchor placements Excel actually allows. Tightening the rejection of a
+        // misplaced '$' must not cost the legitimate ones.
+        await Assert.That(XLHelper.IsValidA1Address("$A$1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("$A1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("A$1")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("$AAA$" + XLHelper.MaxRowNumber)).IsTrue();
     }
 
     [Test]

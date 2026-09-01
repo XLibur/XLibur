@@ -34,14 +34,31 @@ public partial class XLWorkbook
 
     private void LoadSheets(string fileName)
     {
-        using var dSpreadsheet = SpreadsheetDocument.Open(fileName, false);
+        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(fileName, false));
         LoadSpreadsheetDocument(dSpreadsheet);
     }
 
     private void LoadSheets(Stream stream)
     {
-        using var dSpreadsheet = SpreadsheetDocument.Open(stream, false);
+        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(stream, false));
         LoadSpreadsheetDocument(dSpreadsheet);
+    }
+
+    /// <summary>
+    /// Open a package, converting the package reader's own exception types into
+    /// <see cref="PartStructureException"/>. A caller of a public XLibur constructor should not
+    /// have to catch a <c>DocumentFormat.OpenXml</c> type to handle a malformed file.
+    /// </summary>
+    private static SpreadsheetDocument OpenPackage(Func<SpreadsheetDocument> open)
+    {
+        try
+        {
+            return open();
+        }
+        catch (OpenXmlPackageException e)
+        {
+            throw PartStructureException.PackageCannotBeOpened(e);
+        }
     }
 
     private void LoadSheetsFromTemplate(string fileName)
@@ -87,6 +104,28 @@ public partial class XLWorkbook
         }
     }
 
+    /// <summary>
+    /// Get the package's workbook part, or throw a <see cref="PartStructureException"/> naming it.
+    /// The property is nullable for a reason: a well-formed package need not contain a workbook,
+    /// and reading it can also fail when a relationship names a part the package does not hold.
+    /// Neither case is a fault in XLibur, so neither may surface as a <see cref="NullReferenceException"/>
+    /// or as a package-reader exception type.
+    /// </summary>
+    private static WorkbookPart GetWorkbookPart(SpreadsheetDocument dSpreadsheet)
+    {
+        WorkbookPart? workbookPart;
+        try
+        {
+            workbookPart = dSpreadsheet.WorkbookPart;
+        }
+        catch (InvalidOperationException e)
+        {
+            throw PartStructureException.ReferencedPartIsMissing(e);
+        }
+
+        return workbookPart ?? throw PartStructureException.MissingPart("/xl/workbook.xml");
+    }
+
     private void LoadSpreadsheetDocument(SpreadsheetDocument dSpreadsheet)
     {
         var context = new LoadContext();
@@ -94,7 +133,7 @@ public partial class XLWorkbook
         SetProperties(dSpreadsheet);
 
         SharedStringEntry[]? sharedStrings = null;
-        var workbookPart = dSpreadsheet.WorkbookPart!;
+        var workbookPart = GetWorkbookPart(dSpreadsheet);
         var shareStringPart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
         if (shareStringPart is not null)
         {
@@ -248,11 +287,62 @@ public partial class XLWorkbook
     private void LoadSheetsPass1(WorkbookPart workbookPart, Sheets sheets)
     {
         var position = 0;
+        var declaredSheetIds = new HashSet<uint>();
         foreach (var dSheet in sheets.OfType<Sheet>())
         {
             position++;
-            var sheetName = dSheet.Name!.Value!;
-            var sheetIdValue = dSheet.SheetId!.Value;
+
+            // `name` and `sheetId` are required by the format, and the `!` suppressions these
+            // replaced only silenced the compiler — a <sheet> element omitting either is
+            // well-formed XML and threw NullReferenceException straight out of the constructor,
+            // which is the exact fault this whole change exists to remove. Raised by CodeRabbit's
+            // review of this PR, not by the suite or by the fuzzer: the generator always writes
+            // both attributes, so it cannot reach this (D42).
+            if (dSheet.Name?.Value is not { } sheetName)
+                throw PartStructureException.MissingAttribute("<sheet>", "name", position);
+
+            if (dSheet.SheetId?.Value is not { } sheetIdValue)
+                throw PartStructureException.MissingAttribute("<sheet>", "sheetId", position);
+
+            // Sheet names out of a file get the loader's own rejection, not the public API's.
+            //
+            // Both checks below guard rules that are enforced elsewhere by throwing
+            // ArgumentException naming 'sheetName' — correct for AddWorksheet("Sheet1"), where the
+            // caller supplied that argument and can fix it, and wrong here, where the name came
+            // out of a file the caller merely handed over. Naming a parameter they never passed
+            // tells them nothing about which file is broken (D32, D33).
+            if (!XLHelper.TryValidateSheetName(sheetName, out var invalidNameReason))
+                throw PartStructureException.InvalidSheetName(invalidNameReason);
+
+            // Both collections have to be consulted. A sheet XLibur cannot model is still declared
+            // in the file and is still written back out, so a duplicate between an unsupported
+            // sheet and a loaded one is a duplicate in the saved file even though neither
+            // collection alone can see it. Checking only the worksheets let XLibur write a
+            // workbook it then refused to read (D34).
+            // Case-insensitively, because Excel sheet names are: a workbook cannot hold both
+            // "Data" and "DATA", and XLWorksheets keys its collection with
+            // StringComparer.OrdinalIgnoreCase. Comparing the unsupported sheets ordinally left
+            // the two halves of this check disagreeing, so "Data" as a chartsheet followed by
+            // "DATA" as a worksheet passed it and was written back out as a duplicate — D34 again,
+            // through the one door its own fix left open. Raised by CodeRabbit's review of this PR.
+            if (WorksheetsInternal.Contains(sheetName) ||
+                UnsupportedSheets.Exists(s => XLHelper.SheetComparer.Equals(s.Name, sheetName)))
+            {
+                throw PartStructureException.DuplicateSheetName(sheetName);
+            }
+
+            // Sheet ids must be unique, and the write path silently depends on it:
+            // WorkbookPartWriter.ReorderUnsupportedSheet locates a sheet element by sheetId alone
+            // (`Elements<Sheet>().First(s => s.SheetId == id)`). Given two sheets sharing an id it
+            // selects the wrong element, and the workbook XLibur writes out then declares one
+            // sheet's name twice and drops the other's — a file XLibur cannot read back (D35).
+            //
+            // The precondition belongs at the door. Enforcing it here also keeps the writer's
+            // lookup honest rather than making it defensive about a state that should never load.
+            if (declaredSheetIds.Contains(sheetIdValue))
+                throw PartStructureException.DuplicateSheetId(sheetIdValue);
+
+            declaredSheetIds.Add(sheetIdValue);
 
             if (string.IsNullOrEmpty(dSheet.Id))
             {
@@ -267,9 +357,14 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to the list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart)
+            //
+            // A relationship id naming no part at all lands here too. The sheet element exists in
+            // the source XML but nothing backs it, which is exactly the "cannot load, copy it
+            // through" case — and treating it as such preserves the original element rather than
+            // fabricating a sheet the file never had.
+            if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) || sheetPart is not WorksheetPart)
             {
-                UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position });
+                UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position, Name = sheetName });
                 continue;
             }
 
@@ -300,11 +395,20 @@ public partial class XLWorkbook
             // Although the relationship to worksheet is most common, there can be other types
             // than worksheet, e.g., chartSheet. Since we can't load them, add them to a list
             // of unsupported sheets and copy them when saving. See Codeplex #6932.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is not WorksheetPart worksheetPart)
+            // A relationship id naming no part is skipped for the same reason.
+            if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) ||
+                sheetPart is not WorksheetPart worksheetPart)
+            {
                 continue;
+            }
 
             var sheetName = dSheet.Name!.Value!;
-            if (!WorksheetsInternal.TryGetWorksheet(sheetName, out var ws))
+
+            // By raw name: this is the name attribute of <sheet>, not a name out of a formula, so
+            // it must not be unescaped. A legal name containing '' unescaped to a name no sheet
+            // has, and this branch then skipped the sheet's contents entirely — the sheet loaded,
+            // empty, with nothing reported (D40).
+            if (!WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out var ws))
             {
                 // This shouldn't be possible, as all worksheets should have already been added in the loop before this loop
                 continue;
@@ -813,10 +917,16 @@ public partial class XLWorkbook
                 continue;
             }
 
-            // The referenced sheet can also be ChartsheetPart. Only look for pivot tables in normal sheet parts.
-            if (workbookPart.GetPartById(dSheet.Id.Value!) is WorksheetPart worksheetPart)
+            // The referenced sheet can also be ChartsheetPart, or the relationship id may name no
+            // part at all. Only look for pivot tables in normal sheet parts.
+            if (workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) &&
+                sheetPart is WorksheetPart worksheetPart)
             {
-                var ws = (XLWorksheet)WorksheetsInternal.Worksheet(dSheet.Name!.Value!);
+                // By raw name, for the reason given on TryGetWorksheetByRawName: unescaping a name
+                // that came from the file threw ArgumentException out of the constructor for any
+                // workbook holding a sheet whose legal name contains '' (D40).
+                if (!WorksheetsInternal.TryGetWorksheetByRawName(dSheet.Name!.Value!, out var ws))
+                    continue;
 
                 foreach (var pivotTablePart in worksheetPart.PivotTableParts)
                 {

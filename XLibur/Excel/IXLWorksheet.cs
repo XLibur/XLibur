@@ -519,7 +519,7 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// </summary>
     /// <param name="expression">Formula to evaluate.</param>
     /// <param name="formulaAddress">A cell address that is used to provide context for formula calculation (mostly implicit intersection).</param>
-    /// <exception cref="MissingContextException">If <paramref name="formulaAddress"/> was needed for some part of calculation.</exception>
+    /// <exception cref="XLNoWorksheetContextException">If <paramref name="formulaAddress"/> was needed for some part of calculation and was not supplied.</exception>
     XLCellValue Evaluate(string expression, string? formulaAddress = null);
 
     /// <summary>

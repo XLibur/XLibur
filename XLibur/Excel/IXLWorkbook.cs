@@ -185,8 +185,10 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// Evaluate a formula expression.
     /// </summary>
     /// <param name="expression">Formula expression to evaluate.</param>
-    /// <exception cref="MissingContextException">
+    /// <exception cref="XLNoWorksheetContextException">
     /// If the expression contains a function that requires a context (e.g., current cell or worksheet).
+    /// There is no cell here for it to be relative to; use it in a cell formula, or evaluate it
+    /// through <see cref="IXLWorksheet.Evaluate"/> with a formula address.
     /// </exception>
     XLCellValue Evaluate(string expression);
 
