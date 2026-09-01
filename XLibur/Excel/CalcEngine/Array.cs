@@ -49,38 +49,19 @@ internal abstract class Array : IEnumerable<ScalarValue>
     /// <summary>
     /// Return a new array that was created by applying a function to each element of the array.
     /// </summary>
-    public Array Apply(Func<ScalarValue, ScalarValue> op)
-    {
-        var data = new ScalarValue[Height, Width];
-        for (var y = 0; y < Height; ++y)
-            for (var x = 0; x < Width; ++x)
-                data[y, x] = op(this[y, x]);
-
-        return new ConstArray(data);
-    }
+    /// <remarks>
+    /// The result is a lazy view — see <see cref="MappedArray"/>.
+    /// </remarks>
+    public Array Apply(Func<ScalarValue, ScalarValue> op) => new MappedArray(this, op);
 
     /// <summary>
     /// Return a new array that was created by applying a function to each element of the left and right array.
     /// Arrays can have different size and missing values are replaced by <c>#N/A</c>.
     /// </summary>
-    public Array Apply(Array rightArray, BinaryFunc func, CalcContext ctx)
-    {
-        var leftArray = this;
-        var width = Math.Max(leftArray.Width, rightArray.Width);
-        var height = Math.Max(leftArray.Height, rightArray.Height);
-        var data = new ScalarValue[height, width];
-        for (var y = 0; y < height; ++y)
-        {
-            for (var x = 0; x < width; ++x)
-            {
-                var leftItem = x < leftArray.Width && y < leftArray.Height ? leftArray[y, x] : XLError.NoValueAvailable;
-                var rightItem = x < rightArray.Width && y < rightArray.Height ? rightArray[y, x] : XLError.NoValueAvailable;
-                data[y, x] = func(leftItem, rightItem, ctx);
-            }
-        }
-
-        return new ConstArray(data);
-    }
+    /// <remarks>
+    /// The result is a lazy view — see <see cref="BinaryArray"/>.
+    /// </remarks>
+    public Array Apply(Array rightArray, BinaryFunc func, CalcContext ctx) => new BinaryArray(this, rightArray, func, ctx);
 
     /// <summary>
     /// Broadcast array for calculation of array formulas.
@@ -101,6 +82,88 @@ internal abstract class Array : IEnumerable<ScalarValue>
 
         return new ResizedArray(this, rows, columns);
     }
+}
+
+/// <summary>
+/// The element-wise result of a binary operator over two arrays, computed on access rather than
+/// stored. Where the two differ in size, the missing side is <c>#N/A</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is the same shape as <see cref="ReferenceArray"/> and the broadcast views: cheap element
+/// access, no backing storage. It exists because the eager version allocated
+/// <c>ScalarValue[height, width]</c> for the whole rectangle whatever the consumer wanted from it —
+/// and a whole-column operand is 1,048,576 elements, about 24 MB. A formula that then keeps one
+/// element, which is what a legacy formula does, paid all of it. The fuzz corpus holds a 16-byte
+/// input spanning 566 columns that allocated roughly 13.6 GB and held a core for six minutes (D38).
+/// </para>
+/// <para>
+/// The trade the lazy form makes: a consumer that reads the same element twice computes it twice.
+/// Element access is cheap and allocation-free, which is what makes that acceptable, but it does
+/// mean an operator chain costs its depth per access rather than being flattened once.
+/// </para>
+/// <para>
+/// <b>The view must not outlive the evaluation that built it.</b> The <see cref="CalcContext"/> is
+/// captured, and reading a cell through it can raise <c>GettingDataException</c> to demand that a
+/// dirty precedent be calculated first — which only the enclosing evaluation knows how to answer.
+/// <see cref="ReferenceArray"/> has always carried the same constraint.
+/// </para>
+/// </remarks>
+internal sealed class BinaryArray : Array
+{
+    private readonly Array _left;
+    private readonly Array _right;
+    private readonly BinaryFunc _func;
+    private readonly CalcContext _ctx;
+
+    public BinaryArray(Array left, Array right, BinaryFunc func, CalcContext ctx)
+    {
+        _left = left;
+        _right = right;
+        _func = func;
+        _ctx = ctx;
+        Width = Math.Max(left.Width, right.Width);
+        Height = Math.Max(left.Height, right.Height);
+    }
+
+    public override int Width { get; }
+
+    public override int Height { get; }
+
+    public override ScalarValue this[int y, int x]
+    {
+        get
+        {
+            if (y < 0 || y >= Height || x < 0 || x >= Width)
+                throw new ArgumentOutOfRangeException(nameof(y), "Index was out of range.");
+
+            var leftItem = x < _left.Width && y < _left.Height ? _left[y, x] : XLError.NoValueAvailable;
+            var rightItem = x < _right.Width && y < _right.Height ? _right[y, x] : XLError.NoValueAvailable;
+            return _func(in leftItem, in rightItem, _ctx);
+        }
+    }
+}
+
+/// <summary>
+/// The result of a unary function over each element of an array, computed on access rather than
+/// stored. The lazy counterpart of <see cref="BinaryArray"/>, and it carries the same caveats.
+/// </summary>
+internal sealed class MappedArray : Array
+{
+    private readonly Array _original;
+    private readonly Func<ScalarValue, ScalarValue> _op;
+
+    public MappedArray(Array original, Func<ScalarValue, ScalarValue> op)
+    {
+        _original = original;
+        _op = op;
+    }
+
+    public override int Width => _original.Width;
+
+    public override int Height => _original.Height;
+
+    public override ScalarValue this[int y, int x] => _op(_original[y, x]);
 }
 
 /// <summary>
