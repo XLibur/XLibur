@@ -149,6 +149,45 @@ of the functions listed under [Dynamic array](./functions.md#dynamic-array) on t
 page.
 :::
 
+## Implicit intersection
+
+A legacy formula that applies an *operator* to a range intersects that range against its own cell,
+the way Excel does. With `A1 = 42`, `B1 = 100` and `B3 = 5`, a formula in `C3`:
+
+```csharp
+ws.Cell("C3").FormulaA1 = "=A1+B1:B3";
+var value = ws.Cell("C3").Value;   // 47 — that is A1 + B3, the cell of B1:B3 on row 3
+```
+
+`B1:B3` is reduced to the one cell sharing the formula's row before the `+` runs. That is what
+Excel shows for the very file XLibur writes, because Excel reads the stored `A1+B1:B3` back as
+`A1+@B1:B3`. It applies to every operator kind:
+
+| Formula in `C3` | Result |
+|---|---|
+| `=A1*B:B` | `210` |
+| `=A1&B1:B3` | `425` |
+| `=A1>B1:B3` | `TRUE` |
+| `=-B1:B3` | `-5` |
+| `=B1:B3%` | `0.05` |
+
+A range that spans neither the formula's row nor its column is `#VALUE!`, again matching Excel.
+
+Three things deliberately do **not** intersect:
+
+- **A dynamic-array formula still spills.** `SetDynamicFormulaA1("A1+B1:B3")` gives `142, 49, 47`.
+- **`Evaluate(expression)` with no address keeps array semantics** — with no cell, there is nothing
+  to intersect against. Pass an address (`ws.Evaluate(expr, "C3")`) to get the cell behaviour.
+- **An operator inside a function argument does not intersect**, so `MIN(A1:A2-B1)` and
+  `SUMPRODUCT((A1:C2-E1:G2)^2/E1:G2)` are unaffected.
+
+:::caution
+Formulas of this shape used to answer with the range's *first* element — `142` for the example
+above — so a cached value computed by an earlier version can differ from the same formula
+recalculated now. That is the point of the fix, but worth knowing before a diff of recalculated
+workbooks surprises you. There is no compile-time signal.
+:::
+
 ## Clearing a formula
 
 Assigning an empty (or whitespace) string removes the formula. The cell keeps whatever value
@@ -241,6 +280,29 @@ var local = ws.Evaluate("=SUM(A1:A10)");
 // With an address so relative references have an anchor
 var relative = ws.Evaluate("=A1+B1", "C1");
 ```
+
+An expression that needs to know *which cell* it is being evaluated in — `ROW()`, `COLUMN()`, or
+anything reaching implicit intersection such as `VLOOKUP(A1:B341,,1,FALSE)` — throws
+`XLNoWorksheetContextException` when no address was supplied:
+
+```csharp
+try
+{
+    var row = ws.Evaluate("=ROW()");
+}
+catch (XLNoWorksheetContextException)
+{
+    var row = ws.Evaluate("=ROW()", "B7");   // give it a cell to be relative to
+}
+```
+
+:::caution
+This used to be an `InvalidOperationException` — an internal exception type a caller outside the
+assembly could not name, so a broken expression could not be told apart from a library bug. The
+new type derives from `XLiburException`, so **a `catch (InvalidOperationException)` around
+`Evaluate` no longer runs** and the exception escapes. There is no compile-time signal; catch
+`XLNoWorksheetContextException` instead.
+:::
 
 ### Saving computed values
 

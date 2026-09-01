@@ -76,17 +76,26 @@ for the design rationale.
 
 ## Breaking API changes
 
-Seven changes since 0.105 can break a build or throw where the old code returned. At a glance:
+Twelve changes since 0.105 can break a build, throw where the old code returned, or silently do
+something else. At a glance:
 
 | Change | ClosedXML 0.105 | XLibur | What to do |
 |---|---|---|---|
 | [`IXLRange.Cell(string)`](#ixlrangecellstring-throws-instead-of-returning-null) | returned `null` for an unresolvable address | throws `ArgumentException` | Catch `ArgumentException` where you tested for `null` |
 | [Range address validation](#a-bad-range-address-throws-a-typed-exception) | `IndexOutOfRangeException` / `NullReferenceException` | `ArgumentNullException`, `ArgumentException`, `FormatException` | Catch the typed exception instead |
+| [Loading a malformed workbook](#loading-a-malformed-workbook-throws-partstructureexception) | `NullReferenceException`, `ArgumentException`, `ArgumentOutOfRangeException` | `PartStructureException` | Catch `PartStructureException` around a load |
+| [`Evaluate` with no cell context](#evaluate-throws-a-public-exception-type) | internal `InvalidOperationException` | `XLNoWorksheetContextException` | Catch the new type; a `catch (InvalidOperationException)` no longer runs |
+| [`SheetView.SplitRow` / `SplitColumn`](#splitrow-and-splitcolumn-produce-a-split-not-a-freeze) | froze that many lines | a split bar, measured in twentieths of a point | Call `Freeze(rows, cols)` if a freeze was meant |
+| [`IXLColumn.CellCount()`](#ixlcolumncellcount-returns-the-column-length) | always `1` | `1048576` | Check any loop written against it |
 | [`XLColorType` ordinals](#xlcolortype-members-are-renumbered) | `Color`=0, `Theme`=1, `Indexed`=2 | `Automatic`=0, `Color`=1, `Theme`=2, `Indexed`=3 | Remap any persisted numeric value; recompile against XLibur |
 | [`XLColor.NoColor.Color`](#reading-a-component-off-an-automatic-colour-throws) | returned ARGB `(0,0,0,0)` | throws | Test `IsAutomatic` before reading `Color`/`Indexed`/`ThemeColor` |
 | [`XLColor.NoColor`](#xlcolornocolor-is-deprecated) | current | `[Obsolete]`, aliases `XLColor.Automatic` | Rename to `XLColor.Automatic` |
 | [`XLError` gained `SpillRange`](#xlerror-gained-a-member) | 7 members | 8 members (`SpillRange = 7`) | Handle the new member in exhaustive `switch`es |
-| [`IXLPivotCache` / `IXLConditionalFormat`](#two-interfaces-gained-members) | — | new members | Only affects types outside XLibur that *implement* these interfaces |
+| [Four interfaces gained members](#four-interfaces-gained-members) | — | new members | Only affects types outside XLibur that *implement* these interfaces |
+| [An operator applied to a range](#an-operator-applied-to-a-range-intersects) | kept the range's first element | intersects against the formula's cell | Expect different — correct — values from recalculation |
+
+The last two rows and `IXLColumn.CellCount()` have **no compile-time signal**: the code still
+builds and does something else.
 
 ### `IXLRange.Cell(string)` throws instead of returning null
 
@@ -135,6 +144,86 @@ This affects every entry point that parses an address string, including `IXLWork
 `IXLWorkbook.Range` and `IXLRange.Range`. If you were catching `IndexOutOfRangeException` or
 guarding against a `NullReferenceException` around an address parse, switch to
 `FormatException` / `ArgumentException`.
+
+### Loading a malformed workbook throws `PartStructureException`
+
+Nine ways of breaking a spreadsheet used to surface as `NullReferenceException`,
+`ArgumentException` or `ArgumentOutOfRangeException` out of `new XLWorkbook(stream)` — naming
+internal parameters such as `id`, `index`, `sheetName` and `number` that the caller never
+supplied. All of them now raise `XLibur.Excel.IO.PartStructureException`, which names what is
+wrong with the *document*: a package with no workbook part, a relationship pointing at a part that
+is not there, a sheet whose relationship id names nothing, a cell value that overflows a `double`,
+a sheet name the format forbids, and a workbook declaring the same sheet name or sheet id twice.
+
+```csharp
+// ClosedXML 0.105 — indistinguishable from a library bug
+try { using var wb = new XLWorkbook(stream); }
+catch (ArgumentException) { /* bad file? bad argument? no way to tell */ }
+
+// XLibur
+try { using var wb = new XLWorkbook(stream); }
+catch (PartStructureException) { /* the file is broken */ }
+catch (FileFormatException)    { /* not an OOXML package at all — unchanged */ }
+```
+
+`DocumentFormat.OpenXml` exception types no longer escape the constructor either. Two files that
+used to be *rejected* now load, because Excel opens them: a cell naming a style index past the end
+of the stylesheet falls back to the default format, and a sheet whose name contains a doubled
+apostrophe (`Ann''s`) loads with its cells rather than empty. See
+[Importing and Exporting Data](./importing-exporting.md#when-the-file-itself-is-broken).
+
+### `Evaluate` throws a public exception type
+
+`IXLWorksheet.Evaluate`, `IXLWorkbook.Evaluate` and `XLWorkbook.EvaluateExpr` raised an *internal*
+exception type when the expression needed to know which cell it was being evaluated in — `ROW()`,
+`COLUMN()`, or anything reaching implicit intersection. A caller outside the assembly could not
+name that type, so a broken expression could not be told apart from a library bug.
+
+All three now throw the public `XLNoWorksheetContextException`, which derives from
+`XLiburException` — so **a `catch (InvalidOperationException)` placed around `Evaluate` no longer
+runs** and the exception escapes. There is no compile-time signal. Passing a formula address,
+`worksheet.Evaluate("ROW()", "B7")`, is unaffected and still returns a value.
+
+### `SplitRow` and `SplitColumn` produce a split, not a freeze
+
+These have always been public, and assigning them used to write `<pane state="frozen">`, because
+the pane writer never asked whether a freeze was meant. It now asks — and OOXML measures an
+unfrozen split's position in twentieths of a point, not in lines:
+
+```csharp
+// ClosedXML 0.105 — froze three rows
+ws.SheetView.SplitRow = 3;
+
+// XLibur — a split bar 3/20 of a point from the top, which is visually nothing
+ws.SheetView.SplitRow = 3;
+
+// XLibur, to freeze
+ws.SheetView.FreezeRows(3);
+
+// XLibur, for a real split bar: 900 ≈ three default 15pt rows
+ws.SheetView.SplitRow = 900;
+```
+
+The code still compiles and silently does something else, so **there is no compile-time signal**.
+XLibur carries whichever number you give it verbatim rather than converting between the two units,
+so a file round-trips exactly; converting would need every column width and row height on the
+sheet and is not reversible. See [Worksheets](./worksheets.md#freezing-versus-splitting).
+
+### `IXLColumn.CellCount()` returns the column length
+
+It was a verbatim copy of `IXLRow.CellCount()`, down to measuring the *column* span of its
+address — and a column's address carries the same column number at both ends, so the count was
+always `c - c + 1`. A column now reports one cell per row in the sheet, which is what the row half
+has always reported for its own axis.
+
+The signature is unchanged, so the compiler cannot warn you:
+
+```csharp
+// Silently goes from one iteration to 1,048,576, materialising the whole column
+for (var i = 1; i <= column.CellCount(); i++) { /* ... */ }
+```
+
+`IXLRangeColumn.CellCount()` is a different method and is unaffected.
 
 ### `XLColorType` members are renumbered
 
@@ -190,16 +279,41 @@ needs remapping — but a `switch` over `XLError` that was exhaustive under 0.10
 exhaustive, and a `switch` *expression* will throw at runtime rather than fail to compile. Add an
 arm for it, or a discard.
 
-### Two interfaces gained members
+### Four interfaces gained members
 
-`IXLPivotCache` gained `SourceKind`, `SourceRange`, `SourceName`, `SourceWorksheet` and
-`SetSourceRange`; `IXLConditionalFormat` gained `SetRanges`. Adding a member to a public interface
-is source-breaking for any type outside the library that implements it.
+| Interface | New members |
+|---|---|
+| `IXLPivotCache` | `SourceKind`, `SourceRange`, `SourceName`, `SourceWorksheet`, `SetSourceRange` |
+| `IXLConditionalFormat` | `SetRanges` |
+| `IXLSheetView` | `FreezePanes` — the value that tells a freeze from a split |
+| `IXLPivotTable` | `ShowLastColumn` and its two `SetShowLastColumn` overloads, `Slicers`, `Timelines` |
+| `IXLWorksheet` | `Slicers`, `Timelines` |
 
-Neither interface is designed to be implemented externally — each has a single implementation with
-an internal constructor — so in practice this affects test doubles. Consumers that only *use* these
-interfaces are unaffected, and gain the new members. See
-[Pivot tables](./pivot-tables.md) and [Conditional formatting](./conditional-formatting.md).
+Adding a member to a public interface is source-breaking for any type outside the library that
+implements it (and binary-breaking too, in the `IXLPivotTable` case).
+
+None of these interfaces is designed to be implemented externally — each has a single
+implementation with an internal constructor — so in practice this affects test doubles. Consumers
+that only *use* them are unaffected, and gain the new members. `ShowLastColumn` already existed
+and already round-tripped; it was simply the one of the five table-style emphasis flags that had
+never been put on the interface. See [Pivot tables](./pivot-tables.md),
+[Conditional formatting](./conditional-formatting.md), [Worksheets](./worksheets.md) and
+[Slicers and Timelines](./slicers-and-timelines.md).
+
+### An operator applied to a range intersects
+
+A legacy formula applying an operator to a range now intersects that range against its own cell,
+as Excel does. With `A1 = 42`, `B1 = 100` and `B3 = 5`, a cell at `C3` holding `=A1+B1:B3` used to
+answer `142` — it applied the operator across the whole range and kept the first element, `B1`. It
+now answers `47`, which is `A1 + B3`, and which is what Excel shows for the very file XLibur
+writes.
+
+Every operator kind was affected. A range that spans neither the formula's row nor its column is
+now `#VALUE!`, where it used to answer with the range's top-left cell. **This changes results
+silently and with no compile-time signal**, so a stored value computed by an earlier version can
+differ from the same formula recalculated now. Dynamic-array formulas, `Evaluate` with no address,
+and operators inside function arguments are deliberately unchanged — see
+[Formulas](./formulas.md#implicit-intersection).
 
 ## Deprecations
 
@@ -320,6 +434,30 @@ designator is accepted.
   `SaveOptions.ValidatePackage` did not.
 - **Grouped pictures and shapes survive a round trip** instead of being dropped, and pictures
   nested in `xdr:grpSp` groups are now a first-class API.
+- **A frozen pane is written as `state="frozen"`, and the unsplit axis is left out.** `SaveAs` wrote
+  `state="frozenSplit"` on every pane it emitted, plus `xSplit="0"` or `ySplit="0"` for an axis that
+  was not split — while `XLStreamingWorkbook` wrote what Excel writes. The two now agree. Files
+  written earlier keep loading exactly as they did; re-saving one rewrites the pane in Excel's form.
+- **An unfrozen split pane survives a round trip.** `<pane state="split">` — Excel's draggable split
+  bar, what View → Split gives you — loaded with `SplitRow` and `SplitColumn` both at zero, and
+  saving then wrote no `<pane>` at all, so the split was gone from the file too.
+- **A note is written as moving and sizing with its cell**, which is Excel's default and what
+  XLibur's own object model always claimed. A note stated its anchoring mode twice —
+  `XLComment.Anchor` and `Style.Properties.Positioning` — and the VML writer read the one that said
+  *absolute*, so every note XLibur wrote was pinned to the sheet. **This changes the bytes written
+  for every note created.** A note whose positioning you set explicitly is written as before.
+- **Chart, note, pane and pivot table positions move when rows or columns are inserted or deleted.**
+  A chart anchored at row 10 stayed at row 10 after an insert at row 1; a note's callout box
+  detached from the note it pointed at; a sheet frozen at row 5 still froze at row 5 after three
+  rows were inserted above, cutting through the header the freeze was placed to hold. All four now
+  move the way a picture's anchor already did. **This changes the file written for an existing
+  document that is edited structurally.** An absolutely anchored drawing is still pinned, because
+  its position carries no cell reference for the grid to move.
+- **A column range running to the last column keeps its per-column flags.** Excel writes
+  `<col min="2" max="16384" hidden="1"/>` when a user hides or groups from a column rightwards;
+  every range ending at the last column was treated as the sheet's default-width declaration, so
+  `hidden`, `collapsed` and `outlineLevel` were dropped and those columns loaded visible and
+  ungrouped.
 
 ### Data validation
 
@@ -364,6 +502,22 @@ files containing charts:
 
 ### Pivot tables and autofilter
 
+- **A pivot table's rendered cells survive a round trip.** Loading a workbook cleared the cells
+  every pivot table had been rendered into, on the understanding that the output belonged to the
+  pivot table rather than to the sheet — and nothing put them back, because XLibur writes the
+  *definition* of a pivot table and never its output. Loading and saving with no edit at all
+  produced a file whose pivot tables were empty in Excel until the user clicked one. **This
+  reverses the behaviour introduced by [ClosedXML#856](https://github.com/ClosedXML/ClosedXML/pull/856)**,
+  so cells inside a pivot table's range now read back as ordinary cell values rather than as blanks.
+- **`IXLPivotTable.CopyTo` copies every setting the round trip carries.** The hand-written copy list
+  held 29 of the definition's 65 attributes and silently reset the other 36 — compact/outline form,
+  visual totals, the grand-total caption, the data caption. Copy is now driven from the same
+  attribute description as the reader and the writer.
+- **`Title` and `Description` survive a save and reload.** Both are public and settable, but were
+  persisted nowhere.
+- **A pivot table's "show last column" emphasis is independent of its column stripes.** The reader
+  read `ShowLastColumn` from the `showColStripes` attribute, so a round trip could switch the
+  emphasis on or off on its own.
 - **Pivot field filters survive a round trip.** The reader skipped the `filters` element, so loading
   and saving silently un-filtered every pivot table in the workbook — a change to what the workbook
   *shows*, not just what it remembers. If a downstream process depended on that accidental
@@ -381,7 +535,34 @@ files containing charts:
 
 ### Conditional formatting
 
-**A rule's ranges shift once, not twice.** Inserting rows or columns below the first line doubled
-the shift for any rule whose shifted target address collided with another rule's existing range —
-a rule at `K13` that should move to `K23` landed at `K33`, while rules whose targets happened to be
-empty shifted correctly.
+- **A rule's ranges shift once, not twice.** Inserting rows or columns below the first line doubled
+  the shift for any rule whose shifted target address collided with another rule's existing range —
+  a rule at `K13` that should move to `K23` landed at `K33`, while rules whose targets happened to
+  be empty shifted correctly.
+- **A rule's font keeps its name, family numbering and character set across a round trip.** Set a
+  conditional format's font to Arial with `XLFontCharSet.Arabic`, save and reopen, and it came back
+  as the workbook default. The file itself was correct and Excel rendered it correctly; the three
+  values were dropped on the way back *in*, so the next save lost them from the file too.
+- **A rule keeps its alignment and its protection**, and a pivot-table format its protection. A
+  `<dxf>` may carry six kinds of formatting and the three places that read one each read a different
+  subset. All six are now read wherever a differential format is read.
+- **A colour filter no longer changes colour across a load and save.** Differential formats are
+  rebuilt from scratch on every save in a fixed order, so the index a colour filter was loaded with
+  is generally not the index it will be written at — and an unchanged filter column was written back
+  with its stale index, pointing at whichever differential format now occupied the slot.
+
+## New in XLibur
+
+Capabilities with no equivalent in ClosedXML 0.105, so nothing to migrate — but worth knowing they
+are there:
+
+| Feature | See |
+|---|---|
+| Dynamic array functions with a spill engine | [Formulas](./formulas.md#dynamic-array-formulas) |
+| Slicers over pivot tables and tables, and pivot timelines | [Slicers and Timelines](./slicers-and-timelines.md) |
+| A streaming, append-only writer for large exports | [Streaming](./streaming.md) |
+| Workbook encryption and decryption | [Encryption](./encryption.md) |
+| Charts across all 78 `XLChartType` values | [Charts](./charts.md) |
+| Threaded comments, read and written as conversations | [Comments and hyperlinks](./comments-and-hyperlinks.md) |
+| A swappable font engine | [Fonts](./fonts.md) |
+| Report templating from `.xlsx` templates | [Report Templating](./report-templating.md) |

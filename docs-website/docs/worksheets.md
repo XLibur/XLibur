@@ -217,6 +217,12 @@ template.Delete();   // drop the template once the copies exist
 workbook.SaveAs("Regions.xlsx");
 ```
 
+A copy also keeps the source sheet's appearance — gridlines, header visibility, zoom, view mode
+and tab colour — including when it is copied into a different workbook, where it used to adopt
+the destination's display defaults instead. The one thing a copy does not inherit is which tab is
+*selected*: two sheets both claiming the selection is how Excel encodes a group, so the copy
+starts unselected and the source keeps its own selection.
+
 ## Hiding
 
 Sheets have three visibility states. `Hidden` sheets can be unhidden by the user through the
@@ -266,11 +272,53 @@ ws.SheetView.Freeze(1, 2);
 // Or one axis at a time
 ws.SheetView.FreezeRows(1);
 ws.SheetView.FreezeColumns(2);
-
-// A split (rather than frozen) view
-ws.SheetView.SplitRow = 3;
-ws.SheetView.SplitColumn = 3;
 ```
+
+### Freezing versus splitting
+
+Excel has two kinds of pane, and they take their position in different units. `IXLSheetView.FreezePanes`
+is what tells them apart; the three `Freeze` methods set it, and assigning `SplitRow` or
+`SplitColumn` on their own does not.
+
+| | `FreezePanes` | `SplitRow` / `SplitColumn` mean |
+|---|---|---|
+| **Freeze** — panes locked, set with `Freeze…` | `true` | a count of frozen rows or columns |
+| **Split** — a draggable bar, Excel's View → Split | `false` | the bar's position in **twentieths of a point** |
+
+```csharp
+// A freeze: three rows locked at the top
+ws.SheetView.FreezeRows(3);
+
+// A split bar: 900 twentieths of a point ≈ three default 15pt rows
+ws.SheetView.SplitRow = 900;
+ws.SheetView.SplitColumn = 2880;   // ≈ three default 48pt columns
+```
+
+:::caution
+Assigning `SplitRow`/`SplitColumn` used to produce a **freeze**, so `SheetView.SplitRow = 3` froze
+three rows. It now produces a split bar 3/20 of a point from the top, which is visually nothing.
+The code still compiles, so there is no signal at build time — call `FreezeRows(3)` instead if a
+freeze was what you meant. XLibur carries whichever number you give it verbatim rather than
+converting between the two units, so a file round-trips exactly.
+:::
+
+### View mode and zoom
+
+Each sheet remembers which of Excel's three views it was last in, and that survives a save and
+reload:
+
+```csharp
+ws.SheetView.View = XLSheetViewOptions.PageLayout;   // Normal, PageBreakPreview, PageLayout
+ws.SheetView.SetView(XLSheetViewOptions.Normal);     // fluent equivalent
+
+ws.SheetView.ZoomScale = 140;                        // the current view's zoom
+ws.SheetView.ZoomScaleNormal = 100;
+ws.SheetView.ZoomScalePageLayoutView = 140;
+ws.SheetView.ZoomScaleSheetLayoutView = 60;          // Page Break Preview
+```
+
+Setting `ZoomScale` also records it against the named scale for the sheet's current view. A file
+naming a view this build does not recognise loads as `Normal` rather than failing.
 
 ## Protecting a sheet
 

@@ -115,6 +115,20 @@ Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTIN
 - **Bug fixes** — several outstanding community issues resolved that are still pending upstream.
 - **Community contributions** — several community PRs and enhancement requests have been merged into
   this codebase.
+- **Features with no equivalent in 0.105**, listed below.
+
+### Features beyond ClosedXML 0.105
+
+| Feature | Documentation |
+|---|---|
+| Dynamic array functions (`FILTER`, `SORT`, `UNIQUE`, `SEQUENCE`, `XLOOKUP`, …) with a spill engine | [Formulas](https://xlibur.github.io/XLibur/formulas) |
+| Slicers over pivot tables and tables, and pivot table timelines | [Slicers and Timelines](https://xlibur.github.io/XLibur/slicers-and-timelines) |
+| A streaming, append-only writer for exports too large to hold in memory | [Streaming](https://xlibur.github.io/XLibur/streaming) |
+| Workbook encryption and decryption | [Encryption](https://xlibur.github.io/XLibur/encryption) |
+| Charts implemented across all 78 `XLChartType` values | [Charts](https://xlibur.github.io/XLibur/charts) |
+| Threaded comments, read and written as conversations rather than flattened | [Comments and hyperlinks](https://xlibur.github.io/XLibur/comments-and-hyperlinks) |
+| A swappable font engine, so you pick a license that suits you | [Fonts](https://xlibur.github.io/XLibur/fonts) |
+| Report generation from `.xlsx` templates | [Report templating](https://xlibur.github.io/XLibur/report-templating) |
 
 **Continue with ClosedXML if:**
 
