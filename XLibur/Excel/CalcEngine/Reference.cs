@@ -307,9 +307,15 @@ namespace XLibur.Excel.CalcEngine
 
         /// <remarks>
         /// Lazy, like <see cref="ToArray"/> above it and for the same reason: this used to fill a
-        /// <c>ScalarValue[height, width]</c> for the whole area, so applying a function to a
-        /// whole-column reference cost ~24 MB per million cells however few elements the caller
-        /// went on to read (D38).
+        /// <c>ScalarValue[height, width]</c> for the whole area, which for a whole-column reference
+        /// is ~24 MB per million cells however few elements the caller goes on to read (D38).
+        /// <para>
+        /// <b>It has no callers today</b>, so that was a latent cost rather than a live one — the
+        /// live instances were <see cref="Array.Apply(Func{ScalarValue, ScalarValue})"/> and
+        /// <c>Text.TArray</c>. It was rewritten alongside them because leaving one member of the
+        /// family eager is how the next caller reintroduces the defect, and delegating to
+        /// <see cref="ReferenceArray"/> is what the method should have said in the first place.
+        /// </para>
         /// </remarks>
         public OneOf<Array, XLError> Apply(Func<ScalarValue, ScalarValue> op, CalcContext context)
         {
