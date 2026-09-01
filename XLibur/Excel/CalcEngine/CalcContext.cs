@@ -39,7 +39,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
         Workbook = workbook;
         Worksheet = worksheet;
         FormulaAddress = formulaAddress;
-        HasFormulaAddress = formulaAddress is not null;
         _recursive = recursive;
         Culture = culture;
     }
@@ -72,13 +71,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// all arguments for scalar functions where passed through implicit intersection before calling the function.
     /// </summary>
     public static bool UseImplicitIntersection => true;
-
-    /// <summary>
-    /// Was the formula given a cell to be evaluated in? <see cref="FormulaAddress"/> throws when it
-    /// was not, and implicit intersection needs a row and a column to intersect against, so the
-    /// operand rule below has to be able to ask without throwing.
-    /// </summary>
-    internal bool HasFormulaAddress { get; }
 
     /// <summary>
     /// Should functions be calculated per item of multi-values argument in the scalar parameters.

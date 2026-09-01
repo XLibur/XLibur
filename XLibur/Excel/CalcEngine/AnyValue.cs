@@ -339,25 +339,28 @@ internal readonly struct AnyValue
     /// Implicit intersection for arguments of functions that don't accept range as a parameter (Excel 2016).
     /// </summary>
     /// <returns>Unchanged value for anything other than reference. Reference is changed into a single cell/#VALUE!</returns>
+    /// <remarks>
+    /// Written as a tag test rather than as a <see cref="Match"/> over all seven cases, which is
+    /// what it used to be. Every arm but the reference one returned its input unchanged, and the
+    /// reference arm captured <paramref name="context"/> — so merely calling <c>Match</c> allocated
+    /// a closure and a delegate. D38 turned this from a per-scalar-argument call into a per-operand
+    /// one on every in-cell legacy formula, which put those allocations on the hottest path in the
+    /// engine, <c>=A1+B1</c> included. An array is deliberately left alone: implicit intersection
+    /// does not apply to it as an operand, e.g. <c>MMULT(COS({0,0});COS({0;0})) = 2</c>.
+    /// </remarks>
     public AnyValue ImplicitIntersection(CalcContext context)
     {
-        return Match(
-            () => Blank,
-            logical => logical,
-            number => number,
-            text => text,
-            logical => logical,
-            array => array, // Array is unaffected by implicit intersection for operands - e.g. MMULT(COS({0,0});COS({0;0})) = 2
-            reference =>
-            {
-                if (reference.IsSingleCell())
-                    return reference;
+        if (_index != ReferenceValue)
+            return this;
 
-                return reference
-                    .ImplicitIntersection(context.FormulaAddress).Match<AnyValue>(
-                        singleCellReference => singleCellReference!,
-                        error => error);
-            });
+        var reference = RefAsReference;
+        if (reference.IsSingleCell())
+            return this;
+
+        return reference.ImplicitIntersection(context.FormulaAddress)
+            .TryPickT0(out var singleCellReference, out var error)
+            ? singleCellReference!
+            : error;
     }
 
     /// <summary>
