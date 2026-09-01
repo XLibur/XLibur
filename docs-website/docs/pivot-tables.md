@@ -23,8 +23,13 @@ A pivot table has four areas:
 
 :::note
 XLibur writes the pivot table definition and a cache of the source data; it does not compute
-the summarised cells itself. Excel (or LibreOffice) recalculates the body on open. That means
-you will not see aggregated values by reading the pivot sheet's cells back with XLibur.
+the summarised cells itself. Excel (or LibreOffice) recalculates the body on open. That means a
+pivot table **you create** has no aggregated values to read back — the body is empty until the
+file is opened in a spreadsheet application.
+
+A pivot table **loaded from a file** is different: the cells Excel already rendered into the
+pivot's range are left where they are, and read back as ordinary cell values. Loading a workbook
+and saving it therefore no longer empties its pivot tables, which it used to do.
 :::
 
 ## Inserting data
@@ -282,7 +287,8 @@ pivot.Theme = XLPivotTableTheme.PivotStyleMedium9;
 pivot.ShowRowHeaders = true;
 pivot.ShowColumnHeaders = true;
 pivot.SetShowRowStripes()
-     .SetShowColumnStripes(false);
+     .SetShowColumnStripes(false)
+     .SetShowLastColumn();
 
 pivot.SetRowHeaderCaption("Pastry name");
 pivot.SetColumnHeaderCaption("Measures");
@@ -290,6 +296,30 @@ pivot.SetColumnHeaderCaption("Measures");
 pivot.AutofitColumns = true;
 pivot.PreserveCellFormatting = true;
 ```
+
+The five table-style emphasis flags are `ShowRowHeaders`, `ShowColumnHeaders`, `ShowRowStripes`,
+`ShowColumnStripes` and `ShowLastColumn`, each with a `Set…` overload taking a `bool` and one
+taking nothing (which sets `true`).
+
+A pivot table also carries accessibility text, which survives a save and reload:
+
+```csharp
+pivot.Title = "Sales by pastry and month";
+pivot.Description = "Orders and average quality, grouped by pastry name.";
+```
+
+### Copying a pivot table
+
+`CopyTo` reproduces the whole definition on another sheet — every setting the reader and writer
+carry, including compact/outline form, visual totals, the grand-total caption and the data
+caption:
+
+```csharp
+var copy = pivot.CopyTo(otherSheet.Cell("A1"));
+```
+
+The one thing a copy deliberately does not inherit is `chartFormat`, which is the next free id for
+the pivot charts pointing at the source table — and a copy has none of them.
 
 Handling gaps and errors in the source:
 
@@ -307,6 +337,32 @@ pivot.SetShowExpandCollapseButtons(false);
 pivot.SetDisplayCaptionsAndDropdowns(false);
 pivot.SetClassicPivotTableLayout();
 ```
+
+## Slicers and timelines
+
+A pivot table can be filtered from a button panel or a date scrubber drawn beside it:
+
+```csharp
+// A slicer on any cache field
+var slicer = pivotSheet.Slicers.Add(pivot, "Name");
+slicer.Position = pivotSheet.Cell("F1");
+
+// A timeline on a cache field holding dates
+var timeline = pivotSheet.Timelines.Add(pivot, "OrderDate");
+timeline.Position = pivotSheet.Cell("F12");
+```
+
+`pivot.Slicers` and `pivot.Timelines` list the controls pointing at this pivot table, wherever in
+the workbook they are drawn. See [Slicers and Timelines](./slicers-and-timelines.md) for reading,
+styling and positioning them.
+
+:::note
+A pivot table XLibur creates is stamped with a `createdVersion` that supports slicers. Files
+written before this was fixed carry version 0, which Excel reads as "written before slicers
+existed" and silently refuses to attach a slicer to — no repair prompt, no validation error, the
+panel simply never appears. Re-saving such a file with a current build does not restamp it: a
+pivot table loaded from a file keeps whatever version its file declares.
+:::
 
 ## A worked example
 
@@ -363,6 +419,7 @@ workbook.SaveAs("PastrySales.xlsx");
 
 ## Where to next
 
+- [Slicers and Timelines](./slicers-and-timelines.md) — the button panels and date scrubbers that filter a pivot
 - [Tables](./tables.md) — the recommended pivot source
 - [Charts](./charts.md) — plotting the data a pivot summarises
 - [Theming](./theming.md) — pivot styles follow the workbook theme colours

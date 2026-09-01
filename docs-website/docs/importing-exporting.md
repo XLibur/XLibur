@@ -242,6 +242,46 @@ foreach (var row in ws.RowsUsed().Skip(1))
 }
 ```
 
+### When the file itself is broken
+
+A file that is not a valid workbook fails at `new XLWorkbook(...)`, and the exception says which
+kind of broken it is:
+
+| Exception | Means | What to do |
+|---|---|---|
+| `FileFormatException` | Not an OOXML package at all — a `.xls`, a PDF, a truncated upload | Reject as the wrong format |
+| `XLibur.Excel.IO.PartStructureException` | A package, but its structure is not what loading requires — no workbook part, a relationship pointing at a part that is not there, a duplicate sheet name or id, a sheet element missing `name` or `sheetId`, a cell value that overflows a `double` | Reject as a corrupt file |
+| `XLInvalidPasswordException` / `XLEncryptionException` | Encrypted — see [Encryption](./encryption.md) | Prompt, or report unreadable |
+
+```csharp
+try
+{
+    using var workbook = new XLWorkbook(stream);
+    // ...
+}
+catch (FileFormatException)
+{
+    return BadRequest("That is not an .xlsx file.");
+}
+catch (PartStructureException ex)
+{
+    logger.LogWarning(ex, "Malformed workbook uploaded");
+    return BadRequest("That workbook is damaged and could not be read.");
+}
+```
+
+:::note
+These used to escape as `NullReferenceException`, `ArgumentException` and
+`ArgumentOutOfRangeException` naming internal parameters such as `id`, `index` and `sheetName` —
+which gave no way to tell "this file is broken" from "this library is broken". They are now all
+`PartStructureException`, and `DocumentFormat.OpenXml` exception types no longer escape the
+constructor either. If you catch around a load, catch `PartStructureException`.
+
+A workbook that is merely *unusual* still loads: a cell naming a style index past the end of the
+stylesheet falls back to the default format, and a date-formatted cell holding a number no date
+can be made from stays a number — both of which is what Excel does with them.
+:::
+
 ## Streams, uploads, and web responses
 
 Nothing needs to touch the file system. Load from a stream:

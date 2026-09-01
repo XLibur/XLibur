@@ -389,6 +389,21 @@ A worksheet can have at most one *sheet-level* autofilter, but every table on th
 own. Prefer table autofilters when a sheet holds more than one data block.
 :::
 
+### Slicers over a table column
+
+A table column can also be filtered from a panel of buttons drawn on the sheet:
+
+```csharp
+var sheet = table.Worksheet;
+
+var slicer = sheet.Slicers.Add(table, "Region");
+slicer.Position = sheet.Cell("F2");
+```
+
+A table slicer's selection *is* the value filter on that column of the table's autofilter — the
+two are the same state seen from different ends. See
+[Slicers and Timelines](./slicers-and-timelines.md).
+
 ## Ranges within a table
 
 ```csharp
@@ -464,5 +479,6 @@ workbook.SaveAs("SalesTable.xlsx");
 ## Where to next
 
 - [AutoFilter](./autofilter.md) — the full filter and sort API
+- [Slicers and Timelines](./slicers-and-timelines.md) — filtering a table column from a button panel
 - [Pivot Tables](./pivot-tables.md) — tables are the cleanest pivot data source
 - [Importing and Exporting Data](./importing-exporting.md) — `InsertData` when you don't want a table

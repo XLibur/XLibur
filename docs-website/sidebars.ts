@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
         'tables',
         'autofilter',
         'pivot-tables',
+        'slicers-and-timelines',
         'data-validation',
         'grouping-and-outlines',
       ],
