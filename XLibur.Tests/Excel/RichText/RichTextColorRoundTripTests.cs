@@ -9,9 +9,10 @@ using System.Threading.Tasks;
 namespace XLibur.Tests.Excel.RichText;
 
 /// <summary>
-/// Round-trip fidelity of rich text whose runs carry no explicit colour (issue #219). The input
-/// can't be produced through the <see cref="XLWorkbook"/> API — the writer would normalise it
-/// before it were ever saved — so these tests build a minimal spec-valid package in memory.
+/// Round-trip fidelity of rich text whose runs leave a property to the cell font instead of stating
+/// it — no colour (issue #219), and no vertical alignment or font family. The input can't be
+/// produced through the <see cref="XLWorkbook"/> API — the writer would normalise it before it were
+/// ever saved — so these tests build a minimal spec-valid package in memory.
 /// </summary>
 public class RichTextColorRoundTripTests
 {
@@ -56,6 +57,108 @@ public class RichTextColorRoundTripTests
             // Two <si> entries, only the first of which is rich text, so exactly two runs.
             await Assert.That(CountOccurrences(savedSharedStrings, "<x:r>")).IsEqualTo(2).Because($"Plain text with a phonetic guide must not be promoted to a rich-text run.\n\n{savedSharedStrings}");
         }
+    }
+
+    [Test]
+    public async Task RunProperties_DoNotGainAVerticalAlignmentTheSourceNeverStated()
+    {
+        var savedSharedStrings = RoundTripSharedStrings(SharedStrings);
+
+        await Assert.That(savedSharedStrings).DoesNotContain("vertAlign", StringComparison.OrdinalIgnoreCase).Because($"No rPr stated a vertical alignment, but the save added one.\n\n{savedSharedStrings}");
+    }
+
+    [Test]
+    public async Task RunProperties_DoNotGainAFontFamilyTheSourceNeverStated()
+    {
+        var savedSharedStrings = RoundTripSharedStrings(SharedStrings);
+
+        await Assert.That(savedSharedStrings).DoesNotContain("family", StringComparison.OrdinalIgnoreCase).Because($"No rPr stated a font family, but the save added one.\n\n{savedSharedStrings}");
+    }
+
+    [Test]
+    public async Task StatedVerticalAlignmentAndFontFamily_ArePreserved()
+    {
+        // The counterpart of the two above: what the source did state has to survive, so the fix
+        // can't just stop writing these elements.
+        const string statedSharedStrings =
+            """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">
+              <si>
+                <r><rPr><rFont val="Cambria"/><family val="1"/><sz val="11"/><vertAlign val="superscript"/></rPr><t>Up</t></r>
+              </si>
+            </sst>
+            """;
+
+        var savedSharedStrings = RoundTripSharedStrings(statedSharedStrings, siCount: 1);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(savedSharedStrings).Contains("superscript").Because($"A stated vertical alignment was lost.\n\n{savedSharedStrings}");
+            await Assert.That(savedSharedStrings).Contains("family").Because($"A stated font family was lost.\n\n{savedSharedStrings}");
+        }
+    }
+
+    [Test]
+    public async Task EditingARunsVerticalAlignment_IsWritten()
+    {
+        // The other side of tracking what the source stated: once the caller sets one of these
+        // properties, the run does state it, so it has to be written even though the source never
+        // did. Otherwise the edit would be silently dropped.
+        var input = BuildWorkbook(SharedStrings, siCount: 2);
+
+        using var outMs = new MemoryStream();
+        using (var wb = new XLWorkbook(new MemoryStream(input)))
+        {
+            wb.Worksheets.First().Cell("A1").GetRichText().First().SetVerticalAlignment(XLFontVerticalTextAlignmentValues.Superscript);
+            wb.SaveAs(outMs);
+        }
+
+        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+
+        await Assert.That(savedSharedStrings).Contains("superscript").Because($"The edit was dropped.\n\n{savedSharedStrings}");
+    }
+
+    // A cell font that is itself superscript. A run under it that states baseline is stating
+    // something, not merely echoing the default.
+    private const string SuperscriptFontStyles =
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+          <fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="3"/><vertAlign val="superscript"/></font></fonts>
+          <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+          <borders count="1"><border/></borders>
+          <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+          <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>
+        </styleSheet>
+        """;
+
+    [Test]
+    public async Task StatedBaseline_SurvivesASuperscriptCellFont()
+    {
+        // Dropping every baseline vertAlign would be wrong: with a superscript cell font, the run
+        // would come back superscript, because an rPr that omits vertAlign inherits the cell font.
+        const string baselineSharedStrings =
+            """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">
+              <si>
+                <r><rPr><b/><sz val="11"/><vertAlign val="baseline"/></rPr><t>Level</t></r>
+              </si>
+            </sst>
+            """;
+
+        var input = BuildWorkbook(baselineSharedStrings, siCount: 1, styles: SuperscriptFontStyles);
+
+        using var outMs = new MemoryStream();
+        using (var wb = new XLWorkbook(new MemoryStream(input)))
+            wb.SaveAs(outMs);
+
+        using var reloaded = new XLWorkbook(new MemoryStream(outMs.ToArray()));
+        var run = reloaded.Worksheets.First().Cell("A1").GetRichText().First();
+
+        await Assert.That(run.VerticalAlignment).IsEqualTo(XLFontVerticalTextAlignmentValues.Baseline)
+            .Because($"The run stated baseline, so the save must keep saying so.\n\n{ReadPart(outMs.ToArray(), "xl/sharedStrings.xml")}");
     }
 
     [Test]

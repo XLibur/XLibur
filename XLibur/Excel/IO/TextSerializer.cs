@@ -28,7 +28,7 @@ internal static class TextSerializer
                 var text = richText.GetRunText(textRun);
                 if (text.Length > 0)
                 {
-                    WriteRun(w, text, textRun.Font, textRun.InheritsCellFont);
+                    WriteRun(w, text, textRun.Font, textRun.InheritsCellFont, textRun.StatedProperties);
                 }
             }
         }
@@ -75,16 +75,18 @@ internal static class TextSerializer
     internal static void WriteRun(XmlWriter w, XLImmutableRichText richText, XLImmutableRichText.RichTextRun run)
     {
         var runText = richText.GetRunText(run);
-        WriteRun(w, runText, run.Font, run.InheritsCellFont);
+        WriteRun(w, runText, run.Font, run.InheritsCellFont, run.StatedProperties);
     }
 
     /// <summary>
     /// Writes one <c>&lt;r&gt;</c>. When <paramref name="inheritsCellFont"/> the run stated no
     /// formatting of its own, so no <c>&lt;rPr&gt;</c> is written and the run keeps inheriting the
     /// cell font on the way back in - writing the inherited font out would turn it into formatting
-    /// the source never asked for.
+    /// the source never asked for. <paramref name="statedProperties"/> says the same thing one
+    /// property at a time, for the two an <c>&lt;rPr&gt;</c> can leave to the cell font unnoticed.
     /// </summary>
-    private static void WriteRun(XmlWriter w, string text, XLFontValue font, bool inheritsCellFont)
+    private static void WriteRun(XmlWriter w, string text, XLFontValue font, bool inheritsCellFont,
+        XLStatedRunProperties statedProperties)
     {
         w.WriteStartElement("r", Main2006SsNs);
 
@@ -118,7 +120,12 @@ internal static class TextSerializer
         if (font.Underline != XLFontUnderlineValues.None)
             WriteRunProperty(w, "u", font.Underline.ToOpenXmlString());
 
-        WriteRunProperty(w, "vertAlign", font.VerticalAlignment.ToOpenXmlString());
+        // An rPr that stated no vertical alignment left the run inheriting the cell font's, so
+        // writing one back would state something the source never did - and would pin the run to
+        // the alignment the cell font happened to have when it was read.
+        if ((statedProperties & XLStatedRunProperties.VerticalAlignment) != 0)
+            WriteRunProperty(w, "vertAlign", font.VerticalAlignment.ToOpenXmlString());
+
         WriteRunProperty(w, "sz", font.FontSize);
 
         // An unset color means the run is automatic - Excel resolves it against the theme, and
@@ -128,7 +135,12 @@ internal static class TextSerializer
             w.WriteColor("color", font.FontColor);
 
         WriteRunProperty(w, "rFont", font.FontName);
-        WriteRunProperty(w, "family", (int)font.FontFamilyNumbering);
+
+        // Same as the vertical alignment above: an unstated family is the cell font's, not the
+        // run's. Unlike the font name and size, nothing about the run depends on it, so there is
+        // nothing to preserve by materializing it.
+        if ((statedProperties & XLStatedRunProperties.FontFamilyNumbering) != 0)
+            WriteRunProperty(w, "family", (int)font.FontFamilyNumbering);
 
         if (font.FontCharSet != XLFontCharSet.Default)
             WriteRunProperty(w, "charset", (int)font.FontCharSet);

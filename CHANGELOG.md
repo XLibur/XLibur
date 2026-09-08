@@ -140,6 +140,8 @@
 
   Time is unchanged where the work is real rather than wasted: an aggregate that genuinely reads every cell, such as `SUMPRODUCT(B:Q*2)`, still scans 16 million of them in about 900 ms. The trade-off of computing on access is that a consumer reading the same element twice computes it twice; element access is cheap and allocates nothing, which is what makes that acceptable.
 
+- **A rich-text run no longer gains a vertical alignment or a font family the source never stated.** An `<rPr>` that omits `<vertAlign>` or `<family>` leaves the run inheriting the cell font's, but the writer materialised both on every run it wrote an `<rPr>` for. A round trip therefore added `<vertAlign val="baseline"/>` and `<family val="2"/>` to runs that never had them, pinning each run to the value the cell font happened to carry when it was read and leaving a diff on a file nobody had edited. Both elements are now written only when the source stated them, or when the caller sets one — the other half of the fix that stopped an absent run colour coming back as explicit black. Nothing else an `<rPr>` carries changes: the font name, size, bold, underline and colour are written exactly as before.
+
 ## v0.311.1 - 2026-08-11
 
 A dependency release: `XLibur.Fonts.SkiaSharp` moves to SkiaSharp 4.151.1, a patch bump. No new features, no bug fixes and no breaking changes.

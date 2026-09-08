@@ -29,7 +29,7 @@ internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
         {
             var runText = original.GetRunText(originalRun);
             AddText(new XLRichString(runText, new XLFont(originalRun.Font.Key), this, OnContentChanged,
-                originalRun.InheritsCellFont));
+                originalRun.InheritsCellFont, originalRun.StatedProperties));
         }
 
         var hasPhonetics = original.PhoneticRuns.Any() || original.PhoneticsProperties.HasValue;

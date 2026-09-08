@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.RichText;
 using XLibur.Extensions;
 using XLibur.Utils;
 using static XLibur.Excel.XLPredefinedFormat.DateTime;
@@ -821,7 +822,10 @@ internal static class WorksheetSheetDataReader
                 if (fontScheme is { Val: not null })
                     rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
 
-                StyleDecoder.ApplyRunFont(runProperties, rt);
+                // Last, because applying the font marks the run's formatting as its own, which
+                // resets what the source is recorded as having stated.
+                var stated = StyleDecoder.ApplyRunFont(runProperties, rt);
+                ((XLRichString)rt).SetStatedProperties(stated);
             }
         }
 
