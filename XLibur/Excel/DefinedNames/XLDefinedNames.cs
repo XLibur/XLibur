@@ -81,7 +81,19 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             if (!definedName.IsFormulaUnderstood)
                 continue;
 
+            // A name that reaches no sheet has nothing a shift can move — a constant, a structured
+            // reference, a bare #REF!. The answer is already cached from the parse that stored the
+            // formula, so those names stay free instead of costing a parse to discover it.
+            if (!definedName.HasSheetReferences)
+                continue;
+
             var shifted = axis.ShiftFormula(definedName.RefersTo, sheet, range, shift);
+
+            // The shifter hands back the very instance it was given when the shift reached nothing it
+            // refers to, which is the common case. Storing that again would parse the formula a second
+            // time only to rebuild the references it already holds.
+            if (ReferenceEquals(shifted, definedName.RefersTo))
+                continue;
 
             // The shifter answers an empty string for an empty formula, which is not a re-pointing.
             if (shifted.Length == 0)

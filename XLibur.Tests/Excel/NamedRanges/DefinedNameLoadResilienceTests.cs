@@ -243,7 +243,8 @@ public class DefinedNameLoadResilienceTests
     [Arguments("@@@")]
     public async Task Setting_RefersTo_to_a_formula_the_parser_rejects_throws_ExpressionParseException(string formula)
     {
-        var definedName = NameOnASheet();
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
 
         await Assert.That(() => definedName.RefersTo = formula).Throws<ExpressionParseException>();
     }
@@ -255,7 +256,8 @@ public class DefinedNameLoadResilienceTests
     [Test]
     public async Task A_rejected_formula_keeps_the_parser_position_in_its_message()
     {
-        var definedName = NameOnASheet();
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
 
         var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
             .Throws<ExpressionParseException>();
@@ -266,7 +268,8 @@ public class DefinedNameLoadResilienceTests
     [Test]
     public async Task A_rejected_formula_keeps_the_parser_exception_as_its_cause()
     {
-        var definedName = NameOnASheet();
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
 
         var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
             .Throws<ExpressionParseException>();
@@ -282,7 +285,8 @@ public class DefinedNameLoadResilienceTests
     [Test]
     public async Task Setting_RefersTo_to_a_local_reference_throws_ArgumentException()
     {
-        var definedName = NameOnASheet();
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
 
         var thrown = await Assert.That(() => definedName.RefersTo = "$A$1").Throws<ArgumentException>();
 
@@ -296,17 +300,20 @@ public class DefinedNameLoadResilienceTests
     [Test]
     public async Task SetRefersTo_names_its_own_parameter_when_it_rejects()
     {
-        var definedName = NameOnASheet();
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
 
         var thrown = await Assert.That(() => definedName.SetRefersTo("$A$1")).Throws<ArgumentException>();
 
         await Assert.That(thrown!.ParamName).IsEqualTo("formula");
     }
 
-    private static IXLDefinedName NameOnASheet()
+    /// <summary>A workbook holding one sheet and one usable workbook-scoped name, <c>x</c>.</summary>
+    private static XLWorkbook BookWithAUsableName()
     {
         var wb = new XLWorkbook();
         wb.AddWorksheet("Sheet1");
-        return wb.DefinedNames.Add("x", "Sheet1!$A$1");
+        wb.DefinedNames.Add("x", "Sheet1!$A$1");
+        return wb;
     }
 }

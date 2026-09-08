@@ -45,6 +45,13 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// </summary>
     internal bool IsFormulaUnderstood => _isFormulaUnderstood;
 
+    /// <summary>
+    /// Does the formula reach a cell or area on some sheet? A name that does not — a constant, a
+    /// structured reference, a bare <c>#REF!</c> — has nothing a row or column shift can move. The
+    /// answer is cached from the parse that stored the formula, so asking costs nothing.
+    /// </summary>
+    internal bool HasSheetReferences => _references.SheetReferences.Count > 0;
+
     public string Name
     {
         get => _name;
@@ -112,6 +119,14 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         {
             if (!acceptUnusable)
                 throw rejection;
+
+            // Leniency is for text that arrived unusable from a file. A formula this library *did*
+            // understand and has now rewritten into one it does not means the rewrite is wrong, not
+            // the input — and the name would go quiet rather than fail: no exception, empty Ranges,
+            // and silent exclusion from every later shift and rename. Assert rather than swallow, for
+            // the same reason XLCellFormulaShifter catches only ParsingException.
+            Debug.Assert(!_isFormulaUnderstood,
+                $"A defined name's formula was understood and has been rewritten into one that is not: '{formula}'.");
 
             // The text is kept so the name is written back as it was found, but nothing resolves or
             // rewrites it: whatever references it holds, this library did not accept the formula.
