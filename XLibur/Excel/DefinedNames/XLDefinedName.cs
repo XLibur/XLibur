@@ -18,8 +18,10 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     private string _name;
     private string _formula = null!;
     private FormulaReferences _references = null!;
+    private bool _isFormulaUnderstood;
 
-    internal XLDefinedName(XLDefinedNames container, string name, bool validateName, string formula, string? comment)
+    internal XLDefinedName(XLDefinedNames container, string name, bool validateName, string formula, string? comment,
+        bool acceptUnusableFormula = false)
     {
         // Excel accepts invalid names per grammar (e.g. `[Foo]Bar`) as a valid name, and they can be
         // encountered in existing workbooks. We shouldn't throw exception on a load.
@@ -28,12 +30,19 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
         _container = container;
         _name = name;
-        RefersTo = formula;
+        SetFormula(formula, acceptUnusableFormula);
         Visible = true;
         Comment = comment;
     }
 
-    public bool IsValid => !_references.ContainsRefError;
+    public bool IsValid => _isFormulaUnderstood && !_references.ContainsRefError;
+
+    /// <summary>
+    /// Was the formula parsed and accepted? A name loaded from a workbook may carry text this library
+    /// cannot read, or a local reference it will not resolve, and everything that rewrites a formula
+    /// has to leave such text alone rather than guess at what the addresses inside it mean.
+    /// </summary>
+    internal bool IsFormulaUnderstood => _isFormulaUnderstood;
 
     public string Name
     {
@@ -66,35 +75,74 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     public string RefersTo
     {
         get => _formula;
-        set
+        set => SetFormula(value, acceptUnusable: false);
+    }
+
+    /// <summary>
+    /// Replaces the formula, keeping one the parser cannot read instead of rejecting it.
+    /// </summary>
+    /// <remarks>
+    /// Every internal rewrite goes through here: a rename, a sheet deletion and a row or column shift
+    /// all edit a formula that is already on the name, and none of them may fail because the text they
+    /// were handed was unreadable when the workbook was opened.
+    /// </remarks>
+    internal void SetRefersToUnchecked(string formula) => SetFormula(formula, acceptUnusable: true);
+
+    /// <summary>
+    /// Parses <paramref name="value"/> and stores it. When the formula turns out to be one this
+    /// library will not work with, <paramref name="acceptUnusable"/> decides between keeping the text
+    /// verbatim — the reader's choice, so that one bad name cannot stop a workbook from opening — and
+    /// telling the caller its formula is bad.
+    /// </summary>
+    private void SetFormula(string value, bool acceptUnusable)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var formula = value.TrimFormulaEqual();
+        var unusable = UnusableBecause(formula, out var references);
+        if (unusable is not null)
         {
-            ArgumentNullException.ThrowIfNull(value);
+            // ArgumentException, not the parser's own ParsingException: a caller that set a bad
+            // formula needs to hear about its argument, not about a dependency's internals.
+            if (!acceptUnusable)
+                throw new ArgumentException(unusable, nameof(value));
 
-            var formula = value.TrimFormulaEqual();
-            var references = FormulaReferences.ForFormula(formula);
-            if (references.References.Count > 0)
-            {
-                // `[MS-XLSX] 2.2.2.5: The formula MUST NOT use the local-cell-reference production
-                // rule.` Excel will refuse to load a workbook with such a defined name (e.g. `A1`).
-                // In theory, defined name should support bang references as a replacement for local
-                // references, but ClosedParser doesn't support it yet.
-                throw new ArgumentException($"Formula '{formula}' contains references without a sheet.");
-            }
-
-            _references = references;
+            // The text is kept so the name is written back as it was found, but nothing resolves or
+            // rewrites it: whatever references it holds, this library did not accept the formula.
+            _isFormulaUnderstood = false;
+            _references = new FormulaReferences();
             _formula = formula;
+            return;
         }
+
+        _isFormulaUnderstood = true;
+        _references = references;
+        _formula = formula;
+    }
+
+    /// <summary>
+    /// Why this library will not work with <paramref name="formula"/>, or <c>null</c> if it will.
+    /// </summary>
+    private static string? UnusableBecause(string formula, out FormulaReferences references)
+    {
+        if (!FormulaReferences.TryForFormula(formula, out references))
+            return $"Formula '{formula}' could not be parsed.";
+
+        if (references.References.Count > 0)
+        {
+            // `[MS-XLSX] 2.2.2.5: The formula MUST NOT use the local-cell-reference production
+            // rule.` Excel will refuse to load a workbook with such a defined name (e.g. `A1`).
+            // In theory, defined name should support bang references as a replacement for local
+            // references, but ClosedParser doesn't support it yet.
+            return $"Formula '{formula}' contains references without a sheet.";
+        }
+
+        return null;
     }
 
     IXLDefinedName IXLDefinedName.CopyTo(IXLWorksheet targetSheet) => CopyTo((XLWorksheet)targetSheet);
 
     void IXLDefinedName.Delete() => _container.Delete(Name);
-
-    /// <summary>
-    /// Get sheet references to found in the formula in A1. Doesn't return tables or name references,
-    /// only what has col/row coordinates.
-    /// </summary>
-    internal IReadOnlyList<string> GetSheetReferencesList() => _references.SheetReferences.Select(x => x.GetA1()).ToList();
 
     /// <summary>
     /// Try to resolve the first sheet reference in the formula to a worksheet and area.
@@ -203,7 +251,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         if (!_formula.Contains(prefixedRefError, StringComparison.OrdinalIgnoreCase))
             return;
 
-        RefersTo = _formula.Replace(prefixedRefError, RefError, StringComparison.OrdinalIgnoreCase);
+        SetRefersToUnchecked(_formula.Replace(prefixedRefError, RefError, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RenameFormulaSheet(string oldSheetName, string? newSheetName)
@@ -216,7 +264,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
         });
 
-        RefersTo = modified;
+        SetRefersToUnchecked(modified);
     }
 
     private static string RangeToFixed(IXLRangeBase range)

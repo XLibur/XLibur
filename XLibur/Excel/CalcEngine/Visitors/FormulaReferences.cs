@@ -34,12 +34,27 @@ internal sealed class FormulaReferences
     /// </summary>
     private HashSet<StructuredReference> StructuredReferences { get; } = new();
 
-    internal static FormulaReferences ForFormula(string formula)
+    /// <summary>
+    /// Collects the references of <paramref name="formula"/>, or answers <c>false</c> when the parser
+    /// cannot read it. A formula that fails half way through leaves a partly filled collector behind,
+    /// so the failure yields an empty one rather than that.
+    /// </summary>
+    internal static bool TryForFormula(string formula, out FormulaReferences references)
     {
-        var references = new FormulaReferences();
-        FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, references,
-            CollectRefsFactory.Instance);
-        return references;
+        var collected = new FormulaReferences();
+        try
+        {
+            FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, collected,
+                CollectRefsFactory.Instance);
+        }
+        catch (ParsingException)
+        {
+            references = new FormulaReferences();
+            return false;
+        }
+
+        references = collected;
+        return true;
     }
 
     internal bool ContainsSheet(string worksheetName)
