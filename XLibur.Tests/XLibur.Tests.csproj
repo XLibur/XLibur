@@ -34,8 +34,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
-    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.10.0" />
     <PackageReference Include="TUnit" Version="1.66.8" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.0" />
   </ItemGroup>
 
   <ItemGroup>

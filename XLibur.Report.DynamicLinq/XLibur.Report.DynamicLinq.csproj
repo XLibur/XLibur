@@ -43,7 +43,7 @@
             so the floor is not negotiable. Note that even a current version has no sandbox: see the
             security remarks on DynamicLinqExpressionEngine.
         -->
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.3" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.4" />
     </ItemGroup>
 
 </Project>
