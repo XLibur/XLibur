@@ -24,22 +24,32 @@ namespace XLibur.Tests.Excel.NamedRanges;
 public class DefinedNameLoadResilienceTests
 {
     /// <summary>
-    /// A one-sheet package whose workbook part carries a single defined name <c>x</c> with
+    /// A two-sheet package whose workbook part carries a single defined name <c>x</c> with
     /// <paramref name="refersToText"/> as its literal text.
     /// </summary>
-    private static MemoryStream BookWithRawDefinedName(string refersToText)
+    /// <param name="refersToText">The name's text, exactly as it should appear in the part.</param>
+    /// <param name="sheetName">The name of the first sheet. The second is always <c>Other</c>.</param>
+    /// <param name="scopeToFirstSheet">
+    /// Whether the name is scoped to the first sheet rather than to the workbook. Only a sheet-scoped
+    /// name can be copied to another sheet.
+    /// </param>
+    private static MemoryStream BookWithRawDefinedName(string refersToText, string sheetName = "Sheet1",
+        bool scopeToFirstSheet = false)
     {
         var package = new MemoryStream();
         using (var wb = new XLWorkbook())
         {
-            var ws = wb.AddWorksheet("Sheet1");
+            var ws = wb.AddWorksheet(sheetName);
+            wb.AddWorksheet("Other");
             ws.Cell("A1").Value = 1;
             wb.SaveAs(package);
         }
 
         return package.RewriteWorkbook(xml =>
         {
-            var definedNames = $"<x:definedNames><x:definedName name=\"x\">{refersToText}</x:definedName></x:definedNames>";
+            var scope = scopeToFirstSheet ? " localSheetId=\"0\"" : string.Empty;
+            var definedNames =
+                $"<x:definedNames><x:definedName name=\"x\"{scope}>{refersToText}</x:definedName></x:definedNames>";
             var rewritten = xml.Replace("<x:definedNames />", definedNames);
             if (ReferenceEquals(rewritten, xml) || !rewritten.Contains("definedName name=\"x\"", StringComparison.Ordinal))
                 throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
@@ -145,6 +155,80 @@ public class DefinedNameLoadResilienceTests
         wb.Worksheet("Sheet1").Delete();
 
         await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// Deleting a sheet drops the sheet prefix from a <c>#REF!</c> the deletion left behind, by
+    /// replacing that text wherever it appears. On a formula that was never parsed the match is a
+    /// coincidence of characters, not a reference — so the replacement must not happen.
+    /// </summary>
+    /// <param name="sheetName">
+    /// Both spellings matter: a simple name appears unquoted in a formula, one with a space appears
+    /// quoted, and the prefix being matched is built from whichever form the sheet needs.
+    /// </param>
+    /// <param name="refersToText">The name's text, carrying the prefix the deletion would match.</param>
+    [Test]
+    [Arguments("Sheet1", "SUM(Sheet1!#REF!")]
+    [Arguments("Sheet 1", "SUM(&apos;Sheet 1&apos;!#REF!")]
+    public async Task A_defined_name_the_parser_rejects_is_not_edited_by_a_sheet_delete(string sheetName, string refersToText)
+    {
+        using var package = BookWithRawDefinedName(refersToText, sheetName);
+        using var wb = new XLWorkbook(package);
+        var before = TheName(wb).RefersTo;
+
+        wb.Worksheet(sheetName).Delete();
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo(before);
+    }
+
+    /// <summary>
+    /// Copying a name rewrites its formula to name the target sheet, which needs a parse. A name that
+    /// never parsed is copied verbatim instead — the copy is as broken as the original, which is the
+    /// honest answer, and neither the copy nor the sheet copy that triggers it may fault.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_can_be_copied_to_another_sheet()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1", scopeToFirstSheet: true);
+        using var wb = new XLWorkbook(package);
+        var source = wb.Worksheet("Sheet1").DefinedNames.Single(dn => dn.Name == "x");
+
+        source.CopyTo(wb.Worksheet("Other"));
+
+        await Assert.That(wb.Worksheet("Other").DefinedNames.Single(dn => dn.Name == "x").RefersTo)
+            .IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    [Test]
+    public async Task A_worksheet_carrying_a_defined_name_the_parser_rejects_can_be_copied()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1", scopeToFirstSheet: true);
+        using var wb = new XLWorkbook(package);
+
+        var copy = wb.Worksheet("Sheet1").CopyTo("Copy");
+
+        await Assert.That(copy.DefinedNames.Single(dn => dn.Name == "x").RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// Where the leniency stops. Opening, saving and editing a workbook never need to know what an
+    /// unusable name means, so none of them fault on one. <em>Evaluating</em> a formula that uses the
+    /// name does need to know, and there is nothing to tell the caller but that the text cannot be
+    /// read — raised as XLibur's own type, on a workbook that previously could not be opened at all.
+    /// <para>
+    /// Excel answers <c>#NAME?</c> here rather than refusing, and returning that error value would be
+    /// the better answer. It is a change to evaluation semantics across three call sites, so it is
+    /// deliberately not made here; this test marks the boundary so that moving it is a decision.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task Evaluating_a_formula_that_uses_a_rejected_name_reports_the_unreadable_text()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+        using var wb = new XLWorkbook(package);
+        wb.Worksheet("Sheet1").Cell("B1").FormulaA1 = "SUM(x)";
+
+        await Assert.That(() => wb.Worksheet("Sheet1").Cell("B1").Value).Throws<ExpressionParseException>();
     }
 
     /// <summary>

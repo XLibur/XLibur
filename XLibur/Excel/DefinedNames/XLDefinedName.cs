@@ -198,12 +198,21 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             }
         }
 
-        var copiedFormula = FormulaTransformation.SafeModifyA1(_formula, sheet.Name, 1, 1, new RenameRefModVisitor
-        {
-            Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
-            Tables = tableRenames,
-        });
-        var copiedName = new XLDefinedName(targetSheet.DefinedNames, Name, false, copiedFormula, Comment);
+        // Re-pointing the formula at the target sheet needs a parse, which a formula that was never
+        // parsed cannot survive — SafeModifyA1 does not swallow the parser's exception, so the copy
+        // used to fault, and so did the whole-worksheet copy that reaches this. Such a name is copied
+        // verbatim: the copy is as broken as the original, which is the only honest answer for text
+        // whose meaning was never established.
+        var copiedFormula = _isFormulaUnderstood
+            ? FormulaTransformation.SafeModifyA1(_formula, sheet.Name, 1, 1, new RenameRefModVisitor
+            {
+                Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
+                Tables = tableRenames,
+            })
+            : _formula;
+
+        var copiedName = new XLDefinedName(targetSheet.DefinedNames, Name, false, copiedFormula, Comment,
+            acceptUnusableFormula: !_isFormulaUnderstood);
         return targetSheet.DefinedNames.Add(Name, copiedName);
     }
 
@@ -258,9 +267,17 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// <see cref="RenameFormulaSheet"/> never sees it and the prefix would outlive the sheet it names.
     /// Excel treats a defined name pointing at an absent sheet as a broken file, so drop the prefix and
     /// leave the bare <c>#REF!</c> that the rest of the deleted-sheet handling produces.
+    /// <para>
+    /// This is a text match rather than a reference walk, which is only sound on a formula that was
+    /// parsed and accepted. On one that was not, the same characters are a coincidence and not a
+    /// reference, so an unusable name keeps the text it was loaded with.
+    /// </para>
     /// </summary>
     private void DropSheetPrefixOfRefError(string worksheetName)
     {
+        if (!_isFormulaUnderstood)
+            return;
+
         var prefixedRefError = worksheetName.EscapeSheetName() + "!" + RefError;
         if (!_formula.Contains(prefixedRefError, StringComparison.OrdinalIgnoreCase))
             return;
