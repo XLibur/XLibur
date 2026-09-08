@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
@@ -30,7 +31,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
         _container = container;
         _name = name;
-        SetFormula(formula, acceptUnusableFormula);
+        SetFormula(formula, nameof(formula), acceptUnusableFormula);
         Visible = true;
         Comment = comment;
     }
@@ -75,18 +76,19 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     public string RefersTo
     {
         get => _formula;
-        set => SetFormula(value, acceptUnusable: false);
+        set => SetFormula(value, nameof(value), acceptUnusable: false);
     }
 
     /// <summary>
-    /// Replaces the formula, keeping one the parser cannot read instead of rejecting it.
+    /// Replaces the formula, keeping one this library will not work with instead of rejecting it.
     /// </summary>
     /// <remarks>
     /// Every internal rewrite goes through here: a rename, a sheet deletion and a row or column shift
     /// all edit a formula that is already on the name, and none of them may fail because the text they
-    /// were handed was unreadable when the workbook was opened.
+    /// were handed was unusable when the workbook was opened.
     /// </remarks>
-    internal void SetRefersToUnchecked(string formula) => SetFormula(formula, acceptUnusable: true);
+    internal void SetRefersToUnchecked(string formula)
+        => SetFormula(formula, nameof(formula), acceptUnusable: true);
 
     /// <summary>
     /// Parses <paramref name="value"/> and stores it. When the formula turns out to be one this
@@ -94,18 +96,22 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// verbatim — the reader's choice, so that one bad name cannot stop a workbook from opening — and
     /// telling the caller its formula is bad.
     /// </summary>
-    private void SetFormula(string value, bool acceptUnusable)
+    /// <param name="value">The formula to store.</param>
+    /// <param name="paramName">
+    /// The name <paramref name="value"/> has in the API the caller reached this through, so a rejection
+    /// names the parameter that was actually passed rather than whatever it was assigned to on the way.
+    /// </param>
+    /// <param name="acceptUnusable">Whether to keep an unusable formula rather than reject it.</param>
+    private void SetFormula(string value, string paramName, bool acceptUnusable)
     {
         ArgumentNullException.ThrowIfNull(value);
 
         var formula = value.TrimFormulaEqual();
-        var unusable = UnusableBecause(formula, out var references);
-        if (unusable is not null)
+        var rejection = RejectionOf(formula, paramName, out var references);
+        if (rejection is not null)
         {
-            // ArgumentException, not the parser's own ParsingException: a caller that set a bad
-            // formula needs to hear about its argument, not about a dependency's internals.
             if (!acceptUnusable)
-                throw new ArgumentException(unusable, nameof(value));
+                throw rejection;
 
             // The text is kept so the name is written back as it was found, but nothing resolves or
             // rewrites it: whatever references it holds, this library did not accept the formula.
@@ -121,12 +127,20 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     }
 
     /// <summary>
-    /// Why this library will not work with <paramref name="formula"/>, or <c>null</c> if it will.
+    /// The exception refusing <paramref name="formula"/>, or <c>null</c> if this library will work
+    /// with it.
     /// </summary>
-    private static string? UnusableBecause(string formula, out FormulaReferences references)
+    /// <remarks>
+    /// The two refusals are different failures and answer with different types. Text the parser cannot
+    /// read is an <see cref="ExpressionParseException"/>, which is what <see cref="IXLCell.FormulaA1"/>
+    /// already raises for the same input, and it carries the parser's own exception so the position it
+    /// reports survives. Text that parses but names a cell without a sheet was understood; the argument
+    /// is what is at fault, so that stays an <see cref="ArgumentException"/>.
+    /// </remarks>
+    private static Exception? RejectionOf(string formula, string paramName, out FormulaReferences references)
     {
-        if (!FormulaReferences.TryForFormula(formula, out references))
-            return $"Formula '{formula}' could not be parsed.";
+        if (!FormulaReferences.TryForFormula(formula, out references, out var failure))
+            return new ExpressionParseException(failure.Message, failure);
 
         if (references.References.Count > 0)
         {
@@ -134,7 +148,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             // rule.` Excel will refuse to load a workbook with such a defined name (e.g. `A1`).
             // In theory, defined name should support bang references as a replacement for local
             // references, but ClosedParser doesn't support it yet.
-            return $"Formula '{formula}' contains references without a sheet.";
+            return new ArgumentException($"Formula '{formula}' contains references without a sheet.", paramName);
         }
 
         return null;
@@ -206,7 +220,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
     public IXLDefinedName SetRefersTo(string formula)
     {
-        RefersTo = formula;
+        SetFormula(formula, nameof(formula), acceptUnusable: false);
         return this;
     }
 

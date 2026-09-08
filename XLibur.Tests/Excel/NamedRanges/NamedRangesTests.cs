@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Extensions;
 using System.Threading.Tasks;
 
@@ -11,16 +12,17 @@ namespace XLibur.Tests.Excel.NamedRanges;
 public class NamedRangesTests
 {
     /// <summary>
-    /// A formula the parser rejects is refused as a bad argument. It used to surface
-    /// <c>ClosedXML.Parser.ParsingException</c>, which named a dependency's internals rather than the
-    /// caller's argument, and which the reader could not tell apart from a genuine fault.
+    /// A formula the parser rejects is refused in XLibur's own exception type, the one
+    /// <c>IXLCell.FormulaA1</c> already raises for the same input. It used to surface
+    /// <c>ClosedXML.Parser.ParsingException</c>, which named a dependency's internals and which a
+    /// caller could not tell apart from a genuine fault.
     /// </summary>
     [Test]
     public async Task Formula_must_be_valid()
     {
         using var wb = new XLWorkbook();
         wb.AddWorksheet();
-        await Assert.That(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4")).Throws<ArgumentException>();
+        await Assert.That(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4")).Throws<ExpressionParseException>();
     }
 
     [Test]

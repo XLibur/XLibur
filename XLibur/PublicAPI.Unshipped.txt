@@ -448,3 +448,4 @@ XLibur.Excel.IXLPivotTable.ShowLastColumn.get -> bool
 XLibur.Excel.IXLPivotTable.ShowLastColumn.set -> void
 XLibur.Excel.IXLPivotTable.SetShowLastColumn() -> XLibur.Excel.IXLPivotTable!
 XLibur.Excel.IXLPivotTable.SetShowLastColumn(bool value) -> XLibur.Excel.IXLPivotTable!
+XLibur.Excel.CalcEngine.ExpressionParseException.ExpressionParseException(string! message, System.Exception! innerException) -> void

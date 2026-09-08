@@ -2,7 +2,9 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using ClosedXML.Parser;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Tests.Excel.IO;
 
 namespace XLibur.Tests.Excel.NamedRanges;
@@ -147,19 +149,80 @@ public class DefinedNameLoadResilienceTests
 
     /// <summary>
     /// Leniency is for the reader alone. Code that sets a formula gets told the formula is bad, and
-    /// gets told it in XLibur's own exception type rather than the parser's.
+    /// gets told it in XLibur's own exception type rather than the parser's — the same type
+    /// <c>IXLCell.FormulaA1</c> already raises for the same failure.
     /// </summary>
     [Test]
     [Arguments("")]
     [Arguments("   ")]
     [Arguments("SUM(Sheet1!$A$1")]
     [Arguments("@@@")]
-    public async Task Setting_RefersTo_to_a_formula_the_parser_rejects_throws_ArgumentException(string formula)
+    public async Task Setting_RefersTo_to_a_formula_the_parser_rejects_throws_ExpressionParseException(string formula)
     {
-        using var wb = new XLWorkbook();
-        wb.AddWorksheet("Sheet1");
-        var definedName = wb.DefinedNames.Add("x", "Sheet1!$A$1");
+        var definedName = NameOnASheet();
 
-        await Assert.That(() => definedName.RefersTo = formula).Throws<ArgumentException>();
+        await Assert.That(() => definedName.RefersTo = formula).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// The parser reports where a formula went wrong. Translating its exception into one of XLibur's
+    /// must not cost the caller that, so the position survives in both the message and the cause.
+    /// </summary>
+    [Test]
+    public async Task A_rejected_formula_keeps_the_parser_position_in_its_message()
+    {
+        var definedName = NameOnASheet();
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
+            .Throws<ExpressionParseException>();
+
+        await Assert.That(thrown!.Message).Contains("char 15");
+    }
+
+    [Test]
+    public async Task A_rejected_formula_keeps_the_parser_exception_as_its_cause()
+    {
+        var definedName = NameOnASheet();
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
+            .Throws<ExpressionParseException>();
+
+        await Assert.That(thrown!.InnerException).IsTypeOf<ParsingException>();
+    }
+
+    /// <summary>
+    /// A formula that parses but names a cell without a sheet is a different failure: the text was
+    /// understood, and the argument is the thing at fault. That has always been an
+    /// <see cref="ArgumentException"/> and stays one.
+    /// </summary>
+    [Test]
+    public async Task Setting_RefersTo_to_a_local_reference_throws_ArgumentException()
+    {
+        var definedName = NameOnASheet();
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "$A$1").Throws<ArgumentException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("value");
+    }
+
+    /// <summary>
+    /// The rejection names the parameter the caller actually passed, not the one it happens to be
+    /// assigned to on the way down.
+    /// </summary>
+    [Test]
+    public async Task SetRefersTo_names_its_own_parameter_when_it_rejects()
+    {
+        var definedName = NameOnASheet();
+
+        var thrown = await Assert.That(() => definedName.SetRefersTo("$A$1")).Throws<ArgumentException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("formula");
+    }
+
+    private static IXLDefinedName NameOnASheet()
+    {
+        var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1");
+        return wb.DefinedNames.Add("x", "Sheet1!$A$1");
     }
 }
