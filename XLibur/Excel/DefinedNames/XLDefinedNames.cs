@@ -78,12 +78,22 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             // A formula the parser could not read is left exactly as it was found. The regex fallback
             // inside the shifter would still match address-shaped text inside it, but rewriting text
             // whose meaning was never established is a guess, and such a name has to round-trip.
+            //
+            // A cell holding the same text does shift, because XLCellFormulaShifter falls back to that
+            // regex and a cell formula has to move or the sheet stops meaning anything. A name has no
+            // such obligation, so it takes the safer answer. The divergence is only reachable for an
+            // external reference written in the path form, 'ProperSheet'!A1 with a [Book2.xlsx] prefix,
+            // which the parser rejects; the indexed form Excel itself writes, [1]Sheet1!$A$1, parses and
+            // shifts here like anywhere else. Trading that for regex-rewriting genuinely broken text
+            // would cost the round-trip above, which is what makes loading such a name safe at all.
             if (!definedName.IsFormulaUnderstood)
                 continue;
 
             // A name that reaches no sheet has nothing a shift can move — a constant, a structured
             // reference, a bare #REF!. The answer is already cached from the parse that stored the
-            // formula, so those names stay free instead of costing a parse to discover it.
+            // formula, so those names stay free instead of costing a parse to discover it. This also
+            // means what reaches the shifter always names a sheet, and so is never the empty formula
+            // the shifter answers with an empty string.
             if (!definedName.HasSheetReferences)
                 continue;
 
@@ -93,10 +103,6 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             // refers to, which is the common case. Storing that again would parse the formula a second
             // time only to rebuild the references it already holds.
             if (ReferenceEquals(shifted, definedName.RefersTo))
-                continue;
-
-            // The shifter answers an empty string for an empty formula, which is not a re-pointing.
-            if (shifted.Length == 0)
                 continue;
 
             definedName.SetRefersToUnchecked(shifted);

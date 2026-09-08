@@ -211,6 +211,48 @@ public class DefinedNameLoadResilienceTests
     }
 
     /// <summary>
+    /// The indexed external reference Excel itself writes parses, so a name carrying one shifts like
+    /// any other. This is the form that matters in practice, and it keeps the divergence pinned below
+    /// to files XLibur did not produce.
+    /// </summary>
+    [Test]
+    public async Task A_name_holding_an_indexed_external_reference_still_shifts()
+    {
+        using var package = BookWithRawDefinedName("SUM([1]Sheet1!$A$1,Sheet1!$A$5)");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM([1]Sheet1!$A$1,Sheet1!$A$6)");
+    }
+
+    /// <summary>
+    /// A deliberate divergence from cells, recorded so that changing it is a decision. The path form
+    /// of an external reference is one the parser rejects, so the name is left alone; a cell holding
+    /// the byte-identical text shifts, because <c>XLCellFormulaShifter</c> falls back to a regex and a
+    /// cell formula has to move or the sheet stops meaning anything.
+    /// <para>
+    /// Routing names through that fallback too would move this reference, at the cost of regex-guessing
+    /// at genuinely broken text — and the round-trip the rest of this file pins is what makes loading
+    /// such a name safe. The form Excel writes is covered above, so nothing it produces lands here.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task A_name_holding_a_path_external_reference_is_left_alone_where_a_cell_would_shift()
+    {
+        const string formula = "SUM('[Book2.xlsx]Sheet1'!$A$1,Sheet1!$A$5)";
+        using var package = BookWithRawDefinedName(formula.Replace("'", "&apos;", StringComparison.Ordinal));
+        using var wb = new XLWorkbook(package);
+        var ws = wb.Worksheet("Sheet1");
+        ws.Cell("B1").FormulaA1 = formula;
+
+        ws.Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo(formula);
+        await Assert.That(ws.Cell("B2").FormulaA1).IsEqualTo("SUM('[Book2.xlsx]Sheet1'!$A$1,Sheet1!$A$6)");
+    }
+
+    /// <summary>
     /// Where the leniency stops. Opening, saving and editing a workbook never need to know what an
     /// unusable name means, so none of them fault on one. <em>Evaluating</em> a formula that uses the
     /// name does need to know, and there is nothing to tell the caller but that the text cannot be
@@ -306,6 +348,33 @@ public class DefinedNameLoadResilienceTests
         var thrown = await Assert.That(() => definedName.SetRefersTo("$A$1")).Throws<ArgumentException>();
 
         await Assert.That(thrown!.ParamName).IsEqualTo("formula");
+    }
+
+    /// <summary>
+    /// The null check runs before the formula is looked at, so it is the one rejection that could
+    /// still report the parameter it was assigned to rather than the one the caller named.
+    /// </summary>
+    [Test]
+    public async Task SetRefersTo_names_its_own_parameter_when_it_is_given_null()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.SetRefersTo((string)null!))
+            .Throws<ArgumentNullException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("formula");
+    }
+
+    [Test]
+    public async Task Setting_RefersTo_to_null_names_the_property_value()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.RefersTo = null!).Throws<ArgumentNullException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("value");
     }
 
     /// <summary>A workbook holding one sheet and one usable workbook-scoped name, <c>x</c>.</summary>

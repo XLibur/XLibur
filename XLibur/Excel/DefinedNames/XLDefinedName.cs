@@ -111,7 +111,9 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     /// <param name="acceptUnusable">Whether to keep an unusable formula rather than reject it.</param>
     private void SetFormula(string value, string paramName, bool acceptUnusable)
     {
-        ArgumentNullException.ThrowIfNull(value);
+        // paramName, not the implicit "value": this rejection names the caller's parameter like the
+        // ones below it, rather than the local it happens to have been assigned to.
+        ArgumentNullException.ThrowIfNull(value, paramName);
 
         var formula = value.TrimFormulaEqual();
         var rejection = RejectionOf(formula, paramName, out var references);
