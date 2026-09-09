@@ -48,8 +48,11 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
     /// leaves references to any other sheet alone, which is the same reasoning that let the
     /// hardcoded pass this replaced visit every worksheet.
     /// <para>
-    /// A reference that shifts to nothing is dropped from the list rather than left as an error, so
-    /// a name whose every reference is deleted ends up referring to an empty string.
+    /// The whole <c>RefersTo</c> formula is shifted, not the list of references it contains. Rebuilding
+    /// the formula from its references discarded everything around them — a name defined as
+    /// <c>OFFSET(Sheet1!$A$1,0,0,COUNTA(Sheet1!$A:$A),1)</c>, the usual growing-list idiom, came back
+    /// as the union of its own two arguments — and produced an empty formula for a name that had no
+    /// references to rebuild from at all.
     /// </para>
     /// </remarks>
     void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => MoveDefinedNames<RowAxis>(in edit);
@@ -72,14 +75,37 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
 
         foreach (var definedName in this)
         {
-            var sheetRefs = definedName.GetSheetReferencesList();
-            if (sheetRefs.Count == 0)
+            // A formula the parser could not read is left exactly as it was found. The regex fallback
+            // inside the shifter would still match address-shaped text inside it, but rewriting text
+            // whose meaning was never established is a guess, and such a name has to round-trip.
+            //
+            // A cell holding the same text does shift, because XLCellFormulaShifter falls back to that
+            // regex and a cell formula has to move or the sheet stops meaning anything. A name has no
+            // such obligation, so it takes the safer answer. The divergence is only reachable for an
+            // external reference written in the path form, 'ProperSheet'!A1 with a [Book2.xlsx] prefix,
+            // which the parser rejects; the indexed form Excel itself writes, [1]Sheet1!$A$1, parses and
+            // shifts here like anywhere else. Trading that for regex-rewriting genuinely broken text
+            // would cost the round-trip above, which is what makes loading such a name safe at all.
+            if (!definedName.IsFormulaUnderstood)
                 continue;
-            var newRangeList = sheetRefs
-                .Select(r => axis.ShiftFormula(r, sheet, range, shift))
-                .Where(newReference => newReference.Length > 0)
-                .ToList();
-            definedName.SetRefersTo(string.Join(",", newRangeList));
+
+            // A name that reaches no sheet has nothing a shift can move — a constant, a structured
+            // reference, a bare #REF!. The answer is already cached from the parse that stored the
+            // formula, so those names stay free instead of costing a parse to discover it. This also
+            // means what reaches the shifter always names a sheet, and so is never the empty formula
+            // the shifter answers with an empty string.
+            if (!definedName.HasSheetReferences)
+                continue;
+
+            var shifted = axis.ShiftFormula(definedName.RefersTo, sheet, range, shift);
+
+            // The shifter hands back the very instance it was given when the shift reached nothing it
+            // refers to, which is the common case. Storing that again would parse the formula a second
+            // time only to rebuild the references it already holds.
+            if (ReferenceEquals(shifted, definedName.RefersTo))
+                continue;
+
+            definedName.SetRefersToUnchecked(shifted);
         }
     }
 
@@ -137,7 +163,11 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
         if (validateRangeAddress)
             rangeAddress = ValidateAndResolveAddress(name, rangeAddress);
 
-        var namedRange = new XLDefinedName(this, name, validateName, rangeAddress, comment);
+        // A caller that skips address validation is reading an existing workbook, which may hold a
+        // name Excel accepted and this parser cannot read. One of those must not stop the whole file
+        // from opening, so the text is kept as found and the name reports itself invalid instead.
+        var namedRange = new XLDefinedName(this, name, validateName, rangeAddress, comment,
+            acceptUnusableFormula: !validateRangeAddress);
         _namedRanges.Add(name, namedRange);
         return namedRange;
     }

@@ -34,7 +34,7 @@ internal sealed class FormulaParser
         }
         catch (ParsingException ex)
         {
-            throw new ExpressionParseException(ex.Message);
+            throw new ExpressionParseException(ex.Message, ex);
         }
     }
 
