@@ -42,7 +42,7 @@
             GHSA-xw6w-9jjh-p9cr, GHSA-xcx6-vp38-8hr5 — unbounded parser recursion and
             allocation) were fixed there by enforcing safe default limits.
         -->
-        <PackageReference Include="Scriban" Version="7.2.6" />
+        <PackageReference Include="Scriban" Version="7.4.0" />
     </ItemGroup>
 
 </Project>

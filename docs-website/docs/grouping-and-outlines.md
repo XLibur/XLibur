@@ -107,6 +107,18 @@ Setting `OutlineLevel = 0` removes the row or column from the outline entirely â
 `Ungroup(fromAll: true)`.
 :::
 
+:::caution Files written before this release carry a wrong outline summary
+Setting a row's outline level used to count into the *column* outline tally. Two things followed:
+a sheet with grouped rows declared `sheetFormatPr/@outlineLevelRow="0"`, and every row group
+instead raised `@outlineLevelCol`, so a sheet with no grouped columns could still claim column
+outlines. Because loading a file also sets each row's outline level, opening a file with row
+groups and re-saving it inflated that file's `@outlineLevelCol` a little further each time.
+
+Opening such a file and saving it with a current build corrects both attributes. Per-row
+`row/@outlineLevel` was always written correctly, so only the sheet-level summary was ever wrong
+â€” what Excel renders is unaffected.
+:::
+
 ## Where the summary sits
 
 Excel assumes the summary row is *below* its detail and the summary column *right* of it, and

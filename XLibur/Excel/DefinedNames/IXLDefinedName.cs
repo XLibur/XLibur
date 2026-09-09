@@ -31,10 +31,14 @@ public interface IXLDefinedName
     string? Comment { get; set; }
 
     /// <summary>
-    /// Checks if the named range contains invalid references (#REF!).
+    /// Whether the name's formula was understood and holds no invalid references (#REF!).
     /// <para>
     /// <example>Defined name with a formula <c>SUM(#REF!A1, Sheet7!B4)</c> would return
-    /// <c>true</c>, because <c>#REF!A1</c> is an invalid reference.</example>
+    /// <c>false</c>, because <c>#REF!A1</c> is an invalid reference.</example>
+    /// </para>
+    /// <para>
+    /// A workbook can hold a name whose formula this library cannot read. It is loaded with its text
+    /// intact, so it is written back unchanged, and it reports <c>false</c> here.
     /// </para>
     /// </summary>
     bool IsValid { get; }

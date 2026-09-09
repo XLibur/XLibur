@@ -1,0 +1,388 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using ClosedXML.Parser;
+using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
+using XLibur.Tests.Excel.IO;
+
+namespace XLibur.Tests.Excel.NamedRanges;
+
+/// <summary>
+/// A defined name whose <c>refersTo</c> text the formula parser cannot read must not take the whole
+/// workbook down with it.
+/// </summary>
+/// <remarks>
+/// The reader handed the raw text straight to <c>IXLDefinedName.RefersTo</c>, whose setter parses it,
+/// so a single empty or malformed <c>&lt;definedName&gt;</c> — which Excel opens without complaint and
+/// third-party writers do emit — aborted the load with <c>ClosedXML.Parser.ParsingException</c>, an
+/// exception type from a dependency that tells a caller nothing about which file is at fault. The
+/// name is kept with its text intact instead, reported as invalid, and written back unchanged, which
+/// is what the print-area reader beside it already does for a formula it cannot resolve.
+/// </remarks>
+public class DefinedNameLoadResilienceTests
+{
+    /// <summary>
+    /// A two-sheet package whose workbook part carries a single defined name <c>x</c> with
+    /// <paramref name="refersToText"/> as its literal text.
+    /// </summary>
+    /// <param name="refersToText">The name's text, exactly as it should appear in the part.</param>
+    /// <param name="sheetName">The name of the first sheet. The second is always <c>Other</c>.</param>
+    /// <param name="scopeToFirstSheet">
+    /// Whether the name is scoped to the first sheet rather than to the workbook. Only a sheet-scoped
+    /// name can be copied to another sheet.
+    /// </param>
+    private static MemoryStream BookWithRawDefinedName(string refersToText, string sheetName = "Sheet1",
+        bool scopeToFirstSheet = false)
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet(sheetName);
+            wb.AddWorksheet("Other");
+            ws.Cell("A1").Value = 1;
+            wb.SaveAs(package);
+        }
+
+        return package.RewriteWorkbook(xml =>
+        {
+            var scope = scopeToFirstSheet ? " localSheetId=\"0\"" : string.Empty;
+            var definedNames =
+                $"<x:definedNames><x:definedName name=\"x\"{scope}>{refersToText}</x:definedName></x:definedNames>";
+            var rewritten = xml.Replace("<x:definedNames />", definedNames);
+            if (ReferenceEquals(rewritten, xml) || !rewritten.Contains("definedName name=\"x\"", StringComparison.Ordinal))
+                throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
+
+            return rewritten;
+        });
+    }
+
+    private static IXLDefinedName TheName(XLWorkbook wb) => wb.DefinedNames.Single(dn => dn.Name == "x");
+
+    [Test]
+    [Arguments("")]
+    [Arguments(" ")]
+    [Arguments("SUM(Sheet1!$A$1")]
+    [Arguments("@@@")]
+    public async Task A_defined_name_the_parser_rejects_does_not_abort_the_load(string refersToText)
+    {
+        using var package = BookWithRawDefinedName(refersToText);
+
+        using var wb = new XLWorkbook(package);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo(refersToText);
+    }
+
+    /// <summary>
+    /// A name whose formula is a bare local reference is one Excel itself refuses to open, so setting
+    /// one is an error. Refusing it is still not a reason to fail the whole load: the name is kept as
+    /// found, reported invalid, and written back so the file is no worse for having been opened.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_with_a_local_reference_does_not_abort_the_load()
+    {
+        using var package = BookWithRawDefinedName("$A$1");
+
+        using var wb = new XLWorkbook(package);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("$A$1");
+        await Assert.That(TheName(wb).IsValid).IsFalse();
+    }
+
+    [Test]
+    public async Task A_defined_name_with_a_local_reference_survives_a_row_insert()
+    {
+        using var package = BookWithRawDefinedName("$A$1");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("$A$1");
+    }
+
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_is_reported_as_invalid()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+
+        using var wb = new XLWorkbook(package);
+
+        await Assert.That(TheName(wb).IsValid).IsFalse();
+    }
+
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_round_trips_unchanged()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(package))
+            wb.SaveAs(saved);
+
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(TheName(reloaded).RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_survives_a_row_insert()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_survives_a_sheet_rename()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Name = "Renamed";
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_survives_a_sheet_delete()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Delete();
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// Deleting a sheet drops the sheet prefix from a <c>#REF!</c> the deletion left behind, by
+    /// replacing that text wherever it appears. On a formula that was never parsed the match is a
+    /// coincidence of characters, not a reference — so the replacement must not happen.
+    /// </summary>
+    /// <param name="sheetName">
+    /// Both spellings matter: a simple name appears unquoted in a formula, one with a space appears
+    /// quoted, and the prefix being matched is built from whichever form the sheet needs.
+    /// </param>
+    /// <param name="refersToText">The name's text, carrying the prefix the deletion would match.</param>
+    [Test]
+    [Arguments("Sheet1", "SUM(Sheet1!#REF!")]
+    [Arguments("Sheet 1", "SUM(&apos;Sheet 1&apos;!#REF!")]
+    public async Task A_defined_name_the_parser_rejects_is_not_edited_by_a_sheet_delete(string sheetName, string refersToText)
+    {
+        using var package = BookWithRawDefinedName(refersToText, sheetName);
+        using var wb = new XLWorkbook(package);
+        var before = TheName(wb).RefersTo;
+
+        wb.Worksheet(sheetName).Delete();
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo(before);
+    }
+
+    /// <summary>
+    /// Copying a name rewrites its formula to name the target sheet, which needs a parse. A name that
+    /// never parsed is copied verbatim instead — the copy is as broken as the original, which is the
+    /// honest answer, and neither the copy nor the sheet copy that triggers it may fault.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_the_parser_rejects_can_be_copied_to_another_sheet()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1", scopeToFirstSheet: true);
+        using var wb = new XLWorkbook(package);
+        var source = wb.Worksheet("Sheet1").DefinedNames.Single(dn => dn.Name == "x");
+
+        source.CopyTo(wb.Worksheet("Other"));
+
+        await Assert.That(wb.Worksheet("Other").DefinedNames.Single(dn => dn.Name == "x").RefersTo)
+            .IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    [Test]
+    public async Task A_worksheet_carrying_a_defined_name_the_parser_rejects_can_be_copied()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1", scopeToFirstSheet: true);
+        using var wb = new XLWorkbook(package);
+
+        var copy = wb.Worksheet("Sheet1").CopyTo("Copy");
+
+        await Assert.That(copy.DefinedNames.Single(dn => dn.Name == "x").RefersTo).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// The indexed external reference Excel itself writes parses, so a name carrying one shifts like
+    /// any other. This is the form that matters in practice, and it keeps the divergence pinned below
+    /// to files XLibur did not produce.
+    /// </summary>
+    [Test]
+    public async Task A_name_holding_an_indexed_external_reference_still_shifts()
+    {
+        using var package = BookWithRawDefinedName("SUM([1]Sheet1!$A$1,Sheet1!$A$5)");
+        using var wb = new XLWorkbook(package);
+
+        wb.Worksheet("Sheet1").Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo("SUM([1]Sheet1!$A$1,Sheet1!$A$6)");
+    }
+
+    /// <summary>
+    /// A deliberate divergence from cells, recorded so that changing it is a decision. The path form
+    /// of an external reference is one the parser rejects, so the name is left alone; a cell holding
+    /// the byte-identical text shifts, because <c>XLCellFormulaShifter</c> falls back to a regex and a
+    /// cell formula has to move or the sheet stops meaning anything.
+    /// <para>
+    /// Routing names through that fallback too would move this reference, at the cost of regex-guessing
+    /// at genuinely broken text — and the round-trip the rest of this file pins is what makes loading
+    /// such a name safe. The form Excel writes is covered above, so nothing it produces lands here.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task A_name_holding_a_path_external_reference_is_left_alone_where_a_cell_would_shift()
+    {
+        const string formula = "SUM('[Book2.xlsx]Sheet1'!$A$1,Sheet1!$A$5)";
+        using var package = BookWithRawDefinedName(formula.Replace("'", "&apos;", StringComparison.Ordinal));
+        using var wb = new XLWorkbook(package);
+        var ws = wb.Worksheet("Sheet1");
+        ws.Cell("B1").FormulaA1 = formula;
+
+        ws.Row(1).InsertRowsAbove(1);
+
+        await Assert.That(TheName(wb).RefersTo).IsEqualTo(formula);
+        await Assert.That(ws.Cell("B2").FormulaA1).IsEqualTo("SUM('[Book2.xlsx]Sheet1'!$A$1,Sheet1!$A$6)");
+    }
+
+    /// <summary>
+    /// Where the leniency stops. Opening, saving and editing a workbook never need to know what an
+    /// unusable name means, so none of them fault on one. <em>Evaluating</em> a formula that uses the
+    /// name does need to know, and there is nothing to tell the caller but that the text cannot be
+    /// read — raised as XLibur's own type, on a workbook that previously could not be opened at all.
+    /// <para>
+    /// Excel answers <c>#NAME?</c> here rather than refusing, and returning that error value would be
+    /// the better answer. It is a change to evaluation semantics across three call sites, so it is
+    /// deliberately not made here; this test marks the boundary so that moving it is a decision.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task Evaluating_a_formula_that_uses_a_rejected_name_reports_the_unreadable_text()
+    {
+        using var package = BookWithRawDefinedName("SUM(Sheet1!$A$1");
+        using var wb = new XLWorkbook(package);
+        wb.Worksheet("Sheet1").Cell("B1").FormulaA1 = "SUM(x)";
+
+        await Assert.That(() => wb.Worksheet("Sheet1").Cell("B1").Value).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// Leniency is for the reader alone. Code that sets a formula gets told the formula is bad, and
+    /// gets told it in XLibur's own exception type rather than the parser's — the same type
+    /// <c>IXLCell.FormulaA1</c> already raises for the same failure.
+    /// </summary>
+    [Test]
+    [Arguments("")]
+    [Arguments("   ")]
+    [Arguments("SUM(Sheet1!$A$1")]
+    [Arguments("@@@")]
+    public async Task Setting_RefersTo_to_a_formula_the_parser_rejects_throws_ExpressionParseException(string formula)
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        await Assert.That(() => definedName.RefersTo = formula).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// The parser reports where a formula went wrong. Translating its exception into one of XLibur's
+    /// must not cost the caller that, so the position survives in both the message and the cause.
+    /// </summary>
+    [Test]
+    public async Task A_rejected_formula_keeps_the_parser_position_in_its_message()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
+            .Throws<ExpressionParseException>();
+
+        await Assert.That(thrown!.Message).Contains("char 15");
+    }
+
+    [Test]
+    public async Task A_rejected_formula_keeps_the_parser_exception_as_its_cause()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "SUM(Sheet1!$A$1")
+            .Throws<ExpressionParseException>();
+
+        await Assert.That(thrown!.InnerException).IsTypeOf<ParsingException>();
+    }
+
+    /// <summary>
+    /// A formula that parses but names a cell without a sheet is a different failure: the text was
+    /// understood, and the argument is the thing at fault. That has always been an
+    /// <see cref="ArgumentException"/> and stays one.
+    /// </summary>
+    [Test]
+    public async Task Setting_RefersTo_to_a_local_reference_throws_ArgumentException()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.RefersTo = "$A$1").Throws<ArgumentException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("value");
+    }
+
+    /// <summary>
+    /// The rejection names the parameter the caller actually passed, not the one it happens to be
+    /// assigned to on the way down.
+    /// </summary>
+    [Test]
+    public async Task SetRefersTo_names_its_own_parameter_when_it_rejects()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.SetRefersTo("$A$1")).Throws<ArgumentException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("formula");
+    }
+
+    /// <summary>
+    /// The null check runs before the formula is looked at, so it is the one rejection that could
+    /// still report the parameter it was assigned to rather than the one the caller named.
+    /// </summary>
+    [Test]
+    public async Task SetRefersTo_names_its_own_parameter_when_it_is_given_null()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.SetRefersTo((string)null!))
+            .Throws<ArgumentNullException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("formula");
+    }
+
+    [Test]
+    public async Task Setting_RefersTo_to_null_names_the_property_value()
+    {
+        using var wb = BookWithAUsableName();
+        var definedName = TheName(wb);
+
+        var thrown = await Assert.That(() => definedName.RefersTo = null!).Throws<ArgumentNullException>();
+
+        await Assert.That(thrown!.ParamName).IsEqualTo("value");
+    }
+
+    /// <summary>A workbook holding one sheet and one usable workbook-scoped name, <c>x</c>.</summary>
+    private static XLWorkbook BookWithAUsableName()
+    {
+        var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("x", "Sheet1!$A$1");
+        return wb;
+    }
+}

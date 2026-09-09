@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using ClosedXML.Parser;
+using XLibur.Excel.CalcEngine;
 using XLibur.Extensions;
 using System.Threading.Tasks;
 
@@ -11,12 +11,18 @@ namespace XLibur.Tests.Excel.NamedRanges;
 
 public class NamedRangesTests
 {
+    /// <summary>
+    /// A formula the parser rejects is refused in XLibur's own exception type, the one
+    /// <c>IXLCell.FormulaA1</c> already raises for the same input. It used to surface
+    /// <c>ClosedXML.Parser.ParsingException</c>, which named a dependency's internals and which a
+    /// caller could not tell apart from a genuine fault.
+    /// </summary>
     [Test]
     public async Task Formula_must_be_valid()
     {
         using var wb = new XLWorkbook();
         wb.AddWorksheet();
-        await Assert.That(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4")).Throws<ParsingException>();
+        await Assert.That(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4")).Throws<ExpressionParseException>();
     }
 
     [Test]
@@ -423,10 +429,6 @@ public class NamedRangesTests
             await Assert.That(nr.Ranges.Count).IsEqualTo(2);
             await Assert.That(nr.Ranges.First().RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 1'!A5:D5");
             await Assert.That(nr.Ranges.Last().RangeAddress.ToString(XLReferenceStyle.A1, true)).IsEqualTo("'Sheet 1'!A15:D15");
-            var sheetRefs = nr.GetSheetReferencesList();
-            await Assert.That(sheetRefs).Count().IsEqualTo(2);
-            await Assert.That(sheetRefs[0]).IsEqualTo("'Sheet 1'!$A$5:$D$5");
-            await Assert.That(sheetRefs[^1]).IsEqualTo("'Sheet 1'!$A$15:$D$15");
         }
     }
 

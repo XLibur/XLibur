@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using ClosedXML.Parser;
 using XLibur.Excel.Coordinates;
@@ -34,12 +35,30 @@ internal sealed class FormulaReferences
     /// </summary>
     private HashSet<StructuredReference> StructuredReferences { get; } = new();
 
-    internal static FormulaReferences ForFormula(string formula)
+    /// <summary>
+    /// Collects the references of <paramref name="formula"/>, or answers <c>false</c> and hands back
+    /// the parser's own exception in <paramref name="failure"/>. A formula that fails half way through
+    /// leaves a partly filled collector behind, so the failure yields an empty one rather than that.
+    /// </summary>
+    internal static bool TryForFormula(string formula, out FormulaReferences references,
+        [NotNullWhen(false)] out ParsingException? failure)
     {
-        var references = new FormulaReferences();
-        FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, references,
-            CollectRefsFactory.Instance);
-        return references;
+        var collected = new FormulaReferences();
+        try
+        {
+            FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, collected,
+                CollectRefsFactory.Instance);
+        }
+        catch (ParsingException ex)
+        {
+            references = new FormulaReferences();
+            failure = ex;
+            return false;
+        }
+
+        references = collected;
+        failure = null;
+        return true;
     }
 
     internal bool ContainsSheet(string worksheetName)
