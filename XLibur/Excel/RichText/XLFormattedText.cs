@@ -154,14 +154,15 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
         var startIndex = index - lastPosition;
 
         // Splitting a run only divides its text - each piece keeps the very same font, so a run that
-        // stated no formatting of its own yields pieces that state none either. Dropping the flag
+        // stated no formatting of its own yields pieces that state none either. Dropping the flags
         // here would materialize the inherited cell font as an explicit rPr on save.
         var inherits = rt.InheritsContainerFont;
+        var stated = rt.StatedProperties;
 
         switch (startIndex)
         {
             case > 0:
-                newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this, OnContentChanged, inherits));
+                newRichTexts.Add(new XLRichString(rt.Text.Substring(0, startIndex), rt, this, OnContentChanged, inherits, stated));
                 break;
             case < 0:
                 startIndex = 0;
@@ -172,12 +173,12 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
         if (leftToTake > rt.Text.Length - startIndex)
             leftToTake = rt.Text.Length - startIndex;
 
-        var newRt = new XLRichString(rt.Text.Substring(startIndex, leftToTake), rt, this, OnContentChanged, inherits);
+        var newRt = new XLRichString(rt.Text.Substring(startIndex, leftToTake), rt, this, OnContentChanged, inherits, stated);
         newRichTexts.Add(newRt);
         retVal.AddText(newRt);
 
         if (startIndex + leftToTake < rt.Text.Length)
-            newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this, OnContentChanged, inherits));
+            newRichTexts.Add(new XLRichString(rt.Text.Substring(startIndex + leftToTake), rt, this, OnContentChanged, inherits, stated));
     }
 
     public IXLFormattedText<T> CopyFrom(IXLFormattedText<T> original)

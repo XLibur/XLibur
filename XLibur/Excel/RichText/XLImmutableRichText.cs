@@ -160,6 +160,12 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
         /// </summary>
         internal readonly bool InheritsCellFont;
 
+        /// <summary>
+        /// Which of the run's properties the source stated, for those it would otherwise inherit
+        /// unnoticed. See <see cref="XLRichString.StatedProperties"/>.
+        /// </summary>
+        internal readonly XLStatedRunProperties StatedProperties;
+
         internal RichTextRun(XLRichString richString, int startIndex, int length)
         {
             var key = XLFont.GenerateKey(richString);
@@ -167,12 +173,14 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
             StartIndex = startIndex;
             Length = length;
             InheritsCellFont = richString.InheritsContainerFont;
+            StatedProperties = richString.StatedProperties;
         }
 
         public bool Equals(RichTextRun other)
         {
             return StartIndex == other.StartIndex && Length == other.Length && Font.Equals(other.Font)
-                   && InheritsCellFont == other.InheritsCellFont;
+                   && InheritsCellFont == other.InheritsCellFont
+                   && StatedProperties == other.StatedProperties;
         }
 
         public override bool Equals(object? obj)
@@ -188,6 +196,7 @@ internal sealed class XLImmutableRichText : IEquatable<XLImmutableRichText>
                 hashCode = (hashCode * 397) ^ Length;
                 hashCode = (hashCode * 397) ^ Font.GetHashCode();
                 hashCode = (hashCode * 397) ^ (InheritsCellFont ? 1 : 0);
+                hashCode = (hashCode * 397) ^ (int)StatedProperties;
                 return hashCode;
             }
         }

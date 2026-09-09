@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.Drawings;
 using XLibur.Excel.IO;
+using XLibur.Excel.RichText;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using XLibur.Utils;
@@ -684,7 +685,8 @@ public partial class XLWorkbook
             var runProperties = run.RunProperties;
             var text = run.Text!.InnerText.FixNewLines();
             var rt = xlComment.AddText(text);
-            StyleDecoder.ApplyRunFont(runProperties, rt);
+            var stated = StyleDecoder.ApplyRunFont(runProperties, rt);
+            ((XLRichString)rt).SetStatedProperties(stated);
         }
 
         // Comments can have text not wrapped in a Run element (e.g., Google Sheets exports)

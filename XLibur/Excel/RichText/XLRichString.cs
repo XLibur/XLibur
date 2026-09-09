@@ -12,13 +12,14 @@ internal sealed class XLRichString : IXLRichString, IEquatable<XLRichString>
     private string _text;
 
     public XLRichString(string text, IXLFontBase font, IXLWithRichString withRichString, Action? onChange,
-        bool inheritsContainerFont = false)
+        bool inheritsContainerFont = false, XLStatedRunProperties statedProperties = XLStatedRunProperties.All)
     {
         _text = text;
         _font = new XLFont(font);
         _withRichString = withRichString;
         _onChange = onChange ?? (() => { });
         InheritsContainerFont = inheritsContainerFont;
+        StatedProperties = statedProperties;
     }
 
     /// <summary>
@@ -30,6 +31,33 @@ internal sealed class XLRichString : IXLRichString, IEquatable<XLRichString>
     /// and clears this.
     /// </summary>
     internal bool InheritsContainerFont { get; private set; }
+
+    /// <summary>
+    /// Which properties of the run's <c>&lt;rPr&gt;</c> the source actually stated. Only the ones a
+    /// run would otherwise inherit unnoticed are tracked; see <see cref="XLStatedRunProperties"/>.
+    /// Like <see cref="InheritsContainerFont"/>, any change to the font makes the whole formatting
+    /// the run's own.
+    /// </summary>
+    internal XLStatedRunProperties StatedProperties { get; private set; }
+
+    /// <summary>
+    /// Records what the source stated, for a run the loader built through the ordinary
+    /// <c>AddText</c> path. Must be called after the run's font has been applied, because applying
+    /// it marks the formatting as the run's own. The container is notified like it is for any other
+    /// change - the cell snapshots its rich text on every notification, and the snapshot taken while
+    /// the font was being applied still says the run stated everything.
+    /// </summary>
+    internal void SetStatedProperties(XLStatedRunProperties statedProperties)
+    {
+        // Only when it actually changes: the container re-interns its whole rich text on every
+        // notification, and a run that stated everything - which is every run XLibur itself wrote -
+        // would otherwise churn the shared string table for no change at all.
+        if (StatedProperties == statedProperties)
+            return;
+
+        StatedProperties = statedProperties;
+        _onChange();
+    }
 
     public string Text
     {
@@ -48,6 +76,7 @@ internal sealed class XLRichString : IXLRichString, IEquatable<XLRichString>
     private void OnFontChanged()
     {
         InheritsContainerFont = false;
+        StatedProperties = XLStatedRunProperties.All;
         _onChange();
     }
 

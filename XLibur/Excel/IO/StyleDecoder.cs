@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.RichText;
 using XLibur.Extensions;
 using XLibur.Utils;
 
@@ -556,11 +557,12 @@ internal static class StyleDecoder
     /// else is written only when the run states the element.
     /// </para>
     /// </remarks>
-    internal static void ApplyRunFont(RunProperties? runProperties, IXLFontBase fontBase)
+    internal static XLStatedRunProperties ApplyRunFont(RunProperties? runProperties, IXLFontBase fontBase)
     {
         if (runProperties is null)
-            return;
+            return XLStatedRunProperties.None;
 
+        var stated = XLStatedRunProperties.None;
         var key = RunFontKey(runProperties, XLFont.GenerateKey(fontBase));
 
         fontBase.Bold = key.Bold;
@@ -572,7 +574,10 @@ internal static class StyleDecoder
         }
 
         if (runProperties.Elements<FontFamily>().Any(f => f.Val is not null))
+        {
             fontBase.FontFamilyNumbering = key.FontFamilyNumbering;
+            stated |= XLStatedRunProperties.FontFamilyNumbering;
+        }
 
         if (runProperties.Elements<RunFont>().Any(f => f.Val is not null))
             fontBase.FontName = key.FontName;
@@ -588,7 +593,10 @@ internal static class StyleDecoder
             fontBase.Underline = key.Underline;
 
         if (runProperties.Elements<VerticalTextAlignment>().Any())
+        {
             fontBase.VerticalAlignment = key.VerticalAlignment;
+            stated |= XLStatedRunProperties.VerticalAlignment;
+        }
 
         if (runProperties.Elements<FontScheme>().Any())
             fontBase.FontScheme = key.FontScheme;
@@ -597,6 +605,8 @@ internal static class StyleDecoder
         // cannot disturb the intermediate states the writes above produce for a run that has none.
         if (runProperties.Elements<RunPropertyCharSet>().Any(c => c.Val is not null))
             fontBase.FontCharSet = key.FontCharSet;
+
+        return stated;
     }
 
     /// <summary>
