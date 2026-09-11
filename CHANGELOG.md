@@ -37,6 +37,40 @@
 
 - **`XLWorkbook.EvaluateExpr` can now be called from several threads at once.** The method is static and every caller shared one engine, whose parse cache could not be filled from two threads at the same time. Two threads evaluating the same new expression both missed the cache, and the second threw `ArgumentException: An item with the same key has already been added` from a call that had nothing to do with the other thread. Each thread now has its own engine. A workbook itself is still not safe to use from several threads.
 
+### Changed
+
+- The formula parser is now `XLibur.ClosedXML.Parser`, our fork of `ClosedXML.Parser`, in
+  place of the community package at 2.0.0. The assembly name and the `ClosedXML.Parser`
+  namespace are unchanged, so nothing in XLibur's own source moved and no public API of
+  XLibur changed. The community package's last release was 2.0.0 in April 2025, and its
+  `develop` branch is a half-finished 3.0 rewrite with no 2.0.x line to take a patch, so
+  there was no route to ship a parser fix — see
+  [#313](https://github.com/XLibur/XLibur/issues/313). Consumers see a different package in
+  their dependency graph; a project that also pulls in `ClosedXML.Parser` gets both, and the
+  fork wins on assembly version without a build warning.
+
+### Fixed
+
+Carried in from the forked parser, each verified against 2.0.0:
+
+- A defined name or formula holding a structured reference whose whole inner reference is a
+  keyword list — `Sales[[#Headers],[#Data]]` — no longer throws `IndexOutOfRangeException`
+  out of the parser.
+- An R1C1 round trip no longer fails under a culture whose negative sign is U+2212
+  (`sv-SE`, `fi-FI`, `nb-NO`). The writer used the current culture, emitting `R[−1]C[−1]`,
+  which the reader could not read back.
+- A sheet name is quoted the way Excel's file format requires rather than the way its
+  formula bar displays it: 41 codepoints in the first position and 37 in a later one were
+  left unquoted where Excel quotes, and for some of them Excel refuses to open the workbook.
+  A sheet named `TRUE` or `FALSE` is now quoted too.
+- Malformed UTF-16 is treated as invalid input instead of throwing. Text ending in a lone
+  high surrogate threw `IndexOutOfRangeException`, and a high surrogate followed by anything
+  else threw `ArgumentOutOfRangeException`.
+- An R1C1 axis number of zero is refused. `C0` parsed as if it were `C`, so it silently
+  became a whole-column reference instead of the defined name it is.
+- The called cell of a cell function is read in the formula's own reference style. In R1C1,
+  `R7C3(TRUE)` was read as the A1 cell `R7` and the `C3` was discarded.
+
 ## v0.400.0 - 2026-09-01
 
 ### ⚠️ Breaking Changes

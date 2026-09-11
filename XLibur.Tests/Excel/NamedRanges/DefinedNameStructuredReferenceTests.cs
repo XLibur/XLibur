@@ -16,10 +16,10 @@ namespace XLibur.Tests.Excel.NamedRanges;
 /// than always answering with the first column's data.
 /// </para>
 /// <para>
-/// The two-specifier form Excel writes as <c>Sales[[#Headers],[#Data]]</c> is not covered: it
-/// throws inside ClosedXML.Parser while the formula is being parsed, before any of this is
-/// reached, so it is not something resolution can answer for either way. The resolver does handle
-/// the combination once a formula carrying it parses.
+/// The two-specifier form Excel writes as <c>Sales[[#Headers],[#Data]]</c> used to throw
+/// <see cref="System.IndexOutOfRangeException"/> inside ClosedXML.Parser while the formula was
+/// being parsed, before any of this was reached. It parses on XLibur.ClosedXML.Parser, and the
+/// resolver already handled the combination, so it is covered here.
 /// </para>
 /// </remarks>
 public class DefinedNameStructuredReferenceTests
@@ -182,6 +182,27 @@ public class DefinedNameStructuredReferenceTests
         table.Resize(ws.Range("A1:A4"));
 
         await Assert.That(name.Ranges.Single().RangeAddress.ToString()).IsEqualTo("A2:A4");
+    }
+
+    /// <summary>
+    /// Two area specifiers select the span between them, the form Excel writes when a selection
+    /// crosses the header or totals boundary.
+    /// </summary>
+    /// <remarks>
+    /// This is the case that used to abort with <c>IndexOutOfRangeException</c> out of
+    /// ClosedXML.Parser 2.0.0, where a keyword list forming the whole inner reference — no column
+    /// name after it — ran off the end of an array. Reachable from an ordinary load, so the
+    /// exception escaped as a load failure rather than as a bad name. Fixed in
+    /// XLibur.ClosedXML.Parser; see https://github.com/XLibur/XLibur/issues/313.
+    /// </remarks>
+    [Test]
+    [Arguments("Sales[[#Headers],[#Data]]", "A1:C3")]
+    [Arguments("Sales[[#Data],[#Totals]]", "A2:C4")]
+    public async Task TwoAreaSpecifiersSelectTheSpanBetweenThem(string formula, string expected)
+    {
+        using var wb = TableBook();
+
+        await Assert.That(RangesOf(wb, formula)).IsEquivalentTo(new[] { expected });
     }
 
     /// <summary>A table with no totals row has no totals to point at.</summary>
