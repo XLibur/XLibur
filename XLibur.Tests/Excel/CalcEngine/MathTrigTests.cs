@@ -1431,6 +1431,14 @@ public class MathTrigTests
     }
 
     [Test]
+    public async Task MDeterm_matrix_with_an_all_zero_column_returns_zero()
+    {
+        // No row can pivot the first column, which the LU decomposition reported by throwing
+        // rather than by the determinant it implies.
+        await Assert.That(XLWorkbook.EvaluateExpr("MDETERM({0,1;0,2})")).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task MDeterm_requires_all_array_elements_are_numbers()
     {
         using var wb = new XLWorkbook();
@@ -1490,6 +1498,12 @@ public class MathTrigTests
             (1, 2),
         });
         await Assert.That(ws.Evaluate("MINVERSE(A1:B2)")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    public async Task MInverse_matrix_with_an_all_zero_column_returns_error()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("MINVERSE({0,1;0,2})")).IsEqualTo(XLError.NumberInvalid);
     }
 
     [Test]

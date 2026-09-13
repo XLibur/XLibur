@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Text.RegularExpressions;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 #pragma warning disable S1244 // Intentional exact float comparison for Excel formula compatibility
 
@@ -116,7 +117,7 @@ internal sealed class XLMatrix
                 k0 = i;
             }
         }
-        return p == 0 ? throw new InvalidOperationException("The matrix is singular!") : k0;
+        return p == 0 ? throw new SingularMatrixException() : k0;
     }
 
     private void SwapLuRows(int k, int k0)
