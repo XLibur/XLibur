@@ -312,9 +312,9 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         {
             currentValue = Value;
         }
-        catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
+        catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.TolerantRead, ex) == EvaluationOutcome.NoValue)
         {
-            // The formula cannot be evaluated - a cycle, an unimplemented function.
+            // The formula cannot be evaluated - a cycle, an unsupported feature.
             value = default!;
             return false;
         }
@@ -340,7 +340,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             // Need to get actual value because formula might be out of date or value wasn't set at all
             value = Value;
         }
-        catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
+        catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.TolerantRead, ex) == EvaluationOutcome.NoValue)
         {
             // A formula that cannot be evaluated shows what was last calculated for it.
             value = CachedValue;

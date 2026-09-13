@@ -492,26 +492,18 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         };
 
         // MissingContextException is internal, so letting it out of a public Evaluate hands the
-        // caller an exception they cannot name, let alone catch. XLFunctionLibrary.TryInvoke has
-        // always translated it here; these entry points did not, and threw the internal type
-        // instead — while IXLWorkbook and IXLWorksheet documented it by cref and
-        // PublicSurfaceTests asserted it must never become visible. Found by fuzzing (D37).
+        // caller an exception they cannot name, let alone catch. Found by fuzzing (D37).
+        // EvaluationPolicy raises it as the public type, and is the one place that is written.
         //
-        // The whole body is inside the try, not just the evaluation. The first version of this
-        // fix wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
+        // The whole body is translated, not just the evaluation. The first version of the D37 fix
+        // wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
         // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
         // the formula address just as much, so `V1,VBL1` still threw the internal type.
-        try
-        {
-            return EvaluateAndReduce(expression, ctx);
-        }
-        catch (MissingContextException e)
-        {
-            throw new XLNoWorksheetContextException(
-                $"'{expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
-                + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.",
-                e);
-        }
+        return EvaluationPolicy.RaiseMissingContextAsPublic(
+            (Engine: this, Expression: expression, Context: ctx),
+            static s => s.Engine.EvaluateAndReduce(s.Expression, s.Context),
+            static s => $"'{s.Expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
+                        + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.");
     }
 
     /// <summary>

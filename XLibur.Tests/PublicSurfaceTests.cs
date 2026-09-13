@@ -51,6 +51,9 @@ public class PublicSurfaceTests
         "XLibur.Excel.CalcEngine.Exceptions.EvaluationFailureKind",
         "XLibur.Excel.CalcEngine.Exceptions.UnsupportedFeatureException",
         "XLibur.Excel.CalcEngine.Exceptions.GettingDataException",
+        "XLibur.Excel.CalcEngine.EvaluationPolicy",
+        "XLibur.Excel.CalcEngine.EvaluationEntryPoint",
+        "XLibur.Excel.CalcEngine.EvaluationOutcome",
     ];
 
     [Test]

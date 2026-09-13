@@ -36,7 +36,8 @@ internal enum EvaluationFailureKind
 /// A kind is known by its exception type, and each type means one kind. That is why an unsupported
 /// feature is raised as <see cref="UnsupportedFeatureException"/> rather than as a plain
 /// <see cref="NotImplementedException"/>: a plain one, thrown anywhere in the library, is a defect.
-/// What an entry point does with each kind is <c>EvaluationPolicy</c>'s business, not this class's.
+/// What an entry point does with each kind is <see cref="EvaluationPolicy"/>'s business, not this
+/// class's.
 /// </remarks>
 internal static class EvaluationFailure
 {
@@ -52,11 +53,4 @@ internal static class EvaluationFailure
         GettingDataException => EvaluationFailureKind.Pending,
         _ => EvaluationFailureKind.Defect,
     };
-
-    /// <summary>
-    /// Whether <paramref name="exception"/> is a failure a formula can legitimately produce, rather
-    /// than a defect or the engine's own pending signal.
-    /// </summary>
-    internal static bool IsExpected(Exception exception) =>
-        Classify(exception) is not (EvaluationFailureKind.Defect or EvaluationFailureKind.Pending);
 }

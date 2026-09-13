@@ -137,6 +137,27 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// The policy table itself, cell by cell. It also covers the cells <see cref="Matrix"/> cannot
+    /// reach from outside, such as save meeting a missing context now that a cell always has one.
+    /// </summary>
+    [Test]
+    public async Task The_policy_table()
+    {
+        var kinds = Enum.GetValues<EvaluationFailureKind>();
+        var rows = Enum.GetValues<EvaluationEntryPoint>()
+            .Select(entry => $"{entry}: " + string.Join(", ", kinds.Select(kind => EvaluationPolicy.For(entry, kind))));
+
+        await Assert.That(string.Join("\n", rows)).IsEqualTo(
+            //                 Cycle,      Unsupported, Refused,    NoContext, Pending, Defect
+            "CellValue: Throw, Throw, Throw, Throw, Throw, Throw\n"
+            + "TolerantRead: NoValue, NoValue, NoValue, NoValue, Throw, Throw\n"
+            + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
+            + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
+            + "Recalculation: Throw, Throw, Throw, Throw, Throw, Throw\n"
+            + "Save: LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty");
+    }
+
+    /// <summary>
     /// D57. <c>wb.Evaluate</c> on a dirty cell used to throw an internal exception with the message
     /// "Exception of type … was thrown", while <c>ws.Evaluate</c> on the same cell answered.
     /// </summary>

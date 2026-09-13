@@ -99,18 +99,11 @@ public sealed class XLFunctionLibrary
         // relative to. Functions that reach for one throw, and are translated below.
         var context = new CalcContext(_engine, _culture, workbook: null, worksheet: null, formulaAddress: null);
 
-        AnyValue value;
-        try
-        {
-            value = definition.CallFunction(context, args.AsSpan());
-        }
-        catch (MissingContextException ex)
-        {
-            throw new XLNoWorksheetContextException(
-                $"'{name}' needs a worksheet to be relative to, and was called without one. "
-                + "Use it in a cell formula instead.",
-                ex);
-        }
+        var value = EvaluationPolicy.RaiseMissingContextAsPublic(
+            (Definition: definition, Context: context, Arguments: args, Name: name),
+            static s => s.Definition.CallFunction(s.Context, s.Arguments.AsSpan()),
+            static s => $"'{s.Name}' needs a worksheet to be relative to, and was called without one. "
+                        + "Use it in a cell formula instead.");
 
         result = ToCellValue(value);
         return true;
