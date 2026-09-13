@@ -73,8 +73,19 @@
   its text is kept as written. The parser used to write every reference again, so a rename also
   dropped quotes a sheet name doesn't need (`'Wk2'!C5` became `Wk2!C5`), collapsed a one-cell
   area (`'Org Chart'!D5:D5` became `'Org Chart'!D5`) and dropped the whitespace before a formula.
+- The parser is now `XLibur.ClosedXML.Parser` 3.1.0. It refuses a sheet name no workbook could
+  hold, and a rename to one. XLibur already refused those names when a sheet is added, renamed or
+  loaded, so no workbook XLibur can open reads differently.
 
 ### Fixed
+
+From 3.1.0:
+
+- A structured reference with an item that holds nothing but whitespace, such as `Table1[ ]` or
+  `Table1[[#Data], ]`, throws `ExpressionParseException` when it is parsed, instead of an
+  `IndexOutOfRangeException` from inside the parser.
+- A structured reference item that starts with a tick-escaped `#` after a space, such as
+  `Table1[ '#]`, is read as the column `#` instead of throwing `NotSupportedException`.
 
 From 3.0.0:
 
