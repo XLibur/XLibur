@@ -38,8 +38,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             UnaryOp.Subtract => arg.UnaryMinus(context),
             UnaryOp.Percentage => arg.UnaryPercent(context),
             UnaryOp.SpillRange => EvaluateSpillRange(context, arg),
-            UnaryOp.ImplicitIntersection => throw new NotImplementedException(
-                "Excel 2016 implicit intersection is different from @ intersection of E2019+"),
+            UnaryOp.ImplicitIntersection => EvaluateImplicitIntersection(context, arg),
             _ => throw new NotSupportedException($"Unknown operator {node.Operation}.")
         };
     }
@@ -139,6 +138,31 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, FileNode node)
         => throw new InvalidOperationException("Node should never be visited.");
+
+    /// <summary>
+    /// Evaluates the <c>@</c> implicit intersection operator (e.g. <c>@A1:A10</c>): a range gives the
+    /// cell on the formula's row or column, an array its top-left element, and anything else itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A range that the formula's row and column both miss, or a reference of more than one area, is
+    /// <c>#VALUE!</c>. The result of a range is a reference rather than its value, so the operand of
+    /// <c>:</c> in <c>D3:@A1:A2</c> and the argument of <c>ROW(@A1:A10)</c> are still references.
+    /// </para>
+    /// <para>
+    /// This is the operator Excel 2019 and later show in a formula. It differs from the implicit
+    /// intersection that legacy Excel applies silently, <see cref="AnyValue.ImplicitIntersection"/>,
+    /// only for an array: the silent one applies where a scalar is expected and leaves an array
+    /// alone, while <c>@</c> applies wherever it is written, so it reduces an array too.
+    /// </para>
+    /// </remarks>
+    private static AnyValue EvaluateImplicitIntersection(CalcContext context, AnyValue operand)
+    {
+        if (operand.TryPickArray(out var array))
+            return array![0, 0].ToAnyValue();
+
+        return operand.ImplicitIntersection(context);
+    }
 
     /// <summary>
     /// Evaluates the <c>#</c> spill-range operator (e.g. <c>A1#</c>): resolves the operand to a
