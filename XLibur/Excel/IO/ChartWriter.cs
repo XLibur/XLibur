@@ -87,15 +87,6 @@ internal static class ChartWriter
 
     // ── Extended chart writing (Sunburst, Treemap, Waterfall, Funnel, BoxWhisker) ──
 
-    /// <summary>
-    /// Counter for generating unique extended chart part URIs.
-    /// Reset per save operation via the SaveContext lifecycle.
-    /// </summary>
-    [ThreadStatic]
-    private static int _extChartCounter;
-
-    internal static void ResetExtendedChartCounter() => _extChartCounter = 0;
-
     private static void WriteExtendedChart(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -113,8 +104,8 @@ internal static class ChartWriter
         // xl/drawings/extendedCharts/ which Excel rejects. Excel expects extended
         // charts at xl/charts/chartExN.xml. Use the IPackageFeature to access the
         // underlying System.IO.Packaging.Package and create the part at the correct URI.
-        _extChartCounter++;
-        var partUri = new Uri($"/xl/charts/chartEx{_extChartCounter}.xml", UriKind.Relative);
+        var chartNumber = ++context.ExtendedChartCount;
+        var partUri = new Uri($"/xl/charts/chartEx{chartNumber}.xml", UriKind.Relative);
 
 #pragma warning disable OOXML0001 // Experimental API needed to place ExtendedChartPart at xl/charts/
         var package = PackageExtensions.GetPackage(worksheetPart.OpenXmlPackage);
@@ -134,7 +125,7 @@ internal static class ChartWriter
 
         // Create relationship from DrawingsPart to the chart part using relative path
         // Excel requires relative target URIs for extended chart relationships
-        var relativeTarget = new Uri("../charts/chartEx" + _extChartCounter + ".xml", UriKind.Relative);
+        var relativeTarget = new Uri("../charts/chartEx" + chartNumber + ".xml", UriKind.Relative);
         var drawingsPackagePart = package.GetPart(drawingsPart.Uri);
         drawingsPackagePart.Relationships.Create(
             relativeTarget,
@@ -143,7 +134,7 @@ internal static class ChartWriter
             chartRelId);
 
         // Excel requires chart style and color files for extended charts
-        WriteExtendedChartStyleAndColor(package, packagePart, _extChartCounter);
+        WriteExtendedChartStyleAndColor(package, packagePart, chartNumber);
 
         AppendExtendedAnchor(worksheetDrawing, xlChart, chartRelId);
 

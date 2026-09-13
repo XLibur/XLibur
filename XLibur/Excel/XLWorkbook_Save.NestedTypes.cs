@@ -72,6 +72,12 @@ public partial class XLWorkbook
         /// </summary>
         public uint? DynamicArrayMetaIndex { get; set; }
 
+        /// <summary>
+        /// How many extended charts (<c>chartEx</c> parts) this save has written. Their part names
+        /// are numbered from it, so they start again at <c>chartEx1</c> in every save.
+        /// </summary>
+        public int ExtendedChartCount { get; set; }
+
         internal int GetSharedStringId(XLCell xlCell, string text)
         {
             return GetSharedStringId(xlCell.MemorySstId, xlCell.SheetPoint);
