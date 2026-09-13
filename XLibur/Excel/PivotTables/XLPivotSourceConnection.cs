@@ -40,8 +40,11 @@ internal sealed class XLPivotSourceConnection : IXLPivotSource
         return HashCode.Combine(ConnectionId).GetHashCode();
     }
 
+    /// <summary>XLibur cannot read through a data connection, so there is never a sheet area to report.</summary>
     public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea)
     {
-        throw new NotImplementedException("Pivot cache source using a connection is not supported.");
+        sheet = null;
+        sheetArea = null;
+        return false;
     }
 }

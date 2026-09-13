@@ -18,9 +18,9 @@ internal interface IXLPivotSource : IEquatable<IXLPivotSource>
     XLPivotSourceKind Kind { get; }
 
     /// <summary>
-    /// Try to determine actual area of the source reference in the
-    /// workbook. Source reference might not be valid in the workbook, some might
-    /// not be supported.
+    /// Try to determine actual area of the source reference in the workbook. Answers
+    /// <c>false</c>, rather than throwing, both for a reference that no longer resolves and for a
+    /// kind XLibur cannot read at all; <see cref="Kind"/> is what tells the two apart.
     /// </summary>
     bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea);
 }

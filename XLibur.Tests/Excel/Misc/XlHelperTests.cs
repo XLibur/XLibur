@@ -13,6 +13,13 @@ public class XlHelperTests
     }
 
     [Test]
+    public async Task An_empty_column_letter_is_reported_as_empty_not_as_null()
+    {
+        await Assert.That(() => XLHelper.GetColumnNumberFromLetter("")).ThrowsExactly<ArgumentException>();
+        await Assert.That(() => XLHelper.GetColumnNumberFromLetter(null!)).ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task InvalidA1Addresses()
     {
         await Assert.That(XLHelper.IsValidA1Address("")).IsFalse();

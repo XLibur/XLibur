@@ -12,7 +12,7 @@
          TreatWarningsAsErrors in Directory.Build.props already covers this; the rule is kept
          explicit so that it survives if that is ever relaxed again. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
-    <NoWarn>$(NoWarn);NU1605;CS1591;CS1658;CS1584;</NoWarn>
+    <NoWarn>$(NoWarn);CS1658;CS1584</NoWarn>
     <!-- TUnit runs on Microsoft.Testing.Platform rather than VSTest. -->
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>

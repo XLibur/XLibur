@@ -70,19 +70,7 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     public string? SourceName => (Source as XLPivotSourceReference)?.Name;
 
-    public IXLWorksheet? SourceWorksheet
-    {
-        get
-        {
-            // Only these two can resolve to a sheet at all. The others throw from TryGetSource
-            // rather than returning false, and a property that reports "no worksheet" by throwing
-            // would be no use to a caller deciding what to do about a pivot it cannot re-point.
-            if (Source.Kind is not (XLPivotSourceKind.Range or XLPivotSourceKind.Name))
-                return null;
-
-            return Source.TryGetSource(_workbook, out var sheet, out _) ? sheet : null;
-        }
-    }
+    public IXLWorksheet? SourceWorksheet => Source.TryGetSource(_workbook, out var sheet, out _) ? sheet : null;
 
     /// <summary>
     /// Number of fields in the cache.
@@ -93,6 +81,12 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     public IXLPivotCache Refresh()
     {
+        // A source XLibur cannot read is out of scope, not broken, and a caller tells it apart from a
+        // reference that no longer resolves by the exception type.
+        if (Source.Kind is not (XLPivotSourceKind.Range or XLPivotSourceKind.Name))
+            throw new NotSupportedException(
+                $"A pivot cache whose source is {Source.Kind} cannot be refreshed: XLibur cannot read that data.");
+
         // Refresh can only happen if the reference is valid.
         if (!Source.TryGetSource(_workbook, out var sheet, out var foundArea))
             throw new InvalidReferenceException();
