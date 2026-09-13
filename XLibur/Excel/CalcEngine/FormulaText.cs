@@ -66,7 +66,7 @@ internal static class FormulaText
     /// name and does not read it as a range operator. It is one UTF-16 character, the same width as
     /// the colon, so every <see cref="SymbolRange"/> the parser reports indexes the original text.
     /// </summary>
-    internal const char ColonPlaceholder = '：';
+    private const char ColonPlaceholder = '：';
 
     /// <summary>The prefix a file puts on a future function, for example <c>_xlfn.CONCAT</c>.</summary>
     private const string FuturePrefix = "_xlfn.";
@@ -269,7 +269,7 @@ internal static class FormulaText
     /// for plain ranges like <c>SUM(A1:A10)</c>) cost nothing beyond the scan.
     /// </para>
     /// </summary>
-    internal static string ProtectStructuredRefColons(string formula, out bool wasProtected)
+    private static string ProtectStructuredRefColons(string formula, out bool wasProtected)
     {
         wasProtected = false;
 

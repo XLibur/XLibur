@@ -8,7 +8,7 @@ name	SUM(WbName)	6	none	0,0	SUM(WbName)	SUM(WbName)	SUM(WbName)	SUM(WbName)	fals
 sheet_qualified_name	Sheet1!Local	5	none	0,0	Sheet1!Local	Data!Local	Sheet1!Local	Sheet1!Local	false
 bang_name	!Local	5	none	0,0	!Local	!Local	!Local	!Local	false
 structured_reference	COUNTA(Table1[Name])	2	ranges Sheet1!E2:E3	0,0	COUNTA(Table1[Name])	COUNTA(Table1[Name])	COUNTA(Table1[Name])	COUNTA(Table1[Name])	false
-colon_in_column_name	SUM(Table1[Start: Date])	7	none	0,0	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	false
+colon_in_column_name	SUM(Table1[Start: Date])	7	ranges Sheet1!F2:F3	0,0	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	false
 external_reference	[1]Sheet1!A1	#REF!	none	0,0	[1]Sheet1!A1	[1]Sheet1!A1	[1]Sheet1!R[-2]C[-2]	[1]Sheet1!A1	false
 external_formula_bar_form	'[Book2.xlsx]Sheet1'!A1	THROWS ExpressionParseException	REFUSED	1048576,16384	'[Book2.xlsx]Sheet1'!A1	THROWS ParsingException	THROWS ExpressionParseException	'[Book2.xlsx]Sheet1'!A1	false
 function_call	SUM(A1:C1)	6	local A1:C1	1,3	SUM(A1:C1)	SUM(A1:C1)	SUM(R[-2]C[-2]:R[-2]C)	SUM(A1:C1)	false

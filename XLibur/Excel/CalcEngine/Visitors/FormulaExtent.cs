@@ -41,19 +41,12 @@ internal readonly struct FormulaExtent
             return new FormulaExtent { MaxRow = 0, MaxColumn = 0 };
 
         var collector = new ExtentCollector();
-        try
-        {
-            FormulaParser<object?, object?, ExtentCollector>.CellFormulaA1(
-                FormulaText.ProtectStructuredRefColons(formulaA1, out _),
-                collector,
-                ExtentVisitor.Instance);
-        }
-        catch (ParsingException)
-        {
-            // ParsingException specifically, as XLCellFormulaShifter catches it: a formula the
-            // parser rejects is what this fallback is for, and the shifter parses the same text next.
+
+        // Only a refusal reports the whole sheet, just as only a refusal sends the shifter to its
+        // fallback: the shifter parses the same text next, and the fallback is what a refused formula
+        // needs.
+        if (!FormulaText.TryWalk(formulaA1, collector, ExtentVisitor.Instance, FormulaNotation.A1, out _, out _))
             return Unbounded;
-        }
 
         return new FormulaExtent { MaxRow = collector.MaxRow, MaxColumn = collector.MaxColumn };
     }

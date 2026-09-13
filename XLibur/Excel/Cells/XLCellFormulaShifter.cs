@@ -57,16 +57,12 @@ internal static partial class XLCellFormulaShifter
         if (string.IsNullOrWhiteSpace(formulaA1))
             return string.Empty;
 
-        var parseable = FormulaText.ProtectStructuredRefColons(formulaA1, out var wasProtected);
-        var plan = new ShiftPlan(shiftedSheetName, worksheetInAction.Name, parseable, map);
-        try
-        {
-            FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
-        }
-        // ParsingException specifically, not Exception: the fallback exists for formulas the parser
-        // cannot read, and nothing else. A bug in ShiftPlan used to be caught here and answered with a
-        // plausible-looking result from the other implementation instead of surfacing.
-        catch (ParsingException)
+        var plan = new ShiftPlan(shiftedSheetName, worksheetInAction.Name, formulaA1, map);
+
+        // Only a refusal reaches the fallback: it exists for formulas the parser cannot read, and
+        // nothing else. A bug in ShiftPlan used to be caught here and answered with a plausible-looking
+        // result from the other implementation instead of surfacing.
+        if (!FormulaText.TryWalk(formulaA1, plan, ShiftCollector.Instance, FormulaNotation.A1, out _, out _))
         {
             // Not ShiftUnparseable: there is no batch regex shifter, so the map is decomposed into runs
             // and the single-block fallback is applied once per run. That is a different operation, and
@@ -89,8 +85,9 @@ internal static partial class XLCellFormulaShifter
         if (!plan.HasEdits)
             return formulaA1;
 
-        var shifted = plan.Apply(parseable);
-        return wasProtected ? shifted.Replace(FormulaText.ColonPlaceholder, ':') : shifted;
+        // Every span the parser reported indexes the formula as written: FormulaText hid each colon in a
+        // column name behind a character of the same width. So the edits apply to the formula directly.
+        return plan.Apply(formulaA1);
     }
 
     private static string Shift(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange, int shift,
@@ -102,11 +99,6 @@ internal static partial class XLCellFormulaShifter
         if (shift == 0 || !shiftedRange.RangeAddress.IsValid)
             return formulaA1;
 
-        // Colons inside single-bracket structured reference column names would be read as range
-        // operators. The placeholder is the same width as the colon it replaces, so every SymbolRange
-        // the parser reports still indexes correctly into the original formula.
-        var parseable = FormulaText.ProtectStructuredRefColons(formulaA1, out var wasProtected);
-
         // Every worksheet's formulas are visited, not just the shifted sheet's, so that a formula on
         // one sheet referring to the shifted sheet is repointed too. Which references those are depends
         // on both names: a qualified reference names its sheet outright, while an unqualified one means
@@ -115,29 +107,25 @@ internal static partial class XLCellFormulaShifter
         var plan = new ShiftPlan(
             shiftedSheetName: shiftedRange.Worksheet.Name,
             formulaSheetName: worksheetInAction.Name,
-            parseable,
+            formulaA1,
             shiftedRange,
             shift,
             axis);
-        try
-        {
-            FormulaParser<object?, object?, ShiftPlan>.CellFormulaA1(parseable, plan, ShiftCollector.Instance);
-        }
-        // ParsingException specifically, not Exception: the fallback exists for formulas the parser
-        // cannot read, and nothing else. A bug in ShiftPlan used to be caught here and answered with a
-        // plausible-looking result from the other implementation instead of surfacing.
-        catch (ParsingException)
-        {
+
+        // Only a refusal reaches the fallback: it exists for formulas the parser cannot read, and
+        // nothing else. A bug in ShiftPlan used to be caught here and answered with a plausible-looking
+        // result from the other implementation instead of surfacing.
+        if (!FormulaText.TryWalk(formulaA1, plan, ShiftCollector.Instance, FormulaNotation.A1, out _, out _))
             return ShiftUnparseable(formulaA1, worksheetInAction, shiftedRange, shift, axis);
-        }
 
         // The common case by a wide margin: the shift cannot reach anything this formula refers to.
         // Returning the original instance means an unaffected formula costs a parse and nothing else.
         if (!plan.HasEdits)
             return formulaA1;
 
-        var shifted = plan.Apply(parseable);
-        return wasProtected ? shifted.Replace(FormulaText.ColonPlaceholder, ':') : shifted;
+        // Every span the parser reported indexes the formula as written: FormulaText hid each colon in a
+        // column name behind a character of the same width. So the edits apply to the formula directly.
+        return plan.Apply(formulaA1);
     }
 
     /// <summary>

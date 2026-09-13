@@ -154,7 +154,7 @@ public class FormulaTextCorpusTests
     {
         if (!FormulaReferences.TryForFormula(text, out var references, out var failure))
         {
-            return failure is ParsingException || failure.InnerException is ParsingException
+            return failure.InnerException is ParsingException
                 ? "REFUSED"
                 : "FAILS " + failure.GetType().Name;
         }
