@@ -59,13 +59,26 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal bool HasSpillOwners => _spillOwners.Count > 0;
 
     public XLCalcEngine(CultureInfo culture)
+        : this(culture, FunctionTable)
+    {
+    }
+
+    /// <summary>
+    /// An engine that parses and evaluates against <paramref name="functions"/> instead of the
+    /// built-in function table.
+    /// </summary>
+    /// <remarks>
+    /// A test seam. A test can register a function that fails the way a defect in XLibur would,
+    /// which is the only way to make a defect happen on purpose: every function in the real table
+    /// is meant to have no such failure left in it.
+    /// </remarks>
+    internal XLCalcEngine(CultureInfo culture, FunctionRegistry functions)
     {
         _culture = culture;
         _cache = new ExpressionCache(this);
-        var funcRegistry = FunctionTable;
-        Functions = funcRegistry;
-        _parser = new FormulaParser(funcRegistry);
-        _visitor = new CalculationVisitor(funcRegistry);
+        Functions = functions;
+        _parser = new FormulaParser(functions);
+        _visitor = new CalculationVisitor(functions);
         _dependencyTree = null;
         _chain = null;
     }

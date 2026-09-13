@@ -1185,6 +1185,10 @@ public partial class XLWorkbook : IXLWorkbook
     internal XLCalcEngine CalcEngine
     {
         get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture); }
+
+        // A test seam, for an engine over a function table of the test's own. Set it before any
+        // formula is evaluated: the engine it replaces is dropped with its dependency tree and chain.
+        set { _calcEngine = value; }
     }
 
     public XLCellValue Evaluate(string expression)
