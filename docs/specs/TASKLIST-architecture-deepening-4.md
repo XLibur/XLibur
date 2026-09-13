@@ -85,13 +85,14 @@ two variants worth naming:
 
 ## 2. Owner actions before dispatch
 
-Spec 55 needs four Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stay
+Spec 55 needs three pairs of Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stay
 blocked until they exist; the implementing agent does not guess.
 
 - [ ] `rename-before.xlsx` / `rename-after.xlsx`
 - [ ] `delete-before.xlsx` / `delete-after.xlsx`
 - [ ] `refdelete-before.xlsx` / `refdelete-after.xlsx`
-- [ ] `chartsheet-name.xlsx`
+- [x] ~~`chartsheet-name.xlsx`~~ — not needed: task 7 uses the existing
+  `PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx` (owner, 2026-09-14)
 
 Specs 54 and 56 need none.
 

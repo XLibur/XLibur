@@ -136,7 +136,7 @@ Two further sheet-list defects (R):
 | Q33 | The `Sheet!#REF!` fix goes in the parser fork. |
 | Q34 | Deleting an endpoint sheet narrows a 3D reference, as in Excel. The narrowing lives in XLibur's rename visitor; the fork supplies the hook. |
 | Q35 | The fork change is this spec's task 0: one fork release, 4.0.0 (planned as 3.2.0; design §1 says why it changed). |
-| Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. |
+| Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. On 2026-09-14 the owner replaced `chartsheet-name.xlsx` with an existing Excel-authored file (design §5), so three fixture pairs remain to make. |
 
 ## Non-goals
 
@@ -265,7 +265,7 @@ same edit in XLibur, saves, and compares each holder's text with "after".
 | `rename-before.xlsx` / `rename-after.xlsx` | Sheets `Data`, `Other`. `Data!A1:A3` = 1, 2, 3; `Data!B1:B3` = x, y, z; `Data!C1` = "S". On `Other`: `A1` = `=Data!A1*2`. `B1`: data validation, List, source `=Data!$A$1:$A$3`. `C1`: conditional format, "Use a formula", `=Data!$A$1>0`. `C2:C4`: a colour scale whose minimum is type *Formula*, `=Data!$A$1`. A column chart with one series: values `=Data!$A$1:$A$3`, categories `=Data!$B$1:$B$3`, name `=Data!$C$1`. A pivot table from source `Data!$A$1:$B$3`, after adding headers in row 1 and shifting the data down (so the source is `Data!$A$1:$B$4`). `D1`: a hyperlink, *Place in this document*, `Data!A1`. Names: `W` (workbook) `=Data!$A$1`; `L` (scope `Other`) `=Data!$A$1`; `Local` (scope `Data`) `=Data!$B$1`; `Q` (workbook) `=Data!Local`. On `Data`, a print area `=OFFSET(Data!$A$1,0,0,3,2)` (Name Manager → `Print_Area`, scope `Data`) | Rename `Data` to `Renamed` |
 | `delete-before.xlsx` / `delete-after.xlsx` | As `rename-before`, plus sheets `First` and `Last` placed so the tab order is `First`, `Data`, `Last`, `Other`, each with a number in `A1`. Names: `T1` (workbook) `=SUM(First:Last!$A$1)`; `T2` `=SUM(Data:Last!$A$1)` | Delete `First`, then delete `Data` |
 | `refdelete-before.xlsx` / `refdelete-after.xlsx` | Sheets `Data`, `Other`. Name `R` `=Data!$A$5`. Delete row 5 on `Data`, so `R` reads `=Data!#REF!`. Save this as "before" | Delete `Data` |
-| `chartsheet-name.xlsx` | A workbook with a chartsheet named `Chart1` and a worksheet `Sheet1` | none — used to assert that `Add("Chart1")` and renaming `Sheet1` to `Chart1` are refused |
+| ~~`chartsheet-name.xlsx`~~ **not needed** | Replaced by owner decision on 2026-09-14 with the existing Excel-authored `XLibur.Tests/Resource/Other/PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx`: worksheets `Data` and `Pivot`, chartsheet `Chart` | none — used to assert that `Add("Chart")` and renaming `Data` to `Chart` are refused |
 
 If Excel refuses an edit, or asks a question (for example, deleting a sheet that holds the pivot
 table's source), record Excel's prompt and the choice made in *Results*.
@@ -344,7 +344,8 @@ old text in the part.
 
 ### Task 7 — The sheet list
 
-The `Position` setter and the unsupported-sheet name check, with `chartsheet-name.xlsx`.
+The `Position` setter and the unsupported-sheet name check, with
+`PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx` (design §5).
 
 ### Task 8 — Cost, recorded
 
