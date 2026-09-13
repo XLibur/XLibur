@@ -305,23 +305,31 @@ internal sealed class CalcContext : IStructuredReferenceScope
         }
 
         yield break;
+    }
 
-        static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)
-        {
-            if (formula is null)
-                return false;
+    /// <summary>
+    /// The nesting check that <see cref="GetFilteredNonBlankValues"/> applies to each cell, for one
+    /// formula on its own: would a SUBTOTAL or AGGREGATE over a cell holding
+    /// <paramref name="formulaA1"/> skip that cell?
+    /// </summary>
+    internal static bool IsSkippedByNestingCheck(string formulaA1, string[] functions)
+        => CallsFunction(XLCellFormula.NormalA1(formulaA1), new FunctionVisitor(functions));
 
-            if (!visitor.MightBeCalledBy(formula.A1))
-                return false;
+    private static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)
+    {
+        if (formula is null)
+            return false;
 
-            FormulaParser<object?, object?, FunctionVisitor>.CellFormulaA1(formula.A1, visitor, visitor);
-            if (!visitor.Found)
-                return false;
+        if (!visitor.MightBeCalledBy(formula.A1))
+            return false;
 
-            // To reuse same visitor without allocation, clear the found flag.
-            visitor.Clear();
-            return true;
-        }
+        FormulaParser<object?, object?, FunctionVisitor>.CellFormulaA1(formula.A1, visitor, visitor);
+        if (!visitor.Found)
+            return false;
+
+        // To reuse same visitor without allocation, clear the found flag.
+        visitor.Clear();
+        return true;
     }
 
     /// <summary>
