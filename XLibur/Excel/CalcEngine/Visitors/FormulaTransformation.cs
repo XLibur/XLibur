@@ -41,9 +41,9 @@ internal static class FormulaTransformation
         }
         catch (Exception)
         {
-            // Parser doesn't support all formula constructs (e.g. external workbook
-            // references like '[file.xlsx]Sheet'!A1). If parsing fails, the formula
-            // can't contain a future function that needs remapping, so return as-is.
+            // A caller can set text the parser rightly refuses, such as an external reference
+            // in the form the formula bar shows, '[file.xlsx]Sheet'!A1 (a file stores [1]Sheet!A1).
+            // Text that doesn't parse can't have a future function to remap, so return it as-is.
             return formula;
         }
     }
@@ -63,21 +63,37 @@ internal static class FormulaTransformation
     /// Wrapper around <see cref="FormulaConverter.ToR1C1"/> that protects colons inside
     /// single-bracket structured reference column names.
     /// </summary>
+    /// <exception cref="ExpressionParseException">The formula can't be parsed.</exception>
     internal static string SafeToR1C1(string formulaA1, int row, int column)
     {
-        var protected_ = ProtectStructuredRefColons(formulaA1, out var wasProtected);
-        var result = FormulaConverter.ToR1C1(protected_, row, column);
-        return wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+        return Convert(formulaA1, row, column, FormulaConverter.ToR1C1);
     }
 
     /// <summary>
     /// Wrapper around <see cref="FormulaConverter.ToA1"/> that protects colons inside
     /// single-bracket structured reference column names.
     /// </summary>
+    /// <exception cref="ExpressionParseException">The formula can't be parsed.</exception>
     internal static string SafeToA1(string formulaR1C1, int row, int column)
     {
-        var protected_ = ProtectStructuredRefColons(formulaR1C1, out var wasProtected);
-        var result = FormulaConverter.ToA1(protected_, row, column);
+        return Convert(formulaR1C1, row, column, FormulaConverter.ToA1);
+    }
+
+    private static string Convert(string formula, int row, int column, Func<string, int, int, string> converter)
+    {
+        var protected_ = ProtectStructuredRefColons(formula, out var wasProtected);
+        string result;
+        try
+        {
+            result = converter(protected_, row, column);
+        }
+        catch (ParsingException ex)
+        {
+            // Copying a cell and reading FormulaR1C1 both come through here, so the parser's own
+            // exception type would otherwise reach the caller.
+            throw new ExpressionParseException(ex.Message, ex);
+        }
+
         return wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
     }
 

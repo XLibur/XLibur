@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 
@@ -39,6 +40,58 @@ public class XLCellFormulaTests
     {
         var a1 = XLCellFormula.GetFormula(r1c1, FormulaConversionType.R1C1ToA1, new Point(2, 2));
         await Assert.That(a1).IsEqualTo(expectedA1);
+    }
+
+    [Test]
+    public async Task CopyTo_KeepsABareDynamicDataExchangeItem()
+    {
+        // The parser reads a bare DDE item as a sheet reference. It used to write the prefix back
+        // quoted, as 'Sdemo123|tik'!SomeItem.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C2").FormulaA1 = "Sdemo123|tik!SomeItem";
+
+        ws.Cell("C2").CopyTo(ws.Cell("E5"));
+
+        await Assert.That(ws.Cell("C2").FormulaR1C1).IsEqualTo("Sdemo123|tik!SomeItem");
+        await Assert.That(ws.Cell("E5").FormulaA1).IsEqualTo("Sdemo123|tik!SomeItem");
+    }
+
+    [Test]
+    public async Task SaveAndLoad_KeepsABareDynamicDataExchangeItem()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet().Cell("C2").FormulaA1 = "Sdemo123|tik!SomeItem";
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var loaded = new XLWorkbook(ms);
+        await Assert.That(loaded.Worksheet(1).Cell("C2").FormulaA1).IsEqualTo("Sdemo123|tik!SomeItem");
+    }
+
+    // The formula bar shows an external reference as '[file.xlsx]Sheet'!A1, but a file stores it as
+    // [1]Sheet!A1, and the parser refuses the displayed form. Setting FormulaA1 doesn't parse it.
+    [Test]
+    public async Task CopyTo_OfAFormulaTheParserRefuses_ThrowsExpressionParseException()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C2").FormulaA1 = "'[file.xlsx]Sheet'!A1";
+
+        await Assert.That(() => ws.Cell("C2").CopyTo(ws.Cell("E5"))).Throws<ExpressionParseException>();
+    }
+
+    [Test]
+    public async Task FormulaR1C1_OfAFormulaTheParserRefuses_ThrowsExpressionParseException()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C2").FormulaA1 = "'[file.xlsx]Sheet'!A1";
+
+        await Assert.That(() => ws.Cell("C2").FormulaR1C1).Throws<ExpressionParseException>();
     }
 
     [Test]
