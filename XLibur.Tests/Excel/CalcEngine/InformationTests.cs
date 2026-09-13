@@ -29,8 +29,7 @@ public class InformationTests
     [Arguments("#NUM!", 6)]
     [Arguments("#N/A", 7)]
     //[TestCase("#GETTING_DATA", 8)] OLAP Cube not supported
-    // #SPILL! (ERROR.TYPE 9) can't be written as a literal — the parser doesn't tokenize it —
-    // so it is covered against a real spilled #SPILL! cell in SpillEvaluationTests.
+    [Arguments("#SPILL!", 9)]
     public async Task ErrorType_ReturnsNumberForError(string error, int expectedNumber)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"ERROR.TYPE({error})")).IsEqualTo(expectedNumber);

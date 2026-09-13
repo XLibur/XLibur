@@ -29,6 +29,10 @@
 
 - **`XLHelper.GetColumnNumberFromLetter("")` now throws `ArgumentException` rather than `ArgumentNullException`.** An empty string is not a missing argument. `null` still throws `ArgumentNullException`; because that derives from `ArgumentException`, a handler for the base type sees both cases as before, but a handler for `ArgumentNullException` alone no longer sees the empty one.
 
+#### Formulas
+
+- **A formula the parser cannot read now throws `ExpressionParseException` when it is converted between A1 and R1C1, instead of `ClosedXML.Parser.ParsingException`.** Copying a cell, reading or setting `FormulaR1C1`, and loading a shared formula all make that conversion. They let the parser's own exception type out of XLibur's API, while evaluating the same formula already threw `ExpressionParseException`. Setting `FormulaA1` does not parse the text, so a formula such as `'[file.xlsx]Sheet'!A1` — the form the formula bar shows for an external reference, not the `[1]Sheet!A1` a file stores — is accepted and then fails on the first copy. **A `catch (ParsingException)` around these calls no longer runs**, and there is no compile-time signal. The parser's exception is kept as `InnerException`.
+
 ### 🐛 Bug Fixes
 
 - **Copying a data validation or a conditional format no longer mangles a formula that has whitespace around it.** The copy converts the formula to R1C1 and back. Each conversion trimmed the text, took off a leading `=`, and then rebuilt what it had removed from the difference in length, as if all of it came before the formula. So a custom validation of `" = A1 "` copied down one row became `" =  A2"`: the space after the `=` doubled and the space at the end was lost. A formula with trailing whitespace and no `=` lost characters instead: a conditional format loaded from a file with the formula `E1 ` came out of a copy as `ERC[4]`, which is no longer a reference. The leading whitespace and the `=` are now kept as written, and the parser converts the rest with its whitespace in place. A cell's `FormulaA1` trims its text when it is set, and so does a conditional format value set through the API, so neither was affected.

@@ -593,14 +593,22 @@ internal class DependencyTreeTests
             // Unary implicit intersection is propagated
             yield return
             [
-                // `D3:@A1:C2` failed to parse up to XLibur.ClosedXML.Parser 2.1.0-alpha.276 and
-                // parses on 2.1.0-beta.293, but its dependencies are not pinned here yet
-                // (https://github.com/XLibur/XLibur/issues/313).
                 "@A1:A4",
                 new[]
                 {
                     // Implicit intersection
                     new SheetArea("Sheet", Area.Parse("A1:A4")),
+                }
+            ];
+
+            // Implicit intersection binds tighter than the range operator, so this is
+            // D3:(@A1):C2 and the range spans all three references
+            yield return
+            [
+                "D3:@A1:C2",
+                new[]
+                {
+                    new SheetArea("Sheet", Area.Parse("A1:D3")),
                 }
             ];
 
