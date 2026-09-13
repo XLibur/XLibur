@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <LangVersion>default</LangVersion>
         <TargetFrameworks>net10.0;net8.0;net9.0</TargetFrameworks>
         <RootNamespace>XLibur</RootNamespace>
         <Company>XLibur</Company>
@@ -15,10 +14,6 @@
 
     <PropertyGroup>
         <DebugType>Portable</DebugType>
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

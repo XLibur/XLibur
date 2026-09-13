@@ -20,10 +20,6 @@
         <DebugType>Portable</DebugType>
     </PropertyGroup>
 
-    <PropertyGroup>
-        <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
-    </PropertyGroup>
-
     <ItemGroup>
         <None Include="..\.editorconfig" Link=".editorconfig" />
         <None Include="..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />

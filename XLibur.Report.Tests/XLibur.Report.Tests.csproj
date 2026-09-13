@@ -10,7 +10,6 @@
     <!-- CS4014 (call not awaited) must fail the build. TUnit assertions are awaitable, so an
          un-awaited assertion never executes and the test passes no matter what it asserts. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
-    <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
     <!-- TUnit runs on Microsoft.Testing.Platform rather than VSTest. -->
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
