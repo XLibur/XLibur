@@ -1,6 +1,6 @@
 # XLibur Improvement Roadmap
 
-Thirty-five prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
+Fifty-six prioritized, self-contained specs covering features, compatibility, architecture, and performance (memory + read/write times). Each spec is written to be handed to an independent agent/model: it states the problem with measured numbers, points at the exact files, prescribes a design, breaks the work into PR-sized tasks, and defines measurable acceptance criteria.
 
 **Start a new performance effort at [spec 19](19-benchmark-hotspot-survey.md)**, not at this table. It re-ran the whole suite on 2026-08-07 and ranks what is actually slow now, which is not what specs 02–18 would predict — the biggest single number in the suite turns out to be the `CellsUsed()` enumeration, not parsing, packaging or styling. It also carries the current baselines for every benchmark and the run recipe.
 
@@ -65,6 +65,29 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 49 | [One conditional format value object](49-conditional-format-value-object.md) | Arch · **API (breaking)** | M–L | Proposed (**needs 48**) | Single owner; obsolete-then-remove migration |
 | 50 | [One `Intersection`, one absence convention](50-intersection-one-convention.md) | Arch · Correctness | **S** | Proposed | Soft: after 36 |
 | 51 | [One consolidation engine, two adapters](51-one-consolidation-engine.md) | Arch · Refactor | S–M | Proposed (**needs 36**) | **Prevention, not a fix** — 400-case fuzz found no divergence |
+| 52 | [The fuzz harness gets an oracle worth the name](52-fuzz-harness-and-oracles.md) | Test infra · Tooling | M | ✅ **Merged** ([#425](https://github.com/XLibur/XLibur/pull/425) `42fe03c3`, [#426](https://github.com/XLibur/XLibur/pull/426) `08493c3f`, breaking `!`) | **No completion state** — the harness completes, the fuzzing does not. Found D27–D43; #426 was stacked on #425. `formula` was gated on **D38** until spec 53 unblocked it |
+| 53 | [Implicit intersection on operator operands](53-implicit-intersection-context.md) | **Defect (wrong answer + 600 ms/column)** · Perf | S–M | ✅ **Merged** ([#427](https://github.com/XLibur/XLibur/pull/427) `0908c05e`; see *Known gaps*) | Came out of 52's `formula` target as **D38**. Verified against Excel 16.0, which disproved the investigation's design premise. Its in-branch review raised nine findings; **five reached `main` as D44–D48** |
+| 54 | [Formula text gets one module](54-formula-text-module.md) | Arch · **Defect (4)** | M | Proposed | Single owner; **before 55** |
+| 55 | [Sheet delete and rename through one door](55-sheet-lifecycle-one-door.md) | Arch · **Defect (4 executed, ~9 read)** · Behaviour change (`!`) | L | Proposed (**needs 54** and parser 3.2.0; **owner's Excel fixtures** gate tasks 3, 5, 6) | Single owner; task 0 is in the parser fork; after 44, before 48 |
+| 56 | [Evaluation failures get one outcome](56-evaluation-outcome.md) | Arch · **Defect (5)** · API (additive) · Behaviour change (`!`) | M | Proposed | Parallel with 54; **before 32** |
+
+**Specs 54–56 came out of a fourth architecture review on 2026-09-13**, scoped to what had changed
+since round 3: nine of the ten library fixes merged in between landed on the formula pipeline, one
+syntax form on one path at a time. **Every design decision was taken by the owner in a forty-question
+design interview** before the specs were written. Each spec carries its *Decisions* table. Two of the
+decisions are the repo's first ADRs (`docs/adr/0001`, `0002`), and the vocabulary is in the repo's first
+`CONTEXT.md`. Board, conflict map, owner actions and briefs:
+[TASKLIST-architecture-deepening-4.md](TASKLIST-architecture-deepening-4.md).
+
+The same shape as before — one fact, several implementations — plus two variants. **A seam that covers
+one event of two:** `IWorkbookListener` hears about a rename and never about a delete, so deletion is
+hand-placed calls on the one door callers do not have to use (55). **A classifier that works by
+exception type:** `NotImplementedException` means both "XLibur does not do this" and "XLibur is
+broken", and save swallows both (56). Thirteen defects executed (D49–D61), one refuted, one incidental
+(D62).
+
+**Start with 54**: the codebase is changing there now, and 55 is built on it. 56 runs in parallel.
+**55 needs four Excel-authored fixtures from the owner** — the recipes are in its design §5.
 
 **Specs 36–51 came out of a third architecture review on 2026-08-30.** Their progress board,
 dependency graph, conflict map, wave plan and the backlog notes for four candidates that did *not*
@@ -316,6 +339,14 @@ better), **28↔29** (`WorkbookStylesPartWriter.cs`, different regions — soft)
 (`XLRangeBase.cs`, different methods — soft), **30↔04** (`CalculationVisitor.cs` — soft, 30 is much
 smaller and goes first). **27 and 34 conflict with nothing.** Full matrix in
 [TASKLIST-architecture-deepening-2.md](TASKLIST-architecture-deepening-2.md).
+
+Adding specs 54–56: five hard pairs — **54→55** (55's rename and delete rewrite through
+`FormulaText`), **parser 3.2.0→55** (55's own task 0, in the fork), **44→55** and **55→48/49**
+(validation and conditional-format holders; 55 only registers listeners), and **56→32**
+(`SignatureAdapter.cs` — 56 changes three throw sites, 32 rewrites the file). Soft: 54↔56 (`XLCell.cs`),
+54↔42 (`XLRangeBase.cs:114`), 56↔42/43 (`XLCalcEngine.cs`), 56↔30 (`CalculationVisitor.cs`; 30 fixes
+D59), 56↔45 (`SheetDataWriter.cs`), 55↔41 (the pivot cache definition writer). Full matrix in
+[TASKLIST-architecture-deepening-4.md](TASKLIST-architecture-deepening-4.md).
 
 ## Ground rules for implementing agents
 
