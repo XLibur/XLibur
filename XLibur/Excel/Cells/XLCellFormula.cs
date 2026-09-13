@@ -206,11 +206,13 @@ internal sealed class XLCellFormula
             return string.Empty;
 
         // Users and some producers might prefix formula with '=', but that is not a valid
-        // formula, so strip and re-add if present.
-        var formula = strValue.Trim();
-        if (formula.StartsWith('='))
-            formula = formula[1..];
+        // formula. Keep the leading whitespace and the '=' as they are and convert the rest;
+        // the parser keeps the whitespace around the formula it is given.
+        var bodyStart = strValue.Length - strValue.AsSpan().TrimStart().Length;
+        if (strValue[bodyStart] == '=')
+            bodyStart++;
 
+        var formula = strValue[bodyStart..];
         var converted = conversionType switch
         {
             FormulaConversionType.A1ToR1C1 => FormulaTransformation.SafeToR1C1(formula, cellAddress.Row, cellAddress.Column),
@@ -218,10 +220,7 @@ internal sealed class XLCellFormula
             _ => throw new NotSupportedException()
         };
 
-        if (formula.Length != strValue.Length)
-            converted = strValue[..^formula.Length] + converted;
-
-        return converted;
+        return bodyStart == 0 ? converted : strValue[..bodyStart] + converted;
     }
 
     /// <summary>
