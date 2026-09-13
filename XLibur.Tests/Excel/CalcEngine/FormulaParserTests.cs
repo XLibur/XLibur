@@ -308,11 +308,15 @@ public class FormulaParserTests
     }
 
     [Test]
-    [Arguments("=A1:A3 A2:B2")]
-    [Arguments("=(A1) B2")]
-    public async Task Reference_function_call_can_be_intersection_of_two_references(string formula)
+    [Arguments("=A1:A3 A2:B2", 7)]
+    [Arguments("=(A1) B2", XLError.NullValue)] // No cell in common.
+    public async Task Reference_function_call_can_be_intersection_of_two_references(string formula, object expected)
     {
-        await AssertCanParseButNotEvaluate(formula, "Evaluation of range intersection operator is not implemented.");
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A2").Value = 7;
+
+        await Assert.That(ws.Evaluate(formula, "Z100")).IsEqualTo(ExpectedCellValue.From(expected));
     }
 
     [Test]
