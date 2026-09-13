@@ -15,6 +15,12 @@
 
 ## Unreleased
 
+### ⚠️ Breaking Changes
+
+#### Page setup
+
+- **`IXLPageSetup.RowBreaks` and `ColumnBreaks` are now `IReadOnlyList<int>` rather than `List<int>`.** Both handed out the page setup's own list, so a caller could add to it directly and skip `AddHorizontalPageBreak` and `AddVerticalPageBreak`, which keep the breaks sorted and free of duplicates — and whatever the list held was written to the file. Code that only enumerates, counts or indexes the breaks compiles unchanged; code that called `Add`, `Remove`, `Clear` or the indexer setter on them, or stored them in a `List<int>` variable, no longer does. Add a break with `AddHorizontalPageBreak` or `AddVerticalPageBreak` as before, and take one away with the new `RemoveHorizontalPageBreak`, `RemoveVerticalPageBreak`, `ClearHorizontalPageBreaks` and `ClearVerticalPageBreaks`. Those four new members are also source-breaking for anyone implementing `IXLPageSetup` outside the library.
+
 ### 🐛 Bug Fixes
 
 - **`MDETERM` and `MINVERSE` now answer a matrix with an all-zero column instead of throwing.** `=MDETERM({0,1;0,2})` threw `InvalidOperationException: The matrix is singular!` out of the formula rather than returning 0, and the matching `MINVERSE` threw rather than returning `#NUM!`. The LU decomposition behind both reported a column it could not pivot on by throwing, and neither function caught it. A singular matrix that still pivots, such as `{1,2;1,2}`, was already handled.

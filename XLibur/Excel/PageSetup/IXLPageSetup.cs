@@ -258,13 +258,15 @@ public interface IXLPageSetup
     XLShowCommentsValues ShowComments { get; set; }
 
     /// <summary>
-    /// Gets a list with the row breaks (for printing).
+    /// Gets the row breaks (for printing). Change them with <see cref="AddHorizontalPageBreak"/>,
+    /// <see cref="RemoveHorizontalPageBreak"/> and <see cref="ClearHorizontalPageBreaks"/>.
     /// </summary>
-    List<int> RowBreaks { get; }
+    IReadOnlyList<int> RowBreaks { get; }
     /// <summary>
-    /// Gets a list with the column breaks (for printing).
+    /// Gets the column breaks (for printing). Change them with <see cref="AddVerticalPageBreak"/>,
+    /// <see cref="RemoveVerticalPageBreak"/> and <see cref="ClearVerticalPageBreaks"/>.
     /// </summary>
-    List<int> ColumnBreaks { get; }
+    IReadOnlyList<int> ColumnBreaks { get; }
     /// <summary>
     /// Adds a horizontal page break after the given row.
     /// </summary>
@@ -276,6 +278,30 @@ public interface IXLPageSetup
     /// </summary>
     /// <param name="column">The column to insert the break.</param>
     void AddVerticalPageBreak(int column);
+
+    /// <summary>
+    /// Removes the horizontal page break after the given row.
+    /// </summary>
+    /// <param name="row">The row whose break to remove.</param>
+    /// <returns><c>true</c> if the row had a break; otherwise <c>false</c>.</returns>
+    bool RemoveHorizontalPageBreak(int row);
+
+    /// <summary>
+    /// Removes the vertical page break after the given column.
+    /// </summary>
+    /// <param name="column">The column whose break to remove.</param>
+    /// <returns><c>true</c> if the column had a break; otherwise <c>false</c>.</returns>
+    bool RemoveVerticalPageBreak(int column);
+
+    /// <summary>
+    /// Removes every horizontal page break. Vertical page breaks are kept.
+    /// </summary>
+    void ClearHorizontalPageBreaks();
+
+    /// <summary>
+    /// Removes every vertical page break. Horizontal page breaks are kept.
+    /// </summary>
+    void ClearVerticalPageBreaks();
 
     /// <summary>
     /// Gets or sets how error values will be printed.

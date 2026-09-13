@@ -192,8 +192,20 @@ internal sealed class XLPageSetup : IXLPageSetup, ISheetListener
     public XLPageOrderValues PageOrder { get; set; }
     public XLShowCommentsValues ShowComments { get; set; }
 
+    /// <summary>
+    /// The page setup's own break lists, which the loader appends to and an insert or delete moves.
+    /// Callers outside the library see <see cref="IXLPageSetup.RowBreaks"/> and
+    /// <see cref="IXLPageSetup.ColumnBreaks"/>, read-only views of these, so the Add methods'
+    /// sorted, duplicate-free order cannot be edited around.
+    /// </summary>
     public List<int> RowBreaks { get; private set; }
     public List<int> ColumnBreaks { get; private set; }
+
+    private IReadOnlyList<int>? _rowBreaksView;
+    private IReadOnlyList<int>? _columnBreaksView;
+
+    IReadOnlyList<int> IXLPageSetup.RowBreaks => _rowBreaksView ??= RowBreaks.AsReadOnly();
+    IReadOnlyList<int> IXLPageSetup.ColumnBreaks => _columnBreaksView ??= ColumnBreaks.AsReadOnly();
     public void AddHorizontalPageBreak(int row)
     {
         if (!RowBreaks.Contains(row))
@@ -206,6 +218,16 @@ internal sealed class XLPageSetup : IXLPageSetup, ISheetListener
             ColumnBreaks.Add(column);
         ColumnBreaks.Sort();
     }
+
+    // RemoveAll rather than Remove: a loaded file keeps its breaks as written, duplicates included,
+    // and removing only the first would leave the break in place.
+    public bool RemoveHorizontalPageBreak(int row) => RowBreaks.RemoveAll(b => b == row) > 0;
+
+    public bool RemoveVerticalPageBreak(int column) => ColumnBreaks.RemoveAll(b => b == column) > 0;
+
+    public void ClearHorizontalPageBreaks() => RowBreaks.Clear();
+
+    public void ClearVerticalPageBreaks() => ColumnBreaks.Clear();
 
     #region ISheetListener
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -107,5 +108,99 @@ public class PageBreaksTests
         var columnBreak = worksheet.GetFirstChild<ColumnBreaks>()!.Elements<Break>().Single();
         await Assert.That(columnBreak.Id!.Value).IsEqualTo(4u);
         await Assert.That(columnBreak.Max!.Value).IsEqualTo(1048575u); // last row, 0-based
+    }
+
+    [Test]
+    public async Task Page_break_lists_cannot_be_edited_around_the_page_setup()
+    {
+        // AddHorizontalPageBreak and AddVerticalPageBreak keep the breaks sorted and free of
+        // duplicates. A list the caller can edit directly lets both slip through.
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet("Sheet1");
+
+        await Assert.That(sheet.PageSetup.RowBreaks is ICollection<int> { IsReadOnly: false }).IsFalse();
+        await Assert.That(sheet.PageSetup.ColumnBreaks is ICollection<int> { IsReadOnly: false }).IsFalse();
+    }
+
+    [Test]
+    public async Task RemoveHorizontalPageBreak_removes_only_that_break()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet("Sheet1");
+        sheet.PageSetup.AddHorizontalPageBreak(5);
+        sheet.PageSetup.AddHorizontalPageBreak(10);
+
+        await Assert.That(sheet.PageSetup.RemoveHorizontalPageBreak(5)).IsTrue();
+        await Assert.That(sheet.PageSetup.RemoveHorizontalPageBreak(7)).IsFalse();
+        await Assert.That(sheet.PageSetup.RowBreaks).IsEquivalentTo([10]);
+    }
+
+    [Test]
+    public async Task RemoveVerticalPageBreak_removes_only_that_break()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet("Sheet1");
+        sheet.PageSetup.AddVerticalPageBreak(5);
+        sheet.PageSetup.AddVerticalPageBreak(10);
+
+        await Assert.That(sheet.PageSetup.RemoveVerticalPageBreak(5)).IsTrue();
+        await Assert.That(sheet.PageSetup.RemoveVerticalPageBreak(7)).IsFalse();
+        await Assert.That(sheet.PageSetup.ColumnBreaks).IsEquivalentTo([10]);
+    }
+
+    [Test]
+    public async Task ClearHorizontalPageBreaks_leaves_the_vertical_ones()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet("Sheet1");
+        sheet.PageSetup.AddHorizontalPageBreak(5);
+        sheet.PageSetup.AddVerticalPageBreak(3);
+
+        sheet.PageSetup.ClearHorizontalPageBreaks();
+
+        await Assert.That(sheet.PageSetup.RowBreaks).IsEmpty();
+        await Assert.That(sheet.PageSetup.ColumnBreaks).IsEquivalentTo([3]);
+    }
+
+    [Test]
+    public async Task ClearVerticalPageBreaks_leaves_the_horizontal_ones()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet("Sheet1");
+        sheet.PageSetup.AddHorizontalPageBreak(5);
+        sheet.PageSetup.AddVerticalPageBreak(3);
+
+        sheet.PageSetup.ClearVerticalPageBreaks();
+
+        await Assert.That(sheet.PageSetup.ColumnBreaks).IsEmpty();
+        await Assert.That(sheet.PageSetup.RowBreaks).IsEquivalentTo([5]);
+    }
+
+    [Test]
+    public async Task A_break_removed_from_a_loaded_sheet_is_not_written_back()
+    {
+        using var original = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var sheet = wb.AddWorksheet("Sheet1");
+            sheet.Cell("A1").Value = "x";
+            sheet.PageSetup.AddHorizontalPageBreak(5);
+            sheet.PageSetup.AddHorizontalPageBreak(10);
+            wb.SaveAs(original);
+        }
+
+        original.Position = 0;
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            wb.Worksheet("Sheet1").PageSetup.RemoveHorizontalPageBreak(5);
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var doc = SpreadsheetDocument.Open(saved, false);
+        var ids = doc.WorkbookPart!.WorksheetParts.Single().Worksheet!.GetFirstChild<RowBreaks>()!
+            .Elements<Break>().Select(b => b.Id!.Value);
+        await Assert.That(ids).IsEquivalentTo([10u]);
     }
 }
