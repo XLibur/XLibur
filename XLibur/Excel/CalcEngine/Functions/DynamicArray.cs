@@ -17,9 +17,9 @@ internal static class DynamicArray
 {
     /// <summary>
     /// What Excel reports as <c>#CALC!</c> when a dynamic-array function would produce nothing at
-    /// all — every row dropped, every value ignored. XLibur's value model has no <c>#CALC!</c>, so
-    /// these cases report <c>#VALUE!</c> instead; the argument was of the right shape, it just left
-    /// no result behind.
+    /// all — every row dropped, every value ignored. XLibur still reports <c>#VALUE!</c> in these
+    /// cases rather than <see cref="XLError.Calc"/>; the argument was of the right shape, it just
+    /// left no result behind.
     /// </summary>
     private const XLError EmptyResult = XLError.IncompatibleValue;
 

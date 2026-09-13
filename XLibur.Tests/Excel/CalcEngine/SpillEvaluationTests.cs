@@ -365,8 +365,8 @@ public class SpillEvaluationTests
     [Test]
     public async Task Spill_ErrorIsReportedByErrorFunctions()
     {
-        // A real #SPILL! cell reports through ERROR.TYPE (9) and ISERROR — exercising the
-        // XLError.SpillRange enum member end to end (the literal can't be parsed).
+        // A #SPILL! that a blocked spill produced reports through ERROR.TYPE (9) and ISERROR —
+        // exercising the XLError.SpillRange enum member end to end.
         var ws = NewSheet(out var wb);
         using (wb)
         {

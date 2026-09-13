@@ -56,7 +56,7 @@ internal static class PivotTableCacheRecordsPartWriter
                         xml.WriteEndElement();
                         break;
                     case XLPivotCacheValueType.Error:
-                        xml.WriteStartElement("b");
+                        xml.WriteStartElement("e");
                         xml.WriteAttribute("v", value.GetError().ToDisplayString());
                         xml.WriteEndElement();
                         break;

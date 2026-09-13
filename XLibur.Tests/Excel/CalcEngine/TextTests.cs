@@ -1151,8 +1151,7 @@ public class TextTests
 
         ws.Cell("C1").FormulaA1 = formula;
 
-        // Excel actually returns #CALC!, but we don't have that error, mostly
-        // because parser doesn't recognize it.
+        // Excel actually returns #CALC!; XLibur still returns #VALUE! here.
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(XLError.IncompatibleValue);
     }
 

@@ -63,7 +63,16 @@ internal static class SheetPackage
         return package;
     }
 
-    private static string PartXml(this MemoryStream package, string partName)
+    /// <summary>The names of every part in <paramref name="package"/>, e.g. <c>xl/workbook.xml</c>.</summary>
+    internal static string[] PartNames(this MemoryStream package)
+    {
+        package.Position = 0;
+        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
+        return archive.Entries.Select(e => e.FullName).ToArray();
+    }
+
+    /// <summary>The text of the part named <paramref name="partName"/>, e.g. <c>xl/workbook.xml</c>.</summary>
+    internal static string PartXml(this MemoryStream package, string partName)
     {
         package.Position = 0;
         using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);

@@ -61,7 +61,8 @@ public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>,
 
     private XLCellValue(XLError error) : this()
     {
-        if (error < XLError.NullValue || error > XLError.SpillRange)
+        // The numbering has gaps, so a range check is not enough.
+        if (!Enum.IsDefined(error))
             throw new ArgumentOutOfRangeException(nameof(error));
 
         Type = XLDataType.Error;
