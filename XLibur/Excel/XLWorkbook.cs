@@ -1203,7 +1203,14 @@ public partial class XLWorkbook : IXLWorkbook
         CalcEngine.Recalculate(this, null);
     }
 
+    /// <summary>
+    /// The engine behind <see cref="EvaluateExpr"/>, one per thread. The method is static, so callers
+    /// that know nothing of each other would otherwise share one engine, and its parse cache cannot be
+    /// filled from two threads at once.
+    /// </summary>
+    [ThreadStatic]
     private static XLCalcEngine? _calcEngineExpr;
+
     private readonly SpreadsheetDocumentType _spreadsheetDocumentType;
 
     private static XLCalcEngine CalcEngineExpr

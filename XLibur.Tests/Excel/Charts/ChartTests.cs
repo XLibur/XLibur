@@ -12,6 +12,45 @@ namespace XLibur.Tests.Excel.Charts;
 public class ChartTests
 {
     [Test]
+    public async Task Extended_chart_parts_are_numbered_from_one_in_every_save()
+    {
+        // Part names are counted per save. A second save on the same thread - of another workbook -
+        // starts again at chartEx1 rather than carrying on from the first.
+        var first = SaveWithWaterfallCharts(2);
+        var second = SaveWithWaterfallCharts(1);
+
+        await Assert.That(first).IsEquivalentTo(["/xl/charts/chartEx1.xml", "/xl/charts/chartEx2.xml"]);
+        await Assert.That(second).IsEquivalentTo(["/xl/charts/chartEx1.xml"]);
+    }
+
+    private static string[] SaveWithWaterfallCharts(int count)
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Start"; ws.Cell("B1").Value = 1000;
+            ws.Cell("A2").Value = "Add"; ws.Cell("B2").Value = 500;
+            for (var i = 0; i < count; i++)
+            {
+                var chart = ws.Charts.Add(XLChartType.Waterfall);
+                chart.Series.Add("Amount", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+                chart.Position.SetColumn(0).SetRow(5 + i * 15);
+                chart.SecondPosition.SetColumn(8).SetRow(18 + i * 15);
+            }
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var doc = SpreadsheetDocument.Open(ms, false);
+        return doc.WorkbookPart!.WorksheetParts.First().DrawingsPart!.ExtendedChartParts
+            .Select(p => p.Uri.ToString())
+            .OrderBy(u => u, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    [Test]
     public async Task CanCreateColumnClusteredChart()
     {
         using var wb = new XLWorkbook();

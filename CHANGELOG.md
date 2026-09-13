@@ -21,6 +21,8 @@
 
 - **`TryGetValue`, `GetFormattedString` and `Search` no longer report a defect in the library as "no value".** All three promise an answer for a cell whose formula cannot be evaluated, and kept that promise by catching every exception, so a bug inside a function — the `MDETERM` one above, for instance — read as a cell with no value, its cached value, or no match. They now tolerate only what a formula can legitimately produce: an unimplemented function or operator, text the parser cannot read, a missing worksheet or cell context, and a circular reference. Anything else reaches the caller. A circular reference is still reported as an `InvalidOperationException` with the same message, so a handler for that is unaffected.
 
+- **`XLWorkbook.EvaluateExpr` can now be called from several threads at once.** The method is static and every caller shared one engine, whose parse cache could not be filled from two threads at the same time. Two threads evaluating the same new expression both missed the cache, and the second threw `ArgumentException: An item with the same key has already been added` from a call that had nothing to do with the other thread. Each thread now has its own engine. A workbook itself is still not safe to use from several threads.
+
 ## v0.400.0 - 2026-09-01
 
 ### ⚠️ Breaking Changes
