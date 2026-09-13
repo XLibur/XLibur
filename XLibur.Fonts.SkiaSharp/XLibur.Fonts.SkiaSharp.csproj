@@ -43,7 +43,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+        <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
         <PackageReference Include="SkiaSharp" Version="4.151.2" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />
     </ItemGroup>
