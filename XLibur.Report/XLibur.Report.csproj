@@ -36,7 +36,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+        <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
         <!--
             Scriban >= 6.6.0 only: the 2026 DoS advisories (GHSA-wgh7-7m3c-fx25,
             GHSA-xw6w-9jjh-p9cr, GHSA-xcx6-vp38-8hr5 — unbounded parser recursion and
