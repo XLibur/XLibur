@@ -1056,6 +1056,19 @@ public class LookupTests
     }
 
     [Test]
+    [Arguments("A99999999999")]
+    [Arguments("A1:A99999999999")]
+    [Arguments("A1:B")]
+    [Arguments("$:$")]
+    [Arguments("ZZZZ1")]
+    public async Task Indirect_address_shaped_text_naming_no_cell_returns_reference_error(string address)
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        await Assert.That(sheet.Evaluate($"INDIRECT(\"{address}\")")).IsEqualTo(XLError.CellReference);
+    }
+
+    [Test]
     public async Task Indirect_DefinedName()
     {
         using var wb = new XLWorkbook();

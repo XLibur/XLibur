@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
@@ -584,8 +585,9 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 return culture.CompareInfo.IndexOf(c.Value.ToString(CultureInfo.CurrentCulture), searchText,
                     compareOptions) >= 0;
             }
-            catch
+            catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
             {
+                // A cell whose formula cannot be evaluated has no value to match.
                 return false;
             }
         });

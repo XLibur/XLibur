@@ -48,8 +48,10 @@ internal readonly struct FormulaExtent
                 collector,
                 ExtentVisitor.Instance);
         }
-        catch
+        catch (ParsingException)
         {
+            // ParsingException specifically, as XLCellFormulaShifter catches it: a formula the
+            // parser rejects is what this fallback is for, and the shifter parses the same text next.
             return Unbounded;
         }
 

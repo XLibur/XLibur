@@ -358,7 +358,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
 
             if (chain.IsCurrentInCycle)
-                throw new InvalidOperationException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+                throw new CircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
 
             var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
             if (cellFormula is null)

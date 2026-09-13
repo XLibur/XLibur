@@ -1166,8 +1166,10 @@ internal static class Text
         {
             return nf.Format(number, ctx.Culture);
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentOutOfRangeException)
         {
+            // ExcelNumberFormat catches its own cast and parse failures. What still escapes it is a
+            // section type it does not know and a date serial it cannot turn into a DateTime.
             return XLError.IncompatibleValue;
         }
     }
