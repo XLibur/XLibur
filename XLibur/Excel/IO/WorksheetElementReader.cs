@@ -373,16 +373,20 @@ internal static class WorksheetElementReader
     {
         ArgumentNullException.ThrowIfNull(rowBreaks);
 
+        // Appended in file order rather than through AddHorizontalPageBreak, which would sort and
+        // de-duplicate them, so the file round-trips as written.
+        var pageSetup = (XLPageSetup)ws.PageSetup;
         foreach (var rowBreak in rowBreaks.Elements<Break>())
-            ws.PageSetup.RowBreaks.Add(int.Parse(rowBreak.Id!.InnerText!));
+            pageSetup.RowBreaks.Add(int.Parse(rowBreak.Id!.InnerText!));
     }
 
     private static void LoadColumnBreaks(ColumnBreaks columnBreaks, XLWorksheet ws)
     {
         ArgumentNullException.ThrowIfNull(columnBreaks);
+        var pageSetup = (XLPageSetup)ws.PageSetup;
         foreach (var columnBreak in columnBreaks.Elements<Break>().Where(columnBreak => columnBreak.Id != null))
         {
-            ws.PageSetup.ColumnBreaks.Add(int.Parse(columnBreak.Id!.InnerText!));
+            pageSetup.ColumnBreaks.Add(int.Parse(columnBreak.Id!.InnerText!));
         }
     }
 

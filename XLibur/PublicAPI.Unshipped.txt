@@ -9,6 +9,8 @@
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.HighestValue() -> void
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, double value) -> void
 *REMOVED*XLibur.Excel.IXLCFDataBarMax.Maximum(XLibur.Excel.XLCFContentType type, string! value) -> void
+*REMOVED*XLibur.Excel.IXLPageSetup.ColumnBreaks.get -> System.Collections.Generic.List<int>!
+*REMOVED*XLibur.Excel.IXLPageSetup.RowBreaks.get -> System.Collections.Generic.List<int>!
 *REMOVED*XLibur.Excel.XLAlignmentKey
 *REMOVED*XLibur.Excel.XLAlignmentKey.Horizontal.get -> XLibur.Excel.XLAlignmentHorizontalValues
 *REMOVED*XLibur.Excel.XLAlignmentKey.Horizontal.init -> void
@@ -449,3 +451,9 @@ XLibur.Excel.IXLPivotTable.ShowLastColumn.set -> void
 XLibur.Excel.IXLPivotTable.SetShowLastColumn() -> XLibur.Excel.IXLPivotTable!
 XLibur.Excel.IXLPivotTable.SetShowLastColumn(bool value) -> XLibur.Excel.IXLPivotTable!
 XLibur.Excel.CalcEngine.ExpressionParseException.ExpressionParseException(string! message, System.Exception! innerException) -> void
+XLibur.Excel.IXLPageSetup.ColumnBreaks.get -> System.Collections.Generic.IReadOnlyList<int>!
+XLibur.Excel.IXLPageSetup.RowBreaks.get -> System.Collections.Generic.IReadOnlyList<int>!
+XLibur.Excel.IXLPageSetup.ClearHorizontalPageBreaks() -> void
+XLibur.Excel.IXLPageSetup.ClearVerticalPageBreaks() -> void
+XLibur.Excel.IXLPageSetup.RemoveHorizontalPageBreak(int row) -> bool
+XLibur.Excel.IXLPageSetup.RemoveVerticalPageBreak(int column) -> bool
