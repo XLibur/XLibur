@@ -100,7 +100,7 @@ Other notes:
 - **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation ([source](https://github.com/dotnet/Open-XML-SDK))
 - **ExcelNumberFormat** 1.1.0 - Excel number formatting ([source](https://github.com/andersnm/ExcelNumberFormat))
 - **SixLabors.Fonts** 1.0.1 - Font handling
-- **XLibur.ClosedXML.Parser** 2.1.0-beta.293 - Parser utilities; our fork of ClosedXML.Parser,
+- **XLibur.ClosedXML.Parser** 3.0.0 - Parser utilities; our fork of ClosedXML.Parser,
   keeping the `ClosedXML.Parser` assembly name and namespace ([source](https://github.com/XLibur/ClosedXML.Parser),
   [upstream](https://github.com/ClosedXML/ClosedXML.Parser))
 - **RBush.Signed** 4.0.0 - Spatial indexing

@@ -48,7 +48,7 @@
   [#313](https://github.com/XLibur/XLibur/issues/313). Consumers see a different package in
   their dependency graph; a project that also pulls in `ClosedXML.Parser` gets both, and the
   fork wins on assembly version without a build warning.
-- The parser is `XLibur.ClosedXML.Parser` 2.1.0-beta.293. When a sheet or table is renamed or
+- The parser is `XLibur.ClosedXML.Parser` 3.0.0. When a sheet or table is renamed or
   deleted, a formula is now rewritten only where it names that sheet or table, and the rest of
   its text is kept as written. The parser used to write every reference again, so a rename also
   dropped quotes a sheet name doesn't need (`'Wk2'!C5` became `Wk2!C5`), collapsed a one-cell
@@ -56,7 +56,7 @@
 
 ### Fixed
 
-From 2.1.0-beta.293:
+From 3.0.0:
 
 - A dynamic data exchange formula, such as `Sdemo123|tik!'id1?req?AAPL'`, now parses.
   Evaluating it throws `NotImplementedException`, as other unsupported syntax does.
@@ -64,6 +64,11 @@ From 2.1.0-beta.293:
 - A formula holding `#GETTING_DATA` throws `ExpressionParseException` when it is parsed, not
   `InvalidOperationException`, because `XLError` has no member for it. The newer error values
   the parser now reads, such as `#CALC!` and `#FIELD!`, are refused the same way.
+- Renaming a sheet to a name shaped like a cell, such as `PWD1`, quotes it when it is the first
+  sheet of a 3D reference: `'PWD1:Last'!A1`. It was written bare, and `PWD1:Last!A1` doesn't read
+  back as the same reference.
+- A space intersection after an expression in braces, `(A1) B2`, now parses. Evaluating it throws
+  `NotImplementedException`, as any range intersection does.
 
 Carried in from the forked parser, each verified against 2.0.0:
 

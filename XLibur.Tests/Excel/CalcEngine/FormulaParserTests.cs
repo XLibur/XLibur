@@ -301,10 +301,11 @@ public class FormulaParserTests
     }
 
     [Test]
-    [Arguments]
-    public async Task Reference_function_call_can_be_intersection_of_two_references()
+    [Arguments("=A1:A3 A2:B2")]
+    [Arguments("=(A1) B2")]
+    public async Task Reference_function_call_can_be_intersection_of_two_references(string formula)
     {
-        await AssertCanParseButNotEvaluate("=A1:A3 A2:B2", "Evaluation of range intersection operator is not implemented.");
+        await AssertCanParseButNotEvaluate(formula, "Evaluation of range intersection operator is not implemented.");
     }
 
     [Test]
