@@ -155,6 +155,14 @@ internal sealed class FormulaReferences
             return base.ErrorNode(context, range, error);
         }
 
+        public override object? SheetErrorNode(FormulaReferences context, SymbolRange range, int? workbookIndex,
+            string sheet, ReadOnlySpan<char> error)
+        {
+            // Sheet1!#REF! is a ref error too; the parser just no longer routes it through ErrorNode.
+            context.ContainsRefError = true;
+            return base.SheetErrorNode(context, range, workbookIndex, sheet, error);
+        }
+
         public override object? Reference(FormulaReferences context, SymbolRange range, ReferenceArea reference)
         {
             context.References.Add(new XLReference(reference));

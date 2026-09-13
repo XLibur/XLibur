@@ -593,10 +593,9 @@ internal class DependencyTreeTests
             // Unary implicit intersection is propagated
             yield return
             [
-                // Implicit intersection is not a part of ref_expression, so `D3:@A1:C2` cannot
-                // be used as a test case — it still fails to parse on XLibur.ClosedXML.Parser
-                // 2.1.0-alpha.276, re-checked against https://github.com/XLibur/XLibur/issues/313.
-                // The unary form below does parse.
+                // `D3:@A1:C2` failed to parse up to XLibur.ClosedXML.Parser 2.1.0-alpha.276 and
+                // parses on 2.1.0-beta.293, but its dependencies are not pinned here yet
+                // (https://github.com/XLibur/XLibur/issues/313).
                 "@A1:A4",
                 new[]
                 {

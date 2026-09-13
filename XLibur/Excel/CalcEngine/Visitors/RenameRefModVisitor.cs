@@ -7,7 +7,7 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// <summary>
 /// A factory to rename named reference object (sheets, tables ect.).
 /// </summary>
-internal sealed class RenameRefModVisitor : RefModVisitor
+internal sealed class RenameRefModVisitor : FormulaModifier
 {
     private readonly Dictionary<string, string?>? _sheets;
     private readonly Dictionary<string, string>? _tables;

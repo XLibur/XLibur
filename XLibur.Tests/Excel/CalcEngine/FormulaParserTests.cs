@@ -135,10 +135,26 @@ public class FormulaParserTests
     [Arguments("#N/A", XLError.NoValueAvailable)]
     [Arguments("#NULL!", XLError.NullValue)]
     [Arguments("#NUM!", XLError.NumberInvalid)]
+    [Arguments("#SPILL!", XLError.SpillRange)]
     public async Task Constant_can_be_error(string formula, object expectedError)
     {
         var error = (XLError)XLWorkbook.EvaluateExpr(formula);
         await Assert.That(error).IsEqualTo(ExpectedCellValue.From(expectedError));
+    }
+
+    /// <summary>
+    /// The parser lexes every error value Excel knows, but <see cref="XLError"/> has no member for
+    /// most of the newer ones, so a formula holding one is refused the way an unreadable formula is.
+    /// </summary>
+    [Test]
+    [Arguments("#CALC!")]
+    [Arguments("#FIELD!")]
+    [Arguments("#GETTING_DATA")]
+    [Arguments("ERROR.TYPE(#BLOCKED!)")]
+    public async Task Constant_error_without_an_XLError_is_a_parse_error(string formula)
+    {
+        var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
+        await Assert.That(() => calcEngine.Parse(formula)).Throws<ExpressionParseException>();
     }
     #endregion
 
@@ -263,7 +279,6 @@ public class FormulaParserTests
 
     [Test]
     [Arguments]
-    [Skip("ClosedXML.Parser can't tokenize a dynamic data exchange reference.")]
     public async Task Reference_can_be_dynamic_data_exchange()
     {
         await AssertCanParseButNotEvaluate("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'", "Evaluation of dynamic data exchange is not implemented.");

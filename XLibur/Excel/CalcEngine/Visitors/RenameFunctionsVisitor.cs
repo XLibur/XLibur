@@ -7,7 +7,7 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// <summary>
 /// A visitor for <see cref="FormulaConverter"/> that maps one name of a function to another.
 /// </summary>
-internal sealed class RenameFunctionsVisitor : RefModVisitor
+internal sealed class RenameFunctionsVisitor : FormulaModifier
 {
     /// <summary>
     /// Case-insensitive dictionary of function names.

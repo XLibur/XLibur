@@ -19,7 +19,7 @@ directly.
 | Target frameworks  | net8.0, net9.0, net10.0                                     |
 | License            | MIT                                                         |
 | Core dependency    | DocumentFormat.OpenXml 3.4.1                                |
-| Parser             | XLibur.ClosedXML.Parser 2.1.0-alpha.276                     |
+| Parser             | XLibur.ClosedXML.Parser 2.1.0-beta.293                      |
 | Font handling       | SixLabors.Fonts 1.0.1                                       |
 | Spatial indexing   | RBush.Signed 4.0.0                                          |
 | Number formatting  | ExcelNumberFormat 1.1.0                                     |

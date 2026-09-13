@@ -46,6 +46,12 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
+    public virtual object? SheetErrorNode(TContext context, SymbolRange range, int? workbookIndex, string sheet,
+        ReadOnlySpan<char> error)
+    {
+        return default;
+    }
+
     public virtual object? NumberNode(TContext context, SymbolRange range, double value)
     {
         return default;
@@ -154,6 +160,17 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
     }
 
     public virtual object? ExternalSheetName(TContext context, SymbolRange range, int workbookIndex, string sheet, string name)
+    {
+        return default;
+    }
+
+    public virtual object? ExternalDynamicDataExchange(TContext context, SymbolRange range, int workbookIndex, string item)
+    {
+        return default;
+    }
+
+    public virtual object? DynamicDataExchange(TContext context, SymbolRange range, string application, string topic,
+        string item)
     {
         return default;
     }

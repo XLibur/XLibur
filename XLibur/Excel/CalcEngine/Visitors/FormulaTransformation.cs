@@ -52,7 +52,7 @@ internal static class FormulaTransformation
     /// Wrapper around FormulaConverter.ModifyA1 that protects colons inside
     /// single-bracket structured reference column names from being misinterpreted as range operators.
     /// </summary>
-    internal static string SafeModifyA1(string formula, string sheetName, int row, int column, RefModVisitor visitor)
+    internal static string SafeModifyA1(string formula, string sheetName, int row, int column, FormulaModifier visitor)
     {
         var protected_ = ProtectStructuredRefColons(formula, out var wasProtected);
         var result = FormulaConverter.ModifyA1(protected_, sheetName, row, column, visitor);
