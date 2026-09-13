@@ -126,7 +126,10 @@ internal sealed class FormulaParser
 
         public ValueNode BangReference(string context, SymbolRange range, ReferenceArea reference)
         {
-            return new NotSupportedNode("Bang reference");
+            // `!A1` means "on the sheet the formula is evaluated for", which is what a reference
+            // without a sheet already gets: evaluation falls back to the context's sheet, and a
+            // defined name is evaluated in the context of the cell that uses it.
+            return new ReferenceNode(null, reference, _isA1);
         }
 
         public ValueNode Reference3D(string context, SymbolRange range, string firstSheet, string lastSheet,
@@ -226,7 +229,10 @@ internal sealed class FormulaParser
 
         public ValueNode BangName(string context, SymbolRange range, string name)
         {
-            return new NotSupportedNode("Bang name");
+            // `!Total` means the name as seen from the sheet the formula is evaluated for: that
+            // sheet's own `Total` if it has one, otherwise the workbook's. A name without a prefix
+            // already resolves that way, against the sheet of the cell using the defined name.
+            return new NameNode(null, name);
         }
 
         public ValueNode ExternalName(string context, SymbolRange range, int workbookIndex, string name)

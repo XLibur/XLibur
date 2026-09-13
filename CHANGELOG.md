@@ -37,6 +37,8 @@
 
 - **`XLWorkbook.EvaluateExpr` can now be called from several threads at once.** The method is static and every caller shared one engine, whose parse cache could not be filled from two threads at the same time. Two threads evaluating the same new expression both missed the cache, and the second threw `ArgumentException: An item with the same key has already been added` from a call that had nothing to do with the other thread. Each thread now has its own engine. A workbook itself is still not safe to use from several threads.
 
+- **A defined name holding a bang reference (`!$A$1`) or a bang name (`!Total`) now evaluates instead of throwing.** Both were accepted when set and when loaded, but a cell using such a name threw `NotImplementedException: Evaluation of Bang reference is not implemented.` (or `Bang name`). Both now resolve on the sheet of the cell that uses the name. `!$A$1` is that sheet's `A1`. `!Total` is that sheet's own `Total`, or the workbook-scoped `Total` if the sheet has none. The cell also recalculates when the cell it resolves to changes. A relative reference such as `!A1` is not yet offset by the position of the cell using the name; this is true of every defined name in XLibur, bang or not.
+
 ### Changed
 
 - The formula parser is now `XLibur.ClosedXML.Parser`, our fork of `ClosedXML.Parser`, in
