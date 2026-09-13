@@ -398,6 +398,26 @@ internal readonly struct AnyValue
         return Reference.UnionOp(leftReference, rightReference);
     }
 
+    /// <summary>
+    /// Create a new reference to the cells both arguments have in common: the intersection operator,
+    /// a space. It is <c>#NULL!</c> if they have no cell in common, and <c>#VALUE!</c> if either
+    /// argument is not a reference or the two are on different sheets.
+    /// </summary>
+    public static AnyValue ReferenceIntersection(in AnyValue left, in AnyValue right, CalcContext ctx)
+    {
+        var leftConversionResult = ConvertToReference(left);
+        if (!leftConversionResult.TryPickT0(out var leftReference, out var leftError))
+            return leftError;
+
+        var rightConversionResult = ConvertToReference(right);
+        if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
+            return rightError;
+
+        return Reference.Intersect(leftReference, rightReference, ctx).Match<AnyValue>(
+            reference => reference!,
+            error => error);
+    }
+
     private static OneOf<Reference, XLError> ConvertToReference(in AnyValue value)
     {
         return value._index switch

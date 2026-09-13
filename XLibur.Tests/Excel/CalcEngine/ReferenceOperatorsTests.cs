@@ -217,6 +217,133 @@ public class ReferenceOperatorsTests
 
     #endregion
 
+    #region Intersection operator (space)
+
+    // A space between two references gives "a reference to cells common to the two references"
+    // (Microsoft, "Calculation operators and precedence in Excel"). No cell in common is #NULL!.
+
+    /// <summary>Fills A1:D8 with its row number times 10 plus its column number, so every cell differs.</summary>
+    private static void SeedCells(IXLWorksheet ws)
+    {
+        for (var row = 1; row <= 8; row++)
+        {
+            for (var column = 1; column <= 4; column++)
+                ws.Cell(row, column).Value = row * 10 + column;
+        }
+    }
+
+    [Test]
+    public async Task IntersectionOperator_GivesTheCellsCommonToBothReferences()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        SeedCells(ws);
+
+        // Microsoft's example: B7:D7 and C6:C8 share C7.
+        ws.Cell("F1").FormulaA1 = "SUM(B7:D7 C6:C8)";
+        ws.Cell("F2").FormulaA1 = "B7:D7 C6:C8";
+        // A1:C3 and B2:D4 share B2:C3: 22 + 23 + 32 + 33.
+        ws.Cell("F3").FormulaA1 = "SUM(A1:C3 B2:D4)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(73);
+        await Assert.That(ws.Cell("F2").Value).IsEqualTo(73);
+        await Assert.That(ws.Cell("F3").Value).IsEqualTo(110);
+    }
+
+    [Test]
+    public async Task IntersectionOperator_WithNoCellInCommonIsANullError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("F1").FormulaA1 = "SUM(A1:A2 C1:C2)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(XLError.NullValue);
+    }
+
+    [Test]
+    public async Task IntersectionOperator_OfReferencesOnDifferentSheetsIsAnError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Sheet2");
+        ws.Cell("F1").FormulaA1 = "SUM(Sheet1!A1:B2 Sheet2!A1:B2)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    /// <summary>
+    /// With several areas on a side, the cells common to both references are the union of what
+    /// each left area has in common with each right area.
+    /// </summary>
+    [Test]
+    public async Task IntersectionOperator_OfSeveralAreasKeepsEveryCommonCell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        SeedCells(ws);
+
+        // Both sides cover A1:D2, split differently: all eight cells are common.
+        ws.Cell("F1").FormulaA1 = "SUM((A1:B2,C1:D2) (A1:D1,A2:D2))";
+        // A2 and C2 are common: 21 + 23.
+        ws.Cell("F2").FormulaA1 = "SUM((A1:A3,C1:C3) A2:D2)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(11 + 12 + 13 + 14 + 21 + 22 + 23 + 24);
+        await Assert.That(ws.Cell("F2").Value).IsEqualTo(44);
+    }
+
+    /// <summary>
+    /// <c>@</c> binds looser than the space but applies to the operand that follows it, so this is
+    /// <c>B1:C3 ∩ @(C1:C9)</c>, which in row 2 is <c>B1:C3 ∩ C2</c>.
+    /// </summary>
+    [Test]
+    public async Task IntersectionOperator_WorksWithTheImplicitIntersectionOperator()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        SeedCells(ws);
+        ws.Cell("F2").FormulaA1 = "SUM(B1:C3 @C1:C9)";
+
+        await Assert.That(ws.Cell("F2").Value).IsEqualTo(23);
+    }
+
+    [Test]
+    public async Task IntersectionOperator_OfAnOperandThatIsNotAReferenceIsAnError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        wb.DefinedNames.Add("Grid", "{10,20;30,40}");
+        ws.Cell("F1").FormulaA1 = "SUM(Grid A1:B2)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task IntersectionOperator_PassesAnErrorOperandThrough()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        wb.DefinedNames.Add("Broken", "#REF!");
+        ws.Cell("F1").FormulaA1 = "SUM(Broken A1:B2)";
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(XLError.CellReference);
+    }
+
+    [Test]
+    public async Task IntersectionOperator_RecalculatesWhenACommonCellChanges()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C7").Value = 1;
+        ws.Cell("F1").FormulaA1 = "SUM(B7:D7 C6:C8)";
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(1);
+
+        ws.Cell("C7").Value = 5;
+
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(5);
+    }
+
+    #endregion
+
     #region Cell-content scalar reduction (spec 37's AnyValue.TryReduceToScalar ladder)
 
     // A formula whose own top-level result is a reference — no function in between — is reduced to

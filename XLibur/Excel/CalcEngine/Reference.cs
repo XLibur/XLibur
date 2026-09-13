@@ -201,6 +201,11 @@ namespace XLibur.Excel.CalcEngine
             return new Reference(lhs[0], additional);
         }
 
+        /// <summary>
+        /// The cells <paramref name="lhs"/> and <paramref name="rhs"/> have in common: an area for
+        /// each pair of a left area and a right area that overlap. <c>#NULL!</c> if no pair overlaps,
+        /// and <c>#VALUE!</c> if the references are on different sheets.
+        /// </summary>
         public static OneOf<Reference, XLError> Intersect(Reference lhs, Reference rhs, CalcContext ctx)
         {
             // The two references must share a single worksheet (default = context). Walk both
@@ -213,19 +218,19 @@ namespace XLibur.Excel.CalcEngine
             // ctx.Worksheet throws MissingContextException rather than returning null —
             // so each `area.Worksheet ?? ctx.Worksheet` resolves to a non-null value.
             var resolvedSheet = sheet!;
+            // Each left area against each right area, not against all of them in turn: the cells
+            // common to (A1:B2,C1:D2) and (A1:D1,A2:D2) are all of A1:D2, while narrowing A1:B2 by
+            // A1:D1 and then by A2:D2 would leave nothing.
             List<XLRangeAddress>? intersections = null;
             foreach (var leftArea in lhs)
             {
-                var intersectedArea = leftArea.WithWorksheet(resolvedSheet);
+                var left = leftArea.WithWorksheet(resolvedSheet);
                 foreach (var rightArea in rhs)
                 {
-                    intersectedArea = intersectedArea.Intersection(rightArea.WithWorksheet(resolvedSheet));
-                    if (!intersectedArea.IsValid)
-                        break;
+                    var intersection = left.Intersection(rightArea.WithWorksheet(resolvedSheet));
+                    if (intersection.IsValid)
+                        (intersections ??= []).Add(intersection);
                 }
-
-                if (intersectedArea.IsValid)
-                    (intersections ??= []).Add(intersectedArea);
             }
 
             return intersections is { Count: > 0 } ? new Reference(intersections) : XLError.NullValue;

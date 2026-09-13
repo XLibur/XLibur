@@ -52,8 +52,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         {
             BinaryOp.Range => AnyValue.ReferenceRange(leftArg, rightArg, context),
             BinaryOp.Union => AnyValue.ReferenceUnion(leftArg, rightArg),
-            BinaryOp.Intersection => throw new NotImplementedException(
-                "Evaluation of range intersection operator is not implemented."),
+            BinaryOp.Intersection => AnyValue.ReferenceIntersection(leftArg, rightArg, context),
             BinaryOp.Concat => AnyValue.Concat(leftArg, rightArg, context),
             BinaryOp.Add => AnyValue.BinaryPlus(leftArg, rightArg, context),
             BinaryOp.Sub => AnyValue.BinaryMinus(leftArg, rightArg, context),

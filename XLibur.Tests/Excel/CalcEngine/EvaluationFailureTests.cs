@@ -51,11 +51,12 @@ public class EvaluationFailureTests
     }
 
     [Test]
-    public async Task TryGetValue_on_an_unimplemented_operator_returns_false()
+    public async Task TryGetValue_on_an_unimplemented_feature_returns_false()
     {
         using var wb = new XLWorkbook();
         var cell = wb.AddWorksheet().Cell("A1");
-        cell.FormulaA1 = "SUM(B1:C2 C1:D2)";
+        // Dynamic data exchange parses, but the calc engine cannot evaluate it.
+        cell.FormulaA1 = "Sdemo123|tik!'id1?req?AAPL'";
 
         await Assert.That(cell.TryGetValue(out double _)).IsFalse();
     }
