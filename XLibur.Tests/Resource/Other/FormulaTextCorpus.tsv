@@ -1,0 +1,32 @@
+# form	text	evaluate	references	extent	shift	rename	to_r1c1	add_prefix	calls_subtotal
+plain_reference	A1	1	local A1	1,1	A1	A1	R[-2]C[-2]	A1	false
+sheet_reference	Sheet1!B2	5	sheet Sheet1!B2; ranges Sheet1!B2:B2	2,2	Sheet1!B4	Data!B2	Sheet1!R[-1]C[-1]	Sheet1!B2	false
+quoted_sheet_reference	'Sheet1'!C3	9	sheet Sheet1!C3; ranges Sheet1!C3:C3	3,3	Sheet1!C5	Data!C3	Sheet1!RC	'Sheet1'!C3	false
+reference_3d	SUM(Sheet1:Sheet1!A1:A2)	#REF!	none	0,0	SUM(Sheet1:Sheet1!A1:A2)	SUM(Data:Data!A1:A2)	SUM(Sheet1:Sheet1!R[-2]C[-2]:R[-1]C[-2])	SUM(Sheet1:Sheet1!A1:A2)	false
+bang_reference	!A1	1	none	0,0	!A1	!A1	!R[-2]C[-2]	!A1	false
+name	SUM(WbName)	6	none	0,0	SUM(WbName)	SUM(WbName)	SUM(WbName)	SUM(WbName)	false
+sheet_qualified_name	Sheet1!Local	5	none	0,0	Sheet1!Local	Data!Local	Sheet1!Local	Sheet1!Local	false
+bang_name	!Local	5	none	0,0	!Local	!Local	!Local	!Local	false
+structured_reference	COUNTA(Table1[Name])	2	ranges Sheet1!E2:E3	0,0	COUNTA(Table1[Name])	COUNTA(Table1[Name])	COUNTA(Table1[Name])	COUNTA(Table1[Name])	false
+colon_in_column_name	SUM(Table1[Start: Date])	#REF!	none	0,0	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	SUM(Table1[Start: Date])	false
+external_reference	[1]Sheet1!A1	#REF!	none	0,0	[1]Sheet1!A1	[1]Sheet1!A1	[1]Sheet1!R[-2]C[-2]	[1]Sheet1!A1	false
+external_formula_bar_form	'[Book2.xlsx]Sheet1'!A1	THROWS ExpressionParseException	REFUSED	1048576,16384	'[Book2.xlsx]Sheet1'!A1	THROWS ParsingException	THROWS ExpressionParseException	'[Book2.xlsx]Sheet1'!A1	false
+function_call	SUM(A1:C1)	6	local A1:C1	1,3	SUM(A1:C1)	SUM(A1:C1)	SUM(R[-2]C[-2]:R[-2]C)	SUM(A1:C1)	false
+typed_future_function	concat("x",A1)	"x1"	local A1	1,1	concat("x",A1)	concat("x",A1)	concat("x",R[-2]C[-2])	_xlfn.CONCAT("x",A1)	false
+future_prefix_lower	_xlfn.CONCAT("a","b")	"ab"	none	0,0	_xlfn.CONCAT("a","b")	_xlfn.CONCAT("a","b")	_xlfn.CONCAT("a","b")	_xlfn.CONCAT("a","b")	false
+future_prefix_upper	_XLFN.CONCAT("a","b")	#NAME?	none	0,0	_XLFN.CONCAT("a","b")	_XLFN.CONCAT("a","b")	_XLFN.CONCAT("a","b")	_XLFN.CONCAT("a","b")	false
+future_worksheet_prefix	SUM(_xlfn._xlws.FILTER(A1:A3,A1:A3>1))	11	local A1:A3	3,1	SUM(_xlfn._xlws.FILTER(A1:A5,A1:A5>1))	SUM(_xlfn._xlws.FILTER(A1:A3,A1:A3>1))	SUM(_xlfn._xlws.FILTER(R[-2]C[-2]:RC[-2],R[-2]C[-2]:RC[-2]>1))	SUM(_xlfn._xlws.FILTER(A1:A3,A1:A3>1))	false
+implicit_intersection	@A1:A3	4	local A1:A3	3,1	@A1:A5	@A1:A3	@R[-2]C[-2]:RC[-2]	@A1:A3	false
+intersection_operator	SUM(A1:C1 B1:B3)	2	local A1:C1,B1:B3	3,3	SUM(A1:C1 B1:B5)	SUM(A1:C1 B1:B3)	SUM(R[-2]C[-2]:R[-2]C R[-2]C[-1]:RC[-1])	SUM(A1:C1 B1:B3)	false
+union_operator	SUM((A1,B2))	6	local A1,B2	2,2	SUM((A1,B4))	SUM((A1,B2))	SUM((R[-2]C[-2],R[-1]C[-1]))	SUM((A1,B2))	false
+range_operator	SUM(A1:INDEX(A1:C3,2,2))	12	local A1,A1:C3	3,3	SUM(A1:INDEX(A1:C5,2,2))	SUM(A1:INDEX(A1:C3,2,2))	SUM(R[-2]C[-2]:INDEX(R[-2]C[-2]:RC,2,2))	SUM(A1:INDEX(A1:C3,2,2))	false
+error_literal	#DIV/0!	#DIV/0!	#REF!	0,0	#DIV/0!	#DIV/0!	#DIV/0!	#DIV/0!	false
+sheet_ref_error	Sheet1!#REF!	#REF!	#REF!	0,0	Sheet1!#REF!	Data!#REF!	Sheet1!#REF!	Sheet1!#REF!	false
+array_literal	SUM({1,2;3,4})	10	none	0,0	SUM({1,2;3,4})	SUM({1,2;3,4})	SUM({1,2;3,4})	SUM({1,2;3,4})	false
+surrounding_whitespace	␠A1+1␠	2	local A1	1,1	␠A1+1␠	␠A1+1␠	␠R[-2]C[-2]+1␠	␠A1+1␠	false
+leading_equals	=A1+1	2	REFUSED	1048576,16384	=A1+1	THROWS ParsingException	=R[-2]C[-2]+1	=A1+1	false
+empty	<empty>	THROWS ExpressionParseException	REFUSED	0,0	<empty>	THROWS ParsingException	<empty>	<empty>	false
+whitespace_only	␠␠␠	THROWS ExpressionParseException	REFUSED	0,0	<empty>	THROWS ParsingException	<empty>	␠␠␠	false
+unparseable	SUM(	THROWS ExpressionParseException	REFUSED	1048576,16384	SUM(	THROWS ParsingException	THROWS ExpressionParseException	SUM(	false
+subtotal_call	SUBTOTAL(9,A1:A2)	5	local A1:A2	2,1	SUBTOTAL(9,A1:A4)	SUBTOTAL(9,A1:A2)	SUBTOTAL(9,R[-2]C[-2]:R[-1]C[-2])	SUBTOTAL(9,A1:A2)	true
+refused_subtotal_call	'[Book2.xlsx]Sheet1'!A1+SUBTOTAL(9,B5)	THROWS ExpressionParseException	REFUSED	1048576,16384	'[Book2.xlsx]Sheet1'!A1+SUBTOTAL(9,B7)	THROWS ParsingException	THROWS ExpressionParseException	'[Book2.xlsx]Sheet1'!A1+SUBTOTAL(9,B5)	THROWS ParsingException
