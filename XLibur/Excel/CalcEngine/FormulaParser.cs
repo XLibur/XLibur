@@ -96,6 +96,13 @@ internal sealed class FormulaParser
             return new ScalarNode(GetErrorValue(error));
         }
 
+        public ValueNode SheetErrorNode(string context, SymbolRange range, int? workbookIndex, string sheet,
+            ReadOnlySpan<char> error)
+        {
+            // The sheet only matters to a rename; Sheet1!#REF! evaluates to #REF! all the same.
+            return new ScalarNode(GetErrorValue(error));
+        }
+
         public ValueNode NumberNode(string context, SymbolRange range, double value)
         {
             return new ScalarNode(value);
@@ -234,6 +241,17 @@ internal sealed class FormulaParser
             return new NameNode(prefixNode, name);
         }
 
+        public ValueNode ExternalDynamicDataExchange(string context, SymbolRange range, int workbookIndex, string item)
+        {
+            return new NotSupportedNode("dynamic data exchange");
+        }
+
+        public ValueNode DynamicDataExchange(string context, SymbolRange range, string application, string topic,
+            string item)
+        {
+            return new NotSupportedNode("dynamic data exchange");
+        }
+
         public ValueNode BinaryNode(string context, SymbolRange range, BinaryOperation operation, ValueNode leftNode,
             ValueNode rightNode)
         {
@@ -314,11 +332,6 @@ internal sealed class FormulaParser
             return new FunctionNode(prefixNode, functionName, argumentNodes);
         }
 
-        private static XLError GetErrorValue(ReadOnlySpan<char> error)
-        {
-            if (!XLErrorParser.TryParseError(error.ToString(), out var errorEnum))
-                throw new InvalidOperationException($"'{error.ToString()}' is not error.");
-            return errorEnum;
-        }
+        private static XLError GetErrorValue(ReadOnlySpan<char> error) => XLErrorParser.ParseFormulaError(error);
     }
 }

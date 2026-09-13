@@ -37,6 +37,59 @@
 
 - **`XLWorkbook.EvaluateExpr` can now be called from several threads at once.** The method is static and every caller shared one engine, whose parse cache could not be filled from two threads at the same time. Two threads evaluating the same new expression both missed the cache, and the second threw `ArgumentException: An item with the same key has already been added` from a call that had nothing to do with the other thread. Each thread now has its own engine. A workbook itself is still not safe to use from several threads.
 
+### Changed
+
+- The formula parser is now `XLibur.ClosedXML.Parser`, our fork of `ClosedXML.Parser`, in
+  place of the community package at 2.0.0. The assembly name and the `ClosedXML.Parser`
+  namespace are unchanged, so nothing in XLibur's own source moved and no public API of
+  XLibur changed. The community package's last release was 2.0.0 in April 2025, and its
+  `develop` branch is a half-finished 3.0 rewrite with no 2.0.x line to take a patch, so
+  there was no route to ship a parser fix — see
+  [#313](https://github.com/XLibur/XLibur/issues/313). Consumers see a different package in
+  their dependency graph; a project that also pulls in `ClosedXML.Parser` gets both, and the
+  fork wins on assembly version without a build warning.
+- The parser is `XLibur.ClosedXML.Parser` 3.0.0. When a sheet or table is renamed or
+  deleted, a formula is now rewritten only where it names that sheet or table, and the rest of
+  its text is kept as written. The parser used to write every reference again, so a rename also
+  dropped quotes a sheet name doesn't need (`'Wk2'!C5` became `Wk2!C5`), collapsed a one-cell
+  area (`'Org Chart'!D5:D5` became `'Org Chart'!D5`) and dropped the whitespace before a formula.
+
+### Fixed
+
+From 3.0.0:
+
+- A dynamic data exchange formula, such as `Sdemo123|tik!'id1?req?AAPL'`, now parses.
+  Evaluating it throws `NotImplementedException`, as other unsupported syntax does.
+- The `#SPILL!` error literal now parses, as `XLError.SpillRange`.
+- A formula holding `#GETTING_DATA` throws `ExpressionParseException` when it is parsed, not
+  `InvalidOperationException`, because `XLError` has no member for it. The newer error values
+  the parser now reads, such as `#CALC!` and `#FIELD!`, are refused the same way.
+- Renaming a sheet to a name shaped like a cell, such as `PWD1`, quotes it when it is the first
+  sheet of a 3D reference: `'PWD1:Last'!A1`. It was written bare, and `PWD1:Last!A1` doesn't read
+  back as the same reference.
+- A space intersection after an expression in braces, `(A1) B2`, now parses. Evaluating it throws
+  `NotImplementedException`, as any range intersection does.
+
+Carried in from the forked parser, each verified against 2.0.0:
+
+- A defined name or formula holding a structured reference whose whole inner reference is a
+  keyword list — `Sales[[#Headers],[#Data]]` — no longer throws `IndexOutOfRangeException`
+  out of the parser.
+- An R1C1 round trip no longer fails under a culture whose negative sign is U+2212
+  (`sv-SE`, `fi-FI`, `nb-NO`). The writer used the current culture, emitting `R[−1]C[−1]`,
+  which the reader could not read back.
+- A sheet name is quoted the way Excel's file format requires rather than the way its
+  formula bar displays it: 41 codepoints in the first position and 37 in a later one were
+  left unquoted where Excel quotes, and for some of them Excel refuses to open the workbook.
+  A sheet named `TRUE` or `FALSE` is now quoted too.
+- Malformed UTF-16 is treated as invalid input instead of throwing. Text ending in a lone
+  high surrogate threw `IndexOutOfRangeException`, and a high surrogate followed by anything
+  else threw `ArgumentOutOfRangeException`.
+- An R1C1 axis number of zero is refused. `C0` parsed as if it were `C`, so it silently
+  became a whole-column reference instead of the defined name it is.
+- The called cell of a cell function is read in the formula's own reference style. In R1C1,
+  `R7C3(TRUE)` was read as the A1 cell `R7` and the `C3` was discarded.
+
 ## v0.400.0 - 2026-09-01
 
 ### ⚠️ Breaking Changes

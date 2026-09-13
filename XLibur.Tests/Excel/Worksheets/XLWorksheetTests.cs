@@ -1026,6 +1026,25 @@ public class XLWorksheetTests
         await Assert.That(ws.Cell("A2").Value).IsEqualTo(300);
     }
 
+    /// <summary>
+    /// A sheet renamed to a name shaped like a cell (<c>PWD1</c> is column PWD, row 1) is quoted as the
+    /// first sheet of a 3D reference. Bare, <c>PWD1:Last!A1</c> reads back as a range from the cell
+    /// <c>PWD1</c> to <c>Last!A1</c>.
+    /// </summary>
+    [Test]
+    public async Task Rename_sheet_to_a_cell_like_name_quotes_it_as_the_first_sheet_of_a_3D_reference()
+    {
+        using var wb = new XLWorkbook();
+        var first = wb.Worksheets.Add("First");
+        wb.Worksheets.Add("Last");
+        var ws = wb.Worksheets.Add("Summary");
+        ws.Cell("A1").FormulaA1 = "SUM(First:Last!A1)";
+
+        first.Name = "PWD1";
+
+        await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo("SUM('PWD1:Last'!A1)");
+    }
+
     [Test]
     // ReSharper disable once InconsistentNaming
     public async Task RangesFromDeletedWorksheetContainREF()

@@ -135,10 +135,26 @@ public class FormulaParserTests
     [Arguments("#N/A", XLError.NoValueAvailable)]
     [Arguments("#NULL!", XLError.NullValue)]
     [Arguments("#NUM!", XLError.NumberInvalid)]
+    [Arguments("#SPILL!", XLError.SpillRange)]
     public async Task Constant_can_be_error(string formula, object expectedError)
     {
         var error = (XLError)XLWorkbook.EvaluateExpr(formula);
         await Assert.That(error).IsEqualTo(ExpectedCellValue.From(expectedError));
+    }
+
+    /// <summary>
+    /// The parser lexes every error value Excel knows, but <see cref="XLError"/> has no member for
+    /// most of the newer ones, so a formula holding one is refused the way an unreadable formula is.
+    /// </summary>
+    [Test]
+    [Arguments("#CALC!")]
+    [Arguments("#FIELD!")]
+    [Arguments("#GETTING_DATA")]
+    [Arguments("ERROR.TYPE(#BLOCKED!)")]
+    public async Task Constant_error_without_an_XLError_is_a_parse_error(string formula)
+    {
+        var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
+        await Assert.That(() => calcEngine.Parse(formula)).Throws<ExpressionParseException>();
     }
     #endregion
 
@@ -262,11 +278,11 @@ public class FormulaParserTests
     }
 
     [Test]
-    [Arguments]
-    [Skip("ClosedXML.Parser can't tokenize a dynamic data exchange reference.")]
-    public async Task Reference_can_be_dynamic_data_exchange()
+    [Arguments("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'")]
+    [Arguments("=[1]!'id1?req?AAPL_STK_SMART_USD_~/'")]
+    public async Task Reference_can_be_dynamic_data_exchange(string formula)
     {
-        await AssertCanParseButNotEvaluate("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'", "Evaluation of dynamic data exchange is not implemented.");
+        await AssertCanParseButNotEvaluate(formula, "Evaluation of dynamic data exchange is not implemented.");
     }
 
     #endregion
@@ -285,10 +301,11 @@ public class FormulaParserTests
     }
 
     [Test]
-    [Arguments]
-    public async Task Reference_function_call_can_be_intersection_of_two_references()
+    [Arguments("=A1:A3 A2:B2")]
+    [Arguments("=(A1) B2")]
+    public async Task Reference_function_call_can_be_intersection_of_two_references(string formula)
     {
-        await AssertCanParseButNotEvaluate("=A1:A3 A2:B2", "Evaluation of range intersection operator is not implemented.");
+        await AssertCanParseButNotEvaluate(formula, "Evaluation of range intersection operator is not implemented.");
     }
 
     [Test]
@@ -403,6 +420,13 @@ public class FormulaParserTests
     public async Task Reference_item_can_be_ref_error()
     {
         await Assert.That(XLWorkbook.EvaluateExpr("#REF!")).IsEqualTo(XLError.CellReference);
+    }
+
+    [Test]
+    [Arguments]
+    public async Task Reference_item_can_be_sheet_qualified_ref_error()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("Sheet1!#REF!")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
@@ -556,7 +580,8 @@ public class FormulaParserTests
         var ws = wb.AddWorksheet();
         var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
         _ = calcEngine.Parse(formula);
-        await Assert.That(() => ws.Evaluate(formula, "A1")).Throws<Exception>();
+        var ex = await Assert.That(() => ws.Evaluate(formula, "A1")).Throws<NotImplementedException>();
+        await Assert.That(ex!.Message).IsEqualTo(notSupportedMessage);
     }
 
     private static async Task AssertCanParseAndEvaluateToRefError(string formula)

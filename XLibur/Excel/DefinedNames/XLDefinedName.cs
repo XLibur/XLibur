@@ -157,14 +157,19 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     private static Exception? RejectionOf(string formula, string paramName, out FormulaReferences references)
     {
         if (!FormulaReferences.TryForFormula(formula, out references, out var failure))
-            return new ExpressionParseException(failure.Message, failure);
+            return failure as ExpressionParseException ?? new ExpressionParseException(failure.Message, failure);
 
         if (references.References.Count > 0)
         {
             // `[MS-XLSX] 2.2.2.5: The formula MUST NOT use the local-cell-reference production
             // rule.` Excel will refuse to load a workbook with such a defined name (e.g. `A1`).
-            // In theory, defined name should support bang references as a replacement for local
-            // references, but ClosedParser doesn't support it yet.
+            // A bang reference is the replacement Excel expects, and one gets past this guard:
+            // the parser reads `!A1` and hands it to `IAstFactory.BangReference`, so it is not
+            // counted as a sheet-less reference. What is missing is on our side —
+            // `FormulaParser` answers that callback with `NotSupportedNode`, so evaluating such
+            // a name throws. A bang *name* (`!Total`) parses as of XLibur.ClosedXML.Parser
+            // 2.1.0-beta.293 and meets the same `NotSupportedNode`, from `BangName`.
+            // See https://github.com/XLibur/XLibur/issues/313.
             return new ArgumentException($"Formula '{formula}' contains references without a sheet.", paramName);
         }
 

@@ -25,6 +25,24 @@ public class NamedRangesTests
         await Assert.That(() => wb.DefinedNames.Add("Test", "SUM(Sheet7!A4")).Throws<ExpressionParseException>();
     }
 
+    /// <summary>
+    /// A defined name can hold a dynamic data exchange reference, in the form Excel stores and the
+    /// form it displays. It names no cell, so it is valid; evaluating it is not implemented.
+    /// </summary>
+    [Test]
+    [Arguments("Sdemo123|tik!'id1?req?AAPL'")]
+    [Arguments("[1]!'id1?req?AAPL'")]
+    public async Task Defined_name_can_hold_a_dynamic_data_exchange_reference(string formula)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet();
+
+        var name = wb.DefinedNames.Add("Quote", formula);
+
+        await Assert.That(name.RefersTo).IsEqualTo(formula);
+        await Assert.That(name.IsValid).IsTrue();
+    }
+
     [Test]
     public async Task CanEvaluateNamedMultiRange()
     {

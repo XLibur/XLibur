@@ -593,8 +593,9 @@ internal class DependencyTreeTests
             // Unary implicit intersection is propagated
             yield return
             [
-                // Due to issue ClosedParser#1, implicit intersection is not a part
-                // of ref_expression and I can't use `D3:@A1:C2` as a test case
+                // `D3:@A1:C2` failed to parse up to XLibur.ClosedXML.Parser 2.1.0-alpha.276 and
+                // parses on 2.1.0-beta.293, but its dependencies are not pinned here yet
+                // (https://github.com/XLibur/XLibur/issues/313).
                 "@A1:A4",
                 new[]
                 {

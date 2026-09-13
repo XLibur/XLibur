@@ -19,7 +19,7 @@ directly.
 | Target frameworks  | net8.0, net9.0, net10.0                                     |
 | License            | MIT                                                         |
 | Core dependency    | DocumentFormat.OpenXml 3.4.1                                |
-| Parser             | ClosedXML.Parser 2.0.0                                      |
+| Parser             | XLibur.ClosedXML.Parser 3.0.0                               |
 | Font handling       | SixLabors.Fonts 1.0.1                                       |
 | Spatial indexing   | RBush.Signed 4.0.0                                          |
 | Number formatting  | ExcelNumberFormat 1.1.0                                     |
@@ -411,8 +411,9 @@ streamed date round-trips as a date rather than as a number.
 
 ### 7.1 Parsing & AST
 
-Formulas are parsed by `ClosedXML.Parser` (external NuGet) into an AST. The
-`FormulaParser` class wraps it:
+Formulas are parsed by `ClosedXML.Parser` (external NuGet, shipped as the
+`XLibur.ClosedXML.Parser` package — a fork of the ClosedXML original, same assembly
+and namespace) into an AST. The `FormulaParser` class wraps it:
 
 ```
 string formula  →  FormulaParser.GetAst(...)  →  Formula (AST root)
