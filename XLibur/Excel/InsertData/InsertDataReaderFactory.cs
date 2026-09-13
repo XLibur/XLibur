@@ -37,7 +37,8 @@ internal sealed class InsertDataReaderFactory
 
     public static IInsertDataReader CreateReader<T>(IEnumerable<T[]> data)
     {
-        return data == null ? throw new ArgumentNullException(nameof(data)) : new ArrayReader(data);
+        ArgumentNullException.ThrowIfNull(data);
+        return new ArrayReader(data);
     }
 
     public static IInsertDataReader CreateReader(IEnumerable<IEnumerable> data)
@@ -52,6 +53,7 @@ internal sealed class InsertDataReaderFactory
 
     public static IInsertDataReader CreateReader(DataTable dataTable)
     {
-        return dataTable == null ? throw new ArgumentNullException(nameof(dataTable)) : new DataTableReader(dataTable);
+        ArgumentNullException.ThrowIfNull(dataTable);
+        return new DataTableReader(dataTable);
     }
 }
