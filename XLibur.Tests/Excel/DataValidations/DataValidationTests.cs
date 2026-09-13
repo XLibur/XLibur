@@ -121,6 +121,16 @@ public class DataValidationTests
     }
 
     [Test]
+    public async Task CopyTo_KeepsTheSpacingAroundTheEqualSignOfACustomValidation()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sheet1");
+        ws.Cell("B2").CreateDataValidation().Custom(" = A1 ");
+        ws.Cell("B2").CopyTo(ws.Cell("B3"));
+        await Assert.That(ws.Cell("B3").GetDataValidation().Value).IsEqualTo(" = A2 ");
+    }
+
+    [Test]
     public async Task Validation_5()
     {
         var wb = new XLWorkbook();

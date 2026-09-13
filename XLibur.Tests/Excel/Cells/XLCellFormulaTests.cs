@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Excel.Coordinates;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.Cells;
@@ -16,6 +17,28 @@ public class XLCellFormulaTests
         var ws = wb.AddWorksheet();
         ws.Cell(1, 1).FormulaA1 = "=B1";
         await Assert.That(ws.Cell(1, 1).FormulaA1).IsEqualTo("B1");
+    }
+
+    [Test]
+    [Arguments(" = A1 ", " = R[-1]C[-1] ")]
+    [Arguments("=A1", "=R[-1]C[-1]")]
+    [Arguments(" A1", " R[-1]C[-1]")]
+    [Arguments("A1 ", "R[-1]C[-1] ")]
+    public async Task GetFormula_A1ToR1C1_KeepsTheTextAroundTheFormula(string a1, string expectedR1C1)
+    {
+        var r1c1 = XLCellFormula.GetFormula(a1, FormulaConversionType.A1ToR1C1, new Point(2, 2));
+        await Assert.That(r1c1).IsEqualTo(expectedR1C1);
+    }
+
+    [Test]
+    [Arguments(" = R[-1]C[-1] ", " = A1 ")]
+    [Arguments("=R[-1]C[-1]", "=A1")]
+    [Arguments(" R[-1]C[-1]", " A1")]
+    [Arguments("R[-1]C[-1] ", "A1 ")]
+    public async Task GetFormula_R1C1ToA1_KeepsTheTextAroundTheFormula(string r1c1, string expectedA1)
+    {
+        var a1 = XLCellFormula.GetFormula(r1c1, FormulaConversionType.R1C1ToA1, new Point(2, 2));
+        await Assert.That(a1).IsEqualTo(expectedA1);
     }
 
     [Test]
