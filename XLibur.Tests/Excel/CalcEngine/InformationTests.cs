@@ -28,8 +28,20 @@ public class InformationTests
     [Arguments("#NAME?", 5)]
     [Arguments("#NUM!", 6)]
     [Arguments("#N/A", 7)]
-    //[TestCase("#GETTING_DATA", 8)] OLAP Cube not supported
+    [Arguments("#GETTING_DATA", 8)]
     [Arguments("#SPILL!", 9)]
+    // Microsoft documents the codes only up to 8. The rest are one more than the errorType
+    // [MS-XLSX] gives each error's rich value, which is what Excel is reported to return for
+    // #CONNECT!, #BLOCKED! and #CALC!. #PYTHON! shares its errorType with #EXTERNAL!.
+    [Arguments("#CONNECT!", 10)]
+    [Arguments("#BLOCKED!", 11)]
+    [Arguments("#UNKNOWN!", 12)]
+    [Arguments("#FIELD!", 13)]
+    [Arguments("#CALC!", 14)]
+    [Arguments("#BUSY!", 15)]
+    [Arguments("#EXTERNAL!", 19)]
+    [Arguments("#PYTHON!", 19)]
+    [Arguments("#TIMEOUT!", 20)]
     public async Task ErrorType_ReturnsNumberForError(string error, int expectedNumber)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"ERROR.TYPE({error})")).IsEqualTo(expectedNumber);

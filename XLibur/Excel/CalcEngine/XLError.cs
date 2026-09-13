@@ -4,9 +4,22 @@ namespace XLibur.Excel;
 /// A formula error.
 /// </summary>
 /// <remarks>
-/// Keep order of errors in same order as value returned by ERROR.TYPE,
-/// because it is used for comparison in some case (e.g. AutoFilter).
-/// Values are off by 1, so <c>default</c> produces a valid error.
+/// <para>
+/// A member's value is the <c>errorType</c> that [MS-XLSX] 2.3.6.1.3 gives the error's <c>_error</c>
+/// rich value, which is one less than the number <c>ERROR.TYPE</c> returns for it. Keep it that way:
+/// errors are compared by value in some places (e.g. AutoFilter), and being off by one lets
+/// <c>default</c> be a valid error.
+/// </para>
+/// <para>
+/// The spec leaves gaps: 15 and 16 name no error, and 17 is a second form of <c>#BUSY!</c>.
+/// <see cref="Python"/> is the one member outside the spec's numbering, because the spec gives
+/// <c>#PYTHON!</c> the same <c>errorType</c> as <c>#EXTERNAL!</c>.
+/// </para>
+/// <para>
+/// The members from <see cref="GettingData"/> on, apart from <see cref="SpillRange"/>, come from Excel
+/// features XLibur doesn't have, such as linked data types and Python in Excel. XLibur reads, evaluates
+/// and writes them like any other error, but never produces one itself.
+/// </para>
 /// </remarks>
 public enum XLError
 {
@@ -55,13 +68,65 @@ public enum XLError
     NoValueAvailable = 6,
 
     /// <summary>
+    /// <c>#GETTING_DATA</c> - the value is still being retrieved, e.g. by a cube function from an
+    /// OLAP data source.
+    /// </summary>
+    GettingData = 7,
+
+    /// <summary>
     /// <c>#SPILL!</c> - a dynamic array formula's result can't be written because the
     /// spill range isn't empty (blocked by other content) or would fall outside the sheet.
     /// </summary>
+    SpillRange = 8,
+
+    /// <summary>
+    /// <c>#CONNECT!</c> - an attempt to connect to a service the formula needs failed.
+    /// </summary>
+    Connect = 9,
+
+    /// <summary>
+    /// <c>#BLOCKED!</c> - the connection to a service the formula needs was blocked.
+    /// </summary>
+    Blocked = 10,
+
+    /// <summary>
+    /// <c>#UNKNOWN!</c> - the value has a data type this version of Excel does not support.
+    /// </summary>
+    Unknown = 11,
+
+    /// <summary>
+    /// <c>#FIELD!</c> - a formula refers to a field that a value, such as a linked data type, does not have.
+    /// </summary>
+    Field = 12,
+
+    /// <summary>
+    /// <c>#CALC!</c> - the calculation engine met a case it does not support, e.g. an array
+    /// function whose result would be empty.
+    /// </summary>
+    Calc = 13,
+
+    /// <summary>
+    /// <c>#BUSY!</c> - the formula is waiting on data from a service.
+    /// </summary>
+    Busy = 14,
+
+    /// <summary>
+    /// <c>#EXTERNAL!</c> - an external code service the formula depends on returned an error.
+    /// </summary>
+    External = 18,
+
+    /// <summary>
+    /// <c>#TIMEOUT!</c> - the formula ran for longer than the time it is allowed.
+    /// </summary>
+    Timeout = 19,
+
+    /// <summary>
+    /// <c>#PYTHON!</c> - the Python code in the formula returned an error.
+    /// </summary>
     /// <remarks>
-    /// This member breaks the "value + 1 equals <c>ERROR.TYPE</c>" convention that holds for
-    /// the members above: <c>ERROR.TYPE(#SPILL!)</c> is <c>9</c>, not <c>8</c>, so the
-    /// <c>ERROR.TYPE</c> function special-cases it.
+    /// [MS-XLSX] records this as the <c>#EXTERNAL!</c> error of the Python service, so it has no
+    /// <c>errorType</c> of its own. It has a member of its own so that its text survives a round trip,
+    /// and <c>ERROR.TYPE</c> returns the same number for it as for <see cref="External"/>.
     /// </remarks>
-    SpillRange = 7
+    Python = 20
 }

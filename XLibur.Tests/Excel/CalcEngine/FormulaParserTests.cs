@@ -1,5 +1,6 @@
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -135,7 +136,17 @@ public class FormulaParserTests
     [Arguments("#N/A", XLError.NoValueAvailable)]
     [Arguments("#NULL!", XLError.NullValue)]
     [Arguments("#NUM!", XLError.NumberInvalid)]
+    [Arguments("#GETTING_DATA", XLError.GettingData)]
     [Arguments("#SPILL!", XLError.SpillRange)]
+    [Arguments("#CONNECT!", XLError.Connect)]
+    [Arguments("#BLOCKED!", XLError.Blocked)]
+    [Arguments("#UNKNOWN!", XLError.Unknown)]
+    [Arguments("#FIELD!", XLError.Field)]
+    [Arguments("#CALC!", XLError.Calc)]
+    [Arguments("#BUSY!", XLError.Busy)]
+    [Arguments("#EXTERNAL!", XLError.External)]
+    [Arguments("#TIMEOUT!", XLError.Timeout)]
+    [Arguments("#PYTHON!", XLError.Python)]
     public async Task Constant_can_be_error(string formula, object expectedError)
     {
         var error = (XLError)XLWorkbook.EvaluateExpr(formula);
@@ -143,18 +154,14 @@ public class FormulaParserTests
     }
 
     /// <summary>
-    /// The parser lexes every error value Excel knows, but <see cref="XLError"/> has no member for
-    /// most of the newer ones, so a formula holding one is refused the way an unreadable formula is.
+    /// Every error literal the parser lexes has an <see cref="XLError"/>. Should a later parser lex one
+    /// that has none, the formula is refused the way an unreadable formula is, rather than failing with
+    /// an exception from inside the parse.
     /// </summary>
     [Test]
-    [Arguments("#CALC!")]
-    [Arguments("#FIELD!")]
-    [Arguments("#GETTING_DATA")]
-    [Arguments("ERROR.TYPE(#BLOCKED!)")]
-    public async Task Constant_error_without_an_XLError_is_a_parse_error(string formula)
+    public async Task Error_literal_without_an_XLError_is_a_parse_error()
     {
-        var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
-        await Assert.That(() => calcEngine.Parse(formula)).Throws<ExpressionParseException>();
+        await Assert.That(() => XLErrorParser.ParseFormulaError("#NOPE!")).Throws<ExpressionParseException>();
     }
     #endregion
 

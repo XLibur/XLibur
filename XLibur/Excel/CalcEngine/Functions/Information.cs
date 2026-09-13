@@ -33,10 +33,10 @@ internal static class Information
         if (!value.TryPickError(out var error))
             return XLError.NoValueAvailable;
 
-        // ERROR.TYPE numbering matches the enum order (off by one) up to #N/A, but the
-        // modern errors are non-contiguous in Excel: #SPILL! is 9, not 8.
-        if (error == XLError.SpillRange)
-            return 9;
+        // A member's value is one less than its ERROR.TYPE number. #PYTHON! is the exception: it has
+        // no number of its own, because [MS-XLSX] records it as the #EXTERNAL! of the Python service.
+        if (error == XLError.Python)
+            return (int)XLError.External + 1;
 
         return (int)error + 1;
     }

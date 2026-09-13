@@ -154,7 +154,7 @@ public class ArrayShapingTests
     [Test]
     public async Task ToCol_WithEverythingIgnoredReturnsAnError()
     {
-        // Excel reports #CALC! here; XLibur has no such error value and reports #VALUE!.
+        // Excel reports #CALC! here; XLibur still reports #VALUE!.
         var ws = NewSheet(out var wb);
         using (wb)
         {
@@ -365,7 +365,7 @@ public class ArrayShapingTests
     [Test]
     public async Task Drop_ThatLeavesNothingReturnsAnError()
     {
-        // Excel reports #CALC! here; XLibur has no such error value and reports #VALUE!.
+        // Excel reports #CALC! here; XLibur still reports #VALUE!.
         var ws = NewSheet(out var wb);
         using (wb)
         {
