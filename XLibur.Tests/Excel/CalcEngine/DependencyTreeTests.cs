@@ -601,8 +601,9 @@ internal class DependencyTreeTests
                 }
             ];
 
-            // Implicit intersection binds tighter than the range operator, so this is
-            // D3:(@A1):C2 and the range spans all three references
+            // Implicit intersection binds looser than the range operator and takes the rest of it,
+            // so this is D3:(@(A1:C2)). The dependency is the whole operand of @, so the range
+            // spans all three references.
             yield return
             [
                 "D3:@A1:C2",

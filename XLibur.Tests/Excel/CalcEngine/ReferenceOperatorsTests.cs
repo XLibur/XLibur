@@ -92,6 +92,131 @@ public class ReferenceOperatorsTests
 
     #endregion
 
+    #region Implicit intersection operator @
+
+    // The explicit operator. `@` binds looser than `:` and the space, so `@A1:A4` is `@(A1:A4)` and
+    // `D3:@A1:A2` is `D3:(@(A1:A2))`. A range gives the cell on the formula's row or column, an array
+    // its top-left element, and anything else itself.
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_TakesTheCellOnTheFormulasRow()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = 7;
+        ws.Cell("C3").FormulaA1 = "@B1:B10";
+
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(7);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_TakesTheCellInTheFormulasColumn()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("B3").Value = 7;
+        ws.Cell("B5").FormulaA1 = "@A3:Z3";
+
+        await Assert.That(ws.Cell("B5").Value).IsEqualTo(7);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_WorksInAFunctionArgument()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 20;
+        ws.Cell("A3").Value = 300;
+        ws.Cell("A4").Value = 4000;
+        ws.Cell("C2").FormulaA1 = "SUM(@A1:A4)";
+        ws.Cell("C3").FormulaA1 = "IF(@A1:A4=300,\"yes\",\"no\")";
+
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(20);
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo("yes");
+    }
+
+    /// <summary>
+    /// The operator gives a reference, not a value, so it can be the operand of the range operator
+    /// and the argument of a function that needs a reference.
+    /// </summary>
+    [Test]
+    public async Task ImplicitIntersectionOperator_GivesAReference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        for (var row = 1; row <= 3; row++)
+        {
+            for (var column = 1; column <= 4; column++)
+                ws.Cell(row, column).Value = (row - 1) * 4 + column;
+        }
+
+        // D3:(@(A1:A2)) on row 2 is D3:A2, which is A2:D3: 5 + 6 + ... + 12.
+        ws.Cell("F2").FormulaA1 = "SUM(D3:@A1:A2)";
+        ws.Cell("F4").FormulaA1 = "ROW(@A1:A10)";
+
+        await Assert.That(ws.Cell("F2").Value).IsEqualTo(68);
+        await Assert.That(ws.Cell("F4").Value).IsEqualTo(4);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_TakesTheTopLeftElementOfAnArray()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        wb.DefinedNames.Add("Grid", "{10,20;30,40}");
+        ws.Cell("C3").FormulaA1 = "@Grid";
+
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_OfARangeTheFormulaDoesNotSpanIsAnError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("D5").FormulaA1 = "@B1:B4";
+        ws.Cell("D6").FormulaA1 = "@A1:C2";
+
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("D6").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_OfSeveralAreasIsAnError()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("Both", "Sheet1!$A$1:$A$5,Sheet1!$B$1:$B$5");
+        ws.Cell("D3").FormulaA1 = "@Both";
+
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    /// <summary>A single cell is its own intersection, so it needs no formula address.</summary>
+    [Test]
+    public async Task ImplicitIntersectionOperator_LeavesASingleCellAlone()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 5;
+
+        await Assert.That(ws.Evaluate("@A1")).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task ImplicitIntersectionOperator_TakesTheCellOfASpillOnTheFormulasRow()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(3)");
+        ws.Cell("B2").FormulaA1 = "@A1#";
+
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(2);
+    }
+
+    #endregion
+
     #region Cell-content scalar reduction (spec 37's AnyValue.TryReduceToScalar ladder)
 
     // A formula whose own top-level result is a reference — no function in between — is reduced to

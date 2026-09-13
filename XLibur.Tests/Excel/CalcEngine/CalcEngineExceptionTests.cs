@@ -72,6 +72,8 @@ public class CalcEngineExceptionTests
     // seven minutes later. Any case reading the formula address belongs here, whichever step
     // reaches for it.
     [Arguments("V1,VBL1")]
+    // The @ operator on a range needs the formula's row or column.
+    [Arguments("@A1:A4")]
     public async Task Worksheet_evaluate_without_a_formula_address_throws_a_public_exception(string expression)
     {
         using var wb = new XLWorkbook();
