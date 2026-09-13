@@ -240,6 +240,28 @@ public class FormulaTextCorpusTests
     }
 
     /// <summary>
+    /// Each corpus row whole: its form, its text, and its cell for every path, decoded.
+    /// </summary>
+    public static IEnumerable<Func<CorpusRow>> Rows()
+    {
+        var (paths, rows) = ReadCorpus();
+        foreach (var row in rows)
+        {
+            var cells = new Dictionary<string, string>();
+            for (var i = 0; i < paths.Length; i++)
+                cells[paths[i]] = Decode(row[i + 2]);
+
+            var corpusRow = new CorpusRow(row[0], Decode(row[1]), cells);
+            yield return () => corpusRow;
+        }
+    }
+
+    public sealed record CorpusRow(string Form, string Text, IReadOnlyDictionary<string, string> Cells)
+    {
+        public override string ToString() => Form;
+    }
+
+    /// <summary>
     /// Today's answer for every cell of a row, in corpus order. Used to write the corpus.
     /// </summary>
     internal static IEnumerable<string> RunRow(string text) => Paths.Select(path => Run(path, text));

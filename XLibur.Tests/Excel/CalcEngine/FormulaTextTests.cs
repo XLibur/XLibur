@@ -181,4 +181,195 @@ public class FormulaTextTests
         var reloadedFormula = reloaded.Worksheet("Sheet1").ConditionalFormats.Single().Values.Single().Value.Value;
         await Assert.That(reloadedFormula).IsEqualTo(RefusedExternalReference);
     }
+
+    // The module on its own. Each operation runs over every corpus row. For text the parser accepts,
+    // it must give the answer of the path it replaces. For text the parser refuses, it must return a
+    // refusal that carries the text, and leave the text unchanged.
+
+    /// <summary>
+    /// The corpus forms the parser refuses. Evaluation takes a leading <c>=</c> off before the parser
+    /// sees the text, so <c>=A1+1</c> evaluates; handed to the parser as it is, it is refused.
+    /// </summary>
+    private static readonly HashSet<string> RefusedForms =
+    [
+        "external_formula_bar_form", "leading_equals", "empty", "whitespace_only", "unparseable",
+        "refused_subtotal_call",
+    ];
+
+    [Test]
+    [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
+    public async Task TryWalk_refuses_exactly_the_refused_forms(FormulaTextCorpusTests.CorpusRow row)
+    {
+        var accepted = FormulaText.TryWalk(row.Text, new List<string>(), ColumnProbe.Instance,
+            FormulaNotation.A1, out _, out var refusal);
+
+        await Assert.That(accepted).IsEqualTo(!RefusedForms.Contains(row.Form));
+        if (!accepted)
+        {
+            await Assert.That(refusal.Text).IsEqualTo(row.Text);
+            await Assert.That(refusal.Cause).IsNotNull();
+        }
+    }
+
+    /// <summary>
+    /// The parser reads a column name with its colon hidden. The factory must still get the name as
+    /// the formula writes it, or a table lookup by that name fails.
+    /// </summary>
+    [Test]
+    [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
+    public async Task TryWalk_hands_the_factory_each_column_name_as_it_is_written(
+        FormulaTextCorpusTests.CorpusRow row)
+    {
+        var columns = new List<string>();
+        FormulaText.TryWalk(row.Text, columns, ColumnProbe.Instance, FormulaNotation.A1, out _, out _);
+
+        var expected = row.Form switch
+        {
+            "structured_reference" => "Name",
+            "colon_in_column_name" => "Start: Date",
+            _ => string.Empty,
+        };
+        await Assert.That(string.Join("|", columns)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
+    public async Task TryConvert_to_R1C1_gives_what_conversion_gives(FormulaTextCorpusTests.CorpusRow row)
+    {
+        var converted = FormulaText.TryConvert(row.Text, new Point(3, 3), FormulaNotation.R1C1,
+            out var r1c1, out var refusal);
+
+        if (RefusedForms.Contains(row.Form))
+        {
+            await Assert.That(converted).IsFalse();
+            await Assert.That(r1c1).IsEqualTo(row.Text);
+            await Assert.That(refusal.Text).IsEqualTo(row.Text);
+            return;
+        }
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(r1c1).IsEqualTo(row.Cells["to_r1c1"]);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
+    public async Task TryRewrite_gives_what_a_rename_gives(FormulaTextCorpusTests.CorpusRow row)
+    {
+        var modifier = new RenameRefModVisitor
+        {
+            Sheets = new Dictionary<string, string?> { { "Sheet1", "Data" } }
+        };
+
+        var rewritten = FormulaText.TryRewrite(row.Text, "Data", new Point(2, 8), modifier,
+            out var text, out var refusal);
+
+        if (RefusedForms.Contains(row.Form))
+        {
+            await Assert.That(rewritten).IsFalse();
+            await Assert.That(text).IsEqualTo(row.Text);
+            await Assert.That(refusal.Text).IsEqualTo(row.Text);
+            return;
+        }
+
+        await Assert.That(rewritten).IsTrue();
+        await Assert.That(text).IsEqualTo(row.Cells["rename"]);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
+    public async Task AddFuturePrefixes_gives_what_setting_a_formula_gives(FormulaTextCorpusTests.CorpusRow row)
+    {
+        var prefixed = FormulaText.AddFuturePrefixes(row.Text, "Sheet1", new Point(3, 3));
+
+        await Assert.That(prefixed).IsEqualTo(row.Cells["add_prefix"]);
+    }
+
+    [Test]
+    [Arguments("_xlfn.CONCAT", true, "CONCAT")]
+    [Arguments("_XLFN.CONCAT", true, "CONCAT")]
+    [Arguments("_Xlfn.concat", true, "concat")]
+    [Arguments("_xlfn._xlws.FILTER", true, "FILTER")]
+    [Arguments("_XLFN._XLWS.FILTER", true, "FILTER")]
+    [Arguments("CONCAT", false, "CONCAT")]
+    [Arguments("_xlws.FILTER", false, "_xlws.FILTER")]
+    [Arguments("_xlfn", false, "_xlfn")]
+    public async Task TryStripFuturePrefix_takes_the_prefix_off_in_any_case(string name, bool stripped, string bare)
+    {
+        var (actualStripped, actualBare) = Strip(name);
+
+        await Assert.That(actualStripped).IsEqualTo(stripped);
+        await Assert.That(actualBare).IsEqualTo(bare);
+
+        static (bool Stripped, string Bare) Strip(string name)
+        {
+            var result = FormulaText.TryStripFuturePrefix(name.AsSpan(), out var bareName);
+            return (result, bareName.ToString());
+        }
+    }
+
+    [Test]
+    [Arguments("=A1+1", "A1+1")]
+    [Arguments("A1+1", "A1+1")]
+    [Arguments("==A1", "=A1")]
+    [Arguments("", "")]
+    [Arguments(" =A1", " =A1")]
+    public async Task WithoutLeadingEquals_takes_off_one_leading_equals_sign(string text, string expected)
+    {
+        await Assert.That(FormulaText.WithoutLeadingEquals(text)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task TryWalk_reads_R1C1_text()
+    {
+        var accepted = FormulaText.TryWalk("SUM(R[-2]C[-2]:R[-2]C)", new List<string>(), ColumnProbe.Instance,
+            FormulaNotation.R1C1, out _, out _);
+
+        await Assert.That(accepted).IsTrue();
+    }
+
+    [Test]
+    [Arguments("R[-2]C[-2]", "A1")]
+    [Arguments("SUM(Table1[Start: Date])", "SUM(Table1[Start: Date])")]
+    public async Task TryConvert_to_A1_reads_R1C1_text(string r1c1, string a1)
+    {
+        var converted = FormulaText.TryConvert(r1c1, new Point(3, 3), FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo(a1);
+    }
+
+    /// <summary>
+    /// The public edges turn a refusal into <see cref="ExpressionParseException"/>. The parser's own
+    /// exception stays inside it, so the position the parser reported still reaches the caller.
+    /// </summary>
+    [Test]
+    public async Task A_refusal_becomes_ExpressionParseException_with_the_parsers_exception_inside()
+    {
+        FormulaText.TryConvert(RefusedExternalReference, new Point(1, 1), FormulaNotation.R1C1, out _,
+            out var refusal);
+
+        var exception = refusal.ToException();
+
+        await Assert.That(exception.InnerException).IsSameReferenceAs(refusal.Cause);
+        await Assert.That(exception.Message).IsEqualTo(refusal.Message);
+        await Assert.That(refusal.Message).Contains("char 0");
+    }
+
+    /// <summary>Records every column name a structured reference names.</summary>
+    private sealed class ColumnProbe : CollectVisitor<List<string>>
+    {
+        internal static readonly ColumnProbe Instance = new();
+
+        public override object? StructureReference(List<string> context, SymbolRange range, string table,
+            StructuredReferenceArea area, string? firstColumn, string? lastColumn)
+        {
+            if (firstColumn is not null)
+                context.Add(firstColumn);
+
+            if (lastColumn is not null && lastColumn != firstColumn)
+                context.Add(lastColumn);
+
+            return null;
+        }
+    }
 }
