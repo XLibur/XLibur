@@ -8,10 +8,10 @@
 [![SonarCloud Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=XLibur_XLibur&metric=alert_status)](https://sonarcloud.io/dashboard?id=XLibur_XLibur)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-XLibur is a .NET 8+ library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
+XLibur is a .NET 8/10 library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
 It provides an intuitive interface over the underlying
 [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
-XLibur forked [ClosedXML v0.105.0](https://github.com/ClosedXML/ClosedXML/), to apply patches and improvements that didn't land upstream. Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
+XLibur forked [ClosedXML v0.105](https://github.com/ClosedXML/ClosedXML/), to apply patches and improvements that didn't land upstream. Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
 
 📖 **[Documentation](https://xlibur.github.io/XLibur/)** ·
 [Getting Started](https://xlibur.github.io/XLibur/getting-started) ·
@@ -132,17 +132,14 @@ Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTIN
 **Continue with ClosedXML if:**
 
 - You need netstandard2.0 or .NET Framework 4.7.2 support. XLibur targets .NET 8 and above.
-- You want a library with a longer track record and a larger pool of maintainers who have worked on
-  it for years.
-
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT LICENSE](LICENSE).
 
 ## Credits
 
-ClosedXML authors who developed the core code we sit on. 
+ClosedXML authors who developed the core code we build on. 
 [Manuel de Leon](https://github.com/mdeleone),
 [Jan Havlíček](https://github.com/jahav), [Francois Botha](https://github.com/igitur),
 [Aleksei Pankratev](https://github.com/Pankraty).
