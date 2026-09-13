@@ -128,9 +128,9 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.Save, Kind.Cycle, "saves, A6 has no <v>")]
     [Arguments(Entry.Save, Kind.Unsupported, "saves, A6 has no <v>")]
     [Arguments(Entry.Save, Kind.Refused, "saves, A6 has no <v>")]
-    [Arguments(Entry.Save, Kind.NoContext, "saves, A6 has no <v>")]
+    [Arguments(Entry.Save, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.Save, Kind.Pending, "saves, A6 <v>3</v>")]
-    [Arguments(Entry.Save, Kind.Defect, "saves, A6 has no <v>")]
+    [Arguments(Entry.Save, Kind.Defect, "throws NullReferenceException")]
     public async Task Matrix(Entry entry, Kind kind, string expected)
     {
         await Assert.That(Observe(entry, kind)).IsEqualTo(expected);
@@ -154,7 +154,7 @@ public class EvaluationOutcomeTests
             + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "Recalculation: Throw, Throw, Throw, Throw, Throw, Throw\n"
-            + "Save: LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty, LeaveDirty");
+            + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw");
     }
 
     /// <summary>

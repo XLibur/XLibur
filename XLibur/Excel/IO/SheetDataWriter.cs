@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
@@ -383,6 +384,15 @@ internal static class SheetDataWriter
         xml.WriteEndElement(); // cell
     }
 
+    /// <summary>
+    /// Calculates a dirty formula so that its cached value can be written.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0001. A circular reference, an unsupported feature or a refused formula leaves the formula
+    /// dirty, so the writer leaves out its cached value and Excel recalculates it on open. Anything
+    /// else is a defect, and the save throws: swallowing it would write a bug in XLibur to the file
+    /// exactly as it writes a formula XLibur cannot evaluate.
+    /// </remarks>
     private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, Point point)
     {
         try
@@ -391,11 +401,9 @@ internal static class SheetDataWriter
             if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet))
                 workbook.CalcEngine.Recalculate(workbook, null);
         }
-        catch
+        catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.Save, ex) == EvaluationOutcome.LeaveDirty)
         {
-            // Match XLCell.Evaluate(false) tolerance: unimplemented features should not
-            // abort the save. The cell is left with whatever cached value (if any) it
-            // already has.
+            // The formula is still dirty, so it is written with no cached value.
         }
     }
 

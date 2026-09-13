@@ -91,8 +91,15 @@ internal static class EvaluationPolicy
             _ => EvaluationOutcome.Throw,
         },
 
-        // Save has always swallowed every failure and left the cell with no cached value.
-        EvaluationEntryPoint.Save => EvaluationOutcome.LeaveDirty,
+        // ADR 0001: an expected failure writes no cached value, and Excel recalculates the cell on
+        // open. Anything else throws out of the save, a defect above all (D61).
+        EvaluationEntryPoint.Save => kind switch
+        {
+            EvaluationFailureKind.Cycle
+                or EvaluationFailureKind.Unsupported
+                or EvaluationFailureKind.Refused => EvaluationOutcome.LeaveDirty,
+            _ => EvaluationOutcome.Throw,
+        },
 
         _ => EvaluationOutcome.Throw,
     };
