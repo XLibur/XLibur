@@ -46,7 +46,7 @@ two variants worth naming:
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
 | [54](54-formula-text-module.md) | Formula text gets one module | M | — | ⬜ Ready |
-| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | **54**; parser 3.2.0 (its task 0); **owner fixtures** for tasks 3, 5, 6; after **44** | ⬜ Blocked |
+| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | **54**; parser 4.0.0 (its task 0; the fork half is released); **owner fixtures** for tasks 3, 5, 6; after **44** | ⬜ Blocked |
 | [56](56-evaluation-outcome.md) | Evaluation failures get one outcome | M | — (**before 32**) | ⬜ Ready |
 
 ### Spec 54 — Formula text module ⬜ Ready
@@ -62,7 +62,7 @@ two variants worth naming:
 
 ### Spec 55 — Sheet lifecycle ⬜ Blocked on 54
 
-- [ ] **55.0** Parser fork 3.2.0: `Sheet!#REF!` on delete, endpoint-aware 3D hook; XLibur bump — fork PR #___ / PR #___
+- [ ] **55.0** Parser fork 4.0.0: `Sheet!#REF!` on delete, endpoint-aware 3D hook; XLibur bump — fork PR [#54](https://github.com/XLibur/ClosedXML.Parser/pull/54) ✅ released 2026-09-13 / PR #___
 - [ ] **55.1** Holder × event characterization; D53–D55 land red; execute the read findings — PR #___
 - [ ] **55.2** The door and the port; D53 green — PR #___
 - [ ] **55.3** Names at every scope, gate removed, 3D narrowing; D54–D56 green *(fixtures)* — PR #___
@@ -85,13 +85,14 @@ two variants worth naming:
 
 ## 2. Owner actions before dispatch
 
-Spec 55 needs four Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stay
+Spec 55 needs three pairs of Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stay
 blocked until they exist; the implementing agent does not guess.
 
 - [ ] `rename-before.xlsx` / `rename-after.xlsx`
 - [ ] `delete-before.xlsx` / `delete-after.xlsx`
 - [ ] `refdelete-before.xlsx` / `refdelete-after.xlsx`
-- [ ] `chartsheet-name.xlsx`
+- [x] ~~`chartsheet-name.xlsx`~~ — not needed: task 7 uses the existing
+  `PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx` (owner, 2026-09-14)
 
 Specs 54 and 56 need none.
 
@@ -99,7 +100,7 @@ Specs 54 and 56 need none.
 
 ```mermaid
 flowchart LR
-  P["parser 3.2.0<br/>(55 task 0)"]:::blocked
+  P["parser 4.0.0<br/>(55 task 0)"]:::blocked
   S54["54<br/>formula text"]:::ready
   S55["55<br/>sheet lifecycle"]:::blocked
   S56["56<br/>evaluation outcome"]:::ready
@@ -135,7 +136,7 @@ flowchart LR
 | Pair | Shared ground | Severity | Resolution |
 |---|---|---|---|
 | **54 → 55** | `FormulaText`; `XLCellFormula.cs`; `XLDefinedName.cs` | 🔴 Hard | 54 first, in full |
-| **parser 3.2.0 → 55** | the rewriter's output | 🔴 Hard | 55's task 0 |
+| **parser 4.0.0 → 55** | the rewriter's output | 🔴 Hard | 55's task 0 |
 | **44 → 55** | validation module and writer | 🔴 Hard | 44 first; 55 adds one listener to the reorganised module |
 | **55 → 48, 49** | conditional-format module | 🔴 Hard | 55 first; it adds only a listener, and 48 and 49 then work inside the module |
 | **56 → 32** | `SignatureAdapter.cs` | 🔴 Hard | 56 changes three throw sites; 32 rewrites the file |
@@ -194,7 +195,7 @@ Inherited from `README.md`; repeated here so a brief is self-contained.
 | Spec | Headline check |
 |---|---|
 | **54** | Only `FormulaText.cs` calls the parser; one `catch (ParsingException)` in the library; `FormulaTransformation.cs` gone; D49–D52 green; shifter corpus unchanged; benchmarks within 10% |
-| **55** | `IWorkbookListener` has two members; `ws.Delete()` is one line; D53–D56 green; every holder matches an Excel fixture or has a recorded reason; parser at 3.2.0 |
+| **55** | `IWorkbookListener` has two members; `ws.Delete()` is one line; D53–D56 green; every holder matches an Excel fixture or has a recorded reason; parser at 4.0.0 |
 | **56** | No `new NotImplementedException` in the calc engine; one missing-context translation; `XLCircularReferenceException` public; D57, D58, D60, D61 green; a workbook with a cycle opens with recalculate-on-load |
 
 Across all three: all four test projects green on net8.0 and net10.0, and no existing assertion

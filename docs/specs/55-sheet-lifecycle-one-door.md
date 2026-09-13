@@ -2,7 +2,7 @@
 
 **Area:** Architecture · **Defects (4 executed, ~9 read)** · **Behaviour change (`fix!:`)**
 **Effort:** L (~6–8 days, not counting the Excel fixtures)
-**Dependencies:** **Hard: spec 54** (rename and delete rewrite through `FormulaText`) and **parser 3.2.0**,
+**Dependencies:** **Hard: spec 54** (rename and delete rewrite through `FormulaText`) and **parser 4.0.0**,
 which is this spec's task 0. **Excel-authored fixtures from the owner** gate tasks 3, 5 and 6. Sequenced
 **after spec 44** and **before spec 48** — see *Conflicts*.
 **Status:** Proposed. From the 2026-09-13 architecture review (round 4). Every design decision below
@@ -125,7 +125,7 @@ Two further sheet-list defects (R):
 |---|---|
 | Q8 | The collection's `Delete` is the door. `ws.Delete()` becomes a one-line delegate. |
 | Q9 | A reference to a deleted sheet becomes `#REF!` in names at every scope, as in Excel. Names scoped to the deleted sheet go with it. |
-| Q10 | Remove the `ContainsSheet` gate and let the rewriter decide. `DropSheetPrefixOfRefError` goes once parser 3.2.0 covers `Sheet!#REF!`. |
+| Q10 | Remove the `ContainsSheet` gate and let the rewriter decide. `DropSheetPrefixOfRefError` goes once parser 4.0.0 covers `Sheet!#REF!`. |
 | Q11 | The door reaches every holder of sheet-qualified text. For holders owned by an open spec (44, 48/49), this spec adds only the listener registration. |
 | Q12 | A listener must not throw. That is part of the interface, and a test pins it for each adapter. No two-phase prepare/commit. |
 | Q27 | A cell formula that points at a deleted sheet is rewritten to `#REF!`, as in Excel. This stops the silent rebinding. `fix!:`. |
@@ -135,8 +135,8 @@ Two further sheet-list defects (R):
 | Q31 | The `Position` setter and the unsupported-sheet name check are fixed here. |
 | Q33 | The `Sheet!#REF!` fix goes in the parser fork. |
 | Q34 | Deleting an endpoint sheet narrows a 3D reference, as in Excel. The narrowing lives in XLibur's rename visitor; the fork supplies the hook. |
-| Q35 | The fork change is this spec's task 0: one fork release, 3.2.0. |
-| Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. |
+| Q35 | The fork change is this spec's task 0: one fork release, 4.0.0 (planned as 3.2.0; design §1 says why it changed). |
+| Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. On 2026-09-14 the owner replaced `chartsheet-name.xlsx` with an existing Excel-authored file (design §5), so three fixture pairs remain to make. |
 
 ## Non-goals
 
@@ -155,7 +155,7 @@ Two further sheet-list defects (R):
 | File | Change |
 |---|---|
 | **Parser fork** `src/ClosedXML.Parser/FormulaRewriter.cs`, `FormulaModifier.cs`, tests, `CHANGELOG.md` | Task 0 |
-| `XLibur/XLibur.csproj`, `CLAUDE.md` (*Key Dependencies*) | `XLibur.ClosedXML.Parser` 3.1.0 → 3.2.0 |
+| `XLibur/XLibur.csproj`, `CLAUDE.md` (*Key Dependencies*) | `XLibur.ClosedXML.Parser` 3.1.0 → 4.0.0 |
 | `XLibur/Excel/Cells/IWorkbookListener.cs` | Gains `OnSheetDeleting` |
 | `XLibur/Excel/XLWorksheets.cs` | `Delete` is the door; `Rename` keeps the name and the key together; the registry grows; unsupported-sheet checks |
 | `XLibur/Excel/XLWorksheet.cs` | `Delete()` delegates; the `Name` setter delegates entirely; the `Position` setter shifts unsupported sheets |
@@ -170,7 +170,7 @@ Two further sheet-list defects (R):
 
 ## The design
 
-### 1. Parser 3.2.0 (task 0, in the fork)
+### 1. Parser 4.0.0 (task 0, in the fork)
 
 The fork is at `D:\Data\_CodeOS\ClosedXML.Parser` (remote `XLibur/ClosedXML.Parser`). Two changes, one
 release:
@@ -179,11 +179,16 @@ release:
    front of an error, the rewriter emits a bare `#REF!` (`FormulaRewriter.cs:139-143`), not
    `SheetPrefix.Deleted` followed by the error.
 2. **A hook that sees both endpoints of a 3D reference.** A new `protected virtual` on
-   `FormulaModifier` receives the first and last sheet together and returns the new pair, or `null`
-   for `#REF!`. Its default calls `ModifySheet` on each endpoint, so existing modifiers behave exactly as
-   today. `Reference3D` (`:207-213`) calls it.
+   `FormulaModifier`, `ModifySheetRange(ModContext ctx, string firstSheet, string lastSheet)`, receives
+   the first and last sheet together and returns the new `SheetRange?`, or `null` for `#REF!`. Its
+   default calls `ModifySheet` on each endpoint, so existing modifiers behave exactly as today.
+   `Reference3D` (`:207-213`) calls it.
 
-A new `protected virtual` is an additive API change, so the release is **3.2.0**. The fork's
+A new `protected virtual` is an additive API change, which alone would have made the release 3.2.0.
+Both changes shipped as **4.0.0** on 2026-09-13 (fork PR #54; fork issue #52 is closed), because the
+same release dropped netstandard2.0 and netstandard2.1 (fork #56). The release also carries fork #50,
+which refuses the formulas that ran the stack out, and fork #55, which holds a `RowCol` to a row and a
+column a sheet has. The XLibur bump shows whether either changes an XLibur result. The fork's
 `CHANGELOG.md` and, where a term changes, its `CONTEXT.md` are updated. XLibur then bumps its
 package reference and the *Key Dependencies* line in `CLAUDE.md`.
 
@@ -260,7 +265,7 @@ same edit in XLibur, saves, and compares each holder's text with "after".
 | `rename-before.xlsx` / `rename-after.xlsx` | Sheets `Data`, `Other`. `Data!A1:A3` = 1, 2, 3; `Data!B1:B3` = x, y, z; `Data!C1` = "S". On `Other`: `A1` = `=Data!A1*2`. `B1`: data validation, List, source `=Data!$A$1:$A$3`. `C1`: conditional format, "Use a formula", `=Data!$A$1>0`. `C2:C4`: a colour scale whose minimum is type *Formula*, `=Data!$A$1`. A column chart with one series: values `=Data!$A$1:$A$3`, categories `=Data!$B$1:$B$3`, name `=Data!$C$1`. A pivot table from source `Data!$A$1:$B$3`, after adding headers in row 1 and shifting the data down (so the source is `Data!$A$1:$B$4`). `D1`: a hyperlink, *Place in this document*, `Data!A1`. Names: `W` (workbook) `=Data!$A$1`; `L` (scope `Other`) `=Data!$A$1`; `Local` (scope `Data`) `=Data!$B$1`; `Q` (workbook) `=Data!Local`. On `Data`, a print area `=OFFSET(Data!$A$1,0,0,3,2)` (Name Manager → `Print_Area`, scope `Data`) | Rename `Data` to `Renamed` |
 | `delete-before.xlsx` / `delete-after.xlsx` | As `rename-before`, plus sheets `First` and `Last` placed so the tab order is `First`, `Data`, `Last`, `Other`, each with a number in `A1`. Names: `T1` (workbook) `=SUM(First:Last!$A$1)`; `T2` `=SUM(Data:Last!$A$1)` | Delete `First`, then delete `Data` |
 | `refdelete-before.xlsx` / `refdelete-after.xlsx` | Sheets `Data`, `Other`. Name `R` `=Data!$A$5`. Delete row 5 on `Data`, so `R` reads `=Data!#REF!`. Save this as "before" | Delete `Data` |
-| `chartsheet-name.xlsx` | A workbook with a chartsheet named `Chart1` and a worksheet `Sheet1` | none — used to assert that `Add("Chart1")` and renaming `Sheet1` to `Chart1` are refused |
+| ~~`chartsheet-name.xlsx`~~ **not needed** | Replaced by owner decision on 2026-09-14 with the existing Excel-authored `XLibur.Tests/Resource/Other/PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx`: worksheets `Data` and `Pivot`, chartsheet `Chart` | none — used to assert that `Add("Chart")` and renaming `Data` to `Chart` are refused |
 
 If Excel refuses an edit, or asks a question (for example, deleting a sheet that holds the pivot
 table's source), record Excel's prompt and the choice made in *Results*.
@@ -268,7 +273,7 @@ table's source), record Excel's prompt and the choice made in *Results*.
 ### 6. Cell formulas on delete
 
 The cells-collection adapter rewrites every reference to the deleted sheet to `#REF!`, through
-`FormulaText` and parser 3.2.0. A refused formula keeps its text (ADR 0002). This changes formula text
+`FormulaText` and parser 4.0.0. A refused formula keeps its text (ADR 0002). This changes formula text
 a caller can read, so its changelog entry is `fix!:`.
 
 ### 7. The sheet list
@@ -292,11 +297,14 @@ a caller can read, so its changelog entry is `fix!:`.
 
 One owner, one branch: `fix/55-sheet-lifecycle`, plus the fork branch for task 0.
 
-### Task 0 — Parser 3.2.0
+### Task 0 — Parser 4.0.0
 
 In the fork: both changes from design §1, each with its own tests. `FormulaModifierTests` must cover
-`Sheet!#REF!` under delete, and the new hook with the default and an override. Release 3.2.0. Then, in
+`Sheet!#REF!` under delete, and the new hook with the default and an override. Release 4.0.0. Then, in
 XLibur, bump the package on its own commit.
+
+**The fork half is done:** 4.0.0 was released on 2026-09-13 (fork PR #54). What remains is the XLibur
+bump.
 
 **Gate:** fork suite green. XLibur suite green on the bump alone, `FormulaShifterCorpus.tsv` unchanged.
 
@@ -336,7 +344,8 @@ old text in the part.
 
 ### Task 7 — The sheet list
 
-The `Position` setter and the unsupported-sheet name check, with `chartsheet-name.xlsx`.
+The `Position` setter and the unsupported-sheet name check, with
+`PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx` (design §5).
 
 ### Task 8 — Cost, recorded
 
@@ -360,7 +369,7 @@ scope. `fix:` for the rest.
 | 4 | Every holder in the inventory table either has an adapter whose behaviour matches an Excel fixture, or has a recorded reason for needing none |
 | 5 | Deleting a sheet and adding one with the same name does not rebind any formula or name |
 | 6 | One "must not throw" test per adapter |
-| 7 | `XLibur.ClosedXML.Parser` is at 3.2.0 |
+| 7 | `XLibur.ClosedXML.Parser` is at 4.0.0 |
 | 8 | All four test projects are green on net8.0 and net10.0 |
 
 ## Conflicts
