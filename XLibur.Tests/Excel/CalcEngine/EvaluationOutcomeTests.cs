@@ -65,7 +65,7 @@ public class EvaluationOutcomeTests
     private const string DefectFunction = "XLIBURDEFECT";
 
     [Test]
-    [Arguments(Entry.Value, Kind.Cycle, "throws InvalidOperationException")]
+    [Arguments(Entry.Value, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.Value, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.Value, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.Value, Kind.NoContext, "throws XLNoWorksheetContextException")]
@@ -89,7 +89,7 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.Search, Kind.NoContext, "found A1")]
     [Arguments(Entry.Search, Kind.Pending, "found A1")]
     [Arguments(Entry.Search, Kind.Defect, "throws NullReferenceException")]
-    [Arguments(Entry.WorksheetEvaluate, Kind.Cycle, "throws InvalidOperationException")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.WorksheetEvaluate, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.WorksheetEvaluate, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.WorksheetEvaluate, Kind.NoContext, "throws XLNoWorksheetContextException")]
@@ -113,13 +113,13 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.TryInvoke, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.TryInvoke, Kind.Pending, "n/a")]
     [Arguments(Entry.TryInvoke, Kind.Defect, "n/a")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "throws InvalidOperationException")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Pending, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Defect, "throws NullReferenceException")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "throws InvalidOperationException")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "throws XLNoWorksheetContextException")]
@@ -199,8 +199,12 @@ public class EvaluationOutcomeTests
         var cell = wb.AddWorksheet(SheetName).Cell("A1");
         cell.FormulaA1 = "A1+1";
 
-        var ex = await Assert.That(() => _ = cell.Value).Throws<InvalidOperationException>();
+        var ex = await Assert.That(() => _ = cell.Value).Throws<XLCircularReferenceException>();
         await Assert.That(ex!.GetType().IsVisible).IsTrue();
+
+        // Still the type a cycle was reported as before, so a caller's existing catch still runs.
+        await Assert.That(ex is InvalidOperationException).IsTrue();
+        await Assert.That(ex.Message).IsEqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle.");
     }
 
     /// <summary>
@@ -216,7 +220,7 @@ public class EvaluationOutcomeTests
 
         var ex = await Assert.That(() => _ = cell.Value).Throws<NotImplementedException>();
         await Assert.That(ex!.Message).IsEqualTo("Array formulas not implemented.");
-        await Assert.That(EvaluationFailure.IsExpected(ex)).IsTrue();
+        await Assert.That(EvaluationFailure.Classify(ex)).IsEqualTo(EvaluationFailureKind.Unsupported);
     }
 
     /// <summary>

@@ -371,7 +371,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
 
             if (chain.IsCurrentInCycle)
-                throw new CircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+                throw new XLCircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
 
             var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
             if (cellFormula is null)
@@ -438,7 +438,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
         else
         {
-            throw new NotImplementedException($"Evaluation of formula type '{formula.Type}' is not supported.");
+            throw new UnsupportedFeatureException($"Evaluation of formula type '{formula.Type}' is not supported.");
         }
     }
 

@@ -32,7 +32,7 @@ public class EvaluationOutcomeTests
     private const string DefectFunction = "XLIBURDEFECT";
 
     [Test]
-    [Arguments(Kind.Cycle, "throws InvalidOperationException")]
+    [Arguments(Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Kind.NoContext, "throws XLNoWorksheetContextException")]
