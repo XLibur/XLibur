@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Coordinates;
@@ -147,15 +148,7 @@ public class XLPivotCacheSourceTests
         XLPivotSourceKind expected)
     {
         using var wb = WorkbookWithData(out var sheet);
-        IXLPivotSource source = expected switch
-        {
-            XLPivotSourceKind.Scenario => new XLPivotSourceScenario(),
-            XLPivotSourceKind.Connection => new XLPivotSourceConnection(1),
-            XLPivotSourceKind.Consolidation => new XLPivotSourceConsolidation(),
-            _ => new XLPivotSourceExternalWorkbook("rId1", SheetArea.From(sheet.Range("A1:B4"))),
-        };
-
-        var cache = new XLPivotCache(source, wb);
+        var cache = new XLPivotCache(UnreadableSource(expected, sheet), wb);
 
         await Assert.That(cache.SourceKind).IsEqualTo(expected);
 
@@ -165,4 +158,43 @@ public class XLPivotCacheSourceTests
         await Assert.That(cache.SourceWorksheet).IsNull();
         await Assert.That(cache.SourceName).IsNull();
     }
+
+    [Test]
+    [Arguments(XLPivotSourceKind.Scenario)]
+    [Arguments(XLPivotSourceKind.Connection)]
+    [Arguments(XLPivotSourceKind.Consolidation)]
+    [Arguments(XLPivotSourceKind.ExternalWorkbook)]
+    public async Task A_source_XLibur_cannot_read_answers_TryGetSource_with_false(XLPivotSourceKind kind)
+    {
+        using var wb = WorkbookWithData(out var sheet);
+        var source = UnreadableSource(kind, sheet);
+
+        var found = source.TryGetSource(wb, out var foundSheet, out var foundArea);
+
+        await Assert.That(found).IsFalse();
+        await Assert.That(foundSheet).IsNull();
+        await Assert.That(foundArea.HasValue).IsFalse();
+    }
+
+    [Test]
+    [Arguments(XLPivotSourceKind.Scenario)]
+    [Arguments(XLPivotSourceKind.Connection)]
+    [Arguments(XLPivotSourceKind.Consolidation)]
+    [Arguments(XLPivotSourceKind.ExternalWorkbook)]
+    public async Task Refreshing_a_cache_whose_source_XLibur_cannot_read_is_not_supported(XLPivotSourceKind kind)
+    {
+        using var wb = WorkbookWithData(out var sheet);
+        var cache = new XLPivotCache(UnreadableSource(kind, sheet), wb);
+
+        var ex = await Assert.That(() => cache.Refresh()).ThrowsExactly<NotSupportedException>();
+        await Assert.That(ex!.Message).Contains(kind.ToString());
+    }
+
+    private static IXLPivotSource UnreadableSource(XLPivotSourceKind kind, IXLWorksheet sheet) => kind switch
+    {
+        XLPivotSourceKind.Scenario => new XLPivotSourceScenario(),
+        XLPivotSourceKind.Connection => new XLPivotSourceConnection(1),
+        XLPivotSourceKind.Consolidation => new XLPivotSourceConsolidation(),
+        _ => new XLPivotSourceExternalWorkbook("rId1", SheetArea.From(sheet.Range("A1:B4"))),
+    };
 }

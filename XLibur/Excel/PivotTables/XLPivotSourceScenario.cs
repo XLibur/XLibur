@@ -26,8 +26,11 @@ internal sealed class XLPivotSourceScenario : IXLPivotSource
         return 0;
     }
 
+    /// <summary>XLibur cannot read scenario data, so there is never a sheet area to report.</summary>
     public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea)
     {
-        throw new NotImplementedException("Scenario pivot cache data source is not supported.");
+        sheet = null;
+        sheetArea = null;
+        return false;
     }
 }

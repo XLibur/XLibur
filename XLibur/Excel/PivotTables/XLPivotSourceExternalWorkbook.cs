@@ -45,9 +45,12 @@ internal sealed class XLPivotSourceExternalWorkbook : IXLPivotSource
         TableOrName = tableOrName;
     }
 
+    /// <summary>XLibur cannot read another workbook, so there is never a sheet area to report.</summary>
     public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea)
     {
-        throw new NotImplementedException("External workbook source is not supported.");
+        sheet = null;
+        sheetArea = null;
+        return false;
     }
 
     public bool Equals(IXLPivotSource? otherSource)

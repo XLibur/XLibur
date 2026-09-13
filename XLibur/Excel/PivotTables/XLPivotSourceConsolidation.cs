@@ -53,8 +53,11 @@ internal sealed class XLPivotSourceConsolidation : IXLPivotSource
         return false;
     }
 
+    /// <summary>XLibur cannot read a consolidation, so there is never a sheet area to report.</summary>
     public bool TryGetSource(XLWorkbook workbook, out XLWorksheet? sheet, out Area? sheetArea)
     {
-        throw new NotImplementedException("Consolidation pivot cache data source is not supported.");
+        sheet = null;
+        sheetArea = null;
+        return false;
     }
 }
