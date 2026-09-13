@@ -726,8 +726,10 @@ internal static class Lookup
 
             return new Reference(rangeAddress.Normalize());
         }
-        catch
+        catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException)
         {
+            // The checks above admit only address-shaped text, which can still name a cell that does
+            // not exist - XLAddress.Create reads the row with int.Parse.
             return XLError.CellReference;
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.CalcEngine.Functions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
@@ -662,7 +663,16 @@ internal static class MathTrig
             return XLError.IncompatibleValue;
 
         var matrix = new XLMatrix(array);
-        return matrix.Determinant();
+        try
+        {
+            return matrix.Determinant();
+        }
+        catch (SingularMatrixException)
+        {
+            // No pivot means a column of zeros on and below the diagonal, so the determinant is
+            // exactly zero.
+            return 0.0;
+        }
     }
 
     private static AnyValue MInverse(CalcContext ctx, AnyValue value)
@@ -675,7 +685,16 @@ internal static class MathTrig
             return XLError.IncompatibleValue;
 
         var matrix = new XLMatrix(array);
-        var inverse = matrix.Invert();
+        XLMatrix inverse;
+        try
+        {
+            inverse = matrix.Invert();
+        }
+        catch (SingularMatrixException)
+        {
+            return XLError.NumberInvalid;
+        }
+
         if (inverse.IsSingular())
             return XLError.NumberInvalid;
 

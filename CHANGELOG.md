@@ -15,6 +15,12 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **`MDETERM` and `MINVERSE` now answer a matrix with an all-zero column instead of throwing.** `=MDETERM({0,1;0,2})` threw `InvalidOperationException: The matrix is singular!` out of the formula rather than returning 0, and the matching `MINVERSE` threw rather than returning `#NUM!`. The LU decomposition behind both reported a column it could not pivot on by throwing, and neither function caught it. A singular matrix that still pivots, such as `{1,2;1,2}`, was already handled.
+
+- **`TryGetValue`, `GetFormattedString` and `Search` no longer report a defect in the library as "no value".** All three promise an answer for a cell whose formula cannot be evaluated, and kept that promise by catching every exception, so a bug inside a function — the `MDETERM` one above, for instance — read as a cell with no value, its cached value, or no match. They now tolerate only what a formula can legitimately produce: an unimplemented function or operator, text the parser cannot read, a missing worksheet or cell context, and a circular reference. Anything else reaches the caller. A circular reference is still reported as an `InvalidOperationException` with the same message, so a handler for that is unaffected.
+
 ## v0.400.0 - 2026-09-01
 
 ### ⚠️ Breaking Changes

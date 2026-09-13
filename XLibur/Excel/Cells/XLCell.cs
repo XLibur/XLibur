@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
@@ -311,9 +312,9 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         {
             currentValue = Value;
         }
-        catch
+        catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
         {
-            // May fail for formula evaluation
+            // The formula cannot be evaluated - a cycle, an unimplemented function.
             value = default!;
             return false;
         }
@@ -337,11 +338,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         try
         {
             // Need to get actual value because formula might be out of date or value wasn't set at all
-            // Unimplemented functions and features throw exceptions
             value = Value;
         }
-        catch
+        catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
         {
+            // A formula that cannot be evaluated shows what was last calculated for it.
             value = CachedValue;
         }
 
