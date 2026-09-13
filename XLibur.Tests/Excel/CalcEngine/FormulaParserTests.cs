@@ -278,10 +278,11 @@ public class FormulaParserTests
     }
 
     [Test]
-    [Arguments]
-    public async Task Reference_can_be_dynamic_data_exchange()
+    [Arguments("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'")]
+    [Arguments("=[1]!'id1?req?AAPL_STK_SMART_USD_~/'")]
+    public async Task Reference_can_be_dynamic_data_exchange(string formula)
     {
-        await AssertCanParseButNotEvaluate("=Sdemo123|tik!'id1?req?AAPL_STK_SMART_USD_~/'", "Evaluation of dynamic data exchange is not implemented.");
+        await AssertCanParseButNotEvaluate(formula, "Evaluation of dynamic data exchange is not implemented.");
     }
 
     #endregion
@@ -418,6 +419,13 @@ public class FormulaParserTests
     public async Task Reference_item_can_be_ref_error()
     {
         await Assert.That(XLWorkbook.EvaluateExpr("#REF!")).IsEqualTo(XLError.CellReference);
+    }
+
+    [Test]
+    [Arguments]
+    public async Task Reference_item_can_be_sheet_qualified_ref_error()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("Sheet1!#REF!")).IsEqualTo(XLError.CellReference);
     }
 
     [Test]
@@ -571,7 +579,8 @@ public class FormulaParserTests
         var ws = wb.AddWorksheet();
         var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
         _ = calcEngine.Parse(formula);
-        await Assert.That(() => ws.Evaluate(formula, "A1")).Throws<Exception>();
+        var ex = await Assert.That(() => ws.Evaluate(formula, "A1")).Throws<NotImplementedException>();
+        await Assert.That(ex!.Message).IsEqualTo(notSupportedMessage);
     }
 
     private static async Task AssertCanParseAndEvaluateToRefError(string formula)

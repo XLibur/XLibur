@@ -332,12 +332,6 @@ internal sealed class FormulaParser
             return new FunctionNode(prefixNode, functionName, argumentNodes);
         }
 
-        private static XLError GetErrorValue(ReadOnlySpan<char> error)
-        {
-            // The parser lexes every error Excel knows, but XLError lacks most newer ones (#CALC!, #FIELD!, ...).
-            if (!XLErrorParser.TryParseError(error.ToString(), out var errorEnum))
-                throw new ExpressionParseException($"'{error.ToString()}' is not an error value XLibur supports.");
-            return errorEnum;
-        }
+        private static XLError GetErrorValue(ReadOnlySpan<char> error) => XLErrorParser.ParseFormulaError(error);
     }
 }

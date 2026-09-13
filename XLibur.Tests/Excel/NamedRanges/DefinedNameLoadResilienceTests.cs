@@ -65,6 +65,7 @@ public class DefinedNameLoadResilienceTests
     [Arguments(" ")]
     [Arguments("SUM(Sheet1!$A$1")]
     [Arguments("@@@")]
+    [Arguments("#CALC!")]
     public async Task A_defined_name_the_parser_rejects_does_not_abort_the_load(string refersToText)
     {
         using var package = BookWithRawDefinedName(refersToText);
@@ -283,6 +284,8 @@ public class DefinedNameLoadResilienceTests
     [Arguments("   ")]
     [Arguments("SUM(Sheet1!$A$1")]
     [Arguments("@@@")]
+    [Arguments("#CALC!")]
+    [Arguments("{1,#FIELD!}")]
     public async Task Setting_RefersTo_to_a_formula_the_parser_rejects_throws_ExpressionParseException(string formula)
     {
         using var wb = BookWithAUsableName();

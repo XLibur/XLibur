@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using ClosedXML.Parser;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.CalcEngine.Visitors;
 
@@ -37,11 +38,13 @@ internal sealed class FormulaReferences
 
     /// <summary>
     /// Collects the references of <paramref name="formula"/>, or answers <c>false</c> and hands back
-    /// the parser's own exception in <paramref name="failure"/>. A formula that fails half way through
-    /// leaves a partly filled collector behind, so the failure yields an empty one rather than that.
+    /// why in <paramref name="failure"/>: the parser's own exception, or an
+    /// <see cref="ExpressionParseException"/> for an error value <see cref="XLError"/> has no member
+    /// for. A formula that fails half way through leaves a partly filled collector behind, so the
+    /// failure yields an empty one rather than that.
     /// </summary>
     internal static bool TryForFormula(string formula, out FormulaReferences references,
-        [NotNullWhen(false)] out ParsingException? failure)
+        [NotNullWhen(false)] out Exception? failure)
     {
         var collected = new FormulaReferences();
         try
@@ -49,7 +52,7 @@ internal sealed class FormulaReferences
             FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, collected,
                 CollectRefsFactory.Instance);
         }
-        catch (ParsingException ex)
+        catch (Exception ex) when (ex is ParsingException or ExpressionParseException)
         {
             references = new FormulaReferences();
             failure = ex;
@@ -149,8 +152,17 @@ internal sealed class FormulaReferences
     {
         public static readonly CollectRefsFactory Instance = new();
 
+        // An error value the evaluator refuses is refused here too, so a name holding one is not
+        // taken as understood. SheetErrorNode needs no check: the parser only gives it #REF!.
+        public override object? ErrorValue(FormulaReferences context, SymbolRange range, ReadOnlySpan<char> error)
+        {
+            _ = XLErrorParser.ParseFormulaError(error);
+            return base.ErrorValue(context, range, error);
+        }
+
         public override object? ErrorNode(FormulaReferences context, SymbolRange range, ReadOnlySpan<char> error)
         {
+            _ = XLErrorParser.ParseFormulaError(error);
             context.ContainsRefError = true;
             return base.ErrorNode(context, range, error);
         }

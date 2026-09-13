@@ -157,7 +157,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     private static Exception? RejectionOf(string formula, string paramName, out FormulaReferences references)
     {
         if (!FormulaReferences.TryForFormula(formula, out references, out var failure))
-            return new ExpressionParseException(failure.Message, failure);
+            return failure as ExpressionParseException ?? new ExpressionParseException(failure.Message, failure);
 
         if (references.References.Count > 0)
         {
