@@ -19,23 +19,20 @@ internal sealed class FormulaParser
     /// <summary>
     /// Parse a formula into an abstract syntax tree.
     /// </summary>
+    /// <param name="formula">The formula text. A leading <c>=</c> is allowed.</param>
+    /// <param name="isA1">Whether the text is in A1 notation rather than R1C1.</param>
+    /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
     public Formula GetAst(string formula, bool isA1)
     {
-        // Equality sign at the beginning of formula is only visualization in the GUI, real formulas don't have it.
-        if (formula.Length > 0 && formula[0] == '=')
-            formula = formula[1..];
+        formula = FormulaText.WithoutLeadingEquals(formula);
+        var factory = isA1 ? _nodeFactoryA1 : _nodeFactoryR1C1;
+        var notation = isA1 ? FormulaNotation.A1 : FormulaNotation.R1C1;
 
-        try
-        {
-            var root = isA1
-                ? FormulaParser<ScalarValue, ValueNode, string>.CellFormulaA1(formula, formula, _nodeFactoryA1)
-                : FormulaParser<ScalarValue, ValueNode, string>.CellFormulaR1C1(formula, formula, _nodeFactoryR1C1);
-            return new Formula(formula, root);
-        }
-        catch (ParsingException ex)
-        {
-            throw new ExpressionParseException(ex.Message, ex);
-        }
+        // Evaluation is a public edge: a refused formula reaches the caller as ExpressionParseException.
+        if (!FormulaText.TryWalk(formula, formula, factory, notation, out var root, out var refusal))
+            throw refusal.ToException();
+
+        return new Formula(formula, root);
     }
 
     /// <summary>
@@ -43,17 +40,6 @@ internal sealed class FormulaParser
     /// </summary>
     private sealed class AstFactory : IAstFactory<ScalarValue, ValueNode, string>
     {
-        /// <summary>
-        /// A prefix for so-called future functions. Excel can add functions, but to avoid name collisions,
-        /// it prefixes names of function with this prefix. The prefix is omitted from GUI.
-        /// </summary>
-        /// <example>
-        /// If you write <c>CONCAT(A1,B1)</c> in Excel 2021 (not present in Excel 2013), it is saved to the
-        /// worksheet file as <c>_xlfn.CONCAT(A1,B1)</c>, but the Excel GUI will show only <c>CONCAT(A1,B1)</c>,
-        /// without the <c>_xlfn</c>.
-        /// </example>
-        private const string DefaultFunctionNameSpace = "_xlfn";
-
         private readonly FunctionRegistry _functionRegistry;
         private readonly bool _isA1;
 
@@ -308,18 +294,11 @@ internal sealed class FormulaParser
         {
             var foundFunction = _functionRegistry.TryGetFunc(functionName, out var minParams, out var maxParams);
 
-            // If a function is a future function, strip the prefix because all registrations of functions
-            // are without a prefix. That should change, but it's a reality for now.
-            if (!foundFunction && functionName.StartsWith($"{DefaultFunctionNameSpace}."))
+            // Functions are registered without the future-function prefix, so a prefixed name is looked
+            // up again without it, whatever case the prefix is written in.
+            if (!foundFunction && FormulaText.TryStripFuturePrefix(functionName, out var bareName))
             {
-                functionName = functionName.Substring(DefaultFunctionNameSpace.Length + 1);
-
-                // Worksheet-only future functions carry a further "_xlws." namespace
-                // (e.g. FILTER/SORT are stored as "_xlfn._xlws.FILTER"). Strip it too.
-                const string worksheetNameSpace = "_xlws.";
-                if (functionName.StartsWith(worksheetNameSpace, StringComparison.Ordinal))
-                    functionName = functionName.Substring(worksheetNameSpace.Length);
-
+                functionName = bareName.ToString();
                 foundFunction = _functionRegistry.TryGetFunc(functionName, out minParams, out maxParams);
             }
 

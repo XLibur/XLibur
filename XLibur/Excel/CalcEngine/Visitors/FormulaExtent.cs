@@ -44,7 +44,7 @@ internal readonly struct FormulaExtent
         try
         {
             FormulaParser<object?, object?, ExtentCollector>.CellFormulaA1(
-                FormulaTransformation.ProtectStructuredRefColons(formulaA1, out _),
+                FormulaText.ProtectStructuredRefColons(formulaA1, out _),
                 collector,
                 ExtentVisitor.Instance);
         }

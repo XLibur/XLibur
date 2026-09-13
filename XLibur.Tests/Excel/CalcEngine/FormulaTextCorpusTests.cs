@@ -106,7 +106,7 @@ public class FormulaTextCorpusTests
             case "to_r1c1":
                 return XLCellFormula.GetFormula(text, FormulaConversionType.A1ToR1C1, new Point(3, 3));
             case "add_prefix":
-                return FormulaTransformation.FixFutureFunctions(text, "Sheet1", new Point(3, 3));
+                return FormulaText.AddFuturePrefixes(text, "Sheet1", new Point(3, 3));
             case "calls_subtotal":
                 return CalcContext.IsSkippedByNestingCheck(text, TallyNumbers.SubtotalAndAggregate) ? "true" : "false";
             default:

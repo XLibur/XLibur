@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using ClosedXML.Parser;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
 
 namespace XLibur.Tests.Excel.Cells;
@@ -146,17 +147,8 @@ public class FormulaShifterCorpusTests
 
     private static bool TryParse(string formula)
     {
-        var text = formula.Length > 0 && formula[0] == '=' ? formula[1..] : formula;
-        text = FormulaTransformation.ProtectStructuredRefColons(text, out _);
-        try
-        {
-            FormulaParser<object?, object?, object?>.CellFormulaA1(text, null, ProbeFactory.Instance);
-            return true;
-        }
-        catch (ParsingException)
-        {
-            return false;
-        }
+        var text = FormulaText.WithoutLeadingEquals(formula);
+        return FormulaText.TryWalk(text, null, ProbeFactory.Instance, FormulaNotation.A1, out _, out _);
     }
 
     /// <summary>A do-nothing factory: the only thing asked of the parse is whether it throws.</summary>

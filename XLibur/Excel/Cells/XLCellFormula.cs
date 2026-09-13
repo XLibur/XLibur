@@ -213,12 +213,17 @@ internal sealed class XLCellFormula
             bodyStart++;
 
         var formula = strValue[bodyStart..];
-        var converted = conversionType switch
+        var to = conversionType switch
         {
-            FormulaConversionType.A1ToR1C1 => FormulaTransformation.SafeToR1C1(formula, cellAddress.Row, cellAddress.Column),
-            FormulaConversionType.R1C1ToA1 => FormulaTransformation.SafeToA1(formula, cellAddress.Row, cellAddress.Column),
+            FormulaConversionType.A1ToR1C1 => FormulaNotation.R1C1,
+            FormulaConversionType.R1C1ToA1 => FormulaNotation.A1,
             _ => throw new NotSupportedException()
         };
+
+        // Reading FormulaR1C1 and copying a formula are public edges: a refused formula reaches the
+        // caller as ExpressionParseException.
+        if (!FormulaText.TryConvert(formula, cellAddress, to, out var converted, out var refusal))
+            throw refusal.ToException();
 
         return bodyStart == 0 ? converted : strValue[..bodyStart] + converted;
     }
@@ -457,10 +462,14 @@ internal sealed class XLCellFormula
     public void RenameSheet(Point origin, string oldSheetName, string newSheetName)
     {
         var a1 = A1;
-        var res = FormulaTransformation.SafeModifyA1(a1, newSheetName, origin.Row, origin.Column, new RenameRefModVisitor
+        var modifier = new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
-        });
+        };
+
+        // Until a rename handles a refusal, the parser's own exception escapes it, as it always has.
+        if (!FormulaText.TryRewrite(a1, newSheetName, origin, modifier, out var res, out var refusal))
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(refusal.Cause);
 
         if (res != a1)
         {
@@ -552,8 +561,12 @@ internal sealed class XLCellFormula
         if (Type != FormulaType.Normal)
             throw new InvalidOperationException("Can only swap normal formulas.");
 
-        var originR1C1 = FormulaTransformation.SafeToR1C1(A1, origin.Row, origin.Column);
-        var targetA1 = FormulaTransformation.SafeToA1(originR1C1, destination.Row, destination.Column);
+        // Copying or moving a formula is a public edge: a refused formula reaches the caller as
+        // ExpressionParseException.
+        if (!FormulaText.TryConvert(A1, origin, FormulaNotation.R1C1, out var originR1C1, out var refusal)
+            || !FormulaText.TryConvert(originR1C1, destination, FormulaNotation.A1, out var targetA1, out refusal))
+            throw refusal.ToException();
+
         var targetFormula = NormalA1(targetA1);
         targetFormula.MarkExplicitlyDirty();
         return targetFormula;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using ClosedXML.Parser;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Extensions;
 
@@ -56,7 +57,7 @@ internal static partial class XLCellFormulaShifter
         if (string.IsNullOrWhiteSpace(formulaA1))
             return string.Empty;
 
-        var parseable = FormulaTransformation.ProtectStructuredRefColons(formulaA1, out var wasProtected);
+        var parseable = FormulaText.ProtectStructuredRefColons(formulaA1, out var wasProtected);
         var plan = new ShiftPlan(shiftedSheetName, worksheetInAction.Name, parseable, map);
         try
         {
@@ -89,7 +90,7 @@ internal static partial class XLCellFormulaShifter
             return formulaA1;
 
         var shifted = plan.Apply(parseable);
-        return wasProtected ? shifted.Replace(FormulaTransformation.ColonPlaceholder, ':') : shifted;
+        return wasProtected ? shifted.Replace(FormulaText.ColonPlaceholder, ':') : shifted;
     }
 
     private static string Shift(string formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange, int shift,
@@ -104,7 +105,7 @@ internal static partial class XLCellFormulaShifter
         // Colons inside single-bracket structured reference column names would be read as range
         // operators. The placeholder is the same width as the colon it replaces, so every SymbolRange
         // the parser reports still indexes correctly into the original formula.
-        var parseable = FormulaTransformation.ProtectStructuredRefColons(formulaA1, out var wasProtected);
+        var parseable = FormulaText.ProtectStructuredRefColons(formulaA1, out var wasProtected);
 
         // Every worksheet's formulas are visited, not just the shifted sheet's, so that a formula on
         // one sheet referring to the shifted sheet is repointed too. Which references those are depends
@@ -136,7 +137,7 @@ internal static partial class XLCellFormulaShifter
             return formulaA1;
 
         var shifted = plan.Apply(parseable);
-        return wasProtected ? shifted.Replace(FormulaTransformation.ColonPlaceholder, ':') : shifted;
+        return wasProtected ? shifted.Replace(FormulaText.ColonPlaceholder, ':') : shifted;
     }
 
     /// <summary>

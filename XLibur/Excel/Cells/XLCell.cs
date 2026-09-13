@@ -6,8 +6,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
-using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
 using XLibur.Excel.InsertData;
@@ -602,7 +602,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             if (!string.IsNullOrWhiteSpace(formula))
             {
                 var fixedFunctionsFormula =
-                    FormulaTransformation.FixFutureFunctions(formula, Worksheet.Name, SheetPoint);
+                    FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetPoint);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormula);
             }
             else
@@ -626,9 +626,13 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             var formula = value.TrimFormulaEqual();
             if (!string.IsNullOrWhiteSpace(formula))
             {
-                var formulaA1 = FormulaTransformation.SafeToA1(formula, _point.Row, _point.Column);
+                // Setting FormulaR1C1 is a public edge: a refused formula reaches the caller as
+                // ExpressionParseException.
+                if (!FormulaText.TryConvert(formula, SheetPoint, FormulaNotation.A1, out var formulaA1, out var refusal))
+                    throw refusal.ToException();
+
                 var fixedFunctionsFormulaA1 =
-                    FormulaTransformation.FixFutureFunctions(formulaA1, Worksheet.Name, SheetPoint);
+                    FormulaText.AddFuturePrefixes(formulaA1, Worksheet.Name, SheetPoint);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormulaA1);
             }
             else
@@ -907,7 +911,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (!string.IsNullOrWhiteSpace(trimmed))
         {
             var fixedFunctionsFormula =
-                FormulaTransformation.FixFutureFunctions(trimmed, Worksheet.Name, SheetPoint);
+                FormulaText.AddFuturePrefixes(trimmed, Worksheet.Name, SheetPoint);
             Formula = XLCellFormula.DynamicArrayA1(fixedFunctionsFormula);
         }
         else
