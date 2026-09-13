@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Globalization;
 using System.Linq;
@@ -45,7 +46,7 @@ internal sealed class XLTable : XLRange, IXLTable
 
             RescanFieldNames();
 
-            return _fieldNames!;
+            return _fieldNames;
         }
     }
 
@@ -54,6 +55,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// </summary>
     internal Area Area => Area.FromRangeAddress(RangeAddress);
 
+    [MemberNotNull(nameof(_fieldNames))]
     private void RescanFieldNames()
     {
         if (ShowHeaderRow)
@@ -62,20 +64,22 @@ internal sealed class XLTable : XLRange, IXLTable
             RescanSyntheticFieldNames();
     }
 
+    [MemberNotNull(nameof(_fieldNames))]
     private void RescanFieldNamesFromHeaderRow()
     {
         var oldFieldNames = _fieldNames ?? CreateFieldNames();
         _fieldNames = CreateFieldNames();
         var cellPos = 0;
         foreach (var xlCell in HeadersRow(false)!.Cells())
-            ProcessHeaderCell((XLCell)xlCell, cellPos++, oldFieldNames);
+            ProcessHeaderCell((XLCell)xlCell, cellPos++, oldFieldNames, _fieldNames);
     }
 
     /// <summary>
     /// Maps a single header cell to a table field, reusing existing fields by name when possible.
     /// Generates a unique name for empty cells and fixes cell values that differ from the field name.
     /// </summary>
-    private void ProcessHeaderCell(XLCell cell, int cellPos, Dictionary<string, IXLTableField> oldFieldNames)
+    private void ProcessHeaderCell(XLCell cell, int cellPos, Dictionary<string, IXLTableField> oldFieldNames,
+        Dictionary<string, IXLTableField> fieldNames)
     {
         var cellValue = cell.CachedValue;
         var name = cellValue.ToString(CultureInfo.CurrentCulture);
@@ -83,7 +87,7 @@ internal sealed class XLTable : XLRange, IXLTable
         if (oldFieldNames.TryGetValue(name, out var tableField))
         {
             ((XLTableField)tableField).Index = cellPos;
-            _fieldNames!.Add(name, tableField);
+            fieldNames.Add(name, tableField);
             return;
         }
 
@@ -91,10 +95,10 @@ internal sealed class XLTable : XLRange, IXLTable
         if (string.IsNullOrEmpty(name))
             name = GetUniqueName(DefaultColumnPrefix, cellPos + 1, true);
 
-        if (_fieldNames!.ContainsKey(name))
+        if (fieldNames.ContainsKey(name))
             throw new ArgumentException("The header row contains more than one field name '" + name + "'.");
 
-        _fieldNames.Add(name, new XLTableField(this, name) { Index = cellPos });
+        fieldNames.Add(name, new XLTableField(this, name) { Index = cellPos });
 
         // Field names are the source of the truth that is projected
         // to the cells, and field names can be only text. Fix the cell,
@@ -103,6 +107,7 @@ internal sealed class XLTable : XLRange, IXLTable
             cell.SetValue(name, false, false);
     }
 
+    [MemberNotNull(nameof(_fieldNames))]
     private void RescanSyntheticFieldNames()
     {
         _fieldNames ??= CreateFieldNames();
@@ -130,11 +135,19 @@ internal sealed class XLTable : XLRange, IXLTable
 
     internal void RenameField(string oldName, string newName)
     {
-        if (!_fieldNames!.Remove(oldName, out var field))
+        if (!LastReadFieldNames.Remove(oldName, out var field))
             throw new ArgumentException("The field does not exist in this table", nameof(oldName));
 
-        _fieldNames.Add(newName, field);
+        LastReadFieldNames.Add(newName, field);
     }
+
+    /// <summary>
+    /// The fields as last read, for the operations that only run once <see cref="FieldNames"/> has
+    /// built them. Reaching one before then is a defect, and is reported as one rather than as a
+    /// <see cref="NullReferenceException"/>.
+    /// </summary>
+    private Dictionary<string, IXLTableField> LastReadFieldNames =>
+        _fieldNames ?? throw new InvalidOperationException("The table's fields have not been read yet.");
 
     internal string? RelId { get; set; }
 
@@ -212,7 +225,7 @@ internal sealed class XLTable : XLRange, IXLTable
         set;
     }
 
-    public XLTableTheme Theme { get; set; } = null!;
+    public XLTableTheme Theme { get; set; }
 
     public string Name
     {
@@ -431,7 +444,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// </summary>
     private void UpdateTotalsRowLabels(HashSet<string> newHeaders, int totalsRowChanged, int oldTotalsRowNumber)
     {
-        foreach (var f in _fieldNames!.Values)
+        foreach (var f in LastReadFieldNames.Values)
         {
             var c = TotalsRow()!.Cell(f.Index + 1);
             if (!c.IsEmpty() && newHeaders.Contains(f.Name))
@@ -448,7 +461,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// </summary>
     private void RelocateTotalsRowLabels(int oldTotalsRowNumber)
     {
-        foreach (var f in _fieldNames!.Values.Cast<XLTableField>())
+        foreach (var f in LastReadFieldNames.Values.Cast<XLTableField>())
         {
             f.UpdateTableFieldTotalsRowFormula();
             var c = TotalsRow()!.Cell(f.Index + 1);
@@ -582,6 +595,7 @@ internal sealed class XLTable : XLRange, IXLTable
 
     #endregion IXLTable Members
 
+    [MemberNotNull(nameof(Theme))]
     private void InitializeValues(bool setAutofilter)
     {
         ShowRowStripes = true;
