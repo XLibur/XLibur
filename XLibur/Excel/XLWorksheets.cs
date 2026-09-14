@@ -206,6 +206,18 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     }
 
     /// <summary>
+    /// Deletes <paramref name="sheet"/> itself, the sheet <see cref="IXLWorksheet.Delete"/> was called
+    /// on. A sheet that is already deleted is left as it is, as a rename of one changes nothing in the
+    /// workbook. Looking the sheet up by its name instead would find a sheet added since under that
+    /// name, and delete that one.
+    /// </summary>
+    internal void Delete(XLWorksheet sheet)
+    {
+        if (IsRegistered(sheet))
+            Delete(sheet.Position);
+    }
+
+    /// <summary>
     /// The one implementation of deleting a sheet. <see cref="IXLWorksheet.Delete"/> and
     /// <see cref="Delete(string)"/> both come here, so every way of deleting a sheet does the same.
     /// </summary>
@@ -271,7 +283,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         // A deleted sheet is not in the collection, and nothing holds its name, so a rename only
         // changes what it is called. Looking the sheet up by its old name instead would find a sheet
         // added since under that name, and change that sheet's key behind its back.
-        if (!_worksheets.TryGetValue(oldSheetName, out var current) || !ReferenceEquals(current, sheet))
+        if (!IsRegistered(sheet))
         {
             sheet.AssignName(newSheetName);
             return;
@@ -334,6 +346,13 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     }
 
     private uint GetNextSheetId() => _nextSheetId++;
+
+    /// <summary>
+    /// Is <paramref name="sheet"/> the sheet this collection holds under its name? A deleted sheet is
+    /// not, and neither is it when a sheet has been added since under the deleted one's name.
+    /// </summary>
+    private bool IsRegistered(XLWorksheet sheet)
+        => _worksheets.TryGetValue(sheet.Name, out var current) && ReferenceEquals(current, sheet);
 
     /// <summary>
     /// Refuses a name another sheet already has: a modelled sheet, or an unsupported sheet such as a

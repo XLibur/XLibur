@@ -621,7 +621,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public void Delete() => Workbook.WorksheetsInternal.Delete(Name);
+    public void Delete() => Workbook.WorksheetsInternal.Delete(this);
 
 
     [Obsolete($"Use {nameof(DefinedName)} instead.")]

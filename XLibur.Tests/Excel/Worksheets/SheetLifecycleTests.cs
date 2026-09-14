@@ -453,6 +453,70 @@ public class SheetLifecycleTests
         await Assert.That(added.Name).IsEqualTo("Sheet3");
     }
 
+    /// <summary>
+    /// <c>IXLWorksheet.Delete()</c> deletes the sheet it is called on, not whichever sheet has its name
+    /// now. Called again on a deleted sheet, after a sheet was added under the same name, it used to
+    /// delete the new sheet: rewrite every formula pointing at it to <c>#REF!</c>, make a name pointing
+    /// at it <c>#REF!</c>, and mark it deleted.
+    /// </summary>
+    [Test]
+    public async Task Deleting_a_deleted_sheet_again_leaves_a_new_sheet_of_the_same_name_alone()
+    {
+        using var wb = new XLWorkbook();
+        var old = wb.AddWorksheet("Data");
+        var keep = wb.AddWorksheet("Keep");
+        old.Delete();
+        var fresh = wb.AddWorksheet("Data");
+        fresh.Cell("A1").Value = 7;
+        keep.Cell("A1").FormulaA1 = "Data!A1*2";
+        wb.DefinedNames.Add("W", "Data!$A$1");
+
+        old.Delete();
+
+        await Assert.That(((XLWorksheet)fresh).IsDeleted).IsFalse();
+        await Assert.That(wb.Worksheet("Data")).IsSameReferenceAs(fresh);
+        await Assert.That(keep.Cell("A1").FormulaA1).IsEqualTo("Data!A1*2");
+        await Assert.That(keep.Cell("A1").Value).IsEqualTo(14);
+        await Assert.That(RefersTo(wb, "W")).IsEqualTo("Data!$A$1");
+    }
+
+    /// <summary>
+    /// Deleting a sheet that is already deleted does nothing, as renaming one changes nothing in the
+    /// workbook. It used to throw <c>KeyNotFoundException</c>.
+    /// </summary>
+    [Test]
+    public async Task Deleting_a_deleted_sheet_again_does_nothing()
+    {
+        using var wb = new XLWorkbook();
+        var old = wb.AddWorksheet("Data");
+        var keep = wb.AddWorksheet("Keep");
+        old.Delete();
+
+        await Assert.That(() => old.Delete()).ThrowsNothing();
+        await Assert.That(((XLWorksheet)old).IsDeleted).IsTrue();
+        await Assert.That(wb.Worksheets.Count).IsEqualTo(1);
+        await Assert.That(keep.Position).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// The collection names a sheet by the name it has now. After the original <c>Data</c> was deleted
+    /// and a new one added, <c>wb.Worksheets.Delete("Data")</c> deletes the new one.
+    /// </summary>
+    [Test]
+    public async Task The_collection_delete_by_name_deletes_the_sheet_that_has_the_name_now()
+    {
+        using var wb = new XLWorkbook();
+        var old = wb.AddWorksheet("Data");
+        wb.AddWorksheet("Keep");
+        old.Delete();
+        var fresh = wb.AddWorksheet("Data");
+
+        wb.Worksheets.Delete("Data");
+
+        await Assert.That(((XLWorksheet)fresh).IsDeleted).IsTrue();
+        await Assert.That(wb.Worksheets.Contains("Data")).IsFalse();
+    }
+
     private static XLWorkbook OpenChartsheetBook()
         => new(TestHelper.GetStreamFromResource(
             TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx")));
