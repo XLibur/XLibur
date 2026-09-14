@@ -201,6 +201,10 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         Delete(_worksheets[sheetName].Position);
     }
 
+    /// <summary>
+    /// The one implementation of deleting a sheet. <see cref="IXLWorksheet.Delete"/> and
+    /// <see cref="Delete(string)"/> both come here, so every way of deleting a sheet does the same.
+    /// </summary>
     public void Delete(int position)
     {
         var wsCount = _worksheets.Values.Count(w => w.Position == position);
@@ -214,6 +218,16 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         }
 
         var ws = _worksheets.Values.Single(w => w.Position == position);
+
+        // 1. Every holder hears of it first, while the sheet can still be resolved. A listener does
+        //    not throw (see IWorkbookListener), so nothing here catches.
+        foreach (var listener in GetWorkbookListeners())
+            listener.OnSheetDeleting(ws.Name);
+
+        // 2. A range or an address that outlives the sheet reads #REF! from now on.
+        ws.IsDeleted = true;
+
+        // 3. Remove the sheet, and close the gap it leaves in the tab order.
         if (!string.IsNullOrWhiteSpace(ws.RelId) && !Deleted.Contains(ws.RelId))
             Deleted.Add(ws.RelId);
 
@@ -221,6 +235,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         _worksheets.Values.Where(w => w.Position > position).ForEach(w => w._position -= 1);
         _workbook.UnsupportedSheets.Where(w => w.Position > position).ForEach(w => w.Position -= 1);
 
+        // 4. Dispose what the sheet held.
         ws.Cleanup();
     }
 
@@ -236,27 +251,51 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     #endregion IXLWorksheets Members
 
-    public void Rename(string oldSheetName, string newSheetName)
+    /// <summary>
+    /// The one implementation of renaming a sheet. The setter of <see cref="XLWorksheet.Name"/>
+    /// delegates here entirely. The collection's key and the sheet's name change together, and only
+    /// then does any listener hear of it.
+    /// </summary>
+    internal void Rename(XLWorksheet sheet, string newSheetName)
     {
-        if (string.IsNullOrWhiteSpace(oldSheetName) || !_worksheets.TryGetValue(oldSheetName, out var ws)) return;
+        var oldSheetName = sheet.Name;
+        if (oldSheetName == newSheetName)
+            return;
 
-        if (!oldSheetName.Equals(newSheetName, StringComparison.OrdinalIgnoreCase)
-            && _worksheets.ContainsKey(newSheetName))
+        XLHelper.ValidateSheetName(newSheetName);
+
+        // A deleted sheet is not in the collection, and nothing holds its name, so a rename only
+        // changes what it is called. Looking the sheet up by its old name instead would find a sheet
+        // added since under that name, and change that sheet's key behind its back.
+        if (!_worksheets.TryGetValue(oldSheetName, out var current) || !ReferenceEquals(current, sheet))
+        {
+            sheet.AssignName(newSheetName);
+            return;
+        }
+
+        if (!XLHelper.SheetComparer.Equals(oldSheetName, newSheetName) && _worksheets.ContainsKey(newSheetName))
             throw new ArgumentException($"A worksheet with the same name ({newSheetName}) has already been added.", nameof(newSheetName));
 
         _worksheets.Remove(oldSheetName);
-        Add(newSheetName, ws);
+        sheet.AssignName(newSheetName);
+        Add(newSheetName, sheet);
 
         foreach (var listener in GetWorkbookListeners())
             listener.OnSheetRenamed(oldSheetName, newSheetName);
     }
 
-    #region Private members
-
-    private IEnumerable<IWorkbookListener> GetWorkbookListeners()
+    /// <summary>
+    /// Every component that holds text naming a sheet, in the order it hears of a rename or a
+    /// delete. <c>SheetLifecycleTests</c> pins the order.
+    /// </summary>
+    /// <remarks>
+    /// One order serves both events. The calc engine comes first: on a rename it renames its
+    /// dependency tree, and on a delete it drops the tree and marks every formula dirty. Neither
+    /// reads the formula text that the holders after it change, so the engine and the holders
+    /// commute on both events.
+    /// </remarks>
+    internal IEnumerable<IWorkbookListener> GetWorkbookListeners()
     {
-        // All components that should be updated when sheet is added/removed or renamed should
-        // be enumerated here.
         yield return _workbook.CalcEngine;
 
         foreach (var sheet in _worksheets.Values)
@@ -275,6 +314,8 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
             }
         }
     }
+
+    #region Private members
 
     private string GetNextWorksheetName()
     {

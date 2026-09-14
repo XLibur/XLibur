@@ -695,6 +695,15 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// Registered, and deliberately empty for now: a formula keeps its text when a sheet it names is
+    /// deleted, as it did before a delete had one door. Spec 55 task 4 rewrites the references to
+    /// <c>#REF!</c>.
+    /// </summary>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
+    {
+    }
+
+    /// <summary>
     /// Rewrites every reference to <paramref name="oldSheetName"/> in the formulas of this collection
     /// to <paramref name="newSheetName"/>. Used both when a sheet is renamed and when one is copied,
     /// where the copy's references to the original must follow the copy.

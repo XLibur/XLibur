@@ -91,6 +91,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal FunctionRegistry Functions { get; }
 
     /// <summary>
+    /// The workbook whose formulas this engine tracks, so that a sheet delete can mark every one of
+    /// them dirty. <c>null</c> for the engine that evaluates expressions outside any workbook, which
+    /// hears of no sheet.
+    /// </summary>
+    internal XLWorkbook? Workbook { get; set; }
+
+    /// <summary>
     /// Parses a string into an <see cref="Formula"/>.
     /// </summary>
     /// <param name="expression">String to parse.</param>
@@ -146,9 +153,15 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Purge(sheet.Workbook.WorksheetsInternal);
     }
 
-    internal void OnDeletingSheet(XLWorksheet sheet)
+    /// <summary>
+    /// A formula that read the deleted sheet must be calculated again, so the dependency tree is
+    /// dropped and every formula in the workbook is marked dirty. Before a delete had one door this
+    /// was <c>OnDeletingSheet</c>, and only <c>IXLWorksheet.Delete()</c> called it (D53).
+    /// </summary>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
     {
-        Purge(sheet.Workbook.WorksheetsInternal);
+        if (Workbook is not null)
+            Purge(Workbook.WorksheetsInternal);
     }
 
     public void OnInsertAreaAndShiftDown(in SheetEdit edit)

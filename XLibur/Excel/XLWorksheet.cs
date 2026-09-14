@@ -235,7 +235,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public XLAutoFilter AutoFilter { get; private set; }
 
-    public bool IsDeleted { get; private set; }
+    /// <summary>
+    /// Has the sheet been deleted? Set by <see cref="XLWorksheets.Delete(int)"/>, the one door a
+    /// sheet is deleted through.
+    /// </summary>
+    public bool IsDeleted { get; internal set; }
 
     #region IXLWorksheet Members
 
@@ -264,16 +268,14 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public string Name
     {
         get => _name;
-        set
-        {
-            if (_name == value) return;
-
-            XLHelper.ValidateSheetName(value);
-
-            Workbook.WorksheetsInternal.Rename(_name, value);
-            _name = value;
-        }
+        set => Workbook.WorksheetsInternal.Rename(this, value);
     }
+
+    /// <summary>
+    /// Changes what the sheet is called, and nothing else. Only <see cref="XLWorksheets.Rename"/>
+    /// calls this, so the collection's key and the sheet's name change together.
+    /// </summary>
+    internal void AssignName(string name) => _name = name;
 
     public int Position
     {
@@ -610,13 +612,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public void Delete()
-    {
-        IsDeleted = true;
-        Workbook.DefinedNamesInternal.OnWorksheetDeleted(Name);
-        Workbook.NotifyWorksheetDeleting(this);
-        Workbook.WorksheetsInternal.Delete(Name);
-    }
+    public void Delete() => Workbook.WorksheetsInternal.Delete(Name);
 
 
     [Obsolete($"Use {nameof(DefinedName)} instead.")]

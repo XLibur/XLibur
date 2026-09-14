@@ -64,15 +64,16 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // The calc engine is purged, and every formula marked dirty, on rename and on ws.Delete().
+        // The calc engine is purged, and every formula marked dirty, on a rename and on either delete.
+        // The collection delete did neither until task 2 made it the one door (D53).
         await Assert.That(other.Cell("A1").NeedsRecalculation).IsEqualTo(Expect(sheetEvent,
             rename: true,
             worksheetDelete: true,
-            collectionDelete: false)); // wrong: nothing is marked dirty (D53, task 2)
+            collectionDelete: true));
         await Assert.That(other.Cell("A1").Value).IsEqualTo(Expect<XLCellValue>(sheetEvent,
             rename: 10,
             worksheetDelete: XLError.CellReference,
-            collectionDelete: 10)); // wrong: the deleted sheet's value, stale (D53, task 2)
+            collectionDelete: XLError.CellReference));
     }
 
     [Test]
@@ -96,7 +97,7 @@ public class SheetLifecycleCharacterizationTests
         await Assert.That(reloaded.Worksheet("Other").Cell("A1").Value).IsEqualTo(Expect<XLCellValue>(sheetEvent,
             rename: 10,
             worksheetDelete: XLError.CellReference,
-            collectionDelete: 10)); // wrong: the stale value is written to the file (D53, task 2)
+            collectionDelete: XLError.CellReference)); // was the stale 10, written to the file (D53)
     }
 
     [Test]
@@ -111,7 +112,7 @@ public class SheetLifecycleCharacterizationTests
         await Assert.That(((XLWorksheet)data).IsDeleted).IsEqualTo(Expect(sheetEvent,
             rename: false,
             worksheetDelete: true,
-            collectionDelete: false)); // wrong (D53, task 2)
+            collectionDelete: true)); // was false (D53)
     }
 
     [Test]
@@ -128,7 +129,7 @@ public class SheetLifecycleCharacterizationTests
         await Assert.That(wb.DefinedNames.Single().RefersTo).IsEqualTo(Expect(sheetEvent,
             rename: "Renamed!$A$1",
             worksheetDelete: "#REF!",
-            collectionDelete: "Data!$A$1")); // wrong: not handled (D53, task 2)
+            collectionDelete: "#REF!")); // was left naming the deleted sheet (D53)
     }
 
     [Test]
@@ -274,7 +275,7 @@ public class SheetLifecycleCharacterizationTests
         var expected = Expect(sheetEvent,
             rename: "Renamed!A1:A3",
             worksheetDelete: "#REF!A1:A3",
-            collectionDelete: "Data!A1:A3"); // wrong: IsDeleted is never set (D53, task 2)
+            collectionDelete: "#REF!A1:A3"); // was the deleted sheet's name, IsDeleted unset (D53)
         var written = other.SparklineGroups.SelectMany(g => g).Single()
             .SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true);
         await Assert.That(written).IsEqualTo(expected);

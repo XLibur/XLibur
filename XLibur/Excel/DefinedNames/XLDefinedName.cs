@@ -276,10 +276,22 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         RenameFormulaSheet(oldSheetName, newSheetName);
     }
 
-    internal void OnWorksheetDeleted(string worksheetName)
+    /// <summary>
+    /// A reference to the deleted sheet becomes <c>#REF!</c>.
+    /// </summary>
+    /// <remarks>
+    /// Only a workbook-scoped name is changed, which is all that <c>IXLWorksheet.Delete()</c> changed
+    /// before a delete had one door. A sheet-scoped name keeps pointing at the deleted sheet (D54).
+    /// Spec 55 task 3 removes this scope check, once Excel-authored fixtures say what a name at each
+    /// scope becomes.
+    /// </remarks>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
     {
-        RenameFormulaSheet(worksheetName, null);
-        DropSheetPrefixOfRefError(worksheetName);
+        if (_container.Scope != XLNamedRangeScope.Workbook)
+            return;
+
+        RenameFormulaSheet(sheetName, null);
+        DropSheetPrefixOfRefError(sheetName);
     }
 
     /// <summary>
