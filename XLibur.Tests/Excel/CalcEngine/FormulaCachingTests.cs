@@ -474,6 +474,110 @@ public class FormulaCachingTests
         await Assert.That(ws.Cell("A1").Value).IsEqualTo(5);
     }
 
+    /// <summary>How a test cell holds its rich text in the saved file.</summary>
+    public enum RichTextKind
+    {
+        /// <summary>A shared string with runs.</summary>
+        SharedString,
+
+        /// <summary>An inline string, <c>&lt;is&gt;</c>, with runs.</summary>
+        InlineString,
+    }
+
+    /// <summary>
+    /// #504 review. The loader writes a rich-text cell through the setter an edit uses, which tells
+    /// the calc engine. Once a formula had loaded clean, that built the dependency tree in the middle
+    /// of the load, and the tree lacked every formula loaded after it. D10 = A2*10 was one of them,
+    /// so the edit of A2 missed it: D10 read 10 and a save wrote 10. Rich text in row 1, before any
+    /// formula, is the control: the tree was not built there.
+    /// </summary>
+    [Test]
+    [Arguments(RichTextKind.SharedString, "C3")]
+    [Arguments(RichTextKind.InlineString, "C3")]
+    [Arguments(RichTextKind.SharedString, "C1")]
+    [Arguments(RichTextKind.InlineString, "C1")]
+    public async Task EditAfterLoadReachesAFormulaLoadedAfterRichText(RichTextKind kind, string richTextCell)
+    {
+        using var wb = Reload(builder =>
+        {
+            var ws = builder.AddWorksheet("Sheet1");
+            AddRichText(ws, richTextCell, kind);
+            ws.Cell("A2").Value = 1;
+            ws.Cell("B2").FormulaA1 = "B9*2";
+            ws.Cell("B9").Value = 4;
+            ws.Cell("D10").FormulaA1 = "A2*10";
+        });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedAsRichText(sheet.Cell(richTextCell), kind);
+        await AssertLoadedClean([sheet.Cell("B2"), sheet.Cell("D10")]);
+
+        sheet.Cell("A2").Value = 5;
+
+        await Assert.That(sheet.Cell("D10").NeedsRecalculation).IsTrue();
+        await Assert.That(sheet.Cell("B2").NeedsRecalculation).IsFalse();
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        await Assert.That(EvaluationOutcomeTests.CachedValueInFile(saved, "D10")).IsEqualTo("D10 has no <v>");
+        await Assert.That(sheet.Cell("D10").Value).IsEqualTo(50);
+        await Assert.That(sheet.Cell("B2").Value).IsEqualTo(8);
+    }
+
+    /// <summary>
+    /// #504 review. Once the dependency tree existed in the middle of a load, each rich-text cell
+    /// loaded after it marked the formulas that read it dirty, and they lost Excel's cached value
+    /// before anything was edited. A1 = LEN(C3) was calculated again when read. B1, a formula XLibur
+    /// cannot evaluate, threw instead of returning its cached value.
+    /// </summary>
+    [Test]
+    [Arguments(RichTextKind.SharedString)]
+    [Arguments(RichTextKind.InlineString)]
+    public async Task LoadedFormulaThatReadsRichTextKeepsItsCachedValue(RichTextKind kind)
+    {
+        using var wb = Reload(
+            builder =>
+            {
+                var ws = builder.AddWorksheet("Sheet1");
+                ws.Cell("A1").FormulaA1 = "LEN(C3)";
+                ws.Cell("B1").FormulaA1 = "C3&Sdemo123|tik!'id1?req?AAPL'";
+                AddRichText(ws, "C3", kind);
+            },
+            afterCalculation: builder =>
+            {
+                // B1 cannot be calculated, so it is given the cached value Excel would have saved.
+                var b1 = (XLCell)builder.Worksheet("Sheet1").Cell("B1");
+                b1.Worksheet.Internals.CellsCollection.ValueSlice.SetCellValue(b1.SheetPoint, 7);
+                b1.Formula!.MarkClean();
+            });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedAsRichText(sheet.Cell("C3"), kind);
+
+        await Assert.That(sheet.Cell("A1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("A1").Value).IsEqualTo(2);
+        await Assert.That(sheet.Cell("B1").Value).IsEqualTo(7);
+    }
+
+    /// <summary>Gives <paramref name="address"/> the rich text "ab", "a" in bold.</summary>
+    private static void AddRichText(IXLWorksheet ws, string address, RichTextKind kind)
+    {
+        var cell = ws.Cell(address);
+        var richText = cell.GetRichText();
+        richText.AddText("a").SetBold();
+        richText.AddText("b");
+        if (kind == RichTextKind.InlineString)
+            cell.ShareString = false;
+    }
+
+    /// <summary>
+    /// Checks the cell came back as rich text of <paramref name="kind"/>, so the test runs the
+    /// loader path it names.
+    /// </summary>
+    private static async Task AssertLoadedAsRichText(IXLCell cell, RichTextKind kind)
+    {
+        await Assert.That(cell.HasRichText).IsTrue();
+        await Assert.That(cell.ShareString).IsEqualTo(kind == RichTextKind.SharedString);
+    }
+
     /// <summary>
     /// A workbook as a load leaves it, every formula clean with the value it was saved with. On
     /// Sheet1, A1:A3 hold 1, and the name <c>Rate</c> refers to A2. B1 = A2*10, C1 = B1*2,
@@ -497,15 +601,18 @@ public class FormulaCachingTests
 
     /// <summary>
     /// Builds a workbook with <paramref name="build"/>, calculates it, so each formula is saved with
-    /// a cached value, and loads it again. <paramref name="rewriteSheet1"/> can edit the saved sheet.
+    /// a cached value, and loads it again. <paramref name="afterCalculation"/> runs between the
+    /// calculation and the save, and <paramref name="rewriteSheet1"/> can edit the saved sheet.
     /// </summary>
-    private static XLWorkbook Reload(Action<XLWorkbook> build, Func<string, string>? rewriteSheet1 = null)
+    private static XLWorkbook Reload(Action<XLWorkbook> build, Func<string, string>? rewriteSheet1 = null,
+        Action<XLWorkbook>? afterCalculation = null)
     {
         var package = new MemoryStream();
         using (var wb = new XLWorkbook())
         {
             build(wb);
             wb.RecalculateAllFormulas();
+            afterCalculation?.Invoke(wb);
             wb.SaveAs(package);
         }
 

@@ -453,10 +453,9 @@ internal static class WorksheetSheetDataReader
             cellWasSetWithEmptyValue = true;
         }
 
-        // Through the engine, so that the next edit builds the dependency tree and reaches this
-        // formula (#504).
+        // The calc engine learns that the load left formulas clean when the load ends (#504).
         if (formula is not null && (cellHasValue || cellWasSetWithEmptyValue))
-            ws.Workbook.CalcEngine.MarkLoadedClean(formula);
+            formula.MarkClean();
 
         if (IsMainElement(reader, "is"))
             LoadInlineStringXml(reader, dataType, cellsCollection, cellAddress, ws);
