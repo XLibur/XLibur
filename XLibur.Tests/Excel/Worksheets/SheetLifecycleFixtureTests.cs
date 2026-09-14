@@ -34,7 +34,6 @@ public class SheetLifecycleFixtureTests
 {
     private const string Folder = @"Other\SheetLifecycle\";
     private const string Workbook = "(workbook)";
-    private const string PrintArea = "_xlnm.Print_Area";
 
     [Test]
     public async Task A_rename_matches_Excel()
@@ -48,16 +47,8 @@ public class SheetLifecycleFixtureTests
     /// <summary>
     /// Every holder matches Excel, the names scoped to the deleted sheet included: <c>Local</c>, which
     /// <c>Q</c> refers to, is kept at workbook scope as <c>#REF!</c>, and <c>Q</c> becomes
-    /// <c>[0]!Local</c>.
+    /// <c>[0]!Local</c>. <c>Data</c>'s print area goes with <c>Data</c>.
     /// </summary>
-    /// <remarks>
-    /// The print area is left out, because of a load defect that spec 55 names as a non-goal (round-4
-    /// candidate 04). <c>DefinedNameReader</c> attaches a print area to the sheet whose <c>sheetId</c> is
-    /// its <c>localSheetId</c> plus one, not to the sheet at that position. In <c>delete-before</c> the
-    /// sheetIds are not in tab order, so <c>Data</c>'s print area loads onto <c>Other</c>, and outlives
-    /// the delete there. What a delete does to a print area is pinned by
-    /// <c>SheetLifecycleTests.A_print_area_goes_with_its_own_sheet</c>.
-    /// </remarks>
     [Test]
     [Arguments(false)]
     [Arguments(true)]
@@ -70,8 +61,24 @@ public class SheetLifecycleFixtureTests
         });
         var excel = Read(Resource("delete-after.xlsx"));
 
-        await AssertSameText(saved, excel, excelChartMovesReferences: true, leaveOutName: PrintArea);
-        await Assert.That(excel.Names).DoesNotContain(n => n.Contains(PrintArea, StringComparison.Ordinal));
+        await AssertSameText(saved, excel, excelChartMovesReferences: true);
+    }
+
+    /// <summary>
+    /// <c>delete-before</c> holds its sheets out of <c>sheetId</c> order. <c>Data</c>'s print area has
+    /// <c>localSheetId="1"</c>, the second tab, and loaded onto <c>Other</c>, the sheet whose
+    /// <c>sheetId</c> is 2 (D75).
+    /// </summary>
+    [Test]
+    public async Task A_print_area_loads_onto_the_sheet_at_its_position()
+    {
+        using var wb = new XLWorkbook(Resource("delete-before.xlsx"));
+
+        var printAreas = wb.Worksheets
+            .Select(w => (w.Name, ((XLPrintAreas)w.PageSetup.PrintAreas).FormulaReference))
+            .Where(p => p.FormulaReference is not null)
+            .ToList();
+        await Assert.That(printAreas).IsEquivalentTo([("Data", (string?)"OFFSET(Data!$A$1,0,0,4,2)")]);
     }
 
     [Test]
@@ -243,12 +250,9 @@ public class SheetLifecycleFixtureTests
     /// <summary>
     /// Compares each holder as one line per item, so that a failure shows both sides in full.
     /// </summary>
-    private static async Task AssertSameText(Holders saved, Holders excel, bool excelChartMovesReferences,
-        string? leaveOutName = null)
+    private static async Task AssertSameText(Holders saved, Holders excel, bool excelChartMovesReferences)
     {
-        var savedNames = saved.Names.Where(n => leaveOutName is null || !n.Contains($"|{leaveOutName} ", StringComparison.Ordinal));
-        var excelNames = excel.Names.Where(n => leaveOutName is null || !n.Contains($"|{leaveOutName} ", StringComparison.Ordinal));
-        await Assert.That(Lines(savedNames)).IsEqualTo(Lines(excelNames));
+        await Assert.That(Lines(saved.Names)).IsEqualTo(Lines(excel.Names));
         await Assert.That(Lines(saved.CellFormulas)).IsEqualTo(Lines(excel.CellFormulas));
         await Assert.That(Lines(saved.ConditionalFormatFormulas)).IsEqualTo(Lines(excel.ConditionalFormatFormulas));
         await Assert.That(saved.PivotSource).IsEqualTo(excel.PivotSource);
