@@ -107,17 +107,9 @@ public class EvaluationOutcomeTests
             new() { Product = "Widget", Quantity = 1, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, 1) },
         });
 
-        XLGenerateResult result;
-        try
-        {
-            result = template.Generate();
-        }
-        catch (XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException)
-        {
-            // What generation did before spec 56, and still the behaviour for a read that meets an
-            // unrelated cycle: nothing is blamed on B1.
-            return;
-        }
+        // Since #492 the read of B1 no longer meets the cycle at Z100, so generation must not throw
+        // for it: a throw here is the regression this test guards against.
+        var result = template.Generate();
 
         await Assert.That(result.ParsingErrors.Select(e => e.Location)).DoesNotContain("Report!B1");
     }
