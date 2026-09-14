@@ -153,6 +153,13 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>())
             cf.RewriteSheet(_worksheet.Name, rewrite);
 
+        // A pivot table's formats are on this sheet too, though its pivot table holds them (#498).
+        foreach (var pivotTable in _worksheet.PivotTables)
+        {
+            foreach (var pivotFormat in pivotTable.ConditionalFormats)
+                pivotFormat.Format.RewriteSheet(_worksheet.Name, rewrite);
+        }
+
         // The rewrite does not move a reference, so any origin reads the formula the same way.
         foreach (var formulas in _extensionRuleFormulas.Values)
         {

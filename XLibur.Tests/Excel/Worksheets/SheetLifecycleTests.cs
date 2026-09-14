@@ -360,6 +360,41 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// A pivot table's conditional formats, worst input: a rule the parser refuses. The sheet's
+    /// conditional formats rewrite a pivot table's too (#498).
+    /// </summary>
+    [Test]
+    public async Task The_conditional_format_adapter_does_not_throw_on_a_pivot_tables_format()
+    {
+        using var wb = BookWithPivotTableFormat("=SUM(Data!$A$2", out var format);
+        IWorkbookListener formats = ((XLWorksheet)wb.Worksheet("Other")).ConditionalFormats;
+
+        await Assert.That(() => formats.OnSheetRenamed("Data", "Renamed")).ThrowsNothing();
+        await Assert.That(() => formats.OnSheetDeleting("Renamed")).ThrowsNothing();
+
+        // A refused formula is never rewritten (ADR 0002).
+        await Assert.That(format.Values[1].Value).IsEqualTo("SUM(Data!$A$2");
+    }
+
+    /// <summary>
+    /// A conditional format the pivot table holds follows a rename and a delete, as a sheet's own does.
+    /// Excel keeps such a rule, when it refers to another sheet, in the sheet's <c>x14</c> extension,
+    /// and the <c>chartex-pivotcf-*</c> fixture shows it rewritten there: <c>Renamed!$A$2&gt;0</c>, then
+    /// <c>#REF!&gt;0</c>. A pivot table's rule in the model was not rewritten at all (#498).
+    /// </summary>
+    [Test]
+    public async Task A_pivot_tables_conditional_format_follows_a_rename_and_a_delete()
+    {
+        using var wb = BookWithPivotTableFormat("=Data!$A$2>0", out var format);
+
+        wb.Worksheet("Data").Name = "Renamed";
+        await Assert.That(format.Values[1].Value).IsEqualTo("Renamed!$A$2>0");
+
+        wb.Worksheet("Renamed").Delete();
+        await Assert.That(format.Values[1].Value).IsEqualTo("#REF!>0");
+    }
+
+    /// <summary>
     /// A hidden <c>_xlchart.</c> name that is one reference to the deleted sheet goes with the sheet, as
     /// the <c>chartex-pivotcf-*</c> fixture shows. Every other name here follows the rule for any other
     /// name, and that is <b>unverified</b>: the fixture has no <c>_xlchart.</c> name that refers to
@@ -1041,6 +1076,32 @@ public class SheetLifecycleTests
 
     private static string RefersTo(XLWorkbook wb, string name)
         => wb.DefinedNames.Single(n => n.Name == name).RefersTo;
+
+    /// <summary>
+    /// A workbook with a pivot table on <c>Other</c> over <c>Data</c>, and a "use a formula" conditional
+    /// format with <paramref name="rule"/> that the pivot table holds, not the sheet.
+    /// </summary>
+    private static XLWorkbook BookWithPivotTableFormat(string rule, out XLConditionalFormat format)
+    {
+        var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        var other = wb.AddWorksheet("Other");
+        data.Cell("A1").Value = "Num";
+        data.Cell("B1").Value = "Label";
+        data.Cell("A2").Value = 10;
+        data.Cell("B2").Value = "x";
+        data.Cell("A3").Value = 20;
+        data.Cell("B3").Value = "y";
+        var pivotTable = (XLPivotTable)other.PivotTables.Add("pt", other.Cell("F1"), data.Range("A1:B3"));
+        pivotTable.RowLabels.Add("Label");
+
+        var added = (XLConditionalFormat)other.Range("G2:G3").AddConditionalFormat();
+        added.WhenIsTrue(rule);
+        ((XLWorksheet)other).ConditionalFormats.Remove(f => f == added);
+        pivotTable.AddConditionalFormat(new XLPivotConditionalFormat(added));
+        format = added;
+        return wb;
+    }
 
     /// <summary>The text of every <c>cx:f</c> in a package's ChartEx chart parts, in document order.</summary>
     private static string[] ChartExFormulas(Stream package)
