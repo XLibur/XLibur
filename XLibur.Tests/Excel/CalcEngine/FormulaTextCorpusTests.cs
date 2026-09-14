@@ -260,11 +260,4 @@ public class FormulaTextCorpusTests
     {
         public override string ToString() => Form;
     }
-
-    /// <summary>
-    /// Today's answer for every cell of a row, in corpus order. Used to write the corpus.
-    /// </summary>
-    internal static IEnumerable<string> RunRow(string text) => Paths.Select(path => Run(path, text));
-
-    internal static string DecodeText(string cell) => Decode(cell);
 }
