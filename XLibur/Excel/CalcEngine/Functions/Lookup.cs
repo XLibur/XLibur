@@ -793,5 +793,5 @@ internal static class Lookup
 
     // A defined name holds formula text, which has no leading '='.
     private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
-        => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx.Worksheet);
+        => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx);
 }

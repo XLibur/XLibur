@@ -411,8 +411,9 @@ internal sealed class NameNode : ValueNode
 
     public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
 
-    public AnyValue GetValue(XLWorksheet ctxWs, XLCalcEngine engine)
+    public AnyValue GetValue(CalcContext context)
     {
+        var ctxWs = context.Worksheet;
         var worksheet = ctxWs;
         if (Prefix is not null)
         {
@@ -427,7 +428,7 @@ internal sealed class NameNode : ValueNode
 
         // A defined name holds formula text, which has no leading '='. Passing the name's own string
         // also lets every use of the name share one parse: the engine caches parses by string identity.
-        return engine.EvaluateName(definedName.RefersTo, ctxWs);
+        return context.CalcEngine.EvaluateName(definedName.RefersTo, context);
     }
 
     internal bool TryGetNameRange(IXLWorksheet ws, [NotNullWhen(true)] out IXLDefinedName? definedName)

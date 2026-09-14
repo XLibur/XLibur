@@ -68,19 +68,19 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.Value, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.Value, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.Value, Kind.Refused, "throws ExpressionParseException")]
-    [Arguments(Entry.Value, Kind.NoContext, "throws XLNoWorksheetContextException")]
+    [Arguments(Entry.Value, Kind.NoContext, "6")]
     [Arguments(Entry.Value, Kind.Pending, "3")]
     [Arguments(Entry.Value, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.TryGetValue, Kind.Cycle, "false")]
     [Arguments(Entry.TryGetValue, Kind.Unsupported, "false")]
     [Arguments(Entry.TryGetValue, Kind.Refused, "false")]
-    [Arguments(Entry.TryGetValue, Kind.NoContext, "false")]
+    [Arguments(Entry.TryGetValue, Kind.NoContext, "true: 6")]
     [Arguments(Entry.TryGetValue, Kind.Pending, "true: 3")]
     [Arguments(Entry.TryGetValue, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.GetFormattedString, Kind.Cycle, "42")]
     [Arguments(Entry.GetFormattedString, Kind.Unsupported, "42")]
     [Arguments(Entry.GetFormattedString, Kind.Refused, "42")]
-    [Arguments(Entry.GetFormattedString, Kind.NoContext, "42")]
+    [Arguments(Entry.GetFormattedString, Kind.NoContext, "6")]
     [Arguments(Entry.GetFormattedString, Kind.Pending, "3")]
     [Arguments(Entry.GetFormattedString, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.Search, Kind.Cycle, "found A1")]
@@ -95,11 +95,11 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.WorksheetEvaluate, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.WorksheetEvaluate, Kind.Pending, "3")]
     [Arguments(Entry.WorksheetEvaluate, Kind.Defect, "throws NullReferenceException")]
-    [Arguments(Entry.WorkbookEvaluate, Kind.Cycle, "throws Exception")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Entry.WorkbookEvaluate, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.WorkbookEvaluate, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.WorkbookEvaluate, Kind.NoContext, "throws XLNoWorksheetContextException")]
-    [Arguments(Entry.WorkbookEvaluate, Kind.Pending, "throws Exception")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.Pending, "3")]
     [Arguments(Entry.WorkbookEvaluate, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.EvaluateExpr, Kind.Cycle, "n/a")]
     [Arguments(Entry.EvaluateExpr, Kind.Unsupported, "throws NotImplementedException")]
@@ -116,19 +116,19 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "completes, A6 dirty")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "throws ExpressionParseException")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "throws XLNoWorksheetContextException")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "completes, A6 = 6")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Pending, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "opens, A6 dirty")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "throws ExpressionParseException")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "throws XLNoWorksheetContextException")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "opens, A6 = 6")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Pending, "opens, A6 = 3")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Defect, "n/a")]
     [Arguments(Entry.Save, Kind.Cycle, "saves, A6 has no <v>")]
     [Arguments(Entry.Save, Kind.Unsupported, "saves, A6 has no <v>")]
     [Arguments(Entry.Save, Kind.Refused, "saves, A6 has no <v>")]
-    [Arguments(Entry.Save, Kind.NoContext, "throws XLNoWorksheetContextException")]
+    [Arguments(Entry.Save, Kind.NoContext, "saves, A6 <v>6</v>")]
     [Arguments(Entry.Save, Kind.Pending, "saves, A6 <v>3</v>")]
     [Arguments(Entry.Save, Kind.Defect, "throws NullReferenceException")]
     public async Task Matrix(Entry entry, Kind kind, string expected)
@@ -257,6 +257,59 @@ public class EvaluationOutcomeTests
         ws.Cell("A6").FormulaA1 = "MyRow";
 
         await Assert.That(ws.Cell("A6").Value).IsEqualTo(6);
+    }
+
+    [Test]
+    public async Task D60_a_defined_name_calling_COLUMN_answers_with_its_calling_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("MyColumn", "COLUMN()");
+        ws.Cell("C3").FormulaA1 = "MyColumn";
+
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// A name read through <c>ws.Evaluate</c> gets the formula address the caller gave, and still
+    /// reports a missing one publicly when none was given.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_in_worksheet_evaluate_gets_the_formula_address()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("MyRow", "ROW()");
+
+        await Assert.That(ws.Evaluate("MyRow", "B7")).IsEqualTo(7);
+        await Assert.That(() => ws.Evaluate("MyRow")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// Where spec 53 meets D60. A name now has its calling cell, but the name's context keeps
+    /// <c>IntersectOperands</c> off, as before, so an operator at the top of the name's formula
+    /// keeps its range operand whole. <c>Plus10</c> read in row 2 is the top-left of
+    /// <c>{11;12;13}</c>, where the same text typed into a cell in row 2 intersects and gives 12.
+    /// </summary>
+    /// <remarks>
+    /// Pinned, not decided: whether Excel intersects inside a name has not been established.
+    /// </remarks>
+    [Test]
+    public async Task A_defined_name_keeps_array_semantics_for_its_operators()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 2;
+        ws.Cell("A3").Value = 3;
+        wb.DefinedNames.Add("Plus10", "Sheet1!$A$1:$A$3+10");
+        ws.Cell("B2").FormulaA1 = "Plus10";
+        ws.Cell("C2").FormulaA1 = "Sheet1!$A$1:$A$3+10";
+        ws.Cell("D2").FormulaA1 = "SUM(Plus10)";
+
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(11);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(12);
+        await Assert.That(ws.Cell("D2").Value).IsEqualTo(36);
     }
 
     /// <summary>
@@ -482,8 +535,8 @@ public class EvaluationOutcomeTests
                 cell.FormulaA1 = RefusedFormula;
                 break;
             case Kind.NoContext:
-                // D60: a defined name that needs its calling cell. The only way a formula in a
-                // cell can lack a context.
+                // D60: a defined name that needs its calling cell. Before spec 56 this was the
+                // only way a formula in a cell could lack a context; now the name has the cell.
                 wb.DefinedNames.Add("MyRow", "ROW()");
                 cell.FormulaA1 = "MyRow";
                 break;

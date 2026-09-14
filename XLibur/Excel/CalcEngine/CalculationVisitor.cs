@@ -117,7 +117,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, NameNode node)
     {
-        return node.GetValue(context.Worksheet, context.CalcEngine);
+        return node.GetValue(context);
     }
 
     public AnyValue Visit(CalcContext context, NotSupportedNode node)

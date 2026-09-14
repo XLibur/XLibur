@@ -190,6 +190,9 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// There is no cell here for it to be relative to; use it in a cell formula, or evaluate it
     /// through <see cref="IXLWorksheet.Evaluate"/> with a formula address.
     /// </exception>
+    /// <exception cref="XLCircularReferenceException">
+    /// The expression reads a cell whose formula is part of a circular reference.
+    /// </exception>
     XLCellValue Evaluate(string expression);
 
     IXLCells FindCells(Func<IXLCell, bool> predicate);

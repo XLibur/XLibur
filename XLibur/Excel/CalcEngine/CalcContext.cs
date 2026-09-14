@@ -14,6 +14,7 @@ namespace XLibur.Excel.CalcEngine;
 internal sealed class CalcContext : IStructuredReferenceScope
 {
     private readonly bool _recursive;
+    private readonly IXLAddress? _formulaAddress;
 
     /// <summary>
     /// Per-evaluation cache for <see cref="GetCellValue"/>'s recursive branch. Lazily
@@ -38,7 +39,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         CalcEngine = calcEngine;
         Workbook = workbook;
         Worksheet = worksheet;
-        FormulaAddress = formulaAddress;
+        _formulaAddress = formulaAddress;
         _recursive = recursive;
         Culture = culture;
     }
@@ -59,7 +60,26 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <summary>
     /// Address of the calculated formula.
     /// </summary>
-    public IXLAddress FormulaAddress => field ?? throw new MissingContextException();
+    public IXLAddress FormulaAddress => _formulaAddress ?? throw new MissingContextException();
+
+    /// <summary>
+    /// The context a defined name's formula is evaluated in, when the formula this context is
+    /// calculating refers to the name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It keeps this context's sheet and cell (D60), and its choice to calculate a dirty precedent
+    /// first, so the engine's pending signal cannot escape a public <c>Evaluate</c> through a name.
+    /// </para>
+    /// <para>
+    /// The rest starts afresh, as it always has: the name is not an array formula because its caller
+    /// is, it is not held to one sheet's recalculation, and <see cref="IntersectOperands"/> is off,
+    /// so an operator at the top of the name's formula keeps its range operand whole. Whether Excel
+    /// intersects there has not been established; <c>EvaluationOutcomeTests</c> pins what XLibur does.
+    /// </para>
+    /// </remarks>
+    internal CalcContext ForDefinedName() =>
+        new(CalcEngine, Culture, Worksheet.Workbook, Worksheet, _formulaAddress, _recursive);
 
     /// <summary>
     /// A culture used for comparisons and conversions (e.g. text to number).

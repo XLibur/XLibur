@@ -35,7 +35,7 @@ public class EvaluationOutcomeTests
     [Arguments(Kind.Cycle, "throws XLCircularReferenceException")]
     [Arguments(Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Kind.Refused, "throws ExpressionParseException")]
-    [Arguments(Kind.NoContext, "throws XLNoWorksheetContextException")]
+    [Arguments(Kind.NoContext, "generates")]
     [Arguments(Kind.Pending, "generates")]
     [Arguments(Kind.Defect, "throws NullReferenceException")]
     public async Task A_formula_in_a_bound_range(Kind kind, string expected)

@@ -765,9 +765,18 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 #pragma warning restore S3267
     }
 
-    internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)
+    /// <summary>
+    /// Evaluates the formula of a defined name that the formula <paramref name="caller"/> is
+    /// calculating refers to.
+    /// </summary>
+    /// <remarks>
+    /// The name is evaluated for the cell that uses it (D60): a name holding <c>ROW()</c> answers
+    /// with that cell's row, as Excel does, instead of failing for want of a cell. See
+    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits.
+    /// </remarks>
+    internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
-        var ctx = new CalcContext(this, _culture, ws.Workbook, ws, null);
+        var ctx = caller.ForDefinedName();
         return EvaluateFormula(nameFormula, ctx);
     }
 

@@ -1193,7 +1193,9 @@ public partial class XLWorkbook : IXLWorkbook
 
     public XLCellValue Evaluate(string expression)
     {
-        return CalcEngine.EvaluateFormula(expression, this).ToCellValue();
+        // Recursive, as IXLWorksheet.Evaluate and a cell read are: a dirty cell the expression reads
+        // is calculated first. Without it the engine's internal pending signal escaped (D57).
+        return CalcEngine.EvaluateFormula(expression, this, recursive: true).ToCellValue();
     }
 
     /// <summary>
