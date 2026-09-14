@@ -498,6 +498,123 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// A circular name met by the full recalculation a read falls back to. On its own, #491 raised
+    /// the cycle part way through that pass, which stopped it, as a cycle did before #492, so a read
+    /// of a cell that does not use the name threw. The fallback pass leaves the name's cell dirty, as
+    /// it does any expected failure, and only a read of that cell reports the cycle.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_read_does_not_throw_for_a_circular_name_it_does_not_use(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(6);
+
+        // The read fell back to a full pass, which walks every formula, B1 included.
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task TryGetValue_answers_for_a_cell_that_does_not_use_a_circular_name(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        await Assert.That(ws.Cell("C1").TryGetValue(out double value)).IsTrue();
+        await Assert.That(value).IsEqualTo(6);
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").TryGetValue(out double _)).IsFalse();
+    }
+
+    /// <summary>
+    /// Recalculation leaves a circular name's cell dirty and calculates the rest, as it does for any
+    /// cycle (Q23). Before D79 it overflowed the stack building the dependency tree.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task RecalculateAllFormulas_leaves_a_circular_name_dirty_and_calculates_the_rest(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("C1").CachedValue).IsEqualTo(6);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// ADR 0001: a save that evaluates formulas writes a circular name's cell with no cached value.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task Save_writes_no_cached_value_for_a_circular_name(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        using var stream = new MemoryStream();
+
+        wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+
+        await Assert.That(CachedValueInFile(stream, "B1")).IsEqualTo("B1 has no <v>");
+        await Assert.That(CachedValueInFile(stream, "C1")).IsEqualTo("C1 <v>6</v>");
+    }
+
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_workbook_with_a_circular_name_opens_with_recalculate_on_load(string name)
+    {
+        using var stream = new MemoryStream();
+        using (var wb = WorkbookWithCircularName(name))
+            wb.SaveAs(stream);
+
+        stream.Position = 0;
+        using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
+        var sheet = loaded.Worksheet(SheetName);
+
+        await Assert.That(sheet.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("C1").CachedValue).IsEqualTo(6);
+        await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = sheet.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// B1 uses a circular name: <c>Loop</c> refers to itself, and <c>Ping</c> and <c>Pong</c> refer
+    /// to each other. C1 does not use it, but needs A1, a formula no one has read, so a read of C1
+    /// falls back to a full recalculation, which meets B1.
+    /// </summary>
+    private static XLWorkbook WorkbookWithCircularName(string name)
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        if (name == "Loop")
+        {
+            wb.DefinedNames.Add("Loop", "Loop+1");
+        }
+        else
+        {
+            wb.DefinedNames.Add("Ping", "Pong");
+            wb.DefinedNames.Add("Pong", "Ping");
+        }
+
+        ws.Cell("A1").FormulaA1 = "2+3";
+        ws.Cell("B1").FormulaA1 = name;
+        ws.Cell("C1").FormulaA1 = "A1+1";
+        return wb;
+    }
+
+    /// <summary>
     /// The guard stops a name met again inside its own evaluation, not one used twice side by side.
     /// </summary>
     [Test]
