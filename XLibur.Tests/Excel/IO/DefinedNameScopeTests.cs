@@ -34,8 +34,15 @@ public class DefinedNameScopeTests
         """;
 
     private const string ChartsheetFirstScopes = """
-        Data | print area OFFSET(Data!$A$1,0,0,2,2) | rows to repeat 1:1 | names -
+        Data | print area OFFSET(Data!$A$1,0,0,2,2) | rows to repeat 1:1 | names OnData=Data!$B$1
         Pivot | print area - | rows to repeat - | names Local=Pivot!$A$1
+        """;
+
+    private const string ChartsheetFirstSavedNames = """
+        Data|OnData = Data!$B$1
+        Data|_xlnm.Print_Area = OFFSET(Data!$A$1,0,0,2,2)
+        Data|_xlnm.Print_Titles = Data!1:1
+        Pivot|Local = Pivot!$A$1
         """;
 
     [Test]
@@ -94,11 +101,37 @@ public class DefinedNameScopeTests
             wb.SaveAs(saved);
 
         await Assert.That(SavedSheets(saved)).IsEquivalentTo(["Chart:3", "Data:1", "Pivot:2"]);
-        await Assert.That(SavedNames(saved)).IsEqualTo(Lines([
-            $"Data|{PrintArea} = OFFSET(Data!$A$1,0,0,2,2)",
-            $"Data|{PrintTitles} = Data!1:1",
-            "Pivot|Local = Pivot!$A$1",
-        ]));
+        await Assert.That(SavedNames(saved)).IsEqualTo(Lines(ChartsheetFirstSavedNames));
+
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(Scopes(reloaded)).IsEqualTo(Lines(ChartsheetFirstScopes));
+    }
+
+    /// <summary>
+    /// A name scoped to the chartsheet, or to a position past the last sheet, has no worksheet to
+    /// hold it. It is dropped, where it used to fail the whole load, and the names after it still
+    /// resolve at their own positions.
+    /// </summary>
+    [Test]
+    public async Task A_name_scoped_to_no_worksheet_is_dropped_and_the_load_goes_on()
+    {
+        using var package = ChartsheetFirstBook(withNamesScopedToNoWorksheet: true);
+
+        using var wb = new XLWorkbook(package);
+
+        await Assert.That(Scopes(wb)).IsEqualTo(Lines(ChartsheetFirstScopes));
+        await Assert.That(wb.DefinedNames).IsEmpty();
+    }
+
+    [Test]
+    public async Task Dropping_a_name_scoped_to_no_worksheet_keeps_the_others_through_a_save_and_a_reload()
+    {
+        using var package = ChartsheetFirstBook(withNamesScopedToNoWorksheet: true);
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(package))
+            wb.SaveAs(saved);
+
+        await Assert.That(SavedNames(saved)).IsEqualTo(Lines(ChartsheetFirstSavedNames));
 
         using var reloaded = new XLWorkbook(saved);
         await Assert.That(Scopes(reloaded)).IsEqualTo(Lines(ChartsheetFirstScopes));
@@ -138,7 +171,11 @@ public class DefinedNameScopeTests
     /// is <c>Chart</c>, <c>Data</c>, <c>Pivot</c> with sheetIds 3, 1, 2, and names scoped to both
     /// worksheets.
     /// </summary>
-    private static MemoryStream ChartsheetFirstBook()
+    /// <param name="withNamesScopedToNoWorksheet">
+    /// Whether the names start with one scoped to the chartsheet and one scoped to a position past the
+    /// last sheet, so that the names after them have to resolve past both.
+    /// </param>
+    private static MemoryStream ChartsheetFirstBook(bool withNamesScopedToNoWorksheet = false)
     {
         var package = new MemoryStream();
         using (var fixture = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetBook)))
@@ -150,10 +187,19 @@ public class DefinedNameScopeTests
             var chart = workbook.Sheets!.Elements<S.Sheet>().Single(s => s.Name == "Chart");
             chart.Remove();
             workbook.Sheets.PrependChild(chart);
-            workbook.DefinedNames = new S.DefinedNames(
-                new S.DefinedName { Name = PrintArea, LocalSheetId = 1, Text = "OFFSET(Data!$A$1,0,0,2,2)" },
-                new S.DefinedName { Name = PrintTitles, LocalSheetId = 1, Text = "Data!$1:$1" },
-                new S.DefinedName { Name = "Local", LocalSheetId = 2, Text = "Pivot!$A$1" });
+
+            var names = new List<S.DefinedName>();
+            if (withNamesScopedToNoWorksheet)
+            {
+                names.Add(new S.DefinedName { Name = "OnChart", LocalSheetId = 0, Text = "Data!$A$1" });
+                names.Add(new S.DefinedName { Name = "PastTheEnd", LocalSheetId = 3, Text = "Data!$A$1" });
+            }
+
+            names.Add(new S.DefinedName { Name = PrintArea, LocalSheetId = 1, Text = "OFFSET(Data!$A$1,0,0,2,2)" });
+            names.Add(new S.DefinedName { Name = PrintTitles, LocalSheetId = 1, Text = "Data!$1:$1" });
+            names.Add(new S.DefinedName { Name = "OnData", LocalSheetId = 1, Text = "Data!$B$1" });
+            names.Add(new S.DefinedName { Name = "Local", LocalSheetId = 2, Text = "Pivot!$A$1" });
+            workbook.DefinedNames = new S.DefinedNames(names);
         }
 
         package.Position = 0;

@@ -114,11 +114,13 @@ internal static class DefinedNameReader
         }
         else
         {
-            // A name scoped to a sheet XLibur does not model, such as a chartsheet, has nowhere to go,
-            // and fails the load as it did before the scope was read from the file's list. Whether to
-            // keep such a name instead is a decision of its own.
-            var sheet = SheetAt(sheetsByPosition, localSheetId)
-                        ?? throw new ArgumentException("There isn't a worksheet associated with that position.");
+            // A name scoped to a sheet XLibur does not model, such as a chartsheet, or to a position past
+            // the last sheet, is dropped. XLibur has nowhere to hold it, so a save loses it, but failing
+            // the whole load over one name was worse. Its empty slot stays in sheetsByPosition, so the
+            // names after it still resolve at their own positions.
+            if (SheetAt(sheetsByPosition, localSheetId) is not { } sheet)
+                return;
+
             if (sheet.DefinedNames.All<XLDefinedName>(nr => nr.Name != name))
                 sheet.DefinedNames.Add(name, text, comment, validateName: false, validateRangeAddress: false)
                     .Visible = visible;
