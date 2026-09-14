@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
@@ -456,13 +457,14 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
-    /// Get a lazy initialized AST for the formula.
+    /// Get the AST for the formula.
     /// </summary>
-    /// <param name="engine">Engine to parse the formula into AST, if necessary.</param>
-    public Formula GetAst(XLCalcEngine engine)
+    /// <param name="engine">Engine to parse the formula into AST.</param>
+    /// <param name="ast">The tree, when the parser accepted the formula.</param>
+    /// <returns><c>false</c> when the parser refused the formula.</returns>
+    public bool TryGetAst(XLCalcEngine engine, [NotNullWhen(true)] out Formula? ast)
     {
-        var ast = engine.Parse(A1);
-        return ast;
+        return engine.TryParse(A1, out ast);
     }
 
     public override string ToString()

@@ -73,6 +73,19 @@ internal class DependencyTreeTests
         await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("outer"), new XLName("inner")]);
     }
 
+    /// <summary>
+    /// #489. The parser refuses the text, so the references in it are unknown. The formula gets no
+    /// precedents, as a data table's placeholder text gets none, instead of failing the tree it is
+    /// added to.
+    /// </summary>
+    [Test]
+    public async Task A_refused_formula_has_no_precedents()
+    {
+        var dependencies = GetDependencies("'[Book2.xlsx]Sheet1'!A1");
+        await Assert.That(dependencies.Areas).IsEmpty();
+        await Assert.That(dependencies.Names).IsEmpty();
+    }
+
     [Test]
     public async Task Name_range_that_is_not_a_reference_can_be_added_to_dependency_tree_without_exception()
     {

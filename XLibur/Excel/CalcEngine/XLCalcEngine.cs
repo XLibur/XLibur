@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Exceptions;
@@ -105,6 +106,15 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     public Formula Parse(string expression)
     {
         return _parser.GetAst(expression, isA1: true);
+    }
+
+    /// <summary>
+    /// Parses a string into a <see cref="Formula"/>, as <see cref="Parse"/> does, but answers
+    /// <c>false</c> instead of throwing when the parser refuses it.
+    /// </summary>
+    internal bool TryParse(string expression, [NotNullWhen(true)] out Formula? formula)
+    {
+        return _parser.TryGetAst(expression, isA1: true, out formula, out _);
     }
 
     /// <summary>

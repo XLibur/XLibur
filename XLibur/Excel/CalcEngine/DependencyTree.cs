@@ -101,7 +101,8 @@ internal sealed class DependencyTree
                 // Data-table formulas are skipped deliberately, and cannot simply be added to
                 // the chain above. AddFormula derives precedents by parsing the formula text,
                 // and a data table's text is the placeholder "{TABLE(A1,}" — not valid formula
-                // syntax, so parsing it throws ExpressionParseException. Registering them needs
+                // syntax, so the parser refuses it and it would get no precedents at all, although
+                // its value depends on its inputs. Registering them needs
                 // precedents built from Input1/Input2 and the table's header formulas instead of
                 // from an AST. XLibur does not evaluate data tables either (there is no TABLE
                 // function), so the only gain would be dropping the full-recalculation trigger in
@@ -301,7 +302,15 @@ internal sealed class DependencyTree
 
     private FormulaDependencies GetFormulaPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
-        var ast = formula.GetAst(workbook.CalcEngine);
+        // A refused formula has no precedents the engine can know: the parser could not read its
+        // references (ADR 0002). It gets none, as a data table's placeholder text gets none in
+        // CreateFrom. Before, the parse threw, and one such formula stopped every write to the
+        // workbook and every recalculation from building the tree (#489). The cell still fails when
+        // it is itself evaluated. It is never calculated, so it stays dirty and needs no precedent to
+        // be marked dirty by, unless a load gave it a cached value, which it then keeps.
+        if (!formula.TryGetAst(workbook.CalcEngine, out var ast))
+            return new FormulaDependencies();
+
         var context = new DependenciesContext(formulaArea, workbook);
         var rootReference = ast.AstRoot.Accept(context, _visitor);
 
