@@ -297,7 +297,7 @@ internal static class ChartReader
     /// but a series' name and the first category and value dimension of its data, which
     /// <see cref="ReadExtendedSeries"/> reads and <see cref="ExtendedChartSeriesXml"/> writes back.
     /// </summary>
-    private static IEnumerable<string> UnmodelledReferences(Cx.ChartSpace chartSpace)
+    private static List<string> UnmodelledReferences(Cx.ChartSpace chartSpace)
     {
         var chartData = chartSpace.Descendants<Cx.ChartData>().FirstOrDefault();
         var modelled = new HashSet<OpenXmlElement>();

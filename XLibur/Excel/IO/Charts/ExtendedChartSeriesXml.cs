@@ -90,12 +90,6 @@ internal static class ExtendedChartSeriesXml
     /// Takes the reference out of <paramref name="dimension"/> when a delete dropped it, and otherwise
     /// writes a reference a rename or delete rewrote.
     /// </summary>
-    /// <remarks>
-    /// A dropped dimension keeps an empty <c>cx:lvl</c> for each level its reference had, as in the
-    /// fixture: <c>Data!$B$1:$B$3</c>, read by row (<c>dir="row"</c>), left three, and
-    /// <c>Data!$B$4</c> one. Read by column, the default, a level is a column; the fixture shows no
-    /// such dimension.
-    /// </remarks>
     private static void PatchDimension(OpenXmlCompositeElement? dimension, string? reference, bool rewritten,
         Area? dropped)
     {
@@ -104,36 +98,68 @@ internal static class ExtendedChartSeriesXml
 
         var formula = dimension.Elements<Cx.Formula>().FirstOrDefault();
         if (dropped is { } area)
-        {
-            // Without its cx:f the dimension was patched by an earlier save. Save() and SaveAs() start
-            // from the package the last save wrote, and a dropped reference stays dropped in the model,
-            // so the patch leaves its own work as it is: the direction it counted levels by is gone.
-            if (formula is null)
-                return;
+            DropReference(dimension, formula, area);
+        else if (rewritten)
+            WriteReference(formula, reference);
+    }
 
-            var byRow = formula.Dir?.Value == Cx.FormulaDirection.Row;
-            var levels = byRow ? area.Height : area.Width;
-            formula.Remove();
-            foreach (var level in dimension.ChildElements.Where(e => e is Cx.StringLevel or Cx.NumericLevel).ToList())
-                level.Remove();
-
-            // A level goes before the dimension's extension list, which ends it.
-            var extensions = dimension.ChildElements.FirstOrDefault(e => e.LocalName == "extLst");
-            for (var i = 0; i < levels; i++)
-            {
-                OpenXmlElement level = dimension is Cx.StringDimension
-                    ? new Cx.StringLevel { PtCount = 0U }
-                    : new Cx.NumericLevel { PtCount = 0U };
-                if (extensions is null)
-                    dimension.AppendChild(level);
-                else
-                    dimension.InsertBefore(level, extensions);
-            }
-
+    /// <summary>
+    /// Takes a dropped reference out of <paramref name="dimension"/>: its <c>cx:f</c> and its levels
+    /// go, and an empty level is left for each level the reference had.
+    /// </summary>
+    /// <remarks>
+    /// The fixture shows it: <c>Data!$B$1:$B$3</c>, read by row (<c>dir="row"</c>), left three empty
+    /// levels, and <c>Data!$B$4</c> one. Read by column, the default, a level is a column; the fixture
+    /// shows no such dimension.
+    /// </remarks>
+    private static void DropReference(OpenXmlCompositeElement dimension, Cx.Formula? formula, Area area)
+    {
+        // Without its cx:f the dimension was patched by an earlier save. Save() and SaveAs() start
+        // from the package the last save wrote, and a dropped reference stays dropped in the model,
+        // so the patch leaves its own work as it is: the direction it counted levels by is gone.
+        if (formula is null)
             return;
-        }
 
-        if (rewritten && reference is not null && formula is not null)
+        var levels = formula.Dir?.Value == Cx.FormulaDirection.Row ? area.Height : area.Width;
+        formula.Remove();
+        RemoveLevels(dimension);
+        AddEmptyLevels(dimension, levels);
+    }
+
+    private static void RemoveLevels(OpenXmlCompositeElement dimension)
+    {
+        foreach (var level in dimension.ChildElements.Where(IsLevel).ToList())
+            level.Remove();
+    }
+
+    private static bool IsLevel(OpenXmlElement element) => element is Cx.StringLevel or Cx.NumericLevel;
+
+    /// <summary>
+    /// Adds <paramref name="count"/> empty levels to <paramref name="dimension"/>, before its extension
+    /// list, which ends it.
+    /// </summary>
+    private static void AddEmptyLevels(OpenXmlCompositeElement dimension, int count)
+    {
+        var extensions = dimension.ChildElements.FirstOrDefault(e => e.LocalName == "extLst");
+        for (var i = 0; i < count; i++)
+        {
+            var level = EmptyLevel(dimension);
+            if (extensions is null)
+                dimension.AppendChild(level);
+            else
+                dimension.InsertBefore(level, extensions);
+        }
+    }
+
+    private static OpenXmlElement EmptyLevel(OpenXmlCompositeElement dimension)
+        => dimension is Cx.StringDimension
+            ? new Cx.StringLevel { PtCount = 0U }
+            : new Cx.NumericLevel { PtCount = 0U };
+
+    /// <summary>Writes a reference a rename or delete rewrote where it stands.</summary>
+    private static void WriteReference(Cx.Formula? formula, string? reference)
+    {
+        if (formula is not null && reference is not null)
             formula.Text = reference;
     }
 }
