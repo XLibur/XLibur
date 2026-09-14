@@ -30,6 +30,19 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext, List<SheetArea>?>
 {
+    /// <summary>
+    /// The defined names whose formulas are being visited, on the path from the cell formula down to
+    /// the node being visited.
+    /// </summary>
+    /// <remarks>
+    /// A name met again on its own path refers to itself, directly or through other names, and
+    /// following it again would never end (D79). The set is the path, not every name seen so far: a
+    /// name used twice in one formula, or reached from two branches, is followed from each, so each
+    /// use adds its precedents. A visitor belongs to one <see cref="DependencyTree"/>, which is used
+    /// from one thread at a time.
+    /// </remarks>
+    private readonly HashSet<XLDefinedName> _namesOnPath = new(ReferenceEqualityComparer.Instance);
+
     public List<SheetArea>? Visit(DependenciesContext context, ScalarNode node)
     {
         // Scalar node can't contain sub-nodes or references.
@@ -187,18 +200,30 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
         List<SheetArea>? VisitName(XLDefinedName definedName)
         {
-            // A load keeps a name whose text the parser refuses, so that one bad name cannot stop the
-            // workbook from opening. Its references are unknown, so it adds no precedents, as a
-            // refused cell formula adds none, instead of failing the tree (#489).
-            // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
-            if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
+            // A circular name adds nothing more where it meets itself: its precedents are already
+            // being collected further up the path. Evaluating the name is what reports the cycle.
+            if (!_namesOnPath.Add(definedName))
                 return null;
 
-            var nameReferences = ast.AstRoot.Accept(context, this);
+            try
+            {
+                // A load keeps a name whose text the parser refuses, so that one bad name cannot stop
+                // the workbook from opening. Its references are unknown, so it adds no precedents, as
+                // a refused cell formula adds none, instead of failing the tree (#489).
+                // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
+                if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
+                    return null;
 
-            // If the formula returned a reference, propagate it, rather
-            // than add to the context (required for `A1:name` ).
-            return nameReferences;
+                var nameReferences = ast.AstRoot.Accept(context, this);
+
+                // If the formula returned a reference, propagate it, rather
+                // than add to the context (required for `A1:name` ).
+                return nameReferences;
+            }
+            finally
+            {
+                _namesOnPath.Remove(definedName);
+            }
         }
     }
 
