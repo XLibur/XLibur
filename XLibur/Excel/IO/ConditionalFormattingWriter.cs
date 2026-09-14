@@ -1,9 +1,11 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.ContentManagers;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using XLibur.Utils;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -23,6 +25,7 @@ internal static class ConditionalFormattingWriter
     {
         // Before the fast path: a sheet whose only rules are unmodelled x14 ones has no model rules.
         WriteExtensionRuleFormulas(worksheet, xlWorksheet);
+        WriteExtensionRuleRanges(worksheet, cm, xlWorksheet);
 
         // Fast path for the overwhelmingly common worksheet that carries no conditional
         // formatting at all. The general path below allocates a hash set, a cast iterator, a
@@ -128,6 +131,96 @@ internal static class ConditionalFormattingWriter
                 if (elements[i].Text != formulas[i])
                     elements[i].Text = formulas[i];
             }
+        }
+    }
+
+    /// <summary>
+    /// Writes back the range of each <c>x14</c> rule this library keeps but does not model, where a
+    /// row or column insert or delete has moved it (see
+    /// <see cref="XLConditionalFormats.SeedExtensionRuleAreas"/>), and removes a rule whose range the
+    /// edit removed, as it removes a modelled one. A range that did not move is left as it was
+    /// loaded, spelling included.
+    /// </summary>
+    private static void WriteExtensionRuleRanges(Worksheet worksheet, XLWorksheetContentManager cm,
+        XLWorksheet xlWorksheet)
+    {
+        var extensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
+        if (extensionList is null)
+            return;
+
+        foreach (var conditionalFormatting in extensionList.Descendants<X14.ConditionalFormatting>().ToList())
+        {
+            var referenceSequence = conditionalFormatting.GetFirstChild<OfficeExcel.ReferenceSequence>();
+            if (referenceSequence is null || !TryGetKeptAreas(conditionalFormatting, xlWorksheet, out var areas))
+                continue;
+
+            if (areas.Count > 0)
+            {
+                if (!ReadsAs(referenceSequence.Text, areas))
+                    referenceSequence.Text = string.Join(" ", areas);
+                continue;
+            }
+
+            // The rules of the element share its range, so none of them applies to anything now.
+            var conditionalFormattings = conditionalFormatting.Parent;
+            conditionalFormatting.Remove();
+            RemoveIfEmpty(conditionalFormattings);
+        }
+
+        if (!extensionList.HasChildren)
+        {
+            extensionList.Remove();
+            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
+        }
+    }
+
+    /// <summary>
+    /// The range of a kept rule of <paramref name="conditionalFormatting"/>. Its rules share the
+    /// element's range, and an edit moves each of them the same way, so any one of them holds it.
+    /// </summary>
+    private static bool TryGetKeptAreas(X14.ConditionalFormatting conditionalFormatting, XLWorksheet xlWorksheet,
+        [NotNullWhen(true)] out XLAreaList? areas)
+    {
+        foreach (var rule in conditionalFormatting.Elements<X14.ConditionalFormattingRule>())
+        {
+            if (rule.Id?.Value is { } id && xlWorksheet.ConditionalFormats.TryGetExtensionRuleAreas(id, out areas))
+                return true;
+        }
+
+        areas = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Does <paramref name="sqref"/> name exactly <paramref name="areas"/>, in order? <c>C1:C1</c>
+    /// reads as <c>C1</c>, so a range that did not move keeps the spelling it was loaded with.
+    /// </summary>
+    private static bool ReadsAs(string? sqref, XLAreaList areas)
+    {
+        var tokens = sqref?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (tokens.Length != areas.Count)
+            return false;
+
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (!Area.TryParse(tokens[i], out var area) || !area.Equals(areas[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Removes <paramref name="element"/> once its last child is gone, and then its parent the same
+    /// way, up to but not including the extension list.
+    /// </summary>
+    private static void RemoveIfEmpty(OpenXmlElement? element)
+    {
+        while (element is not null and not WorksheetExtensionList && !element.HasChildren)
+        {
+            var parent = element.Parent;
+            element.Remove();
+            element = parent;
         }
     }
 

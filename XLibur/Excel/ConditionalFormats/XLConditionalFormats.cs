@@ -31,6 +31,18 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// </remarks>
     private readonly Dictionary<string, string[]> _extensionRuleFormulas = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The range (<c>xm:sqref</c>) of each <c>x14</c> rule this library keeps but does not model, by
+    /// the rule's id, held as the areas a modelled rule's coverage is held as.
+    /// </summary>
+    /// <remarks>
+    /// A row or column insert or delete moves it by the transform that moves a modelled rule's
+    /// <see cref="XLConditionalFormat.Areas"/> (issue #499), and the writer puts it back. An empty list
+    /// is a rule the edit removed, as it removes a modelled rule whose coverage transforms to nothing.
+    /// A rule whose range does not read as areas has no entry, and keeps its range as it was loaded.
+    /// </remarks>
+    private readonly Dictionary<string, XLAreaList> _extensionRuleAreas = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly XLWorksheet _worksheet;
 
     internal XLConditionalFormats(XLWorksheet worksheet)
@@ -85,6 +97,22 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     internal bool TryGetExtensionRuleFormulas(string ruleId, [NotNullWhen(true)] out string[]? formulas)
         => _extensionRuleFormulas.TryGetValue(ruleId, out formulas);
 
+    /// <summary>
+    /// Keeps the range of an <c>x14</c> rule this library does not model (see
+    /// <see cref="_extensionRuleAreas"/>).
+    /// </summary>
+    internal void SeedExtensionRuleAreas(string ruleId, XLAreaList areas)
+    {
+        _extensionRuleAreas[ruleId] = areas;
+    }
+
+    /// <summary>
+    /// The range of the unmodelled <c>x14</c> rule <paramref name="ruleId"/>, as row and column
+    /// inserts and deletes have left it. Empty when an edit removed every cell it applied to.
+    /// </summary>
+    internal bool TryGetExtensionRuleAreas(string ruleId, [NotNullWhen(true)] out XLAreaList? areas)
+        => _extensionRuleAreas.TryGetValue(ruleId, out areas);
+
     #region ISheetListener
 
     /// <summary>
@@ -108,7 +136,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     private void ShiftCoverage<TAxis>(in SheetEdit edit)
         where TAxis : struct, IGridAxis
     {
-        if (edit.Sheet != _worksheet || _conditionalFormats.Count == 0)
+        if (edit.Sheet != _worksheet || (_conditionalFormats.Count == 0 && _extensionRuleAreas.Count == 0))
             return;
 
         // CoverageArea, not edit.Area: coverage derives the |Shift| lines the edit moves from the
@@ -125,6 +153,19 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
                 Remove(f => f == cf);
             else
                 cf.SetAreas(newAreas);
+        }
+
+        // A kept x14 rule's range goes through the same transform, so it cannot part company with a
+        // modelled rule over the same cells (issue #499). An emptied range stays, empty, so that the
+        // writer knows to remove the rule.
+        foreach (var (ruleId, areas) in _extensionRuleAreas.ToList())
+        {
+            if (areas.Count == 0)
+                continue;
+
+            _extensionRuleAreas[ruleId] = edit.Shift > 0
+                ? axis.InsertAndShift(areas, affected)
+                : axis.DeleteAndShift(areas, affected);
         }
     }
 

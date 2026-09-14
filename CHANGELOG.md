@@ -42,6 +42,8 @@
 
 ### 🐛 Bug Fixes
 
+- **A conditional format kept in the worksheet's `x14` extension now moves with a row or column insert or delete.** Excel writes a rule that refers to another sheet, such as `=Data!$A$2>0`, only in the `x14` extension, and XLibur writes such a rule back as it loaded it. After an insert or a delete, the rule still applied to the cells it applied to before. Its range (`xm:sqref`) now moves as the range of a conditional format XLibur models does, and a delete that removes every cell of the range removes the rule. A range that did not move is written as it was loaded. (#499)
+
 - **Renaming a sheet now renames it in every defined name that refers to it.** A name that referred to a name on the sheet, such as `Sheet1!Total`, and a 3D reference with the sheet at either end, such as `SUM(Sheet1:Sheet3!$A$1)`, kept the old sheet's name, although a name that referred to a cell on the sheet was renamed. This applied to names at every scope. All of them are now renamed, as Excel renames them.
 
 - **Renaming or deleting a sheet now rewrites the conditional formats that refer to it.** A "use a formula" rule such as `Sheet1!$A$1>0`, and a colour scale, data bar or icon set value of type Formula, kept naming the old sheet after a rename, and the deleted sheet after a delete. They now read `Renamed!$A$1>0` after a rename and `#REF!>0` after a delete, as Excel writes them. This includes a rule that Excel keeps only in the file's `x14` extension because it refers to another sheet, which XLibur writes back as it loaded it.
