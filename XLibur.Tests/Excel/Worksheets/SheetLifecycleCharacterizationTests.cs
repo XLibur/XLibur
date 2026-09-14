@@ -16,8 +16,8 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// task 1 executes the inventory with these.
 /// <para>
 /// Each test asserts what XLibur does <b>today</b>, wrong answers included, so that the task that
-/// fixes one has to change the line that pins it. A comment names the task on every wrong answer.
-/// Do not "fix" them here.
+/// fixes one has to change the line that pins it. A comment names the task on every wrong answer,
+/// and on every answer a task has since fixed. Do not "fix" them here.
 /// </para>
 /// </summary>
 public class SheetLifecycleCharacterizationTests
@@ -162,8 +162,8 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (task 5, with spec 44). Written verbatim, as a reference
-        // to another sheet, so it dangles in the saved file.
+        // Not handled by any of the three (D63). Written verbatim, as a reference to another sheet, so
+        // it dangles in the saved file. The listener waits for spec 44 (spec 55, Q55b).
         await Assert.That(other.DataValidations.Single().MinValue).IsEqualTo("=Data!$A$1:$A$3");
         await Assert.That(SavedSheetXml(wb, "Other")).Contains("Data!$A$1:$A$3");
     }
@@ -180,8 +180,11 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (task 5).
-        await Assert.That(other.ConditionalFormats.Single().Values[1].Value).IsEqualTo("Data!$A$1>0");
+        // Each was "Data!$A$1>0", unchanged by all three (D64, task 5).
+        await Assert.That(other.ConditionalFormats.Single().Values[1].Value).IsEqualTo(Expect(sheetEvent,
+            rename: "Renamed!$A$1>0",
+            worksheetDelete: "#REF!>0",
+            collectionDelete: "#REF!>0"));
     }
 
     [Test]
@@ -196,16 +199,20 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (task 6), and written as they stand, so they dangle.
+        // Each was left naming Data, in memory and in the saved c:f (D65, task 6).
         var series = chart.Series.Single();
-        await Assert.That(series.ValueReferences).IsEqualTo("Data!$A$1:$A$3");
-        await Assert.That(series.CategoryReferences).IsEqualTo("Data!$B$1:$B$3");
+        var values = Expect(sheetEvent, rename: "Renamed!$A$1:$A$3", worksheetDelete: "#REF!",
+            collectionDelete: "#REF!");
+        var categories = Expect(sheetEvent, rename: "Renamed!$B$1:$B$3", worksheetDelete: "#REF!",
+            collectionDelete: "#REF!");
+        await Assert.That(series.ValueReferences).IsEqualTo(values);
+        await Assert.That(series.CategoryReferences).IsEqualTo(categories);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         var chartXml = ChartGoldenCorpus.FirstChartPartXml(ms);
-        await Assert.That(chartXml).Contains("<c:f>Data!$A$1:$A$3</c:f>");
-        await Assert.That(chartXml).Contains("<c:f>Data!$B$1:$B$3</c:f>");
+        await Assert.That(chartXml).Contains($"<c:f>{values}</c:f>");
+        await Assert.That(chartXml).Contains($"<c:f>{categories}</c:f>");
     }
 
     [Test]
@@ -225,13 +232,19 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (task 6): the source no longer resolves, and the saved
-        // cache still names the old sheet.
-        await Assert.That(wb.PivotCaches.Single().SourceRange).IsNull();
+        // A rename used to leave the source unresolved and saved under the old name (D66, task 6). A
+        // delete keeps the source as it was, which is what Excel does (the delete-* fixture).
+        await Assert.That(wb.PivotCaches.Single().SourceRange is null).IsEqualTo(Expect(sheetEvent,
+            rename: false,
+            worksheetDelete: true,
+            collectionDelete: true));
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
-        await Assert.That(SavedPivotSourceSheet(ms)).IsEqualTo("Data");
+        await Assert.That(SavedPivotSourceSheet(ms)).IsEqualTo(Expect(sheetEvent,
+            rename: "Renamed",
+            worksheetDelete: "Data",
+            collectionDelete: "Data"));
     }
 
     [Test]
@@ -245,7 +258,8 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (task 5): sheet-qualified text is kept as it was set.
+        // Sheet-qualified text is kept as it was set. Excel does the same (the rename-* and delete-*
+        // fixtures), so D67 is not a defect and hyperlinks have no listener.
         await Assert.That(other.Cell("D1").GetHyperlink().InternalAddress).IsEqualTo("Data!A1");
     }
 
@@ -258,8 +272,9 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, SheetEvent.Rename);
 
-        // Not handled (task 5). A delete takes the print area with its own sheet.
-        await Assert.That(printAreas.FormulaReference).IsEqualTo("OFFSET(Data!$A$1,0,0,3,2)");
+        // Was left as "OFFSET(Data!$A$1,0,0,3,2)" (D68, task 5). A delete takes the print area with
+        // its own sheet.
+        await Assert.That(printAreas.FormulaReference).IsEqualTo("OFFSET(Renamed!$A$1,0,0,3,2)");
     }
 
     [Test]

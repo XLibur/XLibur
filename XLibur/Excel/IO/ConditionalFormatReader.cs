@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Extensions;
 using XLibur.Utils;
+using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
@@ -186,7 +187,32 @@ internal static class ConditionalFormatReader
 
         LoadX14DataValidations(extensions, ws);
         LoadX14DataBarExtensions(extensions, ws);
+        LoadX14ExtensionRuleFormulas(extensions, ws);
         LoadSparklineGroups(extensions, ws, workbook);
+    }
+
+    /// <summary>
+    /// Keeps the formula text of each <c>x14</c> conditional format rule this library does not model,
+    /// so that a sheet rename or delete can rewrite it. Excel writes a rule that refers to another
+    /// sheet only in the extension, and XLibur writes such a rule back as it was loaded, so this text
+    /// is all of it XLibur holds. A data bar rule is modelled, with its twin in the main part (see
+    /// <see cref="LoadX14DataBarExtensions"/>), so it is not kept here.
+    /// </summary>
+    private static void LoadX14ExtensionRuleFormulas(WorksheetExtensionList extensions, XLWorksheet ws)
+    {
+        foreach (var rule in extensions.Descendants<X14.ConditionalFormattingRule>())
+        {
+            if (rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar)
+                continue;
+
+            var id = rule.Id?.Value;
+            if (string.IsNullOrEmpty(id))
+                continue;
+
+            var formulas = rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text).ToArray();
+            if (formulas.Length > 0)
+                ws.ConditionalFormats.SeedExtensionRuleFormulas(id, formulas);
+        }
     }
 
     private static void LoadX14DataValidations(WorksheetExtensionList extensions, XLWorksheet ws)

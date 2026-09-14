@@ -2,16 +2,20 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml.Packaging;
 using TUnit.Assertions.Enums;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Tests.Excel.IO;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Tests.Excel.Worksheets;
 
 /// <summary>
 /// A sheet is deleted or renamed through one door, the worksheet collection, and every holder of text
-/// that names the sheet hears about it (spec 55).
+/// that names the sheet hears about it (spec 55). <c>SheetLifecycleFixtureTests</c> checks the holders
+/// against workbooks Excel wrote.
 /// </summary>
 public class SheetLifecycleTests
 {
@@ -96,15 +100,16 @@ public class SheetLifecycleTests
 
     /// <summary>
     /// The order holders hear of a rename or a delete: the calc engine, each sheet's cells
-    /// collection, the workbook's names, then each sheet's names.
+    /// collection, the workbook's names, each sheet's names, then each sheet's conditional formats,
+    /// print areas and charts, and last the pivot caches.
     /// </summary>
     /// <remarks>
     /// Delete keeps the order rename already had. The calc engine renames its dependency tree on a
     /// rename, and drops the tree and marks every formula dirty on a delete. Neither reads the
     /// formula text the holders after it rewrite, and rewriting a formula marks it dirty on its own,
-    /// so the engine and the holders commute on both events. Which names outlive a deleted sheet is
-    /// the one question that reads across holders, and the door settles it before any of them hears
-    /// of the delete.
+    /// so the engine and the holders commute on both events. No holder reads another's text, so the
+    /// holders commute with each other too. Which names outlive a deleted sheet is the one question
+    /// that reads across holders, and the door settles it before any of them hears of the delete.
     /// </remarks>
     [Test]
     public async Task Workbook_listeners_run_in_the_pinned_order()
@@ -118,12 +123,16 @@ public class SheetLifecycleTests
 
         // Each listener is named by reference, not compared as an object: an equivalence assertion
         // over the objects compares them member by member, which is not the question here.
+        string Of(object holder, object ofS) => ReferenceEquals(holder, ofS) ? "S" : "T";
         string Label(IWorkbookListener listener) => listener switch
         {
             XLCalcEngine engine when ReferenceEquals(engine, wb.CalcEngine) => "calc engine",
-            XLCellsCollection cells when ReferenceEquals(cells, s.Internals.CellsCollection) => "cells of S",
-            XLCellsCollection cells when ReferenceEquals(cells, t.Internals.CellsCollection) => "cells of T",
+            XLCellsCollection cells => $"cells of {Of(cells, s.Internals.CellsCollection)}",
             XLDefinedName name => $"name {name.Name} ({name.Scope})",
+            XLConditionalFormats formats => $"conditional formats of {Of(formats, s.ConditionalFormats)}",
+            XLPrintAreas areas => $"print areas of {Of(areas, s.PageSetup.PrintAreas)}",
+            XLCharts charts => $"charts of {Of(charts, s.Charts)}",
+            XLPivotCaches caches when ReferenceEquals(caches, wb.PivotCachesInternal) => "pivot caches",
             _ => listener.GetType().Name,
         };
 
@@ -139,6 +148,13 @@ public class SheetLifecycleTests
             "name W (Workbook)",
             "name LS (Worksheet)",
             "name LT (Worksheet)",
+            "conditional formats of S",
+            "print areas of S",
+            "charts of S",
+            "conditional formats of T",
+            "print areas of T",
+            "charts of T",
+            "pivot caches",
         }, CollectionOrdering.Matching);
     }
 
@@ -227,6 +243,120 @@ public class SheetLifecycleTests
 
         // A refused formula is never rewritten (ADR 0002).
         await Assert.That(RefersTo(wb, "x")).IsEqualTo("SUM(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// A sheet's conditional formats, worst input: none at all, an expression the parser refuses, one
+    /// that is already <c>#REF!</c>, a scale whose value is a formula by its type, and an unmodelled
+    /// <c>x14</c> rule whose text the parser refuses.
+    /// </summary>
+    [Test]
+    public async Task The_conditional_format_adapter_does_not_throw()
+    {
+        const string ruleId = "{00000000-0000-0000-0000-000000000001}";
+        using var wb = new XLWorkbook();
+        var empty = (XLWorksheet)wb.AddWorksheet("Empty");
+        IXLWorksheet sheet = wb.AddWorksheet("Host");
+        var host = (XLWorksheet)sheet;
+        wb.AddWorksheet("Sheet1");
+        sheet.Range("A1:A2").AddConditionalFormat().WhenIsTrue("=SUM(Sheet1!A1").Fill.SetBackgroundColor(XLColor.Red);
+        sheet.Range("B1:B2").AddConditionalFormat().WhenIsTrue("=#REF!>0").Fill.SetBackgroundColor(XLColor.Red);
+        sheet.Range("C1:C3").AddConditionalFormat().ColorScale()
+            .Minimum(XLCFContentType.Formula, "Sheet1!$A$1", XLColor.Red);
+        host.ConditionalFormats.SeedExtensionRuleFormulas(ruleId, ["SUM(Sheet1!A1", "Sheet1!#REF!"]);
+        IWorkbookListener none = empty.ConditionalFormats;
+        IWorkbookListener formats = host.ConditionalFormats;
+
+        await Assert.That(() => none.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => none.OnSheetDeleting("Sheet1")).ThrowsNothing();
+        await Assert.That(() => formats.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => formats.OnSheetDeleting("Renamed")).ThrowsNothing();
+
+        // A refused formula is never rewritten (ADR 0002); the rest were.
+        await Assert.That(host.ConditionalFormats.First().Values[1].Value).IsEqualTo("SUM(Sheet1!A1");
+        await Assert.That(host.ConditionalFormats.Last().Values[1].Value).IsEqualTo("#REF!");
+        await Assert.That(host.ConditionalFormats.TryGetExtensionRuleFormulas(ruleId, out var kept)).IsTrue();
+        await Assert.That(kept).IsEquivalentTo(new[] { "SUM(Sheet1!A1", "#REF!" }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// A print area's worst input: one held as ranges, which has no formula text, and one whose
+    /// formula the parser refuses.
+    /// </summary>
+    [Test]
+    public async Task The_print_area_adapter_does_not_throw()
+    {
+        using var wb = new XLWorkbook();
+        var ranges = wb.AddWorksheet("Ranges");
+        ranges.PageSetup.PrintAreas.Add("A1:B2");
+        var refused = (XLPrintAreas)wb.AddWorksheet("Refused").PageSetup.PrintAreas;
+        refused.FormulaReference = "OFFSET(Sheet1!$A$1";
+        wb.AddWorksheet("Sheet1");
+        IWorkbookListener[] listeners = [(XLPrintAreas)ranges.PageSetup.PrintAreas, refused];
+
+        foreach (var listener in listeners)
+        {
+            await Assert.That(() => listener.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+            await Assert.That(() => listener.OnSheetDeleting("Renamed")).ThrowsNothing();
+        }
+
+        // A refused formula is never rewritten (ADR 0002).
+        await Assert.That(refused.FormulaReference).IsEqualTo("OFFSET(Sheet1!$A$1");
+    }
+
+    /// <summary>
+    /// A sheet's charts, worst input: none at all, a series whose reference the parser refuses, one
+    /// already <c>#REF!</c>, and one with no references.
+    /// </summary>
+    [Test]
+    public async Task The_chart_adapter_does_not_throw()
+    {
+        using var wb = new XLWorkbook();
+        IWorkbookListener none = (XLCharts)wb.AddWorksheet("None").Charts;
+        var host = wb.AddWorksheet("Host");
+        wb.AddWorksheet("Sheet1");
+        var chart = host.Charts.Add(XLChartType.ColumnClustered);
+        chart.Series.Add("refused", "SUM(Sheet1!$A$1");
+        chart.Series.Add("already", "#REF!", "Sheet1!#REF!");
+        chart.Series.Add("empty", "");
+        IWorkbookListener charts = (XLCharts)host.Charts;
+
+        await Assert.That(() => none.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => none.OnSheetDeleting("Sheet1")).ThrowsNothing();
+        await Assert.That(() => charts.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => charts.OnSheetDeleting("Renamed")).ThrowsNothing();
+
+        // A refused reference is never rewritten (ADR 0002).
+        await Assert.That(chart.Series.First().ValueReferences).IsEqualTo("SUM(Sheet1!$A$1");
+        await Assert.That(chart.Series.ElementAt(1).CategoryReferences).IsEqualTo("#REF!");
+    }
+
+    /// <summary>
+    /// The pivot caches' worst input: none at all, a cache whose source is a table, and one whose
+    /// source is a range on the sheet renamed and then deleted.
+    /// </summary>
+    [Test]
+    public async Task The_pivot_cache_adapter_does_not_throw()
+    {
+        using var empty = new XLWorkbook();
+        IWorkbookListener none = empty.PivotCachesInternal;
+
+        await Assert.That(() => none.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => none.OnSheetDeleting("Sheet1")).ThrowsNothing();
+
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Sheet1");
+        data.Cell("A1").Value = "Name";
+        data.Cell("A2").Value = "a";
+        data.Range("A1:A2").CreateTable("Names");
+        data.Cell("C1").Value = "Amount";
+        data.Cell("C2").Value = 1;
+        wb.PivotCaches.Add(data.Range("A1:A2"));
+        wb.PivotCaches.Add(data.Range("C1:C2"));
+        IWorkbookListener caches = wb.PivotCachesInternal;
+
+        await Assert.That(() => caches.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => caches.OnSheetDeleting("Renamed")).ThrowsNothing();
     }
 
     [Test]
@@ -387,9 +517,10 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
-    /// A 3D reference narrowed to a single sheet is written as a reference to that sheet, as the
-    /// <c>delete-*</c> fixture shows: <c>SUM(First:Last!$A$1)</c> became <c>SUM(Last!$A$1)</c>. Its
-    /// ends can be written in either order. One with the deleted sheet at both ends has nothing left.
+    /// A 3D reference narrowed to a single sheet is written as a reference to that sheet, quoted where
+    /// the name needs it, as the <c>delete-*</c> fixture shows: <c>SUM(First:Last!$A$1)</c> became
+    /// <c>SUM(Last!$A$1)</c>. Its ends can be written in either order. One with the deleted sheet at
+    /// both ends has nothing left.
     /// </summary>
     [Test]
     [Arguments("SUM(Sheet1:Sheet2!A1)", "SUM(Sheet2!A1)")]
@@ -476,6 +607,27 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// Unverified, and a call recorded in spec 55's Results: only cell formulas on the other sheets
+    /// and defined names count as referring to a name scoped to the deleted sheet. A conditional
+    /// format that refers to one does not keep it, and its reference becomes <c>#REF!</c> like any
+    /// other. No fixture holds such a reference; a further fixture would settle it.
+    /// </summary>
+    [Test]
+    public async Task Unverified_a_conditional_format_does_not_keep_a_scoped_name_alive()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        var other = wb.AddWorksheet("Other");
+        data.DefinedNames.Add("Used", "Data!$B$1");
+        other.Range("C1:C1").AddConditionalFormat().WhenIsTrue("=Data!Used>0").Fill.SetBackgroundColor(XLColor.Red);
+
+        data.Delete();
+
+        await Assert.That(wb.DefinedNames.Any(n => n.Name == "Used")).IsFalse();
+        await Assert.That(other.ConditionalFormats.Single().Values[1].Value).IsEqualTo("#REF!>0");
+    }
+
+    /// <summary>
     /// Unverified, and a call recorded in spec 55's Results: when a workbook-scoped name already holds
     /// the name, the workbook-scoped one is left as it is, the one scoped to the deleted sheet goes,
     /// and a reference to it becomes <c>#REF!</c>. In <c>scoped-delete-*</c> nothing referred to the
@@ -496,6 +648,40 @@ public class SheetLifecycleTests
         await Assert.That(wb.DefinedNames.Select(n => $"{n.Name} = {n.RefersTo}"))
             .IsEquivalentTo(new[] { "Clash = Other!$B$1" }, CollectionOrdering.Matching);
         await Assert.That(other.Cell("A1").FormulaA1).IsEqualTo("#REF!");
+    }
+
+    /// <summary>
+    /// A print area kept as formula text goes with its own sheet, as the <c>delete-*</c> fixture
+    /// shows. On another sheet a print area is a name scoped to that sheet, and a reference in it to
+    /// the deleted sheet becomes <c>#REF!</c>, as it does in any such name (D54). No fixture holds a
+    /// print area on another sheet that refers to the deleted one, so that half follows the rule for
+    /// names.
+    /// </summary>
+    [Test]
+    public async Task A_print_area_goes_with_its_own_sheet()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            var other = wb.AddWorksheet("Other");
+            ((XLPrintAreas)data.PageSetup.PrintAreas).FormulaReference = "OFFSET(Data!$A$1,0,0,4,2)";
+            var otherArea = (XLPrintAreas)other.PageSetup.PrintAreas;
+            otherArea.FormulaReference = "OFFSET(Data!$A$1,0,0,4,2)";
+
+            data.Delete();
+
+            await Assert.That(otherArea.FormulaReference).IsEqualTo("OFFSET(#REF!,0,0,4,2)");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var document = SpreadsheetDocument.Open(ms, false);
+        var printAreas = document.WorkbookPart!.Workbook!.DefinedNames!.Elements<S.DefinedName>()
+            .Where(n => n.Name == "_xlnm.Print_Area")
+            .Select(n => n.Text)
+            .ToList();
+        await Assert.That(printAreas).IsEquivalentTo(new[] { "OFFSET(#REF!,0,0,4,2)" }, CollectionOrdering.Matching);
     }
 
     /// <summary>

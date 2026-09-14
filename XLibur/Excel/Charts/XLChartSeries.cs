@@ -1,4 +1,6 @@
 using System;
+using XLibur.Excel.CalcEngine.Visitors;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 
@@ -20,7 +22,8 @@ internal enum XLChartSeriesFormat
     MarkerFill = 1 << 5,
     Smooth = 1 << 6,
     ValueReferences = 1 << 7,
-    CategoryReferences = 1 << 8
+    CategoryReferences = 1 << 8,
+    NameReference = 1 << 9
 }
 
 internal sealed class XLChartSeries : IXLChartSeries
@@ -43,6 +46,7 @@ internal sealed class XLChartSeries : IXLChartSeries
     private bool _useSecondaryAxis;
     private string _valueReferences = string.Empty;
     private string? _categoryReferences;
+    private string? _nameReference;
 
     /// <param name="chart">The chart this series belongs to.</param>
     /// <param name="secondary">
@@ -67,6 +71,18 @@ internal sealed class XLChartSeries : IXLChartSeries
     {
         get => _valueReferences;
         set => Assign(ref _valueReferences, value ?? string.Empty, XLChartSeriesFormat.ValueReferences);
+    }
+
+    /// <summary>
+    /// The cell the series takes its name from, <c>Sheet1!$D$1</c>, as Excel writes it in
+    /// <c>c:tx/c:strRef/c:f</c>; <c>null</c> when the name is literal text, as it is for every series
+    /// XLibur creates. Internal: it is read from a loaded chart, and a sheet rename or delete rewrites
+    /// it (see <see cref="XLCharts"/>).
+    /// </summary>
+    internal string? NameReference
+    {
+        get => _nameReference;
+        set => Assign(ref _nameReference, value, XLChartSeriesFormat.NameReference);
     }
 
     public uint Index { get; internal set; }
@@ -164,6 +180,40 @@ internal sealed class XLChartSeries : IXLChartSeries
     {
         _valueReferences = valueReferences ?? string.Empty;
         _categoryReferences = categoryReferences;
+    }
+
+    /// <summary>
+    /// Sets the cell the series takes its name from, read from a loaded chart, without marking it as
+    /// assigned, as <see cref="SeedReferences"/> does for the other references.
+    /// </summary>
+    internal void SeedNameReference(string? nameReference)
+    {
+        _nameReference = nameReference;
+    }
+
+    /// <summary>
+    /// Rewrites the series' references the way <paramref name="rewrite"/> says, for a sheet rename or
+    /// delete. A reference that changes is assigned rather than seeded: a loaded chart is patched in
+    /// place (spec 10), and the patcher writes a reference only when it is marked as assigned. A
+    /// reference the parser refuses keeps its text (ADR 0002).
+    /// </summary>
+    /// <param name="formulaSheetName">The sheet the chart is on.</param>
+    /// <param name="rewrite">What the rename or the delete does to formula text.</param>
+    internal void RewriteSheet(string formulaSheetName, SheetRewrite rewrite)
+    {
+        if (TryRewrite(_valueReferences, out var values))
+            ValueReferences = values;
+
+        if (_categoryReferences is { } categories && TryRewrite(categories, out var rewrittenCategories))
+            CategoryReferences = rewrittenCategories;
+
+        if (_nameReference is { } name && TryRewrite(name, out var rewrittenName))
+            NameReference = rewrittenName;
+
+        // The rewrite does not move a reference, so any origin reads the reference the same way.
+        bool TryRewrite(string reference, out string rewritten)
+            => rewrite.TryRewrite(reference, formulaSheetName, new Point(1, 1), out rewritten)
+               && rewritten != reference;
     }
 
     /// <summary>

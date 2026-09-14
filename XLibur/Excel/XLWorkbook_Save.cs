@@ -112,29 +112,13 @@ public partial class XLWorkbook
         if (sheet == null)
             return;
 
-        string sheetName = sheet.Name!;
-
-        // The sheet's defined names need nothing here. The workbook part's defined names are written
-        // again from the model, where the delete has already rewritten them, so a pass over the
-        // loaded ones could only drop names the model kept.
-        DeleteLinkedPivotTableCaches(wbPart, sheetName);
+        // A pivot cache whose source was on the sheet stays, with its records and the pivot tables on
+        // other sheets that use it: the delete-* fixture shows Excel keeping them (spec 55). The
+        // sheet's defined names need nothing here either. The workbook part's defined names are
+        // written again from the model, where the delete has already rewritten them, so a pass over
+        // the loaded ones could only drop names the model kept.
         DeleteWorksheetPart(wbPart, sheet, sheetId);
         DeleteCalculationChainEntries(wbPart, sheetId);
-    }
-
-    private static void DeleteLinkedPivotTableCaches(WorkbookPart wbPart, string sheetName)
-    {
-        var partsToDelete = new List<PivotTableCacheDefinitionPart>();
-        foreach (var part in wbPart.PivotTableCacheDefinitionParts)
-        {
-            var cacheSource = part.PivotCacheDefinition?.Descendants<CacheSource>()
-                .Any(cs => cs.WorksheetSource?.Sheet == sheetName);
-            if (cacheSource == true)
-                partsToDelete.Add(part);
-        }
-
-        foreach (var part in partsToDelete)
-            wbPart.DeletePart(part);
     }
 
     private static void DeleteWorksheetPart(WorkbookPart wbPart, Sheet sheet, string sheetId)

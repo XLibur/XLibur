@@ -4,7 +4,7 @@ using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 
-internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
+internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>, IWorkbookListener
 {
     private readonly XLWorkbook _workbook;
     private readonly List<XLPivotCache> _caches = new();
@@ -72,5 +72,35 @@ internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A cache whose source is a range on the renamed sheet names the sheet by its new name, so the
+    /// source resolves again and is saved as Excel saves it: the <c>rename-*</c> fixture writes
+    /// <c>sheet="Renamed"</c> (D66). A source given by a table or a defined name follows that table or
+    /// name, and a source in another workbook is not this workbook's sheet.
+    /// </summary>
+    void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
+    {
+        for (var i = 0; i < _caches.Count; i++)
+        {
+            var cache = _caches[i];
+            if (cache.Source is not XLPivotSourceReference source || source.UsesName)
+                continue;
+
+            var area = source.Area.Value;
+            if (XLHelper.SheetComparer.Equals(area.Name, oldSheetName))
+                cache.Source = new XLPivotSourceReference(new SheetArea(newSheetName, area.Area));
+        }
+    }
+
+    /// <summary>
+    /// Nothing changes. The <c>delete-*</c> fixture shows Excel keeping a cache whose source was on the
+    /// deleted sheet, with its records, its source as it was (<c>sheet="Data"</c>) and the pivot table
+    /// on another sheet that uses it.
+    /// </summary>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
+    {
+        // Excel keeps the source as it was; see the summary.
     }
 }

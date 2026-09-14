@@ -115,7 +115,8 @@ internal static class ChartSeriesFormatXml
     }
 
     /// <summary>
-    /// Points a series at a different range, when the caller re-pointed it.
+    /// Points a series at a different range, when the caller re-pointed it or a sheet rename or
+    /// delete rewrote the reference.
     /// </summary>
     /// <remarks>
     /// A scatter or bubble series holds its references in <c>c:xVal</c>/<c>c:yVal</c> rather than
@@ -145,6 +146,14 @@ internal static class ChartSeriesFormatXml
 
             SetReferenceFormula(categories, series.CategoryReferences);
         }
+
+        // The cell the name comes from keeps its cached text: that text is the name the series shows,
+        // and the reader takes it as the series' name.
+        if ((assigned & XLChartSeriesFormat.NameReference) != 0)
+        {
+            SetReferenceFormula(seriesElement.Elements<C.SeriesText>().FirstOrDefault(), series.NameReference,
+                dropCache: false);
+        }
     }
 
     /// <summary>
@@ -157,7 +166,10 @@ internal static class ChartSeriesFormatXml
     /// ones. Both caches are optional in the schema, so removing them is valid, and Excel rebuilds
     /// them from the formula on open.
     /// </remarks>
-    private static void SetReferenceFormula(OpenXmlCompositeElement? holder, string? reference)
+    /// <param name="holder">The element holding the reference.</param>
+    /// <param name="reference">The reference to write.</param>
+    /// <param name="dropCache">Whether to drop the cached values that went with the old reference.</param>
+    private static void SetReferenceFormula(OpenXmlCompositeElement? holder, string? reference, bool dropCache = true)
     {
         if (holder == null || string.IsNullOrWhiteSpace(reference))
             return;
@@ -166,7 +178,8 @@ internal static class ChartSeriesFormatXml
         if (numberReference != null)
         {
             numberReference.Formula = new C.Formula(reference);
-            numberReference.Elements<C.NumberingCache>().ToList().ForEach(cache => cache.Remove());
+            if (dropCache)
+                numberReference.Elements<C.NumberingCache>().ToList().ForEach(cache => cache.Remove());
             return;
         }
 
@@ -174,7 +187,8 @@ internal static class ChartSeriesFormatXml
         if (stringReference != null)
         {
             stringReference.Formula = new C.Formula(reference);
-            stringReference.Elements<C.StringCache>().ToList().ForEach(cache => cache.Remove());
+            if (dropCache)
+                stringReference.Elements<C.StringCache>().ToList().ForEach(cache => cache.Remove());
             return;
         }
 
