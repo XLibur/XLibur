@@ -351,6 +351,78 @@ public class RefusedAndUnsupportedFormulaTests
         await Assert.That(EvaluationOutcomeTests.CachedValueInFile(stream, "E1")).IsEqualTo("E1 <v>4</v>");
     }
 
+    /// <summary>
+    /// Review finding 2. A read whose cell needs a dirty precedent falls back to a full
+    /// recalculation. That pass met the cell recalculate-on-load had left dirty, could not calculate
+    /// it, and the read threw its failure, although the cell read does not depend on it. The pass now
+    /// leaves the cell dirty, as recalculation does, as #492 did for a cycle.
+    /// </summary>
+    [Test]
+    [Arguments(Failure.Refused)]
+    [Arguments(Failure.Unsupported)]
+    public async Task A_read_does_not_throw_for_a_failure_the_cell_does_not_depend_on(Failure failure)
+    {
+        using var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").FormulaA1 = FormulaFor(failure);
+            ws.Cell("C2").FormulaA1 = "C1*2";
+            ws.Cell("E1").FormulaA1 = "C2+1";
+            wb.SaveAs(stream);
+        }
+
+        stream.Position = 0;
+        using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
+        var sheet = loaded.Worksheet("Sheet1");
+        await Assert.That(sheet.Cell("A1").NeedsRecalculation).IsTrue();
+
+        sheet.Cell("C1").Value = 3;
+
+        await Assert.That(sheet.Cell("E1").Value).IsEqualTo(7);
+        await Assert.That(sheet.Cell("A1").NeedsRecalculation).IsTrue();
+        await AssertReadFails(sheet.Cell("A1"), failure);
+    }
+
+    /// <summary>
+    /// Review finding 2, the other side. A cell that depends on the failing cell, directly or through
+    /// another formula, cannot be calculated either, so reading it still fails as it did.
+    /// </summary>
+    [Test]
+    [Arguments(Failure.Refused)]
+    [Arguments(Failure.Unsupported)]
+    public async Task A_read_behind_the_failure_still_fails(Failure failure)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").FormulaA1 = FormulaFor(failure);
+        ws.Cell("B1").FormulaA1 = "A1+C1";
+        ws.Cell("C1").FormulaA1 = "2";
+        ws.Cell("D1").FormulaA1 = "B1*2";
+
+        await AssertReadFails(ws.Cell("D1"), failure);
+        await AssertReadFails(ws.Cell("B1"), failure);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// Review finding 2. With both kinds in the workbook, a read fails with the failure on its own
+    /// precedents, not with the first one the pass meets.
+    /// </summary>
+    [Test]
+    public async Task A_read_fails_with_the_failure_it_depends_on()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").FormulaA1 = Refused;
+        ws.Cell("A2").FormulaA1 = Unsupported;
+        ws.Cell("D1").FormulaA1 = "A1+1";
+        ws.Cell("D2").FormulaA1 = "A2+1";
+
+        await Assert.That(() => _ = ws.Cell("D2").Value).Throws<NotImplementedException>();
+        await Assert.That(() => _ = ws.Cell("D1").Value).Throws<ExpressionParseException>();
+    }
+
     private static string FormulaFor(Failure failure) => failure == Failure.Refused ? Refused : Unsupported;
 
     /// <summary>

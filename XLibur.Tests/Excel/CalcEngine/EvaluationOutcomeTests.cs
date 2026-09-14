@@ -61,6 +61,18 @@ public class EvaluationOutcomeTests
         /// meets a cycle the cell does not depend on (#492).
         /// </summary>
         CycleElsewhere,
+
+        /// <summary>
+        /// As <see cref="CycleElsewhere"/>, but the full recalculation meets an unsupported feature the
+        /// cell does not depend on.
+        /// </summary>
+        UnsupportedElsewhere,
+
+        /// <summary>
+        /// As <see cref="CycleElsewhere"/>, but the full recalculation meets a refused formula the cell
+        /// does not depend on.
+        /// </summary>
+        RefusedElsewhere,
     }
 
     private const string SheetName = "Sheet1";
@@ -150,6 +162,28 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.RecalculateAllFormulas, Kind.CycleElsewhere, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateOnLoad, Kind.CycleElsewhere, "opens, A6 = 3")]
     [Arguments(Entry.Save, Kind.CycleElsewhere, "saves, A6 <v>3</v>")]
+    [Arguments(Entry.Value, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.TryGetValue, Kind.UnsupportedElsewhere, "true: 3")]
+    [Arguments(Entry.GetFormattedString, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.Search, Kind.UnsupportedElsewhere, "found A1")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.EvaluateExpr, Kind.UnsupportedElsewhere, "n/a")]
+    [Arguments(Entry.TryInvoke, Kind.UnsupportedElsewhere, "n/a")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.UnsupportedElsewhere, "completes, A6 = 3")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.UnsupportedElsewhere, "opens, A6 = 3")]
+    [Arguments(Entry.Save, Kind.UnsupportedElsewhere, "saves, A6 <v>3</v>")]
+    [Arguments(Entry.Value, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.TryGetValue, Kind.RefusedElsewhere, "true: 3")]
+    [Arguments(Entry.GetFormattedString, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.Search, Kind.RefusedElsewhere, "found A1")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.EvaluateExpr, Kind.RefusedElsewhere, "n/a")]
+    [Arguments(Entry.TryInvoke, Kind.RefusedElsewhere, "n/a")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.RefusedElsewhere, "completes, A6 = 3")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.RefusedElsewhere, "opens, A6 = 3")]
+    [Arguments(Entry.Save, Kind.RefusedElsewhere, "saves, A6 <v>3</v>")]
     public async Task Matrix(Entry entry, Kind kind, string expected)
     {
         await Assert.That(Observe(entry, kind)).IsEqualTo(expected);
@@ -468,22 +502,22 @@ public class EvaluationOutcomeTests
     /// </summary>
     /// <remarks>
     /// Found with a cycle at A2. Since #492 a read's pass leaves a cycle dirty instead of throwing,
-    /// so the pass is made to throw with an unsupported feature instead, which a read still meets
-    /// wherever it is.
+    /// and it now leaves an unsupported feature and a refused formula dirty too. A defect is the
+    /// failure that still stops the pass wherever it is, so the pass is made to throw with one.
     /// </remarks>
     [Test]
     public async Task A_pass_after_one_that_threw_starts_from_the_beginning_of_the_chain()
     {
-        using var wb = new XLWorkbook();
+        using var wb = WorkbookWithDefectFunction();
         var ws = wb.AddWorksheet(SheetName);
         ws.Cell("A1").FormulaA1 = "B1*2";
         ws.Cell("B1").FormulaA1 = "A3+0";
-        ws.Cell("A2").FormulaA1 = UnsupportedFormula;
+        ws.Cell("A2").FormulaA1 = DefectFunction + "()";
         ws.Cell("A3").Value = 5;
         ws.Cell("A4").FormulaA1 = "A5+1";
         ws.Cell("A5").FormulaA1 = "1";
 
-        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NotImplementedException>();
+        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NullReferenceException>();
 
         ws.Cell("A3").Value = 7;
         ws.Cell("A2").Value = 0;
@@ -709,7 +743,8 @@ public class EvaluationOutcomeTests
     /// </summary>
     private static string Expression(Kind kind, bool qualified) => kind switch
     {
-        Kind.Cycle or Kind.Pending or Kind.CycleElsewhere => qualified ? $"{SheetName}!{At}" : At,
+        Kind.Cycle or Kind.Pending or Kind.CycleElsewhere or Kind.UnsupportedElsewhere or Kind.RefusedElsewhere
+            => qualified ? $"{SheetName}!{At}" : At,
         Kind.Unsupported => UnsupportedFormula,
         Kind.Refused => RefusedFormula,
         Kind.NoContext => "ROW()",
@@ -755,6 +790,13 @@ public class EvaluationOutcomeTests
                 // which meets the cycle at Z100. A6 does not depend on Z100.
                 ws.Cell("B1").FormulaA1 = "2";
                 ws.Cell("Z100").FormulaA1 = "Z100+1";
+                cell.FormulaA1 = "B1+1";
+                break;
+            case Kind.UnsupportedElsewhere:
+            case Kind.RefusedElsewhere:
+                // As CycleElsewhere, but Z100 holds a formula the pass cannot calculate.
+                ws.Cell("B1").FormulaA1 = "2";
+                ws.Cell("Z100").FormulaA1 = kind == Kind.UnsupportedElsewhere ? UnsupportedFormula : RefusedFormula;
                 cell.FormulaA1 = "B1+1";
                 break;
         }
