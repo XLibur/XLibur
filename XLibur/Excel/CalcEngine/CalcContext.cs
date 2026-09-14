@@ -74,8 +74,9 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <para>
     /// The rest starts afresh, as it always has: the name is not an array formula because its caller
     /// is, it is not held to one sheet's recalculation, and <see cref="IntersectOperands"/> is off,
-    /// so an operator at the top of the name's formula keeps its range operand whole. Whether Excel
-    /// intersects there has not been established; <c>EvaluationOutcomeTests</c> pins what XLibur does.
+    /// so an operator at the top of the name's formula keeps its range operand whole. That is what
+    /// Excel does: the owner checked it on 2026-09-14, and a name holding <c>Sheet1!$A$1:$A$3+10</c>
+    /// read in row 2 gives 11, with Excel adding <c>@</c>. <c>EvaluationOutcomeTests</c> pins it.
     /// </para>
     /// </remarks>
     internal CalcContext ForDefinedName() =>
