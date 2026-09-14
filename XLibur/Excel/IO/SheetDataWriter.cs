@@ -27,7 +27,7 @@ internal static class SheetDataWriter
         // the enumerator: the anchor would claim a ref the file has no cells for. Do it up front, so
         // the footprints and the enumerator both see the final grid.
         if (options.EvaluateFormulasBeforeSaving)
-            EvaluateDirtyFormulas(xlWorksheet);
+            EvaluateDirtyFormulas(xlWorksheet, context);
 
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
         var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
@@ -119,7 +119,7 @@ internal static class SheetDataWriter
     /// than once; the second dirty check makes the repeats free, and also skips whatever a fallback
     /// to full recalculation already cleaned.
     /// </remarks>
-    private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet)
+    private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet, SaveContext context)
     {
         List<(Point Point, XLCellFormula Formula)>? dirty = null;
         using (var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full))
@@ -138,7 +138,7 @@ internal static class SheetDataWriter
         foreach (var (point, formula) in dirty)
         {
             if (formula.IsDirty())
-                EvaluateFormulaForSave(xlWorksheet, formula, point);
+                EvaluateFormulaForSave(xlWorksheet, formula, point, context);
         }
     }
 
@@ -315,7 +315,7 @@ internal static class SheetDataWriter
         var saveContext = ctx.SaveContext;
 
         if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty())
-            EvaluateFormulaForSave(xlWorksheet, formula, point);
+            EvaluateFormulaForSave(xlWorksheet, formula, point, saveContext);
 
         // Determine cell type from cached value (preserves type round-trip for formulas
         // whose evaluation is unsupported).
@@ -392,14 +392,25 @@ internal static class SheetDataWriter
     /// dirty, so the writer leaves out its cached value and Excel recalculates it on open. Anything
     /// else is a defect, and the save throws: swallowing it would write a bug in XLibur to the file
     /// exactly as it writes a formula XLibur cannot evaluate.
+    /// <para>
+    /// A single-cell attempt that has to fall back runs a full recalculation of the workbook, and
+    /// returns <c>false</c> only after it has. That pass either calculates each formula or leaves it
+    /// dirty, and nothing edits the workbook during a save, so once it has run, no later formula of
+    /// this save needs another one. Without that, a cycle with thousands of dependents cost a full
+    /// pass, and before this a second one, for each of them.
+    /// </para>
     /// </remarks>
-    private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, Point point)
+    private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, Point point,
+        SaveContext context)
     {
+        if (context.FormulasRecalculated)
+            return;
+
         try
         {
             var workbook = xlWorksheet.Workbook;
             if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet, EvaluationEntryPoint.Save))
-                workbook.CalcEngine.Recalculate(workbook, null, EvaluationEntryPoint.Save);
+                context.FormulasRecalculated = true;
         }
         catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.Save, ex) == EvaluationOutcome.LeaveDirty)
         {

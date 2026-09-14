@@ -601,6 +601,37 @@ public class EvaluationOutcomeTests
         await Assert.That(CachedValueInFile(stream, At)).IsEqualTo($"{At} has no <v>");
     }
 
+    /// <summary>
+    /// Review finding (low). Save calculated each dirty formula with a single-cell attempt, whose
+    /// fallback already ran a full recalculation, and then ran a second one. Measured on main at
+    /// 1b476e8f with the same workbook: 6,002 passes. Once one full pass has run during a save,
+    /// every formula is either calculated or left dirty by it, and nothing edits the workbook
+    /// mid-save, so the rest of the save needs no further pass.
+    /// </summary>
+    [Test]
+    public async Task Save_runs_one_calculation_pass_for_a_cycle_with_many_dependents()
+    {
+        const int dependents = 3000;
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        for (var row = 1; row <= dependents; row++)
+            ws.Cell(row, 2).FormulaA1 = $"A1+{row}";
+
+        // Calculable, but only by a pass, because D1 is dirty too.
+        ws.Cell("C1").FormulaA1 = "D1*2";
+        ws.Cell("D1").FormulaA1 = "5";
+
+        var before = wb.CalcEngine.PassCount;
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+
+        await Assert.That(wb.CalcEngine.PassCount - before).IsEqualTo(1);
+        await Assert.That(CachedValueInFile(stream, "C1")).IsEqualTo("C1 <v>10</v>");
+        await Assert.That(CachedValueInFile(stream, "A1")).IsEqualTo("A1 has no <v>");
+        await Assert.That(CachedValueInFile(stream, "B3000")).IsEqualTo("B3000 has no <v>");
+    }
+
     internal static string Observe(Entry entry, Kind kind)
     {
         switch (entry)

@@ -330,6 +330,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// How many calculation passes this engine has run. Read by tests that check a caller runs no
+    /// more passes than it needs.
+    /// </summary>
+    internal int PassCount { get; private set; }
+
+    /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
     /// <returns>
@@ -347,6 +353,8 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal IReadOnlyDictionary<SheetPoint, SheetPoint>? Recalculate(XLWorkbook wb, uint? recalculateSheetId,
         EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
+        PassCount++;
+
         // Lazy, so initialize chain from wb, if it is empty
         if (_chain is null || _dependencyTree is null)
         {

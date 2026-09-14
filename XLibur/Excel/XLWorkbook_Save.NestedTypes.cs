@@ -41,6 +41,13 @@ public partial class XLWorkbook
         public HashSet<string> TableNames { get; private set; }
 
         /// <summary>
+        /// Whether this save has already run a full recalculation of the workbook, while
+        /// calculating dirty formulas for their cached values. After it, every formula is either
+        /// calculated or left dirty by it, so no later formula of the same save needs another pass.
+        /// </summary>
+        public bool FormulasRecalculated { get; set; }
+
+        /// <summary>
         /// The id each pivot cache is written under, assigned while the <c>pivotCaches</c>
         /// element of workbook.xml is rebuilt and read back when each pivot table part writes
         /// its <c>cacheId</c> attribute. The id is a position in that rebuilt element, so it

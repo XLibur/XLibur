@@ -389,10 +389,15 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         }
 
         var wb = Worksheet.Workbook;
-        if (force || !wb.CalcEngine.TryEvaluateSingleCell(Formula, SheetPoint, Worksheet))
+        if (force)
         {
             wb.CalcEngine.Recalculate(wb, null);
+            return;
         }
+
+        // A single-cell attempt that falls back has already run the full recalculation by the time
+        // it returns false, so there is nothing left for a second pass to do.
+        wb.CalcEngine.TryEvaluateSingleCell(Formula, SheetPoint, Worksheet);
     }
 
     /// <summary>
