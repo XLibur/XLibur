@@ -371,6 +371,86 @@ internal class DirtyPropagationTests
 
     #endregion
 
+    #region Formulas whose precedents are unknown
+
+    /// <summary>An external reference in formula-bar form: the parser refuses it, so its precedents are unknown.</summary>
+    private const string Refused = "='[Book2.xlsx]Sheet1'!A1";
+
+    /// <summary>
+    /// Review finding (performance). A formula whose precedents are unknown is marked dirty by every
+    /// walk, with whatever depends on it, and a refused formula never becomes clean, so every edit
+    /// re-marked the same closure. Once a walk has marked it, a later walk skips it while it stays
+    /// dirty: nothing that walk marked can have become clean, since a formula that reads it fails on
+    /// it. C1 cannot really become clean while B1 is dirty; it is cleaned by hand here only as a probe,
+    /// to show whether the second walk visits B1's dependents again.
+    /// </summary>
+    [Test]
+    public async Task A_second_walk_skips_a_formula_with_unknown_precedents_still_dirty_from_the_first()
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        AddFormula(tree, ws, "B1", Refused);
+        var dependent = AddFormula(tree, ws, "C1", "=B1");
+
+        MarkDirty(tree, ws, "A1");
+        await AssertDirty(ws, "B1", "C1");
+
+        dependent.MarkClean();
+        MarkDirty(tree, ws, "A2");
+
+        await Assert.That(dependent.IsClean()).IsTrue();
+    }
+
+    /// <summary>
+    /// Why the skip needs more than "already dirty". A formula can be dirty while what depends on it
+    /// is clean: a load leaves a formula with no cached value dirty and a dependent with one clean,
+    /// and <see cref="IXLCell.InvalidateFormula"/> dirties only its own cell. No walk has marked its
+    /// dependents, so the next one must.
+    /// </summary>
+    [Test]
+    public async Task A_formula_with_unknown_precedents_dirty_for_another_reason_still_has_its_dependents_marked()
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        var refused = AddFormula(tree, ws, "B1", Refused);
+        AddFormula(tree, ws, "C1", "=B1");
+
+        refused.MarkExplicitlyDirty();
+        MarkDirty(tree, ws, "A1");
+
+        await AssertDirty(ws, "B1", "C1");
+    }
+
+    /// <summary>
+    /// A formula whose precedents are unknown can be calculated after a walk marked it, when it uses a
+    /// refused name only in a branch it does not take, and its dependents with it. Dirtied again by
+    /// anything but a walk, it needs a walk to mark its dependents again.
+    /// </summary>
+    [Test]
+    public async Task A_formula_with_unknown_precedents_calculated_since_a_walk_has_its_dependents_marked_again()
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        var refused = AddFormula(tree, ws, "B1", Refused);
+        var dependent = AddFormula(tree, ws, "C1", "=B1");
+        MarkDirty(tree, ws, "A1");
+
+        refused.MarkClean();
+        dependent.MarkClean();
+        refused.MarkExplicitlyDirty();
+        MarkDirty(tree, ws, "A2");
+
+        await AssertDirty(ws, "B1", "C1");
+    }
+
+    #endregion
+
     #region Helpers
 
     private static IXLWorksheet BuildChain(XLWorkbook wb, string sheetName = "Sheet1", bool intermediateReferencesOwnSheetByName = false)

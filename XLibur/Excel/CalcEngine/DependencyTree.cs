@@ -286,13 +286,17 @@ internal sealed class DependencyTree
             queue.Enqueue(dirtyArea);
 
             // A formula whose precedents are unknown may read the changed area, so it is taken to read
-            // every cell: any change marks it dirty, together with whatever depends on it.
+            // every cell: any change marks it dirty, together with whatever depends on it. If an
+            // earlier walk did that and the formula has stayed dirty since, this walk has nothing to
+            // mark (see XLCellFormula.DependentsMarkedDirty). A refused formula never becomes clean,
+            // so without the skip every edit re-marked the same closure. It is visited either way, so
+            // a skipped formula is not reached again through a precedent it does know.
             foreach (var (formula, formulaArea) in _unknownPrecedents)
             {
-                if (!formula.TryVisit(walkId))
+                if (!formula.TryVisit(walkId) || formula.DependentsMarkedDirty)
                     continue;
 
-                formula.MarkExplicitlyDirty();
+                formula.MarkDirtyWithDependents();
                 queue.Enqueue(formulaArea);
             }
 

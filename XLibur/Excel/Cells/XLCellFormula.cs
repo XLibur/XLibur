@@ -54,6 +54,13 @@ internal sealed class XLCellFormula
     private long _visitedByWalk;
 
     /// <summary>
+    /// Set by a <see cref="DependencyTree.MarkDirty"/> walk that marks this formula dirty because its
+    /// precedents are unknown, and cleared by <see cref="MarkClean"/>. See
+    /// <see cref="DependentsMarkedDirty"/>.
+    /// </summary>
+    private bool _dependentsMarkedDirty;
+
+    /// <summary>
     /// Lazily allocated holder for fields used only by Array/DataTable formulas
     /// (Range, Input1, Input2). Null for Normal formulas — saves ~32 bytes per
     /// instance on the dominant case where most cells in a workbook are non-array.
@@ -84,13 +91,40 @@ internal sealed class XLCellFormula
     /// <summary>
     /// Mark this formula as freshly evaluated.
     /// </summary>
-    internal void MarkClean() => _isClean = true;
+    internal void MarkClean()
+    {
+        _isClean = true;
+        _dependentsMarkedDirty = false;
+    }
 
     /// <summary>
     /// Mark this formula as dirty. Used when the formula text itself changed (rename, shift, a
     /// range move) and dependency-tree based dirty propagation needs to flag a single formula.
     /// </summary>
     internal void MarkExplicitlyDirty() => _isClean = false;
+
+    /// <summary>
+    /// Has this formula stayed dirty since a <see cref="DependencyTree.MarkDirty"/> walk marked it,
+    /// together with everything that depends on it, because its precedents are unknown?
+    /// </summary>
+    /// <remarks>
+    /// While it has, a later walk has nothing to mark and skips it. A formula that reads this one
+    /// cannot become clean in the meantime: evaluating it fails on this formula, and a recalculation
+    /// leaves it dirty with this one. Only a walk sets this, so a formula that is dirty for any other
+    /// reason, such as a load without a cached value or <c>InvalidateFormula</c>, still has its
+    /// dependents marked by the next walk.
+    /// </remarks>
+    internal bool DependentsMarkedDirty => _dependentsMarkedDirty;
+
+    /// <summary>
+    /// Mark this formula dirty for a walk that marks everything that depends on it too. See
+    /// <see cref="DependentsMarkedDirty"/>.
+    /// </summary>
+    internal void MarkDirtyWithDependents()
+    {
+        _isClean = false;
+        _dependentsMarkedDirty = true;
+    }
 
     /// <summary>
     /// Records that <paramref name="walkId"/>'s <see cref="DependencyTree.MarkDirty"/> walk has
