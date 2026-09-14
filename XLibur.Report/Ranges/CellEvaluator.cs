@@ -16,8 +16,11 @@ internal sealed class CellEvaluator
     private readonly IExpressionEngine _engine;
     private readonly TemplateErrors _errors;
 
-    /// <summary>The cells already reported as unreadable, so each is reported once.</summary>
-    private readonly HashSet<(string Sheet, string? Address)> _unreadable = new();
+    /// <summary>
+    /// The formulas found to have no value, by where they are, each with the formula it held, so
+    /// each is evaluated and reported once.
+    /// </summary>
+    private readonly Dictionary<(string Sheet, int Row, int Column), string> _unreadable = new();
 
     public CellEvaluator(IExpressionEngine engine, TemplateErrors errors)
     {
@@ -41,14 +44,33 @@ internal sealed class CellEvaluator
     /// Which failures are expected is decided by spec 56's policy table, which is internal to
     /// XLibur. <see cref="IXLCell.TryGetValue{T}"/> reads its row for a tolerant read: it answers
     /// <c>false</c> for an expected failure and lets a defect throw. Only then is the formula read
-    /// again, to learn which kind of failure it was.
+    /// again, to learn which kind of failure it was. That read cannot overturn the verdict: a failure
+    /// it does not recognise as expected still throws.
+    /// </para>
+    /// <para>
+    /// The expander reads a cell up to three times, and each evaluation of a failing formula can be
+    /// a full recalculation, so a formula found to have no value is not evaluated again. That holds
+    /// only while the cell keeps the same formula: a range bound to no data has its rows deleted,
+    /// which can move another cell into the same place.
     /// </para>
     /// </remarks>
     public XLCellValue ReadValue(IXLCell cell)
     {
-        // Any value converts to text, so false means the formula has no value. A cell without a
-        // formula cannot fail, and skips the conversion.
-        if (!cell.HasFormula || cell.TryGetValue(out string _))
+        if (!cell.HasFormula)
+        {
+            // A cell without a formula cannot fail.
+            return cell.Value;
+        }
+
+        var address = cell.Address;
+        (string Sheet, int Row, int Column) key = (cell.Worksheet.Name, address.RowNumber, address.ColumnNumber);
+        if (_unreadable.TryGetValue(key, out var formula) && formula == cell.FormulaA1)
+        {
+            return Blank.Value;
+        }
+
+        // Any value converts to text, so false means the formula has no value.
+        if (cell.TryGetValue(out string _))
         {
             // Calculated by the line above, so this reads the value it left.
             return cell.Value;
@@ -60,13 +82,8 @@ internal sealed class CellEvaluator
         }
         catch (Exception ex) when (Describe(ex) is { } problem)
         {
-            var sheet = cell.Worksheet.Name;
-            var address = cell.Address.ToString();
-            if (_unreadable.Add((sheet, address)))
-            {
-                _errors.Add(new TemplateError(problem, sheet, address, ex));
-            }
-
+            _unreadable[key] = cell.FormulaA1;
+            _errors.Add(new TemplateError(problem, key.Sheet, address.ToString(), ex));
             return Blank.Value;
         }
     }
@@ -75,20 +92,33 @@ internal sealed class CellEvaluator
     /// What went wrong, for each kind of failure the policy table expects, or <c>null</c> for any
     /// other failure, which then reaches the caller.
     /// </summary>
-    /// <remarks>
-    /// A plain <see cref="NotImplementedException"/> is a defect, not an unsupported feature, but it
-    /// never gets here: <see cref="ReadValue"/> reads the formula again only when the policy table
-    /// has already called the failure expected.
-    /// </remarks>
     private static string? Describe(Exception exception) => exception switch
     {
         XLCircularReferenceException =>
             "The formula in this cell is part of, or depends on, a circular reference, so its value cannot be read.",
-        NotImplementedException or NotSupportedException =>
-            "The formula in this cell uses, or depends on, a feature XLibur does not evaluate, so its value cannot be read.",
         ExpressionParseException =>
             "The formula in this cell is, or depends on, a formula XLibur cannot parse, so its value cannot be read.",
+        _ when IsUnsupportedFeature(exception) =>
+            "The formula in this cell uses, or depends on, a feature XLibur does not evaluate, so its value cannot be read.",
         _ => null,
+    };
+
+    /// <summary>
+    /// Whether <paramref name="exception"/> is how the calc engine raises an unsupported feature.
+    /// </summary>
+    /// <remarks>
+    /// The calc engine raises one as its own sealed subclass of <see cref="NotImplementedException"/>,
+    /// which is internal to XLibur, so it is recognised as a subclass that XLibur declares. A plain
+    /// <see cref="NotImplementedException"/>, or a subclass declared anywhere else, such as in a
+    /// function a caller registers, is a defect. <see cref="NotSupportedException"/> counts as
+    /// unsupported, as it does in the policy table.
+    /// </remarks>
+    private static bool IsUnsupportedFeature(Exception exception) => exception switch
+    {
+        NotSupportedException => true,
+        NotImplementedException => exception.GetType() != typeof(NotImplementedException)
+            && exception.GetType().Assembly == typeof(IXLCell).Assembly,
+        _ => false,
     };
 
     /// <summary>

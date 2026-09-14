@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 namespace XLibur.Report.Tests.Ranges;
 
@@ -29,7 +30,7 @@ public class EvaluationOutcomeTests
         Defect,
     }
 
-    private const string DefectFunction = "XLIBURDEFECT";
+    private const string FailingFunction = "XLIBURFAIL";
 
     /// <summary>Dynamic data exchange: the parser reads it, the calc engine does not evaluate it.</summary>
     private const string UnsupportedFormula = "Sdemo123|tik!'id1?req?AAPL'";
@@ -154,20 +155,100 @@ public class EvaluationOutcomeTests
 
     /// <summary>
     /// A plain <see cref="NotImplementedException"/> is a defect, not an unsupported feature (spec 56,
-    /// Q15), so it still reaches the caller (#459). Report cannot tell the two apart by type, since
-    /// the unsupported-feature type is internal to XLibur; it asks the policy table instead.
+    /// Q15), so it still reaches the caller (#459). The first read asks the policy table, which lets
+    /// a defect throw.
     /// </summary>
     [Test]
     public async Task A_plain_NotImplementedException_in_a_bound_range_is_a_defect_and_still_throws()
     {
-        using var workbook = WorkbookWithDefectFunction(
+        using var workbook = WorkbookWithFailingFunction(
             static () => new NotImplementedException("A function failed the way a bug in XLibur would."));
         var sheet = workbook.AddWorksheet("Report");
         sheet.Cell("A1").Value = "{{ item.Product }}";
-        sheet.Cell("B1").FormulaA1 = DefectFunction + "()";
+        sheet.Cell("B1").FormulaA1 = FailingFunction + "()";
         sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
 
         await Assert.That(Generate(workbook)).IsEqualTo("throws NotImplementedException");
+    }
+
+    /// <summary>
+    /// The policy table's verdict comes from the first read, and the wording from a second, so the
+    /// second read must not be able to turn a defect into an expected failure. Here the first
+    /// evaluation fails as an unsupported feature and the second as a defect: a plain
+    /// <see cref="NotImplementedException"/>, or a subclass of it that XLibur did not declare. The
+    /// defect reaches the caller.
+    /// </summary>
+    [Test]
+    [Arguments(typeof(NotImplementedException))]
+    [Arguments(typeof(ThirdPartyNotImplementedException))]
+    public async Task A_defect_on_the_read_that_learns_the_kind_still_throws(Type defectType)
+    {
+        var calls = 0;
+        using var workbook = WorkbookWithFailingFunction(() => ++calls == 1
+            ? new UnsupportedFeatureException("The first evaluation fails as an unsupported feature.")
+            : (Exception)Activator.CreateInstance(defectType, "The second fails the way a bug would.")!);
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = FailingFunction + "()";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("throws NotImplementedException");
+        await Assert.That(calls).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// The expander reads a cell up to three times, and each evaluation of a failing formula can be
+    /// a full recalculation. A formula found to have no value is evaluated for its first read only,
+    /// once to ask the policy table and once to learn the kind of failure; later reads give blank.
+    /// C1 is read three times, because the last column is where a range's direction is looked for.
+    /// </summary>
+    [Test]
+    public async Task A_formula_found_to_have_no_value_is_not_evaluated_again()
+    {
+        var calls = 0;
+        using var workbook = WorkbookWithFailingFunction(() =>
+        {
+            calls++;
+            return new UnsupportedFeatureException("A feature XLibur does not evaluate.");
+        });
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("C1").FormulaA1 = FailingFunction + "()";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates, template error: " + UnsupportedMessage);
+        await Assert.That(calls).IsEqualTo(2);
+        await Assert.That(sheet.Cell("C1").FormulaA1).IsEqualTo(FailingFunction + "()");
+    }
+
+    /// <summary>
+    /// A formula found to have no value is remembered by where it is, and only while that cell still
+    /// holds the same formula. A range bound to no data has its rows deleted, which moves the next
+    /// range up into the same addresses; a different formula that arrives there is read afresh.
+    /// </summary>
+    [Test]
+    public async Task A_formula_moved_into_the_place_of_one_with_no_value_is_read_afresh()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("B1").FormulaA1 = RefusedFormula;
+        sheet.DefinedNames.Add("Empty", sheet.Range("A1:C1"));
+        sheet.Cell("A2").Value = "{{ item.Product }}";
+        sheet.Cell("B2").FormulaA1 = UnsupportedFormula;
+        sheet.DefinedNames.Add("Items", sheet.Range("A2:C3"));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Empty", new List<SaleItem>());
+        template.AddVariable("Items", new List<SaleItem>
+        {
+            new() { Product = "Widget", Quantity = 1, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, 1) },
+        });
+        var result = template.Generate();
+
+        await Assert.That(string.Join(" | ", result.ParsingErrors.Select(e => e.Location + ": " + e.Message)))
+            .IsEqualTo("Report!B1: " + RefusedMessage + " | Report!B1: " + UnsupportedMessage);
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("B1").FormulaA1).IsEqualTo(UnsupportedFormula);
     }
 
     /// <summary>
@@ -216,7 +297,7 @@ public class EvaluationOutcomeTests
     private static string Observe(Kind kind, bool inBoundRange)
     {
         using var workbook = kind == Kind.Defect
-            ? WorkbookWithDefectFunction(static () => new NullReferenceException("A function failed the way a bug in XLibur would."))
+            ? WorkbookWithFailingFunction(static () => new NullReferenceException("A function failed the way a bug in XLibur would."))
             : new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");
         sheet.Cell("A1").Value = "{{ item.Product }}";
@@ -244,7 +325,7 @@ public class EvaluationOutcomeTests
                 cell.FormulaA1 = "G20+1";
                 break;
             case Kind.Defect:
-                cell.FormulaA1 = DefectFunction + "()";
+                cell.FormulaA1 = FailingFunction + "()";
                 break;
         }
 
@@ -278,21 +359,27 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
-    /// A workbook whose calc engine knows one function, which fails the way a defect in XLibur would:
-    /// it throws what <paramref name="defect"/> makes.
+    /// A workbook whose calc engine knows one function, which throws what <paramref name="failure"/>
+    /// makes each time it is called.
     /// </summary>
-    private static XLWorkbook WorkbookWithDefectFunction(Func<Exception> defect)
+    private static XLWorkbook WorkbookWithFailingFunction(Func<Exception> failure)
     {
         var functions = new FunctionRegistry();
         functions.RegisterFunction(
-            DefectFunction,
+            FailingFunction,
             0,
             0,
-            (_, _) => throw defect(),
+            (_, _) => throw failure(),
             FunctionFlags.Scalar);
 
         var workbook = new XLWorkbook();
         workbook.CalcEngine = new XLCalcEngine(CultureInfo.CurrentCulture, functions);
         return workbook;
     }
+
+    /// <summary>
+    /// A subclass of <see cref="NotImplementedException"/> declared outside XLibur, as a function a
+    /// caller registers might throw. The policy table calls it a defect.
+    /// </summary>
+    internal sealed class ThirdPartyNotImplementedException(string message) : NotImplementedException(message);
 }
