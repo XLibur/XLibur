@@ -310,15 +310,59 @@ public class KeptX14RuleShiftTests
     /// <c>$A2&gt;7</c> Excel writes <c>$A3&gt;7</c> on the first and <c>#REF!&gt;7</c> on the second
     /// (<c>cf-partial-deleteleft-after.xlsx</c>). The kept rule's anchor is <c>A2</c>, so it gets the
     /// second piece's formula over both.
+    /// <para>
+    /// Deleting <c>A1</c> with a shift up cuts no single area of <c>A2:A10 C1:C10</c>, but it cuts the
+    /// rule: <c>A2:A10</c> moves whole to <c>A1:A9</c> and <c>C1:C10</c> stays. The kept rule's anchor,
+    /// <c>A1</c>, is the moved piece's, so it gets that piece's formula.
+    /// </para>
     /// </remarks>
     [Test]
-    public async Task Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule()
+    [Arguments("A2:C10", "$A2>7", "delete A2 shifting left", "A2:B2 = #REF!>7|A3:C10 = $A3>7", "A2:B2 A3:C10", "#REF!>7")]
+    [Arguments("A2:A10 C1:C10", "$B1>5", "delete A1 shifting up", "A1:A9 = $B2>5|C1:C10 = $B1>5", "A1:A9 C1:C10", "$B2>5")]
+    public async Task Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule(string sqref, string formula, string edit,
+        string modelledBlocks, string keptRange, string keptFormula)
     {
-        using var built = Build("A2:C10", "$A2>7");
+        var saved = SaveBlocks(sqref, formula, edit);
+
+        await Assert.That(saved.Modelled).IsEqualTo(modelledBlocks);
+        await Assert.That(saved.KeptRange).IsEqualTo(keptRange);
+        await Assert.That(saved.KeptFormula).IsEqualTo(keptFormula);
+    }
+
+    /// <summary>
+    /// An edit cuts a rule when it leaves some of the rule's cells moved and others where they were,
+    /// whether or not it cuts any one of its areas. Each piece then reads its formula from its own
+    /// anchor, so a cell that did not move keeps what it read: <c>C1</c> still reads <c>$B1</c>.
+    /// </summary>
+    /// <remarks>
+    /// A whole-row or whole-column edit leaves one piece, over every area, as Excel does for the
+    /// <c>cf-anchor-*.xlsx</c> ranges and as <c>ConditionalFormatRangeShiftTests</c> pins for two
+    /// areas: the rule's anchor lies above any area the edit moves, so its formula shifts as it is.
+    /// </remarks>
+    [Test]
+    [Arguments("A2:A10 C1:C10", "$B1>5", "delete A1 shifting up", "A1:A9 = $B2>5|C1:C10 = $B1>5")]
+    [Arguments("A5:A7 C10:C12", "$B5>1", "insert rows above row 6", "A5:A10 C13:C15 = $B5>1")]
+    public async Task A_rule_is_cut_when_some_of_its_cells_move_and_others_do_not(string sqref, string formula,
+        string edit, string modelledBlocks)
+    {
+        var saved = SaveBlocks(sqref, formula, edit);
+
+        await Assert.That(saved.Modelled).IsEqualTo(modelledBlocks);
+    }
+
+    /// <summary>
+    /// Builds the rule both ways over <paramref name="sqref"/>, makes <paramref name="edit"/> and saves:
+    /// the modelled blocks as <c>range = formula</c> joined by <c>|</c> in a fixed order, and the one
+    /// kept rule's areas, sorted, and formula.
+    /// </summary>
+    private static (string Modelled, string KeptRange, string KeptFormula) SaveBlocks(string sqref, string formula,
+        string edit)
+    {
+        using var built = Build(sqref, formula);
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook(built))
         {
-            wb.Worksheet("Other").Range("A2").Delete(XLShiftDeletedCells.ShiftCellsLeft);
+            Apply(wb, edit);
             wb.SaveAs(ms);
         }
 
@@ -327,16 +371,11 @@ public class KeptX14RuleShiftTests
         var worksheet = OtherPart(document).Worksheet!;
         var modelled = worksheet.Elements<S.ConditionalFormatting>()
             .Select(c => $"{Normalize(c.SequenceOfReferences?.InnerText)} = {c.Descendants<S.Formula>().Single().Text}")
-            .Order(StringComparer.Ordinal)
-            .ToList();
+            .Order(StringComparer.Ordinal);
         var kept = worksheet.Descendants<X14.ConditionalFormatting>().Single();
         var keptRange = string.Join(" ", Normalize(kept.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text)
             .Split(' ').Order(StringComparer.Ordinal));
-
-        await Assert.That(modelled).IsEquivalentTo(new[] { "A2:B2 = #REF!>7", "A3:C10 = $A3>7" },
-            CollectionOrdering.Matching);
-        await Assert.That(keptRange).IsEqualTo("A2:B2 A3:C10");
-        await Assert.That(kept.Descendants<OfficeExcel.Formula>().Single().Text).IsEqualTo("#REF!>7");
+        return (string.Join("|", modelled), keptRange, kept.Descendants<OfficeExcel.Formula>().Single().Text);
     }
 
     /// <summary>
@@ -461,6 +500,9 @@ public class KeptX14RuleShiftTests
             case "delete the rows holding the range": other.Rows(3, 5).Delete(); break;
             case "delete the column holding the range": other.Column(3).Delete(); break;
             case "delete column G": other.Column(7).Delete(); break;
+            case "delete A2 shifting left": other.Range("A2").Delete(XLShiftDeletedCells.ShiftCellsLeft); break;
+            case "delete A1 shifting up": other.Range("A1").Delete(XLShiftDeletedCells.ShiftCellsUp); break;
+            case "insert rows above row 6": other.Row(6).InsertRowsAbove(3); break;
             case "delete columns A to C": other.Columns(1, 3).Delete(); break;
             case "delete rows overlapping the bottom": other.Rows(4, 6).Delete(); break;
             case "delete rows overlapping the top": other.Rows(1, 3).Delete(); break;

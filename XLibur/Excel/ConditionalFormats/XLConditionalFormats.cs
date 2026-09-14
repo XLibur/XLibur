@@ -234,13 +234,21 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// <c>$A3&gt;5</c> and shifted back to <c>$A2&gt;5</c>, where shifting alone gives <c>#REF!&gt;5</c>.
     /// </para>
     /// <para>
-    /// An edit cuts an area when part of it moves and part does not, which only an insert or delete of
-    /// cells across part of it does. A rule an edit cuts is two pieces: the cells that did not move,
-    /// and the cells that did. Deleting <c>A2</c> with a shift left cuts <c>A2:C10</c> into
-    /// <c>A3:C10</c>, whose origin is <c>A3</c>, and <c>A2:B2</c>, whose origin is the old <c>B2</c>.
-    /// An edit that cuts nothing, a whole-row or whole-column edit among them, leaves one piece, over
-    /// every area of the rule, and even over a range that cannot move: <c>$A1&gt;5</c> on the whole
-    /// column <c>E:E</c> only shifts, to <c>$A2&gt;5</c> after a row is inserted at 1.
+    /// An insert or delete of cells across part of the sheet cuts a rule when it leaves some of the
+    /// rule's cells moved and others where they were, within one area or across areas. The rule is then
+    /// two pieces: the cells that did not move, and the cells that did. Deleting <c>A2</c> with a shift
+    /// left cuts <c>A2:C10</c> into <c>A3:C10</c>, whose origin is <c>A3</c>, and <c>A2:B2</c>, whose
+    /// origin is the old <c>B2</c>. Deleting <c>A1</c> with a shift up cuts no single area of
+    /// <c>A2:A10 C1:C10</c>, but cuts the rule into <c>A1:A9</c> and <c>C1:C10</c>, so that <c>C1</c>
+    /// keeps reading what it read.
+    /// </para>
+    /// <para>
+    /// A whole-row or whole-column edit leaves one piece, over every area of the rule, as Excel does for
+    /// the <c>cf-anchor-*.xlsx</c> ranges and as <c>ConditionalFormatRangeShiftTests</c> pins for two
+    /// areas. If any of the rule's cells stays, its anchor lies before the edit's lines and stays too,
+    /// so the formula shifts as it is; no cell's formula is moved onto another's. So does a range that
+    /// cannot move: <c>$A1&gt;5</c> on the whole column <c>E:E</c> only shifts, to <c>$A2&gt;5</c>
+    /// after a row is inserted at 1.
     /// </para>
     /// </remarks>
     /// <param name="edit">The edit, on this sheet.</param>
@@ -251,30 +259,20 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         where TAxis : struct, IGridAxis
     {
         var axis = default(TAxis);
-        var parts = new List<(Area Part, bool Moved)>();
-        var cut = false;
-
-        // Each area on its own, so that a cut is seen: one area that comes out both moved and not.
-        foreach (var area in areas)
-        {
-            var single = new XLAreaList(area);
-            var result = edit.Shift > 0 ? axis.InsertAndShift(single, affected) : axis.DeleteAndShift(single, affected);
-            var anyMoved = false;
-            var anyStayed = false;
-            foreach (var part in result)
-            {
-                var moved = HasMoved<TAxis>(in edit, affected, part.FirstPoint);
-                parts.Add((part, moved));
-                anyMoved |= moved;
-                anyStayed |= !moved;
-            }
-
-            cut |= anyMoved && anyStayed;
-        }
+        var result = edit.Shift > 0 ? axis.InsertAndShift(areas, affected) : axis.DeleteAndShift(areas, affected);
+        var parts = new List<(Area Part, bool Moved)>(result.Count);
+        foreach (var part in result)
+            parts.Add((part, HasMoved<TAxis>(in edit, affected, part.FirstPoint)));
 
         var pieces = new List<(XLAreaList Areas, Point Origin)>(2);
         if (parts.Count == 0)
             return pieces;
+
+        // Judged over the whole rule, not area by area: one area moving whole while another stays cuts it
+        // as surely as an area cut in two. A whole-line edit never cuts it; see the remarks.
+        var cut = !axis.IsEntireLine(edit.Range)
+                  && parts.Exists(p => p.Moved)
+                  && parts.Exists(p => !p.Moved);
 
         if (!cut)
         {
@@ -423,18 +421,20 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         var firstRange = item.Ranges.First();
         var skippedRanges = new XLRanges();
 
-        var baseAddress = new XLAddress(
-            item.Ranges.Select(r => r.RangeAddress.FirstAddress.RowNumber).Min(),
-            item.Ranges.Select(r => r.RangeAddress.FirstAddress.ColumnNumber).Min(),
-            false, false);
-        var baseCell = (XLCell)firstRange.Worksheet.Cell(baseAddress);
+        // Read from the rule's anchor and re-expressed for the consolidated range's anchor
+        // (XLConditionalFormat.AnchorOf). The target used to be the consolidated range's first area's
+        // first cell, and consolidation returns areas row by row, so that cell could be right of the
+        // anchor: B1:B5 A3:A5 with A1>0 was saved as B1>0, and each later save moved it a column more.
+        var baseAnchor = XLConditionalFormat.AnchorOf(((XLConditionalFormat)item).Areas);
+        var baseCell = (XLCell)firstRange.Worksheet.Cell(baseAnchor.Row, baseAnchor.Column);
 
         var similarFormats = FindSimilarFormats(formats, rangesToJoin, skippedRanges, IsSameFormat);
 
         var consAreas = XLAreaList.FromRanges(rangesToJoin).GetConsolidated();
         ((XLConditionalFormat)item).SetAreas(consAreas);
 
-        var targetCell = (XLCell)item.Ranges.First().FirstCell();
+        var targetAnchor = XLConditionalFormat.AnchorOf(consAreas);
+        var targetCell = (XLCell)firstRange.Worksheet.Cell(targetAnchor.Row, targetAnchor.Column);
         ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell, leaveRefusedUnchanged: true);
 
         return similarFormats;

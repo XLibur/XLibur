@@ -207,7 +207,14 @@ internal static class XLCellCopyHelper
 
             var c = new XLConditionalFormat(fmtRanges, true);
             c.CopyFrom(cf);
-            c.AdjustFormulas((XLCell)cf.Ranges.First().FirstCell(), fmtRanges[0].FirstCell());
+
+            // Read from the source rule's anchor and re-expressed for the copy's: the corner of the
+            // rectangle bounding each range (XLConditionalFormat.AnchorOf), where every holder of a
+            // rule's formulas reads them from (issue #499). An area's first cell need not be that corner.
+            var sourceAnchor = XLConditionalFormat.AnchorOf(((XLConditionalFormat)cf).Areas);
+            var targetAnchor = XLConditionalFormat.AnchorOf(c.Areas);
+            c.AdjustFormulas(srcSheet.Cell(sourceAnchor.Row, sourceAnchor.Column),
+                target.Worksheet.Cell(targetAnchor.Row, targetAnchor.Column));
 
             target.Worksheet.ConditionalFormats.Add(c);
         }
