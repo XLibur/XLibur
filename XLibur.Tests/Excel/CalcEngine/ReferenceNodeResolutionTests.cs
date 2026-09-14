@@ -149,6 +149,13 @@ public class ReferenceNodeResolutionTests
     /// one of the same name gives the prefix a different worksheet to resolve to, and the
     /// memo must not answer for the old one.
     /// </summary>
+    /// <remarks>
+    /// Since spec 55 (Q27) deleting <c>Data</c> rewrites <c>Data!A1</c> to <c>#REF!</c>, as Excel
+    /// does, so the old formula no longer binds to the replacement. This test used to rely on that
+    /// silent rebinding. It now types the same text again after the replacement: the parse cache
+    /// answers with the node that was memoised against the deleted sheet, and that node must resolve
+    /// against the new one.
+    /// </remarks>
     [Test]
     public async Task ReplacingTheReferencedSheet_ResolvesAgainstTheNewSheet()
     {
@@ -164,6 +171,10 @@ public class ReferenceNodeResolutionTests
         var replacement = wb.AddWorksheet("Data");
         replacement.Cell("A1").Value = 99;
 
+        await Assert.That(main.Cell("A1").FormulaA1).IsEqualTo("#REF!");
+        await Assert.That(main.Cell("A1").Value).IsEqualTo(XLError.CellReference);
+
+        main.Cell("A1").FormulaA1 = "Data!A1";
         wb.RecalculateAllFormulas();
 
         await Assert.That(main.Cell("A1").Value).IsEqualTo(99);

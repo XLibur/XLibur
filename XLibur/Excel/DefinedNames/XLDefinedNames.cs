@@ -310,10 +310,4 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             return Workbook.DefinedName(name) is not null;
         return false;
     }
-
-    internal void OnWorksheetDeleted(string worksheetName)
-    {
-        _namedRanges.Values
-            .ForEach(nr => nr.OnWorksheetDeleted(worksheetName));
-    }
 }

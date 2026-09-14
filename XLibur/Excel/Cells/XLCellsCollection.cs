@@ -695,6 +695,19 @@ internal sealed class XLCellsCollection : IWorkbookListener
     }
 
     /// <summary>
+    /// Every reference to the deleted sheet becomes <c>#REF!</c>, as in Excel, so that no formula keeps
+    /// a reference a sheet added later under the same name could bind to.
+    /// </summary>
+    /// <remarks>
+    /// A formula the parser refuses keeps its text (ADR 0002). So does a 3D reference with the deleted
+    /// sheet at one end, until spec 55 task 3 narrows it (see <c>RenameRefModVisitor</c>).
+    /// </remarks>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
+    {
+        RewriteSheetInFormulas(sheetName, null);
+    }
+
+    /// <summary>
     /// Rewrites every reference to <paramref name="oldSheetName"/> in the formulas of this collection
     /// to <paramref name="newSheetName"/>. Used both when a sheet is renamed and when one is copied,
     /// where the copy's references to the original must follow the copy.
@@ -704,6 +717,15 @@ internal sealed class XLCellsCollection : IWorkbookListener
         if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
             return;
 
+        RewriteSheetInFormulas(oldSheetName, newSheetName);
+    }
+
+    /// <summary>
+    /// Rewrites every formula of this collection that names <paramref name="oldSheetName"/>: to
+    /// <paramref name="newSheetName"/>, or to <c>#REF!</c> when that is <c>null</c>.
+    /// </summary>
+    private void RewriteSheetInFormulas(string oldSheetName, string? newSheetName)
+    {
         using var enumerator = FormulaSlice.GetForwardEnumerator(Area.Full);
         while (enumerator.MoveNext())
         {
@@ -719,7 +741,10 @@ internal sealed class XLCellsCollection : IWorkbookListener
                 }
             }
 
-            cellFormula.RenameSheet(currentPoint, oldSheetName, newSheetName);
+            if (newSheetName is null)
+                cellFormula.DeleteSheet(currentPoint, _ws.Name, oldSheetName);
+            else
+                cellFormula.RenameSheet(currentPoint, oldSheetName, newSheetName);
         }
     }
 }

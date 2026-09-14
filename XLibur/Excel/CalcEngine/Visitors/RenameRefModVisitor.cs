@@ -37,6 +37,28 @@ internal sealed class RenameRefModVisitor : FormulaModifier
         return sheetName;
     }
 
+    /// <summary>
+    /// A 3D reference with a deleted sheet at one end keeps its text, for now. A rename renames each
+    /// end, as the default does.
+    /// </summary>
+    /// <remarks>
+    /// Excel narrows such a reference: deleting <c>Sheet1</c> turns <c>SUM(Sheet1:Sheet3!A1)</c> into
+    /// <c>SUM(Sheet2:Sheet3!A1)</c> (spec 55, Q34). The default gives up the whole reference instead
+    /// and writes <c>#REF!</c>, which loses for good the sheets it spanned. Narrowing needs the tab
+    /// order, and an Excel-authored fixture to check it against, so it is spec 55 task 3. Until then
+    /// the reference keeps its text, in a cell formula and in a defined name alike.
+    /// </remarks>
+    protected override SheetRange? ModifySheetRange(ModContext ctx, string firstSheet, string lastSheet)
+    {
+        if (IsDeleted(firstSheet) || IsDeleted(lastSheet))
+            return new SheetRange(firstSheet, lastSheet);
+
+        return base.ModifySheetRange(ctx, firstSheet, lastSheet);
+    }
+
+    private bool IsDeleted(string sheetName)
+        => _sheets is not null && _sheets.TryGetValue(sheetName, out var newName) && newName is null;
+
     protected override string? ModifyTable(ModContext ctx, string table)
     {
         if (_tables is not null && _tables.TryGetValue(table, out var newName))

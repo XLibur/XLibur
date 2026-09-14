@@ -1184,11 +1184,15 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal XLCalcEngine CalcEngine
     {
-        get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture); }
+        get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture) { Workbook = this }; }
 
         // A test seam, for an engine over a function table of the test's own. Set it before any
         // formula is evaluated: the engine it replaces is dropped with its dependency tree and chain.
-        set { _calcEngine = value; }
+        set
+        {
+            value.Workbook = this;
+            _calcEngine = value;
+        }
     }
 
     public XLCellValue Evaluate(string expression)
@@ -1373,14 +1377,6 @@ public partial class XLWorkbook : IXLWorkbook
     internal void NotifyWorksheetAdded(XLWorksheet newSheet)
     {
         _calcEngine?.OnAddedSheet(newSheet);
-    }
-
-    /// <summary>
-    /// Notify various components of a workbook that the sheet is about to be removed.
-    /// </summary>
-    internal void NotifyWorksheetDeleting(XLWorksheet sheet)
-    {
-        _calcEngine?.OnDeletingSheet(sheet);
     }
 
     public override string ToString()

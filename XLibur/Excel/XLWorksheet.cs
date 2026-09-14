@@ -235,7 +235,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public XLAutoFilter AutoFilter { get; private set; }
 
-    public bool IsDeleted { get; private set; }
+    /// <summary>
+    /// Has the sheet been deleted? Set by <see cref="XLWorksheets.Delete(int)"/>, the one door a
+    /// sheet is deleted through.
+    /// </summary>
+    public bool IsDeleted { get; internal set; }
 
     #region IXLWorksheet Members
 
@@ -264,15 +268,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public string Name
     {
         get => _name;
-        set
-        {
-            if (_name == value) return;
-
-            XLHelper.ValidateSheetName(value);
-
-            Workbook.WorksheetsInternal.Rename(_name, value);
-            _name = value;
-        }
+        // Rename writes the field itself, so the collection's key and the sheet's name change
+        // together, before any listener hears of the rename.
+        set => Workbook.WorksheetsInternal.Rename(this, value, ref _name);
     }
 
     public int Position
@@ -284,11 +282,17 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 throw new ArgumentOutOfRangeException(nameof(value),
                     "Index must be equal or less than the number of worksheets + 1.");
 
+            // An unsupported sheet, such as a chartsheet, has a place in the tab order too. It moves
+            // with the modelled sheets, as it does on an add and a delete, or two sheets would end up
+            // sharing a position.
             if (value < _position)
             {
                 Workbook.WorksheetsInternal
                     .Where<XLWorksheet>(w => w.Position >= value && w.Position < _position)
                     .ForEach(w => w._position += 1);
+                Workbook.UnsupportedSheets
+                    .Where(s => s.Position >= value && s.Position < _position)
+                    .ForEach(s => s.Position += 1);
             }
 
             if (value > _position)
@@ -296,6 +300,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 Workbook.WorksheetsInternal
                     .Where<XLWorksheet>(w => w.Position <= value && w.Position > _position)
                     .ForEach(w => (w)._position -= 1);
+                Workbook.UnsupportedSheets
+                    .Where(s => s.Position <= value && s.Position > _position)
+                    .ForEach(s => s.Position -= 1);
             }
 
             _position = value;
@@ -610,13 +617,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return this;
     }
 
-    public void Delete()
-    {
-        IsDeleted = true;
-        Workbook.DefinedNamesInternal.OnWorksheetDeleted(Name);
-        Workbook.NotifyWorksheetDeleting(this);
-        Workbook.WorksheetsInternal.Delete(Name);
-    }
+    public void Delete() => Workbook.WorksheetsInternal.Delete(this);
 
 
     [Obsolete($"Use {nameof(DefinedName)} instead.")]
