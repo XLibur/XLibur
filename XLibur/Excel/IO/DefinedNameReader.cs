@@ -20,6 +20,7 @@ internal static class DefinedNameReader
     {
         if (workbook.DefinedNames == null) return;
 
+        var sheetsByPosition = SheetsByPosition(workbook, xlWorkbook);
         foreach (var definedName in workbook.DefinedNames.OfType<DefinedName>())
         {
             var name = definedName.Name;
@@ -32,7 +33,7 @@ internal static class DefinedNameReader
 
             if (name == "_xlnm.Print_Area")
             {
-                LoadPrintAreaSafe(definedName, xlWorkbook, localSheetId);
+                LoadPrintAreaSafe(definedName, xlWorkbook, SheetAt(sheetsByPosition, localSheetId));
             }
             else if (name == "_xlnm.Print_Titles")
             {
@@ -40,10 +41,27 @@ internal static class DefinedNameReader
             }
             else
             {
-                LoadNamedRange(definedName, xlWorkbook, name!, visible, localSheetId);
+                LoadNamedRange(definedName, xlWorkbook, name!, visible, localSheetId, sheetsByPosition);
             }
         }
     }
+
+    /// <summary>
+    /// The worksheet at each position of the file's <c>&lt;sheets&gt;</c> list, or null where the
+    /// position holds a sheet XLibur does not model, such as a chartsheet.
+    /// </summary>
+    /// <remarks>
+    /// A <c>localSheetId</c> is a position in that list, which counts every sheet (ECMA-376), and not
+    /// a <c>sheetId</c>. The two differ once a sheet has been inserted before others, since it keeps a
+    /// higher sheetId than theirs. Reading one as the other put a print area on the wrong sheet (D75).
+    /// </remarks>
+    private static List<XLWorksheet?> SheetsByPosition(Workbook workbook, XLWorkbook xlWorkbook)
+        => (workbook.Sheets?.Elements<Sheet>() ?? [])
+            .Select(s => xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == s.SheetId?.Value))
+            .ToList();
+
+    private static XLWorksheet? SheetAt(List<XLWorksheet?> sheetsByPosition, int localSheetId)
+        => localSheetId >= 0 && localSheetId < sheetsByPosition.Count ? sheetsByPosition[localSheetId] : null;
 
     internal static IEnumerable<string> ValidateDefinedNames(IEnumerable<string> definedNames)
     {
@@ -67,25 +85,24 @@ internal static class DefinedNameReader
             yield return sb.ToString();
     }
 
-    private static void LoadPrintAreaSafe(DefinedName definedName, XLWorkbook xlWorkbook, int localSheetId)
+    private static void LoadPrintAreaSafe(DefinedName definedName, XLWorkbook xlWorkbook, XLWorksheet? sheet)
     {
         try
         {
-            LoadPrintAreas(definedName, xlWorkbook, localSheetId);
+            LoadPrintAreas(definedName, xlWorkbook, sheet);
         }
         catch
         {
             // The print area text is a formula (e.g. OFFSET) that can't be
             // resolved to simple range references. Store the raw text so it
             // can be round-tripped on save.
-            var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
-            if (ws != null)
-                ((XLPrintAreas)ws.PageSetup.PrintAreas).FormulaReference = definedName.Text;
+            if (sheet != null)
+                ((XLPrintAreas)sheet.PageSetup.PrintAreas).FormulaReference = definedName.Text;
         }
     }
 
     private static void LoadNamedRange(DefinedName definedName, XLWorkbook xlWorkbook, string name, bool visible,
-        int localSheetId)
+        int localSheetId, List<XLWorksheet?> sheetsByPosition)
     {
         var text = definedName.Text;
         var comment = definedName.Comment;
@@ -97,21 +114,25 @@ internal static class DefinedNameReader
         }
         else
         {
-            if (xlWorkbook.Worksheet(localSheetId + 1).DefinedNames.All(nr => nr.Name != name))
-                ((XLDefinedNames)xlWorkbook.Worksheet(localSheetId + 1).DefinedNames).Add(name, text, comment,
-                    validateName: false, validateRangeAddress: false).Visible = visible;
+            // A name scoped to a sheet XLibur does not model, such as a chartsheet, has nowhere to go,
+            // and fails the load as it did before the scope was read from the file's list. Whether to
+            // keep such a name instead is a decision of its own.
+            var sheet = SheetAt(sheetsByPosition, localSheetId)
+                        ?? throw new ArgumentException("There isn't a worksheet associated with that position.");
+            if (sheet.DefinedNames.All<XLDefinedName>(nr => nr.Name != name))
+                sheet.DefinedNames.Add(name, text, comment, validateName: false, validateRangeAddress: false)
+                    .Visible = visible;
         }
     }
 
-    private static void LoadPrintAreas(DefinedName definedName, XLWorkbook xlWorkbook, int localSheetId)
+    private static void LoadPrintAreas(DefinedName definedName, XLWorkbook xlWorkbook, XLWorksheet? sheet)
     {
         var fixedNames = ValidateDefinedNames(definedName.Text.Split(','));
         foreach (var area in fixedNames)
         {
             if (area.Contains('['))
             {
-                var ws = xlWorkbook.WorksheetsInternal.FirstOrDefault<XLWorksheet>(w => w.SheetId == (localSheetId + 1));
-                ws?.PageSetup.PrintAreas.Add(area);
+                sheet?.PageSetup.PrintAreas.Add(area);
             }
             else
             {
