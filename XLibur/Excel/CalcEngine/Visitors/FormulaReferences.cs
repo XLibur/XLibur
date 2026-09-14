@@ -38,22 +38,28 @@ internal sealed class FormulaReferences
 
     /// <summary>
     /// Collects the references of <paramref name="formula"/>, or answers <c>false</c> and hands back
-    /// why in <paramref name="failure"/>: the parser's own exception, or an
-    /// <see cref="ExpressionParseException"/> for an error value <see cref="XLError"/> has no member
-    /// for. A formula that fails half way through leaves a partly filled collector behind, so the
-    /// failure yields an empty one rather than that.
+    /// why in <paramref name="failure"/>. Either the parser refused the text, and the failure carries
+    /// the parser's exception inside it; or the text holds an error value <see cref="XLError"/> has
+    /// no member for. A formula that fails half way through leaves a partly filled collector behind,
+    /// so the failure yields an empty one rather than that.
     /// </summary>
     internal static bool TryForFormula(string formula, out FormulaReferences references,
-        [NotNullWhen(false)] out Exception? failure)
+        [NotNullWhen(false)] out ExpressionParseException? failure)
     {
         var collected = new FormulaReferences();
         try
         {
-            FormulaParser<object?, object?, FormulaReferences>.CellFormulaA1(formula, collected,
-                CollectRefsFactory.Instance);
+            if (!FormulaText.TryWalk(formula, collected, CollectRefsFactory.Instance, FormulaNotation.A1, out _,
+                    out var refusal))
+            {
+                references = new FormulaReferences();
+                failure = refusal.ToException();
+                return false;
+            }
         }
-        catch (Exception ex) when (ex is ParsingException or ExpressionParseException)
+        catch (ExpressionParseException ex)
         {
+            // Thrown by the collector itself, not the parser: an error value XLError has no member for.
             references = new FormulaReferences();
             failure = ex;
             return false;

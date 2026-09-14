@@ -425,10 +425,9 @@ internal sealed class NameNode : ValueNode
         if (!TryGetNameRange(worksheet, out var definedName))
             return XLError.NameNotRecognized;
 
-        // Parser needs an equal sign for a union of ranges (or braces around formula)
-        var nameFormula = definedName.RefersTo;
-        nameFormula = nameFormula.StartsWith('=') ? nameFormula : "=" + nameFormula;
-        return engine.EvaluateName(nameFormula, ctxWs);
+        // A defined name holds formula text, which has no leading '='. Passing the name's own string
+        // also lets every use of the name share one parse: the engine caches parses by string identity.
+        return engine.EvaluateName(definedName.RefersTo, ctxWs);
     }
 
     internal bool TryGetNameRange(IXLWorksheet ws, [NotNullWhen(true)] out IXLDefinedName? definedName)

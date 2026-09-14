@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
-using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
@@ -111,7 +111,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
             var formula = value.TrimFormulaEqual();
             var fixedFunctionsFormula =
-                FormulaTransformation.FixFutureFunctions(formula, Worksheet.Name, SheetRange.FirstPoint);
+                FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetRange.FirstPoint);
             var arrayFormula = XLCellFormula.Array(fixedFunctionsFormula, range, false);
 
             var formulaSlice = Worksheet.Internals.CellsCollection.FormulaSlice;

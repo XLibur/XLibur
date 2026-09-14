@@ -305,23 +305,39 @@ internal sealed class CalcContext : IStructuredReferenceScope
         }
 
         yield break;
+    }
 
-        static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)
+    /// <summary>
+    /// The nesting check that <see cref="GetFilteredNonBlankValues"/> applies to each cell, for one
+    /// formula on its own: would a SUBTOTAL or AGGREGATE over a cell holding
+    /// <paramref name="formulaA1"/> skip that cell?
+    /// </summary>
+    internal static bool IsSkippedByNestingCheck(string formulaA1, string[] functions)
+        => CallsFunction(XLCellFormula.NormalA1(formulaA1), new FunctionVisitor(functions));
+
+    private static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)
+    {
+        if (formula is null)
+            return false;
+
+        if (!visitor.MightBeCalledBy(formula.A1))
+            return false;
+
+        // A refused formula does not call SUBTOTAL as far as anyone can tell, so its cell counts; the
+        // text is not searched for the name instead. The parse may have stopped after it saw a call,
+        // so the flag is cleared on this path too.
+        if (!FormulaText.TryWalk(formula.A1, visitor, visitor, FormulaNotation.A1, out _, out _))
         {
-            if (formula is null)
-                return false;
-
-            if (!visitor.MightBeCalledBy(formula.A1))
-                return false;
-
-            FormulaParser<object?, object?, FunctionVisitor>.CellFormulaA1(formula.A1, visitor, visitor);
-            if (!visitor.Found)
-                return false;
-
-            // To reuse same visitor without allocation, clear the found flag.
             visitor.Clear();
-            return true;
+            return false;
         }
+
+        if (!visitor.Found)
+            return false;
+
+        // To reuse same visitor without allocation, clear the found flag.
+        visitor.Clear();
+        return true;
     }
 
     /// <summary>

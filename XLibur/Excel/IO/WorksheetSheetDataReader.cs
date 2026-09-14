@@ -8,7 +8,7 @@ using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
-using XLibur.Excel.CalcEngine.Visitors;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.RichText;
 using XLibur.Extensions;
@@ -1047,13 +1047,20 @@ internal static class WorksheetSheetDataReader
             formula = XLCellFormula.NormalA1(formulaText);
             formulaSlice.SetDuringLoad(cellAddress, formula);
 
-            var formulaR1C1 = FormulaTransformation.SafeToR1C1(formulaText, cellAddress.Row, cellAddress.Column);
+            // Loading a shared formula is a public edge: a refused formula reaches the caller as
+            // ExpressionParseException.
+            if (!FormulaText.TryConvert(formulaText, cellAddress, FormulaNotation.R1C1, out var formulaR1C1,
+                    out var refusal))
+                throw refusal.ToException();
+
             sharedFormulasR1C1.Add(sharedIndex, formulaR1C1);
         }
         else
         {
-            var sharedFormulaA1 =
-                FormulaTransformation.SafeToA1(sharedR1C1Formula, cellAddress.Row, cellAddress.Column);
+            if (!FormulaText.TryConvert(sharedR1C1Formula, cellAddress, FormulaNotation.A1, out var sharedFormulaA1,
+                    out var refusal))
+                throw refusal.ToException();
+
             formula = XLCellFormula.NormalA1(sharedFormulaA1);
             formulaSlice.SetDuringLoad(cellAddress, formula);
         }

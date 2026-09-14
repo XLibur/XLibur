@@ -791,10 +791,7 @@ internal static class Lookup
         return XLError.CellReference;
     }
 
+    // A defined name holds formula text, which has no leading '='.
     private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
-    {
-        var nameFormula = definedName.RefersTo;
-        nameFormula = nameFormula.StartsWith('=') ? nameFormula : "=" + nameFormula;
-        return ctx.CalcEngine.EvaluateName(nameFormula, ctx.Worksheet);
-    }
+        => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx.Worksheet);
 }

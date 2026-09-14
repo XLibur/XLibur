@@ -30,14 +30,6 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
             var xxValues = xx.Values.Values.Where(v => v is not null and not { IsFormula: true }).Select(v => v.Value);
             var yyValues = yy.Values.Values.Where(v => v is not null and not { IsFormula: true }).Select(v => v.Value);
-            var xxFormulas = x.Ranges.Count > 0
-                ? xx.Values.Values.Where(v => v is { IsFormula: true }).Select(f =>
-                    ((XLCell)x.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value))
-                : null;
-            var yyFormulas = y.Ranges.Count > 0
-                ? yy.Values.Values.Where(v => v is { IsFormula: true }).Select(f =>
-                    ((XLCell)y.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value))
-                : null;
 
             var xStyle = xx.StyleValue;
             var yStyle = yy.StyleValue;
@@ -58,12 +50,22 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                    && xx.BarAxisPosition == yy.BarAxisPosition
                    && xx.BarAxisColor == yy.BarAxisColor
                    && _listComparer.Equals(xxValues, yyValues)
-                   && _listComparer.Equals(xxFormulas, yyFormulas)
+                   && FormulasAreEqual(xx, yy)
                    && _colorsComparer.Equals(xx.Colors, yy.Colors)
                    && _contentsTypeComparer.Equals(xx.ContentTypes, yy.ContentTypes)
                    && _iconSetTypeComparer.Equals(xx.IconSetOperators, yy.IconSetOperators)
                    && (!_compareRange || Equals(xx.Ranges, yy.Ranges));
         }
+
+        /// <summary>
+        /// Do two formats hold the same formulas, each relative to its own first cell? A format that
+        /// holds a formula the parser refuses equals no other: the references in that formula are
+        /// unknown, so nothing says the two hold the same one, and consolidation never merges it.
+        /// </summary>
+        private bool FormulasAreEqual(XLConditionalFormat x, XLConditionalFormat y)
+            => TryGetRelativeFormulas(x, out var xFormulas)
+               && TryGetRelativeFormulas(y, out var yFormulas)
+               && _listComparer.Equals(xFormulas, yFormulas);
 
         public int GetHashCode(IXLConditionalFormat obj)
         {
@@ -71,11 +73,16 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             var xValues = xx.Values.Values
                 .Where(v => v is not null and not { IsFormula: true })
                 .Select(v => v.Value);
+
+            // A refused formula is hashed as it is written. A format holding one equals only itself,
+            // so a value that does not change keeps the hash consistent with Equals.
             if (obj.Ranges.Count > 0)
-                xValues = xValues
-                    .Union(xx.Values.Values
-                        .Where(v => v is { IsFormula: true })
-                        .Select(f => ((XLCell)obj.Ranges.First().FirstCell()).GetFormulaR1C1(f.Value)));
+            {
+                IEnumerable<string> formulas = TryGetRelativeFormulas(xx, out var relative) && relative is not null
+                    ? relative
+                    : xx.Values.Values.Where(v => v is { IsFormula: true }).Select(v => v.Value);
+                xValues = xValues.Union(formulas);
+            }
 
             unchecked
             {
@@ -102,9 +109,48 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                 return hashCode;
             }
         }
+
+        /// <summary>
+        /// The format's formulas in R1C1, relative to its first cell, or <c>null</c> when it has no
+        /// range.
+        /// </summary>
+        /// <returns><c>false</c> when the parser refuses one of the formulas.</returns>
+        private static bool TryGetRelativeFormulas(XLConditionalFormat format, out List<string>? formulas)
+        {
+            if (format.Ranges.Count == 0)
+            {
+                formulas = null;
+                return true;
+            }
+
+            var anchor = (XLCell)format.Ranges.First().FirstCell();
+            formulas = [];
+            foreach (var value in format.Values.Values)
+            {
+                if (value is not { IsFormula: true })
+                    continue;
+
+                if (!anchor.TryGetFormulaR1C1(value.Value, out var r1c1, out _))
+                    return false;
+
+                formulas.Add(r1c1);
+            }
+
+            return true;
+        }
     }
 
-    internal void AdjustFormulas(XLCell baseCell, XLCell targetCell)
+    /// <summary>
+    /// Re-points each formula from <paramref name="baseCell"/> to <paramref name="targetCell"/>.
+    /// </summary>
+    /// <param name="baseCell">The cell the formulas are written relative to.</param>
+    /// <param name="targetCell">The cell to write them relative to.</param>
+    /// <param name="leaveRefusedUnchanged">
+    /// What a formula the parser refuses means to the caller. Copying a format is a public edge, and
+    /// there it throws <c>ExpressionParseException</c>, as copying a cell does. Consolidation leaves
+    /// it exactly as it is (ADR 0002): its references are unknown, so there is nothing to re-point.
+    /// </param>
+    internal void AdjustFormulas(XLCell baseCell, XLCell targetCell, bool leaveRefusedUnchanged = false)
     {
         var keys = Values.Keys.ToList();
         foreach (var key in keys)
@@ -112,9 +158,16 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             if (Values[key] == null || !Values[key].IsFormula)
                 continue;
 
-            // ReSharper disable once InconsistentNaming
-            var r1c1 = baseCell.GetFormulaR1C1(Values[key].Value);
-            Values[key] = new XLFormula { _value = targetCell.GetFormulaA1(r1c1), IsFormula = true };
+            if (!baseCell.TryGetFormulaR1C1(Values[key].Value, out var r1c1, out var refusal)
+                || !targetCell.TryGetFormulaA1(r1c1, out var a1, out refusal))
+            {
+                if (leaveRefusedUnchanged)
+                    continue;
+
+                throw refusal.ToException();
+            }
+
+            Values[key] = new XLFormula { _value = a1, IsFormula = true };
         }
     }
 

@@ -157,7 +157,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     private static Exception? RejectionOf(string formula, string paramName, out FormulaReferences references)
     {
         if (!FormulaReferences.TryForFormula(formula, out references, out var failure))
-            return failure as ExpressionParseException ?? new ExpressionParseException(failure.Message, failure);
+            return failure;
 
         if (references.References.Count > 0)
         {
@@ -217,17 +217,20 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             }
         }
 
-        // Re-pointing the formula at the target sheet needs a parse, which a formula that was never
-        // parsed cannot survive — SafeModifyA1 does not swallow the parser's exception, so the copy
-        // used to fault, and so did the whole-worksheet copy that reaches this. Such a name is copied
-        // verbatim: the copy is as broken as the original, which is the only honest answer for text
-        // whose meaning was never established.
+        // Only a formula this library accepted is re-pointed at the target sheet, just as rename, delete
+        // and shift re-point only such a formula. Any other text is copied verbatim: the copy is as
+        // broken as the original, which is the only honest answer for text whose meaning was never
+        // established. That covers a formula the parser reads but this library rejects, such as one
+        // with a reference that has no sheet, and a formula the parser refuses (ADR 0002).
+        var modifier = new RenameRefModVisitor
+        {
+            Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
+            Tables = tableRenames,
+        };
         var copiedFormula = _isFormulaUnderstood
-            ? FormulaTransformation.SafeModifyA1(_formula, sheet.Name, 1, 1, new RenameRefModVisitor
-            {
-                Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
-                Tables = tableRenames,
-            })
+                            && FormulaText.TryRewrite(_formula, sheet.Name, new Point(1, 1), modifier,
+                                out var rewritten, out _)
+            ? rewritten
             : _formula;
 
         var copiedName = new XLDefinedName(targetSheet.DefinedNames, Name, false, copiedFormula, Comment,
@@ -309,10 +312,16 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         if (!_references.ContainsSheet(oldSheetName))
             return;
 
-        var modified = FormulaTransformation.SafeModifyA1(_formula, newSheetName ?? string.Empty, 1, 1, new RenameRefModVisitor
+        var modifier = new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
-        });
+        };
+
+        // A refused formula is left as it is (ADR 0002). None reaches this line: a refused formula's
+        // references are unknown, so none of them names the old sheet.
+        if (!FormulaText.TryRewrite(_formula, newSheetName ?? string.Empty, new Point(1, 1), modifier,
+                out var modified, out _))
+            return;
 
         SetRefersToUnchecked(modified);
     }
