@@ -13,8 +13,6 @@ namespace XLibur.Excel;
 [DebuggerDisplay("{_name}:{_formula}")]
 internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 {
-    private const string RefError = "#REF!";
-
     private readonly XLDefinedNames _container;
     private string _name;
     private string _formula = null!;
@@ -271,68 +269,59 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         RefersTo = _formula + "," + string.Join(",", ranges.Select(RangeToFixed));
     }
 
+    /// <summary>
+    /// The sheet is renamed wherever the formula names it: in a reference, a sheet-qualified name
+    /// (<c>Data!Local</c>) and either end of a 3D reference. The <c>rename-*</c> fixture shows Excel
+    /// renaming all of them, at every scope (D55).
+    /// </summary>
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {
-        RenameFormulaSheet(oldSheetName, newSheetName);
+        RewriteFormula(SheetRewrite.Rename(oldSheetName, newSheetName), newSheetName);
     }
 
     /// <summary>
-    /// A reference to the deleted sheet becomes <c>#REF!</c>.
+    /// A reference to the deleted sheet becomes <c>#REF!</c>, at every scope, as Excel does. The
+    /// <c>delete-*</c> fixture turns a name scoped to another sheet into <c>#REF!</c> (D54), and the
+    /// <c>refdelete-*</c> fixture turns a reference a row delete had already broken, <c>Data!#REF!</c>,
+    /// into a plain <c>#REF!</c> (D56). A 3D reference narrows instead, and a reference to a name that
+    /// outlives the sheet points at that name in this workbook (see <see cref="SheetRewrite"/>).
     /// </summary>
     /// <remarks>
-    /// Only a workbook-scoped name is changed, which is all that <c>IXLWorksheet.Delete()</c> changed
-    /// before a delete had one door. A sheet-scoped name keeps pointing at the deleted sheet (D54).
-    /// Spec 55 task 3 removes this scope check, once Excel-authored fixtures say what a name at each
-    /// scope becomes.
+    /// A name scoped to the deleted sheet is rewritten too. It goes with its sheet, unless something
+    /// outside the sheet refers to it; then it moves to workbook scope with the text this leaves it
+    /// (see <see cref="XLDefinedNames.FindNamesOutlivingSheet"/>).
     /// </remarks>
     void IWorkbookListener.OnSheetDeleting(string sheetName)
     {
-        if (_container.Scope != XLNamedRangeScope.Workbook)
-            return;
-
-        RenameFormulaSheet(sheetName, null);
-        DropSheetPrefixOfRefError(sheetName);
+        RewriteFormula(SheetRewrite.Delete(_container.Workbook, sheetName), string.Empty);
     }
 
     /// <summary>
-    /// A reference that a row or column deletion has already reduced to <c>#REF!</c> keeps its sheet
-    /// prefix (<c>'Sheet 1'!#REF!</c>), which is what Excel does while the sheet still exists. The
-    /// parser reports that prefix as part of an error node rather than as a sheet reference, so
-    /// <see cref="RenameFormulaSheet"/> never sees it and the prefix would outlive the sheet it names.
-    /// Excel treats a defined name pointing at an absent sheet as a broken file, so drop the prefix and
-    /// leave the bare <c>#REF!</c> that the rest of the deleted-sheet handling produces.
-    /// <para>
-    /// This is a text match rather than a reference walk, which is only sound on a formula that was
-    /// parsed and accepted. On one that was not, the same characters are a coincidence and not a
-    /// reference, so an unusable name keeps the text it was loaded with.
-    /// </para>
+    /// Adds to <paramref name="found"/> each of <paramref name="names"/> that the formula refers to as a
+    /// name scoped to <paramref name="sheetName"/>. A formula this library did not accept refers to
+    /// nothing it can tell.
     /// </summary>
-    private void DropSheetPrefixOfRefError(string worksheetName)
+    internal void CollectReferencesToNames(string sheetName, IReadOnlySet<string> names, ISet<string> found)
+    {
+        if (_isFormulaUnderstood)
+            SheetRewrite.CollectNamesReferredTo(_formula, sheetName, names, found);
+    }
+
+    /// <summary>
+    /// Rewrites the formula the way <paramref name="rewrite"/> says. Only a formula this library
+    /// accepted is rewritten. One the parser refuses keeps its text (ADR 0002), and so does one the
+    /// parser reads but this library rejects: its references were never established, so they are not
+    /// this library's to re-point.
+    /// </summary>
+    /// <param name="rewrite">What the rename or the delete does to formula text.</param>
+    /// <param name="formulaSheetName">The sheet the parser reads the formula as being on.</param>
+    private void RewriteFormula(SheetRewrite rewrite, string formulaSheetName)
     {
         if (!_isFormulaUnderstood)
             return;
 
-        var prefixedRefError = worksheetName.EscapeSheetName() + "!" + RefError;
-        if (!_formula.Contains(prefixedRefError, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        SetRefersToUnchecked(_formula.Replace(prefixedRefError, RefError, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void RenameFormulaSheet(string oldSheetName, string? newSheetName)
-    {
-        if (!_references.ContainsSheet(oldSheetName))
-            return;
-
-        var modifier = new RenameRefModVisitor
-        {
-            Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
-        };
-
-        // A refused formula is left as it is (ADR 0002). None reaches this line: a refused formula's
-        // references are unknown, so none of them names the old sheet.
-        if (!FormulaText.TryRewrite(_formula, newSheetName ?? string.Empty, new Point(1, 1), modifier,
-                out var modified, out _))
+        if (!rewrite.TryRewrite(_formula, formulaSheetName, new Point(1, 1), out var modified)
+            || modified == _formula)
             return;
 
         SetRefersToUnchecked(modified);

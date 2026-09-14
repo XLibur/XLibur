@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
@@ -224,6 +225,82 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             return Workbook.Range(rangeAddress);
 
         throw new NotSupportedException($"Scope {Scope} is not supported");
+    }
+
+    /// <summary>
+    /// The names of this sheet-scoped collection that outlive its sheet, while the sheet is being
+    /// deleted, and empty otherwise. <see cref="XLWorksheets.Delete(int)"/> finds them before any holder
+    /// hears of the delete (see <see cref="FindNamesOutlivingSheet"/>), and every holder's rewrite reads
+    /// them (see <see cref="SheetRewrite"/>).
+    /// </summary>
+    internal IReadOnlySet<string> NamesOutlivingSheet { get; private set; } = new HashSet<string>();
+
+    /// <summary>
+    /// Finds the names scoped to this collection's sheet that outlive the sheet when it is deleted, and
+    /// keeps them in <see cref="NamesOutlivingSheet"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Excel keeps a name scoped to a deleted sheet only if something refers to it. The
+    /// <c>scoped-delete-*</c> fixture shows it: <c>Used</c>, which the cell formula <c>Other!A1</c>
+    /// refers to, was kept, and <c>Alone</c> and <c>Clash</c>, which nothing refers to, went with the
+    /// sheet. In <c>delete-*</c> the name <c>Local</c>, which the name <c>Q</c> refers to, was kept, and
+    /// the print area went. A kept name moves to workbook scope (see <see cref="AdoptFromDeletedSheet"/>),
+    /// and a reference to it, <c>Data!Used</c>, becomes <c>[0]!Used</c>.
+    /// </para>
+    /// <para>
+    /// Two cases are unverified. Each follows the call recorded in spec 55's Results, and a test says
+    /// so. Only cell formulas on the other sheets and defined names count as referring to a name: a
+    /// conditional format, a chart or any other holder does not keep one alive. And a name that a
+    /// workbook-scoped name already holds is not kept: the workbook-scoped one is left as it is, and a
+    /// reference to the sheet-scoped one becomes <c>#REF!</c> like any other reference to the sheet.
+    /// </para>
+    /// </remarks>
+    internal void FindNamesOutlivingSheet()
+    {
+        var sheet = Worksheet;
+        var found = new HashSet<string>(XLHelper.NameComparer);
+        NamesOutlivingSheet = found;
+        if (sheet is null)
+            return;
+
+        var candidates = new HashSet<string>(XLHelper.NameComparer);
+        foreach (var name in _namedRanges.Keys)
+        {
+            if (!Workbook.DefinedNamesInternal.TryGetScopedValue(name, out _))
+                candidates.Add(name);
+        }
+
+        if (candidates.Count == 0)
+            return;
+
+        foreach (var other in Workbook.WorksheetsInternal)
+        {
+            if (other == sheet)
+                continue;
+
+            other.Internals.CellsCollection.CollectReferencesToNames(sheet.Name, candidates, found);
+            foreach (var definedName in other.DefinedNames)
+                definedName.CollectReferencesToNames(sheet.Name, candidates, found);
+        }
+
+        foreach (var definedName in Workbook.DefinedNamesInternal)
+            definedName.CollectReferencesToNames(sheet.Name, candidates, found);
+    }
+
+    /// <summary>
+    /// Moves <paramref name="definedName"/>, a name scoped to a sheet being deleted, into this
+    /// workbook-scoped collection, with the text the delete left it (see
+    /// <see cref="FindNamesOutlivingSheet"/>). In both Excel fixtures that text is <c>#REF!</c>.
+    /// </summary>
+    internal void AdoptFromDeletedSheet(XLDefinedName definedName)
+    {
+        var adopted = new XLDefinedName(this, definedName.Name, validateName: false, formula: definedName.RefersTo,
+            comment: definedName.Comment, acceptUnusableFormula: true)
+        {
+            Visible = definedName.Visible,
+        };
+        _namedRanges.Add(adopted.Name, adopted);
     }
 
     public void Delete(string name)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
@@ -168,6 +169,34 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             }
 
             Values[key] = new XLFormula { _value = a1, IsFormula = true };
+        }
+    }
+
+    /// <summary>
+    /// Rewrites each formula of the format the way <paramref name="rewrite"/> says, for a sheet rename
+    /// or delete: an expression, and a scale's value whose type is <see cref="XLCFContentType.Formula"/>.
+    /// Such a value keeps no <c>=</c>, so it is a formula by its type rather than by
+    /// <see cref="XLFormula.IsFormula"/>. A formula the parser refuses keeps its text (ADR 0002).
+    /// </summary>
+    /// <param name="formulaSheetName">The sheet the format is on.</param>
+    /// <param name="rewrite">What the rename or the delete does to formula text.</param>
+    internal void RewriteSheet(string formulaSheetName, SheetRewrite rewrite)
+    {
+        foreach (var key in Values.Keys.ToList())
+        {
+            var formula = Values[key];
+            var isFormula = formula is not null
+                            && (formula.IsFormula
+                                || (ContentTypes.TryGetValue(key, out var type) && type == XLCFContentType.Formula));
+            if (!isFormula)
+                continue;
+
+            // The rewrite does not move a reference, so any origin reads the formula the same way.
+            if (!rewrite.TryRewrite(formula!.Value, formulaSheetName, new Point(1, 1), out var rewritten)
+                || rewritten == formula.Value)
+                continue;
+
+            Values[key] = new XLFormula { _value = rewritten, IsFormula = formula.IsFormula };
         }
     }
 

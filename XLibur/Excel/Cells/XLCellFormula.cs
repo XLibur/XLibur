@@ -488,35 +488,24 @@ internal sealed class XLCellFormula
     }
 
     public void RenameSheet(Point origin, string oldSheetName, string newSheetName)
-        => RewriteSheet(origin, newSheetName, oldSheetName, newSheetName);
+        => RewriteSheet(origin, newSheetName, SheetRewrite.Rename(oldSheetName, newSheetName));
 
     /// <summary>
-    /// Rewrites every reference to <paramref name="deletedSheetName"/> to <c>#REF!</c>, as Excel does
-    /// when that sheet is deleted, so that a sheet added later under the same name is not bound to
-    /// this formula.
+    /// Rewrites every reference to a renamed or deleted sheet the way <paramref name="rewrite"/> says.
+    /// On a delete that is what Excel does, so that a sheet added later under the same name is not
+    /// bound to this formula (see <see cref="SheetRewrite"/>).
     /// </summary>
     /// <param name="origin">The cell the formula is in.</param>
-    /// <param name="hostSheetName">The sheet the formula is on.</param>
-    /// <param name="deletedSheetName">The sheet being deleted.</param>
-    internal void DeleteSheet(Point origin, string hostSheetName, string deletedSheetName)
-        => RewriteSheet(origin, hostSheetName, deletedSheetName, null);
-
-    /// <param name="origin">The cell the formula is in.</param>
     /// <param name="formulaSheetName">The sheet the parser reads the formula as being on.</param>
-    /// <param name="oldSheetName">The sheet renamed or deleted.</param>
-    /// <param name="newSheetName">Its new name, or <c>null</c> when it is deleted.</param>
-    private void RewriteSheet(Point origin, string formulaSheetName, string oldSheetName, string? newSheetName)
+    /// <param name="rewrite">What the rename or the delete does to formula text.</param>
+    internal void RewriteSheet(Point origin, string formulaSheetName, SheetRewrite rewrite)
     {
         var a1 = A1;
-        var modifier = new RenameRefModVisitor
-        {
-            Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
-        };
 
         // A refused formula is left exactly as it is (ADR 0002). Its references are unknown, so there is
         // nothing to re-point. Throwing would leave the rename or the delete half done, with some
         // holders changed and others not.
-        if (!FormulaText.TryRewrite(a1, formulaSheetName, origin, modifier, out var res, out _))
+        if (!rewrite.TryRewrite(a1, formulaSheetName, origin, out var res))
             return;
 
         if (res != a1)

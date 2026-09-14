@@ -137,6 +137,8 @@ Two further sheet-list defects (R):
 | Q34 | Deleting an endpoint sheet narrows a 3D reference, as in Excel. The narrowing lives in XLibur's rename visitor; the fork supplies the hook. |
 | Q35 | The fork change is this spec's task 0: one fork release, 4.0.0 (planned as 3.2.0; design §1 says why it changed). |
 | Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. On 2026-09-14 the owner replaced `chartsheet-name.xlsx` with an existing Excel-authored file (design §5), so three fixture pairs remain to make. |
+| Q55a | (2026-09-14) Spec 55 lands in two PRs. **Part 1:** tasks 0, 1, 2, 4, 7 and 8, which need no fixture. **Part 2:** tasks 3, 5 and 6, once the owner's fixtures exist, plus the rest of task 9. In part 1, a 3D reference that touches a deleted sheet is left unchanged (not collapsed to `#REF!`) until task 3 adds the narrowing (Q34). |
+| Q55b | (2026-09-14) Task 5 splits. Conditional formats, hyperlinks and print-area text go ahead with the fixtures. Data validation alone waits for spec 44. |
 
 ## Non-goals
 
@@ -262,9 +264,10 @@ same edit in XLibur, saves, and compares each holder's text with "after".
 
 | File | Build | Edit in Excel |
 |---|---|---|
-| `rename-before.xlsx` / `rename-after.xlsx` | Sheets `Data`, `Other`. `Data!A1:A3` = 1, 2, 3; `Data!B1:B3` = x, y, z; `Data!C1` = "S". On `Other`: `A1` = `=Data!A1*2`. `B1`: data validation, List, source `=Data!$A$1:$A$3`. `C1`: conditional format, "Use a formula", `=Data!$A$1>0`. `C2:C4`: a colour scale whose minimum is type *Formula*, `=Data!$A$1`. A column chart with one series: values `=Data!$A$1:$A$3`, categories `=Data!$B$1:$B$3`, name `=Data!$C$1`. A pivot table from source `Data!$A$1:$B$3`, after adding headers in row 1 and shifting the data down (so the source is `Data!$A$1:$B$4`). `D1`: a hyperlink, *Place in this document*, `Data!A1`. Names: `W` (workbook) `=Data!$A$1`; `L` (scope `Other`) `=Data!$A$1`; `Local` (scope `Data`) `=Data!$B$1`; `Q` (workbook) `=Data!Local`. On `Data`, a print area `=OFFSET(Data!$A$1,0,0,3,2)` (Name Manager → `Print_Area`, scope `Data`) | Rename `Data` to `Renamed` |
-| `delete-before.xlsx` / `delete-after.xlsx` | As `rename-before`, plus sheets `First` and `Last` placed so the tab order is `First`, `Data`, `Last`, `Other`, each with a number in `A1`. Names: `T1` (workbook) `=SUM(First:Last!$A$1)`; `T2` `=SUM(Data:Last!$A$1)` | Delete `First`, then delete `Data` |
-| `refdelete-before.xlsx` / `refdelete-after.xlsx` | Sheets `Data`, `Other`. Name `R` `=Data!$A$5`. Delete row 5 on `Data`, so `R` reads `=Data!#REF!`. Save this as "before" | Delete `Data` |
+| `rename-before.xlsx` / `rename-after.xlsx` | Sheets `Data`, `Other`. On `Data`, headers first so nothing shifts later: `A1` = "Num", `B1` = "Label"; `A2:A4` = 1, 2, 3; `B2:B4` = x, y, z; `D1` = "S" (column C left empty, so the pivot's range stops at B). On `Other`: `A1` = `=Data!A2*2`. `B1`: data validation, List, source `=Data!$A$2:$A$4`. `C1`: conditional format, "Use a formula", `=Data!$A$2>0`. `C2:C4`: a colour scale whose minimum is type *Formula*, `=Data!$A$2`. A column chart with one series: values `=Data!$A$2:$A$4`, categories `=Data!$B$2:$B$4`, name `=Data!$D$1`. A pivot table at `Other!$F$1` from source `Data!$A$1:$B$4` (a plain range, not a Table, and not added to the Data Model): `Label` in Rows, `Num` in Values. `D1`: a hyperlink, *Place in this document*, `Data!A2`. Names: `W` (workbook) `=Data!$A$2`; `L` (scope `Other`) `=Data!$A$2`; `Local` (scope `Data`) `=Data!$B$2`; `Q` (workbook) `=Data!Local`. On `Data`, a print area `=OFFSET(Data!$A$1,0,0,4,2)` (Name Manager → `Print_Area`, scope `Data`). *(Layout changed 2026-09-14: the earlier recipe inserted the header row afterwards, which shifted every other reference.)* | Rename `Data` to `Renamed` |
+| `delete-before.xlsx` / `delete-after.xlsx` | As `rename-before`, plus sheets `First` and `Last` placed so the tab order is `First`, `Data`, `Last`, `Other`, each with a number in `A1`. Names: `SumFirstLast` (workbook) `=SUM(First:Last!$A$1)`; `SumDataLast` (workbook) `=SUM(Data:Last!$A$1)`. *(Renamed 2026-09-14 from `T1`/`T2`, which Excel refuses because they are cell addresses.)* | Delete `First`, then delete `Data` |
+| `refdelete-before.xlsx` / `refdelete-after.xlsx` | Sheets `Data`, `Other`. Name `Broken` (workbook) `=Data!$A$5`. Delete row 5 on `Data`, so `Broken` reads `=Data!#REF!`. Save this as "before". *(Renamed 2026-09-14 from `R`, which Excel reserves for R1C1 notation.)* | Delete `Data` |
+| `scoped-delete-before.xlsx` / `scoped-delete-after.xlsx` *(added 2026-09-14, see Results)* | Sheets `Data`, `Other`. Names scoped to `Data`: `Alone` `=Data!$A$1`, which nothing refers to; `Used` `=Data!$B$1`, referred to by `Other!A1` = `=Data!Used`; `Clash` `=Data!$C$1`. Plus a workbook-scoped `Clash` `=Other!$B$1` | Delete `Data` |
 | ~~`chartsheet-name.xlsx`~~ **not needed** | Replaced by owner decision on 2026-09-14 with the existing Excel-authored `XLibur.Tests/Resource/Other/PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx`: worksheets `Data` and `Pivot`, chartsheet `Chart` | none — used to assert that `Add("Chart")` and renaming `Data` to `Chart` are refused |
 
 If Excel refuses an edit, or asks a question (for example, deleting a sheet that holds the pivot
@@ -383,3 +386,148 @@ scope. `fix:` for the rest.
 | **31** | worksheet part writers | None, unless task 5 finds the validation writer needs changing — then sequence after 31 |
 | **33** | `XLWorksheet.GetSheetListeners` | Done. 55 touches the workbook registry, not the sheet registry |
 | **14** | `CopyTo` | None. Copy is out of scope |
+
+## Results
+
+### Part 2 fixtures (owner, 2026-09-14)
+
+The owner made the three pairs in Excel desktop from the recipes in design §5, as amended that day
+(headers in row 1 of `Data`; names `SumFirstLast`, `SumDataLast` and `Broken`). They sit untracked in
+`XLibur.Tests/Resource/Other/SheetLifecycle/` until the part 2 PR commits them. What follows was read
+from the saved XML.
+
+**Gaps.**
+
+- **No data validation.** In `rename-*` and `delete-*`, `Other!B1` holds `=Data!$A$2:$A$4` as a
+  spilled array formula (`B1:B3`) instead of a list validation. Validation waits for spec 44 anyway
+  (Q55b), and needs its own fixture pair when it is dispatched. The `B1` formula stays, as one more
+  holder.
+- **Excel's prompt on delete** (owner, 2026-09-14): deleting `Data` in `delete-before.xlsx` showed
+  *"Excel found a problem with one or more formula references in this worksheet."* The owner
+  dismissed it and the delete went ahead. It is only a notice, and no choice changed what Excel
+  wrote. XLibur has no dialogs, so nothing corresponds to it; the fixtures record the result.
+
+**Rename `Data` to `Renamed`.**
+
+| Holder | Before | After |
+|---|---|---|
+| Cell formula `Other!A1` | `Data!A2*2` | `Renamed!A2*2` |
+| Spilled array formula `Other!B1` | `Data!$A$2:$A$4` | `Renamed!$A$2:$A$4` |
+| Conditional format, expression, `C1` (in the `x14` extension) | `Data!$A$2>0` | `Renamed!$A$2>0` |
+| Colour-scale `cfvo`, `C2:C4` (in the `x14` extension) | `Data!$A$2` | `Renamed!$A$2` |
+| Chart series name, categories, values | `Data!$D$1`, `Data!$B$2:$B$4`, `Data!$A$2:$A$4` | `Renamed!…`, all three |
+| Pivot cache `worksheetSource` | `sheet="Data" ref="A1:B4"` | `sheet="Renamed"` |
+| Hyperlink `D1` | `location="Data!A2"` | **unchanged** |
+| `W` (workbook), `L` (scope `Other`) | `Data!$A$2` | `Renamed!$A$2` |
+| `Local` (scope `Data`) | `Data!$B$2` | `Renamed!$B$2` |
+| `Q` (workbook) | `Data!Local` | `Renamed!Local` |
+| `Print_Area` (scope `Data`) | `OFFSET(Data!$A$1,0,0,4,2)` | `OFFSET(Renamed!$A$1,0,0,4,2)` |
+
+**Delete `First`, then `Data`** (tab order `First`, `Data`, `Last`, `Other`).
+
+| Holder | Before | After |
+|---|---|---|
+| Cell formula `Other!A1` | `Data!A2*2` | `#REF!*2` |
+| Spilled array formula `Other!B1` | `Data!$A$2:$A$4`, `ref="B1:B3"` | `#REF!`, `ref="B1"` |
+| Conditional format, expression | `Data!$A$2>0` | `#REF!>0` |
+| Colour-scale `cfvo` | `Data!$A$2` | `#REF!` |
+| Chart | three `c:f` | `c:val` → `#REF!`. The series name and categories leave `c:tx` and `c:cat` and move into `c15:filteredSeriesTitle` and `c15:filteredCategoryTitle` extensions, each `#REF!` |
+| Pivot cache `worksheetSource` | `sheet="Data" ref="A1:B4"` | **unchanged.** Cache, records and the pivot table on `Other` are all kept |
+| Hyperlink `D1` | `location="Data!A2"` | **unchanged** |
+| `W` (workbook), `L` (scope `Other`) | `Data!$A$2` | `#REF!` |
+| `Local` (scope `Data`) | `Data!$B$2` | **kept, as a workbook-scoped name**, `#REF!` |
+| `Q` (workbook) | `Data!Local` | **`[0]!Local`** |
+| `Print_Area` (scope `Data`) | `OFFSET(Data!$A$1,0,0,4,2)` | removed with the sheet |
+| `SumFirstLast` | `SUM(First:Last!$A$1)` | `SUM(Last!$A$1)` |
+| `SumDataLast` | `SUM(Data:Last!$A$1)` | `SUM(Last!$A$1)` |
+
+**Delete `Data` with a broken name** (`refdelete-*`): `Broken` goes from `Data!#REF!` to `#REF!`.
+
+**Delete `Data` with names scoped to it** (`scoped-delete-*`, made later the same day; the owner saw
+no prompt).
+
+| Holder | Before | After |
+|---|---|---|
+| `Alone` (scope `Data`), which nothing refers to | `Data!$A$1` | **removed** |
+| `Used` (scope `Data`), which `Other!A1` refers to | `Data!$B$1` | **kept, as a workbook-scoped name**, `#REF!` |
+| `Clash` (scope `Data`), which nothing refers to | `Data!$C$1` | **removed** |
+| `Clash` (workbook) | `Other!$B$1` | unchanged |
+| Cell formula `Other!A1` | `Data!Used` | **`[0]!Used`** |
+
+### What the fixtures change
+
+- **Hyperlinks need no adapter.** Excel leaves an internal link's location alone on rename and on
+  delete, and so does XLibur: D67 is not a defect. This is the recorded reason that acceptance
+  criterion 4 asks for.
+- **A deleted sheet's pivot cache is kept, with its stale source.** XLibur's save does the opposite:
+  it deletes every cache part whose source names the deleted sheet (`XLWorkbook_Save.cs:117`,
+  `:123-136`). Task 6 aligns it. On rename the source sheet is rewritten, as D66 says.
+- **Save deletes names by substring.** `DeleteDefinedNamesForSheet` (`XLWorkbook_Save.cs:119`,
+  `:145-157`) drops any name whose text contains `Data!`, which also matches a sheet called
+  `OtherData`. Excel keeps such a name and rewrites it to `#REF!`. Task 3 makes this agree with the
+  in-memory rewrite, or removes it if the rewrite has already made it dead.
+- **Q9 is refined: a name scoped to the deleted sheet survives only if something refers to it.**
+  `scoped-delete-*` decides it. `Alone` and the `Data`-scoped `Clash`, which nothing refers to, went
+  with the sheet, as `Print_Area` did in `delete-*`. `Used` (referred to by a cell formula) and `Local`
+  (referred to by the name `Q`) were kept. Each moved to workbook scope and reads `#REF!`. Every
+  reference to them became a reference to the name in this workbook: `Data!Used` became `[0]!Used`,
+  and `Data!Local` became `[0]!Local`.
+- **Still unverified, and not guessed:**
+  - a referred-to name whose name a workbook-scoped name already holds, because in `scoped-delete-*`
+    nothing referred to the `Data`-scoped `Clash`;
+  - whether a reference from a conditional format, a chart or another non-formula holder counts. The
+    fixtures show cell formulas and defined names only.
+- **Confirmed as predicted:** the narrowing of a 3D reference (Q34), including through two deletes to
+  a single sheet; `Sheet!#REF!` becoming `#REF!` (D56); and a name scoped to another sheet becoming
+  `#REF!` (D54). The broken-file claim in the comment at `XLDefinedName.cs:285-288` is wrong.
+
+**Conductor calls (2026-09-14), open to the owner to overturn.**
+
+- **A chart on delete is rewritten in place.** Each `c:f` becomes `#REF!`. XLibur does not
+  reproduce Excel's move of the series name and categories into `c15:filtered*` extensions. The text
+  matches Excel's; the XML structure does not.
+- **A spilled array formula's range is not rewritten.** Excel's `ref` shrinks from `B1:B3` to `B1`
+  because the result became a single error. That is recalculation, not reference rewriting. The tests
+  compare formula text only.
+- **For the two unverified cases, the rule stays narrow.**
+  - Only cell formulas on the surviving sheets and defined names count as referring to a name.
+  - If a workbook-scoped name already holds the name, the workbook-scoped name is left untouched, the
+    sheet-scoped one goes, and references to it become `#REF!`.
+  - Each case is pinned by a test that names this as unverified. A further fixture would settle it.
+
+### Part 2 implementation (branch `fix/55-sheet-lifecycle-part-2`, 2026-09-14)
+
+**How it was built.**
+
+- **One rewrite, `SheetRewrite.cs`, used by cells, names and every adapter.** The parser hook cannot
+  produce two of Excel's forms: it writes `Last:Last!` where Excel writes `Last!`, and it cannot turn
+  `Data!Used` into `[0]!Used`. `SheetRewrite` splices both in, at positions the parser reports, and
+  only in text the parser accepted. A future parser hook would let the splicing go. `[0]!Name` was
+  checked end to end: it parses, evaluates to `#REF!` without throwing, and round-trips.
+- **Conditional formats in the `x14` extension.** XLibur does not model that extension, so the reader
+  keeps each rule's formula text by rule id, the listener rewrites it, and the writer puts it back.
+- **`DeleteDefinedNamesForSheet` was dead code,** because `WorkbookPartWriter` rebuilds
+  `<definedNames>` from the model straight afterwards. It is removed. A test pins that a name on
+  `OtherData` survives.
+- **Pivot cache:** save no longer deletes the cache part of a deleted sheet's source.
+
+**Where the fixtures limit the tests.**
+
+- **D75, a loader bug (#496),** puts `delete-before.xlsx`'s `Data` print area onto `Other` on load. It is
+  out of scope (a non-goal, candidate 04), so `Print_Area` is left out of that one comparison.
+- **`OpenXmlValidator`:** Excel's own `delete-before`, `delete-after` and `rename-before` already
+  fail it, on a chart extension and on a page-setup dpi of 0. The test asserts instead that a delete
+  adds no validation errors compared with an untouched save.
+
+**Inferred, not shown by any fixture.**
+
+- A print area on another sheet that refers to the deleted sheet becomes `#REF!`, under the D54 rule.
+- A surviving name keeps its rewritten text, so `Data!$A$1*2` becomes `#REF!*2`.
+- Narrowing counts worksheets in tab order and ignores chartsheets.
+
+**Not done.**
+
+- A ChartEx chart is rewritten in memory, but the patcher writes only its title (#497).
+- Conditional formats on pivot tables are not rewritten (#498).
+- A kept `x14` rule does not shift on a row or column insert. That predates this change (#499).
+- The pivot records writer omits `count`.

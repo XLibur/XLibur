@@ -223,12 +223,17 @@ internal static class ChartReader
     {
         foreach (var seriesElement in group.SeriesElements)
         {
-            var name = ExtractSeriesName(seriesElement.Elements<C.SeriesText>().FirstOrDefault());
+            var seriesText = seriesElement.Elements<C.SeriesText>().FirstOrDefault();
+            var name = ExtractSeriesName(seriesText);
             var (catRef, valRef) = group.IsXyBased
                 ? ExtractXyReferences(seriesElement)
                 : ExtractCategoryAndValueReferences(seriesElement);
 
             var series = (XLChartSeries)target.Add(name, valRef, catRef);
+
+            // The cell a name comes from, when it comes from a cell, so a sheet rename or delete can
+            // rewrite it. The name itself is the cached text read above.
+            series.SeedNameReference(seriesText?.Elements<C.StringReference>().FirstOrDefault()?.Formula?.Text);
             ChartSeriesFormatXml.Read(seriesElement, series, useSecondaryAxis);
             ChartDataLabelsXml.Read(
                 seriesElement.Elements<C.DataLabels>().FirstOrDefault(), series.DataLabelsInternal);

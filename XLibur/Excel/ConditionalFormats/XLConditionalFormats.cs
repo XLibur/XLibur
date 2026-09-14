@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
@@ -12,9 +14,22 @@ namespace XLibur.Excel.ConditionalFormats;
 /// a collection of <see cref="XLConditionalFormat"/>. Doesn't contain pivot table formats,
 /// they are in pivot table <see cref="XLPivotTable.ConditionalFormats"/>,
 /// </summary>
-internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListener
+internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListener, IWorkbookListener
 {
     private readonly List<IXLConditionalFormat> _conditionalFormats = [];
+
+    /// <summary>
+    /// The formula text of each <c>x14</c> rule this library keeps in the sheet's extension list but
+    /// does not model, by the rule's id, in the order the rule holds it.
+    /// </summary>
+    /// <remarks>
+    /// Excel writes a rule that refers to another sheet only in the <c>x14</c> extension (the
+    /// <c>rename-*</c> and <c>delete-*</c> fixtures). XLibur loads a data bar rule from there into the
+    /// model, and writes every other rule back as it was loaded, so this text is all of such a rule
+    /// that it holds. A sheet rename or delete rewrites it here, and the writer puts it back
+    /// (<c>ConditionalFormattingWriter</c>).
+    /// </remarks>
+    private readonly Dictionary<string, string[]> _extensionRuleFormulas = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly XLWorksheet _worksheet;
 
@@ -53,6 +68,22 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     {
         _conditionalFormats.RemoveAll(predicate);
     }
+
+    /// <summary>
+    /// Keeps the formula text of an <c>x14</c> rule this library does not model (see
+    /// <see cref="_extensionRuleFormulas"/>).
+    /// </summary>
+    internal void SeedExtensionRuleFormulas(string ruleId, string[] formulas)
+    {
+        _extensionRuleFormulas[ruleId] = formulas;
+    }
+
+    /// <summary>
+    /// The formula text of the unmodelled <c>x14</c> rule <paramref name="ruleId"/>, as a sheet rename
+    /// or delete has left it.
+    /// </summary>
+    internal bool TryGetExtensionRuleFormulas(string ruleId, [NotNullWhen(true)] out string[]? formulas)
+        => _extensionRuleFormulas.TryGetValue(ruleId, out formulas);
 
     #region ISheetListener
 
@@ -98,6 +129,42 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     }
 
     #endregion ISheetListener
+
+    #region IWorkbookListener
+
+    /// <summary>
+    /// The renamed sheet is renamed in every formula of every rule, modelled or kept as it was loaded:
+    /// an expression and a scale's formula value alike. The <c>rename-*</c> fixture shows Excel doing
+    /// so for both (D64).
+    /// </summary>
+    void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
+        => RewriteSheet(SheetRewrite.Rename(oldSheetName, newSheetName));
+
+    /// <summary>
+    /// A reference to the deleted sheet becomes <c>#REF!</c> in every formula of every rule. The
+    /// <c>delete-*</c> fixture shows Excel writing <c>#REF!&gt;0</c> for the expression and
+    /// <c>#REF!</c> for the scale's value (D64).
+    /// </summary>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
+        => RewriteSheet(SheetRewrite.Delete(_worksheet.Workbook, sheetName));
+
+    private void RewriteSheet(SheetRewrite rewrite)
+    {
+        foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>())
+            cf.RewriteSheet(_worksheet.Name, rewrite);
+
+        // The rewrite does not move a reference, so any origin reads the formula the same way.
+        foreach (var formulas in _extensionRuleFormulas.Values)
+        {
+            for (var i = 0; i < formulas.Length; i++)
+            {
+                if (rewrite.TryRewrite(formulas[i], _worksheet.Name, new Point(1, 1), out var rewritten))
+                    formulas[i] = rewritten;
+            }
+        }
+    }
+
+    #endregion IWorkbookListener
 
     /// <summary>
     /// The method consolidates the same conditional formats, which are located in adjacent ranges.

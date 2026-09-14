@@ -128,8 +128,8 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (prefix is not null)
         {
             // We don't support external references, so there is no way to depend on something
-            // in different workbook at the moment.
-            if (prefix.File is not null)
+            // in different workbook at the moment. Book index 0 is this workbook.
+            if (prefix.IsInOtherWorkbook)
                 return null;
 
             // 3D references are not supported yet, so don't propagate anything.
@@ -150,9 +150,18 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
     public List<SheetArea>? Visit(DependenciesContext context, NameNode node)
     {
-        // External references are not supported for names
-        if (node.Prefix?.File is not null)
+        // External references are not supported for names. Book index 0 is this workbook.
+        if (node.Prefix is { IsInOtherWorkbook: true })
             return null;
+
+        // [0]!Name is this workbook's workbook-scoped name, whatever sheet the formula is on.
+        if (node.Prefix is { IsThisWorkbookScope: true })
+        {
+            context.AddName(new XLName(node.Name));
+            return context.Workbook.DefinedNamesInternal.TryGetScopedValue(node.Name, out var thisBookName)
+                ? VisitName(thisBookName)
+                : null;
+        }
 
         var name = node.Prefix?.Sheet is { } sheetName
             ? new XLName(sheetName, node.Name)

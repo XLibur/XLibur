@@ -21,6 +21,9 @@ internal static class ConditionalFormattingWriter
         XLWorksheet xlWorksheet,
         SaveContext context)
     {
+        // Before the fast path: a sheet whose only rules are unmodelled x14 ones has no model rules.
+        WriteExtensionRuleFormulas(worksheet, xlWorksheet);
+
         // Fast path for the overwhelmingly common worksheet that carries no conditional
         // formatting at all. The general path below allocates a hash set, a cast iterator, a
         // concat iterator, an ordered sequence and a list before it can discover there is
@@ -95,6 +98,37 @@ internal static class ConditionalFormattingWriter
         }
 
         WriteExtensionDataBars(worksheet, cm, xlWorksheet, context);
+    }
+
+    /// <summary>
+    /// Writes back the formula text of each <c>x14</c> rule this library keeps but does not model,
+    /// where a sheet rename or delete has rewritten it (see
+    /// <see cref="XLConditionalFormats.SeedExtensionRuleFormulas"/>). The rest of such a rule is
+    /// written as it was loaded.
+    /// </summary>
+    private static void WriteExtensionRuleFormulas(Worksheet worksheet, XLWorksheet xlWorksheet)
+    {
+        var extensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
+        if (extensionList is null)
+            return;
+
+        foreach (var rule in extensionList.Descendants<X14.ConditionalFormattingRule>())
+        {
+            var id = rule.Id?.Value;
+            if (id is null || !xlWorksheet.ConditionalFormats.TryGetExtensionRuleFormulas(id, out var formulas))
+                continue;
+
+            // A rule with another count of formulas is not the rule that was loaded under this id.
+            var elements = rule.Descendants<OfficeExcel.Formula>().ToList();
+            if (elements.Count != formulas.Length)
+                continue;
+
+            for (var i = 0; i < formulas.Length; i++)
+            {
+                if (elements[i].Text != formulas[i])
+                    elements[i].Text = formulas[i];
+            }
+        }
     }
 
     private static void WriteExtensionDataBars(
