@@ -144,16 +144,16 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     /// <summary>
-    /// Re-points each formula from <paramref name="baseCell"/> to <paramref name="targetCell"/>.
+    /// Re-points each formula from <paramref name="baseCell"/> to <paramref name="targetCell"/>, for a
+    /// copy of the format and for consolidation.
     /// </summary>
+    /// <remarks>
+    /// A formula the parser refuses keeps its text exactly as it is (ADR 0002): its references are
+    /// unknown, so there is nothing to re-point. A copy of a cell keeps its formula the same way (#508).
+    /// </remarks>
     /// <param name="baseCell">The cell the formulas are written relative to.</param>
     /// <param name="targetCell">The cell to write them relative to.</param>
-    /// <param name="leaveRefusedUnchanged">
-    /// What a formula the parser refuses means to the caller. Copying a format is a public edge, and
-    /// there it throws <c>ExpressionParseException</c>, as copying a cell does. Consolidation leaves
-    /// it exactly as it is (ADR 0002): its references are unknown, so there is nothing to re-point.
-    /// </param>
-    internal void AdjustFormulas(XLCell baseCell, XLCell targetCell, bool leaveRefusedUnchanged = false)
+    internal void AdjustFormulas(XLCell baseCell, XLCell targetCell)
     {
         var keys = Values.Keys.ToList();
         foreach (var key in keys)
@@ -161,14 +161,9 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             if (Values[key] == null || !Values[key].IsFormula)
                 continue;
 
-            if (!baseCell.TryGetFormulaR1C1(Values[key].Value, out var r1c1, out var refusal)
-                || !targetCell.TryGetFormulaA1(r1c1, out var a1, out refusal))
-            {
-                if (leaveRefusedUnchanged)
-                    continue;
-
-                throw refusal.ToException();
-            }
+            if (!baseCell.TryGetFormulaR1C1(Values[key].Value, out var r1c1, out _)
+                || !targetCell.TryGetFormulaA1(r1c1, out var a1, out _))
+                continue;
 
             Values[key] = new XLFormula { _value = a1, IsFormula = true };
         }

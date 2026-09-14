@@ -459,7 +459,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
 
         var targetAnchor = XLConditionalFormat.AnchorOf(consAreas);
         var targetCell = (XLCell)firstRange.Worksheet.Cell(targetAnchor.Row, targetAnchor.Column);
-        ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell, leaveRefusedUnchanged: true);
+        ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
 
         return similarFormats;
 
