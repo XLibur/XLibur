@@ -50,6 +50,33 @@ public class FormulaTextTests
     }
 
     /// <summary>
+    /// D49's shape was a rename that changed some holders of the sheet name and then threw before the
+    /// rest. After a rename past a refused formula, every holder has the new name: the sheet, the
+    /// workbook's lookup by name, and the calc engine.
+    /// </summary>
+    [Test]
+    public async Task After_a_rename_past_a_refused_formula_the_sheet_the_workbook_and_the_calc_engine_agree()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet2.Cell("A1").FormulaA1 = RefusedExternalReference;
+        sheet2.Cell("B1").FormulaA1 = "Sheet1!A1+1";
+        sheet1.Cell("A1").Value = 5;
+        await Assert.That(sheet2.Cell("B1").Value).IsEqualTo(6);
+
+        sheet1.Name = "Data";
+
+        await Assert.That(sheet1.Name).IsEqualTo("Data");
+        await Assert.That(wb.Worksheet("Data")).IsSameReferenceAs(sheet1);
+        await Assert.That(wb.TryGetWorksheet("Sheet1", out IXLWorksheet? _)).IsFalse();
+
+        // The calc engine agrees: a change on the renamed sheet reaches the formula that refers to it.
+        sheet1.Cell("A1").Value = 10;
+        await Assert.That(sheet2.Cell("B1").Value).IsEqualTo(11);
+    }
+
+    /// <summary>
     /// D50. Evaluation stripped the future-function prefix only when it was written in lower case.
     /// </summary>
     [Test]

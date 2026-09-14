@@ -467,9 +467,11 @@ internal sealed class XLCellFormula
             Sheets = new Dictionary<string, string?> { { oldSheetName, newSheetName } }
         };
 
-        // Until a rename handles a refusal, the parser's own exception escapes it, as it always has.
-        if (!FormulaText.TryRewrite(a1, newSheetName, origin, modifier, out var res, out var refusal))
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(refusal.Cause);
+        // A refused formula is left exactly as it is (ADR 0002). Its references are unknown, so there is
+        // nothing to re-point. Throwing would leave the rename half done: the calc engine and the
+        // workbook's lookup by name have the new name before any cell hears of it.
+        if (!FormulaText.TryRewrite(a1, newSheetName, origin, modifier, out var res, out _))
+            return;
 
         if (res != a1)
         {

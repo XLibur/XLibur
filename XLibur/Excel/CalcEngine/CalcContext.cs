@@ -323,7 +323,15 @@ internal sealed class CalcContext : IStructuredReferenceScope
         if (!visitor.MightBeCalledBy(formula.A1))
             return false;
 
-        FormulaParser<object?, object?, FunctionVisitor>.CellFormulaA1(formula.A1, visitor, visitor);
+        // A refused formula does not call SUBTOTAL as far as anyone can tell, so its cell counts; the
+        // text is not searched for the name instead. The parse may have stopped after it saw a call,
+        // so the flag is cleared on this path too.
+        if (!FormulaText.TryWalk(formula.A1, visitor, visitor, FormulaNotation.A1, out _, out _))
+        {
+            visitor.Clear();
+            return false;
+        }
+
         if (!visitor.Found)
             return false;
 
