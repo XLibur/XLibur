@@ -62,6 +62,8 @@
 
 - **Renaming a deleted sheet no longer renames another sheet.** If a sheet had been added since under the deleted sheet's name, setting the deleted sheet's `Name` filed the new sheet under the new name in `IXLWorksheets`, left the new sheet's own `Name` as it was, and rewrote every formula that referred to it. Now only the deleted sheet's name changes.
 
+- **Deleting a sheet that is already deleted does nothing.** Calling `IXLWorksheet.Delete()` a second time found the sheet by its name. If a sheet had been added since under that name, the call deleted the new sheet, and every formula and workbook-scoped name that referred to it became `#REF!`. If no sheet had the name, it threw `KeyNotFoundException`. It now deletes only the sheet it is called on, and leaves a sheet that is already deleted as it is.
+
 ### Changed
 
 - The parser is now `XLibur.ClosedXML.Parser` 4.0.0. It writes a reference to a deleted sheet as a plain `#REF!`, including a `Sheet1!#REF!`, which 3.1.0 would have written as `#REF!#REF!`, and it lets XLibur see both sheets of a 3D reference at once. The formula rewrite above relies on the first. 4.0.0 also refuses a formula nested so deeply that reading it ran the parser out of stack, which could end the process. It checks that a cell reference built outside a formula names a row and a column that a sheet has, and every reference a formula can hold is still accepted. It targets `net8.0` alone, where it also targeted `netstandard2.0` and `netstandard2.1`. XLibur targets `net8.0` and later, so that changes nothing for XLibur's users.
