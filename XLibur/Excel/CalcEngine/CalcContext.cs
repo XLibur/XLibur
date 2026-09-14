@@ -14,6 +14,7 @@ namespace XLibur.Excel.CalcEngine;
 internal sealed class CalcContext : IStructuredReferenceScope
 {
     private readonly bool _recursive;
+    private readonly XLWorksheet? _worksheet;
     private readonly IXLAddress? _formulaAddress;
 
     /// <summary>
@@ -38,7 +39,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     {
         CalcEngine = calcEngine;
         Workbook = workbook;
-        Worksheet = worksheet;
+        _worksheet = worksheet;
         _formulaAddress = formulaAddress;
         _recursive = recursive;
         Culture = culture;
@@ -55,7 +56,14 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <summary>
     /// Worksheet of the cell the formula is calculating.
     /// </summary>
-    public XLWorksheet Worksheet => field ?? throw new MissingContextException();
+    public XLWorksheet Worksheet => _worksheet ?? throw new MissingContextException();
+
+    /// <summary>
+    /// Is the formula calculated on a sheet? <see cref="XLWorkbook.Evaluate"/> gives it none. Code
+    /// that can do without the sheet asks this first; code that cannot reads <see cref="Worksheet"/>,
+    /// which reports the missing context.
+    /// </summary>
+    internal bool HasWorksheet => _worksheet is not null;
 
     /// <summary>
     /// Address of the calculated formula.
@@ -70,6 +78,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <para>
     /// It keeps this context's sheet and cell (D60), and its choice to calculate a dirty precedent
     /// first, so the engine's pending signal cannot escape a public <c>Evaluate</c> through a name.
+    /// Either may be missing: <see cref="XLWorkbook.Evaluate"/> has neither, and the name then fails
+    /// only if its own formula asks for one (#491).
     /// It also keeps the sheet a sheet-only recalculation is limited to, so the name reads another
     /// sheet's cells as they stand, exactly as the same formula typed into the cell does. Without it,
     /// a name reading a dirty cell on another sheet asked the chain for a cell the pass then skipped,
@@ -84,7 +94,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </para>
     /// </remarks>
     internal CalcContext ForDefinedName() =>
-        new(CalcEngine, Culture, Worksheet.Workbook, Worksheet, _formulaAddress, _recursive)
+        new(CalcEngine, Culture, Workbook, _worksheet, _formulaAddress, _recursive)
         {
             RecalculateSheetId = RecalculateSheetId,
         };
