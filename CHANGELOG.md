@@ -44,6 +44,8 @@
 
 - **A defined name that calls `ROW()` or `COLUMN()` now answers for the cell that uses it.** With a name `MyRow` defined as `=ROW()`, a cell `A6` holding `=MyRow` threw `XLNoWorksheetContextException`, which advised using the function in a cell formula, although it already was in one. Excel gives 6, and so does XLibur now: a name is evaluated with the sheet and the cell of the formula that uses it. `IXLWorksheet.Evaluate("MyRow", "B7")` gives 7, and without a formula address it still throws `XLNoWorksheetContextException`. An operator at the top of a name's formula still keeps its range operand whole: a name defined as `=Sheet1!$A$1:$A$3+10`, read in row 2, gives the first element, 11.
 
+- **Reading a cell no longer throws for a circular reference the cell does not depend on.** When a cell's formula needed a dirty precedent, the read fell back to recalculating the whole workbook, and that stopped with an exception at the first circular reference it met, anywhere in the workbook. So `B1 = C1+1` threw because of an unrelated `A1 = A1+1`, and `TryGetValue`, `Search`, `IXLWorksheet.Evaluate`, `IXLWorkbook.Evaluate` and XLibur.Report's reads failed the same way. The fallback now leaves the cells of a cycle dirty and calculates the rest, as `RecalculateAllFormulas` does, so `B1` reads 3. Reading a cell that is in a cycle, or depends on one, still throws `XLCircularReferenceException`, which now names the cell's own cycle rather than the first one the recalculation met. ([#492](https://github.com/XLibur/XLibur/issues/492))
+
 ## v0.500.0 - 2026-09-13
 
 ### ⚠️ Breaking Changes
@@ -852,7 +854,7 @@ above. Nothing in this section has shipped yet.
 
 ### 🐛 Bug Fixes
 
-- **A formula in a circular reference inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions, and a cell whose formula depended on its own value threw out of `Generate()`. It is now recorded once in `ParsingErrors`, at its cell, and generation carries on. The cell keeps its formula. Any other failure of a formula in a bound range still throws.
+- **A formula in, or depending on, a circular reference inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions, and a cell whose formula depended on its own value threw out of `Generate()`. It is now recorded once in `ParsingErrors`, at its cell, and generation carries on. The cell keeps its formula. Any other failure of a formula in a bound range still throws.
 
 ### 🔧 Dependencies
 

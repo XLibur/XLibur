@@ -69,6 +69,12 @@ internal enum EvaluationOutcome
 /// outside.
 /// </para>
 /// <para>
+/// A cycle is the one kind a calculation pass never throws for, whatever the entry point: it leaves
+/// the cycle's cells dirty and calculates the rest. The cycle column is what each entry point does
+/// with its own cell. A cell read throws only when the cell being read is in a cycle, or depends on
+/// a cell a cycle left dirty; a cycle elsewhere in the workbook no longer reaches it (#492).
+/// </para>
+/// <para>
 /// <see cref="EvaluationFailureKind.Pending"/> never reaches a public caller: every entry point
 /// calculates the dirty precedent first. Its column says what would happen if one did, which is
 /// what happens to a defect.

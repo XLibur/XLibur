@@ -29,9 +29,10 @@ internal sealed class CellEvaluator
     /// bound range for tags and expressions.
     /// </summary>
     /// <remarks>
-    /// A formula that is part of a circular reference has no value to read. It is recorded as a
-    /// template error, once per cell, and read as blank, so generation carries on and the cell keeps
-    /// its formula. Every other failure still throws.
+    /// A formula that is part of a circular reference, or depends on one, has no value to read. It
+    /// is recorded as a template error, once per cell, and read as blank, so generation carries on
+    /// and the cell keeps its formula. A cycle elsewhere in the workbook does not reach the read
+    /// (#492). Every other failure still throws.
     /// </remarks>
     public XLCellValue ReadValue(IXLCell cell)
     {
@@ -46,7 +47,7 @@ internal sealed class CellEvaluator
             if (_unreadable.Add((sheet, address)))
             {
                 _errors.Add(new TemplateError(
-                    "The formula in this cell is part of a circular reference, so its value cannot be read.",
+                    "The formula in this cell is part of, or depends on, a circular reference, so its value cannot be read.",
                     sheet,
                     address,
                     ex));

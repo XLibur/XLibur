@@ -276,7 +276,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // DataTable formulas need the full chain for correct evaluation.
         if (formula.Type == FormulaType.DataTable)
         {
-            Recalculate(sheet.Workbook, null, entry);
+            RecalculateForCell(sheet.Workbook, new SheetPoint(sheet.SheetId, point), entry);
             return false;
         }
 
@@ -324,7 +324,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             // Formula depends on a dirty precedent cell — need the full
             // dependency-ordered recalculation to resolve it.
-            Recalculate(sheet.Workbook, null, entry);
+            RecalculateForCell(sheet.Workbook, new SheetPoint(sheet.SheetId, point), entry);
             return false;
         }
     }
@@ -332,13 +332,19 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
+    /// <returns>
+    /// The cells the pass left dirty, each mapped to the cell whose failure it was left dirty by, or
+    /// <c>null</c> when it left none.
+    /// </returns>
     /// <remarks>
-    /// What happens to a cell that fails is <paramref name="entry"/>'s row of
-    /// <see cref="EvaluationPolicy"/>. A cell the policy leaves dirty — a circular reference, for
-    /// <see cref="EvaluationEntryPoint.Recalculation"/> — is skipped together with every formula that
-    /// depends on it, and the rest of the workbook is calculated (Q23). Any other failure throws.
+    /// A cycle never stops the pass, whatever the entry point: its cells are left dirty, together
+    /// with every formula that depends on them, and the rest of the workbook is calculated (Q23,
+    /// #492). Whether that reaches the caller is up to the caller: a cell read throws only for its
+    /// own cell (<see cref="RecalculateForCell"/>). Any other failure is <paramref name="entry"/>'s
+    /// row of <see cref="EvaluationPolicy"/>: a cell it leaves dirty is skipped in the same way, and
+    /// anything else throws.
     /// </remarks>
-    internal void Recalculate(XLWorkbook wb, uint? recalculateSheetId,
+    internal IReadOnlyDictionary<SheetPoint, SheetPoint>? Recalculate(XLWorkbook wb, uint? recalculateSheetId,
         EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
         // Lazy, so initialize chain from wb, if it is empty
@@ -354,9 +360,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 sheet => sheet.SheetId,
                 sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice));
 
-        // The cells this pass has given up on, and the formulas that depend on them. Allocated only
-        // when a cell fails in a way the policy leaves dirty.
-        HashSet<SheetPoint>? leftDirty = null;
+        // The cells this pass has given up on, and the formulas that depend on them, each mapped to
+        // the cell that stopped it: the cell where a cycle was found, or a cell whose failure the
+        // policy leaves dirty. Allocated only when there is one.
+        Dictionary<SheetPoint, SheetPoint>? leftDirty = null;
 
         try
         {
@@ -376,6 +383,34 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             // chain.
             _chain.Reset();
         }
+
+        return leftDirty;
+    }
+
+    /// <summary>
+    /// The full recalculation a read of <paramref name="cell"/> falls back to, when the cell's
+    /// formula could not be calculated on its own.
+    /// </summary>
+    /// <remarks>
+    /// The pass leaves every cycle it meets dirty and calculates the rest, so a cycle the cell does
+    /// not depend on no longer stops the read (#492). Only when <paramref name="cell"/> is itself in
+    /// a cycle, or depends on a cell a cycle left dirty, does <paramref name="entry"/>'s cycle
+    /// outcome apply to it: a read throws, naming the cell where that cycle was found.
+    /// </remarks>
+    private void RecalculateForCell(XLWorkbook wb, SheetPoint cell, EvaluationEntryPoint entry)
+    {
+        var leftDirty = Recalculate(wb, null, entry);
+        if (leftDirty is null || !leftDirty.TryGetValue(cell, out var stoppedBy))
+            return;
+
+        if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) == EvaluationOutcome.Throw)
+            throw new XLCircularReferenceException(CycleMessage(wb, stoppedBy));
+    }
+
+    private static string CycleMessage(XLWorkbook wb, SheetPoint cycleCell)
+    {
+        var sheetName = wb.WorksheetsInternal.First<XLWorksheet>(sheet => sheet.SheetId == cycleCell.SheetId).Name;
+        return $"Formula in a cell '${sheetName}'!${cycleCell.Point} is part of a cycle.";
     }
 
     private void RecalculateCurrentCell(
@@ -383,7 +418,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
         uint? recalculateSheetId,
         EvaluationEntryPoint entry,
-        ref HashSet<SheetPoint>? leftDirty)
+        ref Dictionary<SheetPoint, SheetPoint>? leftDirty)
     {
         while (true)
         {
@@ -398,12 +433,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
             if (chain.IsCurrentInCycle)
             {
-                if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) != EvaluationOutcome.LeaveDirty)
-                    throw new XLCircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
-
-                // The chain has found the cycle at this cell. The rest of the cycle, and whatever
-                // depends on it, ask for a cell in this set and are skipped in turn.
-                (leftDirty ??= []).Add(current);
+                // The chain has found the cycle at this cell, which is left dirty. The rest of the
+                // cycle, and whatever depends on it, ask for a cell already left dirty and are
+                // skipped in turn, each recorded against this cell.
+                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
+                leftDirty[current] = current;
                 break;
             }
 
@@ -424,9 +458,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             {
                 // A precedent this pass has given up on cannot be calculated, so neither can this.
                 // Never moved to the front again, which is what keeps the pass finite.
-                if (leftDirty is not null && leftDirty.Contains(ex.Point))
+                if (leftDirty is not null && leftDirty.TryGetValue(ex.Point, out var stoppedBy))
                 {
-                    leftDirty.Add(current);
+                    leftDirty[current] = stoppedBy;
                     break;
                 }
 
@@ -434,8 +468,8 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             }
             catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
             {
-                leftDirty ??= [];
-                leftDirty.Add(current);
+                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
+                leftDirty[current] = current;
                 break;
             }
         }
