@@ -46,8 +46,8 @@ two variants worth naming:
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
 | [54](54-formula-text-module.md) | Formula text gets one module | M | — | ✅ Merged ([#493](https://github.com/XLibur/XLibur/pull/493)) |
-| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | ~~54~~ (merged); parser 4.0.0 (its task 0; the fork half is released); **owner fixtures** for tasks 3, 5, 6; after **44** | ⬜ Blocked |
-| [56](56-evaluation-outcome.md) | Evaluation failures get one outcome | M | — (**before 32**) | ⬜ Ready |
+| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | ~~54~~ (merged); parser 4.0.0 (its task 0; the fork half is released); owner fixtures (made 2026-09-14); after **44** | 🟡 Part 1 merged ([#495](https://github.com/XLibur/XLibur/pull/495)); part 2 in review ([#500](https://github.com/XLibur/XLibur/pull/500)); validation waits for 44 |
+| [56](56-evaluation-outcome.md) | Evaluation failures get one outcome | M | — (**before 32**) | ✅ Merged ([#494](https://github.com/XLibur/XLibur/pull/494)) |
 
 ### Spec 54 — Formula text module ✅ Merged ([#493](https://github.com/XLibur/XLibur/pull/493), `1b476e8f`)
 
@@ -66,37 +66,58 @@ two variants worth naming:
   a save no longer throws; defined-name copy keeps its `_isFormulaUnderstood` guard. Found in passing:
   #489.
 
-### Spec 55 — Sheet lifecycle ⬜ Blocked (54 has merged, and NuGet serves parser 4.0.0; waits on the owner's fixtures and spec 44)
+### Spec 55 — Sheet lifecycle 🟡 Part 1 merged ([#495](https://github.com/XLibur/XLibur/pull/495), `56c80a3f`); part 2 in review ([#500](https://github.com/XLibur/XLibur/pull/500)); its validation half waits on spec 44
 
-- [ ] **55.0** Parser fork 4.0.0: `Sheet!#REF!` on delete, endpoint-aware 3D hook; XLibur bump — fork PR [#54](https://github.com/XLibur/ClosedXML.Parser/pull/54) ✅ released 2026-09-13 / PR #___
-- [ ] **55.1** Holder × event characterization; D53–D55 land red; execute the read findings — PR #___
-- [ ] **55.2** The door and the port; D53 green — PR #___
-- [ ] **55.3** Names at every scope, gate removed, 3D narrowing; D54–D56 green *(fixtures)* — PR #___
-- [ ] **55.4** Cell formulas rewritten to `#REF!` on delete — PR #___
-- [ ] **55.5** Validation, conditional formats, hyperlinks, print-area text *(fixtures)* — PR #___
-- [ ] **55.6** Charts and the pivot cache source *(fixtures)* — PR #___
-- [ ] **55.7** `Position` setter; unsupported-sheet names — PR #___
-- [ ] **55.8** Cost, recorded — PR #___
-- [ ] **55.9** Changelog (`fix!:`) — PR #___
+Split into two PRs by the owner on 2026-09-14 (spec 55 Q55a, Q55b):
+- **Part 1:** 55.0, 55.1, 55.2, 55.4, 55.7 and 55.8.
+- **Part 2:** 55.3, 55.5 and 55.6. In 55.5, conditional formats, hyperlinks and print-area text go with the fixtures, and data validation waits for spec 44.
 
-### Spec 56 — Evaluation outcome ⬜ Ready
+- [x] **55.0** Parser fork 4.0.0: `Sheet!#REF!` on delete, endpoint-aware 3D hook; XLibur bump — fork PR [#54](https://github.com/XLibur/ClosedXML.Parser/pull/54) ✅ released 2026-09-13 / PR #495
+- [x] **55.1** Holder × event characterization; D53–D55 land red; execute the read findings — PR #495 (D54 and D55 ship skipped until 55.3; findings are D63–D74)
+- [x] **55.2** The door and the port; D53 green — PR #495
+- [x] **55.3** Names at every scope, gate removed, 3D narrowing; D54–D56 green *(fixtures)* — PR #500. A name scoped to the deleted sheet survives only if something refers to it (the `scoped-delete` fixture)
+- [x] **55.4** Cell formulas rewritten to `#REF!` on delete — PR #495 (a 3D reference is left unchanged until 55.3 narrows it)
+- [ ] **55.5** Validation, conditional formats, hyperlinks, print-area text *(fixtures)*
+  - Conditional formats and print-area text: PR #500.
+  - Hyperlinks: no adapter is needed, because Excel leaves them alone (D67 is not a defect).
+  - **Validation waits for spec 44** (D63; #486 stays open for it).
+- [x] **55.6** Charts and the pivot cache source *(fixtures)* — PR #500
+- [x] **55.7** `Position` setter; unsupported-sheet names — PR #495
+- [x] **55.8** Cost, recorded: rename +8%, delete +10% (BenchmarkDotNet medians of three) — PR #495
+- [x] **55.9** Changelog (`fix!:`) — PR #495, PR #500
 
-- [ ] **56.1** The matrix; D57, D58, D60, D61 land red — PR #___
-- [ ] **56.2** Kinds: `UnsupportedFeatureException`, public `XLCircularReferenceException`; D58 green — PR #___
-- [ ] **56.3** The policy table — PR #___
-- [ ] **56.4** Save (ADR 0001); D61 green — PR #___
-- [ ] **56.5** Recalculation skips cycles; `Evaluate` recursive (D57); names get their cell (D60) — PR #___
-- [ ] **56.6** Report mapping; all four test projects — PR #___
-- [ ] **56.7** Changelog (`feat:`, `fix!:`) — PR #___
+### Spec 56 — Evaluation outcome ✅ Merged ([#494](https://github.com/XLibur/XLibur/pull/494), `767aa7c3`; also fixed #492)
+
+- [x] **56.1** The matrix; D57, D58, D60, D61 land red — PR #494
+- [x] **56.2** Kinds: `UnsupportedFeatureException`, public `XLCircularReferenceException`; D58 green — PR #494
+- [x] **56.3** The policy table — PR #494
+- [x] **56.4** Save (ADR 0001); D61 green — PR #494
+- [x] **56.5** Recalculation skips cycles; `Evaluate` recursive (D57); names get their cell (D60) — PR #494
+- [x] **56.6** Report mapping; all four test projects — PR #494
+- [x] **56.7** Changelog (`feat:`, `fix!:`) — PR #494
+- Also in #494:
+  - **#492, folded in by owner decision.** A read no longer throws for a cycle its cell does not
+    depend on.
+  - **The spec 53 interaction, settled in Excel.** A name's formula is evaluated as an array, so B2
+    gives 11.
+  - **Four fixes from two `/code-review` passes:**
+    - the cycle flag no longer carries over into the next recalculation;
+    - the chain is reset after a throw;
+    - a sheet-only recalculation no longer hangs through a defined name (it also hung on `main`);
+    - save runs 1 recalculation pass instead of 6,002 for a cycle with 3,000 dependents.
+  - **Follow-ups filed:** #488, #490 and #491.
 
 ## 2. Owner actions before dispatch
 
-Spec 55 needs three pairs of Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stay
-blocked until they exist; the implementing agent does not guess.
+Spec 55 needed Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stayed
+blocked until they existed, so the implementing agent never had to guess. **Done 2026-09-14:** four
+pairs, committed by PR #500. The fourth pair, `scoped-delete`, settled a question the first three raised.
 
-- [ ] `rename-before.xlsx` / `rename-after.xlsx`
-- [ ] `delete-before.xlsx` / `delete-after.xlsx`
-- [ ] `refdelete-before.xlsx` / `refdelete-after.xlsx`
+- [x] `rename-before.xlsx` / `rename-after.xlsx`
+- [x] `delete-before.xlsx` / `delete-after.xlsx`
+- [x] `refdelete-before.xlsx` / `refdelete-after.xlsx`
+- [x] `scoped-delete-before.xlsx` / `scoped-delete-after.xlsx`
+- [ ] A data-validation pair, for task 5's validation half once spec 44 lands. The first pairs have none.
 - [x] ~~`chartsheet-name.xlsx`~~ — not needed: task 7 uses the existing
   `PivotTableReferenceFiles/ChartsheetAndPivotTable.xlsx` (owner, 2026-09-14)
 
@@ -215,7 +236,7 @@ Recorded so the next review does not walk them again. Evidence is in the round-4
 
 | Candidate | Evidence | Why not now |
 |---|---|---|
-| **Defined names become one workbook-wide table, print areas and titles included** | A print area is stored in three forms, and only one has a lifecycle. "Sheet scope, then workbook scope" is re-implemented at 13 sites. **Read, not executed:** `DefinedNameReader.cs:81,113` compares a file's `sheetId` against a position (`:100` uses position), so an OFFSET print area attaches to the wrong sheet when `sheetId`s are out of tab order. `XLPrintAreas.cs:26` shares the source sheet's range objects with a copy (`XLWorksheet.cs:727`) | Not picked. Depends on 55. The two read defects are small standalone fixes |
+| **Defined names become one workbook-wide table, print areas and titles included** | A print area is stored in three forms, and only one has a lifecycle. "Sheet scope, then workbook scope" is re-implemented at 13 sites. **Read, not executed:** `DefinedNameReader.cs:81,113` compares a file's `sheetId` against a position (`:100` uses position), so an OFFSET print area attaches to the wrong sheet when `sheetId`s are out of tab order (**executed** 2026-09-14 on spec 55's `delete-before.xlsx`: **D75**). `XLPrintAreas.cs:26` shares the source sheet's range objects with a copy (`XLWorksheet.cs:727`) | Not picked. Depends on 55. The two read defects are small standalone fixes |
 | **The error token gets one codec** | Adding errors in #478 touched 5 files. An unknown error token silently blanks a cell (`WorksheetSheetDataReader.cs:1128`) but fails a whole pivot load | Not picked. Small and low-risk; overlaps 41 at the edges |
 | **Pivot sources: one adapter posing as a seam** | 4 of 5 `TryGetSource` implementations are stubs; what varies is a type switch in the writer, ending in `UnreachableException` | Not picked. No defect behind it |
 

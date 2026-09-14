@@ -68,8 +68,8 @@ Grounding: specs 01–10 were derived from a July 2026 survey of the codebase (a
 | 52 | [The fuzz harness gets an oracle worth the name](52-fuzz-harness-and-oracles.md) | Test infra · Tooling | M | ✅ **Merged** ([#425](https://github.com/XLibur/XLibur/pull/425) `42fe03c3`, [#426](https://github.com/XLibur/XLibur/pull/426) `08493c3f`, breaking `!`) | **No completion state** — the harness completes, the fuzzing does not. Found D27–D43; #426 was stacked on #425. `formula` was gated on **D38** until spec 53 unblocked it |
 | 53 | [Implicit intersection on operator operands](53-implicit-intersection-context.md) | **Defect (wrong answer + 600 ms/column)** · Perf | S–M | ✅ **Merged** ([#427](https://github.com/XLibur/XLibur/pull/427) `0908c05e`; see *Known gaps*) | Came out of 52's `formula` target as **D38**. Verified against Excel 16.0, which disproved the investigation's design premise. Its in-branch review raised nine findings; **five reached `main` as D44–D48** |
 | 54 | [Formula text gets one module](54-formula-text-module.md) | Arch · **Defect (4)** | M | ✅ **Merged** ([#493](https://github.com/XLibur/XLibur/pull/493) `1b476e8f`) | Single owner; **before 55** |
-| 55 | [Sheet delete and rename through one door](55-sheet-lifecycle-one-door.md) | Arch · **Defect (4 executed, ~9 read)** · Behaviour change (`!`) | L | Proposed (54 merged; needs parser 4.0.0; **owner's Excel fixtures** gate tasks 3, 5, 6) | Single owner; task 0 is in the parser fork; after 44, before 48 |
-| 56 | [Evaluation failures get one outcome](56-evaluation-outcome.md) | Arch · **Defect (5)** · API (additive) · Behaviour change (`!`) | M | Proposed | Parallel with 54; **before 32** |
+| 55 | [Sheet delete and rename through one door](55-sheet-lifecycle-one-door.md) | Arch · **Defect (4 executed, ~9 read)** · Behaviour change (`!`) | L | 🟡 Part 1 merged ([#495](https://github.com/XLibur/XLibur/pull/495) `56c80a3f`); part 2 in review ([#500](https://github.com/XLibur/XLibur/pull/500)); task 5's validation waits for spec 44 | Single owner; task 0 is in the parser fork; after 44, before 48 |
+| 56 | [Evaluation failures get one outcome](56-evaluation-outcome.md) | Arch · **Defect (5)** · API (additive) · Behaviour change (`!`) | M | ✅ **Merged** ([#494](https://github.com/XLibur/XLibur/pull/494) `767aa7c3`, breaking `!`) | Parallel with 54; **before 32** |
 
 **Specs 54–56 came out of a fourth architecture review on 2026-09-13**, scoped to what had changed
 since round 3: nine of the ten library fixes merged in between landed on the formula pipeline, one
@@ -87,7 +87,7 @@ broken", and save swallows both (56). Thirteen defects executed (D49–D61), one
 (D62).
 
 **Start with 54**: the codebase is changing there now, and 55 is built on it. 56 runs in parallel.
-**55 needs four Excel-authored fixtures from the owner** — the recipes are in its design §5.
+**55's Excel-authored fixtures exist.** The owner made four pairs on 2026-09-14. The recipes are in its design §5, and what Excel wrote is in its *Results*.
 
 **Specs 36–51 came out of a third architecture review on 2026-08-30.** Their progress board,
 dependency graph, conflict map, wave plan and the backlog notes for four candidates that did *not*
