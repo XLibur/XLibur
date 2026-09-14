@@ -169,6 +169,78 @@ public class SheetLifecycleFixtureTests
     }
 
     /// <summary>
+    /// A rename rewrites a loaded chart's references and keeps the cached values that go with them,
+    /// as Excel does: its <c>rename-after.xlsx</c> keeps the <c>c:numCache</c> and both
+    /// <c>c:strCache</c> elements. A viewer that draws from the cache would otherwise show an empty
+    /// chart.
+    /// </summary>
+    [Test]
+    public async Task A_rename_keeps_a_loaded_charts_cached_values()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource("rename-before.xlsx")))
+        {
+            wb.Worksheet("Data").Name = "Renamed";
+            wb.SaveAs(ms);
+        }
+
+        await Assert.That(ChartCaches(ms)).IsEqualTo(ChartCaches(Resource("rename-after.xlsx")));
+        await Assert.That(ChartCaches(ms)).IsEqualTo((1, 2));
+    }
+
+    /// <summary>
+    /// A delete keeps the caches too, while each <c>c:f</c> reads <c>#REF!</c>. Excel's
+    /// <c>delete-after.xlsx</c> keeps the values' <c>c:numCache</c>; the name's and the categories'
+    /// caches follow the rule for a rename, since XLibur does not move them into <c>c15:filtered*</c>.
+    /// </summary>
+    [Test]
+    public async Task A_delete_keeps_a_loaded_charts_cached_values()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource("delete-before.xlsx")))
+        {
+            wb.Worksheet("Data").Delete();
+            wb.SaveAs(ms);
+        }
+
+        await Assert.That(ChartCaches(ms)).IsEqualTo((1, 2));
+    }
+
+    /// <summary>
+    /// A caller who re-points a loaded series still drops the cache that described the old range, so
+    /// that a chart re-pointed at other cells does not open showing the old values. Re-pointing wins
+    /// over a rename's rewrite of the same reference.
+    /// </summary>
+    [Test]
+    public async Task Re_pointing_a_loaded_series_still_drops_its_cached_values()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource("rename-before.xlsx")))
+        {
+            wb.Worksheet("Data").Name = "Renamed";
+            wb.Worksheet("Other").Charts.Single().Series.Single().ValueReferences = "Renamed!$A$2:$A$3";
+            wb.SaveAs(ms);
+        }
+
+        await Assert.That(ChartCaches(ms)).IsEqualTo((0, 2));
+    }
+
+    /// <summary>
+    /// The number of <c>c:numCache</c> and <c>c:strCache</c> elements in a package's chart parts.
+    /// </summary>
+    private static (int NumberCaches, int StringCaches) ChartCaches(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var chartSpaces = document.WorkbookPart!.WorksheetParts
+            .SelectMany(w => w.DrawingsPart?.ChartParts ?? Enumerable.Empty<ChartPart>())
+            .Select(p => p.ChartSpace!)
+            .ToList();
+        return (chartSpaces.Sum(c => c.Descendants<C.NumberingCache>().Count()),
+            chartSpaces.Sum(c => c.Descendants<C.StringCache>().Count()));
+    }
+
+    /// <summary>
     /// Compares each holder as one line per item, so that a failure shows both sides in full.
     /// </summary>
     private static async Task AssertSameText(Holders saved, Holders excel, bool excelChartMovesReferences,

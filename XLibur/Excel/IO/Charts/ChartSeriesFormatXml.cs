@@ -129,22 +129,34 @@ internal static class ChartSeriesFormatXml
         var assigned = series.AssignedFormat;
         var isXyBased = kind is XLChartGroupKind.Scatter or XLChartGroupKind.Bubble;
 
-        if ((assigned & XLChartSeriesFormat.ValueReferences) != 0)
+        // A reference the caller re-pointed drops its cache, which described the old range. One that a
+        // sheet rename or delete rewrote keeps it: the cells are the same ones under a new sheet name,
+        // or the reference is gone. Excel keeps the caches on a rename, and the values' cache on a
+        // delete (the rename-* and delete-* fixtures), and a viewer that draws from the cache would
+        // otherwise show an empty chart. A caller's re-pointing wins over a rewrite.
+        const XLChartSeriesFormat valueReferences =
+            XLChartSeriesFormat.ValueReferences | XLChartSeriesFormat.ValueReferencesRewritten;
+        const XLChartSeriesFormat categoryReferences =
+            XLChartSeriesFormat.CategoryReferences | XLChartSeriesFormat.CategoryReferencesRewritten;
+
+        if ((assigned & valueReferences) != 0)
         {
             var values = isXyBased
                 ? (OpenXmlCompositeElement?)seriesElement.Elements<C.YValues>().FirstOrDefault()
                 : seriesElement.Elements<C.Values>().FirstOrDefault();
 
-            SetReferenceFormula(values, series.ValueReferences);
+            SetReferenceFormula(values, series.ValueReferences,
+                dropCache: (assigned & XLChartSeriesFormat.ValueReferences) != 0);
         }
 
-        if ((assigned & XLChartSeriesFormat.CategoryReferences) != 0)
+        if ((assigned & categoryReferences) != 0)
         {
             var categories = isXyBased
                 ? (OpenXmlCompositeElement?)seriesElement.Elements<C.XValues>().FirstOrDefault()
                 : seriesElement.Elements<C.CategoryAxisData>().FirstOrDefault();
 
-            SetReferenceFormula(categories, series.CategoryReferences);
+            SetReferenceFormula(categories, series.CategoryReferences,
+                dropCache: (assigned & XLChartSeriesFormat.CategoryReferences) != 0);
         }
 
         // The cell the name comes from keeps its cached text: that text is the name the series shows,

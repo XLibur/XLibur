@@ -23,7 +23,16 @@ internal enum XLChartSeriesFormat
     Smooth = 1 << 6,
     ValueReferences = 1 << 7,
     CategoryReferences = 1 << 8,
-    NameReference = 1 << 9
+    NameReference = 1 << 9,
+
+    /// <summary>
+    /// The value references were rewritten by a sheet rename or delete, not re-pointed by the caller.
+    /// The patcher writes them, and keeps the cached values that go with them.
+    /// </summary>
+    ValueReferencesRewritten = 1 << 10,
+
+    /// <summary>As <see cref="ValueReferencesRewritten"/>, for the category references.</summary>
+    CategoryReferencesRewritten = 1 << 11
 }
 
 internal sealed class XLChartSeries : IXLChartSeries
@@ -193,19 +202,27 @@ internal sealed class XLChartSeries : IXLChartSeries
 
     /// <summary>
     /// Rewrites the series' references the way <paramref name="rewrite"/> says, for a sheet rename or
-    /// delete. A reference that changes is assigned rather than seeded: a loaded chart is patched in
-    /// place (spec 10), and the patcher writes a reference only when it is marked as assigned. A
-    /// reference the parser refuses keeps its text (ADR 0002).
+    /// delete. A reference that changes is marked as rewritten rather than seeded: a loaded chart is
+    /// patched in place (spec 10), and the patcher writes a reference only when it is marked. It is
+    /// not marked as assigned by the caller, because the patcher drops the cached values of a
+    /// reference the caller re-pointed, and keeps those of one a rename or delete rewrote. A reference
+    /// the parser refuses keeps its text (ADR 0002).
     /// </summary>
     /// <param name="formulaSheetName">The sheet the chart is on.</param>
     /// <param name="rewrite">What the rename or the delete does to formula text.</param>
     internal void RewriteSheet(string formulaSheetName, SheetRewrite rewrite)
     {
         if (TryRewrite(_valueReferences, out var values))
-            ValueReferences = values;
+        {
+            _valueReferences = values;
+            AssignedFormat |= XLChartSeriesFormat.ValueReferencesRewritten;
+        }
 
         if (_categoryReferences is { } categories && TryRewrite(categories, out var rewrittenCategories))
-            CategoryReferences = rewrittenCategories;
+        {
+            _categoryReferences = rewrittenCategories;
+            AssignedFormat |= XLChartSeriesFormat.CategoryReferencesRewritten;
+        }
 
         if (_nameReference is { } name && TryRewrite(name, out var rewrittenName))
             NameReference = rewrittenName;
