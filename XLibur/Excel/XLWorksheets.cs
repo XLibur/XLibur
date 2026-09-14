@@ -140,6 +140,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     public IXLWorksheet Add(string sheetName)
     {
+        EnsureNameIsFree(sheetName, nameof(sheetName));
         var sheet = new XLWorksheet(sheetName, _workbook, GetNextSheetId());
         Add(sheetName, sheet);
         sheet._position = _worksheets.Count + _workbook.UnsupportedSheets.Count;
@@ -153,6 +154,9 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     internal XLWorksheet Add(string sheetName, int position, uint sheetId)
     {
+        // Before anything moves: a refused name must leave the tab order as it was.
+        EnsureNameIsFree(sheetName, nameof(sheetName));
+
         _worksheets.Values.Where(w => w._position >= position).ForEach(w => w._position += 1);
         _workbook.UnsupportedSheets.Where(w => w.Position >= position).ForEach(w => w.Position += 1);
 
@@ -273,8 +277,8 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
             return;
         }
 
-        if (!XLHelper.SheetComparer.Equals(oldSheetName, newSheetName) && _worksheets.ContainsKey(newSheetName))
-            throw new ArgumentException($"A worksheet with the same name ({newSheetName}) has already been added.", nameof(newSheetName));
+        if (!XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
+            EnsureNameIsFree(newSheetName, nameof(newSheetName));
 
         _worksheets.Remove(oldSheetName);
         sheet.AssignName(newSheetName);
@@ -321,7 +325,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     {
         var worksheetNumber = Count + 1;
         var sheetName = $"Sheet{worksheetNumber}";
-        while (_worksheets.Values.Any(p => p.Name.Equals(sheetName, StringComparison.OrdinalIgnoreCase)))
+        while (_worksheets.ContainsKey(sheetName) || IsHeldByUnsupportedSheet(sheetName))
         {
             worksheetNumber++;
             sheetName = $"Sheet{worksheetNumber}";
@@ -330,6 +334,28 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     }
 
     private uint GetNextSheetId() => _nextSheetId++;
+
+    /// <summary>
+    /// Refuses a name another sheet already has: a modelled sheet, or an unsupported sheet such as a
+    /// chartsheet, which XLibur keeps and writes back although it does not model it. A file holding
+    /// both would declare the name twice, and XLibur refuses to load such a file (D34). Names are
+    /// compared as sheet names are everywhere else, ignoring case.
+    /// </summary>
+    private void EnsureNameIsFree(string sheetName, string paramName)
+    {
+        if (_worksheets.ContainsKey(sheetName))
+            throw new ArgumentException($"A worksheet with the same name ({sheetName}) has already been added.", paramName);
+
+        if (IsHeldByUnsupportedSheet(sheetName))
+        {
+            throw new ArgumentException(
+                $"The workbook already has a sheet named '{sheetName}' that XLibur keeps but does not model, such as a chartsheet.",
+                paramName);
+        }
+    }
+
+    private bool IsHeldByUnsupportedSheet(string sheetName)
+        => _workbook.UnsupportedSheets.Exists(s => XLHelper.SheetComparer.Equals(s.Name, sheetName));
 
     #endregion Private members
 }

@@ -286,11 +286,17 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 throw new ArgumentOutOfRangeException(nameof(value),
                     "Index must be equal or less than the number of worksheets + 1.");
 
+            // An unsupported sheet, such as a chartsheet, has a place in the tab order too. It moves
+            // with the modelled sheets, as it does on an add and a delete, or two sheets would end up
+            // sharing a position.
             if (value < _position)
             {
                 Workbook.WorksheetsInternal
                     .Where<XLWorksheet>(w => w.Position >= value && w.Position < _position)
                     .ForEach(w => w._position += 1);
+                Workbook.UnsupportedSheets
+                    .Where(s => s.Position >= value && s.Position < _position)
+                    .ForEach(s => s.Position += 1);
             }
 
             if (value > _position)
@@ -298,6 +304,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 Workbook.WorksheetsInternal
                     .Where<XLWorksheet>(w => w.Position <= value && w.Position > _position)
                     .ForEach(w => (w)._position -= 1);
+                Workbook.UnsupportedSheets
+                    .Where(s => s.Position <= value && s.Position > _position)
+                    .ForEach(s => s.Position -= 1);
             }
 
             _position = value;

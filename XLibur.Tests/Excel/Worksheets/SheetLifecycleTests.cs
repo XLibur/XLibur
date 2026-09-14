@@ -408,6 +408,60 @@ public class SheetLifecycleTests
         await Assert.That(host.Cell("A2").FormulaA1).IsEqualTo("INDIRECT(\"Sheet2!A1\")");
     }
 
+    /// <summary>
+    /// A clash with an unsupported sheet is found ignoring case, as sheet names are compared
+    /// everywhere else: a workbook cannot hold both <c>Chart</c> and <c>CHART</c>.
+    /// </summary>
+    [Test]
+    public async Task A_chartsheets_name_is_refused_in_any_case()
+    {
+        using var wb = OpenChartsheetBook();
+
+        await Assert.That(() => wb.Worksheets.Add("CHART")).Throws<ArgumentException>();
+        await Assert.That(() => wb.Worksheet("Data").Name = "chart").Throws<ArgumentException>();
+    }
+
+    /// <summary>
+    /// A refused name leaves the tab order as it was. The positional add used to move every sheet at
+    /// or after the position, and only then find that the name was taken.
+    /// </summary>
+    [Test]
+    public async Task A_refused_add_at_a_position_moves_no_sheet()
+    {
+        using var wb = OpenChartsheetBook();
+        var before = Positions(wb);
+
+        await Assert.That(() => wb.Worksheets.Add("Chart", 1)).Throws<ArgumentException>();
+        await Assert.That(() => wb.Worksheets.Add("Data", 1)).Throws<ArgumentException>();
+
+        await Assert.That(Positions(wb)).IsEquivalentTo(before, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// <c>Add()</c> without a name passes over a name that an unsupported sheet holds, rather than
+    /// choosing it and then refusing it.
+    /// </summary>
+    [Test]
+    public async Task Add_without_a_name_skips_a_name_an_unsupported_sheet_holds()
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1");
+        wb.UnsupportedSheets.Add(new XLWorkbook.UnsupportedSheet { Name = "Sheet2", Position = 2, SheetId = 99 });
+
+        var added = wb.Worksheets.Add();
+
+        await Assert.That(added.Name).IsEqualTo("Sheet3");
+    }
+
+    private static XLWorkbook OpenChartsheetBook()
+        => new(TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx")));
+
+    private static string[] Positions(XLWorkbook wb)
+        => wb.Worksheets.Select(w => $"{w.Name}:{w.Position}")
+            .Concat(wb.UnsupportedSheets.Select(s => $"{s.Name}:{s.Position}"))
+            .ToArray();
+
     private static void Delete(XLWorkbook wb, IXLWorksheet sheet, bool throughCollection)
     {
         if (throughCollection)

@@ -1,7 +1,9 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 using XLibur.Tests.Excel.Charts;
 using S = DocumentFormat.OpenXml.Spreadsheet;
@@ -300,37 +302,55 @@ public class SheetLifecycleCharacterizationTests
         await Assert.That(chartsheet.Position).IsEqualTo(expected);
     }
 
+    /// <summary>
+    /// The file has worksheets <c>Data</c> and <c>Pivot</c> and a chartsheet <c>Chart</c>, all
+    /// authored in Excel.
+    /// <para>
+    /// This test was <c>Add_takes_the_name_of_an_unsupported_sheet</c> and asserted the wrong answer:
+    /// the new worksheet took the chartsheet's name, so the saved file declared it twice. Spec 55
+    /// task 7 refuses the name.
+    /// </para>
+    /// </summary>
     [Test]
-    public async Task Add_takes_the_name_of_an_unsupported_sheet()
+    public async Task Add_refuses_the_name_of_an_unsupported_sheet()
     {
         using var wb = OpenChartsheetBook();
 
-        wb.Worksheets.Add("Chart"); // wrong: the chartsheet already has this name (task 7)
-
-        await Assert.That(wb.Worksheets.Contains("Chart")).IsTrue();
+        await Assert.That(() => wb.Worksheets.Add("Chart")).Throws<ArgumentException>();
+        await Assert.That(wb.Worksheets.Contains("Chart")).IsFalse();
     }
 
+    /// <summary>
+    /// This test was <c>Rename_takes_the_name_of_an_unsupported_sheet</c> and asserted the wrong
+    /// answer. Spec 55 task 7 refuses the name, and the sheet keeps its own.
+    /// </summary>
     [Test]
-    public async Task Rename_takes_the_name_of_an_unsupported_sheet()
+    public async Task Rename_refuses_the_name_of_an_unsupported_sheet()
     {
         using var wb = OpenChartsheetBook();
+        var data = wb.Worksheet("Data");
 
-        wb.Worksheet("Data").Name = "Chart"; // wrong: the chartsheet already has this name (task 7)
-
-        await Assert.That(wb.Worksheets.Contains("Chart")).IsTrue();
+        await Assert.That(() => data.Name = "Chart").Throws<ArgumentException>();
+        await Assert.That(data.Name).IsEqualTo("Data");
+        await Assert.That(wb.Worksheet("Data")).IsSameReferenceAs(data);
     }
 
+    /// <summary>
+    /// This test was <c>The_position_setter_does_not_move_an_unsupported_sheet</c> and asserted the
+    /// wrong answer: the moved worksheet and the chartsheet shared a position. Spec 55 task 7 moves
+    /// the chartsheet as the add and the delete already did.
+    /// </summary>
     [Test]
-    public async Task The_position_setter_does_not_move_an_unsupported_sheet()
+    public async Task The_position_setter_moves_an_unsupported_sheet_too()
     {
         using var wb = OpenChartsheetBook();
         var chartsheet = wb.UnsupportedSheets.Single();
-        var moved = wb.Worksheets.OrderByDescending(w => System.Math.Abs(w.Position - chartsheet.Position)).First();
+        var moved = wb.Worksheets.OrderByDescending(w => Math.Abs(w.Position - chartsheet.Position)).First();
 
         moved.Position = chartsheet.Position;
 
-        // wrong: the two sheets now share a position (task 7)
-        await Assert.That(moved.Position).IsEqualTo(chartsheet.Position);
+        var positions = wb.Worksheets.Select(w => w.Position).Append(chartsheet.Position).OrderBy(p => p).ToList();
+        await Assert.That(positions).IsEquivalentTo(new[] { 1, 2, 3 }, CollectionOrdering.Matching);
     }
 
     private static XLWorkbook NewBook(out IXLWorksheet data, out IXLWorksheet other)
