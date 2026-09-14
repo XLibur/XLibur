@@ -26,6 +26,8 @@
 
 - **A formula that names a table column with a colon in its name now evaluates.** `SUM(Table1[Start: Date])` gave `#REF!` instead of the sum of the column, because evaluation read the colon as a range operator. The text of the formula was already kept correctly through a save and a load. A defined name that refers to such a column now also reports the column's range in `Ranges`.
 
+- **Saving a workbook no longer throws when a conditional format holds a formula the parser cannot read.** An example is a conditional format set with `WhenIsTrue("'[Book2.xlsx]Sheet1'!A1")`. A save merges conditional formats that are the same by default, and to compare two formats it converted each formula to R1C1. That conversion threw `ExpressionParseException` on such a formula, so the whole save failed. Putting the format in a `HashSet` with `XLConditionalFormat.NoRangeComparer` or `FullComparer` threw too. A format that holds such a formula now equals no other format. The save never merges it, and writes its formula exactly as it was set, because the references in it are unknown.
+
 ## v0.500.0 - 2026-09-13
 
 ### ⚠️ Breaking Changes

@@ -144,7 +144,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         ((XLConditionalFormat)item).SetAreas(consAreas);
 
         var targetCell = (XLCell)item.Ranges.First().FirstCell();
-        ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell);
+        ((XLConditionalFormat)item).AdjustFormulas(baseCell, targetCell, leaveRefusedUnchanged: true);
 
         return similarFormats;
 

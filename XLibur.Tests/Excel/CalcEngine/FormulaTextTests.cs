@@ -24,17 +24,6 @@ public class FormulaTextTests
     /// <see cref="IXLCell.FormulaA1"/> accepts this form, and the parser refuses it.
     /// </summary>
     private const string RefusedExternalReference = "'[Book2.xlsx]Sheet1'!A1";
-
-    /// <summary>
-    /// The conditional-format lead of spec 54, task 1.3, is executed and red. The routing in spec 54
-    /// does not fix it: the comparer and consolidation convert through the R1C1 edge, which throws on
-    /// a refusal, as FormulaR1C1 must. What consolidation does with a refused formula is left to the
-    /// owner.
-    /// </summary>
-    private const string ConditionalFormatAwaitsOwner =
-        "Executed lead from spec 54 task 1.3: still throws. Spec 54's routing does not fix it; "
-        + "what conditional-format consolidation does with a refused formula awaits an owner decision.";
-
     /// <summary>
     /// D49. A rename used to reach the refused formula part way through, after the calc engine had
     /// already renamed the sheet, and throw the parser's own exception: the sheet kept its old name,
@@ -182,12 +171,11 @@ public class FormulaTextTests
 
     /// <summary>
     /// Spec 54, task 1.3: the review read that a conditional format's comparer runs the R1C1
-    /// converter, which throws on a refused formula. Executed, it does: the format cannot go in a
-    /// <see cref="HashSet{T}"/>.
+    /// converter, which throws on a refused formula. Executed, it did: the format could not go in a
+    /// <see cref="HashSet{T}"/>. It can now, and the set finds it again.
     /// </summary>
     [Test]
-    [Skip(ConditionalFormatAwaitsOwner)]
-    public async Task A_conditional_format_holding_a_refused_formula_can_be_put_in_a_HashSet()
+    public async Task A_conditional_format_holding_a_refused_formula_can_be_put_in_a_HashSet_and_found_again()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -197,14 +185,89 @@ public class FormulaTextTests
         var set = new HashSet<IXLConditionalFormat>(XLConditionalFormat.NoRangeComparer) { format };
 
         await Assert.That(set).Count().IsEqualTo(1);
+        await Assert.That(set.Contains(format)).IsTrue();
     }
 
     /// <summary>
-    /// The consequence of the comparer above that a caller meets: a save consolidates conditional
-    /// formats by default, and consolidation converts each formula to R1C1, so the save throws.
+    /// The references in a refused formula are unknown, so nothing says two formats that hold one
+    /// hold the same formula. Such a format equals only itself.
     /// </summary>
     [Test]
-    [Skip(ConditionalFormatAwaitsOwner)]
+    public async Task A_conditional_format_holding_a_refused_formula_equals_no_other_format()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var first = new XLConditionalFormat((XLRange)ws.Range("A1:A5"));
+        first.Values.Add(new XLFormula("=" + RefusedExternalReference));
+        var second = new XLConditionalFormat((XLRange)ws.Range("B1:B5"));
+        second.Values.Add(new XLFormula("=" + RefusedExternalReference));
+        var comparer = XLConditionalFormat.NoRangeComparer;
+
+        await Assert.That(comparer.Equals(first, second)).IsFalse();
+        await Assert.That(comparer.Equals(first, first)).IsTrue();
+        await Assert.That(comparer.GetHashCode(first)).IsEqualTo(comparer.GetHashCode(first));
+    }
+
+    /// <summary>
+    /// Two formats with the same refused text over adjacent ranges would be merged if they compared
+    /// equal, and a merge re-points the formula to the merged range's first cell. They are not merged,
+    /// and each keeps its range and its text through a save and a reload (ADR 0002).
+    /// </summary>
+    [Test]
+    public async Task Two_formats_with_the_same_refused_formula_over_adjacent_ranges_are_not_merged()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Range("A1:A5").AddConditionalFormat().WhenIsTrue(RefusedExternalReference)
+                .Fill.SetBackgroundColor(XLColor.Red);
+            ws.Range("B1:B5").AddConditionalFormat().WhenIsTrue(RefusedExternalReference)
+                .Fill.SetBackgroundColor(XLColor.Red);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var formats = reloaded.Worksheet("Sheet1").ConditionalFormats
+            .OrderBy(f => f.Ranges.Single().RangeAddress.ToString())
+            .ToList();
+
+        await Assert.That(formats).Count().IsEqualTo(2);
+        await Assert.That(formats[0].Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:A5");
+        await Assert.That(formats[1].Ranges.Single().RangeAddress.ToString()).IsEqualTo("B1:B5");
+        foreach (var format in formats)
+            await Assert.That(format.Values.Single().Value.Value).IsEqualTo(RefusedExternalReference);
+    }
+
+    /// <summary>
+    /// The control for the test above: the same two formats with a formula the parser accepts are
+    /// merged, so "not merged" there is the refusal's doing and not the layout's.
+    /// </summary>
+    [Test]
+    public async Task Two_formats_with_the_same_accepted_formula_over_adjacent_ranges_are_merged()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Range("A1:A5").AddConditionalFormat().WhenIsTrue("$C$1>0").Fill.SetBackgroundColor(XLColor.Red);
+            ws.Range("B1:B5").AddConditionalFormat().WhenIsTrue("$C$1>0").Fill.SetBackgroundColor(XLColor.Red);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var format = reloaded.Worksheet("Sheet1").ConditionalFormats.Single();
+
+        await Assert.That(format.Ranges.Single().RangeAddress.ToString()).IsEqualTo("A1:B5");
+    }
+
+    /// <summary>
+    /// The consequence of the comparer that a caller met: a save consolidates conditional formats by
+    /// default, and consolidation converted each formula to R1C1, so the save threw.
+    /// </summary>
+    [Test]
     public async Task A_workbook_whose_conditional_format_holds_a_refused_formula_saves()
     {
         using var wb = new XLWorkbook();

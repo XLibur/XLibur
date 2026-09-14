@@ -1136,6 +1136,18 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             _point);
     }
 
+    /// <summary>
+    /// <see cref="GetFormulaR1C1(string)"/>, for a caller that decides what a refused formula means.
+    /// </summary>
+    internal bool TryGetFormulaR1C1(string value, out string formulaR1C1, out FormulaRefusal refusal)
+        => XLCellFormula.TryGetFormula(value, FormulaConversionType.A1ToR1C1, _point, out formulaR1C1, out refusal);
+
+    /// <summary>
+    /// <see cref="GetFormulaA1(string)"/>, for a caller that decides what a refused formula means.
+    /// </summary>
+    internal bool TryGetFormulaA1(string value, out string formulaA1, out FormulaRefusal refusal)
+        => XLCellFormula.TryGetFormula(value, FormulaConversionType.R1C1ToA1, _point, out formulaA1, out refusal);
+
     internal void CopyValuesFrom(XLCell source)
         => XLCellCopyHelper.CopyValues(this, source);
 

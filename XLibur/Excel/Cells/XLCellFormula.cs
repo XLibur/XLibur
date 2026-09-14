@@ -200,10 +200,36 @@ internal sealed class XLCellFormula
         return GetFormula(A1, FormulaConversionType.A1ToR1C1, cellAddress);
     }
 
+    /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
     internal static string GetFormula(string strValue, FormulaConversionType conversionType, Point cellAddress)
     {
+        // Reading FormulaR1C1 and copying a formula are public edges: a refused formula reaches the
+        // caller as ExpressionParseException.
+        if (!TryGetFormula(strValue, conversionType, cellAddress, out var converted, out var refusal))
+            throw refusal.ToException();
+
+        return converted;
+    }
+
+    /// <summary>
+    /// Converts <paramref name="strValue"/> between A1 and R1C1 for a caller that decides what a
+    /// refused formula means to it.
+    /// </summary>
+    /// <param name="strValue">The formula text. Leading whitespace and a leading <c>=</c> are kept.</param>
+    /// <param name="conversionType">Which way to convert.</param>
+    /// <param name="cellAddress">The cell that relative references are relative to.</param>
+    /// <param name="converted">The converted text, or <paramref name="strValue"/> when refused.</param>
+    /// <param name="refusal">Why the parser refused the text, when it did.</param>
+    /// <returns><c>false</c> when the parser refused the text.</returns>
+    internal static bool TryGetFormula(string strValue, FormulaConversionType conversionType, Point cellAddress,
+        out string converted, out FormulaRefusal refusal)
+    {
+        refusal = default;
         if (string.IsNullOrWhiteSpace(strValue))
-            return string.Empty;
+        {
+            converted = string.Empty;
+            return true;
+        }
 
         // Users and some producers might prefix formula with '=', but that is not a valid
         // formula. Keep the leading whitespace and the '=' as they are and convert the rest;
@@ -220,12 +246,14 @@ internal sealed class XLCellFormula
             _ => throw new NotSupportedException()
         };
 
-        // Reading FormulaR1C1 and copying a formula are public edges: a refused formula reaches the
-        // caller as ExpressionParseException.
-        if (!FormulaText.TryConvert(formula, cellAddress, to, out var converted, out var refusal))
-            throw refusal.ToException();
+        if (!FormulaText.TryConvert(formula, cellAddress, to, out var body, out refusal))
+        {
+            converted = strValue;
+            return false;
+        }
 
-        return bodyStart == 0 ? converted : strValue[..bodyStart] + converted;
+        converted = bodyStart == 0 ? body : strValue[..bodyStart] + body;
+        return true;
     }
 
     /// <summary>
