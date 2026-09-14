@@ -159,25 +159,33 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
 
         // CoverageArea, not edit.Area: coverage derives the |Shift| lines the edit moves from the
         // range and the shift rather than trusting the shifter's area. See SheetEdit.
-        var axis = default(TAxis);
         var affected = edit.CoverageArea<TAxis>();
         foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>().ToList())
         {
-            var newAreas = edit.Shift > 0
-                ? axis.InsertAndShift(cf.Areas, affected)
-                : axis.DeleteAndShift(cf.Areas, affected);
-
-            if (newAreas.Count == 0)
+            var pieces = CutIntoPieces<TAxis>(in edit, affected, cf.Areas);
+            if (pieces.Count == 0)
             {
                 Remove(f => f == cf);
                 continue;
             }
 
-            // Before the formula pass shifts the formulas; see TryGetSurvivingAnchor.
-            if (TryGetSurvivingAnchor<TAxis>(in edit, affected, cf.Areas, newAreas, out var anchor, out var surviving))
-                cf.RebaseFormulas(anchor, surviving);
+            // Each piece after the first becomes a rule of its own, next to the rule it came from, with
+            // its priority, type, values and style. Each piece's formulas are rebased onto its own
+            // origin before the formula pass shifts them; see CutIntoPieces.
+            var anchor = XLConditionalFormat.AnchorOf(cf.Areas);
+            var index = _conditionalFormats.IndexOf(cf);
+            for (var i = pieces.Count - 1; i > 0; i--)
+            {
+                var piece = cf.CopyOnto(pieces[i].Areas);
+                piece.RebaseFormulas(anchor, pieces[i].Origin);
+                piece.IsSplitByEdit = true;
+                _conditionalFormats.Insert(index + 1, piece);
+            }
 
-            cf.SetAreas(newAreas);
+            cf.RebaseFormulas(anchor, pieces[0].Origin);
+            cf.SetAreas(pieces[0].Areas);
+            if (pieces.Count > 1)
+                cf.IsSplitByEdit = true;
         }
 
         // A kept x14 rule's range goes through the same transform, so it cannot part company with a
@@ -188,16 +196,21 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
             if (areas.Count == 0)
                 continue;
 
-            var newAreas = edit.Shift > 0
-                ? axis.InsertAndShift(areas, affected)
-                : axis.DeleteAndShift(areas, affected);
+            var pieces = CutIntoPieces<TAxis>(in edit, affected, areas);
+            var newAreas = new XLAreaList(pieces.SelectMany(p => p.Areas).ToList());
 
-            if (TryGetSurvivingAnchor<TAxis>(in edit, affected, areas, newAreas, out var anchor, out var surviving)
-                && _extensionRuleFormulas.TryGetValue(ruleId, out var formulas))
+            // KNOWN GAP: a kept rule the edit cuts into two pieces is not split, because splitting it
+            // means duplicating its XML with a new rule id per piece (issue #499). It stays one rule over
+            // both pieces, with its formulas rebased as for a rule the edit does not cut: onto where its
+            // new anchor stood. That is right for the piece that holds the anchor, and anchored wrongly
+            // for the other. Pinned by Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule.
+            if (newAreas.Count > 0 && _extensionRuleFormulas.TryGetValue(ruleId, out var formulas))
             {
+                var anchor = XLConditionalFormat.AnchorOf(areas);
+                var origin = OriginOf<TAxis>(in edit, affected, XLConditionalFormat.AnchorOf(newAreas));
                 for (var i = 0; i < formulas.Length; i++)
                 {
-                    if (XLConditionalFormat.TryRebaseFormula(formulas[i], anchor, surviving, out var rebased))
+                    if (XLConditionalFormat.TryRebaseFormula(formulas[i], anchor, origin, out var rebased))
                         formulas[i] = rebased;
                 }
             }
@@ -207,46 +220,103 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     }
 
     /// <summary>
-    /// Whether a delete removed a rule's anchor, the first cell of its range, which its formulas are
-    /// written relative to, while the rule survives; and if so, the anchor and the cell to rebase the
-    /// formulas onto: the rule's new first cell, where it stood before the edit.
+    /// The pieces a row or column edit on this sheet cuts a rule's range into, each with its origin:
+    /// the piece's anchor (<see cref="XLConditionalFormat.AnchorOf"/>) as it stood before the edit.
+    /// Empty when the edit removes every cell of the range.
     /// </summary>
     /// <remarks>
-    /// Excel rebases such a rule's formulas onto the first cell that survives before it shifts them
-    /// (<c>cf-anchor-*.xlsx</c>), so deleting row 2 leaves <c>$A2&gt;5</c> on <c>A2:C10</c> as
-    /// <c>$A2&gt;5</c> on <c>A2:C9</c>, where shifting alone gives <c>#REF!&gt;5</c>. Any other edit
-    /// only shifts, even one that cannot move the range: a row inserted at 1 turns <c>$A1&gt;5</c> on
-    /// the whole column <c>E:E</c> into <c>$A2&gt;5</c>. A reference to a deleted cell other than the
-    /// anchor still becomes <c>#REF!</c>, as it does in a cell formula.
+    /// <para>
+    /// A rule's formulas are written relative to its range's anchor. For each piece
+    /// Excel moves them onto the piece's origin, keeping each relative reference's offset from the
+    /// anchor, and then shifts them as a cell formula there (<c>cf-anchor-*.xlsx</c>,
+    /// <c>cf-partial-*.xlsx</c>). Deleting row 2 under <c>$A2&gt;5</c> on <c>A2:C10</c> leaves one
+    /// piece, <c>A2:C9</c>, whose origin is the old <c>A3</c>: the formula is rebased to
+    /// <c>$A3&gt;5</c> and shifted back to <c>$A2&gt;5</c>, where shifting alone gives <c>#REF!&gt;5</c>.
+    /// </para>
+    /// <para>
+    /// An edit cuts an area when part of it moves and part does not, which only an insert or delete of
+    /// cells across part of it does. A rule an edit cuts is two pieces: the cells that did not move,
+    /// and the cells that did. Deleting <c>A2</c> with a shift left cuts <c>A2:C10</c> into
+    /// <c>A3:C10</c>, whose origin is <c>A3</c>, and <c>A2:B2</c>, whose origin is the old <c>B2</c>.
+    /// An edit that cuts nothing, a whole-row or whole-column edit among them, leaves one piece, over
+    /// every area of the rule, and even over a range that cannot move: <c>$A1&gt;5</c> on the whole
+    /// column <c>E:E</c> only shifts, to <c>$A2&gt;5</c> after a row is inserted at 1.
+    /// </para>
     /// </remarks>
     /// <param name="edit">The edit, on this sheet.</param>
-    /// <param name="deleted">The region the edit deletes, as coverage sees it.</param>
-    /// <param name="before">The rule's range before the edit.</param>
-    /// <param name="after">The rule's range after the edit; not empty.</param>
-    /// <param name="anchor">The first cell of <paramref name="before"/>, the cell the formulas are written relative to.</param>
-    /// <param name="surviving">The first cell of <paramref name="after"/>, at its position before the edit.</param>
-    private static bool TryGetSurvivingAnchor<TAxis>(in SheetEdit edit, Area deleted, XLAreaList before,
-        XLAreaList after, out Point anchor, out Point surviving)
+    /// <param name="affected">The region the edit inserts or deletes, as coverage sees it.</param>
+    /// <param name="areas">The rule's range before the edit.</param>
+    private static List<(XLAreaList Areas, Point Origin)> CutIntoPieces<TAxis>(in SheetEdit edit, Area affected,
+        XLAreaList areas)
         where TAxis : struct, IGridAxis
     {
-        anchor = default;
-        surviving = default;
-        if (edit.Shift >= 0 || before.Count == 0 || after.Count == 0)
-            return false;
-
-        anchor = before[0].FirstPoint;
-        if (!deleted.Contains(anchor))
-            return false;
-
-        // The new first cell moves back to where it stood: a cell past the deletion, within the
-        // deleted lines' cross extent, had moved |Shift| lines towards it.
         var axis = default(TAxis);
-        var first = after[0].FirstPoint;
-        var moved = axis.IndexOf(first) >= axis.IndexOf(deleted.FirstPoint)
-                    && axis.CrossOf(first) >= axis.CrossOf(deleted.FirstPoint)
-                    && axis.CrossOf(first) <= axis.CrossOf(deleted.LastPoint);
-        surviving = moved ? axis.PointAt(axis.IndexOf(first) - edit.Shift, axis.CrossOf(first)) : first;
-        return true;
+        var parts = new List<(Area Part, bool Moved)>();
+        var cut = false;
+
+        // Each area on its own, so that a cut is seen: one area that comes out both moved and not.
+        foreach (var area in areas)
+        {
+            var single = new XLAreaList(area);
+            var result = edit.Shift > 0 ? axis.InsertAndShift(single, affected) : axis.DeleteAndShift(single, affected);
+            var anyMoved = false;
+            var anyStayed = false;
+            foreach (var part in result)
+            {
+                var moved = HasMoved<TAxis>(in edit, affected, part.FirstPoint);
+                parts.Add((part, moved));
+                anyMoved |= moved;
+                anyStayed |= !moved;
+            }
+
+            cut |= anyMoved && anyStayed;
+        }
+
+        var pieces = new List<(XLAreaList Areas, Point Origin)>(2);
+        if (parts.Count == 0)
+            return pieces;
+
+        if (!cut)
+        {
+            var whole = new XLAreaList(parts.Select(p => p.Part).ToList());
+            pieces.Add((whole, OriginOf<TAxis>(in edit, affected, XLConditionalFormat.AnchorOf(whole))));
+            return pieces;
+        }
+
+        // The piece whose first part came first keeps the rule's place.
+        var firstMoved = parts[0].Moved;
+        foreach (var moved in new[] { firstMoved, !firstMoved })
+        {
+            var group = new XLAreaList(parts.Where(p => p.Moved == moved).Select(p => p.Part).ToList());
+            pieces.Add((group, OriginOf<TAxis>(in edit, affected, XLConditionalFormat.AnchorOf(group))));
+        }
+
+        return pieces;
+    }
+
+    /// <summary>
+    /// Whether the cell at <paramref name="point"/>, after the edit, got there by moving: it is in the
+    /// edited lines' cross extent, and past where a delete began or past the lines an insert added.
+    /// </summary>
+    private static bool HasMoved<TAxis>(in SheetEdit edit, Area affected, Point point)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+        var cross = axis.CrossOf(point);
+        if (cross < axis.CrossOf(affected.FirstPoint) || cross > axis.CrossOf(affected.LastPoint))
+            return false;
+
+        return axis.IndexOf(point) >= axis.IndexOf(affected.FirstPoint) + Math.Max(edit.Shift, 0);
+    }
+
+    /// <summary>Where the cell at <paramref name="point"/>, after the edit, stood before it.</summary>
+    private static Point OriginOf<TAxis>(in SheetEdit edit, Area affected, Point point)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+        return HasMoved<TAxis>(in edit, affected, point)
+            ? axis.PointAt(axis.IndexOf(point) - edit.Shift, axis.CrossOf(point))
+            : point;
     }
 
     /// <summary>
@@ -332,7 +402,9 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         {
             var item = formats[0];
 
-            if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType))
+            // A piece of a rule an edit cut apart is left as it is (see IsSplitByEdit).
+            if (!CFTypesExcludedFromConsolidation.Contains(item.ConditionalFormatType)
+                && item is XLConditionalFormat { IsSplitByEdit: false })
             {
                 var similarFormats = ConsolidateItem(item, formats);
                 formats.RemoveAll(similarFormats.Contains);
@@ -368,6 +440,7 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         return similarFormats;
 
         bool IsSameFormat(IXLConditionalFormat f) => f != item &&
+                                                     f is XLConditionalFormat { IsSplitByEdit: false } &&
                                                      f.Ranges.First().Worksheet.Position ==
                                                      firstRange.Worksheet.Position &&
                                                      XLConditionalFormat.NoRangeComparer.Equals(f, item);

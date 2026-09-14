@@ -33,15 +33,22 @@ public class ConditionalFormatAnchorFixtureTests
 {
     private const string Folder = @"Other\ConditionalFormatShift\";
 
+    /// <summary>
+    /// Saved with the default <see cref="SaveOptions"/>, which consolidate conditional formats, so that
+    /// a save cannot merge back the pieces an edit cut a rule into.
+    /// </summary>
     [Test]
-    [Arguments("none", "cf-anchor-before.xlsx")]
-    [Arguments("delete row 2", "cf-anchor-deleterow-after.xlsx")]
-    [Arguments("delete column G", "cf-anchor-deletecol-after.xlsx")]
-    [Arguments("insert a row at 1", "cf-anchor-insertrow-after.xlsx")]
-    public async Task Each_rule_matches_what_Excel_wrote(string edit, string after)
+    [Arguments("cf-anchor-before.xlsx", "none", "cf-anchor-before.xlsx")]
+    [Arguments("cf-anchor-before.xlsx", "delete row 2", "cf-anchor-deleterow-after.xlsx")]
+    [Arguments("cf-anchor-before.xlsx", "delete column G", "cf-anchor-deletecol-after.xlsx")]
+    [Arguments("cf-anchor-before.xlsx", "insert a row at 1", "cf-anchor-insertrow-after.xlsx")]
+    [Arguments("cf-partial-before.xlsx", "none", "cf-partial-before.xlsx")]
+    [Arguments("cf-partial-before.xlsx", "delete A2 shifting left", "cf-partial-deleteleft-after.xlsx")]
+    [Arguments("cf-partial-before.xlsx", "insert a cell at A2 shifting down", "cf-partial-insertdown-after.xlsx")]
+    public async Task Each_block_matches_what_Excel_wrote(string before, string edit, string after)
     {
         using var ms = new MemoryStream();
-        using (var wb = new XLWorkbook(Resource("cf-anchor-before.xlsx")))
+        using (var wb = new XLWorkbook(Resource(before)))
         {
             var ws = wb.Worksheet("Sheet1");
             switch (edit)
@@ -50,19 +57,25 @@ public class ConditionalFormatAnchorFixtureTests
                 case "delete row 2": ws.Row(2).Delete(); break;
                 case "delete column G": ws.Column(7).Delete(); break;
                 case "insert a row at 1": ws.Row(1).InsertRowsAbove(1); break;
+                case "delete A2 shifting left": ws.Range("A2").Delete(XLShiftDeletedCells.ShiftCellsLeft); break;
+                case "insert a cell at A2 shifting down": ws.Cell("A2").InsertCellsAbove(1); break;
                 default: throw new ArgumentOutOfRangeException(nameof(edit), edit, null);
             }
 
             wb.SaveAs(ms);
         }
 
-        await Assert.That(Lines(Rules(ms))).IsEqualTo(Lines(Rules(Resource(after))));
+        await Assert.That(Lines(Blocks(ms))).IsEqualTo(Lines(Blocks(Resource(after))));
     }
 
     private static string Lines(IEnumerable<string> items) => string.Join(Environment.NewLine, items);
 
-    /// <summary>Every rule on <c>Sheet1</c> as <c>range = formula</c>, in a fixed order.</summary>
-    private static List<string> Rules(Stream package)
+    /// <summary>
+    /// Every conditional-formatting block on <c>Sheet1</c> as <c>range = formulas</c>, the formulas of
+    /// its rules sorted, and the blocks in a fixed order. Priorities, <c>dxfId</c>s and the order of
+    /// blocks and rules are Excel's bookkeeping, and Excel renumbers them on an edit.
+    /// </summary>
+    private static List<string> Blocks(Stream package)
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
@@ -70,9 +83,10 @@ public class ConditionalFormatAnchorFixtureTests
         var sheet = workbookPart.Workbook!.Sheets!.Elements<S.Sheet>().Single(s => s.Name == "Sheet1");
         var worksheet = ((WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!)).Worksheet!;
         return worksheet.Elements<S.ConditionalFormatting>()
-            .SelectMany(c => c.Elements<S.ConditionalFormattingRule>()
-                .Select(r => $"{Normalize(c.SequenceOfReferences?.InnerText ?? string.Empty)} = " +
-                             string.Join(" | ", r.Elements<S.Formula>().Select(f => f.Text))))
+            .Select(c => $"{Normalize(c.SequenceOfReferences?.InnerText ?? string.Empty)} = " +
+                         string.Join(" | ", c.Elements<S.ConditionalFormattingRule>()
+                             .Select(r => string.Join(" & ", r.Elements<S.Formula>().Select(f => f.Text)))
+                             .Order(StringComparer.Ordinal)))
             .Order(StringComparer.Ordinal)
             .ToList();
     }

@@ -60,7 +60,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         }
 
         /// <summary>
-        /// Do two formats hold the same formulas, each relative to its own first cell? A format that
+        /// Do two formats hold the same formulas, each relative to its own anchor
+        /// (<see cref="AnchorOf"/>)? A format that
         /// holds a formula the parser refuses equals no other: the references in that formula are
         /// unknown, so nothing says the two hold the same one, and consolidation never merges it.
         /// </summary>
@@ -113,26 +114,26 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         }
 
         /// <summary>
-        /// The format's formulas in R1C1, relative to its first cell, or <c>null</c> when it has no
-        /// range.
+        /// The format's formulas in R1C1, relative to its anchor (<see cref="AnchorOf"/>), or
+        /// <c>null</c> when it has no range.
         /// </summary>
         /// <returns><c>false</c> when the parser refuses one of the formulas.</returns>
         private static bool TryGetRelativeFormulas(XLConditionalFormat format, out List<string>? formulas)
         {
-            if (format.Ranges.Count == 0)
+            if (format.Areas.Count == 0)
             {
                 formulas = null;
                 return true;
             }
 
-            var anchor = (XLCell)format.Ranges.First().FirstCell();
+            var anchor = AnchorOf(format.Areas);
             formulas = [];
             foreach (var value in format.Values.Values)
             {
                 if (value is not { IsFormula: true })
                     continue;
 
-                if (!anchor.TryGetFormulaR1C1(value.Value, out var r1c1, out _))
+                if (!XLCellFormula.TryGetFormula(value.Value, FormulaConversionType.A1ToR1C1, anchor, out var r1c1, out _))
                     return false;
 
                 formulas.Add(r1c1);
@@ -205,7 +206,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     /// </summary>
     /// <remarks>
     /// A formula is written relative to the format's range, so a relative reference names the cell a
-    /// cell formula in the range's first cell would: <c>A1&gt;0</c> on <c>E1</c> names <c>A1</c>. The
+    /// cell formula in the range's anchor (<see cref="AnchorOf"/>) would: <c>A1&gt;0</c> on <c>E1</c>
+    /// names <c>A1</c>. The
     /// shifter moves the reference with the cell it names, which keeps it relative when the range moves
     /// as well: a row inserted above row 1 gives <c>A2&gt;0</c> on <c>E2</c>.
     /// </remarks>
@@ -262,19 +264,48 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     /// <summary>
+    /// Whether this format is a piece of a rule that a row or column edit cut apart (see
+    /// <c>XLConditionalFormats.CutIntoPieces</c>). Consolidation leaves such a piece as it is: Excel
+    /// writes each piece as a block of its own (<c>cf-partial-*.xlsx</c>), and merging two pieces whose
+    /// formulas happen to read the same would change the blocks it wrote.
+    /// </summary>
+    internal bool IsSplitByEdit { get; set; }
+
+    /// <summary>
+    /// A copy of the format over <paramref name="areas"/>, with its priority, type, values and style:
+    /// one piece of a rule an edit cut apart.
+    /// </summary>
+    internal XLConditionalFormat CopyOnto(XLAreaList areas)
+    {
+        var copy = new XLConditionalFormat(_worksheet)
+        {
+            Areas = areas,
+            Priority = Priority,
+            CopyDefaultModify = CopyDefaultModify,
+        };
+        copy.CopyFrom(this);
+        return copy;
+    }
+
+    /// <summary>
     /// Rebases each formula of the format from the cell <paramref name="from"/> onto the cell
     /// <paramref name="to"/>: a relative reference keeps its offset from the cell, and an absolute one
     /// stays where it is. The formulas are the ones <see cref="ShiftFormulas{TAxis}"/> shifts.
     /// </summary>
     /// <remarks>
-    /// For a delete that removes the row or column of the range's first cell, the formula's anchor,
-    /// while the format survives. Excel keeps the formula, rebased onto the first cell that survives,
-    /// and then shifts it (<c>cf-anchor-*.xlsx</c>): <c>$A2&gt;5</c> on <c>A2:C10</c> is rebased onto
+    /// For a row or column edit: the formulas are rebased from the range's anchor
+    /// (<see cref="AnchorOf"/>) onto the origin of each piece the edit leaves, before they are shifted
+    /// (see
+    /// <c>XLConditionalFormats.CutIntoPieces</c>). <c>$A2&gt;5</c> on <c>A2:C10</c> is rebased onto
     /// <c>A3</c> as <c>$A3&gt;5</c>, and deleting row 2 shifts it back to <c>$A2&gt;5</c> on
-    /// <c>A2:C9</c>. Shifting without the rebase gives <c>#REF!&gt;5</c>.
+    /// <c>A2:C9</c>, as Excel writes (<c>cf-anchor-*.xlsx</c>). Shifting without the rebase gives
+    /// <c>#REF!&gt;5</c>.
     /// </remarks>
     internal void RebaseFormulas(Point from, Point to)
     {
+        if (from == to)
+            return;
+
         foreach (var key in Values.Keys.ToList())
         {
             var formula = Values[key];
@@ -297,7 +328,10 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     internal static bool TryRebaseFormula(string text, Point from, Point to, out string rebased)
     {
         rebased = text;
-        if (string.IsNullOrWhiteSpace(text)
+
+        // Onto the cell it came from, a formula is what it was; the round trip could only respell it.
+        if (from == to
+            || string.IsNullOrWhiteSpace(text)
             || !XLCellFormula.TryGetFormula(text, FormulaConversionType.A1ToR1C1, from, out var r1c1, out _)
             || !XLCellFormula.TryGetFormula(r1c1, FormulaConversionType.R1C1ToA1, to, out var a1, out _)
             || a1 == text)
@@ -305,6 +339,32 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
         rebased = a1;
         return true;
+    }
+
+    /// <summary>
+    /// The cell a conditional format's formulas are written relative to, its anchor: the top-left
+    /// corner of the rectangle that bounds <paramref name="areas"/>. For one area, its first cell.
+    /// </summary>
+    /// <remarks>
+    /// No Excel-written file has settled which cell Excel uses for a range of several areas: the
+    /// <c>cf-anchor-*.xlsx</c> and <c>cf-partial-*.xlsx</c> fixtures hold only single-area ranges. The
+    /// bounding top-left follows what consolidation already did on save
+    /// (<c>ConditionalFormatsConsolidateTests.ConsolidateShiftsFormulaRelativelyToTopMostCell</c>), so
+    /// that the equality comparer, consolidation and a row or column edit all read a format's formulas
+    /// from one cell (issue #499).
+    /// </remarks>
+    /// <param name="areas">A range of at least one area.</param>
+    internal static Point AnchorOf(XLAreaList areas)
+    {
+        var row = int.MaxValue;
+        var column = int.MaxValue;
+        foreach (var area in areas)
+        {
+            row = Math.Min(row, area.TopRow);
+            column = Math.Min(column, area.LeftColumn);
+        }
+
+        return new Point(row, column);
     }
 
     /// <summary>

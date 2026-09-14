@@ -299,6 +299,90 @@ public class KeptX14RuleShiftTests
         await Assert.That(removed).IsEquivalentTo(new[] { "Data!$A$5" }, CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    /// KNOWN GAP (issue #499): an insert or delete of cells that cuts through a rule's range splits a
+    /// modelled rule in two, as Excel does, but not a rule kept in the <c>x14</c> extension, because
+    /// that means duplicating its XML with a new rule id per piece. This pins the kept rule's output:
+    /// one rule over both pieces, with the formula of the piece that holds the rule's anchor.
+    /// </summary>
+    /// <remarks>
+    /// Deleting <c>A2</c> with a shift left cuts <c>A2:C10</c> into <c>A3:C10</c> and <c>A2:B2</c>. For
+    /// <c>$A2&gt;7</c> Excel writes <c>$A3&gt;7</c> on the first and <c>#REF!&gt;7</c> on the second
+    /// (<c>cf-partial-deleteleft-after.xlsx</c>). The kept rule's anchor is <c>A2</c>, so it gets the
+    /// second piece's formula over both.
+    /// </remarks>
+    [Test]
+    public async Task Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule()
+    {
+        using var built = Build("A2:C10", "$A2>7");
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook(built))
+        {
+            wb.Worksheet("Other").Range("A2").Delete(XLShiftDeletedCells.ShiftCellsLeft);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var document = SpreadsheetDocument.Open(ms, false);
+        var worksheet = OtherPart(document).Worksheet!;
+        var modelled = worksheet.Elements<S.ConditionalFormatting>()
+            .Select(c => $"{Normalize(c.SequenceOfReferences?.InnerText)} = {c.Descendants<S.Formula>().Single().Text}")
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        var kept = worksheet.Descendants<X14.ConditionalFormatting>().Single();
+        var keptRange = string.Join(" ", Normalize(kept.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text)
+            .Split(' ').Order(StringComparer.Ordinal));
+
+        await Assert.That(modelled).IsEquivalentTo(new[] { "A2:B2 = #REF!>7", "A3:C10 = $A3>7" },
+            CollectionOrdering.Matching);
+        await Assert.That(keptRange).IsEqualTo("A2:B2 A3:C10");
+        await Assert.That(kept.Descendants<OfficeExcel.Formula>().Single().Text).IsEqualTo("#REF!>7");
+    }
+
+    /// <summary>
+    /// The listener's worst input for an edit that cuts a rule: a one-cell insert and delete in each
+    /// direction, at a corner and inside, through modelled rules over the whole sheet, over two areas,
+    /// with a formula the parser refuses and with a formula value point, and through a kept rule whose
+    /// text the parser refuses. A refused formula keeps its text in every piece (ADR 0002).
+    /// </summary>
+    [Test]
+    public async Task The_conditional_format_listener_does_not_throw_when_an_edit_cuts_a_rule()
+    {
+        using var wb = new XLWorkbook();
+        IXLWorksheet sheet = wb.AddWorksheet("Host");
+        var host = (XLWorksheet)sheet;
+        sheet.Range("A1:C3").AddConditionalFormat().WhenIsTrue("=SUM(A1").Fill.SetBackgroundColor(XLColor.Red);
+        sheet.Range("A1:XFD1048576").AddConditionalFormat().WhenIsTrue("=A1>0").Fill.SetBackgroundColor(XLColor.Red);
+        sheet.Range("B1:B4").AddConditionalFormat()
+            .SetRanges(new[] { sheet.Range("B1:B4"), sheet.Range("D2:E5") })
+            .WhenIsTrue("=B1>0").Fill.SetBackgroundColor(XLColor.Red);
+        sheet.Range("A2:C4").AddConditionalFormat().ColorScale()
+            .Minimum(XLCFContentType.Formula, "A2", XLColor.Red)
+            .Maximum(XLCFContentType.Maximum, "0", XLColor.Blue);
+        var formats = host.ConditionalFormats;
+        formats.SeedExtensionRuleFormulas("refused", ["SUM(A1"]);
+        formats.SeedExtensionRuleAreas("refused", new XLAreaList(Area.Parse("A1:C3")));
+
+        ISheetListener listener = formats;
+        foreach (var cell in new[] { host.Range(1, 1, 1, 1), host.Range(2, 2, 2, 2) })
+        {
+            await Assert.That(() => listener.OnInsertAreaAndShiftDown(Edit(host, cell, 1))).ThrowsNothing();
+            await Assert.That(() => listener.OnInsertAreaAndShiftRight(Edit(host, cell, 1))).ThrowsNothing();
+            await Assert.That(() => listener.OnDeleteAreaAndShiftUp(Edit(host, cell, -1))).ThrowsNothing();
+            await Assert.That(() => listener.OnDeleteAreaAndShiftLeft(Edit(host, cell, -1))).ThrowsNothing();
+        }
+
+        var refused = host.ConditionalFormats.Cast<XLConditionalFormat>()
+            .Where(c => c.ConditionalFormatType == XLConditionalFormatType.Expression
+                        && c.Values[1].Value.StartsWith("SUM(", StringComparison.Ordinal))
+            .Select(c => c.Values[1].Value)
+            .ToList();
+        await Assert.That(refused).IsNotEmpty();
+        await Assert.That(refused.Distinct().ToList()).IsEquivalentTo(new[] { "SUM(A1" });
+        await Assert.That(formats.TryGetExtensionRuleFormulas("refused", out var kept)).IsTrue();
+        await Assert.That(kept).IsEquivalentTo(new[] { "SUM(A1" });
+    }
+
     private static string? ScaleMinimum(XLWorksheet host)
         => host.ConditionalFormats.Cast<XLConditionalFormat>()
             .Single(c => c.ConditionalFormatType == XLConditionalFormatType.ColorScale).Values[1].Value;
