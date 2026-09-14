@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Report.Excel;
 using XLibur.Report.Expressions;
 
@@ -13,10 +15,45 @@ internal sealed class CellEvaluator
     private readonly IExpressionEngine _engine;
     private readonly TemplateErrors _errors;
 
+    /// <summary>The cells already reported as unreadable, so each is reported once.</summary>
+    private readonly HashSet<(string Sheet, string? Address)> _unreadable = new();
+
     public CellEvaluator(IExpressionEngine engine, TemplateErrors errors)
     {
         _engine = engine;
         _errors = errors;
+    }
+
+    /// <summary>
+    /// Reads <paramref name="cell"/>'s value for the expander, which looks through every cell of a
+    /// bound range for tags and expressions.
+    /// </summary>
+    /// <remarks>
+    /// A formula that is part of a circular reference has no value to read. It is recorded as a
+    /// template error, once per cell, and read as blank, so generation carries on and the cell keeps
+    /// its formula. Every other failure still throws.
+    /// </remarks>
+    public XLCellValue ReadValue(IXLCell cell)
+    {
+        try
+        {
+            return cell.Value;
+        }
+        catch (XLCircularReferenceException ex)
+        {
+            var sheet = cell.Worksheet.Name;
+            var address = cell.Address.ToString();
+            if (_unreadable.Add((sheet, address)))
+            {
+                _errors.Add(new TemplateError(
+                    "The formula in this cell is part of a circular reference, so its value cannot be read.",
+                    sheet,
+                    address,
+                    ex));
+            }
+
+            return Blank.Value;
+        }
     }
 
     /// <summary>
