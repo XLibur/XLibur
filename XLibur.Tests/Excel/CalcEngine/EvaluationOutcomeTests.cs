@@ -17,8 +17,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 /// <remarks>
 /// <para>
 /// <see cref="Matrix"/> is the policy table, observed from outside. Each row names an entry point, a
-/// kind of failure, and what the caller gets. A row changes only when spec 56 decided that cell; the
-/// rest record what the code did when the matrix was first measured.
+/// kind of failure, and what the caller gets. A row changes only when a decision changes that cell:
+/// spec 56's, or a follow-up to it such as #489 and #490, which gave recalculation the same outcome
+/// for a refused formula and an unsupported feature as for a cycle. The rest record what the code did
+/// when the matrix was first measured.
 /// </para>
 /// <para>
 /// An exception is shown by the most derived type a caller outside XLibur can name in a
@@ -59,6 +61,18 @@ public class EvaluationOutcomeTests
         /// meets a cycle the cell does not depend on (#492).
         /// </summary>
         CycleElsewhere,
+
+        /// <summary>
+        /// As <see cref="CycleElsewhere"/>, but the full recalculation meets an unsupported feature the
+        /// cell does not depend on.
+        /// </summary>
+        UnsupportedElsewhere,
+
+        /// <summary>
+        /// As <see cref="CycleElsewhere"/>, but the full recalculation meets a refused formula the cell
+        /// does not depend on.
+        /// </summary>
+        RefusedElsewhere,
     }
 
     private const string SheetName = "Sheet1";
@@ -120,14 +134,14 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.TryInvoke, Kind.Pending, "n/a")]
     [Arguments(Entry.TryInvoke, Kind.Defect, "n/a")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "completes, A6 dirty")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "throws NotImplementedException")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "throws ExpressionParseException")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "completes, A6 dirty")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "completes, A6 dirty")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "completes, A6 = 6")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Pending, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "opens, A6 dirty")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "throws NotImplementedException")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "throws ExpressionParseException")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "opens, A6 dirty")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "opens, A6 dirty")]
     [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "opens, A6 = 6")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Pending, "opens, A6 = 3")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Defect, "n/a")]
@@ -148,6 +162,28 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.RecalculateAllFormulas, Kind.CycleElsewhere, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateOnLoad, Kind.CycleElsewhere, "opens, A6 = 3")]
     [Arguments(Entry.Save, Kind.CycleElsewhere, "saves, A6 <v>3</v>")]
+    [Arguments(Entry.Value, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.TryGetValue, Kind.UnsupportedElsewhere, "true: 3")]
+    [Arguments(Entry.GetFormattedString, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.Search, Kind.UnsupportedElsewhere, "found A1")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.UnsupportedElsewhere, "3")]
+    [Arguments(Entry.EvaluateExpr, Kind.UnsupportedElsewhere, "n/a")]
+    [Arguments(Entry.TryInvoke, Kind.UnsupportedElsewhere, "n/a")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.UnsupportedElsewhere, "completes, A6 = 3")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.UnsupportedElsewhere, "opens, A6 = 3")]
+    [Arguments(Entry.Save, Kind.UnsupportedElsewhere, "saves, A6 <v>3</v>")]
+    [Arguments(Entry.Value, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.TryGetValue, Kind.RefusedElsewhere, "true: 3")]
+    [Arguments(Entry.GetFormattedString, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.Search, Kind.RefusedElsewhere, "found A1")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.RefusedElsewhere, "3")]
+    [Arguments(Entry.EvaluateExpr, Kind.RefusedElsewhere, "n/a")]
+    [Arguments(Entry.TryInvoke, Kind.RefusedElsewhere, "n/a")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.RefusedElsewhere, "completes, A6 = 3")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.RefusedElsewhere, "opens, A6 = 3")]
+    [Arguments(Entry.Save, Kind.RefusedElsewhere, "saves, A6 <v>3</v>")]
     public async Task Matrix(Entry entry, Kind kind, string expected)
     {
         await Assert.That(Observe(entry, kind)).IsEqualTo(expected);
@@ -170,7 +206,7 @@ public class EvaluationOutcomeTests
             + "TolerantRead: NoValue, NoValue, NoValue, NoValue, Throw, Throw\n"
             + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
-            + "Recalculation: LeaveDirty, Throw, Throw, Throw, Throw, Throw\n"
+            + "Recalculation: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw\n"
             + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw");
     }
 
@@ -300,6 +336,320 @@ public class EvaluationOutcomeTests
 
         await Assert.That(ws.Evaluate("MyRow", "B7")).IsEqualTo(7);
         await Assert.That(() => ws.Evaluate("MyRow")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// #491. A name needs a worksheet only when its formula does. <c>IXLWorkbook.Evaluate</c> has no
+    /// sheet, and a workbook-scoped name whose references all name their sheet answers there, as its
+    /// own text does. It threw <see cref="XLNoWorksheetContextException"/>, because the name's lookup
+    /// and the context built for its formula both asked for the sheet before anything needed it.
+    /// </summary>
+    [Test]
+    [Arguments("Total")]
+    [Arguments("Total+0")]
+    public async Task Workbook_evaluate_reads_a_name_that_needs_no_sheet(string expression)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName).Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+
+        await Assert.That(wb.Evaluate(expression)).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task Workbook_evaluate_reads_a_name_that_refers_to_another_name()
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName).Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Twice", "Total*2");
+
+        await Assert.That(wb.Evaluate("Twice")).IsEqualTo(20);
+    }
+
+    /// <summary>
+    /// A sheet-scoped name referred to with its sheet needs no sheet from the caller: the prefix
+    /// says which sheet's names to look in.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_reads_a_sheet_scoped_name_referred_to_with_its_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+
+        await Assert.That(wb.Evaluate("Sheet1!Local")).IsEqualTo(15);
+    }
+
+    /// <summary>
+    /// A sheet-scoped name shadows the workbook's only on its own sheet. <c>IXLWorkbook.Evaluate</c>
+    /// is on no sheet, so nothing shadows there and an unqualified name is the workbook's. On the
+    /// sheet, <c>IXLWorksheet.Evaluate</c> and a cell read the sheet's own, as before.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_reads_the_workbook_scoped_name_where_a_sheet_has_its_own()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.Cell("B1").Value = 7;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        ws.DefinedNames.Add("Total", "Sheet1!$B$1");
+        ws.Cell("C1").FormulaA1 = "Total";
+
+        await Assert.That(wb.Evaluate("Total")).IsEqualTo(10);
+        await Assert.That(wb.Evaluate("Sheet1!Total")).IsEqualTo(7);
+        await Assert.That(ws.Evaluate("Total")).IsEqualTo(7);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// #491 does not give up the check: a name whose formula needs the sheet or the cell still
+    /// reports that from <c>IXLWorkbook.Evaluate</c>. <c>!A1</c> is the relative reference a defined
+    /// name can hold: a sheet-less <c>A1</c> is refused when the name is defined, and <c>!A1</c> is
+    /// read on the sheet of the cell using the name (#446).
+    /// </summary>
+    [Test]
+    [Arguments("!A1")]
+    [Arguments("ROW()")]
+    [Arguments("COLUMN()")]
+    public async Task Workbook_evaluate_still_throws_for_a_name_that_needs_a_cell(string refersTo)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("Here", refersTo);
+
+        await Assert.That(() => wb.Evaluate("Here")).Throws<XLNoWorksheetContextException>();
+        await Assert.That(() => wb.Evaluate("Here+0")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// An unqualified name that only a sheet defines needs the sheet to be found, directly or through
+    /// another name.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_still_throws_for_an_unqualified_sheet_scoped_name()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+        wb.DefinedNames.Add("Outer", "!Local");
+
+        await Assert.That(() => wb.Evaluate("Local")).Throws<XLNoWorksheetContextException>();
+        await Assert.That(() => wb.Evaluate("Outer")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// The same names, where there is a sheet: <c>IXLWorksheet.Evaluate</c> and a cell read them as
+    /// they did before #491.
+    /// </summary>
+    [Test]
+    public async Task Worksheet_evaluate_and_a_cell_read_names_as_before()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.Cell("B1").Value = 7;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Here", "!B1");
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+        wb.DefinedNames.Add("Outer", "!Local");
+        ws.Cell("C1").FormulaA1 = "Total";
+        ws.Cell("C2").FormulaA1 = "Here";
+        ws.Cell("C3").FormulaA1 = "Local";
+        ws.Cell("C4").FormulaA1 = "Outer";
+
+        await Assert.That(ws.Evaluate("Total")).IsEqualTo(10);
+        await Assert.That(ws.Evaluate("Here")).IsEqualTo(7);
+        await Assert.That(ws.Evaluate("Local")).IsEqualTo(15);
+        await Assert.That(ws.Evaluate("Outer")).IsEqualTo(15);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(10);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(7);
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(15);
+        await Assert.That(ws.Cell("C4").Value).IsEqualTo(15);
+    }
+
+    /// <summary>
+    /// A defined name that depends on its own value, directly (<c>Loop</c>) or through another name
+    /// (<c>Ping</c> and <c>Pong</c>), is a circular reference. Name evaluation had no guard, so it
+    /// recursed until the stack overflowed, which ends the process; #491 made that reachable from
+    /// <c>IXLWorkbook.Evaluate</c> too. Each entry point now gets spec 56's outcome for a cycle:
+    /// <see cref="XLCircularReferenceException"/> from both <c>Evaluate</c>s and from a cell read,
+    /// and no value from <c>TryGetValue</c>.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_circular_defined_name_is_a_circular_reference(string name)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("Loop", "Loop+1");
+        wb.DefinedNames.Add("Ping", "Pong");
+        wb.DefinedNames.Add("Pong", "Ping");
+        ws.Cell("B1").FormulaA1 = name;
+
+        await Assert.That(() => wb.Evaluate(name)).Throws<XLCircularReferenceException>();
+        await Assert.That(() => ws.Evaluate(name)).Throws<XLCircularReferenceException>();
+        await Assert.That(() => ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(ws.Cell("B1").TryGetValue<double>(out _)).IsFalse();
+    }
+
+    /// <summary>
+    /// A circular name met by the full recalculation a read falls back to. On its own, #491 raised
+    /// the cycle part way through that pass, which stopped it, as a cycle did before #492, so a read
+    /// of a cell that does not use the name threw. The fallback pass leaves the name's cell dirty, as
+    /// it does any expected failure, and only a read of that cell reports the cycle.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_read_does_not_throw_for_a_circular_name_it_does_not_use(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(6);
+
+        // The read fell back to a full pass, which walks every formula, B1 included.
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task TryGetValue_answers_for_a_cell_that_does_not_use_a_circular_name(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        await Assert.That(ws.Cell("C1").TryGetValue(out double value)).IsTrue();
+        await Assert.That(value).IsEqualTo(6);
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        await Assert.That(ws.Cell("B1").TryGetValue(out double _)).IsFalse();
+    }
+
+    /// <summary>
+    /// Recalculation leaves a circular name's cell dirty and calculates the rest, as it does for any
+    /// cycle (Q23). Before D79 it overflowed the stack building the dependency tree.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task RecalculateAllFormulas_leaves_a_circular_name_dirty_and_calculates_the_rest(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        var ws = wb.Worksheet(SheetName);
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("C1").CachedValue).IsEqualTo(6);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// ADR 0001: a save that evaluates formulas writes a circular name's cell with no cached value.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task Save_writes_no_cached_value_for_a_circular_name(string name)
+    {
+        using var wb = WorkbookWithCircularName(name);
+        using var stream = new MemoryStream();
+
+        wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+
+        await Assert.That(CachedValueInFile(stream, "B1")).IsEqualTo("B1 has no <v>");
+        await Assert.That(CachedValueInFile(stream, "C1")).IsEqualTo("C1 <v>6</v>");
+    }
+
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_workbook_with_a_circular_name_opens_with_recalculate_on_load(string name)
+    {
+        using var stream = new MemoryStream();
+        using (var wb = WorkbookWithCircularName(name))
+            wb.SaveAs(stream);
+
+        stream.Position = 0;
+        using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
+        var sheet = loaded.Worksheet(SheetName);
+
+        await Assert.That(sheet.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("C1").CachedValue).IsEqualTo(6);
+        await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = sheet.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// B1 uses a circular name: <c>Loop</c> refers to itself, and <c>Ping</c> and <c>Pong</c> refer
+    /// to each other. C1 does not use it, but needs A1, a formula no one has read, so a read of C1
+    /// falls back to a full recalculation, which meets B1.
+    /// </summary>
+    private static XLWorkbook WorkbookWithCircularName(string name)
+    {
+        var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        if (name == "Loop")
+        {
+            wb.DefinedNames.Add("Loop", "Loop+1");
+        }
+        else
+        {
+            wb.DefinedNames.Add("Ping", "Pong");
+            wb.DefinedNames.Add("Pong", "Ping");
+        }
+
+        ws.Cell("A1").FormulaA1 = "2+3";
+        ws.Cell("B1").FormulaA1 = name;
+        ws.Cell("C1").FormulaA1 = "A1+1";
+        return wb;
+    }
+
+    /// <summary>
+    /// The guard stops a name met again inside its own evaluation, not one used twice side by side.
+    /// </summary>
+    [Test]
+    [Arguments("Total+Total")]
+    [Arguments("Both")]
+    public async Task A_name_used_twice_is_not_a_circular_reference(string expression)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Both", "Total+Total");
+        ws.Cell("B1").FormulaA1 = expression;
+
+        await Assert.That(wb.Evaluate(expression)).IsEqualTo(20);
+        await Assert.That(ws.Evaluate(expression)).IsEqualTo(20);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(20);
+    }
+
+    /// <summary>
+    /// A name that reads a cell whose formula uses the same name, for its own cell, is not a cycle.
+    /// <c>Above</c> is the cell above the one using it, plus one. Evaluated for A3 it reads A2, and
+    /// A2's formula is <c>Above</c> again, calculated for A2 in a context of its own. A guard shared
+    /// by every evaluation would see <c>Above</c> twice and call it a cycle.
+    /// </summary>
+    [Test]
+    public async Task A_name_met_again_through_a_cell_it_reads_is_not_a_circular_reference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 1;
+        wb.DefinedNames.Add("Above", "INDEX(Sheet1!$A$1:$A$10,ROW()-1)+1");
+        ws.Cell("A2").FormulaA1 = "Above";
+
+        await Assert.That(ws.Evaluate("Above", "A3")).IsEqualTo(3);
     }
 
     /// <summary>
@@ -466,22 +816,22 @@ public class EvaluationOutcomeTests
     /// </summary>
     /// <remarks>
     /// Found with a cycle at A2. Since #492 a read's pass leaves a cycle dirty instead of throwing,
-    /// so the pass is made to throw with an unsupported feature instead, which a read still meets
-    /// wherever it is.
+    /// and it now leaves an unsupported feature and a refused formula dirty too. A defect is the
+    /// failure that still stops the pass wherever it is, so the pass is made to throw with one.
     /// </remarks>
     [Test]
     public async Task A_pass_after_one_that_threw_starts_from_the_beginning_of_the_chain()
     {
-        using var wb = new XLWorkbook();
+        using var wb = WorkbookWithDefectFunction();
         var ws = wb.AddWorksheet(SheetName);
         ws.Cell("A1").FormulaA1 = "B1*2";
         ws.Cell("B1").FormulaA1 = "A3+0";
-        ws.Cell("A2").FormulaA1 = UnsupportedFormula;
+        ws.Cell("A2").FormulaA1 = DefectFunction + "()";
         ws.Cell("A3").Value = 5;
         ws.Cell("A4").FormulaA1 = "A5+1";
         ws.Cell("A5").FormulaA1 = "1";
 
-        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NotImplementedException>();
+        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NullReferenceException>();
 
         ws.Cell("A3").Value = 7;
         ws.Cell("A2").Value = 0;
@@ -707,7 +1057,8 @@ public class EvaluationOutcomeTests
     /// </summary>
     private static string Expression(Kind kind, bool qualified) => kind switch
     {
-        Kind.Cycle or Kind.Pending or Kind.CycleElsewhere => qualified ? $"{SheetName}!{At}" : At,
+        Kind.Cycle or Kind.Pending or Kind.CycleElsewhere or Kind.UnsupportedElsewhere or Kind.RefusedElsewhere
+            => qualified ? $"{SheetName}!{At}" : At,
         Kind.Unsupported => UnsupportedFormula,
         Kind.Refused => RefusedFormula,
         Kind.NoContext => "ROW()",
@@ -753,6 +1104,13 @@ public class EvaluationOutcomeTests
                 // which meets the cycle at Z100. A6 does not depend on Z100.
                 ws.Cell("B1").FormulaA1 = "2";
                 ws.Cell("Z100").FormulaA1 = "Z100+1";
+                cell.FormulaA1 = "B1+1";
+                break;
+            case Kind.UnsupportedElsewhere:
+            case Kind.RefusedElsewhere:
+                // As CycleElsewhere, but Z100 holds a formula the pass cannot calculate.
+                ws.Cell("B1").FormulaA1 = "2";
+                ws.Cell("Z100").FormulaA1 = kind == Kind.UnsupportedElsewhere ? UnsupportedFormula : RefusedFormula;
                 cell.FormulaA1 = "B1+1";
                 break;
         }
@@ -821,7 +1179,7 @@ public class EvaluationOutcomeTests
 
     private static string Show(double value) => value.ToString(CultureInfo.InvariantCulture);
 
-    private static string CachedValueInFile(MemoryStream stream, string address)
+    internal static string CachedValueInFile(MemoryStream stream, string address)
     {
         using var zip = new ZipArchive(new MemoryStream(stream.ToArray()), ZipArchiveMode.Read);
         var entry = zip.Entries.First(e => e.FullName.EndsWith("sheet1.xml", StringComparison.OrdinalIgnoreCase));

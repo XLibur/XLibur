@@ -10,7 +10,7 @@ public class XLCellImageTests
     /// <summary>
     /// Create a small valid PNG byte array (1×1 pixel, red).
     /// </summary>
-    private static byte[] CreateTestPng()
+    internal static byte[] CreateTestPng()
     {
         // Minimal valid 1×1 red PNG
         return new byte[]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Parser;
 using XLibur.Extensions;
 
@@ -24,15 +25,35 @@ internal sealed class FormulaParser
     /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
     public Formula GetAst(string formula, bool isA1)
     {
+        // Evaluation is a public edge: a refused formula reaches the caller as ExpressionParseException.
+        if (!TryGetAst(formula, isA1, out var ast, out var refusal))
+            throw refusal.ToException();
+
+        return ast;
+    }
+
+    /// <summary>
+    /// Parse a formula into an abstract syntax tree, and return the parser's refusal as a value.
+    /// </summary>
+    /// <param name="formula">The formula text. A leading <c>=</c> is allowed.</param>
+    /// <param name="isA1">Whether the text is in A1 notation rather than R1C1.</param>
+    /// <param name="ast">The tree, when the parser accepted the formula.</param>
+    /// <param name="refusal">Why the parser refused the formula, when it did.</param>
+    /// <returns><c>false</c> when the parser refused the formula.</returns>
+    public bool TryGetAst(string formula, bool isA1, [NotNullWhen(true)] out Formula? ast, out FormulaRefusal refusal)
+    {
         formula = FormulaText.WithoutLeadingEquals(formula);
         var factory = isA1 ? _nodeFactoryA1 : _nodeFactoryR1C1;
         var notation = isA1 ? FormulaNotation.A1 : FormulaNotation.R1C1;
 
-        // Evaluation is a public edge: a refused formula reaches the caller as ExpressionParseException.
-        if (!FormulaText.TryWalk(formula, formula, factory, notation, out var root, out var refusal))
-            throw refusal.ToException();
+        if (!FormulaText.TryWalk(formula, formula, factory, notation, out var root, out refusal))
+        {
+            ast = null;
+            return false;
+        }
 
-        return new Formula(formula, root);
+        ast = new Formula(formula, root);
+        return true;
     }
 
     /// <summary>

@@ -433,24 +433,39 @@ internal sealed class NameNode : ValueNode
 
     public AnyValue GetValue(CalcContext context)
     {
-        var ctxWs = context.Worksheet;
+        // The formula's sheet is asked for only where the lookup needs it. IXLWorkbook.Evaluate has
+        // none, and a name found without one answers there unless its own formula needs the sheet
+        // or the cell, in which case reading that is what reports it (#491).
+        var workbook = context.Workbook;
 
         // [0]!Name is this workbook's workbook-scoped name, whatever sheet the formula is on. A name
         // it does not find reads #REF!, as a name behind any book prefix did before.
         if (Prefix is { IsThisWorkbookScope: true })
         {
-            return ctxWs.Workbook.DefinedNamesInternal.TryGetScopedValue(Name, out var bookName)
+            return workbook.DefinedNamesInternal.TryGetScopedValue(Name, out var bookName)
                 ? context.CalcEngine.EvaluateName(bookName.RefersTo, context)
                 : XLError.CellReference;
         }
 
-        var worksheet = ctxWs;
+        IXLWorksheet worksheet;
         if (Prefix is not null)
         {
-            if (!Prefix.GetWorksheet(ctxWs.Workbook).TryPickT0(out var ws, out var err))
+            if (!Prefix.GetWorksheet(workbook).TryPickT0(out var ws, out var err))
                 return err;
 
-            worksheet = (XLWorksheet)ws;
+            worksheet = ws;
+        }
+        else if (!context.HasWorksheet && workbook.DefinedNamesInternal.TryGetScopedValue(Name, out var bookName))
+        {
+            // A sheet-scoped name shadows the workbook's only on its own sheet. With no sheet,
+            // nothing shadows, so an unqualified name is the workbook's.
+            return context.CalcEngine.EvaluateName(bookName.RefersTo, context);
+        }
+        else
+        {
+            // The sheet's own name first, then the workbook's. A name that only a sheet defines
+            // cannot be found without one, and Worksheet reports that the formula has none.
+            worksheet = context.Worksheet;
         }
 
         if (!TryGetNameRange(worksheet, out var definedName))

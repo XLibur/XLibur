@@ -48,6 +48,12 @@ internal sealed class DependencyTree
     /// </summary>
     private readonly Dictionary<string, SheetDependencyTree> _sheetTrees = new(XLHelper.SheetComparer);
 
+    /// <summary>
+    /// Formulas whose precedents cannot be known, each with its area. Any change marks them dirty,
+    /// with whatever depends on them (see <see cref="MarkDirty"/>). Empty in almost every workbook.
+    /// </summary>
+    private readonly Dictionary<XLCellFormula, SheetArea> _unknownPrecedents = new();
+
     public DependencyTree()
     {
         _visitor = new DependenciesVisitor();
@@ -101,7 +107,8 @@ internal sealed class DependencyTree
                 // Data-table formulas are skipped deliberately, and cannot simply be added to
                 // the chain above. AddFormula derives precedents by parsing the formula text,
                 // and a data table's text is the placeholder "{TABLE(A1,}" — not valid formula
-                // syntax, so parsing it throws ExpressionParseException. Registering them needs
+                // syntax, so the parser refuses it and it would be taken to depend on every cell,
+                // which is not what its inputs are. Registering them needs
                 // precedents built from Input1/Input2 and the table's header formulas instead of
                 // from an AST. XLibur does not evaluate data tables either (there is no TABLE
                 // function), so the only gain would be dropping the full-recalculation trigger in
@@ -127,6 +134,9 @@ internal sealed class DependencyTree
         var precedents = GetFormulaPrecedents(formulaArea, formula, workbook);
 
         _dependencies.Add(formula, precedents);
+
+        if (precedents.HasUnknownPrecedents)
+            _unknownPrecedents[formula] = formulaArea;
 
         foreach (var precedentArea in precedents.Areas)
         {
@@ -165,6 +175,8 @@ internal sealed class DependencyTree
         if (!_dependencies.Remove(formula, out var dependencies))
             return;
 
+        _unknownPrecedents.Remove(formula);
+
         foreach (var precedentArea in dependencies.Areas)
         {
             if (!_sheetTrees.TryGetValue(precedentArea.Name, out var sheetTree))
@@ -183,6 +195,13 @@ internal sealed class DependencyTree
     {
         foreach (var formulaDependencies in _dependencies.Values)
             formulaDependencies.RenameSheet(oldSheetName, newSheetName);
+
+        foreach (var formula in _unknownPrecedents.Keys.ToList())
+        {
+            var formulaArea = _unknownPrecedents[formula];
+            if (XLHelper.SheetComparer.Equals(formulaArea.Name, oldSheetName))
+                _unknownPrecedents[formula] = new SheetArea(newSheetName, formulaArea.Area);
+        }
 
         var renamedSheetTree = _sheetTrees[oldSheetName];
         _sheetTrees.Remove(oldSheetName);
@@ -265,6 +284,22 @@ internal sealed class DependencyTree
         try
         {
             queue.Enqueue(dirtyArea);
+
+            // A formula whose precedents are unknown may read the changed area, so it is taken to read
+            // every cell: any change marks it dirty, together with whatever depends on it. If an
+            // earlier walk did that and the formula has stayed dirty since, this walk has nothing to
+            // mark (see XLCellFormula.DependentsMarkedDirty). A refused formula never becomes clean,
+            // so without the skip every edit re-marked the same closure. It is visited either way, so
+            // a skipped formula is not reached again through a precedent it does know.
+            foreach (var (formula, formulaArea) in _unknownPrecedents)
+            {
+                if (!formula.TryVisit(walkId) || formula.DependentsMarkedDirty)
+                    continue;
+
+                formula.MarkDirtyWithDependents();
+                queue.Enqueue(formulaArea);
+            }
+
             while (queue.Count > 0)
             {
                 var affectedArea = queue.Dequeue();
@@ -301,7 +336,19 @@ internal sealed class DependencyTree
 
     private FormulaDependencies GetFormulaPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
-        var ast = formula.GetAst(workbook.CalcEngine);
+        // A refused formula's precedents cannot be known: the parser could not read its references
+        // (ADR 0002). Before, the parse threw, and one such formula stopped every write to the
+        // workbook and every recalculation from building the tree (#489). It is now taken to depend
+        // on every cell, so any change marks it dirty (see MarkDirty). That matters for a formula a
+        // load gave a cached value: it is clean, and would otherwise keep that value after an edit
+        // it may read. The cell fails when it is evaluated.
+        if (!formula.TryGetAst(workbook.CalcEngine, out var ast))
+        {
+            var unknown = new FormulaDependencies();
+            unknown.MarkPrecedentsUnknown();
+            return unknown;
+        }
+
         var context = new DependenciesContext(formulaArea, workbook);
         var rootReference = ast.AstRoot.Accept(context, _visitor);
 

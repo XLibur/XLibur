@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.CalcEngine.Functions;
 using XLibur.Excel.Coordinates;
@@ -105,6 +107,15 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     public Formula Parse(string expression)
     {
         return _parser.GetAst(expression, isA1: true);
+    }
+
+    /// <summary>
+    /// Parses a string into a <see cref="Formula"/>, as <see cref="Parse"/> does, but answers
+    /// <c>false</c> instead of throwing when the parser refuses it.
+    /// </summary>
+    internal bool TryParse(string expression, [NotNullWhen(true)] out Formula? formula)
+    {
+        return _parser.TryGetAst(expression, isA1: true, out formula, out _);
     }
 
     /// <summary>
@@ -349,11 +360,17 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal int PassCount { get; private set; }
 
     /// <summary>
+    /// Why a calculation pass gave up on a cell.
+    /// </summary>
+    /// <param name="Cell">The cell that stopped the pass: where the chain found a cycle, or whose formula failed.</param>
+    /// <param name="Failure">That cell's failure, or <c>null</c> for a cycle, which the chain finds without one.</param>
+    internal readonly record struct StoppedBy(SheetPoint Cell, Exception? Failure);
+
+    /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
     /// <returns>
-    /// The cells the pass left dirty, each mapped to the cell whose failure it was left dirty by, or
-    /// <c>null</c> when it left none.
+    /// The cells the pass left dirty, each mapped to what stopped it, or <c>null</c> when it left none.
     /// </returns>
     /// <remarks>
     /// A cycle never stops the pass, whatever the entry point: its cells are left dirty, together
@@ -363,7 +380,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// row of <see cref="EvaluationPolicy"/>: a cell it leaves dirty is skipped in the same way, and
     /// anything else throws.
     /// </remarks>
-    internal IReadOnlyDictionary<SheetPoint, SheetPoint>? Recalculate(XLWorkbook wb, uint? recalculateSheetId,
+    internal IReadOnlyDictionary<SheetPoint, StoppedBy>? Recalculate(XLWorkbook wb, uint? recalculateSheetId,
         EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
         PassCount++;
@@ -382,9 +399,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice));
 
         // The cells this pass has given up on, and the formulas that depend on them, each mapped to
-        // the cell that stopped it: the cell where a cycle was found, or a cell whose failure the
-        // policy leaves dirty. Allocated only when there is one.
-        Dictionary<SheetPoint, SheetPoint>? leftDirty = null;
+        // what stopped it: the cell where a cycle was found, or a cell whose failure the policy
+        // leaves dirty, with that failure. Allocated only when there is one.
+        Dictionary<SheetPoint, StoppedBy>? leftDirty = null;
 
         try
         {
@@ -413,19 +430,30 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// formula could not be calculated on its own.
     /// </summary>
     /// <remarks>
-    /// The pass leaves every cycle it meets dirty and calculates the rest, so a cycle the cell does
-    /// not depend on no longer stops the read (#492). Only when <paramref name="cell"/> is itself in
-    /// a cycle, or depends on a cell a cycle left dirty, does <paramref name="entry"/>'s cycle
-    /// outcome apply to it: a read throws, naming the cell where that cycle was found.
+    /// The pass is a recalculation, whatever <paramref name="entry"/> is: it leaves the cell of every
+    /// expected failure dirty (a cycle, an unsupported feature, a refused formula), with the formulas
+    /// that depend on it, and calculates the rest. So a failure the cell does not depend on no longer
+    /// stops the read (#492 for a cycle). Only when <paramref name="cell"/> is itself left dirty does
+    /// <paramref name="entry"/>'s row apply to it: a read throws the failure that stopped it, and for a
+    /// cycle names the cell where the cycle was found. A defect stops this pass as it stops any other.
     /// </remarks>
     private void RecalculateForCell(XLWorkbook wb, SheetPoint cell, EvaluationEntryPoint entry)
     {
-        var leftDirty = Recalculate(wb, null, entry);
+        var leftDirty = Recalculate(wb, null, EvaluationEntryPoint.Recalculation);
         if (leftDirty is null || !leftDirty.TryGetValue(cell, out var stoppedBy))
             return;
 
-        if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) == EvaluationOutcome.Throw)
-            throw new XLCircularReferenceException(CycleMessage(wb, stoppedBy));
+        if (stoppedBy.Failure is null)
+        {
+            if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) == EvaluationOutcome.Throw)
+                throw new XLCircularReferenceException(CycleMessage(wb, stoppedBy.Cell));
+
+            return;
+        }
+
+        // The failure as it was raised, with the stack it was raised on.
+        if (EvaluationPolicy.For(entry, stoppedBy.Failure) == EvaluationOutcome.Throw)
+            ExceptionDispatchInfo.Throw(stoppedBy.Failure);
     }
 
     private static string CycleMessage(XLWorkbook wb, SheetPoint cycleCell)
@@ -439,7 +467,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
         uint? recalculateSheetId,
         EvaluationEntryPoint entry,
-        ref Dictionary<SheetPoint, SheetPoint>? leftDirty)
+        ref Dictionary<SheetPoint, StoppedBy>? leftDirty)
     {
         while (true)
         {
@@ -457,8 +485,8 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 // The chain has found the cycle at this cell, which is left dirty. The rest of the
                 // cycle, and whatever depends on it, ask for a cell already left dirty and are
                 // skipped in turn, each recorded against this cell.
-                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
-                leftDirty[current] = current;
+                leftDirty ??= new Dictionary<SheetPoint, StoppedBy>();
+                leftDirty[current] = new StoppedBy(current, Failure: null);
                 break;
             }
 
@@ -489,8 +517,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             }
             catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
             {
-                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
-                leftDirty[current] = current;
+                // Kept with its failure, so a read of this cell, or of one behind it, raises it
+                // (RecalculateForCell).
+                leftDirty ??= new Dictionary<SheetPoint, StoppedBy>();
+                leftDirty[current] = new StoppedBy(current, ex);
                 break;
             }
         }
@@ -835,11 +865,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <remarks>
     /// The name is evaluated for the cell that uses it (D60): a name holding <c>ROW()</c> answers
     /// with that cell's row, as Excel does, instead of failing for want of a cell. See
-    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits.
+    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits, and for how
+    /// a name that depends on its own value is stopped.
     /// </remarks>
     internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
-        var ctx = caller.ForDefinedName();
+        var ctx = caller.ForDefinedName(nameFormula);
         return EvaluateFormula(nameFormula, ctx);
     }
 

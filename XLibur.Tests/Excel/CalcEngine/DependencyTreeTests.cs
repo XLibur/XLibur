@@ -73,6 +73,124 @@ internal class DependencyTreeTests
         await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("outer"), new XLName("inner")]);
     }
 
+    /// <summary>
+    /// #489. The parser refuses the text, so the references in it are unknown. The formula gets no
+    /// precedents, as a data table's placeholder text gets none, instead of failing the tree it is
+    /// added to.
+    /// </summary>
+    [Test]
+    public async Task A_refused_formula_has_no_precedents()
+    {
+        var dependencies = GetDependencies("'[Book2.xlsx]Sheet1'!A1");
+        await Assert.That(dependencies.Areas).IsEmpty();
+        await Assert.That(dependencies.Names).IsEmpty();
+    }
+
+    /// <summary>
+    /// D79. A defined name whose formula refers to itself made the tree follow it for ever and
+    /// overflow the stack, which ends the process. A name met again on its own path adds nothing
+    /// more; the rest of its formula still does.
+    /// </summary>
+    [Test]
+    public async Task D79_a_name_that_refers_to_itself_is_followed_once()
+    {
+        var dependencies = GetDependencies("Loop", init: wb => wb.DefinedNames.Add("Loop", "Loop+Sheet!$B$2"));
+        await Assert.That(dependencies.Areas).IsEquivalentTo([new SheetArea("Sheet", Area.Parse("B2"))]);
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("Loop")]);
+    }
+
+    /// <summary>
+    /// D79, through two names that refer to each other.
+    /// </summary>
+    [Test]
+    public async Task D79_names_that_refer_to_each_other_are_each_followed_once()
+    {
+        var dependencies = GetDependencies("Ping", init: wb =>
+        {
+            wb.DefinedNames.Add("Ping", "Pong+Sheet!$B$2");
+            wb.DefinedNames.Add("Pong", "Ping+Sheet!$C$3");
+        });
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new SheetArea[]
+        {
+            new("Sheet", Area.Parse("B2")),
+            new("Sheet", Area.Parse("C3")),
+        });
+        await Assert.That(dependencies.Names).IsEquivalentTo([new XLName("Ping"), new XLName("Pong")]);
+    }
+
+    /// <summary>
+    /// D79. The guard is the path from the cell formula, not every name seen so far: a name reached
+    /// a second time from another branch is followed again. Were it skipped, the range operator
+    /// would see only <c>D4</c> and lose <c>B2:D4</c>. The reference comes first in the range,
+    /// because <c>Corner:Sheet!$D$4</c> reads as a 3D reference from sheet <c>Corner</c>.
+    /// </summary>
+    [Test]
+    public async Task D79_a_name_reached_from_two_branches_is_followed_from_each()
+    {
+        var dependencies = GetDependencies("SUM(Corner)+SUM(Sheet!$D$4:Corner)", init: wb =>
+        {
+            wb.DefinedNames.Add("Corner", "Sheet!$B$2");
+        });
+        await Assert.That(dependencies.Areas).IsEquivalentTo(new SheetArea[]
+        {
+            new("Sheet", Area.Parse("B2")),
+            new("Sheet", Area.Parse("B2:D4")),
+        });
+    }
+
+    /// <summary>
+    /// D79 in a workbook. A write after a read builds the dependency tree, which followed the name
+    /// for ever. The write now completes. The cell that uses the name is never evaluated here, so
+    /// it is left dirty: evaluating a circular name is a separate fix.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task D79_a_write_completes_when_a_cell_uses_a_circular_name(string name)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        if (name == "Loop")
+        {
+            wb.DefinedNames.Add("Loop", "Loop+1");
+        }
+        else
+        {
+            wb.DefinedNames.Add("Ping", "Pong");
+            wb.DefinedNames.Add("Pong", "Ping");
+        }
+
+        ws.Cell("A1").FormulaA1 = name;
+        ws.Cell("B1").FormulaA1 = "1+1";
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+
+        ws.Cell("C1").Value = 5;
+        ws.Cell("C2").Value = 6;
+
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(6);
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+    }
+
+    /// <summary>
+    /// D79. A name used twice in one formula still gives the formula its precedents, so a change to
+    /// the name's source marks the formula dirty.
+    /// </summary>
+    [Test]
+    public async Task D79_a_name_used_twice_still_marks_its_dependent_dirty()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        wb.DefinedNames.Add("Total", "Sheet!$B$2");
+        ws.Cell("B2").Value = 3;
+        ws.Cell("A1").FormulaA1 = "Total+Total";
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(6);
+
+        ws.Cell("B2").Value = 4;
+
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(8);
+    }
+
     [Test]
     public async Task Name_range_that_is_not_a_reference_can_be_added_to_dependency_tree_without_exception()
     {

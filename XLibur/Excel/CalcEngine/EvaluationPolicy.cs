@@ -70,9 +70,11 @@ internal enum EvaluationOutcome
 /// </para>
 /// <para>
 /// A cycle is the one kind a calculation pass never throws for, whatever the entry point: it leaves
-/// the cycle's cells dirty and calculates the rest. The cycle column is what each entry point does
-/// with its own cell. A cell read throws only when the cell being read is in a cycle, or depends on
-/// a cell a cycle left dirty; a cycle elsewhere in the workbook no longer reaches it (#492).
+/// the cycle's cells dirty and calculates the rest. The full recalculation a cell read falls back to
+/// reads the <see cref="EvaluationEntryPoint.Recalculation"/> row, so it leaves an unsupported feature
+/// and a refused formula dirty too. Each entry point's row then applies only to the cell being read:
+/// a read throws only when that cell failed, or depends on a cell that did. A failure elsewhere in
+/// the workbook no longer reaches it (#492 for a cycle).
 /// </para>
 /// <para>
 /// <see cref="EvaluationFailureKind.Pending"/> never reaches a public caller: every entry point
@@ -97,15 +99,15 @@ internal static class EvaluationPolicy
             _ => EvaluationOutcome.Throw,
         },
 
-        // Q23: recalculation, recalculate-on-load included, leaves the cells of a cycle dirty and
-        // carries on. The cycle surfaces when one of those cells is read.
-        EvaluationEntryPoint.Recalculation => kind == EvaluationFailureKind.Cycle
-            ? EvaluationOutcome.LeaveDirty
-            : EvaluationOutcome.Throw,
-
-        // ADR 0001: an expected failure writes no cached value, and Excel recalculates the cell on
-        // open. Anything else throws out of the save, a defect above all (D61).
-        EvaluationEntryPoint.Save => kind switch
+        // Recalculation, recalculate-on-load included, leaves the cell of an expected failure dirty and
+        // carries on (Q22): a cycle (Q23), and a refused formula or an unsupported feature (#489,
+        // #490). Each surfaces when its cell is read, as it did before.
+        //
+        // Save, by ADR 0001, writes no cached value for an expected failure, and Excel recalculates the
+        // cell on open.
+        //
+        // In both, anything else throws, a defect above all (D61).
+        EvaluationEntryPoint.Recalculation or EvaluationEntryPoint.Save => kind switch
         {
             EvaluationFailureKind.Cycle
                 or EvaluationFailureKind.Unsupported

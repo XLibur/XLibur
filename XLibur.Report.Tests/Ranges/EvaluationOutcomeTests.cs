@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 namespace XLibur.Report.Tests.Ranges;
 
@@ -29,12 +30,24 @@ public class EvaluationOutcomeTests
         Defect,
     }
 
-    private const string DefectFunction = "XLIBURDEFECT";
+    private const string FailingFunction = "XLIBURFAIL";
+
+    /// <summary>Dynamic data exchange: the parser reads it, the calc engine does not evaluate it.</summary>
+    private const string UnsupportedFormula = "Sdemo123|tik!'id1?req?AAPL'";
+
+    /// <summary>Text the parser cannot read, which <c>FormulaA1</c> stores all the same.</summary>
+    private const string RefusedFormula = "1+";
+
+    private const string UnsupportedMessage =
+        "The formula in this cell uses, or depends on, a feature XLibur does not evaluate, so its value cannot be read.";
+
+    private const string RefusedMessage =
+        "The formula in this cell is, or depends on, a formula XLibur cannot parse, so its value cannot be read.";
 
     [Test]
     [Arguments(Kind.Cycle, "generates, template error: The formula in this cell is part of, or depends on, a circular reference, so its value cannot be read.")]
-    [Arguments(Kind.Unsupported, "throws NotImplementedException")]
-    [Arguments(Kind.Refused, "throws ExpressionParseException")]
+    [Arguments(Kind.Unsupported, "generates, template error: " + UnsupportedMessage)]
+    [Arguments(Kind.Refused, "generates, template error: " + RefusedMessage)]
     [Arguments(Kind.NoContext, "generates")]
     [Arguments(Kind.Pending, "generates")]
     [Arguments(Kind.Defect, "throws NullReferenceException")]
@@ -83,6 +96,162 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// #488: an unsupported feature and a refused formula are expected failures, like a cycle
+    /// (spec 56, Q22), so they get the cycle's treatment: a template error at the cell, reported
+    /// once, and the cell keeps its formula. Both used to throw out of <c>Generate()</c>.
+    /// </summary>
+    [Test]
+    [Arguments(UnsupportedFormula, UnsupportedMessage, typeof(NotImplementedException))]
+    [Arguments(RefusedFormula, RefusedMessage, typeof(ExpressionParseException))]
+    public async Task An_unevaluable_formula_in_a_bound_range_is_a_template_error_at_its_cell(
+        string formula,
+        string message,
+        Type exceptionType)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = formula;
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Items", new List<SaleItem>
+        {
+            new() { Product = "Widget", Quantity = 1, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, 1) },
+        });
+        var result = template.Generate();
+
+        await Assert.That(result.ParsingErrors.Count).IsEqualTo(1);
+        await Assert.That(result.ParsingErrors[0].Location).IsEqualTo("Report!B1");
+        await Assert.That(result.ParsingErrors[0].Message).IsEqualTo(message);
+        await Assert.That(exceptionType.IsInstanceOfType(result.ParsingErrors[0].Exception)).IsTrue();
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("B1").FormulaA1).IsEqualTo(formula);
+    }
+
+    /// <summary>
+    /// A cell whose own formula is valid, but which reads a cell that cannot be evaluated, fails
+    /// with the precedent's kind. It is the cell in the bound range that is reported.
+    /// </summary>
+    [Test]
+    [Arguments(UnsupportedFormula, UnsupportedMessage)]
+    [Arguments(RefusedFormula, RefusedMessage)]
+    public async Task A_formula_depending_on_an_unevaluable_formula_is_a_template_error_at_its_cell(
+        string precedent,
+        string message)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = "Data!A1+1";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        // On its own sheet, so removing the empty options row does not move it.
+        workbook.AddWorksheet("Data").Cell("A1").FormulaA1 = precedent;
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates, template error: " + message);
+        await Assert.That(sheet.Cell("B1").FormulaA1).IsEqualTo("Data!A1+1");
+    }
+
+    /// <summary>
+    /// A plain <see cref="NotImplementedException"/> is a defect, not an unsupported feature (spec 56,
+    /// Q15), so it still reaches the caller (#459). The first read asks the policy table, which lets
+    /// a defect throw.
+    /// </summary>
+    [Test]
+    public async Task A_plain_NotImplementedException_in_a_bound_range_is_a_defect_and_still_throws()
+    {
+        using var workbook = WorkbookWithFailingFunction(
+            static () => new NotImplementedException("A function failed the way a bug in XLibur would."));
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = FailingFunction + "()";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("throws NotImplementedException");
+    }
+
+    /// <summary>
+    /// The policy table's verdict comes from the first read, and the wording from a second, so the
+    /// second read must not be able to turn a defect into an expected failure. Here the first
+    /// evaluation fails as an unsupported feature and the second as a defect: a plain
+    /// <see cref="NotImplementedException"/>, or a subclass of it that XLibur did not declare. The
+    /// defect reaches the caller.
+    /// </summary>
+    [Test]
+    [Arguments(typeof(NotImplementedException))]
+    [Arguments(typeof(ThirdPartyNotImplementedException))]
+    public async Task A_defect_on_the_read_that_learns_the_kind_still_throws(Type defectType)
+    {
+        var calls = 0;
+        using var workbook = WorkbookWithFailingFunction(() => ++calls == 1
+            ? new UnsupportedFeatureException("The first evaluation fails as an unsupported feature.")
+            : (Exception)Activator.CreateInstance(defectType, "The second fails the way a bug would.")!);
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = FailingFunction + "()";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("throws NotImplementedException");
+        await Assert.That(calls).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// The expander reads a cell up to three times, and each evaluation of a failing formula can be
+    /// a full recalculation. A formula found to have no value is evaluated for its first read only,
+    /// once to ask the policy table and once to learn the kind of failure; later reads give blank.
+    /// C1 is read three times, because the last column is where a range's direction is looked for.
+    /// </summary>
+    [Test]
+    public async Task A_formula_found_to_have_no_value_is_not_evaluated_again()
+    {
+        var calls = 0;
+        using var workbook = WorkbookWithFailingFunction(() =>
+        {
+            calls++;
+            return new UnsupportedFeatureException("A feature XLibur does not evaluate.");
+        });
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("C1").FormulaA1 = FailingFunction + "()";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates, template error: " + UnsupportedMessage);
+        await Assert.That(calls).IsEqualTo(2);
+        await Assert.That(sheet.Cell("C1").FormulaA1).IsEqualTo(FailingFunction + "()");
+    }
+
+    /// <summary>
+    /// A formula found to have no value is remembered by where it is, and only while that cell still
+    /// holds the same formula. A range bound to no data has its rows deleted, which moves the next
+    /// range up into the same addresses; a different formula that arrives there is read afresh.
+    /// </summary>
+    [Test]
+    public async Task A_formula_moved_into_the_place_of_one_with_no_value_is_read_afresh()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("B1").FormulaA1 = RefusedFormula;
+        sheet.DefinedNames.Add("Empty", sheet.Range("A1:C1"));
+        sheet.Cell("A2").Value = "{{ item.Product }}";
+        sheet.Cell("B2").FormulaA1 = UnsupportedFormula;
+        sheet.DefinedNames.Add("Items", sheet.Range("A2:C3"));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Empty", new List<SaleItem>());
+        template.AddVariable("Items", new List<SaleItem>
+        {
+            new() { Product = "Widget", Quantity = 1, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, 1) },
+        });
+        var result = template.Generate();
+
+        await Assert.That(string.Join(" | ", result.ParsingErrors.Select(e => e.Location + ": " + e.Message)))
+            .IsEqualTo("Report!B1: " + RefusedMessage + " | Report!B1: " + UnsupportedMessage);
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("B1").FormulaA1).IsEqualTo(UnsupportedFormula);
+    }
+
+    /// <summary>
     /// Review finding 2, executed. B1 is valid, but reading it falls back to a full recalculation,
     /// which meets the cycle at Z100 and throws (the behaviour Q38 records, filed as a follow-up).
     /// Report took that for B1 being in a cycle: it recorded "The formula in this cell is part of a
@@ -114,6 +283,53 @@ public class EvaluationOutcomeTests
         await Assert.That(result.ParsingErrors.Select(e => e.Location)).DoesNotContain("Report!B1");
     }
 
+    /// <summary>
+    /// Review finding 1 (#488, fixed by #489 and #490). B1 is valid, but reading it falls back to a
+    /// full recalculation, which met a formula XLibur cannot evaluate on another sheet and threw.
+    /// Report took that for B1's own failure and recorded a template error at Report!B1. The pass
+    /// now leaves that formula dirty, and B1 reads 3.
+    /// </summary>
+    [Test]
+    [Arguments(UnsupportedFormula)]
+    [Arguments(RefusedFormula)]
+    public async Task An_unevaluable_formula_elsewhere_is_not_blamed_on_the_cell_that_was_read(string elsewhere)
+    {
+        using var workbook = new XLWorkbook();
+
+        // Added first, so a pass over the workbook meets it before anything on the report sheet.
+        workbook.AddWorksheet("Inputs").Cell("A1").FormulaA1 = elsewhere;
+
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = "G20+1";
+        sheet.Cell("G20").FormulaA1 = "2";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates");
+        await Assert.That(sheet.Cell("B1").Value.GetNumber()).IsEqualTo(3.0);
+    }
+
+    /// <summary>
+    /// #489: once any formula had been evaluated, a refused formula made the next write anywhere in
+    /// the workbook throw, while the dependency tree was rebuilt. Reading C1 evaluates it, so writing
+    /// the generated values threw out of <c>Generate()</c>. Now B1 is a template error and the
+    /// report generates.
+    /// </summary>
+    [Test]
+    public async Task A_refused_formula_beside_one_that_evaluates_is_a_template_error()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = RefusedFormula;
+        sheet.Cell("C1").FormulaA1 = "1+1";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates, template error: " + RefusedMessage);
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("C1").Value.GetNumber()).IsEqualTo(2.0);
+    }
+
     [Test]
     public async Task A_template_expression_without_a_worksheet_is_a_template_error()
     {
@@ -127,7 +343,9 @@ public class EvaluationOutcomeTests
 
     private static string Observe(Kind kind, bool inBoundRange)
     {
-        using var workbook = kind == Kind.Defect ? WorkbookWithDefectFunction() : new XLWorkbook();
+        using var workbook = kind == Kind.Defect
+            ? WorkbookWithFailingFunction(static () => new NullReferenceException("A function failed the way a bug in XLibur would."))
+            : new XLWorkbook();
         var sheet = workbook.AddWorksheet("Report");
         sheet.Cell("A1").Value = "{{ item.Product }}";
         sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
@@ -140,11 +358,10 @@ public class EvaluationOutcomeTests
                 cell.FormulaA1 = at + "+1";
                 break;
             case Kind.Unsupported:
-                // Dynamic data exchange: the parser reads it, the calc engine does not evaluate it.
-                cell.FormulaA1 = "Sdemo123|tik!'id1?req?AAPL'";
+                cell.FormulaA1 = UnsupportedFormula;
                 break;
             case Kind.Refused:
-                cell.FormulaA1 = "1+";
+                cell.FormulaA1 = RefusedFormula;
                 break;
             case Kind.NoContext:
                 workbook.DefinedNames.Add("MyRow", "ROW()");
@@ -155,7 +372,7 @@ public class EvaluationOutcomeTests
                 cell.FormulaA1 = "G20+1";
                 break;
             case Kind.Defect:
-                cell.FormulaA1 = DefectFunction + "()";
+                cell.FormulaA1 = FailingFunction + "()";
                 break;
         }
 
@@ -189,20 +406,27 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
-    /// A workbook whose calc engine knows one function, which fails the way a defect in XLibur would.
+    /// A workbook whose calc engine knows one function, which throws what <paramref name="failure"/>
+    /// makes each time it is called.
     /// </summary>
-    private static XLWorkbook WorkbookWithDefectFunction()
+    private static XLWorkbook WorkbookWithFailingFunction(Func<Exception> failure)
     {
         var functions = new FunctionRegistry();
         functions.RegisterFunction(
-            DefectFunction,
+            FailingFunction,
             0,
             0,
-            static (_, _) => throw new NullReferenceException("A function failed the way a bug in XLibur would."),
+            (_, _) => throw failure(),
             FunctionFlags.Scalar);
 
         var workbook = new XLWorkbook();
         workbook.CalcEngine = new XLCalcEngine(CultureInfo.CurrentCulture, functions);
         return workbook;
     }
+
+    /// <summary>
+    /// A subclass of <see cref="NotImplementedException"/> declared outside XLibur, as a function a
+    /// caller registers might throw. The policy table calls it a defect.
+    /// </summary>
+    internal sealed class ThirdPartyNotImplementedException(string message) : NotImplementedException(message);
 }
