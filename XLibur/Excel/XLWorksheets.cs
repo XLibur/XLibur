@@ -237,8 +237,10 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
         // 1. Find the names scoped to the sheet that outlive it, before any holder has rewritten a
         //    reference to them, since what counts as a reference to such a name is what the holders
-        //    rewrite.
+        //    rewrite. Find, too, the hidden names of ChartEx charts' references that go with the sheet,
+        //    which the charts read.
         ws.DefinedNames.FindNamesOutlivingSheet();
+        _workbook.DefinedNamesInternal.FindChartDataNamesGoingWithSheet(ws.Name);
 
         // 2. Every holder hears of it, while the sheet can still be resolved. A listener does not
         //    throw (see IWorkbookListener), so nothing here catches.
@@ -257,9 +259,11 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         _workbook.UnsupportedSheets.Where(w => w.Position > position).ForEach(w => w.Position -= 1);
 
         // 5. The names that outlive the sheet move to workbook scope, as Excel moves them. The rest of
-        //    the sheet's names go with it.
+        //    the sheet's names go with it, and so do the hidden names of ChartEx references to it.
         foreach (var name in ws.DefinedNames.NamesOutlivingSheet)
             _workbook.DefinedNamesInternal.AdoptFromDeletedSheet(ws.DefinedNames.DefinedName(name));
+
+        _workbook.DefinedNamesInternal.RemoveChartDataNamesGoingWithSheet();
 
         // 6. Dispose what the sheet held.
         ws.Cleanup();

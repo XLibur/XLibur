@@ -27,7 +27,8 @@ namespace XLibur.Excel.IO;
 /// </para>
 /// <para>
 /// An extended (ChartEx) chart holds its series in the cx namespace and carries none of the
-/// formatting XLibur models, so the only edit it takes is a new title.
+/// formatting XLibur models, so the only edits it takes are a new title and what a sheet rename or
+/// delete did to its series' references (see <see cref="ExtendedChartSeriesXml"/>).
 /// </para>
 /// </remarks>
 internal static class ChartPatcher
@@ -43,7 +44,8 @@ internal static class ChartPatcher
         var part = ResolvePart(worksheetPart, xlChart);
 
         // Extended (ChartEx) charts model their series in the cx namespace and have none of the
-        // formatting properties below, so the title is all there is to carry back into one.
+        // formatting properties below, so the title and the series' references are all there is to
+        // carry back into one.
         if (part is ExtendedChartPart extendedPart)
         {
             PatchExtendedChart(extendedPart, xlChart);
@@ -179,15 +181,18 @@ internal static class ChartPatcher
     }
 
     /// <summary>
-    /// Writes the pending title of a loaded extended chart back into its chart part.
+    /// Writes the pending title of a loaded extended chart back into its chart part, and what a sheet
+    /// rename or delete did to its series' references.
     /// </summary>
     private static void PatchExtendedChart(ExtendedChartPart chartPart, XLChart xlChart)
     {
-        var chart = chartPart.ChartSpace?.Elements<Cx.Chart>().FirstOrDefault();
+        var chartSpace = chartPart.ChartSpace;
+        var chart = chartSpace?.Elements<Cx.Chart>().FirstOrDefault();
         if (chart == null)
             return;
 
         ChartTitleXml.ApplyExtended(chart, xlChart);
+        ExtendedChartSeriesXml.Apply(chartSpace!, xlChart.SeriesInternal);
     }
 
     /// <summary>

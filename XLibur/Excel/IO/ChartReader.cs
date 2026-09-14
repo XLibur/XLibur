@@ -295,7 +295,12 @@ internal static class ChartReader
         {
             var name = ReadExtendedSeriesName(cxSeries);
             var (catRef, valRef) = ReadExtendedSeriesRefs(cxSeries, chartData);
-            xlChart.Series.Add(name, valRef, catRef);
+            var series = (XLChartSeries)xlChart.SeriesInternal.Add(name, valRef, catRef);
+
+            // What the name comes from, so that a sheet rename or delete reaches it. In a chart Excel
+            // wrote, it is a hidden name, as the references are (see XLCharts).
+            series.SeedNameReference(cxSeries.Elements<Cx.Text>().FirstOrDefault()?
+                .Elements<Cx.TextData>().FirstOrDefault()?.Elements<Cx.Formula>().FirstOrDefault()?.Text);
         }
     }
 

@@ -44,6 +44,35 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     internal bool IsFormulaUnderstood => _isFormulaUnderstood;
 
     /// <summary>
+    /// Is this one of the hidden names Excel keeps a ChartEx chart's references in? Each <c>cx:f</c>
+    /// of such a chart names one, <c>_xlchart.v1.1</c>, instead of holding a reference, and the name
+    /// holds the reference (the <c>chartex-pivotcf-*</c> fixture).
+    /// </summary>
+    internal bool IsChartData => !Visible && _name.StartsWith("_xlchart.", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The area this name refers to on <paramref name="sheetName"/>, when the formula is that one
+    /// reference and nothing else, so that <paramref name="rewrite"/>, the delete of the sheet, leaves
+    /// nothing of it but <c>#REF!</c>.
+    /// </summary>
+    internal bool TryGetOnlyAreaOn(string sheetName, SheetRewrite rewrite, out Area area)
+    {
+        area = default;
+        if (!_isFormulaUnderstood || _references.SheetReferences.Count != 1)
+            return false;
+
+        var reference = _references.SheetReferences.First();
+        if (!XLHelper.SheetComparer.Equals(reference.Sheet, sheetName))
+            return false;
+
+        if (!rewrite.TryRewrite(_formula, string.Empty, new Point(1, 1), out var rewritten) || rewritten != "#REF!")
+            return false;
+
+        area = reference.Reference.ToSheetRange(new Point(1, 1));
+        return true;
+    }
+
+    /// <summary>
     /// Does the formula reach a cell or area on some sheet? A name that does not — a constant, a
     /// structured reference, a bare <c>#REF!</c> — has nothing a row or column shift can move. The
     /// answer is cached from the parse that stored the formula, so asking costs nothing.

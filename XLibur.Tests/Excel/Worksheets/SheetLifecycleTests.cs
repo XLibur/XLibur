@@ -359,6 +359,82 @@ public class SheetLifecycleTests
         await Assert.That(() => caches.OnSheetDeleting("Renamed")).ThrowsNothing();
     }
 
+    /// <summary>
+    /// A hidden <c>_xlchart.</c> name that is one reference to the deleted sheet goes with the sheet, as
+    /// the <c>chartex-pivotcf-*</c> fixture shows. Every other name here follows the rule for any other
+    /// name, and that is <b>unverified</b>: the fixture has no <c>_xlchart.</c> name that refers to
+    /// another sheet as well, none that is visible, and no other hidden name.
+    /// </summary>
+    [Test]
+    public async Task A_chart_data_name_goes_with_a_deleted_sheet_only_when_it_is_one_reference_to_it()
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Other");
+        void Add(string name, string text, bool hidden = true)
+            => wb.DefinedNamesInternal.Add(name, text, null, validateName: false, validateRangeAddress: false)
+                .Visible = !hidden;
+        Add("_xlchart.v1.0", "Sheet1!$A$1:$A$3");
+        Add("_xlchart.v1.1", "Other!$A$1");
+        Add("_xlchart.v1.2", "Sheet1!$A$1,Other!$A$1");
+        Add("_xlchart.v1.3", "#REF!");
+        Add("_xlchart.v1.4", "SUM(Sheet1!$A$1");
+        Add("_xlchart.v1.5", "Sheet1!$A$1", hidden: false);
+        Add("Hidden", "Sheet1!$A$1");
+
+        await Assert.That(() => wb.Worksheet("Sheet1").Delete()).ThrowsNothing();
+
+        var names = wb.DefinedNames.Select(n => $"{n.Name} = {n.RefersTo}").Order(StringComparer.Ordinal);
+        await Assert.That(names).IsEquivalentTo(new[]
+        {
+            "Hidden = #REF!",
+            "_xlchart.v1.1 = Other!$A$1",
+            "_xlchart.v1.2 = #REF!,Other!$A$1",
+            "_xlchart.v1.3 = #REF!",
+            "_xlchart.v1.4 = SUM(Sheet1!$A$1",
+            "_xlchart.v1.5 = #REF!",
+        }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// A ChartEx chart XLibur created holds its references in its own <c>cx:f</c> elements, not in
+    /// hidden names. Once saved it is patched like a loaded chart, and a rename or delete of the sheet
+    /// now reaches its part: the references name the new sheet, and then read <c>#REF!</c>, which is
+    /// what <c>ChartWriter</c> writes into a new chart after the same edits. The patcher wrote only the
+    /// title before (#497).
+    /// </summary>
+    [Test]
+    public async Task A_ChartEx_chart_XLibur_saved_follows_a_rename_and_a_delete()
+    {
+        using var created = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            data.Cell("A1").Value = "a";
+            data.Cell("A2").Value = "b";
+            data.Cell("B1").Value = 1;
+            data.Cell("B2").Value = 2;
+            wb.AddWorksheet("Other").Charts.Add(XLChartType.Waterfall)
+                .Series.Add("Amount", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+            wb.SaveAs(created);
+        }
+
+        using var renamed = new MemoryStream();
+        using var deleted = new MemoryStream();
+        using (var wb = new XLWorkbook(created))
+        {
+            wb.Worksheet("Data").Name = "Renamed";
+            wb.SaveAs(renamed);
+            wb.Worksheet("Renamed").Delete();
+            wb.SaveAs(deleted);
+        }
+
+        await Assert.That(ChartExFormulas(renamed))
+            .IsEquivalentTo(new[] { "Renamed!$A$1:$A$2", "Renamed!$B$1:$B$2" }, CollectionOrdering.Matching);
+        await Assert.That(ChartExFormulas(deleted))
+            .IsEquivalentTo(new[] { "#REF!", "#REF!" }, CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task A_rename_changes_the_key_and_the_name_together()
     {
@@ -965,6 +1041,18 @@ public class SheetLifecycleTests
 
     private static string RefersTo(XLWorkbook wb, string name)
         => wb.DefinedNames.Single(n => n.Name == name).RefersTo;
+
+    /// <summary>The text of every <c>cx:f</c> in a package's ChartEx chart parts, in document order.</summary>
+    private static string[] ChartExFormulas(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return document.WorkbookPart!.WorksheetParts
+            .SelectMany(w => w.DrawingsPart?.Parts.Select(p => p.OpenXmlPart).OfType<ExtendedChartPart>() ?? [])
+            .SelectMany(p => p.RootElement!.Descendants().Where(e => e.LocalName == "f"))
+            .Select(e => e.InnerText)
+            .ToArray();
+    }
 
     /// <summary>
     /// A workbook with sheets <c>Sheet1</c> and <c>Other</c>, and a workbook-scoped name <c>x</c>
