@@ -92,12 +92,45 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// Excel does: the owner checked it on 2026-09-14, and a name holding <c>Sheet1!$A$1:$A$3+10</c>
     /// read in row 2 gives 11, with Excel adding <c>@</c>. <c>EvaluationOutcomeTests</c> pins it.
     /// </para>
+    /// <para>
+    /// A name met again while it is still being evaluated is a circular reference: with the same
+    /// sheet and cell, its formula would lead back to itself for ever, and the stack would overflow.
+    /// The names being evaluated are the chain of contexts this method built, so the check follows
+    /// one formula's names only. A cell a name reads is calculated in a context of its own, and may
+    /// use the same name for its own cell without that being a cycle.
+    /// </para>
     /// </remarks>
-    internal CalcContext ForDefinedName() =>
-        new(CalcEngine, Culture, Workbook, _worksheet, _formulaAddress, _recursive)
+    /// <param name="nameFormula">The formula of the name the formula of this context refers to.</param>
+    /// <exception cref="XLCircularReferenceException">
+    /// The name is already being evaluated, further out in this chain.
+    /// </exception>
+    internal CalcContext ForDefinedName(string nameFormula)
+    {
+        for (var outer = this; outer is not null; outer = outer.NameCaller)
+        {
+            if (string.Equals(outer.NameFormula, nameFormula, StringComparison.Ordinal))
+                throw new XLCircularReferenceException($"A defined name whose formula is '{nameFormula}' depends on its own value.");
+        }
+
+        return new(CalcEngine, Culture, Workbook, _worksheet, _formulaAddress, _recursive)
         {
             RecalculateSheetId = RecalculateSheetId,
+            NameFormula = nameFormula,
+            NameCaller = this,
         };
+    }
+
+    /// <summary>
+    /// The formula of the defined name this context evaluates, or <c>null</c> if it evaluates
+    /// something else.
+    /// </summary>
+    private string? NameFormula { get; init; }
+
+    /// <summary>
+    /// The context whose formula refers to the name this context evaluates, or <c>null</c> if this
+    /// context evaluates no name.
+    /// </summary>
+    private CalcContext? NameCaller { get; init; }
 
     /// <summary>
     /// A culture used for comparisons and conversions (e.g. text to number).

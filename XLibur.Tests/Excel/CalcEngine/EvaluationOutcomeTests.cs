@@ -472,6 +472,70 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// A defined name that depends on its own value, directly (<c>Loop</c>) or through another name
+    /// (<c>Ping</c> and <c>Pong</c>), is a circular reference. Name evaluation had no guard, so it
+    /// recursed until the stack overflowed, which ends the process; #491 made that reachable from
+    /// <c>IXLWorkbook.Evaluate</c> too. Each entry point now gets spec 56's outcome for a cycle:
+    /// <see cref="XLCircularReferenceException"/> from both <c>Evaluate</c>s and from a cell read,
+    /// and no value from <c>TryGetValue</c>.
+    /// </summary>
+    [Test]
+    [Arguments("Loop")]
+    [Arguments("Ping")]
+    public async Task A_circular_defined_name_is_a_circular_reference(string name)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("Loop", "Loop+1");
+        wb.DefinedNames.Add("Ping", "Pong");
+        wb.DefinedNames.Add("Pong", "Ping");
+        ws.Cell("B1").FormulaA1 = name;
+
+        await Assert.That(() => wb.Evaluate(name)).Throws<XLCircularReferenceException>();
+        await Assert.That(() => ws.Evaluate(name)).Throws<XLCircularReferenceException>();
+        await Assert.That(() => ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(ws.Cell("B1").TryGetValue<double>(out _)).IsFalse();
+    }
+
+    /// <summary>
+    /// The guard stops a name met again inside its own evaluation, not one used twice side by side.
+    /// </summary>
+    [Test]
+    [Arguments("Total+Total")]
+    [Arguments("Both")]
+    public async Task A_name_used_twice_is_not_a_circular_reference(string expression)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Both", "Total+Total");
+        ws.Cell("B1").FormulaA1 = expression;
+
+        await Assert.That(wb.Evaluate(expression)).IsEqualTo(20);
+        await Assert.That(ws.Evaluate(expression)).IsEqualTo(20);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(20);
+    }
+
+    /// <summary>
+    /// A name that reads a cell whose formula uses the same name, for its own cell, is not a cycle.
+    /// <c>Above</c> is the cell above the one using it, plus one. Evaluated for A3 it reads A2, and
+    /// A2's formula is <c>Above</c> again, calculated for A2 in a context of its own. A guard shared
+    /// by every evaluation would see <c>Above</c> twice and call it a cycle.
+    /// </summary>
+    [Test]
+    public async Task A_name_met_again_through_a_cell_it_reads_is_not_a_circular_reference()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 1;
+        wb.DefinedNames.Add("Above", "INDEX(Sheet1!$A$1:$A$10,ROW()-1)+1");
+        ws.Cell("A2").FormulaA1 = "Above";
+
+        await Assert.That(ws.Evaluate("Above", "A3")).IsEqualTo(3);
+    }
+
+    /// <summary>
     /// Review finding (medium). A sheet-only recalculation reads another sheet's cells as they
     /// stand, so a formula on Sheet1 that reads a dirty Sheet2 cell takes its current value. A
     /// defined name's context did not carry the sheet filter: the name asked for the dirty Sheet2

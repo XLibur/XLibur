@@ -865,11 +865,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <remarks>
     /// The name is evaluated for the cell that uses it (D60): a name holding <c>ROW()</c> answers
     /// with that cell's row, as Excel does, instead of failing for want of a cell. See
-    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits.
+    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits, and for how
+    /// a name that depends on its own value is stopped.
     /// </remarks>
     internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
-        var ctx = caller.ForDefinedName();
+        var ctx = caller.ForDefinedName(nameFormula);
         return EvaluateFormula(nameFormula, ctx);
     }
 
