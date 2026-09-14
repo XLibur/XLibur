@@ -283,6 +283,53 @@ public class EvaluationOutcomeTests
         await Assert.That(result.ParsingErrors.Select(e => e.Location)).DoesNotContain("Report!B1");
     }
 
+    /// <summary>
+    /// Review finding 1 (#488, fixed by #489 and #490). B1 is valid, but reading it falls back to a
+    /// full recalculation, which met a formula XLibur cannot evaluate on another sheet and threw.
+    /// Report took that for B1's own failure and recorded a template error at Report!B1. The pass
+    /// now leaves that formula dirty, and B1 reads 3.
+    /// </summary>
+    [Test]
+    [Arguments(UnsupportedFormula)]
+    [Arguments(RefusedFormula)]
+    public async Task An_unevaluable_formula_elsewhere_is_not_blamed_on_the_cell_that_was_read(string elsewhere)
+    {
+        using var workbook = new XLWorkbook();
+
+        // Added first, so a pass over the workbook meets it before anything on the report sheet.
+        workbook.AddWorksheet("Inputs").Cell("A1").FormulaA1 = elsewhere;
+
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = "G20+1";
+        sheet.Cell("G20").FormulaA1 = "2";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates");
+        await Assert.That(sheet.Cell("B1").Value.GetNumber()).IsEqualTo(3.0);
+    }
+
+    /// <summary>
+    /// #489: once any formula had been evaluated, a refused formula made the next write anywhere in
+    /// the workbook throw, while the dependency tree was rebuilt. Reading C1 evaluates it, so writing
+    /// the generated values threw out of <c>Generate()</c>. Now B1 is a template error and the
+    /// report generates.
+    /// </summary>
+    [Test]
+    public async Task A_refused_formula_beside_one_that_evaluates_is_a_template_error()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = RefusedFormula;
+        sheet.Cell("C1").FormulaA1 = "1+1";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        await Assert.That(Generate(workbook)).IsEqualTo("generates, template error: " + RefusedMessage);
+        await Assert.That(sheet.Cell("A1").Value.GetText()).IsEqualTo("Widget");
+        await Assert.That(sheet.Cell("C1").Value.GetNumber()).IsEqualTo(2.0);
+    }
+
     [Test]
     public async Task A_template_expression_without_a_worksheet_is_a_template_error()
     {
