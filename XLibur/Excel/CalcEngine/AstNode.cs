@@ -200,6 +200,14 @@ internal sealed class FileNode : AstNode
         Numeric = numeric;
     }
 
+    /// <summary>
+    /// Is this the workbook the formula is in? Book index <c>0</c> is Excel's own notation for it:
+    /// when a sheet is deleted, Excel writes a reference to a name that outlives the sheet as
+    /// <c>[0]!Name</c> (the <c>scoped-delete-*</c> fixture). Any other index is an external workbook,
+    /// which XLibur does not read.
+    /// </summary>
+    internal bool IsThisWorkbook => Numeric == 0;
+
     public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
 }
 
@@ -244,9 +252,21 @@ internal sealed class PrefixNode : AstNode
 
     public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
 
+    /// <summary>
+    /// Does the prefix point into another workbook? A book prefix of <c>[0]</c> names this workbook
+    /// (see <see cref="FileNode.IsThisWorkbook"/>), so a prefix with it resolves here.
+    /// </summary>
+    internal bool IsInOtherWorkbook => File is { IsThisWorkbook: false };
+
+    /// <summary>
+    /// Is this <c>[0]!</c>, the prefix of a workbook-scoped name of this workbook, with no sheet?
+    /// </summary>
+    internal bool IsThisWorkbookScope => File is { IsThisWorkbook: true } && Sheet is null
+                                         && FirstSheet is null && LastSheet is null;
+
     internal OneOf<IXLWorksheet, XLError> GetWorksheet(XLWorkbook wb)
     {
-        if (File is not null)
+        if (IsInOtherWorkbook)
             return XLError.CellReference;
 
         if (FirstSheet is not null || LastSheet is not null)
@@ -414,6 +434,16 @@ internal sealed class NameNode : ValueNode
     public AnyValue GetValue(CalcContext context)
     {
         var ctxWs = context.Worksheet;
+
+        // [0]!Name is this workbook's workbook-scoped name, whatever sheet the formula is on. A name
+        // it does not find reads #REF!, as a name behind any book prefix did before.
+        if (Prefix is { IsThisWorkbookScope: true })
+        {
+            return ctxWs.Workbook.DefinedNamesInternal.TryGetScopedValue(Name, out var bookName)
+                ? context.CalcEngine.EvaluateName(bookName.RefersTo, context)
+                : XLError.CellReference;
+        }
+
         var worksheet = ctxWs;
         if (Prefix is not null)
         {

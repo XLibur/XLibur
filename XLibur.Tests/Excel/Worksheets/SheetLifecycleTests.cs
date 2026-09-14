@@ -607,6 +607,80 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// A reference to a name that outlived its sheet, <c>[0]!Used</c>, reads the name's value and
+    /// follows its precedents. <c>[0]</c> is Excel's notation for this workbook. It used to read
+    /// <c>#REF!</c> whatever the name referred to, because any book prefix was taken as another
+    /// workbook, and a save cached that <c>#REF!</c>.
+    /// </summary>
+    [Test]
+    public async Task A_reference_to_a_name_that_outlived_its_sheet_reads_the_names_value()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            var other = wb.AddWorksheet("Other");
+            data.DefinedNames.Add("Used", "Other!$B$1");
+            other.Cell("B1").Value = 5;
+            other.Cell("A1").FormulaA1 = "Data!Used";
+            await Assert.That(other.Cell("A1").Value).IsEqualTo(5);
+
+            data.Delete();
+
+            await Assert.That(other.Cell("A1").FormulaA1).IsEqualTo("[0]!Used");
+            await Assert.That(RefersTo(wb, "Used")).IsEqualTo("Other!$B$1");
+            await Assert.That(other.Cell("A1").Value).IsEqualTo(5);
+
+            other.Cell("B1").Value = 7;
+
+            await Assert.That(other.Cell("A1").Value).IsEqualTo(7);
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var document = SpreadsheetDocument.Open(ms, false))
+        {
+            var cell = document.WorkbookPart!.WorksheetParts.Single().Worksheet!.Descendants<S.Cell>()
+                .Single(c => c.CellReference?.Value == "A1");
+            await Assert.That(cell.CellFormula!.Text).IsEqualTo("[0]!Used");
+            await Assert.That(cell.CellValue?.Text).IsEqualTo("7");
+        }
+
+        using var reloaded = new XLWorkbook(ms);
+        await Assert.That(reloaded.Worksheet("Other").Cell("A1").FormulaA1).IsEqualTo("[0]!Used");
+        await Assert.That(reloaded.Worksheet("Other").Cell("A1").Value).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// <c>[0]!Name</c> loaded from a file reads the workbook-scoped name, and a change to the name's
+    /// precedent reaches it.
+    /// </summary>
+    [Test]
+    public async Task A_book_zero_name_loaded_from_a_file_reads_the_workbook_scoped_name()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var other = wb.AddWorksheet("Other");
+            wb.DefinedNames.Add("Used", "Other!$B$1");
+            other.Cell("B1").Value = 5;
+            other.Cell("A1").FormulaA1 = "[0]!Used";
+            wb.SaveAs(ms);
+        }
+
+        using var reloaded = new XLWorkbook(ms);
+        var sheet = reloaded.Worksheet("Other");
+        reloaded.RecalculateAllFormulas();
+
+        await Assert.That(sheet.Cell("A1").FormulaA1).IsEqualTo("[0]!Used");
+        await Assert.That(sheet.Cell("A1").Value).IsEqualTo(5);
+
+        sheet.Cell("B1").Value = 8;
+
+        await Assert.That(sheet.Cell("A1").Value).IsEqualTo(8);
+    }
+
+    /// <summary>
     /// Unverified, and a call recorded in spec 55's Results: only cell formulas on the other sheets
     /// and defined names count as referring to a name scoped to the deleted sheet. A conditional
     /// format that refers to one does not keep it, and its reference becomes <c>#REF!</c> like any
