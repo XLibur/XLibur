@@ -16,6 +16,16 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **Renaming a sheet no longer throws when another cell holds a formula the parser cannot read.** An example is `'[Book2.xlsx]Sheet1'!A1`: an external reference in the form the formula bar shows, which `FormulaA1` accepts. With such a cell anywhere in the workbook, setting `IXLWorksheet.Name` threw `ClosedXML.Parser.ParsingException` part way through the rename. By then the calc engine and the workbook's lookup had the new name and the sheet did not, so a formula that referred to the sheet evaluated to `#REF!`. The rename now completes. A formula the parser cannot read is left exactly as it is, because the references in it are unknown.
+
+- **A future function now evaluates when its prefix is in upper case.** `_XLFN.CONCAT("a","b")` gave `#NAME?`, while `_xlfn.CONCAT("a","b")` gave `"ab"`. Evaluation now takes off the `_xlfn.` prefix in any case, and also the `_xlws.` that follows it for a worksheet-only function such as `FILTER`. `FormulaA1` still returns the text as it was set.
+
+- **SUBTOTAL and AGGREGATE no longer throw the parser's exception because of a cell in their range.** So that it does not count a nested SUBTOTAL twice, SUBTOTAL parses the formula of each cell in its range. When the parser could not read one of those formulas, as with `'[Book2.xlsx]Sheet1'!A1+SUBTOTAL(9,B5)`, reading the SUBTOTAL threw `ClosedXML.Parser.ParsingException`, about a cell the caller never read. Such a cell now counts as a cell that does not call SUBTOTAL, so its cached value is included, as SUM includes it. If the cell has no value yet, SUBTOTAL fails the way SUM over it fails, with `ExpressionParseException`.
+
+- **A formula that names a table column with a colon in its name now evaluates.** `SUM(Table1[Start: Date])` gave `#REF!` instead of the sum of the column, because evaluation read the colon as a range operator. The text of the formula was already kept correctly through a save and a load. A defined name that refers to such a column now also reports the column's range in `Ranges`.
+
 ## v0.500.0 - 2026-09-13
 
 ### ⚠️ Breaking Changes
