@@ -423,6 +423,145 @@ public class RefusedAndUnsupportedFormulaTests
         await Assert.That(() => _ = ws.Cell("D1").Value).Throws<ExpressionParseException>();
     }
 
+    /// <summary>What makes a formula's precedents unknown.</summary>
+    public enum UnknownPrecedents
+    {
+        RefusedFormula,
+        RefusedName,
+    }
+
+    /// <summary>
+    /// Review finding. A load gives a formula with a cached value that value and leaves it clean, and
+    /// Excel's value is what a caller reads until something changes. A formula whose precedents are
+    /// unknown is taken to depend on every cell, so before any edit it still reads its cached value.
+    /// </summary>
+    [Test]
+    [Arguments(UnknownPrecedents.RefusedFormula)]
+    [Arguments(UnknownPrecedents.RefusedName)]
+    public async Task A_loaded_formula_with_unknown_precedents_reads_its_cached_value_before_any_edit(UnknownPrecedents unknown)
+    {
+        using var wb = LoadedWithUnknownPrecedents(unknown);
+        var ws = wb.Worksheet("Sheet1");
+
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(10);
+    }
+
+    /// <summary>
+    /// Review finding. The tree gave such a formula no precedents, and a load left it clean, so after
+    /// an edit it may read, nothing marked it dirty: it kept returning its old cached value. Any edit
+    /// now marks it dirty, with what depends on it, and reading it fails as a refused formula does
+    /// (spec 56). An edit to a cell it does not read does the same: its precedents are unknown, so it
+    /// is taken to read every cell.
+    /// </summary>
+    /// <remarks>
+    /// <c>Ext+A2</c> has one known precedent, A2, so an edit to A2 marked it dirty before this fix
+    /// too. D9 is the edit that needs the rule for a refused name.
+    /// </remarks>
+    [Test]
+    [Arguments(UnknownPrecedents.RefusedFormula, "A2")]
+    [Arguments(UnknownPrecedents.RefusedFormula, "D9")]
+    [Arguments(UnknownPrecedents.RefusedName, "A2")]
+    [Arguments(UnknownPrecedents.RefusedName, "D9")]
+    public async Task After_an_edit_a_loaded_formula_with_unknown_precedents_fails_when_read(
+        UnknownPrecedents unknown, string edited)
+    {
+        using var wb = LoadedWithUnknownPrecedents(unknown);
+        var ws = wb.Worksheet("Sheet1");
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+
+        ws.Cell(edited).Value = 5;
+
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("E1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// Review finding. A save wrote the old cached value as current, even when it evaluated formulas.
+    /// After an edit the formula is dirty, so it is written with no cached value (ADR 0001).
+    /// </summary>
+    [Test]
+    [Arguments(UnknownPrecedents.RefusedFormula, "A2")]
+    [Arguments(UnknownPrecedents.RefusedFormula, "D9")]
+    [Arguments(UnknownPrecedents.RefusedName, "A2")]
+    [Arguments(UnknownPrecedents.RefusedName, "D9")]
+    public async Task A_save_after_an_edit_writes_no_cached_value_for_a_loaded_formula_with_unknown_precedents(
+        UnknownPrecedents unknown, string edited)
+    {
+        using var wb = LoadedWithUnknownPrecedents(unknown);
+        var ws = wb.Worksheet("Sheet1");
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+        ws.Cell(edited).Value = 5;
+
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+
+        await Assert.That(EvaluationOutcomeTests.CachedValueInFile(stream, "B1")).IsEqualTo("B1 has no <v>");
+    }
+
+    /// <summary>
+    /// D80, pinned as it is today and left for its own fix. After a load the calc engine has no
+    /// dependency tree, and it builds one on an edit only once it has calculated a formula. So on a
+    /// freshly loaded workbook an edit marks nothing dirty: a formula whose precedents are unknown
+    /// keeps reading its cached value, exactly as the ordinary F1, which reads the edited A2, does.
+    /// When D80 is fixed, both are marked dirty by the edit and this test changes.
+    /// </summary>
+    [Test]
+    [Arguments(UnknownPrecedents.RefusedFormula)]
+    [Arguments(UnknownPrecedents.RefusedName)]
+    public async Task D80_on_a_fresh_load_an_edit_leaves_it_clean_as_it_leaves_an_ordinary_formula(
+        UnknownPrecedents unknown)
+    {
+        using var wb = LoadedWithUnknownPrecedents(unknown);
+        var ws = wb.Worksheet("Sheet1");
+
+        ws.Cell("A2").Value = 5;
+
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(10);
+        await Assert.That(ws.Cell("F1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// A workbook as a load leaves it. B1 reads A2 through a formula whose precedents are unknown: its
+    /// text is refused, or it uses the name <c>Ext</c>, whose text is refused. B1 has Excel's cached
+    /// value 10, E1, which reads B1, has 20, and F1, an ordinary formula that reads A2, has 3, so all
+    /// three are clean. C1 has no cached value. Reading it is a calculation, after which the calc
+    /// engine builds its dependency tree on the next edit.
+    /// </summary>
+    private static XLWorkbook LoadedWithUnknownPrecedents(UnknownPrecedents unknown)
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            var values = ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice;
+            ws.Cell("A2").Value = 1;
+            var b1 = (XLCell)ws.Cell("B1");
+            b1.FormulaA1 = unknown == UnknownPrecedents.RefusedFormula ? Refused + "+A2" : "Ext+A2";
+            values.SetCellValue(b1.SheetPoint, 10);
+            b1.Formula!.MarkClean();
+            var e1 = (XLCell)ws.Cell("E1");
+            e1.FormulaA1 = "B1*2";
+            values.SetCellValue(e1.SheetPoint, 20);
+            e1.Formula!.MarkClean();
+            var f1 = (XLCell)ws.Cell("F1");
+            f1.FormulaA1 = "A2*3";
+            values.SetCellValue(f1.SheetPoint, 3);
+            f1.Formula!.MarkClean();
+            ws.Cell("C1").FormulaA1 = "1+1";
+            wb.SaveAs(package);
+        }
+
+        if (unknown == UnknownPrecedents.RefusedName)
+            package = package.RewriteWorkbook(WithRefusedDefinedName);
+
+        package.Position = 0;
+        return new XLWorkbook(package);
+    }
+
     private static string FormulaFor(Failure failure) => failure == Failure.Refused ? Refused : Unsupported;
 
     /// <summary>
@@ -438,16 +577,19 @@ public class RefusedAndUnsupportedFormulaTests
             wb.SaveAs(package);
         }
 
-        return package.RewriteWorkbook(xml =>
-        {
-            var refersTo = Refused.Replace("'", "&apos;", StringComparison.Ordinal);
-            var rewritten = xml.Replace("<x:definedNames />",
-                $"<x:definedNames><x:definedName name=\"Ext\">{refersTo}</x:definedName></x:definedNames>");
-            if (ReferenceEquals(rewritten, xml))
-                throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
+        return package.RewriteWorkbook(WithRefusedDefinedName);
+    }
 
-            return rewritten;
-        });
+    /// <summary>Splices a name <c>Ext</c> holding <see cref="Refused"/> into a workbook part.</summary>
+    private static string WithRefusedDefinedName(string workbookXml)
+    {
+        var refersTo = Refused.Replace("'", "&apos;", StringComparison.Ordinal);
+        var rewritten = workbookXml.Replace("<x:definedNames />",
+            $"<x:definedNames><x:definedName name=\"Ext\">{refersTo}</x:definedName></x:definedNames>");
+        if (ReferenceEquals(rewritten, workbookXml))
+            throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
+
+        return rewritten;
     }
 
     /// <summary>What reading the cell throws for <paramref name="failure"/>, unchanged by #489 and #490.</summary>

@@ -208,11 +208,15 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             try
             {
                 // A load keeps a name whose text the parser refuses, so that one bad name cannot stop
-                // the workbook from opening. Its references are unknown, so it adds no precedents, as
-                // a refused cell formula adds none, instead of failing the tree (#489).
+                // the workbook from opening. Its references are unknown, so the formula that uses it
+                // is taken to depend on every cell, as a refused cell formula is, instead of failing
+                // the tree (#489).
                 // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
                 if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
+                {
+                    context.Dependencies.MarkPrecedentsUnknown();
                     return null;
+                }
 
                 var nameReferences = ast.AstRoot.Accept(context, this);
 

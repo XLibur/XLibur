@@ -27,6 +27,15 @@ internal sealed class FormulaDependencies
     /// </summary>
     public IReadOnlyCollection<XLName> Names => _names;
 
+    /// <summary>
+    /// Whether some of the formula's precedents cannot be known, because the parser refuses its text
+    /// or the text of a defined name it uses. <see cref="Areas"/> then holds only the precedents that
+    /// are known, and the formula is taken to depend on every cell.
+    /// </summary>
+    public bool HasUnknownPrecedents { get; private set; }
+
+    internal void MarkPrecedentsUnknown() => HasUnknownPrecedents = true;
+
     internal void AddAreas(List<SheetArea> sheetAreas)
     {
         _areas.UnionWith(sheetAreas);
