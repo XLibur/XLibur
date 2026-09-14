@@ -488,6 +488,24 @@ internal sealed class XLCellFormula
     }
 
     public void RenameSheet(Point origin, string oldSheetName, string newSheetName)
+        => RewriteSheet(origin, newSheetName, oldSheetName, newSheetName);
+
+    /// <summary>
+    /// Rewrites every reference to <paramref name="deletedSheetName"/> to <c>#REF!</c>, as Excel does
+    /// when that sheet is deleted, so that a sheet added later under the same name is not bound to
+    /// this formula.
+    /// </summary>
+    /// <param name="origin">The cell the formula is in.</param>
+    /// <param name="hostSheetName">The sheet the formula is on.</param>
+    /// <param name="deletedSheetName">The sheet being deleted.</param>
+    internal void DeleteSheet(Point origin, string hostSheetName, string deletedSheetName)
+        => RewriteSheet(origin, hostSheetName, deletedSheetName, null);
+
+    /// <param name="origin">The cell the formula is in.</param>
+    /// <param name="formulaSheetName">The sheet the parser reads the formula as being on.</param>
+    /// <param name="oldSheetName">The sheet renamed or deleted.</param>
+    /// <param name="newSheetName">Its new name, or <c>null</c> when it is deleted.</param>
+    private void RewriteSheet(Point origin, string formulaSheetName, string oldSheetName, string? newSheetName)
     {
         var a1 = A1;
         var modifier = new RenameRefModVisitor
@@ -496,9 +514,9 @@ internal sealed class XLCellFormula
         };
 
         // A refused formula is left exactly as it is (ADR 0002). Its references are unknown, so there is
-        // nothing to re-point. Throwing would leave the rename half done: the calc engine and the
-        // workbook's lookup by name have the new name before any cell hears of it.
-        if (!FormulaText.TryRewrite(a1, newSheetName, origin, modifier, out var res, out _))
+        // nothing to re-point. Throwing would leave the rename or the delete half done, with some
+        // holders changed and others not.
+        if (!FormulaText.TryRewrite(a1, formulaSheetName, origin, modifier, out var res, out _))
             return;
 
         if (res != a1)

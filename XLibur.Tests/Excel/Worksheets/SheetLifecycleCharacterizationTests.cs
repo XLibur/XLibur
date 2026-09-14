@@ -48,8 +48,8 @@ public class SheetLifecycleCharacterizationTests
 
         await Assert.That(other.Cell("A1").FormulaA1).IsEqualTo(Expect(sheetEvent,
             rename: "Renamed!A1*2",
-            worksheetDelete: "Data!A1*2", // wrong: the text still names the deleted sheet (task 4)
-            collectionDelete: "Data!A1*2")); // wrong: the same (task 4)
+            worksheetDelete: "#REF!*2", // was "Data!A1*2", naming the deleted sheet (task 4)
+            collectionDelete: "#REF!*2"));
     }
 
     [Test]

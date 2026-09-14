@@ -271,6 +271,151 @@ public class SheetLifecycleTests
         await Assert.That(keep.Cell("A1").FormulaA1).IsEqualTo("Sheet1!A1");
     }
 
+    /// <summary>
+    /// A reference to a deleted sheet in a cell formula becomes <c>#REF!</c>, as in Excel, through
+    /// either door. Parser 4.0.0 writes a deleted sheet's <c>Sheet1!#REF!</c> as a plain <c>#REF!</c>.
+    /// </summary>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_cell_formula_that_points_at_a_deleted_sheet_is_rewritten_to_REF(bool throughCollection)
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var host = wb.AddWorksheet("Host");
+        wb.AddWorksheet("Sheet 3");
+        host.Cell("A1").FormulaA1 = "Sheet1!A1*2";
+        host.Cell("A2").FormulaA1 = "SUM(Sheet1!A1:B2)";
+        host.Cell("A3").FormulaA1 = "'Sheet 3'!A1+Sheet1!A1";
+        host.Cell("A4").FormulaA1 = "Sheet1!#REF!+1";
+        host.Cell("A5").FormulaA1 = "sheet1!A1";
+        host.Cell("A6").FormulaA1 = "B1+1";
+
+        Delete(wb, sheet1, throughCollection);
+
+        await Assert.That(host.Cell("A1").FormulaA1).IsEqualTo("#REF!*2");
+        await Assert.That(host.Cell("A2").FormulaA1).IsEqualTo("SUM(#REF!)");
+        await Assert.That(host.Cell("A3").FormulaA1).IsEqualTo("'Sheet 3'!A1+#REF!");
+        await Assert.That(host.Cell("A4").FormulaA1).IsEqualTo("#REF!+1");
+        await Assert.That(host.Cell("A5").FormulaA1).IsEqualTo("#REF!");
+        await Assert.That(host.Cell("A6").FormulaA1).IsEqualTo("B1+1");
+        await Assert.That(host.Cell("A1").Value).IsEqualTo(XLError.CellReference);
+    }
+
+    /// <summary>A formula the parser refuses keeps its text when a sheet is deleted (ADR 0002).</summary>
+    [Test]
+    public async Task A_refused_formula_keeps_its_text_when_a_sheet_is_deleted()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var host = wb.AddWorksheet("Host");
+        host.Cell("A1").FormulaA1 = "SUM(Sheet1!A1";
+        host.Cell("A2").FormulaA1 = "'[Book2.xlsx]Sheet1'!A1";
+
+        sheet1.Delete();
+
+        await Assert.That(host.Cell("A1").FormulaA1).IsEqualTo("SUM(Sheet1!A1");
+        await Assert.That(host.Cell("A2").FormulaA1).IsEqualTo("'[Book2.xlsx]Sheet1'!A1");
+    }
+
+    /// <summary>
+    /// Deleting a sheet and adding one under the same name binds neither a formula nor a
+    /// workbook-scoped name to the new sheet.
+    /// </summary>
+    /// <remarks>
+    /// A sheet-scoped name on another sheet still rebinds, because a delete does not reach it yet
+    /// (D54). Spec 55 task 3 covers it.
+    /// </remarks>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_sheet_added_under_a_deleted_sheets_name_does_not_rebind_the_old_references(bool throughCollection)
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet1.Cell("A1").Value = 5;
+        sheet2.Cell("A1").FormulaA1 = "Sheet1!A1*2";
+        wb.DefinedNames.Add("W", "Sheet1!$A$1");
+        await Assert.That(sheet2.Cell("A1").Value).IsEqualTo(10);
+
+        Delete(wb, sheet1, throughCollection);
+        wb.AddWorksheet("Sheet1").Cell("A1").Value = 7;
+
+        await Assert.That(sheet2.Cell("A1").FormulaA1).IsEqualTo("#REF!*2");
+        await Assert.That(sheet2.Cell("A1").Value).IsEqualTo(XLError.CellReference);
+        await Assert.That(RefersTo(wb, "W")).IsEqualTo("#REF!");
+    }
+
+    /// <summary>
+    /// A 3D reference that touches the deleted sheet keeps its text in part 1 of spec 55. Excel
+    /// narrows the reference when an end sheet is deleted (Q34), and spec 55 task 3 implements that
+    /// against an Excel-authored fixture. Until then the reference must not collapse to <c>#REF!</c>,
+    /// which is what the parser's default rewrite does.
+    /// </summary>
+    [Test]
+    [Arguments("Sheet1")]
+    [Arguments("Sheet2")]
+    [Arguments("Sheet3")]
+    public async Task A_3D_reference_to_a_deleted_sheet_keeps_its_text_until_spec_55_task_3(string deleted)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Sheet2");
+        wb.AddWorksheet("Sheet3");
+        var host = wb.AddWorksheet("Host");
+        host.Cell("A1").FormulaA1 = "SUM(Sheet1:Sheet3!A1)";
+
+        wb.Worksheet(deleted).Delete();
+
+        await Assert.That(host.Cell("A1").FormulaA1).IsEqualTo("SUM(Sheet1:Sheet3!A1)");
+    }
+
+    /// <summary>
+    /// The same holds in a defined name. A name's rewrite reaches a 3D reference only when the name
+    /// also refers to the deleted sheet directly, and the parser's default then collapsed the 3D
+    /// reference to <c>#REF!</c>, giving <c>#REF!+SUM(#REF!)</c>. Spec 55 task 3 narrows it.
+    /// </summary>
+    [Test]
+    public async Task A_3D_reference_in_a_defined_name_keeps_its_text_until_spec_55_task_3()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Sheet2");
+        wb.AddWorksheet("Sheet3");
+        wb.DefinedNames.Add("Mixed", "Sheet1!$A$1+SUM(Sheet1:Sheet3!$A$1)");
+
+        sheet1.Delete();
+
+        await Assert.That(RefersTo(wb, "Mixed")).IsEqualTo("#REF!+SUM(Sheet1:Sheet3!$A$1)");
+    }
+
+    /// <summary>Text inside a string is never rewritten (spec 55 non-goals).</summary>
+    [Test]
+    public async Task Text_inside_a_string_is_not_rewritten_by_a_rename_or_a_delete()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        var host = wb.AddWorksheet("Host");
+        host.Cell("A1").FormulaA1 = "INDIRECT(\"Sheet1!A1\")";
+        host.Cell("A2").FormulaA1 = "INDIRECT(\"Sheet2!A1\")";
+
+        sheet1.Name = "Renamed";
+        sheet2.Delete();
+
+        await Assert.That(host.Cell("A1").FormulaA1).IsEqualTo("INDIRECT(\"Sheet1!A1\")");
+        await Assert.That(host.Cell("A2").FormulaA1).IsEqualTo("INDIRECT(\"Sheet2!A1\")");
+    }
+
+    private static void Delete(XLWorkbook wb, IXLWorksheet sheet, bool throughCollection)
+    {
+        if (throughCollection)
+            wb.Worksheets.Delete(sheet.Name);
+        else
+            sheet.Delete();
+    }
+
     private static string RefersTo(XLWorkbook wb, string name)
         => wb.DefinedNames.Single(n => n.Name == name).RefersTo;
 
