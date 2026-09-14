@@ -237,7 +237,10 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <remarks>
     /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
     /// everything else is calculated. Reading one of those cells throws
-    /// <see cref="XLCircularReferenceException"/>.
+    /// <see cref="XLCircularReferenceException"/>. A formula the parser cannot read, or one that uses
+    /// a feature XLibur does not evaluate, is left dirty the same way, and reading it throws
+    /// <see cref="XLibur.Excel.CalcEngine.ExpressionParseException"/> or
+    /// <see cref="NotImplementedException"/>.
     /// </remarks>
     void RecalculateAllFormulas();
 

@@ -17,8 +17,10 @@ namespace XLibur.Tests.Excel.CalcEngine;
 /// <remarks>
 /// <para>
 /// <see cref="Matrix"/> is the policy table, observed from outside. Each row names an entry point, a
-/// kind of failure, and what the caller gets. A row changes only when spec 56 decided that cell; the
-/// rest record what the code did when the matrix was first measured.
+/// kind of failure, and what the caller gets. A row changes only when a decision changes that cell:
+/// spec 56's, or a follow-up to it such as #489 and #490, which gave recalculation the same outcome
+/// for a refused formula and an unsupported feature as for a cycle. The rest record what the code did
+/// when the matrix was first measured.
 /// </para>
 /// <para>
 /// An exception is shown by the most derived type a caller outside XLibur can name in a
@@ -120,14 +122,14 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.TryInvoke, Kind.Pending, "n/a")]
     [Arguments(Entry.TryInvoke, Kind.Defect, "n/a")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "completes, A6 dirty")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "throws NotImplementedException")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "throws ExpressionParseException")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "completes, A6 dirty")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "completes, A6 dirty")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "completes, A6 = 6")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Pending, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Defect, "throws NullReferenceException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "opens, A6 dirty")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "throws NotImplementedException")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "throws ExpressionParseException")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "opens, A6 dirty")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "opens, A6 dirty")]
     [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "opens, A6 = 6")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Pending, "opens, A6 = 3")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Defect, "n/a")]
@@ -170,7 +172,7 @@ public class EvaluationOutcomeTests
             + "TolerantRead: NoValue, NoValue, NoValue, NoValue, Throw, Throw\n"
             + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
-            + "Recalculation: LeaveDirty, Throw, Throw, Throw, Throw, Throw\n"
+            + "Recalculation: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw\n"
             + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw");
     }
 
@@ -821,7 +823,7 @@ public class EvaluationOutcomeTests
 
     private static string Show(double value) => value.ToString(CultureInfo.InvariantCulture);
 
-    private static string CachedValueInFile(MemoryStream stream, string address)
+    internal static string CachedValueInFile(MemoryStream stream, string address)
     {
         using var zip = new ZipArchive(new MemoryStream(stream.ToArray()), ZipArchiveMode.Read);
         var entry = zip.Entries.First(e => e.FullName.EndsWith("sheet1.xml", StringComparison.OrdinalIgnoreCase));

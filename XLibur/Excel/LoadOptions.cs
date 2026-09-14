@@ -26,7 +26,11 @@ public class LoadOptions
     /// When this is <c>true</c>, a workbook containing a circular reference still opens: the load
     /// leaves the cells of the cycle, and the formulas that depend on them, dirty, and calculates the
     /// rest. Reading one of those cells then throws
-    /// <see cref="XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException"/>.
+    /// <see cref="XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException"/>. A workbook
+    /// holding a formula the parser cannot read, or one that uses a feature XLibur does not evaluate,
+    /// opens the same way, and reading that cell throws
+    /// <see cref="XLibur.Excel.CalcEngine.ExpressionParseException"/> or
+    /// <see cref="NotImplementedException"/>.
     /// </remarks>
     public bool RecalculateAllFormulas { get; set; } = false;
 
