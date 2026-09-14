@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -696,15 +697,14 @@ internal sealed class XLCellsCollection : IWorkbookListener
 
     /// <summary>
     /// Every reference to the deleted sheet becomes <c>#REF!</c>, as in Excel, so that no formula keeps
-    /// a reference a sheet added later under the same name could bind to.
+    /// a reference a sheet added later under the same name could bind to. A 3D reference with the
+    /// sheet at one end narrows instead, and a reference to a name that outlives the sheet points at
+    /// that name in this workbook (see <see cref="SheetRewrite"/>).
     /// </summary>
-    /// <remarks>
-    /// A formula the parser refuses keeps its text (ADR 0002). So does a 3D reference with the deleted
-    /// sheet at one end, until spec 55 task 3 narrows it (see <c>RenameRefModVisitor</c>).
-    /// </remarks>
+    /// <remarks>A formula the parser refuses keeps its text (ADR 0002).</remarks>
     void IWorkbookListener.OnSheetDeleting(string sheetName)
     {
-        RewriteSheetInFormulas(sheetName, null);
+        RewriteSheetInFormulas(SheetRewrite.Delete(_ws.Workbook, sheetName), _ws.Name);
     }
 
     /// <summary>
@@ -717,34 +717,45 @@ internal sealed class XLCellsCollection : IWorkbookListener
         if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
             return;
 
-        RewriteSheetInFormulas(oldSheetName, newSheetName);
+        RewriteSheetInFormulas(SheetRewrite.Rename(oldSheetName, newSheetName), newSheetName);
     }
 
     /// <summary>
-    /// Rewrites every formula of this collection that names <paramref name="oldSheetName"/>: to
-    /// <paramref name="newSheetName"/>, or to <c>#REF!</c> when that is <c>null</c>.
+    /// Adds to <paramref name="found"/> each of <paramref name="names"/> that a formula of this
+    /// collection refers to as a name scoped to <paramref name="sheetName"/>, <c>sheetName!Name</c>.
     /// </summary>
-    private void RewriteSheetInFormulas(string oldSheetName, string? newSheetName)
+    internal void CollectReferencesToNames(string sheetName, IReadOnlySet<string> names, ISet<string> found)
+    {
+        using var enumerator = FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            ref readonly var cellFormula = ref enumerator.Current;
+            if (IsMasterCell(cellFormula, enumerator.Point))
+                SheetRewrite.CollectNamesReferredTo(cellFormula.A1, sheetName, names, found);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites every formula of this collection the way <paramref name="rewrite"/> says.
+    /// </summary>
+    /// <param name="rewrite">What the rename or the delete does to formula text.</param>
+    /// <param name="formulaSheetName">The sheet the parser reads each formula as being on.</param>
+    private void RewriteSheetInFormulas(SheetRewrite rewrite, string formulaSheetName)
     {
         using var enumerator = FormulaSlice.GetForwardEnumerator(Area.Full);
         while (enumerator.MoveNext())
         {
             ref readonly var cellFormula = ref enumerator.Current;
             var currentPoint = enumerator.Point;
-            if (cellFormula.Type != FormulaType.Normal)
-            {
-                // Array or data formula. Only change the name once, on the master cell.
-                var isMasterCell = cellFormula.Range.FirstPoint == currentPoint;
-                if (!isMasterCell)
-                {
-                    continue;
-                }
-            }
-
-            if (newSheetName is null)
-                cellFormula.DeleteSheet(currentPoint, _ws.Name, oldSheetName);
-            else
-                cellFormula.RenameSheet(currentPoint, oldSheetName, newSheetName);
+            if (IsMasterCell(cellFormula, currentPoint))
+                cellFormula.RewriteSheet(currentPoint, formulaSheetName, rewrite);
         }
     }
+
+    /// <summary>
+    /// An array or data table formula is one formula shared by every cell of its range, so it is read
+    /// and changed once, on its master cell. A normal formula is its own master.
+    /// </summary>
+    private static bool IsMasterCell(XLCellFormula cellFormula, Point point)
+        => cellFormula.Type == FormulaType.Normal || cellFormula.Range.FirstPoint == point;
 }

@@ -147,8 +147,8 @@ public class SheetLifecycleCharacterizationTests
 
         await Assert.That(other.DefinedNames.Single().RefersTo).IsEqualTo(Expect(sheetEvent,
             rename: "Renamed!$A$1",
-            worksheetDelete: "Data!$A$1", // wrong: only workbook scope is walked (D54, task 3)
-            collectionDelete: "Data!$A$1")); // wrong: the same (D54, task 3)
+            worksheetDelete: "#REF!", // was "Data!$A$1": only workbook scope was walked (D54, task 3)
+            collectionDelete: "#REF!")); // was "Data!$A$1" too (D54, task 3)
     }
 
     [Test]

@@ -235,15 +235,20 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
         var ws = _worksheets.Values.Single(w => w.Position == position);
 
-        // 1. Every holder hears of it first, while the sheet can still be resolved. A listener does
-        //    not throw (see IWorkbookListener), so nothing here catches.
+        // 1. Find the names scoped to the sheet that outlive it, before any holder has rewritten a
+        //    reference to them, since what counts as a reference to such a name is what the holders
+        //    rewrite.
+        ws.DefinedNames.FindNamesOutlivingSheet();
+
+        // 2. Every holder hears of it, while the sheet can still be resolved. A listener does not
+        //    throw (see IWorkbookListener), so nothing here catches.
         foreach (var listener in GetWorkbookListeners())
             listener.OnSheetDeleting(ws.Name);
 
-        // 2. A range or an address that outlives the sheet reads #REF! from now on.
+        // 3. A range or an address that outlives the sheet reads #REF! from now on.
         ws.IsDeleted = true;
 
-        // 3. Remove the sheet, and close the gap it leaves in the tab order.
+        // 4. Remove the sheet, and close the gap it leaves in the tab order.
         if (!string.IsNullOrWhiteSpace(ws.RelId) && !Deleted.Contains(ws.RelId))
             Deleted.Add(ws.RelId);
 
@@ -251,7 +256,12 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         _worksheets.Values.Where(w => w.Position > position).ForEach(w => w._position -= 1);
         _workbook.UnsupportedSheets.Where(w => w.Position > position).ForEach(w => w.Position -= 1);
 
-        // 4. Dispose what the sheet held.
+        // 5. The names that outlive the sheet move to workbook scope, as Excel moves them. The rest of
+        //    the sheet's names go with it.
+        foreach (var name in ws.DefinedNames.NamesOutlivingSheet)
+            _workbook.DefinedNamesInternal.AdoptFromDeletedSheet(ws.DefinedNames.DefinedName(name));
+
+        // 6. Dispose what the sheet held.
         ws.Cleanup();
     }
 
@@ -306,10 +316,22 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     /// delete. <c>SheetLifecycleTests</c> pins the order.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// One order serves both events. The calc engine comes first: on a rename it renames its
     /// dependency tree, and on a delete it drops the tree and marks every formula dirty. Neither
     /// reads the formula text that the holders after it change, so the engine and the holders
     /// commute on both events.
+    /// </para>
+    /// <para>
+    /// Each holder changes only its own text, and none of them reads another's, so the holders
+    /// commute with each other too. The one thing a delete decides across holders, which of the
+    /// sheet's names outlive it, is decided before any of them hears of it (see
+    /// <see cref="Delete(int)"/>).
+    /// </para>
+    /// <para>
+    /// Hyperlinks are not here. Excel leaves an internal link's location as it is on a rename and on
+    /// a delete (the <c>rename-*</c> and <c>delete-*</c> fixtures), and so does XLibur.
+    /// </para>
     /// </remarks>
     internal IEnumerable<IWorkbookListener> GetWorkbookListeners()
     {

@@ -114,9 +114,11 @@ public partial class XLWorkbook
 
         string sheetName = sheet.Name!;
 
+        // The sheet's defined names need nothing here. The workbook part's defined names are written
+        // again from the model, where the delete has already rewritten them, so a pass over the
+        // loaded ones could only drop names the model kept.
         DeleteLinkedPivotTableCaches(wbPart, sheetName);
         DeleteWorksheetPart(wbPart, sheet, sheetId);
-        DeleteDefinedNamesForSheet(wbPart, sheetName);
         DeleteCalculationChainEntries(wbPart, sheetId);
     }
 
@@ -140,20 +142,6 @@ public partial class XLWorkbook
         var worksheetPart = (WorksheetPart)wbPart.GetPartById(sheetId);
         sheet.Remove();
         wbPart.DeletePart(worksheetPart);
-    }
-
-    private static void DeleteDefinedNamesForSheet(WorkbookPart wbPart, string sheetName)
-    {
-        var definedNames = wbPart.Workbook!.Descendants<DefinedNames>().FirstOrDefault();
-        if (definedNames == null)
-            return;
-
-        var toDelete = definedNames.OfType<DefinedName>()
-            .Where(dn => dn.Text.Contains(sheetName + "!"))
-            .ToList();
-
-        foreach (var item in toDelete)
-            item.Remove();
     }
 
     private static void DeleteCalculationChainEntries(WorkbookPart wbPart, string sheetId)
