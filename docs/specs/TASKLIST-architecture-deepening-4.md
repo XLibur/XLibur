@@ -59,7 +59,8 @@ two variants worth naming:
 - [x] **54.6** The `=` rule; delete `DefaultFormulaVisitor` — PR #493
 - [x] **54.7** Cost: medians of three, **revert authority above 10%**. Every BenchmarkDotNet median is
   within +1.5%. One single-pass structural probe came out at +18.9%, which traces to a two-mode
-  allocation artefact present on both sides; a 10× re-run is to be posted on #493 — PR #493
+  allocation artefact present on both sides. A 10×-per-side re-run on a quiet machine settled it at
+  +0.2% (303 → 303.5 ms), posted on #493 — PR #493
 - [x] **54.8** Changelog — PR #493
 - Also in #493, by owner decision: a conditional format holding a refused formula is never merged, so
   a save no longer throws; defined-name copy keeps its `_isFormulaUnderstood` guard. Found in passing:
