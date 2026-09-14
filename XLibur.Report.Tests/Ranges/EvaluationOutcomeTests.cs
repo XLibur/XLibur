@@ -82,6 +82,46 @@ public class EvaluationOutcomeTests
         await Assert.That(sheet.Cell("B1").FormulaA1).IsEqualTo("B1+1");
     }
 
+    /// <summary>
+    /// Review finding 2, executed. B1 is valid, but reading it falls back to a full recalculation,
+    /// which meets the cycle at Z100 and throws (the behaviour Q38 records, filed as a follow-up).
+    /// Report took that for B1 being in a cycle: it recorded "The formula in this cell is part of a
+    /// circular reference" at Report!B1 and read B1 as blank. Whatever the fix, a cell outside the
+    /// cycle must not be blamed for it.
+    /// </summary>
+    [Test]
+    [Skip("Spec 56 review finding 2 waits on an owner decision: Report cannot tell whether the cell it read is in the cycle without a public signal on XLCircularReferenceException, or the fix for a read meeting an unrelated cycle.")]
+    public async Task A_cycle_elsewhere_is_not_blamed_on_the_cell_that_was_read()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = "G20+1";
+        sheet.Cell("G20").FormulaA1 = "2";
+        sheet.Cell("Z100").FormulaA1 = "Z100+1";
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Items", new List<SaleItem>
+        {
+            new() { Product = "Widget", Quantity = 1, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, 1) },
+        });
+
+        XLGenerateResult result;
+        try
+        {
+            result = template.Generate();
+        }
+        catch (XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException)
+        {
+            // What generation did before spec 56, and still the behaviour for a read that meets an
+            // unrelated cycle: nothing is blamed on B1.
+            return;
+        }
+
+        await Assert.That(result.ParsingErrors.Select(e => e.Location)).DoesNotContain("Report!B1");
+    }
+
     [Test]
     public async Task A_template_expression_without_a_worksheet_is_a_template_error()
     {
