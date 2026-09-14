@@ -358,16 +358,24 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // when a cell fails in a way the policy leaves dirty.
         HashSet<SheetPoint>? leftDirty = null;
 
-        // Each outer loop moves chain one cell ahead.
-        while (_chain.MoveAhead())
+        try
         {
-            RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId, entry, ref leftDirty);
+            // Each outer loop moves chain one cell ahead.
+            while (_chain.MoveAhead())
+            {
+                RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId, entry, ref leftDirty);
+            }
         }
-
-        // Super important to clean up the chain for next recalculation.
-        // Chain contains shared data and not cleaning it would cause hard
-        // to diagnose issues.
-        _chain.Reset();
+        finally
+        {
+            // Super important to clean up the chain for next recalculation.
+            // Chain contains shared data and not cleaning it would cause hard
+            // to diagnose issues. That holds when a cell throws, too: a caller can catch the
+            // exception and read again (XLibur.Report does, for a circular reference), and a pass
+            // that carried on from where this one stopped could start at a link no longer in the
+            // chain.
+            _chain.Reset();
+        }
     }
 
     private void RecalculateCurrentCell(

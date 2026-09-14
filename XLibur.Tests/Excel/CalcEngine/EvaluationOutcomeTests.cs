@@ -413,6 +413,33 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// Review finding 2. A pass that throws stops with the chain positioned on the cell of the
+    /// cycle. Unless the chain is reset, the next pass carries on from there. Here the cycle's cell
+    /// has since been overwritten with a value, so it is no longer in the chain at all, and the next
+    /// read failed with the chain's own invariant: "Book point [1]A2 is not in the chain."
+    /// </summary>
+    [Test]
+    public async Task A_pass_after_one_that_threw_starts_from_the_beginning_of_the_chain()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "B1*2";
+        ws.Cell("B1").FormulaA1 = "A3+0";
+        ws.Cell("A2").FormulaA1 = "A2+1";
+        ws.Cell("A3").Value = 5;
+        ws.Cell("A4").FormulaA1 = "A5+1";
+        ws.Cell("A5").FormulaA1 = "1";
+
+        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<XLCircularReferenceException>();
+
+        ws.Cell("A3").Value = 7;
+        ws.Cell("A2").Value = 0;
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(14);
+        await Assert.That(ws.Cell("A4").Value).IsEqualTo(2);
+    }
+
+    /// <summary>
     /// Review finding 1, by a second road. A cell read that meets a cycle throws with the chain's
     /// cycle flag still set. Once the cycle was fixed, the next read took the first cell it reached
     /// for part of a cycle and threw again.
