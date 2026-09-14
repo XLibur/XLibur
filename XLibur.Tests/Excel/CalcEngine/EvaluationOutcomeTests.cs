@@ -292,7 +292,10 @@ public class EvaluationOutcomeTests
     /// <c>{11;12;13}</c>, where the same text typed into a cell in row 2 intersects and gives 12.
     /// </summary>
     /// <remarks>
-    /// Pinned, not decided: whether Excel intersects inside a name has not been established.
+    /// Verified in Excel by the owner on 2026-09-14, with spec 53's <c>Range.Formula</c> trick:
+    /// <c>Range("B2").Formula = "=Plus10"</c> shows 11, and Excel adds <c>@</c>. Excel evaluates a
+    /// name's formula as an array, without intersecting its range operands, and the cell's implicit
+    /// intersection then takes the first element.
     /// </remarks>
     [Test]
     public async Task A_defined_name_keeps_array_semantics_for_its_operators()
