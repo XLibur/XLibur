@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.Drawings;
+using XLibur.Tests.Excel.Cells;
 using XLibur.Tests.Excel.IO;
 
 namespace XLibur.Tests.Excel.CalcEngine;
@@ -501,6 +503,35 @@ public class RefusedAndUnsupportedFormulaTests
     }
 
     /// <summary>
+    /// Review finding. A save writes each in-cell image's rich-value index into the image cell's
+    /// value, through the setter an edit uses, so the save counted as an edit: every formula whose
+    /// precedents are unknown was marked dirty. B1 and E1 were written with no cached value, with or
+    /// without evaluating formulas, and read as a failure afterwards. The index is the save's own
+    /// bookkeeping, not an edit, so it marks nothing dirty.
+    /// </summary>
+    [Test]
+    [Arguments(UnknownPrecedents.RefusedFormula, false)]
+    [Arguments(UnknownPrecedents.RefusedFormula, true)]
+    [Arguments(UnknownPrecedents.RefusedName, false)]
+    [Arguments(UnknownPrecedents.RefusedName, true)]
+    public async Task A_save_with_an_in_cell_image_keeps_the_cached_value_of_a_loaded_formula_with_unknown_precedents(
+        UnknownPrecedents unknown, bool evaluateFormulas)
+    {
+        using var wb = LoadedWithUnknownPrecedents(unknown, withInCellImage: true);
+        var ws = wb.Worksheet("Sheet1");
+        await Assert.That(ws.Cell("G1").HasCellImage).IsTrue();
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = evaluateFormulas });
+
+        await Assert.That(EvaluationOutcomeTests.CachedValueInFile(stream, "B1")).IsEqualTo("B1 <v>10</v>");
+        await Assert.That(EvaluationOutcomeTests.CachedValueInFile(stream, "E1")).IsEqualTo("E1 <v>20</v>");
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(10);
+    }
+
+    /// <summary>
     /// D80, pinned as it is today and left for its own fix. After a load the calc engine has no
     /// dependency tree, and it builds one on an edit only once it has calculated a formula. So on a
     /// freshly loaded workbook an edit marks nothing dirty: a formula whose precedents are unknown
@@ -529,9 +560,10 @@ public class RefusedAndUnsupportedFormulaTests
     /// text is refused, or it uses the name <c>Ext</c>, whose text is refused. B1 has Excel's cached
     /// value 10, E1, which reads B1, has 20, and F1, an ordinary formula that reads A2, has 3, so all
     /// three are clean. C1 has no cached value. Reading it is a calculation, after which the calc
-    /// engine builds its dependency tree on the next edit.
+    /// engine builds its dependency tree on the next edit. With <paramref name="withInCellImage"/>,
+    /// G1, which nothing reads, holds an in-cell image.
     /// </summary>
-    private static XLWorkbook LoadedWithUnknownPrecedents(UnknownPrecedents unknown)
+    private static XLWorkbook LoadedWithUnknownPrecedents(UnknownPrecedents unknown, bool withInCellImage = false)
     {
         var package = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -552,6 +584,12 @@ public class RefusedAndUnsupportedFormulaTests
             values.SetCellValue(f1.SheetPoint, 3);
             f1.Formula!.MarkClean();
             ws.Cell("C1").FormulaA1 = "1+1";
+            if (withInCellImage)
+            {
+                using var image = new MemoryStream(XLCellImageTests.CreateTestPng());
+                ws.Cell("G1").SetCellImage(image, XLPictureFormat.Png);
+            }
+
             wb.SaveAs(package);
         }
 

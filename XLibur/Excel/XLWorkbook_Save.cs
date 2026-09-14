@@ -562,7 +562,11 @@ public partial class XLWorkbook
 
             var cell = cellsWithImages[i].Cell;
             cell.ValueMetaIndex = valueMeta.Count.Value; // 1-based
-            cell.SliceCellValue = (double)i; // rv index as number
+
+            // The rv index as a number. It is the save's own bookkeeping, not an edit, so it is
+            // written to the value slice directly: the cell's setter marks formulas dirty, and a
+            // formula whose precedents are unknown then lost its cached value on every save.
+            cell.Worksheet.Internals.CellsCollection.ValueSlice.SetCellValue(cell.SheetPoint, (double)i);
         }
     }
 
