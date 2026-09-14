@@ -217,16 +217,19 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             }
         }
 
-        // Re-pointing the formula at the target sheet needs a parse. A formula the parser refuses has
-        // references nobody knows, so it is copied verbatim (ADR 0002): the copy is as broken as the
-        // original, which is the only honest answer for text whose meaning was never established.
+        // Only a formula this library accepted is re-pointed at the target sheet, just as rename, delete
+        // and shift re-point only such a formula. Any other text is copied verbatim: the copy is as
+        // broken as the original, which is the only honest answer for text whose meaning was never
+        // established. That covers a formula the parser reads but this library rejects, such as one
+        // with a reference that has no sheet, and a formula the parser refuses (ADR 0002).
         var modifier = new RenameRefModVisitor
         {
             Sheets = new Dictionary<string, string?> { { sheet.Name, targetSheet.Name } },
             Tables = tableRenames,
         };
-        var copiedFormula = FormulaText.TryRewrite(_formula, sheet.Name, new Point(1, 1), modifier,
-            out var rewritten, out _)
+        var copiedFormula = _isFormulaUnderstood
+                            && FormulaText.TryRewrite(_formula, sheet.Name, new Point(1, 1), modifier,
+                                out var rewritten, out _)
             ? rewritten
             : _formula;
 

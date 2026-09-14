@@ -101,6 +101,26 @@ public class DefinedNameLoadResilienceTests
         await Assert.That(TheName(wb).RefersTo).IsEqualTo("$A$1");
     }
 
+    /// <summary>
+    /// Every rewrite leaves a name alone that this library did not accept, copy included. Here the
+    /// parser reads the text, but <c>$B$2</c> has no sheet, so the name is kept as found and not
+    /// understood. Copying its sheet copies the name exactly as written, where it used to come out
+    /// as <c>Copy!$A$1+$B$2</c>. Renaming the sheet leaves the name as it is too.
+    /// </summary>
+    [Test]
+    public async Task A_name_that_was_not_accepted_is_copied_as_written_and_left_alone_by_a_rename()
+    {
+        using var package = BookWithRawDefinedName("Sheet1!$A$1+$B$2", scopeToFirstSheet: true);
+        using var wb = new XLWorkbook(package);
+        var sheet = wb.Worksheet("Sheet1");
+
+        var copy = sheet.CopyTo("Copy");
+        sheet.Name = "Data";
+
+        await Assert.That(copy.DefinedNames.Single().RefersTo).IsEqualTo("Sheet1!$A$1+$B$2");
+        await Assert.That(sheet.DefinedNames.Single().RefersTo).IsEqualTo("Sheet1!$A$1+$B$2");
+    }
+
     [Test]
     public async Task A_defined_name_the_parser_rejects_is_reported_as_invalid()
     {
