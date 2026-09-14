@@ -125,6 +125,49 @@ public class SheetLifecycleChartExFixtureTests
         await Assert.That(wb.DefinedNames.Select(n => n.Name)).IsEmpty();
     }
 
+    /// <summary>
+    /// <see cref="XLWorkbook.Save()"/> reopens the package the previous save wrote, whose chart part a
+    /// delete has already patched. A second save leaves it as the first one did.
+    /// </summary>
+    [Test]
+    public async Task A_delete_matches_Excel_after_two_saves()
+    {
+        using var package = new MemoryStream();
+        using (var source = Resource(Before))
+            source.CopyTo(package);
+
+        package.Position = 0;
+        using (var wb = new XLWorkbook(package))
+        {
+            wb.Worksheet("Data").Delete();
+            wb.Save();
+            wb.Save();
+        }
+
+        await AssertSameText(Read(package), Read(Resource("chartex-pivotcf-delete-after.xlsx")));
+    }
+
+    /// <summary>
+    /// <see cref="XLWorkbook.SaveAs(Stream)"/> makes the stream it wrote the one the next save starts
+    /// from, so a second <c>SaveAs</c> also patches a part the first one patched.
+    /// </summary>
+    [Test]
+    public async Task A_delete_matches_Excel_after_two_SaveAs()
+    {
+        using var first = new MemoryStream();
+        using var second = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource(Before)))
+        {
+            wb.Worksheet("Data").Delete();
+            wb.SaveAs(first);
+            wb.SaveAs(second);
+        }
+
+        var excel = Read(Resource("chartex-pivotcf-delete-after.xlsx"));
+        await AssertSameText(Read(first), excel);
+        await AssertSameText(Read(second), excel);
+    }
+
     private static async Task AssertSameText(Holders saved, Holders excel)
     {
         await Assert.That(Lines(saved.ChartNames)).IsEqualTo(Lines(excel.ChartNames));

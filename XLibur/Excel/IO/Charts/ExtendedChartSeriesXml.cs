@@ -105,9 +105,15 @@ internal static class ExtendedChartSeriesXml
         var formula = dimension.Elements<Cx.Formula>().FirstOrDefault();
         if (dropped is { } area)
         {
-            var byRow = formula?.Dir?.Value == Cx.FormulaDirection.Row;
+            // Without its cx:f the dimension was patched by an earlier save. Save() and SaveAs() start
+            // from the package the last save wrote, and a dropped reference stays dropped in the model,
+            // so the patch leaves its own work as it is: the direction it counted levels by is gone.
+            if (formula is null)
+                return;
+
+            var byRow = formula.Dir?.Value == Cx.FormulaDirection.Row;
             var levels = byRow ? area.Height : area.Width;
-            formula?.Remove();
+            formula.Remove();
             foreach (var level in dimension.ChildElements.Where(e => e is Cx.StringLevel or Cx.NumericLevel).ToList())
                 level.Remove();
 
