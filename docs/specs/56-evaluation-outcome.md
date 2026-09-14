@@ -177,11 +177,20 @@ reach any public entry point, and a test asserts that for each one.
 
 `EvaluateName` passes the calling formula's address into the context it builds. D60 turns green.
 
-**Interaction with spec 53.** Spec 53 turns on implicit intersection wherever a legacy formula has a
-cell to intersect against. Once a name has its cell, operators at the top level of a name's formula
-intersect their range operands too. That is what Excel does, and the test for this task pins one case.
-Spec 53's trick for asking Excel — set the formula through `Range.Formula` and read where Excel adds
-`@` — can confirm it if the answer is in doubt.
+**Interaction with spec 53 — settled in Excel.** Spec 53 turns on implicit intersection wherever a
+legacy formula has a cell to intersect against. This spec first assumed that once a name has its
+cell, operators at the top level of the name's formula would intersect their range operands too.
+**Excel says otherwise.**
+
+The owner checked it on 2026-09-14 with spec 53's trick: set the formula through `Range.Formula` and
+read where Excel adds `@`.
+
+- **Setup:** `A1:A3` = 1, 2, 3, and a workbook-scoped name `Plus10` = `=Sheet1!$A$1:$A$3+10`.
+- **Result:** `Range("B2").Formula = "=Plus10"` shows **11**, and Excel writes `=@Plus10`.
+
+So Excel evaluates the name's formula as an array, without intersecting inside it, and the `@` in the
+cell takes the array's first element. A name's context therefore keeps `IntersectOperands` off, and
+the test for this task pins B2 = 11.
 
 ### 5. Save (ADR 0001)
 

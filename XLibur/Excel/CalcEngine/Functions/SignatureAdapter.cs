@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using XLibur.Excel.CalcEngine.Exceptions;
 
 namespace XLibur.Excel.CalcEngine.Functions;
 
@@ -1246,7 +1247,7 @@ internal static class SignatureAdapter
         if (reference.TryGetSingleCellValue(out var scalarValue, ctx))
             return scalarValue.ToNumber(ctx.Culture);
 
-        throw new NotImplementedException("Array formulas not implemented.");
+        throw new UnsupportedFeatureException("Array formulas not implemented.");
     }
 
     internal static OneOf<string, XLError> ToText(in AnyValue value, CalcContext ctx)
@@ -1255,12 +1256,12 @@ internal static class SignatureAdapter
             return scalar.ToText(ctx.Culture);
 
         if (collection.TryPickT0(out _, out var reference))
-            throw new NotImplementedException("Array formulas not implemented.");
+            throw new UnsupportedFeatureException("Array formulas not implemented.");
 
         if (reference.TryGetSingleCellValue(out var scalarValue, ctx))
             return scalarValue.ToText(ctx.Culture);
 
-        throw new NotImplementedException("Array formulas not implemented.");
+        throw new UnsupportedFeatureException("Array formulas not implemented.");
     }
 
     private static OneOf<ScalarValue, XLError> ToScalarValue(in AnyValue value, CalcContext ctx)

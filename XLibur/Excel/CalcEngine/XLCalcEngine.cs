@@ -59,13 +59,26 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal bool HasSpillOwners => _spillOwners.Count > 0;
 
     public XLCalcEngine(CultureInfo culture)
+        : this(culture, FunctionTable)
+    {
+    }
+
+    /// <summary>
+    /// An engine that parses and evaluates against <paramref name="functions"/> instead of the
+    /// built-in function table.
+    /// </summary>
+    /// <remarks>
+    /// A test seam. A test can register a function that fails the way a defect in XLibur would,
+    /// which is the only way to make a defect happen on purpose: every function in the real table
+    /// is meant to have no such failure left in it.
+    /// </remarks>
+    internal XLCalcEngine(CultureInfo culture, FunctionRegistry functions)
     {
         _culture = culture;
         _cache = new ExpressionCache(this);
-        var funcRegistry = FunctionTable;
-        Functions = funcRegistry;
-        _parser = new FormulaParser(funcRegistry);
-        _visitor = new CalculationVisitor(funcRegistry);
+        Functions = functions;
+        _parser = new FormulaParser(functions);
+        _visitor = new CalculationVisitor(functions);
         _dependencyTree = null;
         _chain = null;
     }
@@ -253,12 +266,17 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// to full workbook recalculation which handles dependency ordering.
     /// </summary>
     /// <returns><c>true</c> if single-cell eval succeeded, <c>false</c> if full recalculate was used.</returns>
-    internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet)
+    /// <remarks>
+    /// <paramref name="entry"/> is the public entry point the evaluation is for. A fallback to full
+    /// recalculation reads its row of <see cref="EvaluationPolicy"/>.
+    /// </remarks>
+    internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet,
+        EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
         // DataTable formulas need the full chain for correct evaluation.
         if (formula.Type == FormulaType.DataTable)
         {
-            Recalculate(sheet.Workbook, null);
+            RecalculateForCell(sheet.Workbook, new SheetPoint(sheet.SheetId, point), entry);
             return false;
         }
 
@@ -306,16 +324,37 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             // Formula depends on a dirty precedent cell — need the full
             // dependency-ordered recalculation to resolve it.
-            Recalculate(sheet.Workbook, null);
+            RecalculateForCell(sheet.Workbook, new SheetPoint(sheet.SheetId, point), entry);
             return false;
         }
     }
 
     /// <summary>
+    /// How many calculation passes this engine has run. Read by tests that check a caller runs no
+    /// more passes than it needs.
+    /// </summary>
+    internal int PassCount { get; private set; }
+
+    /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
-    internal void Recalculate(XLWorkbook wb, uint? recalculateSheetId)
+    /// <returns>
+    /// The cells the pass left dirty, each mapped to the cell whose failure it was left dirty by, or
+    /// <c>null</c> when it left none.
+    /// </returns>
+    /// <remarks>
+    /// A cycle never stops the pass, whatever the entry point: its cells are left dirty, together
+    /// with every formula that depends on them, and the rest of the workbook is calculated (Q23,
+    /// #492). Whether that reaches the caller is up to the caller: a cell read throws only for its
+    /// own cell (<see cref="RecalculateForCell"/>). Any other failure is <paramref name="entry"/>'s
+    /// row of <see cref="EvaluationPolicy"/>: a cell it leaves dirty is skipped in the same way, and
+    /// anything else throws.
+    /// </remarks>
+    internal IReadOnlyDictionary<SheetPoint, SheetPoint>? Recalculate(XLWorkbook wb, uint? recalculateSheetId,
+        EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
+        PassCount++;
+
         // Lazy, so initialize chain from wb, if it is empty
         if (_chain is null || _dependencyTree is null)
         {
@@ -329,22 +368,65 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 sheet => sheet.SheetId,
                 sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice));
 
-        // Each outer loop moves chain one cell ahead.
-        while (_chain.MoveAhead())
+        // The cells this pass has given up on, and the formulas that depend on them, each mapped to
+        // the cell that stopped it: the cell where a cycle was found, or a cell whose failure the
+        // policy leaves dirty. Allocated only when there is one.
+        Dictionary<SheetPoint, SheetPoint>? leftDirty = null;
+
+        try
         {
-            RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId);
+            // Each outer loop moves chain one cell ahead.
+            while (_chain.MoveAhead())
+            {
+                RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId, entry, ref leftDirty);
+            }
+        }
+        finally
+        {
+            // Super important to clean up the chain for next recalculation.
+            // Chain contains shared data and not cleaning it would cause hard
+            // to diagnose issues. That holds when a cell throws, too: a caller can catch the
+            // exception and read again (XLibur.Report does, for a circular reference), and a pass
+            // that carried on from where this one stopped could start at a link no longer in the
+            // chain.
+            _chain.Reset();
         }
 
-        // Super important to clean up the chain for next recalculation.
-        // Chain contains shared data and not cleaning it would cause hard
-        // to diagnose issues.
-        _chain.Reset();
+        return leftDirty;
+    }
+
+    /// <summary>
+    /// The full recalculation a read of <paramref name="cell"/> falls back to, when the cell's
+    /// formula could not be calculated on its own.
+    /// </summary>
+    /// <remarks>
+    /// The pass leaves every cycle it meets dirty and calculates the rest, so a cycle the cell does
+    /// not depend on no longer stops the read (#492). Only when <paramref name="cell"/> is itself in
+    /// a cycle, or depends on a cell a cycle left dirty, does <paramref name="entry"/>'s cycle
+    /// outcome apply to it: a read throws, naming the cell where that cycle was found.
+    /// </remarks>
+    private void RecalculateForCell(XLWorkbook wb, SheetPoint cell, EvaluationEntryPoint entry)
+    {
+        var leftDirty = Recalculate(wb, null, entry);
+        if (leftDirty is null || !leftDirty.TryGetValue(cell, out var stoppedBy))
+            return;
+
+        if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) == EvaluationOutcome.Throw)
+            throw new XLCircularReferenceException(CycleMessage(wb, stoppedBy));
+    }
+
+    private static string CycleMessage(XLWorkbook wb, SheetPoint cycleCell)
+    {
+        var sheetName = wb.WorksheetsInternal.First<XLWorksheet>(sheet => sheet.SheetId == cycleCell.SheetId).Name;
+        return $"Formula in a cell '${sheetName}'!${cycleCell.Point} is part of a cycle.";
     }
 
     private void RecalculateCurrentCell(
         XLCalculationChain chain,
         Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
-        uint? recalculateSheetId)
+        uint? recalculateSheetId,
+        EvaluationEntryPoint entry,
+        ref Dictionary<SheetPoint, SheetPoint>? leftDirty)
     {
         while (true)
         {
@@ -358,7 +440,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
 
             if (chain.IsCurrentInCycle)
-                throw new CircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+            {
+                // The chain has found the cycle at this cell, which is left dirty. The rest of the
+                // cycle, and whatever depends on it, ask for a cell already left dirty and are
+                // skipped in turn, each recorded against this cell.
+                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
+                leftDirty[current] = current;
+                break;
+            }
 
             var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
             if (cellFormula is null)
@@ -375,7 +464,21 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             }
             catch (GettingDataException ex)
             {
+                // A precedent this pass has given up on cannot be calculated, so neither can this.
+                // Never moved to the front again, which is what keeps the pass finite.
+                if (leftDirty is not null && leftDirty.TryGetValue(ex.Point, out var stoppedBy))
+                {
+                    leftDirty[current] = stoppedBy;
+                    break;
+                }
+
                 chain.MoveToCurrent(ex.Point);
+            }
+            catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
+            {
+                leftDirty ??= new Dictionary<SheetPoint, SheetPoint>();
+                leftDirty[current] = current;
+                break;
             }
         }
     }
@@ -425,7 +528,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         }
         else
         {
-            throw new NotImplementedException($"Evaluation of formula type '{formula.Type}' is not supported.");
+            throw new UnsupportedFeatureException($"Evaluation of formula type '{formula.Type}' is not supported.");
         }
     }
 
@@ -479,26 +582,18 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         };
 
         // MissingContextException is internal, so letting it out of a public Evaluate hands the
-        // caller an exception they cannot name, let alone catch. XLFunctionLibrary.TryInvoke has
-        // always translated it here; these entry points did not, and threw the internal type
-        // instead — while IXLWorkbook and IXLWorksheet documented it by cref and
-        // PublicSurfaceTests asserted it must never become visible. Found by fuzzing (D37).
+        // caller an exception they cannot name, let alone catch. Found by fuzzing (D37).
+        // EvaluationPolicy raises it as the public type, and is the one place that is written.
         //
-        // The whole body is inside the try, not just the evaluation. The first version of this
-        // fix wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
+        // The whole body is translated, not just the evaluation. The first version of the D37 fix
+        // wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
         // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
         // the formula address just as much, so `V1,VBL1` still threw the internal type.
-        try
-        {
-            return EvaluateAndReduce(expression, ctx);
-        }
-        catch (MissingContextException e)
-        {
-            throw new XLNoWorksheetContextException(
-                $"'{expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
-                + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.",
-                e);
-        }
+        return EvaluationPolicy.RaiseMissingContextAsPublic(
+            (Engine: this, Expression: expression, Context: ctx),
+            static s => s.Engine.EvaluateAndReduce(s.Expression, s.Context),
+            static s => $"'{s.Expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
+                        + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.");
     }
 
     /// <summary>
@@ -720,9 +815,18 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 #pragma warning restore S3267
     }
 
-    internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)
+    /// <summary>
+    /// Evaluates the formula of a defined name that the formula <paramref name="caller"/> is
+    /// calculating refers to.
+    /// </summary>
+    /// <remarks>
+    /// The name is evaluated for the cell that uses it (D60): a name holding <c>ROW()</c> answers
+    /// with that cell's row, as Excel does, instead of failing for want of a cell. See
+    /// <see cref="CalcContext.ForDefinedName"/> for what else the name's context inherits.
+    /// </remarks>
+    internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
-        var ctx = new CalcContext(this, _culture, ws.Workbook, ws, null);
+        var ctx = caller.ForDefinedName();
         return EvaluateFormula(nameFormula, ctx);
     }
 

@@ -1185,22 +1185,33 @@ public partial class XLWorkbook : IXLWorkbook
     internal XLCalcEngine CalcEngine
     {
         get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture); }
+
+        // A test seam, for an engine over a function table of the test's own. Set it before any
+        // formula is evaluated: the engine it replaces is dropped with its dependency tree and chain.
+        set { _calcEngine = value; }
     }
 
     public XLCellValue Evaluate(string expression)
     {
-        return CalcEngine.EvaluateFormula(expression, this).ToCellValue();
+        // Recursive, as IXLWorksheet.Evaluate and a cell read are: a dirty cell the expression reads
+        // is calculated first. Without it the engine's internal pending signal escaped (D57).
+        return CalcEngine.EvaluateFormula(expression, this, recursive: true).ToCellValue();
     }
 
     /// <summary>
     /// Force recalculation of all cell formulas.
     /// </summary>
+    /// <remarks>
+    /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
+    /// everything else is calculated. Reading one of those cells throws
+    /// <see cref="XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException"/>.
+    /// </remarks>
     public void RecalculateAllFormulas()
     {
         foreach (var sheet in WorksheetsInternal)
             sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
 
-        CalcEngine.Recalculate(this, null);
+        CalcEngine.Recalculate(this, null, EvaluationEntryPoint.Recalculation);
     }
 
     /// <summary>

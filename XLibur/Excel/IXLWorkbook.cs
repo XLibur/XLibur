@@ -190,6 +190,9 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// There is no cell here for it to be relative to; use it in a cell formula, or evaluate it
     /// through <see cref="IXLWorksheet.Evaluate"/> with a formula address.
     /// </exception>
+    /// <exception cref="XLCircularReferenceException">
+    /// The expression reads a cell whose formula is part of a circular reference.
+    /// </exception>
     XLCellValue Evaluate(string expression);
 
     IXLCells FindCells(Func<IXLCell, bool> predicate);
@@ -231,6 +234,11 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <summary>
     /// Force recalculation of all cell formulas.
     /// </summary>
+    /// <remarks>
+    /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
+    /// everything else is calculated. Reading one of those cells throws
+    /// <see cref="XLCircularReferenceException"/>.
+    /// </remarks>
     void RecalculateAllFormulas();
 
     /// <summary>

@@ -36,6 +36,34 @@ public class XLCalculationChainTests
         await Assert.That(GetPoints(chain)).IsEquivalentTo(expectedPoints, CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    /// Review finding 1 of spec 56. A traversal that ends on a cycle at its last link must not hand
+    /// the cycle flag to the next traversal, whose first link would then look like part of a cycle.
+    /// </summary>
+    [Test]
+    public async Task Reset_clears_the_cycle_flag_for_the_next_traversal()
+    {
+        var chain = new XLCalculationChain();
+        var a1 = new SheetPoint(1, new Point(1, 1));
+        var b1 = new SheetPoint(1, new Point(1, 2));
+        chain.AddLast(a1);
+        chain.AddLast(b1);
+
+        // The traversal reaches B1, the last link, and B1 asks for itself.
+        await Assert.That(chain.MoveAhead()).IsTrue();
+        await Assert.That(chain.MoveAhead()).IsTrue();
+        chain.MoveToCurrent(b1);
+        await Assert.That(chain.IsCurrentInCycle).IsTrue();
+        await Assert.That(chain.MoveAhead()).IsFalse();
+
+        chain.Reset();
+
+        await Assert.That(chain.IsCurrentInCycle).IsFalse();
+        await Assert.That(chain.MoveAhead()).IsTrue();
+        await Assert.That(chain.Current).IsEqualTo(a1);
+        await Assert.That(chain.IsCurrentInCycle).IsFalse();
+    }
+
     [Test]
     public async Task Remove_throws_on_missing_point()
     {

@@ -60,6 +60,10 @@ static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path) -> XLibur
 static XLibur.Excel.Streaming.XLStreamingWorkbook.Create(string! path, XLibur.Excel.Streaming.XLStreamingOptions? options) -> XLibur.Excel.Streaming.XLStreamingWorkbook!
 static XLibur.Excel.XLColor.Automatic.get -> XLibur.Excel.XLColor!
 virtual XLibur.Excel.XLWorkbook.Dispose(bool disposing) -> void
+XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException
+XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException.XLCircularReferenceException() -> void
+XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException.XLCircularReferenceException(string! message) -> void
+XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException.XLCircularReferenceException(string! message, System.Exception! innerException) -> void
 XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException
 XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException.XLNoWorksheetContextException() -> void
 XLibur.Excel.CalcEngine.Exceptions.XLNoWorksheetContextException.XLNoWorksheetContextException(string! message) -> void

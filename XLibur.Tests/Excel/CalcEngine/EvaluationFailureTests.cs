@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -15,25 +16,28 @@ namespace XLibur.Tests.Excel.CalcEngine;
 public class EvaluationFailureTests
 {
     [Test]
-    public async Task Failures_a_formula_can_legitimately_produce_are_expected()
+    public async Task Each_failure_a_formula_can_legitimately_produce_has_its_own_kind()
     {
-        Exception[] failures =
+        (Exception Failure, EvaluationFailureKind Kind)[] failures =
         [
-            new NotImplementedException(),
-            new NotSupportedException(),
-            new ExpressionParseException("unreadable"),
-            new MissingContextException(),
-            new XLNoWorksheetContextException(),
-            new CircularReferenceException("cycle"),
+            (new XLCircularReferenceException("cycle"), EvaluationFailureKind.Cycle),
+            (new UnsupportedFeatureException("unsupported"), EvaluationFailureKind.Unsupported),
+            (new NotSupportedException(), EvaluationFailureKind.Unsupported),
+            (new ExpressionParseException("unreadable"), EvaluationFailureKind.Refused),
+            (new MissingContextException(), EvaluationFailureKind.NoContext),
+            (new XLNoWorksheetContextException(), EvaluationFailureKind.NoContext),
+            (new GettingDataException(new SheetPoint(1, new Point(1, 1))), EvaluationFailureKind.Pending),
         ];
 
-        var rejected = failures.Where(f => !EvaluationFailure.IsExpected(f)).Select(f => f.GetType().Name);
+        var misclassified = failures
+            .Where(f => EvaluationFailure.Classify(f.Failure) != f.Kind)
+            .Select(f => $"{f.Failure.GetType().Name} as {EvaluationFailure.Classify(f.Failure)}");
 
-        await Assert.That(rejected).IsEmpty();
+        await Assert.That(misclassified).IsEmpty();
     }
 
     [Test]
-    public async Task Defects_are_not_expected()
+    public async Task Defects_are_classified_as_defects()
     {
         Exception[] defects =
         [
@@ -43,11 +47,17 @@ public class EvaluationFailureTests
             new ArgumentException(),
             // What an internal invariant throws - a calculation chain entry with no formula, say.
             new InvalidOperationException(),
+            // Spec 56 (Q15): the calc engine raises an unsupported feature as
+            // UnsupportedFeatureException, so a plain NotImplementedException, thrown anywhere else
+            // in the library, is a defect. Before spec 56 it was tolerated as "unimplemented".
+            new NotImplementedException(),
         ];
 
-        var accepted = defects.Where(EvaluationFailure.IsExpected).Select(d => d.GetType().Name);
+        var misclassified = defects
+            .Where(d => EvaluationFailure.Classify(d) != EvaluationFailureKind.Defect)
+            .Select(d => d.GetType().Name);
 
-        await Assert.That(accepted).IsEmpty();
+        await Assert.That(misclassified).IsEmpty();
     }
 
     [Test]

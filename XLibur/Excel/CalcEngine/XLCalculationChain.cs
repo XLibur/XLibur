@@ -249,6 +249,10 @@ internal sealed class XLCalculationChain
 
     internal void Reset()
     {
+        // A traversal can end with the flag set, when it finds a cycle at its last link. Left set,
+        // the next traversal takes its first link for part of a cycle.
+        IsCurrentInCycle = false;
+
         if (_current is null)
             return;
 
@@ -281,6 +285,8 @@ internal sealed class XLCalculationChain
             if (isChainEmpty)
                 return false;
 
+            // A new traversal's first link has not been current yet, so it cannot be in a cycle.
+            IsCurrentInCycle = false;
             _current = _head;
             _currentPosition = 1;
             return true;

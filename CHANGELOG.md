@@ -16,6 +16,18 @@
 
 ## Unreleased
 
+### ⚠️ Breaking Changes
+
+#### Formulas
+
+- **A save that evaluates formulas now throws when a formula fails because of a bug in XLibur, instead of writing the cell with no cached value.** With `SaveOptions.EvaluateFormulasBeforeSaving`, or `SaveAs(file, validate, evaluateFormulae: true)`, XLibur calculates each dirty formula so that it can write the cached value. Every failure was swallowed, so a bug in a function was written to the file exactly as a formula XLibur cannot evaluate, and nothing told you. A circular reference, a feature XLibur does not evaluate, and a formula the parser cannot read still leave the cell with no cached value, and Excel recalculates it when the file is opened. Anything else now throws out of the save: the defect as it was raised, for example a `NullReferenceException` from inside a function. The reasons are in `docs/adr/0001-save-policy-on-evaluation-failure.md`.
+
+- **`RecalculateAllFormulas` no longer throws on a circular reference.** It stopped at the first cell in a cycle with an `InvalidOperationException`, so a workbook that contains one could not be opened with `LoadOptions.RecalculateAllFormulas = true`. The cells of the cycle, and every formula that depends on them, are now left uncalculated (`NeedsRecalculation` stays `true`), and the rest of the workbook is calculated. Reading one of those cells still throws, now as `XLCircularReferenceException`. This applies to `IXLWorkbook.RecalculateAllFormulas`, `IXLWorksheet.RecalculateAllFormulas` and recalculate-on-load. **Code that used the call to detect a cycle no longer sees one.** Read the cells instead, or check `NeedsRecalculation` afterwards.
+
+### ✨ New Features
+
+- **A circular reference is reported as `XLCircularReferenceException`, a public type you can catch by name.** Reading a cell whose formula depends on its own value, or evaluating one through `IXLWorksheet.Evaluate` or `IXLWorkbook.Evaluate`, threw an exception type internal to XLibur. You could catch it only as `InvalidOperationException`, which also covers misuse of the API and bugs in XLibur. The new type is in `XLibur.Excel.CalcEngine.Exceptions`, next to `XLNoWorksheetContextException`. It derives from `InvalidOperationException`, not from `XLiburException`, so a `catch (InvalidOperationException)` you already have still runs, and the message is unchanged.
+
 ### 🐛 Bug Fixes
 
 - **Renaming a sheet no longer throws when another cell holds a formula the parser cannot read.** An example is `'[Book2.xlsx]Sheet1'!A1`: an external reference in the form the formula bar shows, which `FormulaA1` accepts. With such a cell anywhere in the workbook, setting `IXLWorksheet.Name` threw `ClosedXML.Parser.ParsingException` part way through the rename. By then the calc engine and the workbook's lookup had the new name and the sheet did not, so a formula that referred to the sheet evaluated to `#REF!`. The rename now completes. A formula the parser cannot read is left exactly as it is, because the references in it are unknown.
@@ -27,6 +39,14 @@
 - **A formula that names a table column with a colon in its name now evaluates.** `SUM(Table1[Start: Date])` gave `#REF!` instead of the sum of the column, because evaluation read the colon as a range operator. The text of the formula was already kept correctly through a save and a load. A defined name that refers to such a column now also reports the column's range in `Ranges`.
 
 - **Saving a workbook no longer throws when a conditional format holds a formula the parser cannot read.** An example is a conditional format set with `WhenIsTrue("'[Book2.xlsx]Sheet1'!A1")`. A save merges conditional formats that are the same by default, and to compare two formats it converted each formula to R1C1. That conversion threw `ExpressionParseException` on such a formula, so the whole save failed. Putting the format in a `HashSet` with `XLConditionalFormat.NoRangeComparer` or `FullComparer` threw too. A format that holds such a formula now equals no other format. The save never merges it, and writes its formula exactly as it was set, because the references in it are unknown.
+
+- **`IXLWorkbook.Evaluate` now calculates a cell whose formula is out of date before reading it, instead of throwing an internal exception.** `wb.Evaluate("Sheet1!A1")` on a cell whose formula had not been calculated yet, or whose inputs had changed since, threw `GettingDataException`, a type internal to XLibur, with the message "Exception of type … was thrown." `IXLWorksheet.Evaluate` on the same cell answered. Both now calculate the cell first, as reading `IXLCell.Value` does. `IXLWorksheet.Evaluate` of a defined name that reads such a cell threw the same exception, and is fixed too.
+
+- **A defined name that calls `ROW()` or `COLUMN()` now answers for the cell that uses it.** With a name `MyRow` defined as `=ROW()`, a cell `A6` holding `=MyRow` threw `XLNoWorksheetContextException`, which advised using the function in a cell formula, although it already was in one. Excel gives 6, and so does XLibur now: a name is evaluated with the sheet and the cell of the formula that uses it. `IXLWorksheet.Evaluate("MyRow", "B7")` gives 7, and without a formula address it still throws `XLNoWorksheetContextException`. An operator at the top of a name's formula still keeps its range operand whole: a name defined as `=Sheet1!$A$1:$A$3+10`, read in row 2, gives the first element, 11.
+
+- **Reading a cell no longer throws for a circular reference the cell does not depend on.** When a cell's formula needed a dirty precedent, the read fell back to recalculating the whole workbook, and that stopped with an exception at the first circular reference it met, anywhere in the workbook. So `B1 = C1+1` threw because of an unrelated `A1 = A1+1`, and `TryGetValue`, `Search`, `IXLWorksheet.Evaluate`, `IXLWorkbook.Evaluate` and XLibur.Report's reads failed the same way. The fallback now leaves the cells of a cycle dirty and calculates the rest, as `RecalculateAllFormulas` does, so `B1` reads 3. Reading a cell that is in a cycle, or depends on one, still throws `XLCircularReferenceException`, which now names the cell's own cycle rather than the first one the recalculation met. ([#492](https://github.com/XLibur/XLibur/issues/492))
+
+- **`IXLWorksheet.RecalculateAllFormulas` no longer hangs when a defined name reads a dirty cell on another sheet.** A sheet-only recalculation reads other sheets' cells as they stand. A formula typed into the cell did, but a defined name did not: with a name `X` defined as `=Sheet2!$A$1*2`, a cell `Sheet1!A1` holding `=X`, and `Sheet2!A1` not yet calculated, `Sheet1.RecalculateAllFormulas()` never returned. The name now reads `Sheet2!A1` as it stands, exactly as `=Sheet2!$A$1*2` typed into the cell does. This hang was already in the previous release.
 
 ## v0.500.0 - 2026-09-13
 
@@ -833,6 +853,10 @@ above. Nothing in this section has shipped yet.
 - **Hidden sheets are generated.** A hidden sheet is a normal place to keep the lookup tables and working data a report is built from, so generation follows the data rather than what the reader can see. Hiding a sheet controls what the reader sees; deleting it after `Generate()` is what keeps it out of the report. ([#304](https://github.com/XLibur/XLibur/pull/304) by [@jafin](https://github.com/jafin))
 
 - **Defined names bind under Excel's scoping and matching rules.** Two sheet-scoped names sharing a name — a `Q1!Items` section and a `Q2!Items` section — both bind, where previously the second generated blank. A workbook-scoped name binds except on a sheet declaring its own name of that name, which is what Excel does. And a name is matched to its variable case-insensitively, as Excel holds names in one case-insensitive namespace, so a template author who types `ITEMS` in the name box has named the variable added as `Items`. An exact match still wins, and two variables differing only by case are reported rather than bound arbitrarily. ([#307](https://github.com/XLibur/XLibur/pull/307), [#314](https://github.com/XLibur/XLibur/pull/314) by [@jafin](https://github.com/jafin))
+
+### 🐛 Bug Fixes
+
+- **A formula in, or depending on, a circular reference inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions, and a cell whose formula depended on its own value threw out of `Generate()`. It is now recorded once in `ParsingErrors`, at its cell, and generation carries on. The cell keeps its formula. Any other failure of a formula in a bound range still throws.
 
 ### 🔧 Dependencies
 

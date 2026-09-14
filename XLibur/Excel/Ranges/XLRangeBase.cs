@@ -585,7 +585,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 return culture.CompareInfo.IndexOf(c.Value.ToString(CultureInfo.CurrentCulture), searchText,
                     compareOptions) >= 0;
             }
-            catch (Exception ex) when (EvaluationFailure.IsExpected(ex))
+            catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.TolerantRead, ex) == EvaluationOutcome.NoValue)
             {
                 // A cell whose formula cannot be evaluated has no value to match.
                 return false;

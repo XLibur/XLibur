@@ -1644,7 +1644,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public void RecalculateAllFormulas()
     {
         Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
-        Workbook.CalcEngine.Recalculate(Workbook, SheetId);
+        Workbook.CalcEngine.Recalculate(Workbook, SheetId, EvaluationEntryPoint.Recalculation);
     }
 
     public XLUsedCellEnumerable EnumerateUsedCells() =>

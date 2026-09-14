@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Parser;
+using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 
@@ -116,11 +117,11 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, NameNode node)
     {
-        return node.GetValue(context.Worksheet, context.CalcEngine);
+        return node.GetValue(context);
     }
 
     public AnyValue Visit(CalcContext context, NotSupportedNode node)
-        => throw new NotImplementedException($"Evaluation of {node.FeatureName} is not implemented.");
+        => throw new UnsupportedFeatureException($"Evaluation of {node.FeatureName} is not implemented.");
 
     public AnyValue Visit(CalcContext context, StructuredReferenceNode node)
     {

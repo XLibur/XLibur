@@ -22,6 +22,12 @@ public class LoadOptions
     /// <summary>
     /// Should all formulas in a workbook be recalculated during a load? Default value is <c>false</c>.
     /// </summary>
+    /// <remarks>
+    /// When this is <c>true</c>, a workbook containing a circular reference still opens: the load
+    /// leaves the cells of the cycle, and the formulas that depend on them, dirty, and calculates the
+    /// rest. Reading one of those cells then throws
+    /// <see cref="XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException"/>.
+    /// </remarks>
     public bool RecalculateAllFormulas { get; set; } = false;
 
     /// <summary>

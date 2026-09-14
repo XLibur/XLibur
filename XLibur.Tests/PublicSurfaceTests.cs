@@ -43,6 +43,17 @@ public class PublicSurfaceTests
         // the asymmetry cannot come back unnoticed.
         "XLibur.Excel.XLAlignmentKey",
         "XLibur.Excel.XLAlignmentValue",
+
+        // Spec 56: how the calc engine sorts a failure stays internal (Q16). A caller sees the public
+        // exceptions — XLCircularReferenceException, XLNoWorksheetContextException,
+        // NotImplementedException — and XLibur.Report maps those itself.
+        "XLibur.Excel.CalcEngine.Exceptions.EvaluationFailure",
+        "XLibur.Excel.CalcEngine.Exceptions.EvaluationFailureKind",
+        "XLibur.Excel.CalcEngine.Exceptions.UnsupportedFeatureException",
+        "XLibur.Excel.CalcEngine.Exceptions.GettingDataException",
+        "XLibur.Excel.CalcEngine.EvaluationPolicy",
+        "XLibur.Excel.CalcEngine.EvaluationEntryPoint",
+        "XLibur.Excel.CalcEngine.EvaluationOutcome",
     ];
 
     [Test]
@@ -87,6 +98,30 @@ public class PublicSurfaceTests
 
         foreach (var member in expected)
             await Assert.That(members).Contains(member);
+    }
+
+    /// <summary>
+    /// Spec 56 (Q14, Q24): a circular reference reaches a caller as a public type, which still derives
+    /// from <see cref="System.InvalidOperationException"/> — the type a cycle was reported as before
+    /// — so a caller's existing catch keeps running. It is not an <c>XLiburException</c>.
+    /// </summary>
+    [Test]
+    public async Task A_circular_reference_is_public_and_still_an_InvalidOperationException()
+    {
+        var assembly = typeof(XLWorkbook).Assembly;
+
+        var cycle = assembly.GetType(
+            "XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException",
+            throwOnError: false);
+        await Assert.That(cycle).IsNotNull();
+        await Assert.That(cycle!.IsVisible).IsTrue();
+        await Assert.That(cycle.BaseType).IsEqualTo(typeof(System.InvalidOperationException));
+
+        // The internal type it replaced is gone, not merely hidden.
+        var replaced = assembly.GetType(
+            "XLibur.Excel.CalcEngine.Exceptions.CircularReferenceException",
+            throwOnError: false);
+        await Assert.That(replaced).IsNull();
     }
 
     /// <summary>

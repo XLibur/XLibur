@@ -186,11 +186,11 @@ internal sealed class RangeExpander
     /// thing before the answer is known: a vertical range's options row ends there and a horizontal
     /// range's options column <em>is</em> there.
     /// </summary>
-    private static RangeAxis DetectAxis(IXLWorksheet sheet, RangeArea area)
+    private RangeAxis DetectAxis(IXLWorksheet sheet, RangeArea area)
     {
         for (var row = area.FirstRow; row <= area.LastRow; row++)
         {
-            var value = sheet.Cell(row, area.LastColumn).Value;
+            var value = _evaluator.ReadValue(sheet.Cell(row, area.LastColumn));
             if (!value.IsText)
             {
                 continue;
@@ -384,12 +384,13 @@ internal sealed class RangeExpander
         for (var line = axis.FirstLine(area); line <= axis.LastLine(area); line++)
         {
             var cell = axis.Cell(sheet, slot, line);
-            if (!cell.Value.IsText)
+            var value = _evaluator.ReadValue(cell);
+            if (!value.IsText)
             {
                 continue;
             }
 
-            var text = cell.Value.GetText();
+            var text = value.GetText();
             if (!TagParser.Contains(text))
             {
                 continue;
@@ -429,7 +430,7 @@ internal sealed class RangeExpander
     /// Records what expression each line holds, so a tag sitting in a line can tell what that line
     /// means without the template having to say it twice.
     /// </summary>
-    private static Dictionary<int, string> ReadLineExpressions(
+    private Dictionary<int, string> ReadLineExpressions(
         IXLWorksheet sheet,
         RangeArea area,
         RangeAxis axis,
@@ -446,7 +447,7 @@ internal sealed class RangeExpander
                     continue;
                 }
 
-                var value = axis.Cell(sheet, slot, line).Value;
+                var value = _evaluator.ReadValue(axis.Cell(sheet, slot, line));
                 if (value.IsText && ExpressionText.TryGetSingleExpression(value.GetText(), out var expression))
                 {
                     expressions[line] = expression;
