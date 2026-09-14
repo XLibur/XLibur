@@ -269,12 +269,13 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
     /// <summary>
     /// The one implementation of renaming a sheet. The setter of <see cref="XLWorksheet.Name"/>
-    /// delegates here entirely. The collection's key and the sheet's name change together, and only
-    /// then does any listener hear of it.
+    /// delegates here entirely, and passes the field that holds the sheet's name as
+    /// <c>sheetName</c>, which only this method writes. The collection's key and the sheet's name
+    /// change together, and only then does any listener hear of it.
     /// </summary>
-    internal void Rename(XLWorksheet sheet, string newSheetName)
+    internal void Rename(XLWorksheet sheet, string newSheetName, ref string sheetName)
     {
-        var oldSheetName = sheet.Name;
+        var oldSheetName = sheetName;
         if (oldSheetName == newSheetName)
             return;
 
@@ -285,7 +286,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         // added since under that name, and change that sheet's key behind its back.
         if (!IsRegistered(sheet))
         {
-            sheet.AssignName(newSheetName);
+            sheetName = newSheetName;
             return;
         }
 
@@ -293,7 +294,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
             EnsureNameIsFree(newSheetName, nameof(newSheetName));
 
         _worksheets.Remove(oldSheetName);
-        sheet.AssignName(newSheetName);
+        sheetName = newSheetName;
         Add(newSheetName, sheet);
 
         foreach (var listener in GetWorkbookListeners())

@@ -268,14 +268,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public string Name
     {
         get => _name;
-        set => Workbook.WorksheetsInternal.Rename(this, value);
+        // Rename writes the field itself, so the collection's key and the sheet's name change
+        // together, before any listener hears of the rename.
+        set => Workbook.WorksheetsInternal.Rename(this, value, ref _name);
     }
-
-    /// <summary>
-    /// Changes what the sheet is called, and nothing else. Only <see cref="XLWorksheets.Rename"/>
-    /// calls this, so the collection's key and the sheet's name change together.
-    /// </summary>
-    internal void AssignName(string name) => _name = name;
 
     public int Position
     {
