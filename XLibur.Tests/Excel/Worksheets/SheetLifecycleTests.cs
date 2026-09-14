@@ -994,6 +994,78 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// D76 (#506): a new worksheet took the <c>sheetId</c> of the chartsheet, which has the highest id in
+    /// the file, 3. The loader moved the next id past each worksheet it added but not past a sheet it
+    /// cannot model, and the writer matches <c>&lt;sheet&gt;</c> elements by <c>sheetId</c>, so the new
+    /// worksheet was given the chartsheet's <c>r:id</c> and <c>SaveAs</c> threw
+    /// <see cref="InvalidCastException"/> naming <c>ChartsheetPart</c>.
+    /// </summary>
+    [Test]
+    public async Task D76_a_new_worksheet_does_not_take_the_sheetId_of_a_chartsheet()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = OpenChartsheetBook())
+        {
+            await Assert.That(wb.UnsupportedSheets.Single().SheetId).IsEqualTo(3u);
+
+            var added = (XLWorksheet)wb.AddWorksheet("New");
+
+            await Assert.That(LiveSheetIds(wb).Count(id => id == added.SheetId)).IsEqualTo(1);
+            wb.SaveAs(ms);
+        }
+
+        await AssertSavedWithChartsheetIntact(ms, "Data", "Pivot", "New");
+    }
+
+    /// <summary>
+    /// Every way of adding a worksheet takes an id that no sheet in the workbook has: by name, without
+    /// a name, at a position, and as a copy of another sheet.
+    /// </summary>
+    [Test]
+    public async Task D76_several_new_worksheets_each_take_an_id_no_sheet_has()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = OpenChartsheetBook())
+        {
+            wb.AddWorksheet("New");
+            wb.AddWorksheet();
+            wb.AddWorksheet("First", 1);
+            wb.Worksheet("Data").CopyTo("Copy");
+
+            var ids = LiveSheetIds(wb);
+            await Assert.That(ids.Distinct().Count()).IsEqualTo(ids.Length);
+            wb.SaveAs(ms);
+        }
+
+        await AssertSavedWithChartsheetIntact(ms, "First", "Data", "Pivot", "New", "Sheet4", "Copy");
+    }
+
+    /// <summary>
+    /// After a delete, a new worksheet takes an id no live sheet has. Nor does it take the deleted
+    /// sheet's id: ids are handed out in increasing order and never go back, so within a session an id
+    /// is never used twice.
+    /// </summary>
+    [Test]
+    public async Task D76_a_worksheet_added_after_a_delete_takes_an_id_no_sheet_has_had()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = OpenChartsheetBook())
+        {
+            var data = (XLWorksheet)wb.Worksheet("Data");
+            var deletedId = data.SheetId;
+            data.Delete();
+
+            var added = (XLWorksheet)wb.AddWorksheet("New");
+
+            await Assert.That(LiveSheetIds(wb).Count(id => id == added.SheetId)).IsEqualTo(1);
+            await Assert.That(added.SheetId).IsNotEqualTo(deletedId);
+            wb.SaveAs(ms);
+        }
+
+        await AssertSavedWithChartsheetIntact(ms, "Pivot", "New");
+    }
+
+    /// <summary>
     /// <c>IXLWorksheet.Delete()</c> deletes the sheet it is called on, not whichever sheet has its name
     /// now. Called again on a deleted sheet, after a sheet was added under the same name, it used to
     /// delete the new sheet: rewrite every formula pointing at it to <c>#REF!</c>, make a name pointing
@@ -1065,6 +1137,40 @@ public class SheetLifecycleTests
         => wb.Worksheets.Select(w => $"{w.Name}:{w.Position}")
             .Concat(wb.UnsupportedSheets.Select(s => $"{s.Name}:{s.Position}"))
             .ToArray();
+
+    /// <summary>The <c>sheetId</c> of every sheet in the workbook, the sheets XLibur does not model included.</summary>
+    private static uint[] LiveSheetIds(XLWorkbook wb)
+        => wb.WorksheetsInternal.Select<XLWorksheet, uint>(w => w.SheetId)
+            .Concat(wb.UnsupportedSheets.Select(s => s.SheetId))
+            .ToArray();
+
+    /// <summary>
+    /// The saved workbook declares each <c>sheetId</c> once, its <c>Chart</c> still points at the
+    /// chartsheet part, each of <paramref name="worksheetNames"/> points at a worksheet part, and it
+    /// loads back with those worksheets and the chartsheet.
+    /// </summary>
+    private static async Task AssertSavedWithChartsheetIntact(Stream package, params string[] worksheetNames)
+    {
+        package.Position = 0;
+        (string Name, uint SheetId, string Part)[] sheets;
+        using (var document = SpreadsheetDocument.Open(package, false))
+        {
+            var workbookPart = document.WorkbookPart!;
+            sheets = workbookPart.Workbook!.Sheets!.Elements<S.Sheet>()
+                .Select(s => (s.Name!.Value!, s.SheetId!.Value, workbookPart.GetPartById(s.Id!.Value!).GetType().Name))
+                .ToArray();
+        }
+
+        await Assert.That(sheets.Select(s => s.SheetId).Distinct().Count()).IsEqualTo(sheets.Length);
+        await Assert.That(sheets.Single(s => s.Name == "Chart").Part).IsEqualTo(nameof(ChartsheetPart));
+        await Assert.That(sheets.Where(s => s.Name != "Chart").Select(s => (s.Name, s.Part)).ToArray())
+            .IsEquivalentTo(worksheetNames.Select(n => (n, nameof(WorksheetPart))));
+
+        package.Position = 0;
+        using var reloaded = new XLWorkbook(package);
+        await Assert.That(reloaded.Worksheets.Select(w => w.Name).ToArray()).IsEquivalentTo(worksheetNames);
+        await Assert.That(reloaded.UnsupportedSheets.Single().Name).IsEqualTo("Chart");
+    }
 
     private static void Delete(XLWorkbook wb, IXLWorksheet sheet, bool throughCollection)
     {

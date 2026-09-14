@@ -381,7 +381,27 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         return sheetName;
     }
 
-    private uint GetNextSheetId() => _nextSheetId++;
+    /// <summary>
+    /// A <c>sheetId</c> that no sheet in the workbook has had in this session, counting the sheets
+    /// XLibur keeps but does not model.
+    /// </summary>
+    /// <remarks>
+    /// An unsupported sheet, such as a chartsheet, keeps the id it was loaded with, and a save writes
+    /// its <c>&lt;sheet&gt;</c> element back with that id. The loader moves <see cref="_nextSheetId"/>
+    /// past each worksheet it adds, but not past those sheets. So a new worksheet took the id of a
+    /// chartsheet that had the highest one. The writer matches <c>&lt;sheet&gt;</c> elements by
+    /// <c>sheetId</c>, so it gave the new worksheet the chartsheet's <c>r:id</c>, and the save threw
+    /// (D76). The ids are read from <c>UnsupportedSheets</c> itself, so no second record of those
+    /// sheets has to be kept in step with it. Ids only go up, so a deleted sheet's id is not used
+    /// again in the same session.
+    /// </remarks>
+    private uint GetNextSheetId()
+    {
+        foreach (var unsupportedSheet in _workbook.UnsupportedSheets)
+            _nextSheetId = Math.Max(_nextSheetId, unsupportedSheet.SheetId + 1);
+
+        return _nextSheetId++;
+    }
 
     /// <summary>
     /// Is <paramref name="sheet"/> the sheet this collection holds under its name? A deleted sheet is
