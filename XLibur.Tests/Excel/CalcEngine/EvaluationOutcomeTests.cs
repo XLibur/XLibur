@@ -386,6 +386,55 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// Review finding 1. A pass that ends with the chain's cycle flag set must not hand it to the
+    /// next pass, whose first cell would then be taken for part of a cycle: A1 was left dirty by
+    /// the second recalculation, and once the cycle was gone a read that fell back to full
+    /// recalculation threw a circular reference naming A1.
+    /// </summary>
+    [Test]
+    public async Task A_cycle_found_by_one_recalculation_is_not_carried_into_the_next()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "1+1";
+        ws.Cell("B1").FormulaA1 = "B1+1";
+
+        wb.RecalculateAllFormulas();
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A1").CachedValue).IsEqualTo(2);
+
+        ws.Cell("B1").Value = 5;
+        ws.Cell("C1").FormulaA1 = "D1+1";
+        ws.Cell("D1").FormulaA1 = "2";
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// Review finding 1, by a second road. A cell read that meets a cycle throws with the chain's
+    /// cycle flag still set. Once the cycle was fixed, the next read took the first cell it reached
+    /// for part of a cycle and threw again.
+    /// </summary>
+    [Test]
+    public async Task A_cycle_fixed_after_a_read_threw_is_not_reported_again()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        ws.Cell("B1").FormulaA1 = "C1*2";
+        ws.Cell("C1").FormulaA1 = "5";
+
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+
+        ws.Cell("A1").FormulaA1 = "1";
+
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(10);
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1);
+    }
+
+    /// <summary>
     /// Recorded, not decided (Q38). A cell read that has to fall back to recalculating the whole
     /// workbook meets every cycle in it, so a cell with nothing to do with the cycle throws too.
     /// </summary>
