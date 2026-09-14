@@ -70,17 +70,24 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <para>
     /// It keeps this context's sheet and cell (D60), and its choice to calculate a dirty precedent
     /// first, so the engine's pending signal cannot escape a public <c>Evaluate</c> through a name.
+    /// It also keeps the sheet a sheet-only recalculation is limited to, so the name reads another
+    /// sheet's cells as they stand, exactly as the same formula typed into the cell does. Without it,
+    /// a name reading a dirty cell on another sheet asked the chain for a cell the pass then skipped,
+    /// and the pass never ended.
     /// </para>
     /// <para>
     /// The rest starts afresh, as it always has: the name is not an array formula because its caller
-    /// is, it is not held to one sheet's recalculation, and <see cref="IntersectOperands"/> is off,
+    /// is, and <see cref="IntersectOperands"/> is off,
     /// so an operator at the top of the name's formula keeps its range operand whole. That is what
     /// Excel does: the owner checked it on 2026-09-14, and a name holding <c>Sheet1!$A$1:$A$3+10</c>
     /// read in row 2 gives 11, with Excel adding <c>@</c>. <c>EvaluationOutcomeTests</c> pins it.
     /// </para>
     /// </remarks>
     internal CalcContext ForDefinedName() =>
-        new(CalcEngine, Culture, Worksheet.Workbook, Worksheet, _formulaAddress, _recursive);
+        new(CalcEngine, Culture, Worksheet.Workbook, Worksheet, _formulaAddress, _recursive)
+        {
+            RecalculateSheetId = RecalculateSheetId,
+        };
 
     /// <summary>
     /// A culture used for comparisons and conversions (e.g. text to number).

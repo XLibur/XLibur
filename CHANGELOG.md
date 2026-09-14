@@ -46,6 +46,8 @@
 
 - **Reading a cell no longer throws for a circular reference the cell does not depend on.** When a cell's formula needed a dirty precedent, the read fell back to recalculating the whole workbook, and that stopped with an exception at the first circular reference it met, anywhere in the workbook. So `B1 = C1+1` threw because of an unrelated `A1 = A1+1`, and `TryGetValue`, `Search`, `IXLWorksheet.Evaluate`, `IXLWorkbook.Evaluate` and XLibur.Report's reads failed the same way. The fallback now leaves the cells of a cycle dirty and calculates the rest, as `RecalculateAllFormulas` does, so `B1` reads 3. Reading a cell that is in a cycle, or depends on one, still throws `XLCircularReferenceException`, which now names the cell's own cycle rather than the first one the recalculation met. ([#492](https://github.com/XLibur/XLibur/issues/492))
 
+- **`IXLWorksheet.RecalculateAllFormulas` no longer hangs when a defined name reads a dirty cell on another sheet.** A sheet-only recalculation reads other sheets' cells as they stand. A formula typed into the cell did, but a defined name did not: with a name `X` defined as `=Sheet2!$A$1*2`, a cell `Sheet1!A1` holding `=X`, and `Sheet2!A1` not yet calculated, `Sheet1.RecalculateAllFormulas()` never returned. The name now reads `Sheet2!A1` as it stands, exactly as `=Sheet2!$A$1*2` typed into the cell does. This hang was already in the previous release.
+
 ## v0.500.0 - 2026-09-13
 
 ### ⚠️ Breaking Changes

@@ -303,6 +303,32 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// Review finding (medium). A sheet-only recalculation reads another sheet's cells as they
+    /// stand, so a formula on Sheet1 that reads a dirty Sheet2 cell takes its current value. A
+    /// defined name's context did not carry the sheet filter: the name asked for the dirty Sheet2
+    /// cell, the chain moved it to the front, the filter skipped it, and the pass came back to
+    /// Sheet1!A1 for ever. The name must read the way the same formula typed into the cell reads.
+    /// </summary>
+    [Test]
+    public async Task A_sheet_only_recalculation_reads_a_name_the_way_the_cell_would()
+    {
+        using var wb = new XLWorkbook();
+        var sheet1 = wb.AddWorksheet("Sheet1");
+        var sheet2 = wb.AddWorksheet("Sheet2");
+        sheet2.Cell("A1").FormulaA1 = "1+1";
+        wb.DefinedNames.Add("X", "Sheet2!$A$1*2");
+        sheet1.Cell("A1").FormulaA1 = "X";
+        sheet1.Cell("B1").FormulaA1 = "Sheet2!$A$1*2";
+
+        // Bounded, so that a hang fails this test instead of stalling the suite.
+        await Task.Run(() => sheet1.RecalculateAllFormulas()).WaitAsync(TimeSpan.FromSeconds(10));
+
+        await Assert.That(sheet1.Cell("A1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet1.Cell("A1").CachedValue).IsEqualTo(sheet1.Cell("B1").CachedValue);
+        await Assert.That(sheet2.Cell("A1").NeedsRecalculation).IsTrue();
+    }
+
+    /// <summary>
     /// Where spec 53 meets D60. A name now has its calling cell, but the name's context keeps
     /// <c>IntersectOperands</c> off, as before, so an operator at the top of the name's formula
     /// keeps its range operand whole. <c>Plus10</c> read in row 2 is the top-left of
