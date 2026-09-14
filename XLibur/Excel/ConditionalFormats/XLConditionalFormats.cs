@@ -161,61 +161,85 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         // range and the shift rather than trusting the shifter's area. See SheetEdit.
         var affected = edit.CoverageArea<TAxis>();
         foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>().ToList())
-        {
-            var pieces = CutIntoPieces<TAxis>(in edit, affected, cf.Areas);
-            if (pieces.Count == 0)
-            {
-                Remove(f => f == cf);
-                continue;
-            }
-
-            // Each piece after the first becomes a rule of its own, next to the rule it came from, with
-            // its priority, type, values and style. Each piece's formulas are rebased onto its own
-            // origin before the formula pass shifts them; see CutIntoPieces.
-            var anchor = XLConditionalFormat.AnchorOf(cf.Areas);
-            var index = _conditionalFormats.IndexOf(cf);
-            for (var i = pieces.Count - 1; i > 0; i--)
-            {
-                var piece = cf.CopyOnto(pieces[i].Areas);
-                piece.RebaseFormulas(anchor, pieces[i].Origin);
-                piece.IsSplitByEdit = true;
-                _conditionalFormats.Insert(index + 1, piece);
-            }
-
-            cf.RebaseFormulas(anchor, pieces[0].Origin);
-            cf.SetAreas(pieces[0].Areas);
-            if (pieces.Count > 1)
-                cf.IsSplitByEdit = true;
-        }
+            ShiftModelledCoverage<TAxis>(in edit, affected, cf);
 
         // A kept x14 rule's range goes through the same transform, so it cannot part company with a
-        // modelled rule over the same cells (issue #499). An emptied range stays, empty, so that the
-        // writer knows to remove the rule.
+        // modelled rule over the same cells (issue #499).
         foreach (var (ruleId, areas) in _extensionRuleAreas.ToList())
+            ShiftKeptCoverage<TAxis>(in edit, affected, ruleId, areas);
+    }
+
+    /// <summary>
+    /// Moves one modelled rule's coverage over the edit: removes the rule when the edit leaves none of
+    /// it, and splits it into one rule per piece when the edit cuts it (see
+    /// <see cref="CutIntoPieces{TAxis}"/>).
+    /// </summary>
+    private void ShiftModelledCoverage<TAxis>(in SheetEdit edit, Area affected, XLConditionalFormat cf)
+        where TAxis : struct, IGridAxis
+    {
+        var pieces = CutIntoPieces<TAxis>(in edit, affected, cf.Areas);
+        if (pieces.Count == 0)
         {
-            if (areas.Count == 0)
-                continue;
+            Remove(f => f == cf);
+            return;
+        }
 
-            var pieces = CutIntoPieces<TAxis>(in edit, affected, areas);
-            var newAreas = new XLAreaList(pieces.SelectMany(p => p.Areas).ToList());
+        // Each piece after the first becomes a rule of its own, next to the rule it came from, with
+        // its priority, type, values and style. Each piece's formulas are rebased onto its own
+        // origin before the formula pass shifts them; see CutIntoPieces.
+        var anchor = XLConditionalFormat.AnchorOf(cf.Areas);
+        var index = _conditionalFormats.IndexOf(cf);
+        for (var i = pieces.Count - 1; i > 0; i--)
+        {
+            var piece = cf.CopyOnto(pieces[i].Areas);
+            piece.RebaseFormulas(anchor, pieces[i].Origin);
+            piece.IsSplitByEdit = true;
+            _conditionalFormats.Insert(index + 1, piece);
+        }
 
-            // KNOWN GAP: a kept rule the edit cuts into two pieces is not split, because splitting it
-            // means duplicating its XML with a new rule id per piece (issue #499). It stays one rule over
-            // both pieces, with its formulas rebased as for a rule the edit does not cut: onto where its
-            // new anchor stood. That is right for the piece that holds the anchor, and anchored wrongly
-            // for the other. Pinned by Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule.
-            if (newAreas.Count > 0 && _extensionRuleFormulas.TryGetValue(ruleId, out var formulas))
-            {
-                var anchor = XLConditionalFormat.AnchorOf(areas);
-                var origin = OriginOf<TAxis>(in edit, affected, XLConditionalFormat.AnchorOf(newAreas));
-                for (var i = 0; i < formulas.Length; i++)
-                {
-                    if (XLConditionalFormat.TryRebaseFormula(formulas[i], anchor, origin, out var rebased))
-                        formulas[i] = rebased;
-                }
-            }
+        cf.RebaseFormulas(anchor, pieces[0].Origin);
+        cf.SetAreas(pieces[0].Areas);
+        if (pieces.Count > 1)
+            cf.IsSplitByEdit = true;
+    }
 
-            _extensionRuleAreas[ruleId] = newAreas;
+    /// <summary>
+    /// Moves one kept <c>x14</c> rule's range over the edit, and rebases its formula text to match.
+    /// An emptied range stays, empty, so that the writer knows to remove the rule.
+    /// </summary>
+    private void ShiftKeptCoverage<TAxis>(in SheetEdit edit, Area affected, string ruleId, XLAreaList areas)
+        where TAxis : struct, IGridAxis
+    {
+        if (areas.Count == 0)
+            return;
+
+        var pieces = CutIntoPieces<TAxis>(in edit, affected, areas);
+        var newAreas = new XLAreaList(pieces.SelectMany(p => p.Areas).ToList());
+
+        // KNOWN GAP: a kept rule the edit cuts into two pieces is not split, because splitting it
+        // means duplicating its XML with a new rule id per piece (issue #499). It stays one rule over
+        // both pieces, with its formulas rebased as for a rule the edit does not cut: onto where its
+        // new anchor stood. That is right for the piece that holds the anchor, and anchored wrongly
+        // for the other. Pinned by Known_gap_a_kept_rule_an_edit_cuts_stays_one_rule.
+        if (newAreas.Count > 0 && _extensionRuleFormulas.TryGetValue(ruleId, out var formulas))
+        {
+            var origin = OriginOf<TAxis>(in edit, affected, XLConditionalFormat.AnchorOf(newAreas));
+            RebaseKeptFormulas(formulas, XLConditionalFormat.AnchorOf(areas), origin);
+        }
+
+        _extensionRuleAreas[ruleId] = newAreas;
+    }
+
+    /// <summary>
+    /// Rebases each of a kept rule's formulas from <paramref name="from"/> onto <paramref name="to"/>,
+    /// in place. A formula the parser refuses keeps its text (ADR 0002).
+    /// </summary>
+    private static void RebaseKeptFormulas(string[] formulas, Point from, Point to)
+    {
+        for (var i = 0; i < formulas.Length; i++)
+        {
+            if (XLConditionalFormat.TryRebaseFormula(formulas[i], from, to, out var rebased))
+                formulas[i] = rebased;
         }
     }
 
