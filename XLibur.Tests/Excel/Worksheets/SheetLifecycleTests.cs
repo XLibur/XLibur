@@ -302,6 +302,28 @@ public class SheetLifecycleTests
         await Assert.That(host.Cell("A1").Value).IsEqualTo(XLError.CellReference);
     }
 
+    /// <summary>
+    /// A sheet error on the deleted sheet becomes a plain <c>#REF!</c>, however the sheet's name is
+    /// written, and never <c>#REF!#REF!</c>. Parser 4.0.0 writes it that way (fork #54), and the
+    /// changelog's parser entry relies on it.
+    /// </summary>
+    [Test]
+    [Arguments("Sheet1", "Sheet1!#REF!+1")]
+    [Arguments("Sheet1", "'Sheet1'!#REF!+1")]
+    [Arguments("Sheet 1", "'Sheet 1'!#REF!+1")]
+    [Arguments("It's", "'It''s'!#REF!+1")]
+    public async Task A_sheet_error_on_the_deleted_sheet_becomes_a_plain_REF(string sheetName, string formula)
+    {
+        using var wb = new XLWorkbook();
+        var deleted = wb.AddWorksheet(sheetName);
+        var host = wb.AddWorksheet("Host");
+        host.Cell("A1").FormulaA1 = formula;
+
+        deleted.Delete();
+
+        await Assert.That(host.Cell("A1").FormulaA1).IsEqualTo("#REF!+1");
+    }
+
     /// <summary>A formula the parser refuses keeps its text when a sheet is deleted (ADR 0002).</summary>
     [Test]
     public async Task A_refused_formula_keeps_its_text_when_a_sheet_is_deleted()
