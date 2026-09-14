@@ -231,6 +231,11 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// <summary>
     /// Force recalculation of all cell formulas.
     /// </summary>
+    /// <remarks>
+    /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
+    /// everything else is calculated. Reading one of those cells throws
+    /// <see cref="XLCircularReferenceException"/>.
+    /// </remarks>
     void RecalculateAllFormulas();
 
     /// <summary>

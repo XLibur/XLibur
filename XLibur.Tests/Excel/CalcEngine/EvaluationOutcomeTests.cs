@@ -113,13 +113,13 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.TryInvoke, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.TryInvoke, Kind.Pending, "n/a")]
     [Arguments(Entry.TryInvoke, Kind.Defect, "n/a")]
-    [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "throws XLCircularReferenceException")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.Cycle, "completes, A6 dirty")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.NoContext, "throws XLNoWorksheetContextException")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Pending, "completes, A6 = 3")]
     [Arguments(Entry.RecalculateAllFormulas, Kind.Defect, "throws NullReferenceException")]
-    [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "throws XLCircularReferenceException")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.Cycle, "opens, A6 dirty")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Entry.RecalculateOnLoad, Kind.NoContext, "throws XLNoWorksheetContextException")]
@@ -153,7 +153,7 @@ public class EvaluationOutcomeTests
             + "TolerantRead: NoValue, NoValue, NoValue, NoValue, Throw, Throw\n"
             + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
-            + "Recalculation: Throw, Throw, Throw, Throw, Throw, Throw\n"
+            + "Recalculation: LeaveDirty, Throw, Throw, Throw, Throw, Throw\n"
             + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw");
     }
 
@@ -257,6 +257,95 @@ public class EvaluationOutcomeTests
         ws.Cell("A6").FormulaA1 = "MyRow";
 
         await Assert.That(ws.Cell("A6").Value).IsEqualTo(6);
+    }
+
+    /// <summary>
+    /// Q23. Recalculation leaves the cells of a cycle dirty, with every formula that depends on
+    /// them, and calculates the rest. Reading a cell of the cycle, or one that depends on it, still
+    /// throws.
+    /// </summary>
+    [Test]
+    public async Task RecalculateAllFormulas_skips_a_cycle_and_calculates_the_rest()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "5*2";
+        ws.Cell("A2").FormulaA1 = "A3+1";
+        ws.Cell("A3").FormulaA1 = "A2+1";
+        ws.Cell("A4").FormulaA1 = "A3*2";
+        ws.Cell("A5").FormulaA1 = "A1+1";
+        ws.Cell("A6").FormulaA1 = "A6";
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A1").CachedValue).IsEqualTo(10);
+        await Assert.That(ws.Cell("A5").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("A5").CachedValue).IsEqualTo(11);
+        foreach (var address in new[] { "A2", "A3", "A4", "A6" })
+            await Assert.That(ws.Cell(address).NeedsRecalculation).IsTrue().Because($"{address} is in or after a cycle");
+
+        await Assert.That(() => _ = ws.Cell("A2").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(() => _ = ws.Cell("A6").Value).Throws<XLCircularReferenceException>();
+    }
+
+    [Test]
+    public async Task Worksheet_RecalculateAllFormulas_skips_a_cycle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        ws.Cell("B1").FormulaA1 = "2*3";
+
+        ws.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("B1").CachedValue).IsEqualTo(6);
+    }
+
+    /// <summary>
+    /// Acceptance: a workbook Excel opens can be opened with recalculate-on-load. The constructor
+    /// used to throw on the first cycle.
+    /// </summary>
+    [Test]
+    public async Task A_workbook_with_a_cycle_opens_with_recalculate_on_load()
+    {
+        using var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet(SheetName);
+            ws.Cell("A1").Value = 4;
+            ws.Cell("B1").FormulaA1 = "C1+1";
+            ws.Cell("C1").FormulaA1 = "B1+1";
+            ws.Cell("D1").FormulaA1 = "A1*2";
+            wb.SaveAs(stream);
+        }
+
+        stream.Position = 0;
+        using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
+        var sheet = loaded.Worksheet(SheetName);
+
+        await Assert.That(sheet.Cell("D1").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("D1").CachedValue).IsEqualTo(8);
+        await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = sheet.Cell("B1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// Recorded, not decided (Q38). A cell read that has to fall back to recalculating the whole
+    /// workbook meets every cycle in it, so a cell with nothing to do with the cycle throws too.
+    /// </summary>
+    [Test]
+    public async Task Reading_a_cell_that_falls_back_to_full_recalculation_meets_a_cycle_elsewhere()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        ws.Cell("B1").FormulaA1 = "C1+1";
+        ws.Cell("C1").FormulaA1 = "2";
+
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
     }
 
     /// <summary>

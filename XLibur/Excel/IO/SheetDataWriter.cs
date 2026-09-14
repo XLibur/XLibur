@@ -398,8 +398,8 @@ internal static class SheetDataWriter
         try
         {
             var workbook = xlWorksheet.Workbook;
-            if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet))
-                workbook.CalcEngine.Recalculate(workbook, null);
+            if (!workbook.CalcEngine.TryEvaluateSingleCell(formula, point, xlWorksheet, EvaluationEntryPoint.Save))
+                workbook.CalcEngine.Recalculate(workbook, null, EvaluationEntryPoint.Save);
         }
         catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.Save, ex) == EvaluationOutcome.LeaveDirty)
         {

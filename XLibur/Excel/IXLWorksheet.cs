@@ -520,11 +520,17 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// <param name="expression">Formula to evaluate.</param>
     /// <param name="formulaAddress">A cell address that is used to provide context for formula calculation (mostly implicit intersection).</param>
     /// <exception cref="XLNoWorksheetContextException">If <paramref name="formulaAddress"/> was needed for some part of calculation and was not supplied.</exception>
+    /// <exception cref="XLCircularReferenceException">The expression reads a cell whose formula is part of a circular reference.</exception>
     XLCellValue Evaluate(string expression, string? formulaAddress = null);
 
     /// <summary>
     /// Force recalculation of all cell formulas in the sheet while leaving other sheets without change, even if their dirty cells.
     /// </summary>
+    /// <remarks>
+    /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
+    /// everything else is calculated. Reading one of those cells throws
+    /// <see cref="XLCircularReferenceException"/>.
+    /// </remarks>
     void RecalculateAllFormulas();
 
     /// <summary>

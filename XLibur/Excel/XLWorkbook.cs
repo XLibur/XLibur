@@ -1199,12 +1199,17 @@ public partial class XLWorkbook : IXLWorkbook
     /// <summary>
     /// Force recalculation of all cell formulas.
     /// </summary>
+    /// <remarks>
+    /// The cells of a circular reference, and the formulas that depend on them, are left dirty and
+    /// everything else is calculated. Reading one of those cells throws
+    /// <see cref="XLibur.Excel.CalcEngine.Exceptions.XLCircularReferenceException"/>.
+    /// </remarks>
     public void RecalculateAllFormulas()
     {
         foreach (var sheet in WorksheetsInternal)
             sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
 
-        CalcEngine.Recalculate(this, null);
+        CalcEngine.Recalculate(this, null, EvaluationEntryPoint.Recalculation);
     }
 
     /// <summary>

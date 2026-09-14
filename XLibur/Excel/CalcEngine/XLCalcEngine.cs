@@ -266,12 +266,17 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// to full workbook recalculation which handles dependency ordering.
     /// </summary>
     /// <returns><c>true</c> if single-cell eval succeeded, <c>false</c> if full recalculate was used.</returns>
-    internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet)
+    /// <remarks>
+    /// <paramref name="entry"/> is the public entry point the evaluation is for. A fallback to full
+    /// recalculation reads its row of <see cref="EvaluationPolicy"/>.
+    /// </remarks>
+    internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet,
+        EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
         // DataTable formulas need the full chain for correct evaluation.
         if (formula.Type == FormulaType.DataTable)
         {
-            Recalculate(sheet.Workbook, null);
+            Recalculate(sheet.Workbook, null, entry);
             return false;
         }
 
@@ -319,7 +324,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             // Formula depends on a dirty precedent cell — need the full
             // dependency-ordered recalculation to resolve it.
-            Recalculate(sheet.Workbook, null);
+            Recalculate(sheet.Workbook, null, entry);
             return false;
         }
     }
@@ -327,7 +332,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <summary>
     /// Recalculate a workbook or a sheet.
     /// </summary>
-    internal void Recalculate(XLWorkbook wb, uint? recalculateSheetId)
+    /// <remarks>
+    /// What happens to a cell that fails is <paramref name="entry"/>'s row of
+    /// <see cref="EvaluationPolicy"/>. A cell the policy leaves dirty — a circular reference, for
+    /// <see cref="EvaluationEntryPoint.Recalculation"/> — is skipped together with every formula that
+    /// depends on it, and the rest of the workbook is calculated (Q23). Any other failure throws.
+    /// </remarks>
+    internal void Recalculate(XLWorkbook wb, uint? recalculateSheetId,
+        EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
         // Lazy, so initialize chain from wb, if it is empty
         if (_chain is null || _dependencyTree is null)
@@ -342,10 +354,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 sheet => sheet.SheetId,
                 sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice));
 
+        // The cells this pass has given up on, and the formulas that depend on them. Allocated only
+        // when a cell fails in a way the policy leaves dirty.
+        HashSet<SheetPoint>? leftDirty = null;
+
         // Each outer loop moves chain one cell ahead.
         while (_chain.MoveAhead())
         {
-            RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId);
+            RecalculateCurrentCell(_chain, sheetIdMap, recalculateSheetId, entry, ref leftDirty);
         }
 
         // Super important to clean up the chain for next recalculation.
@@ -357,7 +373,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private void RecalculateCurrentCell(
         XLCalculationChain chain,
         Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
-        uint? recalculateSheetId)
+        uint? recalculateSheetId,
+        EvaluationEntryPoint entry,
+        ref HashSet<SheetPoint>? leftDirty)
     {
         while (true)
         {
@@ -371,7 +389,15 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
 
             if (chain.IsCurrentInCycle)
-                throw new XLCircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+            {
+                if (EvaluationPolicy.For(entry, EvaluationFailureKind.Cycle) != EvaluationOutcome.LeaveDirty)
+                    throw new XLCircularReferenceException($"Formula in a cell '${sheetInfo.Sheet.Name}'!${current.Point} is part of a cycle.");
+
+                // The chain has found the cycle at this cell. The rest of the cycle, and whatever
+                // depends on it, ask for a cell in this set and are skipped in turn.
+                (leftDirty ??= []).Add(current);
+                break;
+            }
 
             var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
             if (cellFormula is null)
@@ -388,7 +414,21 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             }
             catch (GettingDataException ex)
             {
+                // A precedent this pass has given up on cannot be calculated, so neither can this.
+                // Never moved to the front again, which is what keeps the pass finite.
+                if (leftDirty is not null && leftDirty.Contains(ex.Point))
+                {
+                    leftDirty.Add(current);
+                    break;
+                }
+
                 chain.MoveToCurrent(ex.Point);
+            }
+            catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
+            {
+                leftDirty ??= [];
+                leftDirty.Add(current);
+                break;
             }
         }
     }

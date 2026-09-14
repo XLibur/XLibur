@@ -91,6 +91,12 @@ internal static class EvaluationPolicy
             _ => EvaluationOutcome.Throw,
         },
 
+        // Q23: recalculation, recalculate-on-load included, leaves the cells of a cycle dirty and
+        // carries on. The cycle surfaces when one of those cells is read.
+        EvaluationEntryPoint.Recalculation => kind == EvaluationFailureKind.Cycle
+            ? EvaluationOutcome.LeaveDirty
+            : EvaluationOutcome.Throw,
+
         // ADR 0001: an expected failure writes no cached value, and Excel recalculates the cell on
         // open. Anything else throws out of the save, a defect above all (D61).
         EvaluationEntryPoint.Save => kind switch
