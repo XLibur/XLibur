@@ -28,9 +28,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private XLCalculationChain? _chain;
 
     /// <summary>
-    /// Set to true after <see cref="TryEvaluateSingleCell"/> clears a formula's dirty flag,
-    /// indicating that future MarkDirty calls need a dependency tree to
-    /// correctly propagate dirtiness to dependents.
+    /// Set when a formula is clean while the engine has no dependency tree: a load gave it a cached
+    /// value (<see cref="MarkLoadedClean"/>), or <see cref="TryEvaluateSingleCell"/> calculated it on
+    /// its own. A clean formula keeps its value until an edit marks it dirty, and only the tree knows
+    /// which formulas an edit reaches, so the next <see cref="MarkDirty(XLWorksheet, Area)"/> builds
+    /// it. While every formula is dirty an edit has nothing to mark, so no tree is built.
     /// </summary>
     private bool _needsDependencyTree;
 
@@ -119,15 +121,33 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// Marks a formula that a load gave a cached value clean, and tells the engine so.
+    /// </summary>
+    /// <remarks>
+    /// The cached value is Excel's, and a read returns it until a cell the formula reads changes. So
+    /// the next edit builds the dependency tree, to find the formulas it reaches. The loader used to
+    /// mark the formula clean without telling the engine. Until a formula had been calculated, an
+    /// edit then built no tree and marked nothing dirty, and every formula that read the edited cell
+    /// kept the value from the file (#504).
+    /// </remarks>
+    internal void MarkLoadedClean(XLCellFormula formula)
+    {
+        formula.MarkClean();
+        _needsDependencyTree = true;
+    }
+
+    // The three methods below update the dependency tree and the calculation chain each on its own.
+    // An edit builds the tree without the chain (MarkDirty), which after a load is the usual state.
+    // A formula set after that must be in the tree, or an edit of a cell it reads never reaches it,
+    // and a formula taken out must leave it. Before, both were updated only when both existed.
+
+    /// <summary>
     /// Add an array formula to the calc engine to manage dirty tracking and evaluation.
     /// </summary>
     internal void AddArrayFormula(Area range, XLCellFormula arrayFormula, XLWorksheet sheet)
     {
-        if (_chain is not null && _dependencyTree is not null)
-        {
-            _dependencyTree.AddFormula(new SheetArea(sheet.Name, range), arrayFormula, sheet.Workbook);
-            _chain.AppendArea(sheet.SheetId, range);
-        }
+        _dependencyTree?.AddFormula(new SheetArea(sheet.Name, range), arrayFormula, sheet.Workbook);
+        _chain?.AppendArea(sheet.SheetId, range);
     }
 
     /// <summary>
@@ -135,12 +155,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     internal void AddNormalFormula(SheetPoint point, string sheetName, XLCellFormula formula, XLWorkbook workbook)
     {
-        if (_chain is not null && _dependencyTree is not null)
+        if (_dependencyTree is not null)
         {
             var pointArea = new SheetArea(sheetName, new Area(point.Point, point.Point));
             _dependencyTree.AddFormula(pointArea, formula, workbook);
-            _chain.AddLast(point);
         }
+
+        _chain?.AddLast(point);
     }
 
     /// <summary>
@@ -152,11 +173,8 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     internal void RemoveFormula(SheetPoint point, XLCellFormula formula)
     {
-        if (_chain is not null && _dependencyTree is not null)
-        {
-            _dependencyTree.RemoveFormula(formula);
-            _chain.Remove(point);
-        }
+        _dependencyTree?.RemoveFormula(formula);
+        _chain?.Remove(point);
     }
 
     internal void OnAddedSheet(XLWorksheet sheet)
@@ -385,13 +403,17 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         PassCount++;
 
-        // Lazy, so initialize chain from wb, if it is empty
-        if (_chain is null || _dependencyTree is null)
+        // Lazy, so each is built from wb when it is missing. A tree that an edit built is kept: every
+        // formula set since was added to it, so building it again would only repeat the work of
+        // reading every formula in the workbook. After a load, the first edit leaves such a tree
+        // and no chain (#504).
+        if (_dependencyTree is null)
         {
-            _chain = XLCalculationChain.CreateFrom(wb);
             _dependencyTree = DependencyTree.CreateFrom(wb);
             RebuildSpillOwners(wb);
         }
+
+        _chain ??= XLCalculationChain.CreateFrom(wb);
 
         var sheetIdMap = wb.WorksheetsInternal
             .ToDictionary<XLWorksheet, uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)>(

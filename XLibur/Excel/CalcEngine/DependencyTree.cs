@@ -179,10 +179,11 @@ internal sealed class DependencyTree
 
         foreach (var precedentArea in dependencies.Areas)
         {
-            if (!_sheetTrees.TryGetValue(precedentArea.Name, out var sheetTree))
-                throw new InvalidOperationException($"Dependency tree for sheet '{precedentArea.Name}' not found.");
-
-            sheetTree.RemoveDependent(precedentArea.Area, formula);
+            // An area on a sheet the workbook does not have was never added to a sheet tree (see
+            // AddFormula), so there is nothing to take out. This threw, so a formula such as
+            // Missing!A1 could not be replaced once the tree was built.
+            if (_sheetTrees.TryGetValue(precedentArea.Name, out var sheetTree))
+                sheetTree.RemoveDependent(precedentArea.Area, formula);
         }
     }
 
