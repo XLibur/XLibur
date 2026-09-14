@@ -187,9 +187,13 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
         List<SheetArea>? VisitName(XLDefinedName definedName)
         {
+            // A load keeps a name whose text the parser refuses, so that one bad name cannot stop the
+            // workbook from opening. Its references are unknown, so it adds no precedents, as a
+            // refused cell formula adds none, instead of failing the tree (#489).
             // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
-            var namedFormula = definedName.RefersTo;
-            var ast = context.Workbook.CalcEngine.Parse(namedFormula);
+            if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
+                return null;
+
             var nameReferences = ast.AstRoot.Accept(context, this);
 
             // If the formula returned a reference, propagate it, rather

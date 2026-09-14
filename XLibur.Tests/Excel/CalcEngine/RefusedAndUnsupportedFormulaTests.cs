@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
+using XLibur.Tests.Excel.IO;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -151,6 +153,31 @@ public class RefusedAndUnsupportedFormulaTests
         ws.Cell("C1").Value = 5;
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(5);
         await Assert.That(() => _ = ws.Cell("A1").Value).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// Review finding 1: #489 through a defined name. A load keeps a name whose text the parser
+    /// refuses, so that one bad name cannot stop the workbook from opening. The dependency tree read
+    /// the text of each name a formula uses, and threw on that one, so every write after a read threw,
+    /// and so did a recalculation.
+    /// </summary>
+    [Test]
+    public async Task Issue489_a_refused_defined_name_does_not_block_a_write()
+    {
+        using var package = BookWithRefusedDefinedName();
+        using var wb = new XLWorkbook(package);
+        var ws = wb.Worksheet("Sheet1");
+        await Assert.That(wb.DefinedNames.Single(name => name.Name == "Ext").RefersTo).IsEqualTo(Refused);
+        ws.Cell("C1").FormulaA1 = "1+1";
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+
+        ws.Cell("D1").Value = 5;
+
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(5);
+        wb.RecalculateAllFormulas();
+        await Assert.That(ws.Cell("C1").CachedValue).IsEqualTo(2);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<ExpressionParseException>();
     }
 
     /// <summary>
@@ -325,6 +352,31 @@ public class RefusedAndUnsupportedFormulaTests
     }
 
     private static string FormulaFor(Failure failure) => failure == Failure.Refused ? Refused : Unsupported;
+
+    /// <summary>
+    /// A workbook whose name <c>Ext</c> holds <see cref="Refused"/>, and whose B1 is <c>Ext+1</c>. Only
+    /// a load can give a name such text: <see cref="IXLDefinedName.RefersTo"/> rejects it.
+    /// </summary>
+    private static MemoryStream BookWithRefusedDefinedName()
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1").Cell("B1").FormulaA1 = "Ext+1";
+            wb.SaveAs(package);
+        }
+
+        return package.RewriteWorkbook(xml =>
+        {
+            var refersTo = Refused.Replace("'", "&apos;", StringComparison.Ordinal);
+            var rewritten = xml.Replace("<x:definedNames />",
+                $"<x:definedNames><x:definedName name=\"Ext\">{refersTo}</x:definedName></x:definedNames>");
+            if (ReferenceEquals(rewritten, xml))
+                throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
+
+            return rewritten;
+        });
+    }
 
     /// <summary>What reading the cell throws for <paramref name="failure"/>, unchanged by #489 and #490.</summary>
     private static async Task AssertReadFails(IXLCell cell, Failure failure)
