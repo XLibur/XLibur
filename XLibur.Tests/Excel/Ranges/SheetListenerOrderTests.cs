@@ -64,8 +64,18 @@ public class SheetListenerOrderTests
     /// <summary>
     /// The workbook-scoped listeners are yielded once per sheet, so the enumeration grows with the
     /// workbook while the sheet-scoped ones stay at one apiece. Two sheets, so two
-    /// <c>XLDefinedNames</c> entries plus the workbook's, and two <c>XLDataValidations</c>.
+    /// <c>XLDefinedNames</c> entries plus the workbook's, two <c>XLConditionalFormats</c> and two
+    /// <c>XLDataValidations</c>.
     /// </summary>
+    /// <remarks>
+    /// <c>XLConditionalFormats</c> became workbook-scoped for issue #499 (D77). A rule's formula can
+    /// refer to another sheet (<c>Data!$A$2&gt;0</c> on <c>Other</c>), and an insert on that sheet
+    /// has to reach it, so every sheet's collection is yielded, as data validations' are for their
+    /// criteria formulas. It stays where the one collection stood, after the defined names and
+    /// before the data validations: each collection moves its own rules' ranges first, which is
+    /// only done for the edited sheet, then shifts every rule's formulas, so no rule an edit removed
+    /// is shifted, and no other listener's order changes.
+    /// </remarks>
     [Test]
     public async Task Workbook_scoped_listeners_are_yielded_once_per_sheet()
     {
@@ -81,7 +91,8 @@ public class SheetListenerOrderTests
             nameof(XLDefinedNames),      // sheet S
             nameof(XLDefinedNames),      // sheet T
             nameof(XLDefinedNames),      // the workbook's
-            nameof(XLConditionalFormats),
+            nameof(XLConditionalFormats), // sheet S: ranges if it is the edited sheet, then formulas
+            nameof(XLConditionalFormats), // sheet T: formulas that refer to the edited sheet
             nameof(XLDataValidations),   // sheet S
             nameof(XLDataValidations),   // sheet T
             nameof(XLPageSetup),

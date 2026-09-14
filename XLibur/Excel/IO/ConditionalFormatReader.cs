@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using XLibur.Utils;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
@@ -192,10 +194,11 @@ internal static class ConditionalFormatReader
     }
 
     /// <summary>
-    /// Keeps the formula text of each <c>x14</c> conditional format rule this library does not model,
-    /// so that a sheet rename or delete can rewrite it. Excel writes a rule that refers to another
-    /// sheet only in the extension, and XLibur writes such a rule back as it was loaded, so this text
-    /// is all of it XLibur holds. A data bar rule is modelled, with its twin in the main part (see
+    /// Keeps the formula text and the range of each <c>x14</c> conditional format rule this library
+    /// does not model, so that a sheet rename or delete can rewrite the text and a row or column
+    /// insert or delete can move the range. Excel writes a rule that refers to another sheet only in
+    /// the extension, and XLibur writes such a rule back as it was loaded, so these are all of it
+    /// XLibur holds. A data bar rule is modelled, with its twin in the main part (see
     /// <see cref="LoadX14DataBarExtensions"/>), so it is not kept here.
     /// </summary>
     private static void LoadX14ExtensionRuleFormulas(WorksheetExtensionList extensions, XLWorksheet ws)
@@ -212,7 +215,41 @@ internal static class ConditionalFormatReader
             var formulas = rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text).ToArray();
             if (formulas.Length > 0)
                 ws.ConditionalFormats.SeedExtensionRuleFormulas(id, formulas);
+
+            if (TryReadRuleAreas(rule.Parent as X14.ConditionalFormatting, out var areas))
+                ws.ConditionalFormats.SeedExtensionRuleAreas(id, areas);
         }
+    }
+
+    /// <summary>
+    /// The range an <c>x14</c> rule applies to, its element's <c>xm:sqref</c>, as areas.
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> for a range this cannot read as areas, such as a whole column (<c>C:C</c>), and for
+    /// a pivot table's rule, whose range the pivot table owns. Such a range is kept as it was loaded.
+    /// </returns>
+    private static bool TryReadRuleAreas(X14.ConditionalFormatting? conditionalFormatting,
+        [NotNullWhen(true)] out XLAreaList? areas)
+    {
+        areas = null;
+        if (conditionalFormatting is null || (conditionalFormatting.Pivot?.Value ?? false))
+            return false;
+
+        var text = conditionalFormatting.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var list = new List<Area>();
+        foreach (var token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!Area.TryParse(token, out var area))
+                return false;
+
+            list.Add(area);
+        }
+
+        areas = new XLAreaList(list);
+        return true;
     }
 
     private static void LoadX14DataValidations(WorksheetExtensionList extensions, XLWorksheet ws)

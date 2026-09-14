@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
@@ -59,7 +60,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         }
 
         /// <summary>
-        /// Do two formats hold the same formulas, each relative to its own first cell? A format that
+        /// Do two formats hold the same formulas, each relative to its own anchor
+        /// (<see cref="AnchorOf"/>)? A format that
         /// holds a formula the parser refuses equals no other: the references in that formula are
         /// unknown, so nothing says the two hold the same one, and consolidation never merges it.
         /// </summary>
@@ -112,26 +114,26 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         }
 
         /// <summary>
-        /// The format's formulas in R1C1, relative to its first cell, or <c>null</c> when it has no
-        /// range.
+        /// The format's formulas in R1C1, relative to its anchor (<see cref="AnchorOf"/>), or
+        /// <c>null</c> when it has no range.
         /// </summary>
         /// <returns><c>false</c> when the parser refuses one of the formulas.</returns>
         private static bool TryGetRelativeFormulas(XLConditionalFormat format, out List<string>? formulas)
         {
-            if (format.Ranges.Count == 0)
+            if (format.Areas.Count == 0)
             {
                 formulas = null;
                 return true;
             }
 
-            var anchor = (XLCell)format.Ranges.First().FirstCell();
+            var anchor = AnchorOf(format.Areas);
             formulas = [];
             foreach (var value in format.Values.Values)
             {
                 if (value is not { IsFormula: true })
                     continue;
 
-                if (!anchor.TryGetFormulaR1C1(value.Value, out var r1c1, out _))
+                if (!XLCellFormula.TryGetFormula(value.Value, FormulaConversionType.A1ToR1C1, anchor, out var r1c1, out _))
                     return false;
 
                 formulas.Add(r1c1);
@@ -185,20 +187,201 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         foreach (var key in Values.Keys.ToList())
         {
             var formula = Values[key];
-            var isFormula = formula is not null
-                            && (formula.IsFormula
-                                || (ContentTypes.TryGetValue(key, out var type) && type == XLCFContentType.Formula));
-            if (!isFormula)
+            if (!IsFormulaValue(key, formula))
                 continue;
 
             // The rewrite does not move a reference, so any origin reads the formula the same way.
-            if (!rewrite.TryRewrite(formula!.Value, formulaSheetName, new Point(1, 1), out var rewritten)
+            if (!rewrite.TryRewrite(formula.Value, formulaSheetName, new Point(1, 1), out var rewritten)
                 || rewritten == formula.Value)
                 continue;
 
             Values[key] = new XLFormula { _value = rewritten, IsFormula = formula.IsFormula };
         }
     }
+
+    /// <summary>
+    /// Re-points the references in each formula of the format for a row or column insert or delete,
+    /// through spec 25's shifter, as a cell formula's are (issue #499, D77). The formulas are the ones
+    /// <see cref="RewriteSheet"/> rewrites.
+    /// </summary>
+    /// <remarks>
+    /// A formula is written relative to the format's range, so a relative reference names the cell a
+    /// cell formula in the range's anchor (<see cref="AnchorOf"/>) would: <c>A1&gt;0</c> on <c>E1</c>
+    /// names <c>A1</c>. The
+    /// shifter moves the reference with the cell it names, which keeps it relative when the range moves
+    /// as well: a row inserted above row 1 gives <c>A2&gt;0</c> on <c>E2</c>.
+    /// </remarks>
+    internal void ShiftFormulas<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        foreach (var key in Values.Keys.ToList())
+        {
+            var formula = Values[key];
+            if (!IsFormulaValue(key, formula)
+                || !TryShiftFormula<TAxis>(formula.Value, _worksheet, in edit, out var shifted))
+                continue;
+
+            Values[key] = new XLFormula { _value = shifted, IsFormula = formula.IsFormula };
+        }
+    }
+
+    /// <summary>
+    /// Re-points the references in one formula of a conditional format on
+    /// <paramref name="formulaSheet"/> for <paramref name="edit"/>, through spec 25's shifter. Used
+    /// for a modelled format's formulas and for the text of an <c>x14</c> rule kept as it was loaded.
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> when the formula keeps its text: the edit reaches nothing it refers to, or the
+    /// parser refuses it. A refused formula is skipped before it reaches the shifter, whose regex
+    /// fallback would otherwise guess at it (ADR 0002), as <c>XLDefinedNames</c> skips one.
+    /// </returns>
+    internal static bool TryShiftFormula<TAxis>(string text, XLWorksheet formulaSheet, in SheetEdit edit,
+        out string shifted)
+        where TAxis : struct, IGridAxis
+    {
+        shifted = text;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        // An edit on another sheet reaches only a reference that names that sheet, and a formula names
+        // a sheet only by writing its name, so text without the name costs no parse. On most edits that
+        // is every rule of every other sheet.
+        if (edit.Sheet != formulaSheet && !MentionsSheet(text, edit.Sheet.Name))
+            return false;
+
+        // A formula that refers to no cell has nothing to move. Constants are common here: a
+        // cell-value rule's operand, a top-N rule's rank.
+        if (!FormulaReferences.TryForFormula(text, out var references, out _)
+            || (references.References.Count == 0 && references.SheetReferences.Count == 0))
+            return false;
+
+        var result = default(TAxis).ShiftFormula(text, formulaSheet, edit.Range, edit.Shift);
+        if (result == text)
+            return false;
+
+        shifted = result;
+        return true;
+    }
+
+    /// <summary>
+    /// Whether this format is a piece of a rule that a row or column edit cut apart (see
+    /// <c>XLConditionalFormats.CutIntoPieces</c>). Consolidation leaves such a piece as it is: Excel
+    /// writes each piece as a block of its own (<c>cf-partial-*.xlsx</c>), and merging two pieces whose
+    /// formulas happen to read the same would change the blocks it wrote.
+    /// </summary>
+    internal bool IsSplitByEdit { get; set; }
+
+    /// <summary>
+    /// A copy of the format over <paramref name="areas"/>, with its priority, type, values and style:
+    /// one piece of a rule an edit cut apart.
+    /// </summary>
+    internal XLConditionalFormat CopyOnto(XLAreaList areas)
+    {
+        var copy = new XLConditionalFormat(_worksheet)
+        {
+            Areas = areas,
+            Priority = Priority,
+            CopyDefaultModify = CopyDefaultModify,
+        };
+        copy.CopyFrom(this);
+        return copy;
+    }
+
+    /// <summary>
+    /// Rebases each formula of the format from the cell <paramref name="from"/> onto the cell
+    /// <paramref name="to"/>: a relative reference keeps its offset from the cell, and an absolute one
+    /// stays where it is. The formulas are the ones <see cref="ShiftFormulas{TAxis}"/> shifts.
+    /// </summary>
+    /// <remarks>
+    /// For a row or column edit: the formulas are rebased from the range's anchor
+    /// (<see cref="AnchorOf"/>) onto the origin of each piece the edit leaves, before they are shifted
+    /// (see
+    /// <c>XLConditionalFormats.CutIntoPieces</c>). <c>$A2&gt;5</c> on <c>A2:C10</c> is rebased onto
+    /// <c>A3</c> as <c>$A3&gt;5</c>, and deleting row 2 shifts it back to <c>$A2&gt;5</c> on
+    /// <c>A2:C9</c>, as Excel writes (<c>cf-anchor-*.xlsx</c>). Shifting without the rebase gives
+    /// <c>#REF!&gt;5</c>.
+    /// </remarks>
+    internal void RebaseFormulas(Point from, Point to)
+    {
+        if (from == to)
+            return;
+
+        foreach (var key in Values.Keys.ToList())
+        {
+            var formula = Values[key];
+            if (!IsFormulaValue(key, formula) || !TryRebaseFormula(formula.Value, from, to, out var rebased))
+                continue;
+
+            Values[key] = new XLFormula { _value = rebased, IsFormula = formula.IsFormula };
+        }
+    }
+
+    /// <summary>
+    /// Rebases one formula of a conditional format from the cell <paramref name="from"/> onto the cell
+    /// <paramref name="to"/> (see <see cref="RebaseFormulas"/>). Used for a modelled format's formulas
+    /// and for the text of an <c>x14</c> rule kept as it was loaded.
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> when the formula keeps its text: nothing in it is relative, or the parser refuses
+    /// it, in which case its references are unknown and it is not guessed at (ADR 0002).
+    /// </returns>
+    internal static bool TryRebaseFormula(string text, Point from, Point to, out string rebased)
+    {
+        rebased = text;
+
+        // Onto the cell it came from, a formula is what it was; the round trip could only respell it.
+        if (from == to
+            || string.IsNullOrWhiteSpace(text)
+            || !XLCellFormula.TryGetFormula(text, FormulaConversionType.A1ToR1C1, from, out var r1c1, out _)
+            || !XLCellFormula.TryGetFormula(r1c1, FormulaConversionType.R1C1ToA1, to, out var a1, out _)
+            || a1 == text)
+            return false;
+
+        rebased = a1;
+        return true;
+    }
+
+    /// <summary>
+    /// The cell a conditional format's formulas are written relative to, its anchor: the top-left
+    /// corner of the rectangle that bounds <paramref name="areas"/>. For one area, its first cell.
+    /// </summary>
+    /// <remarks>
+    /// No Excel-written file has settled which cell Excel uses for a range of several areas: the
+    /// <c>cf-anchor-*.xlsx</c> and <c>cf-partial-*.xlsx</c> fixtures hold only single-area ranges. The
+    /// bounding top-left follows what consolidation already did on save
+    /// (<c>ConditionalFormatsConsolidateTests.ConsolidateShiftsFormulaRelativelyToTopMostCell</c>), so
+    /// that the equality comparer, consolidation and a row or column edit all read a format's formulas
+    /// from one cell (issue #499).
+    /// </remarks>
+    /// <param name="areas">A range of at least one area.</param>
+    internal static Point AnchorOf(XLAreaList areas)
+    {
+        var row = int.MaxValue;
+        var column = int.MaxValue;
+        foreach (var area in areas)
+        {
+            row = Math.Min(row, area.TopRow);
+            column = Math.Min(column, area.LeftColumn);
+        }
+
+        return new Point(row, column);
+    }
+
+    /// <summary>
+    /// Is the value at <paramref name="key"/> a formula? An expression's is, and so is a scale's value
+    /// point whose type is <see cref="XLCFContentType.Formula"/>. Such a value keeps no <c>=</c>, so it
+    /// is a formula by its type rather than by <see cref="XLFormula.IsFormula"/>.
+    /// </summary>
+    private bool IsFormulaValue(int key, [NotNullWhen(true)] XLFormula? formula)
+        => formula is not null
+           && (formula.IsFormula
+               || (ContentTypes.TryGetValue(key, out var type) && type == XLCFContentType.Formula));
+
+    /// <summary>Does <paramref name="text"/> write <paramref name="sheetName"/>, quoted or not?</summary>
+    private static bool MentionsSheet(string text, string sheetName)
+        => text.Contains(sheetName, StringComparison.OrdinalIgnoreCase)
+           || (sheetName.Contains('\'')
+               && text.Contains(sheetName.Replace("'", "''"), StringComparison.OrdinalIgnoreCase));
 
     private static readonly IEqualityComparer<IXLConditionalFormat> FullComparerInstance =
         new FullEqualityComparer(true);
