@@ -32,7 +32,7 @@ public class EvaluationOutcomeTests
     private const string DefectFunction = "XLIBURDEFECT";
 
     [Test]
-    [Arguments(Kind.Cycle, "generates, template error: The formula in this cell is part of a circular reference, so its value cannot be read.")]
+    [Arguments(Kind.Cycle, "generates, template error: The formula in this cell is part of, or depends on, a circular reference, so its value cannot be read.")]
     [Arguments(Kind.Unsupported, "throws NotImplementedException")]
     [Arguments(Kind.Refused, "throws ExpressionParseException")]
     [Arguments(Kind.NoContext, "generates")]
@@ -86,11 +86,11 @@ public class EvaluationOutcomeTests
     /// Review finding 2, executed. B1 is valid, but reading it falls back to a full recalculation,
     /// which meets the cycle at Z100 and throws (the behaviour Q38 records, filed as a follow-up).
     /// Report took that for B1 being in a cycle: it recorded "The formula in this cell is part of a
-    /// circular reference" at Report!B1 and read B1 as blank. Whatever the fix, a cell outside the
-    /// cycle must not be blamed for it.
+    /// circular reference" at Report!B1 and read B1 as blank. A cell outside the cycle must not be
+    /// blamed for it. Fixed with #492: the read no longer throws for a cycle B1 does not depend on,
+    /// and B1 reads 3.
     /// </summary>
     [Test]
-    [Skip("Spec 56 review finding 2 waits on an owner decision: Report cannot tell whether the cell it read is in the cycle without a public signal on XLCircularReferenceException, or the fix for a read meeting an unrelated cycle.")]
     public async Task A_cycle_elsewhere_is_not_blamed_on_the_cell_that_was_read()
     {
         using var workbook = new XLWorkbook();

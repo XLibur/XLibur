@@ -53,6 +53,12 @@ public class EvaluationOutcomeTests
         NoContext,
         Pending,
         Defect,
+
+        /// <summary>
+        /// Not a failure of the cell itself: its read falls back to a full recalculation, which
+        /// meets a cycle the cell does not depend on (#492).
+        /// </summary>
+        CycleElsewhere,
     }
 
     private const string SheetName = "Sheet1";
@@ -131,6 +137,17 @@ public class EvaluationOutcomeTests
     [Arguments(Entry.Save, Kind.NoContext, "saves, A6 <v>6</v>")]
     [Arguments(Entry.Save, Kind.Pending, "saves, A6 <v>3</v>")]
     [Arguments(Entry.Save, Kind.Defect, "throws NullReferenceException")]
+    [Arguments(Entry.Value, Kind.CycleElsewhere, "3")]
+    [Arguments(Entry.TryGetValue, Kind.CycleElsewhere, "true: 3")]
+    [Arguments(Entry.GetFormattedString, Kind.CycleElsewhere, "3")]
+    [Arguments(Entry.Search, Kind.CycleElsewhere, "found A1")]
+    [Arguments(Entry.WorksheetEvaluate, Kind.CycleElsewhere, "3")]
+    [Arguments(Entry.WorkbookEvaluate, Kind.CycleElsewhere, "3")]
+    [Arguments(Entry.EvaluateExpr, Kind.CycleElsewhere, "n/a")]
+    [Arguments(Entry.TryInvoke, Kind.CycleElsewhere, "n/a")]
+    [Arguments(Entry.RecalculateAllFormulas, Kind.CycleElsewhere, "completes, A6 = 3")]
+    [Arguments(Entry.RecalculateOnLoad, Kind.CycleElsewhere, "opens, A6 = 3")]
+    [Arguments(Entry.Save, Kind.CycleElsewhere, "saves, A6 <v>3</v>")]
     public async Task Matrix(Entry entry, Kind kind, string expected)
     {
         await Assert.That(Observe(entry, kind)).IsEqualTo(expected);
@@ -416,11 +433,16 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
-    /// Review finding 2. A pass that throws stops with the chain positioned on the cell of the
-    /// cycle. Unless the chain is reset, the next pass carries on from there. Here the cycle's cell
-    /// has since been overwritten with a value, so it is no longer in the chain at all, and the next
+    /// Review finding 2. A pass that throws stops with the chain positioned on the cell that
+    /// threw. Unless the chain is reset, the next pass carries on from there. Here that cell has
+    /// since been overwritten with a value, so it is no longer in the chain at all, and the next
     /// read failed with the chain's own invariant: "Book point [1]A2 is not in the chain."
     /// </summary>
+    /// <remarks>
+    /// Found with a cycle at A2. Since #492 a read's pass leaves a cycle dirty instead of throwing,
+    /// so the pass is made to throw with an unsupported feature instead, which a read still meets
+    /// wherever it is.
+    /// </remarks>
     [Test]
     public async Task A_pass_after_one_that_threw_starts_from_the_beginning_of_the_chain()
     {
@@ -428,12 +450,12 @@ public class EvaluationOutcomeTests
         var ws = wb.AddWorksheet(SheetName);
         ws.Cell("A1").FormulaA1 = "B1*2";
         ws.Cell("B1").FormulaA1 = "A3+0";
-        ws.Cell("A2").FormulaA1 = "A2+1";
+        ws.Cell("A2").FormulaA1 = UnsupportedFormula;
         ws.Cell("A3").Value = 5;
         ws.Cell("A4").FormulaA1 = "A5+1";
         ws.Cell("A5").FormulaA1 = "1";
 
-        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NotImplementedException>();
 
         ws.Cell("A3").Value = 7;
         ws.Cell("A2").Value = 0;
@@ -456,7 +478,7 @@ public class EvaluationOutcomeTests
         ws.Cell("B1").FormulaA1 = "C1*2";
         ws.Cell("C1").FormulaA1 = "5";
 
-        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(() => _ = ws.Cell("A1").Value).Throws<XLCircularReferenceException>();
 
         ws.Cell("A1").FormulaA1 = "1";
 
@@ -465,11 +487,13 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
-    /// Recorded, not decided (Q38). A cell read that has to fall back to recalculating the whole
-    /// workbook meets every cycle in it, so a cell with nothing to do with the cycle throws too.
+    /// #492. A read that falls back to recalculating the whole workbook used to throw on the first
+    /// cycle that pass met, wherever it was, so B1 threw for A1's cycle and was left without a
+    /// value. The pass now leaves the cycle dirty, as recalculation does, and B1 reads 3. A1 is
+    /// still dirty, and reading it still throws.
     /// </summary>
     [Test]
-    public async Task Reading_a_cell_that_falls_back_to_full_recalculation_meets_a_cycle_elsewhere()
+    public async Task Issue492_a_read_does_not_throw_for_a_cycle_the_cell_does_not_depend_on()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet(SheetName);
@@ -477,7 +501,47 @@ public class EvaluationOutcomeTests
         ws.Cell("B1").FormulaA1 = "C1+1";
         ws.Cell("C1").FormulaA1 = "2";
 
-        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("C1").CachedValue).IsEqualTo(2);
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(() => _ = ws.Cell("A1").Value).Throws<XLCircularReferenceException>();
+    }
+
+    /// <summary>
+    /// #492, the other side. A cell that depends on a cycle cannot be calculated either, so reading
+    /// it still throws, naming the cycle.
+    /// </summary>
+    [Test]
+    public async Task A_read_behind_a_cycle_still_throws_naming_the_cycle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        ws.Cell("D1").FormulaA1 = "A1*2";
+
+        var ex = await Assert.That(() => _ = ws.Cell("D1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(ex!.Message).IsEqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle.");
+    }
+
+    /// <summary>
+    /// #492. With two cycles in the workbook, a read in the second one is named by its own cycle,
+    /// not by the first cycle the pass meets.
+    /// </summary>
+    [Test]
+    public async Task A_read_in_a_cycle_is_named_by_its_own_cycle()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").FormulaA1 = "A1+1";
+        ws.Cell("C5").FormulaA1 = "D5+1";
+        ws.Cell("D5").FormulaA1 = "C5+1";
+
+        var ex = await Assert.That(() => _ = ws.Cell("C5").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(ex!.Message).IsEqualTo("Formula in a cell '$Sheet1'!$C5 is part of a cycle.");
+
+        var first = await Assert.That(() => _ = ws.Cell("A1").Value).Throws<XLCircularReferenceException>();
+        await Assert.That(first!.Message).IsEqualTo("Formula in a cell '$Sheet1'!$A1 is part of a cycle.");
     }
 
     /// <summary>
@@ -586,7 +650,7 @@ public class EvaluationOutcomeTests
     /// </summary>
     private static string Expression(Kind kind, bool qualified) => kind switch
     {
-        Kind.Cycle or Kind.Pending => qualified ? $"{SheetName}!{At}" : At,
+        Kind.Cycle or Kind.Pending or Kind.CycleElsewhere => qualified ? $"{SheetName}!{At}" : At,
         Kind.Unsupported => UnsupportedFormula,
         Kind.Refused => RefusedFormula,
         Kind.NoContext => "ROW()",
@@ -626,6 +690,13 @@ public class EvaluationOutcomeTests
                 break;
             case Kind.Defect:
                 cell.FormulaA1 = DefectFunction + "()";
+                break;
+            case Kind.CycleElsewhere:
+                // A6 needs B1 calculated first, so its read falls back to a full recalculation,
+                // which meets the cycle at Z100. A6 does not depend on Z100.
+                ws.Cell("B1").FormulaA1 = "2";
+                ws.Cell("Z100").FormulaA1 = "Z100+1";
+                cell.FormulaA1 = "B1+1";
                 break;
         }
 
