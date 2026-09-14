@@ -168,9 +168,16 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
                 : axis.DeleteAndShift(cf.Areas, affected);
 
             if (newAreas.Count == 0)
+            {
                 Remove(f => f == cf);
-            else
-                cf.SetAreas(newAreas);
+                continue;
+            }
+
+            // Before the formula pass shifts the formulas; see TryGetSurvivingAnchor.
+            if (TryGetSurvivingAnchor<TAxis>(in edit, affected, cf.Areas, newAreas, out var anchor, out var surviving))
+                cf.RebaseFormulas(anchor, surviving);
+
+            cf.SetAreas(newAreas);
         }
 
         // A kept x14 rule's range goes through the same transform, so it cannot part company with a
@@ -181,10 +188,65 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
             if (areas.Count == 0)
                 continue;
 
-            _extensionRuleAreas[ruleId] = edit.Shift > 0
+            var newAreas = edit.Shift > 0
                 ? axis.InsertAndShift(areas, affected)
                 : axis.DeleteAndShift(areas, affected);
+
+            if (TryGetSurvivingAnchor<TAxis>(in edit, affected, areas, newAreas, out var anchor, out var surviving)
+                && _extensionRuleFormulas.TryGetValue(ruleId, out var formulas))
+            {
+                for (var i = 0; i < formulas.Length; i++)
+                {
+                    if (XLConditionalFormat.TryRebaseFormula(formulas[i], anchor, surviving, out var rebased))
+                        formulas[i] = rebased;
+                }
+            }
+
+            _extensionRuleAreas[ruleId] = newAreas;
         }
+    }
+
+    /// <summary>
+    /// Whether a delete removed a rule's anchor, the first cell of its range, which its formulas are
+    /// written relative to, while the rule survives; and if so, the anchor and the cell to rebase the
+    /// formulas onto: the rule's new first cell, where it stood before the edit.
+    /// </summary>
+    /// <remarks>
+    /// Excel rebases such a rule's formulas onto the first cell that survives before it shifts them
+    /// (<c>cf-anchor-*.xlsx</c>), so deleting row 2 leaves <c>$A2&gt;5</c> on <c>A2:C10</c> as
+    /// <c>$A2&gt;5</c> on <c>A2:C9</c>, where shifting alone gives <c>#REF!&gt;5</c>. Any other edit
+    /// only shifts, even one that cannot move the range: a row inserted at 1 turns <c>$A1&gt;5</c> on
+    /// the whole column <c>E:E</c> into <c>$A2&gt;5</c>. A reference to a deleted cell other than the
+    /// anchor still becomes <c>#REF!</c>, as it does in a cell formula.
+    /// </remarks>
+    /// <param name="edit">The edit, on this sheet.</param>
+    /// <param name="deleted">The region the edit deletes, as coverage sees it.</param>
+    /// <param name="before">The rule's range before the edit.</param>
+    /// <param name="after">The rule's range after the edit; not empty.</param>
+    /// <param name="anchor">The first cell of <paramref name="before"/>, the cell the formulas are written relative to.</param>
+    /// <param name="surviving">The first cell of <paramref name="after"/>, at its position before the edit.</param>
+    private static bool TryGetSurvivingAnchor<TAxis>(in SheetEdit edit, Area deleted, XLAreaList before,
+        XLAreaList after, out Point anchor, out Point surviving)
+        where TAxis : struct, IGridAxis
+    {
+        anchor = default;
+        surviving = default;
+        if (edit.Shift >= 0 || before.Count == 0 || after.Count == 0)
+            return false;
+
+        anchor = before[0].FirstPoint;
+        if (!deleted.Contains(anchor))
+            return false;
+
+        // The new first cell moves back to where it stood: a cell past the deletion, within the
+        // deleted lines' cross extent, had moved |Shift| lines towards it.
+        var axis = default(TAxis);
+        var first = after[0].FirstPoint;
+        var moved = axis.IndexOf(first) >= axis.IndexOf(deleted.FirstPoint)
+                    && axis.CrossOf(first) >= axis.CrossOf(deleted.FirstPoint)
+                    && axis.CrossOf(first) <= axis.CrossOf(deleted.LastPoint);
+        surviving = moved ? axis.PointAt(axis.IndexOf(first) - edit.Shift, axis.CrossOf(first)) : first;
+        return true;
     }
 
     /// <summary>

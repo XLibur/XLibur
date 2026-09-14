@@ -262,6 +262,52 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     }
 
     /// <summary>
+    /// Rebases each formula of the format from the cell <paramref name="from"/> onto the cell
+    /// <paramref name="to"/>: a relative reference keeps its offset from the cell, and an absolute one
+    /// stays where it is. The formulas are the ones <see cref="ShiftFormulas{TAxis}"/> shifts.
+    /// </summary>
+    /// <remarks>
+    /// For a delete that removes the row or column of the range's first cell, the formula's anchor,
+    /// while the format survives. Excel keeps the formula, rebased onto the first cell that survives,
+    /// and then shifts it (<c>cf-anchor-*.xlsx</c>): <c>$A2&gt;5</c> on <c>A2:C10</c> is rebased onto
+    /// <c>A3</c> as <c>$A3&gt;5</c>, and deleting row 2 shifts it back to <c>$A2&gt;5</c> on
+    /// <c>A2:C9</c>. Shifting without the rebase gives <c>#REF!&gt;5</c>.
+    /// </remarks>
+    internal void RebaseFormulas(Point from, Point to)
+    {
+        foreach (var key in Values.Keys.ToList())
+        {
+            var formula = Values[key];
+            if (!IsFormulaValue(key, formula) || !TryRebaseFormula(formula.Value, from, to, out var rebased))
+                continue;
+
+            Values[key] = new XLFormula { _value = rebased, IsFormula = formula.IsFormula };
+        }
+    }
+
+    /// <summary>
+    /// Rebases one formula of a conditional format from the cell <paramref name="from"/> onto the cell
+    /// <paramref name="to"/> (see <see cref="RebaseFormulas"/>). Used for a modelled format's formulas
+    /// and for the text of an <c>x14</c> rule kept as it was loaded.
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> when the formula keeps its text: nothing in it is relative, or the parser refuses
+    /// it, in which case its references are unknown and it is not guessed at (ADR 0002).
+    /// </returns>
+    internal static bool TryRebaseFormula(string text, Point from, Point to, out string rebased)
+    {
+        rebased = text;
+        if (string.IsNullOrWhiteSpace(text)
+            || !XLCellFormula.TryGetFormula(text, FormulaConversionType.A1ToR1C1, from, out var r1c1, out _)
+            || !XLCellFormula.TryGetFormula(r1c1, FormulaConversionType.R1C1ToA1, to, out var a1, out _)
+            || a1 == text)
+            return false;
+
+        rebased = a1;
+        return true;
+    }
+
+    /// <summary>
     /// Is the value at <paramref name="key"/> a formula? An expression's is, and so is a scale's value
     /// point whose type is <see cref="XLCFContentType.Formula"/>. Such a value keeps no <c>=</c>, so it
     /// is a formula by its type rather than by <see cref="XLFormula.IsFormula"/>.

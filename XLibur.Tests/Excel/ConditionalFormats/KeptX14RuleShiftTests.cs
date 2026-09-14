@@ -61,6 +61,17 @@ public class KeptX14RuleShiftTests
     [Arguments("E3:E5", "$A$1>E3", "insert a row inside", "E3:E6", "$A$1>E3")]
     [Arguments("C3:C5", "SUM(Data!A2", "insert a row above the referenced cell", "C3:C5", "SUM(Data!A2")]
     [Arguments("E3", "SUM(A2", "insert one row above", "E4", "SUM(A2")]
+    // A delete that removes the row or column of the range's first cell, the formula's anchor, while
+    // the rule survives. The formula is rebased onto the first cell that survives before it is
+    // shifted, so it does not read #REF!. The first two are what Excel wrote in cf-anchor-*.xlsx.
+    [Arguments("A2:C10", "$A2>5", "delete row 2", "A2:C9", "$A2>5")]
+    [Arguments("G2:H10", "G2>5", "delete column G", "G2:G10", "G2>5")]
+    // Unverified: inferred from the rule the fixture shows, not seen in an Excel-written file.
+    [Arguments("C3:C5", "C3>0", "delete rows overlapping the top", "C1:C2", "C1>0")]
+    [Arguments("C3:E3", "C3>0", "delete columns A to C", "A3:B3", "A3>0")]
+    [Arguments("A2:C10", "$A2>A$1", "delete row 2", "A2:C9", "$A2>A$1")]
+    // A refused formula keeps its text, with its anchor deleted as without (ADR 0002).
+    [Arguments("C3:C5", "SUM(C3", "delete rows overlapping the top", "C1:C2", "SUM(C3")]
     public async Task Both_kinds_of_rule_shift_their_range_and_formula_alike(string sqref, string formula,
         string edit, string expectedRange, string expectedFormula)
     {
@@ -365,6 +376,8 @@ public class KeptX14RuleShiftTests
             case "delete row 2": other.Row(2).Delete(); break;
             case "delete the rows holding the range": other.Rows(3, 5).Delete(); break;
             case "delete the column holding the range": other.Column(3).Delete(); break;
+            case "delete column G": other.Column(7).Delete(); break;
+            case "delete columns A to C": other.Columns(1, 3).Delete(); break;
             case "delete rows overlapping the bottom": other.Rows(4, 6).Delete(); break;
             case "delete rows overlapping the top": other.Rows(1, 3).Delete(); break;
             case "delete a cell inside, shifting up": other.Range("C4").Delete(XLShiftDeletedCells.ShiftCellsUp); break;
