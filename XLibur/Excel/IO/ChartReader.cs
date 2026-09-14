@@ -38,6 +38,26 @@ internal static class ChartReader
             ReadAnchor(composite, xlChart);
             ws.Charts.Add(xlChart);
         }
+
+        var loaded = ws.Charts.OfType<XLChart>().Select(c => c.RelId).OfType<string>().ToHashSet();
+        KeepChartDataNamesOfUnloadedCharts(drawingsPart, loaded, ws.Workbook.DefinedNamesInternal);
+    }
+
+    /// <summary>
+    /// Notes every hidden chart-data name that a ChartEx part of <paramref name="drawingsPart"/> refers
+    /// to, unless the part is one of <paramref name="loadedRelIds"/>. Such a part, a layout this reader
+    /// does not read or a chart on a chartsheet, is saved as it was loaded, so a sheet delete must not
+    /// take a name it uses (see <see cref="XLDefinedNames.KeepChartDataNames"/>).
+    /// </summary>
+    internal static void KeepChartDataNamesOfUnloadedCharts(DrawingsPart drawingsPart,
+        IReadOnlySet<string> loadedRelIds, XLDefinedNames names)
+    {
+        foreach (var idPart in drawingsPart.Parts)
+        {
+            if (idPart.OpenXmlPart is ExtendedChartPart { ChartSpace: { } chartSpace }
+                && !loadedRelIds.Contains(idPart.RelationshipId))
+                names.KeepChartDataNames(ChartDataReferences(chartSpace).Select(e => e.InnerText));
+        }
     }
 
     private static XLChart? TryLoadChartFromAnchor(
@@ -256,8 +276,49 @@ internal static class ChartReader
         ReadExtendedTitle(chartSpace, xlChart);
         ReadExtendedSeries(chartSpace, xlChart);
 
+        // A reference the series do not model is written back as it was loaded, so a sheet delete
+        // must not take a hidden name it uses.
+        ws.Workbook.DefinedNamesInternal.KeepChartDataNames(UnmodelledReferences(chartSpace));
+
         xlChart.LoadedFromFile = true;
         return xlChart;
+    }
+
+    /// <summary>
+    /// Every <c>cx:f</c> and <c>cx:nf</c> of a ChartEx chart space. Excel writes a hidden chart-data
+    /// name in each, <c>_xlchart.v1.1</c>, rather than a reference.
+    /// </summary>
+    private static IEnumerable<OpenXmlElement> ChartDataReferences(Cx.ChartSpace chartSpace)
+        => chartSpace.Descendants()
+            .Where(e => e.LocalName is "f" or "nf" && e.NamespaceUri == chartSpace.NamespaceUri);
+
+    /// <summary>
+    /// The text of each reference of a loaded ChartEx chart that its series do not model: every one
+    /// but a series' name and the first category and value dimension of its data, which
+    /// <see cref="ReadExtendedSeries"/> reads and <see cref="ExtendedChartSeriesXml"/> writes back.
+    /// </summary>
+    private static IEnumerable<string> UnmodelledReferences(Cx.ChartSpace chartSpace)
+    {
+        var chartData = chartSpace.Descendants<Cx.ChartData>().FirstOrDefault();
+        var modelled = new HashSet<OpenXmlElement>();
+        foreach (var cxSeries in chartSpace.Descendants<Cx.Series>())
+        {
+            AddIfAny(cxSeries.Elements<Cx.Text>().FirstOrDefault()?
+                .Elements<Cx.TextData>().FirstOrDefault()?.Elements<Cx.Formula>().FirstOrDefault());
+
+            var dataId = cxSeries.Descendants<Cx.DataId>().FirstOrDefault()?.Val?.Value;
+            var data = dataId is null ? null : chartData?.Elements<Cx.Data>().FirstOrDefault(d => d.Id?.Value == dataId);
+            AddIfAny(data?.Elements<Cx.StringDimension>().FirstOrDefault()?.Elements<Cx.Formula>().FirstOrDefault());
+            AddIfAny(data?.Elements<Cx.NumericDimension>().FirstOrDefault()?.Elements<Cx.Formula>().FirstOrDefault());
+        }
+
+        return ChartDataReferences(chartSpace).Where(e => !modelled.Contains(e)).Select(e => e.InnerText).ToList();
+
+        void AddIfAny(OpenXmlElement? element)
+        {
+            if (element is not null)
+                modelled.Add(element);
+        }
     }
 
     private static void ReadExtendedTitle(Cx.ChartSpace chartSpace, XLChart xlChart)

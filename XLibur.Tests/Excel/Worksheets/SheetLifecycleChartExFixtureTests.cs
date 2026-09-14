@@ -168,6 +168,130 @@ public class SheetLifecycleChartExFixtureTests
         await AssertSameText(Read(second), excel);
     }
 
+    /// <summary>
+    /// A hidden <c>_xlchart.</c> name goes with the deleted sheet only when every chart that uses it is
+    /// one XLibur loaded, and so takes the reference out of. A ChartEx chart XLibur does not load, a
+    /// histogram or one on a chartsheet, is saved as it was loaded and still names the name, so the
+    /// name stays and reads <c>#REF!</c>, as any other name does. The waterfall's names still go.
+    /// </summary>
+    /// <remarks>
+    /// Excel wrote no such workbook. The kept chart is the fixture's waterfall over the three names it
+    /// wrote and the waterfall does not use, <c>_xlchart.v1.4</c> to <c>v1.6</c>, added through the SDK.
+    /// </remarks>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_delete_keeps_a_chart_data_name_that_a_chart_XLibur_does_not_load_uses(bool onChartsheet)
+    {
+        using var package = BookWithKeptChartEx(onChartsheet);
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(package))
+        {
+            await Assert.That(wb.Worksheet("Other").Charts.Count).IsEqualTo(1);
+            wb.Worksheet("Data").Delete();
+            wb.SaveAs(saved);
+        }
+
+        var holders = Read(saved);
+        await Assert.That(holders.ChartNames).IsEquivalentTo(new[]
+        {
+            "_xlchart.v1.4 = #REF! (hidden)",
+            "_xlchart.v1.5 = #REF! (hidden)",
+            "_xlchart.v1.6 = #REF! (hidden)",
+        }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        await Assert.That(DanglingChartDataNames(saved)).IsEmpty();
+
+        foreach (var line in Read(Resource("chartex-pivotcf-delete-after.xlsx")).ChartData)
+            await Assert.That(holders.ChartData).Contains(line);
+    }
+
+    /// <summary>
+    /// The <c>before</c> fixture with one more ChartEx chart, which XLibur keeps as it was loaded: a
+    /// histogram on <c>Other</c>, a layout <c>ChartReader</c> does not read, or the waterfall's layout on
+    /// a chartsheet. It uses the names <c>_xlchart.v1.4</c> to <c>v1.6</c>.
+    /// </summary>
+    private static MemoryStream BookWithKeptChartEx(bool onChartsheet)
+    {
+        var package = new MemoryStream();
+        using (var source = Resource(Before))
+            source.CopyTo(package);
+
+        using (var document = SpreadsheetDocument.Open(package, true))
+        {
+            var workbookPart = document.WorkbookPart!;
+            var sheets = workbookPart.Workbook!.Sheets!;
+            var otherId = sheets.Elements<S.Sheet>().Single(s => s.Name == "Other").Id!.Value!;
+            var otherDrawing = ((WorksheetPart)workbookPart.GetPartById(otherId)).DrawingsPart!;
+            var waterfall = otherDrawing.Parts.Select(p => p.OpenXmlPart).OfType<ExtendedChartPart>().Single();
+            var xml = waterfall.RootElement!.OuterXml
+                .Replace("_xlchart.v1.1", "_xlchart.v1.5")
+                .Replace("_xlchart.v1.2", "_xlchart.v1.6")
+                .Replace("_xlchart.v1.3", "_xlchart.v1.4");
+            var template = otherDrawing.WorksheetDrawing!.FirstChild!;
+
+            if (onChartsheet)
+            {
+                var chartsheetPart = workbookPart.AddNewPart<ChartsheetPart>();
+                var drawingsPart = chartsheetPart.AddNewPart<DrawingsPart>();
+                var chartPart = AddChart(drawingsPart, xml);
+                drawingsPart.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing(
+                    Anchor(template, drawingsPart.GetIdOfPart(chartPart)));
+                chartsheetPart.Chartsheet = new S.Chartsheet(
+                    new S.ChartSheetViews(new S.ChartSheetView { WorkbookViewId = 0U }),
+                    new S.Drawing { Id = chartsheetPart.GetIdOfPart(drawingsPart) });
+                sheets.Append(new S.Sheet { Name = "Chart1", SheetId = 3U, Id = workbookPart.GetIdOfPart(chartsheetPart) });
+            }
+            else
+            {
+                var chartPart = AddChart(otherDrawing, xml.Replace("layoutId=\"waterfall\"", "layoutId=\"clusteredColumn\""));
+                otherDrawing.WorksheetDrawing.Append(Anchor(template, otherDrawing.GetIdOfPart(chartPart)));
+            }
+        }
+
+        package.Position = 0;
+        return package;
+    }
+
+    private static ExtendedChartPart AddChart(DrawingsPart drawingsPart, string xml)
+    {
+        var chartPart = drawingsPart.AddNewPart<ExtendedChartPart>();
+        using var data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        chartPart.FeedData(data);
+        return chartPart;
+    }
+
+    /// <summary>A copy of <paramref name="template"/> whose <c>cx:chart</c> names <paramref name="chartRelId"/>.</summary>
+    private static OpenXmlElement Anchor(OpenXmlElement template, string chartRelId)
+    {
+        var anchor = template.CloneNode(true);
+        anchor.Descendants().First(e => e.LocalName == "chart").SetAttribute(new OpenXmlAttribute(
+            "r", "id", "http://schemas.openxmlformats.org/officeDocument/2006/relationships", chartRelId));
+        return anchor;
+    }
+
+    /// <summary>
+    /// Every <c>_xlchart.</c> name a ChartEx chart part of a package names, in a <c>cx:f</c> or a
+    /// <c>cx:nf</c>, that the workbook does not define.
+    /// </summary>
+    private static List<string> DanglingChartDataNames(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var workbookPart = document.WorkbookPart!;
+        var names = (workbookPart.Workbook!.DefinedNames?.Elements<S.DefinedName>() ?? [])
+            .Select(n => n.Name!.Value!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return workbookPart.WorksheetParts.Select(w => w.DrawingsPart)
+            .Concat(workbookPart.ChartsheetParts.Select(c => c.DrawingsPart))
+            .OfType<DrawingsPart>()
+            .SelectMany(d => d.Parts.Select(p => p.OpenXmlPart).OfType<ExtendedChartPart>())
+            .SelectMany(p => p.RootElement!.Descendants().Where(e => e.LocalName is "f" or "nf"))
+            .Select(e => e.InnerText)
+            .Where(t => t.StartsWith("_xlchart.", StringComparison.OrdinalIgnoreCase) && !names.Contains(t))
+            .ToList();
+    }
+
     private static async Task AssertSameText(Holders saved, Holders excel)
     {
         await Assert.That(Lines(saved.ChartNames)).IsEqualTo(Lines(excel.ChartNames));
