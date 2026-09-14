@@ -339,6 +339,139 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// #491. A name needs a worksheet only when its formula does. <c>IXLWorkbook.Evaluate</c> has no
+    /// sheet, and a workbook-scoped name whose references all name their sheet answers there, as its
+    /// own text does. It threw <see cref="XLNoWorksheetContextException"/>, because the name's lookup
+    /// and the context built for its formula both asked for the sheet before anything needed it.
+    /// </summary>
+    [Test]
+    [Arguments("Total")]
+    [Arguments("Total+0")]
+    public async Task Workbook_evaluate_reads_a_name_that_needs_no_sheet(string expression)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName).Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+
+        await Assert.That(wb.Evaluate(expression)).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task Workbook_evaluate_reads_a_name_that_refers_to_another_name()
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName).Cell("A1").Value = 5;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Twice", "Total*2");
+
+        await Assert.That(wb.Evaluate("Twice")).IsEqualTo(20);
+    }
+
+    /// <summary>
+    /// A sheet-scoped name referred to with its sheet needs no sheet from the caller: the prefix
+    /// says which sheet's names to look in.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_reads_a_sheet_scoped_name_referred_to_with_its_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+
+        await Assert.That(wb.Evaluate("Sheet1!Local")).IsEqualTo(15);
+    }
+
+    /// <summary>
+    /// A sheet-scoped name shadows the workbook's only on its own sheet. <c>IXLWorkbook.Evaluate</c>
+    /// is on no sheet, so nothing shadows there and an unqualified name is the workbook's. On the
+    /// sheet, <c>IXLWorksheet.Evaluate</c> and a cell read the sheet's own, as before.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_reads_the_workbook_scoped_name_where_a_sheet_has_its_own()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.Cell("B1").Value = 7;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        ws.DefinedNames.Add("Total", "Sheet1!$B$1");
+        ws.Cell("C1").FormulaA1 = "Total";
+
+        await Assert.That(wb.Evaluate("Total")).IsEqualTo(10);
+        await Assert.That(wb.Evaluate("Sheet1!Total")).IsEqualTo(7);
+        await Assert.That(ws.Evaluate("Total")).IsEqualTo(7);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// #491 does not give up the check: a name whose formula needs the sheet or the cell still
+    /// reports that from <c>IXLWorkbook.Evaluate</c>. <c>!A1</c> is the relative reference a defined
+    /// name can hold: a sheet-less <c>A1</c> is refused when the name is defined, and <c>!A1</c> is
+    /// read on the sheet of the cell using the name (#446).
+    /// </summary>
+    [Test]
+    [Arguments("!A1")]
+    [Arguments("ROW()")]
+    [Arguments("COLUMN()")]
+    public async Task Workbook_evaluate_still_throws_for_a_name_that_needs_a_cell(string refersTo)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet(SheetName);
+        wb.DefinedNames.Add("Here", refersTo);
+
+        await Assert.That(() => wb.Evaluate("Here")).Throws<XLNoWorksheetContextException>();
+        await Assert.That(() => wb.Evaluate("Here+0")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// An unqualified name that only a sheet defines needs the sheet to be found, directly or through
+    /// another name.
+    /// </summary>
+    [Test]
+    public async Task Workbook_evaluate_still_throws_for_an_unqualified_sheet_scoped_name()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+        wb.DefinedNames.Add("Outer", "!Local");
+
+        await Assert.That(() => wb.Evaluate("Local")).Throws<XLNoWorksheetContextException>();
+        await Assert.That(() => wb.Evaluate("Outer")).Throws<XLNoWorksheetContextException>();
+    }
+
+    /// <summary>
+    /// The same names, where there is a sheet: <c>IXLWorksheet.Evaluate</c> and a cell read them as
+    /// they did before #491.
+    /// </summary>
+    [Test]
+    public async Task Worksheet_evaluate_and_a_cell_read_names_as_before()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("A1").Value = 5;
+        ws.Cell("B1").Value = 7;
+        wb.DefinedNames.Add("Total", "Sheet1!$A$1*2");
+        wb.DefinedNames.Add("Here", "!B1");
+        ws.DefinedNames.Add("Local", "Sheet1!$A$1*3");
+        wb.DefinedNames.Add("Outer", "!Local");
+        ws.Cell("C1").FormulaA1 = "Total";
+        ws.Cell("C2").FormulaA1 = "Here";
+        ws.Cell("C3").FormulaA1 = "Local";
+        ws.Cell("C4").FormulaA1 = "Outer";
+
+        await Assert.That(ws.Evaluate("Total")).IsEqualTo(10);
+        await Assert.That(ws.Evaluate("Here")).IsEqualTo(7);
+        await Assert.That(ws.Evaluate("Local")).IsEqualTo(15);
+        await Assert.That(ws.Evaluate("Outer")).IsEqualTo(15);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(10);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(7);
+        await Assert.That(ws.Cell("C3").Value).IsEqualTo(15);
+        await Assert.That(ws.Cell("C4").Value).IsEqualTo(15);
+    }
+
+    /// <summary>
     /// Review finding (medium). A sheet-only recalculation reads another sheet's cells as they
     /// stand, so a formula on Sheet1 that reads a dirty Sheet2 cell takes its current value. A
     /// defined name's context did not carry the sheet filter: the name asked for the dirty Sheet2
