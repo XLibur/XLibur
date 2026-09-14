@@ -366,6 +366,13 @@ public partial class XLWorkbook
             if (!workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) || sheetPart is not WorksheetPart)
             {
                 UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetIdValue, Position = position, Name = sheetName });
+
+                // A ChartEx chart on a chartsheet is copied through with the sheet, so a sheet delete
+                // must not take the hidden names it uses.
+                if (sheetPart is ChartsheetPart { DrawingsPart: { } chartsheetDrawing })
+                    ChartReader.KeepChartDataNamesOfUnloadedCharts(chartsheetDrawing, new HashSet<string>(),
+                        DefinedNamesInternal);
+
                 continue;
             }
 

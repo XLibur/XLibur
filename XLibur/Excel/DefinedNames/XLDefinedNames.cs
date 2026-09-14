@@ -303,6 +303,90 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
         _namedRanges.Add(adopted.Name, adopted);
     }
 
+    private static readonly IReadOnlyDictionary<string, Area> NoChartDataNames = new Dictionary<string, Area>();
+
+    /// <summary>
+    /// The names of this workbook-scoped collection that hold a ChartEx chart's references and go with
+    /// the sheet being deleted, each with the area it referred to, and empty otherwise.
+    /// <see cref="XLWorksheets.Delete(int)"/> finds them before any holder hears of the delete, and the
+    /// charts read them (see <see cref="XLCharts"/>).
+    /// </summary>
+    internal IReadOnlyDictionary<string, Area> ChartDataNamesGoingWithSheet { get; private set; } = NoChartDataNames;
+
+    /// <summary>
+    /// The hidden chart-data names that a ChartEx chart part XLibur keeps as it was loaded refers to,
+    /// which a sheet delete therefore leaves in place (see <see cref="KeepChartDataNames"/>).
+    /// </summary>
+    private readonly HashSet<string> _chartDataNamesInKeptCharts = new(XLHelper.NameComparer);
+
+    /// <summary>
+    /// Notes the hidden chart-data names among <paramref name="references"/>, which a ChartEx chart part
+    /// that XLibur saves as it was loaded refers to. The reader calls it for a part it does not load,
+    /// and for a loaded part's references its series do not model (see <c>ChartReader</c>). The delete
+    /// cannot take such a reference out of the part, so it does not take the name either.
+    /// </summary>
+    internal void KeepChartDataNames(IEnumerable<string> references)
+    {
+        foreach (var reference in references)
+        {
+            if (reference.StartsWith("_xlchart.", StringComparison.OrdinalIgnoreCase))
+                _chartDataNamesInKeptCharts.Add(reference);
+        }
+    }
+
+    /// <summary>
+    /// Finds the names that hold a ChartEx chart's references and go with <paramref name="sheetName"/>
+    /// when it is deleted, and keeps them in <see cref="ChartDataNamesGoingWithSheet"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Excel removes such a name, where it makes any other name <c>#REF!</c>. The
+    /// <c>chartex-pivotcf-*</c> fixture shows it: each of the seven hidden <c>_xlchart.v1.*</c> names
+    /// was one reference to <c>Data</c>, and none was left after <c>Data</c> was deleted. In spec 55's
+    /// <c>delete-*</c> fixture the name <c>W</c>, also one reference to the deleted sheet, became
+    /// <c>#REF!</c>.
+    /// </para>
+    /// <para>
+    /// The rule is as narrow as the fixture: a hidden <c>_xlchart.</c> name goes when its formula is
+    /// one reference to the sheet and nothing else. Any other such name, one that refers to another
+    /// sheet as well say, follows the rule for any other name, and a test says that is unverified.
+    /// </para>
+    /// <para>
+    /// A name goes only when no chart that XLibur keeps as it was loaded refers to it: a histogram, a
+    /// ChartEx chart on a chartsheet, or a reference a loaded chart's series do not model. Such a part
+    /// would otherwise be saved naming a name the workbook no longer has. The name stays, and reads
+    /// <c>#REF!</c> by the rule for any other name.
+    /// </para>
+    /// </remarks>
+    internal void FindChartDataNamesGoingWithSheet(string sheetName)
+    {
+        var going = new Dictionary<string, Area>(XLHelper.NameComparer);
+        ChartDataNamesGoingWithSheet = going;
+
+        SheetRewrite? rewrite = null;
+        foreach (var definedName in _namedRanges.Values)
+        {
+            if (!definedName.IsChartData || _chartDataNamesInKeptCharts.Contains(definedName.Name))
+                continue;
+
+            rewrite ??= SheetRewrite.Delete(Workbook, sheetName);
+            if (definedName.TryGetOnlyAreaOn(sheetName, rewrite, out var area))
+                going.Add(definedName.Name, area);
+        }
+    }
+
+    /// <summary>
+    /// Removes the names <see cref="FindChartDataNamesGoingWithSheet"/> found, once every holder has
+    /// heard of the delete.
+    /// </summary>
+    internal void RemoveChartDataNamesGoingWithSheet()
+    {
+        foreach (var name in ChartDataNamesGoingWithSheet.Keys)
+            _namedRanges.Remove(name);
+
+        ChartDataNamesGoingWithSheet = NoChartDataNames;
+    }
+
     public void Delete(string name)
     {
         _namedRanges.Remove(name);

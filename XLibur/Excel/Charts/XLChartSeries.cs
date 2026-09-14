@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 
@@ -32,7 +33,20 @@ internal enum XLChartSeriesFormat
     ValueReferencesRewritten = 1 << 10,
 
     /// <summary>As <see cref="ValueReferencesRewritten"/>, for the category references.</summary>
-    CategoryReferencesRewritten = 1 << 11
+    CategoryReferencesRewritten = 1 << 11,
+
+    /// <summary>
+    /// The value references were the hidden name of a ChartEx chart's reference to a deleted sheet,
+    /// which the delete removed (see <see cref="XLChartSeries.DropChartDataNames"/>). The patcher takes
+    /// them out of the chart part.
+    /// </summary>
+    ValueReferencesDropped = 1 << 12,
+
+    /// <summary>As <see cref="ValueReferencesDropped"/>, for the category references.</summary>
+    CategoryReferencesDropped = 1 << 13,
+
+    /// <summary>As <see cref="ValueReferencesDropped"/>, for the cell the series takes its name from.</summary>
+    NameReferenceDropped = 1 << 14
 }
 
 internal sealed class XLChartSeries : IXLChartSeries
@@ -231,6 +245,46 @@ internal sealed class XLChartSeries : IXLChartSeries
         bool TryRewrite(string reference, out string rewritten)
             => rewrite.TryRewrite(reference, formulaSheetName, new Point(1, 1), out rewritten)
                && rewritten != reference;
+    }
+
+    /// <summary>
+    /// The area the value references covered when a delete dropped them (see
+    /// <see cref="DropChartDataNames"/>). The patcher writes an empty level for each row or column of it.
+    /// </summary>
+    internal Area? DroppedValueArea { get; private set; }
+
+    /// <summary>As <see cref="DroppedValueArea"/>, for the category references.</summary>
+    internal Area? DroppedCategoryArea { get; private set; }
+
+    /// <summary>
+    /// Takes out each reference that is one of <paramref name="going"/>, the hidden names a sheet delete
+    /// removes because each held a ChartEx chart's reference to the sheet (see
+    /// <see cref="XLDefinedNames.FindChartDataNamesGoingWithSheet"/>). Excel takes them out of the chart
+    /// too: in the <c>chartex-pivotcf-*</c> fixture the chart kept no reference, and its series no
+    /// name. Each one taken out is marked, so that the patcher takes it out of the chart part.
+    /// </summary>
+    internal void DropChartDataNames(IReadOnlyDictionary<string, Area> going)
+    {
+        if (going.TryGetValue(_valueReferences, out var values))
+        {
+            _valueReferences = string.Empty;
+            DroppedValueArea = values;
+            AssignedFormat |= XLChartSeriesFormat.ValueReferencesDropped;
+        }
+
+        if (_categoryReferences is { } categories && going.TryGetValue(categories, out var categoryArea))
+        {
+            _categoryReferences = null;
+            DroppedCategoryArea = categoryArea;
+            AssignedFormat |= XLChartSeriesFormat.CategoryReferencesDropped;
+        }
+
+        if (_nameReference is { } name && going.ContainsKey(name))
+        {
+            _nameReference = null;
+            Name = string.Empty;
+            AssignedFormat |= XLChartSeriesFormat.NameReferenceDropped;
+        }
     }
 
     /// <summary>
