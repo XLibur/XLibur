@@ -45,22 +45,27 @@ two variants worth naming:
 
 | Spec | Title | Effort | Blocked by | Status |
 |---|---|---|---|---|
-| [54](54-formula-text-module.md) | Formula text gets one module | M | — | ⬜ Ready |
-| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | **54**; parser 4.0.0 (its task 0; the fork half is released); **owner fixtures** for tasks 3, 5, 6; after **44** | ⬜ Blocked |
+| [54](54-formula-text-module.md) | Formula text gets one module | M | — | ✅ Merged ([#493](https://github.com/XLibur/XLibur/pull/493)) |
+| [55](55-sheet-lifecycle-one-door.md) | Sheet delete and rename through one door | L | ~~54~~ (merged); parser 4.0.0 (its task 0; the fork half is released); **owner fixtures** for tasks 3, 5, 6; after **44** | ⬜ Blocked |
 | [56](56-evaluation-outcome.md) | Evaluation failures get one outcome | M | — (**before 32**) | ⬜ Ready |
 
-### Spec 54 — Formula text module ⬜ Ready
+### Spec 54 — Formula text module ✅ Merged ([#493](https://github.com/XLibur/XLibur/pull/493), `1b476e8f`)
 
-- [ ] **54.1** Corpus of today's behaviour; D49–D52 land red — PR #___
-- [ ] **54.2** `FormulaText` and `FormulaRefusal`, inert — PR #___
-- [ ] **54.3** Evaluation, conversion, rewrite; `FormulaTransformation` deleted; D50, D52 green — PR #___
-- [ ] **54.4** Name references, extent, shifter; `FormulaShifterCorpus.tsv` unchanged — PR #___
-- [ ] **54.5** SUBTOTAL check and rename; D51, D49 green — PR #___
-- [ ] **54.6** The `=` rule; delete `DefaultFormulaVisitor` — PR #___
-- [ ] **54.7** Cost: medians of three, **revert authority above 10%** — PR #___
-- [ ] **54.8** Changelog — PR #___
+- [x] **54.1** Corpus of today's behaviour; D49–D52 land red — PR #493
+- [x] **54.2** `FormulaText` and `FormulaRefusal`, inert — PR #493
+- [x] **54.3** Evaluation, conversion, rewrite; `FormulaTransformation` deleted; D50, D52 green — PR #493
+- [x] **54.4** Name references, extent, shifter; `FormulaShifterCorpus.tsv` unchanged — PR #493
+- [x] **54.5** SUBTOTAL check and rename; D51, D49 green — PR #493
+- [x] **54.6** The `=` rule; delete `DefaultFormulaVisitor` — PR #493
+- [x] **54.7** Cost: medians of three, **revert authority above 10%**. Every BenchmarkDotNet median is
+  within +1.5%. One single-pass structural probe came out at +18.9%, which traces to a two-mode
+  allocation artefact present on both sides; a 10× re-run is to be posted on #493 — PR #493
+- [x] **54.8** Changelog — PR #493
+- Also in #493, by owner decision: a conditional format holding a refused formula is never merged, so
+  a save no longer throws; defined-name copy keeps its `_isFormulaUnderstood` guard. Found in passing:
+  #489.
 
-### Spec 55 — Sheet lifecycle ⬜ Blocked on 54
+### Spec 55 — Sheet lifecycle ⬜ Blocked (54 has merged, and NuGet serves parser 4.0.0; waits on the owner's fixtures and spec 44)
 
 - [ ] **55.0** Parser fork 4.0.0: `Sheet!#REF!` on delete, endpoint-aware 3D hook; XLibur bump — fork PR [#54](https://github.com/XLibur/ClosedXML.Parser/pull/54) ✅ released 2026-09-13 / PR #___
 - [ ] **55.1** Holder × event characterization; D53–D55 land red; execute the read findings — PR #___
@@ -234,8 +239,9 @@ Recorded so the next review does not walk them again. Evidence is in the round-4
 - "An axis that isn't named spans the whole sheet" is written four times on the parser side
   (`ReferenceAreaExtensions.cs:46`, `AstNode.cs:383`, `FormulaExtent.cs:83`,
   `XLCellFormulaShifter.cs:393`) — spec 36's remainder, on a different input type (read).
-- `EvaluateName` builds a fresh context, which silently resets spec 53's `IntersectOperands`. Spec 56
-  task 5 touches this; its test pins the result (read).
+- `EvaluateName` builds a fresh context, which resets spec 53's `IntersectOperands`. **Not a defect:**
+  Excel evaluates a defined name's formula as an array and does not intersect its operands, as the
+  owner verified in Excel on 2026-09-14 (spec 56 §4). Spec 56 task 5's test pins it.
 - A loaded `_xlnm._FilterDatabase` is visible in `ws.DefinedNames`, shifted and copied, then dropped on
   save even when there is no AutoFilter to rebuild it from (read).
 - The slicer and timeline cache writers add `"#N/A"` names to the model *during save*
