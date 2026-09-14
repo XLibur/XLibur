@@ -1310,10 +1310,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// <para>
     /// <b>Order is part of the contract.</b> It is pinned by <c>SheetListenerOrderTests</c>;
     /// changing it is a behaviour change and needs that test updated deliberately. Listeners
-    /// belonging to other sheets are yielded too — defined names and data-validation criteria
-    /// formulas are workbook-scoped and must see an edit on any sheet. Such a listener guards on
-    /// the sheet it is given, the way <see cref="XLHyperlinks"/> does, unless it deliberately
-    /// should not.
+    /// belonging to other sheets are yielded too — defined names, conditional-format formulas and
+    /// data-validation criteria formulas are workbook-scoped and must see an edit on any sheet.
+    /// Such a listener guards on the sheet it is given, the way <see cref="XLHyperlinks"/> does,
+    /// unless it deliberately should not.
     /// </para>
     /// </remarks>
     internal IEnumerable<ISheetListener> GetSheetListeners()
@@ -1324,7 +1324,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             yield return sheet.DefinedNames;
         yield return Workbook.DefinedNamesInternal;
 
-        yield return ConditionalFormats;
+        // One per sheet, as for data validations below: each moves its own rules' ranges when its own
+        // sheet was edited, then re-points every rule's formulas, which may refer to the edited sheet
+        // from another (issue #499, D77).
+        foreach (var sheet in Workbook.WorksheetsInternal)
+            yield return sheet.ConditionalFormats;
 
         // One per sheet, not this sheet's twice: XLDataValidations shifts its own sqref coverage and
         // then every sheet's criteria formulas in one call, because the second must follow the first.

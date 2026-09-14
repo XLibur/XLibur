@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
@@ -185,20 +186,96 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         foreach (var key in Values.Keys.ToList())
         {
             var formula = Values[key];
-            var isFormula = formula is not null
-                            && (formula.IsFormula
-                                || (ContentTypes.TryGetValue(key, out var type) && type == XLCFContentType.Formula));
-            if (!isFormula)
+            if (!IsFormulaValue(key, formula))
                 continue;
 
             // The rewrite does not move a reference, so any origin reads the formula the same way.
-            if (!rewrite.TryRewrite(formula!.Value, formulaSheetName, new Point(1, 1), out var rewritten)
+            if (!rewrite.TryRewrite(formula.Value, formulaSheetName, new Point(1, 1), out var rewritten)
                 || rewritten == formula.Value)
                 continue;
 
             Values[key] = new XLFormula { _value = rewritten, IsFormula = formula.IsFormula };
         }
     }
+
+    /// <summary>
+    /// Re-points the references in each formula of the format for a row or column insert or delete,
+    /// through spec 25's shifter, as a cell formula's are (issue #499, D77). The formulas are the ones
+    /// <see cref="RewriteSheet"/> rewrites.
+    /// </summary>
+    /// <remarks>
+    /// A formula is written relative to the format's range, so a relative reference names the cell a
+    /// cell formula in the range's first cell would: <c>A1&gt;0</c> on <c>E1</c> names <c>A1</c>. The
+    /// shifter moves the reference with the cell it names, which keeps it relative when the range moves
+    /// as well: a row inserted above row 1 gives <c>A2&gt;0</c> on <c>E2</c>.
+    /// </remarks>
+    internal void ShiftFormulas<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        foreach (var key in Values.Keys.ToList())
+        {
+            var formula = Values[key];
+            if (!IsFormulaValue(key, formula)
+                || !TryShiftFormula<TAxis>(formula.Value, _worksheet, in edit, out var shifted))
+                continue;
+
+            Values[key] = new XLFormula { _value = shifted, IsFormula = formula.IsFormula };
+        }
+    }
+
+    /// <summary>
+    /// Re-points the references in one formula of a conditional format on
+    /// <paramref name="formulaSheet"/> for <paramref name="edit"/>, through spec 25's shifter. Used
+    /// for a modelled format's formulas and for the text of an <c>x14</c> rule kept as it was loaded.
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> when the formula keeps its text: the edit reaches nothing it refers to, or the
+    /// parser refuses it. A refused formula is skipped before it reaches the shifter, whose regex
+    /// fallback would otherwise guess at it (ADR 0002), as <c>XLDefinedNames</c> skips one.
+    /// </returns>
+    internal static bool TryShiftFormula<TAxis>(string text, XLWorksheet formulaSheet, in SheetEdit edit,
+        out string shifted)
+        where TAxis : struct, IGridAxis
+    {
+        shifted = text;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        // An edit on another sheet reaches only a reference that names that sheet, and a formula names
+        // a sheet only by writing its name, so text without the name costs no parse. On most edits that
+        // is every rule of every other sheet.
+        if (edit.Sheet != formulaSheet && !MentionsSheet(text, edit.Sheet.Name))
+            return false;
+
+        // A formula that refers to no cell has nothing to move. Constants are common here: a
+        // cell-value rule's operand, a top-N rule's rank.
+        if (!FormulaReferences.TryForFormula(text, out var references, out _)
+            || (references.References.Count == 0 && references.SheetReferences.Count == 0))
+            return false;
+
+        var result = default(TAxis).ShiftFormula(text, formulaSheet, edit.Range, edit.Shift);
+        if (result == text)
+            return false;
+
+        shifted = result;
+        return true;
+    }
+
+    /// <summary>
+    /// Is the value at <paramref name="key"/> a formula? An expression's is, and so is a scale's value
+    /// point whose type is <see cref="XLCFContentType.Formula"/>. Such a value keeps no <c>=</c>, so it
+    /// is a formula by its type rather than by <see cref="XLFormula.IsFormula"/>.
+    /// </summary>
+    private bool IsFormulaValue(int key, [NotNullWhen(true)] XLFormula? formula)
+        => formula is not null
+           && (formula.IsFormula
+               || (ContentTypes.TryGetValue(key, out var type) && type == XLCFContentType.Formula));
+
+    /// <summary>Does <paramref name="text"/> write <paramref name="sheetName"/>, quoted or not?</summary>
+    private static bool MentionsSheet(string text, string sheetName)
+        => text.Contains(sheetName, StringComparison.OrdinalIgnoreCase)
+           || (sheetName.Contains('\'')
+               && text.Contains(sheetName.Replace("'", "''"), StringComparison.OrdinalIgnoreCase));
 
     private static readonly IEqualityComparer<IXLConditionalFormat> FullComparerInstance =
         new FullEqualityComparer(true);

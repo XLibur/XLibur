@@ -11,9 +11,10 @@ namespace XLibur.Excel;
 /// </para>
 /// <para>
 /// The order listeners run in is part of the contract and is pinned by
-/// <c>SheetListenerOrderTests</c>. A listener that is yielded for every sheet — defined names and
-/// data-validation criteria formulas are workbook-scoped — guards on <c>edit.Sheet</c> only if it
-/// should not act on an edit elsewhere; see <see cref="XLHyperlinks"/> for the guarded idiom and
+/// <c>SheetListenerOrderTests</c>. A listener that is yielded for every sheet — defined names,
+/// conditional-format formulas and data-validation criteria formulas are workbook-scoped — guards on
+/// <c>edit.Sheet</c> only if it should not act on an edit elsewhere; see
+/// <see cref="XLHyperlinks"/> for the guarded idiom and
 /// <c>XLDefinedNames</c> for the deliberately unguarded one.
 /// </para>
 /// </remarks>

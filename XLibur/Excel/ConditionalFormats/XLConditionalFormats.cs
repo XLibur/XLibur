@@ -116,22 +116,40 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     #region ISheetListener
 
     /// <summary>
-    /// Moves every rule's coverage over the edit, and removes a rule whose coverage transforms to
-    /// nothing.
+    /// Moves every rule's coverage over the edit, removes a rule whose coverage transforms to
+    /// nothing, and then re-points the references in every rule's formulas.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Coverage is the value-typed <see cref="XLAreaList"/>, not live repository ranges, so the
     /// transform is pure and can never alias or double-shift across overlapping coverage
     /// (ClosedXML issue #2850). Mirrors <see cref="XLDataValidations"/>, which shifts its sqref
     /// coverage the same way.
+    /// </para>
+    /// <para>
+    /// The two passes are one listener, in this order, for the reason they are in
+    /// <see cref="XLDataValidations"/>: the coverage pass removes a rule, and the formula pass must
+    /// not then shift a rule that is gone. Their scopes differ. Coverage moves only for an edit on
+    /// this sheet; formulas for an edit on any sheet, because a rule here may refer to another
+    /// (<c>Data!$A$2&gt;0</c>). So every sheet's collection is a listener
+    /// (<see cref="XLWorksheet.GetSheetListeners"/>), and the formula shifter does the filtering
+    /// (issue #499, D77).
+    /// </para>
     /// </remarks>
-    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => ShiftCoverage<RowAxis>(in edit);
+    void ISheetListener.OnInsertAreaAndShiftDown(in SheetEdit edit) => Shift<RowAxis>(in edit);
 
-    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => ShiftCoverage<ColumnAxis>(in edit);
+    void ISheetListener.OnInsertAreaAndShiftRight(in SheetEdit edit) => Shift<ColumnAxis>(in edit);
 
-    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => ShiftCoverage<RowAxis>(in edit);
+    void ISheetListener.OnDeleteAreaAndShiftUp(in SheetEdit edit) => Shift<RowAxis>(in edit);
 
-    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => ShiftCoverage<ColumnAxis>(in edit);
+    void ISheetListener.OnDeleteAreaAndShiftLeft(in SheetEdit edit) => Shift<ColumnAxis>(in edit);
+
+    private void Shift<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        ShiftCoverage<TAxis>(in edit);
+        ShiftFormulas<TAxis>(in edit);
+    }
 
     private void ShiftCoverage<TAxis>(in SheetEdit edit)
         where TAxis : struct, IGridAxis
@@ -166,6 +184,30 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
             _extensionRuleAreas[ruleId] = edit.Shift > 0
                 ? axis.InsertAndShift(areas, affected)
                 : axis.DeleteAndShift(areas, affected);
+        }
+    }
+
+    /// <summary>
+    /// Re-points the references in the formulas of every rule on this sheet, modelled or kept as it
+    /// was loaded, for an edit on any sheet (issue #499, D77).
+    /// </summary>
+    private void ShiftFormulas<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        foreach (var cf in _conditionalFormats.OfType<XLConditionalFormat>())
+            cf.ShiftFormulas<TAxis>(in edit);
+
+        foreach (var (ruleId, formulas) in _extensionRuleFormulas)
+        {
+            // A kept rule whose range an edit removed is not written back, so its text is left alone.
+            if (_extensionRuleAreas.TryGetValue(ruleId, out var areas) && areas.Count == 0)
+                continue;
+
+            for (var i = 0; i < formulas.Length; i++)
+            {
+                if (XLConditionalFormat.TryShiftFormula<TAxis>(formulas[i], _worksheet, in edit, out var shifted))
+                    formulas[i] = shifted;
+            }
         }
     }
 
