@@ -898,7 +898,9 @@ above. Nothing in this section has shipped yet.
 
 ### 🐛 Bug Fixes
 
-- **A formula in, or depending on, a circular reference inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions, and a cell whose formula depended on its own value threw out of `Generate()`. It is now recorded once in `ParsingErrors`, at its cell, and generation carries on. The cell keeps its formula. Any other failure of a formula in a bound range still throws.
+- **A formula in, or depending on, a circular reference inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions, and a cell whose formula depended on its own value threw out of `Generate()`. It is now recorded once in `ParsingErrors`, at its cell, and generation carries on. The cell keeps its formula. A formula that fails because of a bug in XLibur still throws.
+
+- **A formula XLibur does not evaluate, or cannot parse, inside a bound range is now a template error, instead of aborting generation.** Generation reads every cell of a bound range to find its tags and expressions. A cell whose formula used a feature XLibur does not evaluate, such as the DDE formula `Sdemo123|tik!'id1?req?AAPL'`, threw `NotImplementedException` out of `Generate()`, and a formula the parser cannot read, such as `1+`, threw `ExpressionParseException`. The same cell outside a bound range is never evaluated, so there the report generated. Both are now treated as a circular reference is: recorded once in `ParsingErrors`, at the cell, and generation carries on. The cell keeps its formula. A formula that depends on such a cell is reported the same way. A formula that fails because of a bug in XLibur still throws. ([#488](https://github.com/XLibur/XLibur/issues/488))
 
 ### 🔧 Dependencies
 
