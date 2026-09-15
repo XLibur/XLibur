@@ -5,6 +5,7 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ClosedXML.Parser;
 using JetBrains.Profiler.SelfApi;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
@@ -43,6 +44,7 @@ public static class FirstEditProfile
         BuildTree(warmup);
         ParseAll(warmup);
         ConvertAll(warmup, out _);
+        WalkAll(warmup);
 
         Console.WriteLine();
         Console.WriteLine("| Probe | Allocated | per formula | Kept alive | per formula | ms |");
@@ -52,6 +54,7 @@ public static class FirstEditProfile
         Report("DependencyTree.CreateFrom alone", formulas, BuildTree(package));
         Report("Parse every formula alone", formulas, ParseAll(package));
         Report("Convert every formula to R1C1 alone", formulas, ConvertAll(package, out var distinctR1C1));
+        Report("Walk every formula, building no AST", formulas, WalkAll(package));
         Console.WriteLine();
         Console.WriteLine($"Distinct R1C1 texts: {distinctR1C1:N0} of {formulas:N0} formulas.");
         Console.WriteLine("Bytes are exact. Times are single-shot — use BenchmarkDotNet for time claims.");
@@ -166,6 +169,76 @@ public static class FirstEditProfile
         var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocBefore;
         distinct = new HashSet<string>(converted, StringComparer.Ordinal).Count;
         return new Probe(allocated, 0, watch.Elapsed.TotalMilliseconds);
+    }
+
+    /// <summary>
+    /// The floor for extracting precedents while parsing (#513, change 6): the parser walks every
+    /// formula with a factory that builds nothing, so what is left is the work of the tokenizer and
+    /// the parser itself.
+    /// </summary>
+    private static Probe WalkAll(byte[] package)
+    {
+        using var workbook = new XLWorkbook(new MemoryStream(package, writable: false));
+        var texts = new List<string>();
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+            while (enumerator.MoveNext())
+                texts.Add(enumerator.Current.A1);
+        }
+
+        ForceGC();
+        var allocBefore = GC.GetTotalAllocatedBytes(precise: true);
+        var watch = Stopwatch.StartNew();
+        foreach (var text in texts)
+            FormulaText.TryWalk(text, text, NoAstFactory.Instance, FormulaNotation.A1, out _, out _);
+        watch.Stop();
+        var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocBefore;
+        return new Probe(allocated, 0, watch.Elapsed.TotalMilliseconds);
+    }
+
+    /// <summary>
+    /// A factory that builds nothing: every node is <c>0</c>.
+    /// </summary>
+    private sealed class NoAstFactory : IAstFactory<int, int, string>
+    {
+        public static readonly NoAstFactory Instance = new();
+
+        public int LogicalValue(string context, SymbolRange range, bool value) => 0;
+        public int NumberValue(string context, SymbolRange range, double value) => 0;
+        public int TextValue(string context, SymbolRange range, string text) => 0;
+        public int ErrorValue(string context, SymbolRange range, ReadOnlySpan<char> error) => 0;
+        public int ArrayNode(string context, SymbolRange range, int rows, int columns, IReadOnlyList<int> elements) => 0;
+        public int BlankNode(string context, SymbolRange range) => 0;
+        public int LogicalNode(string context, SymbolRange range, bool value) => 0;
+        public int ErrorNode(string context, SymbolRange range, ReadOnlySpan<char> error) => 0;
+        public int SheetErrorNode(string context, SymbolRange range, int? workbookIndex, string sheet, ReadOnlySpan<char> error) => 0;
+        public int NumberNode(string context, SymbolRange range, double value) => 0;
+        public int TextNode(string context, SymbolRange range, string text) => 0;
+        public int Reference(string context, SymbolRange range, ReferenceArea reference) => 0;
+        public int SheetReference(string context, SymbolRange range, string sheet, ReferenceArea reference) => 0;
+        public int BangReference(string context, SymbolRange range, ReferenceArea reference) => 0;
+        public int Reference3D(string context, SymbolRange range, string firstSheet, string lastSheet, ReferenceArea reference) => 0;
+        public int ExternalSheetReference(string context, SymbolRange range, int workbookIndex, string sheet, ReferenceArea reference) => 0;
+        public int ExternalReference3D(string context, SymbolRange range, int workbookIndex, string firstSheet, string lastSheet, ReferenceArea reference) => 0;
+        public int Function(string context, SymbolRange range, ReadOnlySpan<char> functionName, IReadOnlyList<int> arguments) => 0;
+        public int Function(string context, SymbolRange range, string sheetName, ReadOnlySpan<char> functionName, IReadOnlyList<int> args) => 0;
+        public int ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheetName, ReadOnlySpan<char> functionName, IReadOnlyList<int> arguments) => 0;
+        public int ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> functionName, IReadOnlyList<int> arguments) => 0;
+        public int CellFunction(string context, SymbolRange range, RowCol cell, IReadOnlyList<int> arguments) => 0;
+        public int StructureReference(string context, SymbolRange range, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;
+        public int StructureReference(string context, SymbolRange range, string table, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;
+        public int ExternalStructureReference(string context, SymbolRange range, int workbookIndex, string table, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;
+        public int Name(string context, SymbolRange range, string name) => 0;
+        public int SheetName(string context, SymbolRange range, string sheet, string name) => 0;
+        public int BangName(string context, SymbolRange range, string name) => 0;
+        public int ExternalName(string context, SymbolRange range, int workbookIndex, string name) => 0;
+        public int ExternalSheetName(string context, SymbolRange range, int workbookIndex, string sheet, string name) => 0;
+        public int ExternalDynamicDataExchange(string context, SymbolRange range, int workbookIndex, string item) => 0;
+        public int DynamicDataExchange(string context, SymbolRange range, string application, string topic, string item) => 0;
+        public int BinaryNode(string context, SymbolRange range, BinaryOperation operation, int leftNode, int rightNode) => 0;
+        public int Unary(string context, SymbolRange range, UnaryOperation operation, int node) => 0;
+        public int Nested(string context, SymbolRange range, int node) => 0;
     }
 
     private static void SampleTreeBuild(byte[] package)

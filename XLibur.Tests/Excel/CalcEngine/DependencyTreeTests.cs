@@ -620,6 +620,135 @@ internal class DependencyTreeTests
 
     #endregion Shared formulas
 
+    #region Precedents factory
+
+    /// <summary>
+    /// #513, change 6. <see cref="PrecedentsFactory"/> collects the precedents while the parser reads a
+    /// formula, and <see cref="DependenciesVisitor"/> reads the AST of a shared formula. Both must give
+    /// the same precedents, names and unknown flag, and throw the same exception. The factory may ask for
+    /// the AST only where it cannot read the formula in one pass.
+    /// </summary>
+    [Test]
+    [MethodDataSource(nameof(ParityFormulas))]
+    public async Task Precedents_factory_gives_what_the_visitor_gives(string formula)
+    {
+        using var wb = ParityWorkbook();
+        var formulaArea = new SheetArea("Sheet", Area.Parse("D2"));
+
+        FormulaDependencies? visited = null;
+        Exception? visitorError = null;
+        try
+        {
+            visited = CollectThroughAst(wb, formulaArea, formula);
+        }
+        catch (Exception e)
+        {
+            visitorError = e;
+        }
+
+        var walked = new FormulaDependencies();
+        var context = new DependenciesContext(formulaArea, wb, walked);
+        var accepted = false;
+        Exception? factoryError = null;
+        try
+        {
+            accepted = new PrecedentsFactory().TryCollect(formula, context);
+        }
+        catch (Exception e)
+        {
+            factoryError = e;
+        }
+
+        await Assert.That(factoryError?.GetType()).IsEqualTo(visitorError?.GetType());
+        if (visitorError is not null)
+            return;
+
+        // The tree clears what a refused walk added, so the formula has no precedents but unknown ones.
+        var viaTree = new DependencyTree().GetPrecedents(formulaArea, XLCellFormula.NormalA1(formula), wb);
+        await Assert.That(viaTree.Areas).IsEquivalentTo(visited!.Areas);
+        await Assert.That(viaTree.Names).IsEquivalentTo(visited.Names);
+        await Assert.That(viaTree.HasUnknownPrecedents).IsEqualTo(visited.HasUnknownPrecedents);
+
+        if (!accepted)
+        {
+            await Assert.That(visited.HasUnknownPrecedents).IsTrue();
+            await Assert.That(visited.Areas).IsEmpty();
+            return;
+        }
+
+        if (context.NeedsAst)
+        {
+            await Assert.That(FormulasThatNeedTheAst).Contains(formula);
+            return;
+        }
+
+        await Assert.That(walked.Areas).IsEquivalentTo(visited.Areas);
+        await Assert.That(walked.Names).IsEquivalentTo(visited.Names);
+        await Assert.That(walked.HasUnknownPrecedents).IsEqualTo(visited.HasUnknownPrecedents);
+    }
+
+    /// <summary>
+    /// A function from another cell that is not a function, and a defined name that the parser refuses.
+    /// The visitor does not read their arguments, and the factory has read them already.
+    /// </summary>
+    private static readonly string[] FormulasThatNeedTheAst = ["A1(B1+C1)", "Bad", "Bad+1"];
+
+    public static IEnumerable<object[]> ParityFormulas()
+    {
+        string[] formulas =
+        [
+            "A1", "$A$1:B2", "A:A", "1:1", "Other!A1", "'Other'!B2:C3", "Sheet3!A1",
+            "A1+B1*C1", "-A1", "A1%", "@A1:A3", "A1#", "(A1,B2)", "A1:C3 B2:D4", "A1:C3 E5:F6",
+            "A1:Other!B2", "B3:name", "name+D2", "Loop", "Other!local", "local", "[0]!name",
+            "SUM(A1:A3,B1)", "IF(A1,B1,C1)", "IF(A1,B1)", "IF(A1,B1:B3,5)", "IF(A1,B1,C1):D5",
+            "CHOOSE(A1,B1,C1:C2,3)", "INDEX(A1:C3,B1,C1)", "INDEX(A1:C3,B1):D4", "INDIRECT(A1)",
+            "OFFSET(A1,1,1)", "_xlfn.XLOOKUP(A1,B1:B5,C1:C5)", "FOO(A1)", "LOG10(A1)", "A1(B1+C1)",
+            "{1,2;3,4}", "#N/A", "Other!#REF!", "\"text\"", "TRUE",
+            "Sheet:Other!A1", "[1]Sheet1!A1", "TableName[Second]", "SUM(TableName[[#All],[Second]])",
+            "1+", "'[Book2.xlsx]Sheet1'!A1", "Bad", "Bad+1", "ABS()", "ABS(1,2)",
+        ];
+
+        foreach (var formula in formulas)
+            yield return [formula];
+    }
+
+    private static XLWorkbook ParityWorkbook()
+    {
+        var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet");
+        var other = wb.AddWorksheet("Other");
+        AddTable(wb);
+        wb.DefinedNames.Add("name", "Sheet!$B$4");
+        wb.DefinedNames.Add("Loop", "Loop+1");
+        // Kept as a load keeps it: the public Add refuses text that the parser refuses.
+        wb.DefinedNamesInternal.Add("Bad", "'[Book2.xlsx]Sheet1'!A1", null, validateName: true,
+            validateRangeAddress: false);
+        other.DefinedNames.Add("local", "Other!$C$3");
+        return wb;
+    }
+
+    /// <summary>
+    /// The precedents as the tree found them before #513 change 6: parse the text into an AST, and visit it.
+    /// </summary>
+    private static FormulaDependencies CollectThroughAst(XLWorkbook wb, SheetArea formulaArea, string formula)
+    {
+        var dependencies = new FormulaDependencies();
+        if (!wb.CalcEngine.TryParse(formula, out var ast))
+        {
+            dependencies.MarkPrecedentsUnknown();
+            return dependencies;
+        }
+
+        var context = new DependenciesContext(formulaArea, wb, dependencies);
+        var root = ast.AstRoot.Accept(context, new DependenciesVisitor());
+        if (root.IsReference)
+            context.AddAreas(root);
+
+        return dependencies;
+    }
+
+    #endregion Precedents factory
+
     #endregion
 
     #region Rename sheet

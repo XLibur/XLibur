@@ -67,6 +67,49 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
     internal FormulaDependencies Dependencies { get; private set; }
 
     /// <summary>
+    /// The text that <see cref="PrecedentsFactory"/> reads: the cell formula, or the formula of a
+    /// defined name inside it. A function from another cell reads its name from this text.
+    /// </summary>
+    internal string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Set by <see cref="PrecedentsFactory"/> when it cannot give the precedents that
+    /// <see cref="DependenciesVisitor"/> gives, so the tree reads the formula through its AST.
+    /// </summary>
+    internal bool NeedsAst { get; set; }
+
+    /// <summary>
+    /// The areas of the reference nodes of the walk, which <see cref="PrecedentsFactory"/> refers to by
+    /// their index. The list is kept for the next formula, so a walk allocates no node.
+    /// </summary>
+    private readonly List<ReferenceAreas> _nodes = [];
+
+    /// <summary>
+    /// Start the walk of a cell formula.
+    /// </summary>
+    internal void BeginWalk(string text)
+    {
+        Text = text;
+        NeedsAst = false;
+        _nodes.Clear();
+    }
+
+    /// <summary>
+    /// Keep the areas of a reference node, and give its handle.
+    /// </summary>
+    internal int PushNode(ReferenceAreas areas)
+    {
+        _nodes.Add(areas);
+        return _nodes.Count - 1;
+    }
+
+    /// <summary>
+    /// The areas of the node with the handle, or <see cref="ReferenceAreas.None"/> for
+    /// <see cref="PrecedentsFactory.None"/>.
+    /// </summary>
+    internal ReferenceAreas GetNode(int node) => node < 0 ? ReferenceAreas.None : _nodes[node];
+
+    /// <summary>
     /// Add areas to a list of areas the formula depends on. Disregards duplicate entries.
     /// </summary>
     internal void AddAreas(in ReferenceAreas sheetAreas) => Dependencies.AddAreas(sheetAreas);

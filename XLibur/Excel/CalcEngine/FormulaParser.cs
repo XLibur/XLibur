@@ -57,6 +57,72 @@ internal sealed class FormulaParser
     }
 
     /// <summary>
+    /// Look up a function as the parser does for a function node. A name with the future-function
+    /// prefix that is not found is looked up again without it, and the number of arguments is checked.
+    /// <see cref="PrecedentsFactory"/> uses it too, so both factories refuse the same formulas.
+    /// </summary>
+    /// <param name="registry">The functions.</param>
+    /// <param name="functionName">The name as written. It becomes the name without the prefix when the prefix was removed.</param>
+    /// <param name="argumentCount">The number of arguments in the formula.</param>
+    /// <returns><c>false</c> when there is no such function. It evaluates to <c>#NAME?</c>.</returns>
+    /// <exception cref="ExpressionParseException">The function takes a different number of arguments.</exception>
+    internal static bool ResolveFunction(FunctionRegistry registry, ref string functionName, int argumentCount)
+    {
+        var foundFunction = registry.TryGetFunc(functionName, out var minParams, out var maxParams);
+
+        // Functions are registered without the future-function prefix, so a prefixed name is looked
+        // up again without it, whatever case the prefix is written in.
+        if (!foundFunction && FormulaText.TryStripFuturePrefix(functionName, out var bareName))
+        {
+            functionName = bareName.ToString();
+            foundFunction = registry.TryGetFunc(functionName, out minParams, out maxParams);
+        }
+
+        if (!foundFunction)
+            return false;
+
+        if (minParams != -1 && argumentCount < minParams)
+            throw new ExpressionParseException(
+                $"Too few parameters for function '{functionName}'. Expected a minimum of {minParams} and a maximum of {maxParams}.");
+
+        if (maxParams != -1 && argumentCount > maxParams)
+            throw new ExpressionParseException(
+                $"Too many parameters for function '{functionName}'.Expected a minimum of {minParams} and a maximum of {maxParams}.");
+
+        return true;
+    }
+
+    internal static BinaryOp ToBinaryOp(BinaryOperation operation) => operation switch
+    {
+        BinaryOperation.Concat => BinaryOp.Concat,
+        BinaryOperation.GreaterOrEqualThan => BinaryOp.Gte,
+        BinaryOperation.LessOrEqualThan => BinaryOp.Lte,
+        BinaryOperation.LessThan => BinaryOp.Lt,
+        BinaryOperation.GreaterThan => BinaryOp.Gt,
+        BinaryOperation.NotEqual => BinaryOp.Neq,
+        BinaryOperation.Equal => BinaryOp.Eq,
+        BinaryOperation.Addition => BinaryOp.Add,
+        BinaryOperation.Subtraction => BinaryOp.Sub,
+        BinaryOperation.Multiplication => BinaryOp.Mult,
+        BinaryOperation.Division => BinaryOp.Div,
+        BinaryOperation.Power => BinaryOp.Exp,
+        BinaryOperation.Union => BinaryOp.Union,
+        BinaryOperation.Intersection => BinaryOp.Intersection,
+        BinaryOperation.Range => BinaryOp.Range,
+        _ => throw new NotSupportedException($"'{operation}' is not a binary operation.")
+    };
+
+    internal static UnaryOp ToUnaryOp(UnaryOperation operation) => operation switch
+    {
+        UnaryOperation.Plus => UnaryOp.Add,
+        UnaryOperation.Minus => UnaryOp.Subtract,
+        UnaryOperation.Percent => UnaryOp.Percentage,
+        UnaryOperation.ImplicitIntersection => UnaryOp.ImplicitIntersection,
+        UnaryOperation.SpillRange => UnaryOp.SpillRange,
+        _ => throw new NotSupportedException($"'{operation}' is not a unary operation.")
+    };
+
+    /// <summary>
     /// Factory to create an abstract syntax tree for a formula in A1 notation.
     /// </summary>
     private sealed class AstFactory : IAstFactory<ScalarValue, ValueNode, string>
@@ -268,41 +334,12 @@ internal sealed class FormulaParser
         public ValueNode BinaryNode(string context, SymbolRange range, BinaryOperation operation, ValueNode leftNode,
             ValueNode rightNode)
         {
-            var op = operation switch
-            {
-                BinaryOperation.Concat => BinaryOp.Concat,
-                BinaryOperation.GreaterOrEqualThan => BinaryOp.Gte,
-                BinaryOperation.LessOrEqualThan => BinaryOp.Lte,
-                BinaryOperation.LessThan => BinaryOp.Lt,
-                BinaryOperation.GreaterThan => BinaryOp.Gt,
-                BinaryOperation.NotEqual => BinaryOp.Neq,
-                BinaryOperation.Equal => BinaryOp.Eq,
-                BinaryOperation.Addition => BinaryOp.Add,
-                BinaryOperation.Subtraction => BinaryOp.Sub,
-                BinaryOperation.Multiplication => BinaryOp.Mult,
-                BinaryOperation.Division => BinaryOp.Div,
-                BinaryOperation.Power => BinaryOp.Exp,
-                BinaryOperation.Union => BinaryOp.Union,
-                BinaryOperation.Intersection => BinaryOp.Intersection,
-                BinaryOperation.Range => BinaryOp.Range,
-                _ => throw new NotSupportedException($"'{operation}' is not a binary operation.")
-            };
-
-            return new BinaryNode(op, leftNode, rightNode);
+            return new BinaryNode(ToBinaryOp(operation), leftNode, rightNode);
         }
 
         public ValueNode Unary(string context, SymbolRange range, UnaryOperation operation, ValueNode node)
         {
-            var op = operation switch
-            {
-                UnaryOperation.Plus => UnaryOp.Add,
-                UnaryOperation.Minus => UnaryOp.Subtract,
-                UnaryOperation.Percent => UnaryOp.Percentage,
-                UnaryOperation.ImplicitIntersection => UnaryOp.ImplicitIntersection,
-                UnaryOperation.SpillRange => UnaryOp.SpillRange,
-                _ => throw new NotSupportedException($"'{operation}' is not a unary operation.")
-            };
-            return new UnaryNode(op, node);
+            return new UnaryNode(ToUnaryOp(operation), node);
         }
 
         public ValueNode Nested(string context, SymbolRange range, ValueNode node)
@@ -313,29 +350,10 @@ internal sealed class FormulaParser
         private FunctionNode GetFunctionNode(PrefixNode? prefixNode, string functionName,
             IReadOnlyList<ValueNode> argumentNodes)
         {
-            var foundFunction = _functionRegistry.TryGetFunc(functionName, out var minParams, out var maxParams);
-
-            // Functions are registered without the future-function prefix, so a prefixed name is looked
-            // up again without it, whatever case the prefix is written in.
-            if (!foundFunction && FormulaText.TryStripFuturePrefix(functionName, out var bareName))
-            {
-                functionName = bareName.ToString();
-                foundFunction = _functionRegistry.TryGetFunc(functionName, out minParams, out maxParams);
-            }
-
             // Even if we haven't found anything, don't crash. Missing function will be evaluated to `#NAME?`
-            if (!foundFunction)
-                return new FunctionNode(functionName, argumentNodes);
-
-            if (minParams != -1 && argumentNodes.Count < minParams)
-                throw new ExpressionParseException(
-                    $"Too few parameters for function '{functionName}'. Expected a minimum of {minParams} and a maximum of {maxParams}.");
-
-            if (maxParams != -1 && argumentNodes.Count > maxParams)
-                throw new ExpressionParseException(
-                    $"Too many parameters for function '{functionName}'.Expected a minimum of {minParams} and a maximum of {maxParams}.");
-
-            return new FunctionNode(prefixNode, functionName, argumentNodes);
+            return ResolveFunction(_functionRegistry, ref functionName, argumentNodes.Count)
+                ? new FunctionNode(prefixNode, functionName, argumentNodes)
+                : new FunctionNode(functionName, argumentNodes);
         }
 
         private static XLError GetErrorValue(ReadOnlySpan<char> error) => XLErrorParser.ParseFormulaError(error);
