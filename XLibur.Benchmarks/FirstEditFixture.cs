@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Xml.Linq;
 using XLibur.Excel;
 
 namespace XLibur.Benchmarks;
@@ -20,7 +23,10 @@ internal static class FirstEditFixture
     /// the wide shape of the 200,000-formula row in #513: seven value columns and eight formulas,
     /// 15 columns in all, as in <c>LoadAndReadAllCells</c>.
     /// </param>
-    public static byte[] Build(int rows, int formulasPerRow)
+    /// <param name="shared">
+    /// Save each formula column as one shared formula, as Excel saves a formula filled down a column.
+    /// </param>
+    public static byte[] Build(int rows, int formulasPerRow, bool shared = false)
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Data");
@@ -44,7 +50,59 @@ internal static class FirstEditFixture
 
         using var buffer = new MemoryStream();
         workbook.SaveAs(buffer);
-        return buffer.ToArray();
+        var package = buffer.ToArray();
+        return shared ? ShareFormulasDownColumns(package, rows) : package;
+    }
+
+    /// <summary>
+    /// Rewrite each formula column of the first sheet as one shared formula. XLibur writes a formula in
+    /// each cell and never writes shared formulas, so without this the loader has no shared formula to
+    /// keep the R1C1 text of (#513).
+    /// </summary>
+    /// <remarks>Every formula column of the fixture starts in row 1 and has the same formula in each row.</remarks>
+    private static byte[] ShareFormulasDownColumns(byte[] package, int rows)
+    {
+        const string sheetPart = "xl/worksheets/sheet1.xml";
+        XNamespace main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+
+        using var stream = new MemoryStream();
+        stream.Write(package);
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = zip.GetEntry(sheetPart) ?? throw new InvalidOperationException($"No {sheetPart} in the package.");
+            XDocument sheet;
+            using (var read = entry.Open())
+                sheet = XDocument.Load(read);
+
+            var groups = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var cell in sheet.Descendants(main + "c"))
+            {
+                var formula = cell.Element(main + "f");
+                if (formula is null)
+                    continue;
+
+                var column = ((string)cell.Attribute("r")!).TrimEnd("0123456789".ToCharArray());
+                formula.SetAttributeValue("t", "shared");
+                if (groups.TryGetValue(column, out var index))
+                {
+                    formula.SetAttributeValue("si", index);
+                    formula.Value = string.Empty;
+                }
+                else
+                {
+                    index = groups.Count;
+                    groups.Add(column, index);
+                    formula.SetAttributeValue("ref", $"{column}1:{column}{rows}");
+                    formula.SetAttributeValue("si", index);
+                }
+            }
+
+            entry.Delete();
+            using var write = zip.CreateEntry(sheetPart).Open();
+            sheet.Save(write);
+        }
+
+        return stream.ToArray();
     }
 
     private static void AddNarrowRow(IXLWorksheet sheet, int row)

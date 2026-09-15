@@ -1055,6 +1055,10 @@ internal static class WorksheetSheetDataReader
                 throw refusal.ToException();
 
             sharedFormulasR1C1.Add(sharedIndex, formulaR1C1);
+
+            // Each cell keeps the R1C1 text of its group, so the dependency tree parses the group once
+            // instead of the A1 text of each cell (#513).
+            formula.SetSharedR1C1(formulaR1C1, cellAddress);
         }
         else
         {
@@ -1063,6 +1067,7 @@ internal static class WorksheetSheetDataReader
                 throw refusal.ToException();
 
             formula = XLCellFormula.NormalA1(sharedFormulaA1);
+            formula.SetSharedR1C1(sharedR1C1Formula, cellAddress);
             formulaSlice.SetDuringLoad(cellAddress, formula);
         }
 

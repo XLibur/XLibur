@@ -79,6 +79,19 @@ internal sealed class XLCellFormula
     private int _maxShiftableColumn;
 
     /// <summary>
+    /// The R1C1 text of the shared formula that the loader read this formula from, or <c>null</c>.
+    /// Every formula of one shared group holds the same string, so the dependency tree can parse the
+    /// group once, not the A1 text of each cell (#513). See <see cref="TryGetSharedR1C1"/>.
+    /// </summary>
+    private string? _sharedR1C1;
+
+    /// <summary>
+    /// The cell that the loader put this formula in. <see cref="_sharedR1C1"/> is the R1C1 text of
+    /// <see cref="A1"/> only at this cell.
+    /// </summary>
+    private Point _sharedR1C1Anchor;
+
+    /// <summary>
     /// Is this formula clean, i.e. is its cached value up to date?
     /// </summary>
     internal bool IsClean() => _isClean;
@@ -552,6 +565,31 @@ internal sealed class XLCellFormula
         return engine.TryParse(A1, out ast);
     }
 
+    /// <summary>
+    /// Keep the R1C1 text of the shared formula that the loader read this formula from.
+    /// </summary>
+    /// <param name="r1c1">The R1C1 text of the group. All cells of the group get the same string.</param>
+    /// <param name="anchor">The cell that the loader put this formula in.</param>
+    internal void SetSharedR1C1(string r1c1, Point anchor)
+    {
+        _sharedR1C1 = r1c1;
+        _sharedR1C1Anchor = anchor;
+    }
+
+    /// <summary>
+    /// Get the R1C1 text of this formula in the cell at <paramref name="point"/>, if the loader kept it.
+    /// </summary>
+    /// <remarks>
+    /// R1C1 text depends on the A1 text and on the cell. The kept text is dropped when <see cref="A1"/>
+    /// changes, and it is given only for the cell that the loader used. A row inserted above moves the
+    /// formula <c>A1</c> down one row: its A1 text stays the same, but its R1C1 text changes.
+    /// </remarks>
+    internal bool TryGetSharedR1C1(Point point, [NotNullWhen(true)] out string? r1c1)
+    {
+        r1c1 = _sharedR1C1;
+        return r1c1 is not null && _sharedR1C1Anchor == point;
+    }
+
     public override string ToString()
     {
         return A1;
@@ -604,13 +642,15 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
-    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/>. Must be
-    /// called from every place that assigns <see cref="A1"/> after construction.
+    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/> and the R1C1
+    /// text that the loader kept (see <see cref="TryGetSharedR1C1"/>). Must be called from every place
+    /// that assigns <see cref="A1"/> after construction.
     /// </summary>
     private void InvalidateExtent()
     {
         _maxShiftableRow = 0;
         _maxShiftableColumn = 0;
+        _sharedR1C1 = null;
     }
 
     /// <summary>

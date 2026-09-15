@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
@@ -27,9 +28,10 @@ public class FirstEditAfterLoadBenchmarks
 {
     /// <summary>
     /// Rows × formulas per row. The two narrow shapes are the ones #504 measured. The wide shape is
-    /// the 200,000-formula row of #513 (see <see cref="FirstEditFixture"/>).
+    /// the 200,000-formula row of #513, and <c>shared</c> saves each of its formula columns as one
+    /// shared formula, as Excel does (see <see cref="FirstEditFixture"/>).
     /// </summary>
-    [Params("1000x2", "10000x2", "25000x8")]
+    [Params("1000x2", "10000x2", "25000x8", "25000x8shared")]
     public string Shape { get; set; } = "";
 
     private byte[] _package = null!;
@@ -39,8 +41,10 @@ public class FirstEditAfterLoadBenchmarks
     {
         SixLaborsV1FontBootstrap.Register();
 
-        var parts = Shape.Split('x');
-        _package = FirstEditFixture.Build(int.Parse(parts[0]), int.Parse(parts[1]));
+        const string sharedSuffix = "shared";
+        var shared = Shape.EndsWith(sharedSuffix, StringComparison.Ordinal);
+        var parts = (shared ? Shape[..^sharedSuffix.Length] : Shape).Split('x');
+        _package = FirstEditFixture.Build(int.Parse(parts[0]), int.Parse(parts[1]), shared);
     }
 
     [Benchmark(Baseline = true)]
