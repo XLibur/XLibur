@@ -359,6 +359,53 @@ internal sealed class XLStyle : IXLStyle
     /// </summary>
     internal bool IsCellContainer => _container is XLCell;
 
+    /// <summary>
+    /// Whether a component setter may skip a value equal to the one this style already holds.
+    /// </summary>
+    /// <remarks>
+    /// False only for a selection of cells: a range (a range's rows and columns and a table
+    /// included), <c>IXLCells</c>, and a collection of ranges, rows or columns. A selection's style
+    /// is only its own record. The object is built for the call, or - for a range - held weakly by
+    /// its worksheet and rebuilt after a collection from its parent's style, or the worksheet's,
+    /// rather than its cells'. An equal value there says nothing about the cells, and skipping it
+    /// made a setting depend on when the collector ran (#505).
+    /// <para>
+    /// True for everything that holds a style of its own for as long as it lives: a cell, a
+    /// worksheet, a row or a column, a conditional format's or a pivot area's differential style,
+    /// and a style not yet applied to anything. An equal value is skipped there. That spares a
+    /// worksheet a walk of every row, column and cell - <see cref="XLWorksheet"/> takes the slow
+    /// path, at ~300 bytes a cell - and spares a pivot area a format whose differential style changes
+    /// nothing. A worksheet's, row's or column's style is not a record of every cell, though: a cell
+    /// styled directly since keeps its own value when the worksheet, row or column is set to the
+    /// value it already holds, as it always has.
+    /// </para>
+    /// <para>
+    /// The worksheet, row and column are named before the selection test because each derives
+    /// from <see cref="XLRangeBase"/>, and the test alone would take them for selections.
+    /// </para>
+    /// </remarks>
+    internal bool SkipsUnchangedValues =>
+        _container is XLCell or XLWorksheet or Rows.XLRow or XLColumn
+        || _container is not (XLRangeBase or XLCells or XLRanges or Rows.XLRows or XLColumns
+            or XLRangeRows or XLRangeColumns or XLTableRows);
+
+    /// <summary>
+    /// Whether this style is everything its container styles, so that a decision taken from the
+    /// key is a decision about the thing styled.
+    /// </summary>
+    /// <remarks>
+    /// True for a cell, and for a container with no cells under it: a style not yet applied to
+    /// anything, and a conditional format's or a pivot area's differential style. There a setter
+    /// may decide from the key - hold a border colour back for an edge with no style, or refuse an
+    /// indent the alignment cannot take - as a cell always has. A worksheet, row or column styles
+    /// cells that need not share its style, and a selection's key is only its own record (see
+    /// <see cref="SkipsUnchangedValues"/>), so for those the decision is taken for each cell, inside
+    /// the modification.
+    /// </remarks>
+    internal bool IsWholeStyle =>
+        _container is null or XLCell or XLStylizedEmpty
+            or ConditionalFormats.XLConditionalFormat or XLPivotStyleFormatBase;
+
     #region Cached sub-wrappers
 
     private XLFont? _cachedFont;

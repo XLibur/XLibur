@@ -59,12 +59,38 @@ internal sealed class XLBorder : IXLBorder
     /// assigned to an edge that already has a style needs none of this and is written through at
     /// once, as before.
     /// <para>
-    /// Meaningful only while the corresponding edge has no style - <see cref="ApplyEdgeStyle"/>
-    /// clears it once it has been read, whether or not the new style made it applicable - and only
-    /// against the ground truth it was recorded against: <see cref="SyncValue"/> clears every
-    /// pending colour whenever the interned border changes for a reason other than this facade's
-    /// own writes, so a stale colour can never be applied to a style the caller does not know it
-    /// still holds.
+    /// Where the key is everything styled, meaningful only while the corresponding edge has no
+    /// style. <see cref="ApplyEdgeStyle"/> clears it once it has been read, whether or not the new
+    /// style made it applicable, and it counts only against the ground truth it was recorded
+    /// against: <see cref="SyncValue"/> clears every pending colour whenever the interned border
+    /// changes for a reason other than this facade's own writes, so a stale colour can never be
+    /// applied to a style the caller does not know it still holds.
+    /// </para>
+    /// <para>
+    /// "This edge has no style" describes the thing styled only where the key is everything
+    /// styled: a cell, or a style with no cells under it - see <see cref="XLStyle.IsWholeStyle"/>.
+    /// For a range, <c>IXLCells</c>, a worksheet, a row or a column the key is only the container's
+    /// own record of its style, which its cells need not share. A range is held weakly by its
+    /// worksheet, and one rebuilt after a collection starts from its parent's style rather than its
+    /// cells', so it can see an edge as unstyled that its cells have styled - which is how
+    /// <see cref="OutsideBorderColor"/>, working through <c>LastColumn()</c> and the like, once lost
+    /// its colour at random (#505) - or as styled where a cell has none. So there the colour is
+    /// written through at once, for each cell whose edge has a style, and held here whatever the
+    /// record says, for the style this facade may be given next. <see cref="ApplyEdgeStyle"/> then
+    /// writes that style and the colour to each cell in the same write, so a cell whose edge had no
+    /// style takes both together instead of having the colour normalized away first. An unchanged
+    /// style, or an unchanged colour on an edge that has one, is skipped wherever
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows, and written through anywhere else.
+    /// </para>
+    /// <para>
+    /// The pending colour lives only on this facade, and so only on the style object it was set
+    /// through. A range is held weakly by its worksheet: two <c>ws.Range(...)</c> calls usually
+    /// return one cached object, but after a collection the second builds a new one, whose facade
+    /// holds no pending colour, and a cell whose edge had no style then takes the next style alone,
+    /// in black. So colour then style should go through one object the caller keeps. Making this
+    /// independent of the collector would mean storing a colour on an unstyled edge in the cell
+    /// itself, which would change the saved output and how styles are shared - out of scope for
+    /// #505.
     /// </para>
     /// <para>
     /// Facade-local, and only for the five single-edge properties: <see cref="OutsideBorder"/>,
@@ -310,7 +336,7 @@ internal sealed class XLBorder : IXLBorder
             return XLColor.FromKey(ref colorKey);
         }
         set => ApplyEdgeColor(value, Key.LeftBorder, Key.LeftBorderColor, ref _pendingLeftBorderColor,
-            static (k, c) => k with { LeftBorderColor = c });
+            static k => k.LeftBorder, static (k, c) => k with { LeftBorderColor = c });
     }
 
     public XLBorderStyleValues RightBorder
@@ -329,7 +355,7 @@ internal sealed class XLBorder : IXLBorder
             return XLColor.FromKey(ref colorKey);
         }
         set => ApplyEdgeColor(value, Key.RightBorder, Key.RightBorderColor, ref _pendingRightBorderColor,
-            static (k, c) => k with { RightBorderColor = c });
+            static k => k.RightBorder, static (k, c) => k with { RightBorderColor = c });
     }
 
     public XLBorderStyleValues TopBorder
@@ -348,7 +374,7 @@ internal sealed class XLBorder : IXLBorder
             return XLColor.FromKey(ref colorKey);
         }
         set => ApplyEdgeColor(value, Key.TopBorder, Key.TopBorderColor, ref _pendingTopBorderColor,
-            static (k, c) => k with { TopBorderColor = c });
+            static k => k.TopBorder, static (k, c) => k with { TopBorderColor = c });
     }
 
     public XLBorderStyleValues BottomBorder
@@ -367,7 +393,7 @@ internal sealed class XLBorder : IXLBorder
             return XLColor.FromKey(ref colorKey);
         }
         set => ApplyEdgeColor(value, Key.BottomBorder, Key.BottomBorderColor, ref _pendingBottomBorderColor,
-            static (k, c) => k with { BottomBorderColor = c });
+            static k => k.BottomBorder, static (k, c) => k with { BottomBorderColor = c });
     }
 
     public XLBorderStyleValues DiagonalBorder
@@ -386,7 +412,7 @@ internal sealed class XLBorder : IXLBorder
             return XLColor.FromKey(ref colorKey);
         }
         set => ApplyEdgeColor(value, Key.DiagonalBorder, Key.DiagonalBorderColor, ref _pendingDiagonalBorderColor,
-            static (k, c) => k with { DiagonalBorderColor = c });
+            static k => k.DiagonalBorder, static (k, c) => k with { DiagonalBorderColor = c });
     }
 
     public bool DiagonalUp
@@ -395,7 +421,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             var key = Key;
-            if (key.DiagonalUp == value) return;
+            if (key.DiagonalUp == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { DiagonalUp = value });
             else
@@ -409,7 +435,7 @@ internal sealed class XLBorder : IXLBorder
         set
         {
             var key = Key;
-            if (key.DiagonalDown == value) return;
+            if (key.DiagonalDown == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { DiagonalDown = value });
             else
@@ -543,7 +569,12 @@ internal sealed class XLBorder : IXLBorder
         Func<XLBorderKey, XLBorderStyleValues, XLBorderKey> withStyle,
         Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
     {
-        if (currentStyle == newStyle) return;
+        // An unchanged style leaves nothing to do wherever XLStyle.SkipsUnchangedValues allows the
+        // skip, and a pending colour stays for the next style, as it always has. A selection's key
+        // is only its own record of its style, which its cells need not share, so there the style
+        // is written whatever the record says - with any pending colour, in the same write, so a
+        // cell whose edge had no style takes both together (#505).
+        if (currentStyle == newStyle && _style.SkipsUnchangedValues) return;
 
         // A colour pending against the old style is either about to become applicable (None to a
         // style) or moot (any style to None, since the edge is about to have nothing to draw
@@ -572,35 +603,74 @@ internal sealed class XLBorder : IXLBorder
     /// Set one edge's colour, or - if the edge currently has no style - record it as pending
     /// instead of writing it through. See <see cref="_pendingLeftBorderColor"/> for why.
     /// </summary>
+    /// <remarks>
+    /// Held back only where the key is everything styled - see <see cref="XLStyle.IsWholeStyle"/>.
+    /// Anywhere else the colour is written through, and held pending, whatever the edge's style
+    /// here, and each cell decides for itself - see the remarks on
+    /// <see cref="_pendingLeftBorderColor"/>. An unchanged colour on an edge that has a style is
+    /// still skipped wherever <see cref="XLStyle.SkipsUnchangedValues"/> allows.
+    /// </remarks>
     /// <param name="value">Colour to give the edge.</param>
-    /// <param name="currentStyle">The edge's style, which decides whether the colour is written
-    /// through or held pending.</param>
+    /// <param name="currentStyle">The edge's style as this facade sees it, which decides whether
+    /// the colour is held pending.</param>
     /// <param name="currentColor">The edge's colour before this call.</param>
     /// <param name="pendingColor">The pending-colour field for this edge specifically.</param>
+    /// <param name="styleOf">Reads a border key's style for this edge, to tell which cells can take
+    /// the colour.</param>
     /// <param name="withColor">Rewrites a border key's colour for this edge.</param>
     private void ApplyEdgeColor(
         XLColor value,
         XLBorderStyleValues currentStyle,
         XLColorKey currentColor,
         ref XLColorKey? pendingColor,
+        Func<XLBorderKey, XLBorderStyleValues> styleOf,
         Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
     {
         if (value == null)
             throw new ArgumentNullException(nameof(value), ColorCannotBeNull);
 
-        if (currentStyle == XLBorderStyleValues.None)
+        var edgeHasNoStyle = currentStyle == XLBorderStyleValues.None;
+
+        if (_style.IsWholeStyle)
         {
-            pendingColor = value.Key;
+            // The key is everything styled, so an edge it gives no style has nothing to draw with:
+            // the colour is held for the style this facade may be given next, and nothing is
+            // written - which also spares a pivot area a format that would change nothing.
+            pendingColor = edgeHasNoStyle ? value.Key : null;
+            if (edgeHasNoStyle || currentColor == value.Key) return;
+
+            if (_style.IsCellContainer)
+                SetKey(withColor(Key, value.Key));
+            else
+                Modify(k => withColor(k, value.Key));
             return;
         }
 
-        pendingColor = null;
-        if (currentColor == value.Key) return;
+        // Which cells have no style on this edge is not something the container's record can say.
+        // So the colour is written through now, to each cell whose edge has a style, and kept
+        // pending for the style this facade may be given next only if something could not take
+        // it: a cell whose edge has no style, seen as the write passes over its key, or the
+        // container's own record, whose unstyled edge is the colour-then-style case the pending
+        // colour exists for. A colour every cell took is not kept, because it would paint over a
+        // colour a cell was given directly in between (#505 review).
+        //
+        // Known limit, accepted: once some cell could not take the colour, the next style paints
+        // it on every cell - including one given its own colour directly in between. Telling the
+        // two apart would need a record of each cell's colour, which the container does not keep.
+        if (!edgeHasNoStyle && currentColor == value.Key && _style.SkipsUnchangedValues)
+        {
+            pendingColor = null;
+            return;
+        }
 
-        if (_style.IsCellContainer)
-            SetKey(withColor(Key, value.Key));
-        else
-            Modify(k => withColor(k, value.Key));
+        var somethingCouldNotTakeIt = edgeHasNoStyle;
+        Modify(k =>
+        {
+            if (styleOf(k) == XLBorderStyleValues.None)
+                somethingCouldNotTakeIt = true;
+            return withColor(k, value.Key);
+        });
+        pendingColor = somethingCouldNotTakeIt ? value.Key : null;
     }
 
     /// <summary>

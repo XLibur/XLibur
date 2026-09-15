@@ -93,6 +93,55 @@ internal class XLPivotTableStyleFormatsTests
         }
     }
 
+    /// <summary>
+    /// A pivot area's style is its own, so a value it already holds is skipped rather than
+    /// written. Writing it would add a format to the pivot table whose differential style changes
+    /// nothing, and a save would write that format out (#505 review).
+    /// </summary>
+    [Test]
+    public async Task Setting_a_value_a_pivot_area_already_holds_adds_no_format()
+    {
+        using var wb = new XLWorkbook();
+        var dataSheet = wb.AddWorksheet();
+        var dataRange = dataSheet.Cell("A1").InsertData(new object[]
+        {
+            ("Name", "Price"),
+            ("Cake", 9),
+            ("Pie", 7),
+        });
+
+        var ptSheet = wb.AddWorksheet();
+        var pt = (XLPivotTable)dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+        pt.RowLabels.Add("Name");
+        pt.Values.Add("Price");
+
+        pt.StyleFormats.RowGrandTotalFormats
+            .ForElement(XLPivotStyleFormatElement.All).Style
+            .Font.SetBold(false);
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
+        // A colour for an edge with no border changes nothing either: it is held for a border
+        // style the area may be given next, not written.
+        pt.StyleFormats.RowGrandTotalFormats
+            .ForElement(XLPivotStyleFormatElement.All).Style
+            .Border.SetLeftBorderColor(XLColor.Red);
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
+        // An indent the area already holds - none - changes nothing either.
+        var area = pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style;
+        area.Alignment.Indent = 0;
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
+        pt.StyleFormats.RowGrandTotalFormats
+            .ForElement(XLPivotStyleFormatElement.All).Style
+            .Font.SetBold(true);
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(1);
+    }
+
     [Test]
     public async Task Add_grand_column_total_styles()
     {

@@ -145,6 +145,14 @@ internal sealed class XLFont : IXLFont
     /// Non-cell path (ranges, worksheets, conditional formats): must apply per-property
     /// delta to each cell's individual font key via a modification function.
     /// </summary>
+    /// <remarks>
+    /// A setter skips a value equal to <see cref="Key"/> only where
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
+    /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
+    /// not share: a range is held weakly by its worksheet, and one rebuilt after a collection starts
+    /// from its parent's style rather than its cells' (#505). A value equal to that record can still
+    /// change a cell, so there the setter always writes.
+    /// </remarks>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
         Key = modification(Key);
@@ -159,7 +167,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.Bold == value) return;
+            if (key.Bold == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Bold = value });
             else
@@ -173,7 +181,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.Italic == value) return;
+            if (key.Italic == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Italic = value });
             else
@@ -187,7 +195,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.Underline == value) return;
+            if (key.Underline == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Underline = value });
             else
@@ -201,7 +209,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.Strikethrough == value) return;
+            if (key.Strikethrough == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Strikethrough = value });
             else
@@ -215,7 +223,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.VerticalAlignment == value) return;
+            if (key.VerticalAlignment == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { VerticalAlignment = value });
             else
@@ -229,7 +237,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.Shadow == value) return;
+            if (key.Shadow == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Shadow = value });
             else
@@ -243,7 +251,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (XLHelper.AreEqual(key.FontSize, value)) return;
+            if (XLHelper.AreEqual(key.FontSize, value) && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontSize = value });
             else
@@ -263,7 +271,7 @@ internal sealed class XLFont : IXLFont
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
             var key = Key;
-            if (key.FontColor == value.Key) return;
+            if (key.FontColor == value.Key && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontColor = value.Key });
             else
@@ -277,7 +285,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.FontName == value) return;
+            if (key.FontName == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontName = value });
             else
@@ -291,7 +299,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.FontFamilyNumbering == value) return;
+            if (key.FontFamilyNumbering == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontFamilyNumbering = value });
             else
@@ -305,7 +313,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.FontCharSet == value) return;
+            if (key.FontCharSet == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontCharSet = value });
             else
@@ -319,7 +327,7 @@ internal sealed class XLFont : IXLFont
         set
         {
             var key = Key;
-            if (key.FontScheme == value) return;
+            if (key.FontScheme == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { FontScheme = value });
             else
