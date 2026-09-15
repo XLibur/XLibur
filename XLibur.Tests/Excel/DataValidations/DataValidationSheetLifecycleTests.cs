@@ -22,10 +22,10 @@ namespace XLibur.Tests.Excel.DataValidations;
 /// areas (the <c>rename-*</c> fixtures).
 /// </para>
 /// <para>
-/// No Excel fixture holds a data validation yet. Every expectation for a delete, marked
-/// <c>Pending dv-delete-after fixture</c>, is the form Excel was seen writing for a conditional format
-/// (<c>#REF!&gt;0</c>, and <c>Sheet!#REF!</c> as a plain <c>#REF!</c>); the fixture's
-/// <c>dv-delete-after.xlsx</c> confirms it or corrects it.
+/// Every expectation for a delete is what Excel wrote in <c>dv-delete-after.xlsx</c> (owner,
+/// 2026-09-15): each reference to the deleted sheet reads <c>#REF!</c>, in a list, an <c>OFFSET</c>, a
+/// custom formula and both ends of a between rule. <c>SheetLifecycleDataValidationFixtureTests</c>
+/// compares the whole workbook with Excel's.
 /// </para>
 /// </remarks>
 public class DataValidationSheetLifecycleTests
@@ -40,6 +40,14 @@ public class DataValidationSheetLifecycleTests
         Delete,
     }
 
+    /// <summary>
+    /// The form of a rule after a delete, which these tests do not check. Excel keeps a rule whose
+    /// criterion now reads <c>#REF!</c> in the <c>x14</c> extension (<c>dv-delete-after.xlsx</c>), and
+    /// XLibur writes it in the standard form. That known difference is pinned once, by
+    /// <c>SheetLifecycleDataValidationFixtureTests.Known_difference_a_deleted_sheets_rules_are_written_in_the_standard_form</c>.
+    /// </summary>
+    private const string? AnyForm = null;
+
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -53,15 +61,15 @@ public class DataValidationSheetLifecycleTests
 
         var expected = Expect(sheetEvent,
             rename: "='New Data'!$A$1:$A$3",
-            delete: "=#REF!"); // Pending dv-delete-after fixture
+            delete: "=#REF!"); // As Excel wrote B1 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
         await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
     }
 
     /// <summary>
     /// <c>List(IXLRange)</c> stores the range with its sheet and no <c>=</c>, the form a loaded rule
-    /// has. On another sheet it is written in the <c>x14</c> extension, until the delete leaves it no
-    /// reference to another sheet.
+    /// has. On another sheet it is written in the <c>x14</c> extension. After the delete its form is
+    /// not checked (<see cref="AnyForm"/>).
     /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
@@ -76,9 +84,9 @@ public class DataValidationSheetLifecycleTests
 
         var expected = Expect(sheetEvent,
             rename: "'New Data'!$A$1:$A$3",
-            delete: "#REF!"); // Pending dv-delete-after fixture
+            delete: "#REF!"); // As Excel wrote B1 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", "standard"), expected, ""));
+        await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", AnyForm), expected, ""));
     }
 
     [Test]
@@ -94,7 +102,7 @@ public class DataValidationSheetLifecycleTests
 
         var expected = Expect(sheetEvent,
             rename: "=OFFSET('New Data'!$A$1,0,0,COUNTA('New Data'!$A:$A),1)",
-            delete: "=OFFSET(#REF!,0,0,COUNTA(#REF!),1)"); // Pending dv-delete-after fixture
+            delete: "=OFFSET(#REF!,0,0,COUNTA(#REF!),1)"); // As Excel wrote B2 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
         await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
     }
@@ -113,14 +121,15 @@ public class DataValidationSheetLifecycleTests
 
         var expected = Expect(sheetEvent,
             rename: "=AND(B1>0,B1<='New Data'!$A$1)",
-            delete: "=AND(B1>0,B1<=#REF!)"); // Pending dv-delete-after fixture
+            delete: "=AND(B1>0,B1<=#REF!)"); // As Excel wrote B3 in dv-delete-after
         await Assert.That(rule.Value).IsEqualTo(expected);
         await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
     }
 
     /// <summary>
     /// Both ends of a between rule, in the form a loaded rule has. Each names another sheet, so the
-    /// rule is written in the <c>x14</c> extension until the delete.
+    /// rule is written in the <c>x14</c> extension. After the delete its form is not checked
+    /// (<see cref="AnyForm"/>).
     /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
@@ -133,11 +142,11 @@ public class DataValidationSheetLifecycleTests
 
         Apply(wb, sheetEvent);
 
-        var min = Expect(sheetEvent, rename: "'New Data'!$A$2", delete: "#REF!"); // Pending dv-delete-after fixture
-        var max = Expect(sheetEvent, rename: "'New Data'!$A$3", delete: "#REF!"); // Pending dv-delete-after fixture
+        var min = Expect(sheetEvent, rename: "'New Data'!$A$2", delete: "#REF!"); // As Excel wrote B4 in dv-delete-after
+        var max = Expect(sheetEvent, rename: "'New Data'!$A$3", delete: "#REF!"); // As Excel wrote B4 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(min);
         await Assert.That(rule.MaxValue).IsEqualTo(max);
-        await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", "standard"), min, max));
+        await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", AnyForm), min, max));
     }
 
     /// <summary>
@@ -246,9 +255,9 @@ public class DataValidationSheetLifecycleTests
 
         var expected = Expect(sheetEvent,
             rename: "'New Data'!$A$1:$A$3",
-            delete: "#REF!"); // Pending dv-delete-after fixture
+            delete: "#REF!"); // As Excel wrote B1 in dv-delete-after
         await Assert.That(loaded.Worksheet("Other").DataValidations.Single().MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(loaded, "Other", (Expect(sheetEvent, "x14", "standard"), expected, ""));
+        await AssertSavedAndReloaded(loaded, "Other", (Expect(sheetEvent, "x14", AnyForm), expected, ""));
     }
 
     /// <summary>A formula the parser refuses keeps its text (ADR 0002).</summary>
@@ -267,14 +276,19 @@ public class DataValidationSheetLifecycleTests
     }
 
     /// <summary>
-    /// Pending dv-delete-after fixture: the recipe's <c>=Data!DvOnly</c> shows whether a validation
-    /// keeps a name scoped to the deleted sheet alive. Spec 55 keeps such a name only when a cell
-    /// formula on another sheet or a defined name refers to it (<c>FindNamesOutlivingSheet</c>), and
-    /// a validation is neither. So the name goes with the sheet, and the criterion reads <c>#REF!</c>,
-    /// as a conditional format's does in the same case.
+    /// A name scoped to the deleted sheet goes with the sheet when only a validation refers to it, and
+    /// the criterion reads <c>#REF!</c>, as a conditional format's does in the same case. Spec 55 keeps
+    /// such a name only when a cell formula on another sheet or a defined name refers to it
+    /// (<c>FindNamesOutlivingSheet</c>), and a validation is neither.
     /// </summary>
+    /// <remarks>
+    /// No Excel-authored file can hold this case, because Excel refuses such a reference. Entering
+    /// <c>=Data!DvOnly</c> as a validation on <c>Other</c> gave "This type of reference cannot be used
+    /// in Data validation Formula" (owner, 2026-09-15). XLibur keeps the behaviour for text set through
+    /// the API.
+    /// </remarks>
     [Test]
-    public async Task Pending_fixture_a_name_scoped_to_the_deleted_sheet_that_only_a_validation_uses_goes_with_it()
+    public async Task A_name_scoped_to_the_deleted_sheet_that_only_a_validation_uses_goes_with_it()
     {
         using var wb = NewBook(out var data, out var other);
         data.DefinedNames.Add("DvOnly", "Data!$A$1:$A$3");
@@ -311,20 +325,22 @@ public class DataValidationSheetLifecycleTests
 
     /// <summary>
     /// Saves <paramref name="wb"/> and checks, on <paramref name="sheetName"/>, that each rule is
-    /// written in the form and with the criteria given, that nothing in the sheet's part names the
-    /// sheet <c>Data</c>, which the workbook no longer has, and that a reload reads each rule's
-    /// criteria back as they were written.
+    /// written with the criteria given, and in the form given unless that is <see cref="AnyForm"/>,
+    /// that nothing in the sheet's part names the sheet <c>Data</c>, which the workbook no longer has,
+    /// and that a reload reads each rule's criteria back as they were written.
     /// </summary>
     /// <remarks>
     /// <c>'New Data'!</c> does not contain <c>Data!</c>, so the check holds for the rename too.
     /// </remarks>
     private static async Task AssertSavedAndReloaded(XLWorkbook wb, string sheetName,
-        params (string Form, string Formula1, string Formula2)[] expected)
+        params (string? Form, string Formula1, string Formula2)[] expected)
     {
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        await Assert.That(SavedCriteria(ms, sheetName)).IsEquivalentTo(expected, CollectionOrdering.Matching);
+        var saved = SavedCriteria(ms, sheetName).Select((c, i) =>
+            (i < expected.Length && expected[i].Form is null ? null : (string?)c.Form, c.Formula1, c.Formula2));
+        await Assert.That(saved).IsEquivalentTo(expected, CollectionOrdering.Matching);
         await Assert.That(SavedSheetXml(ms, sheetName)).DoesNotContain("Data!");
 
         ms.Position = 0;
