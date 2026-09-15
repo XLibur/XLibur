@@ -10,10 +10,17 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal sealed class DependenciesContext : IStructuredReferenceScope
 {
-    internal DependenciesContext(SheetArea formulaArea, XLWorkbook workbook)
+    /// <param name="formulaArea">The area of the formula whose precedents are collected.</param>
+    /// <param name="workbook">The workbook, to find names, sheets and tables.</param>
+    /// <param name="dependencies">
+    /// The collection that receives the precedents. The dependency tree passes the same empty
+    /// collection for each formula, so a build does not allocate one per formula.
+    /// </param>
+    internal DependenciesContext(SheetArea formulaArea, XLWorkbook workbook, FormulaDependencies dependencies)
     {
         FormulaArea = formulaArea;
         Workbook = workbook;
+        Dependencies = dependencies;
     }
 
     /// <inheritdoc />
@@ -46,7 +53,7 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
     /// <summary>
     /// The result. Visitor adds all areas/names formula depends on to this.
     /// </summary>
-    internal FormulaDependencies Dependencies { get; } = new();
+    internal FormulaDependencies Dependencies { get; }
 
     /// <summary>
     /// Add areas to a list of areas the formula depends on. Disregards duplicate entries.

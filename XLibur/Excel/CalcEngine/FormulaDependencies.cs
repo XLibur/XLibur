@@ -7,6 +7,12 @@ namespace XLibur.Excel.CalcEngine;
 /// A list of objects a cell formula depends on. If one of them changes,
 /// the formula value might no longer be accurate and needs to be recalculated.
 /// </summary>
+/// <remarks>
+/// The dependency tree does not keep this object. It collects each formula into one reused
+/// instance, and keeps only the areas, as an array of the exact size (see <see cref="ToAreaArray"/>).
+/// One instance per formula, with two sets, was about 330 B of the ~770 B that the tree kept for
+/// each formula (#513).
+/// </remarks>
 internal sealed class FormulaDependencies
 {
     private readonly HashSet<SheetArea> _areas = [];
@@ -25,6 +31,10 @@ internal sealed class FormulaDependencies
     /// different references (e.g., a name previously referred to <c>A5</c> and is redefined
     /// to <c>B7</c> or just value <c>7</c> =&gt; formula no longer depends on <c>A5</c>).
     /// </summary>
+    /// <remarks>
+    /// The dependency tree does not keep the names, because nothing reads them after the visit. A
+    /// tree that reacts to a changed name must keep them again.
+    /// </remarks>
     public IReadOnlyCollection<XLName> Names => _names;
 
     /// <summary>
@@ -38,7 +48,10 @@ internal sealed class FormulaDependencies
 
     internal void AddAreas(List<SheetArea> sheetAreas)
     {
-        _areas.UnionWith(sheetAreas);
+        // A loop over the list, not UnionWith: UnionWith takes an IEnumerable, so it boxes the
+        // enumerator of the list, once for each reference in each formula of a build.
+        foreach (var sheetArea in sheetAreas)
+            _areas.Add(sheetArea);
     }
 
     internal void AddName(XLName name)
@@ -46,49 +59,26 @@ internal sealed class FormulaDependencies
         _names.Add(name);
     }
 
-    internal void RenameSheet(string oldSheetName, string newSheetName)
+    /// <summary>
+    /// A copy of <see cref="Areas"/>, in an array of the exact size.
+    /// </summary>
+    internal SheetArea[] ToAreaArray()
     {
-        // The renaming is done for every formula, so only allocate when needed.
-        List<(SheetArea Original, SheetArea Replacement)>? areasToRename = null;
-        foreach (var areaInFormula in _areas)
-        {
-            if (XLHelper.SheetComparer.Equals(areaInFormula.Name, oldSheetName))
-            {
-                var renamedArea = new SheetArea(newSheetName, areaInFormula.Area);
-                (areasToRename ??= []).Add((areaInFormula, renamedArea));
-            }
-        }
+        if (_areas.Count == 0)
+            return [];
 
-        List<(XLName Original, XLName Replacement)>? namesToRename = null;
-        foreach (var nameInFormula in _names)
-        {
-            if (nameInFormula.SheetName is not null &&
-                XLHelper.SheetComparer.Equals(nameInFormula.SheetName, oldSheetName))
-            {
-                var renamedName = new XLName(newSheetName, nameInFormula.Name);
-                (namesToRename ??= []).Add((nameInFormula, renamedName));
-            }
-        }
-
-        ApplyRenames(_areas, areasToRename);
-        ApplyRenames(_names, namesToRename);
+        var areas = new SheetArea[_areas.Count];
+        _areas.CopyTo(areas);
+        return areas;
     }
 
     /// <summary>
-    /// Replaces each original item with its replacement in <paramref name="items"/>.
-    /// The caller buffers are renamed because a set cannot be mutated while enumerated.
+    /// Empty the collection, so that it can collect the next formula.
     /// </summary>
-    private static void ApplyRenames<T>(HashSet<T> items, List<(T Original, T Replacement)>? renames)
+    internal void Clear()
     {
-        if (renames is null)
-        {
-            return;
-        }
-
-        foreach (var (original, replacement) in renames)
-        {
-            items.Remove(original);
-            items.Add(replacement);
-        }
+        _areas.Clear();
+        _names.Clear();
+        HasUnknownPrecedents = false;
     }
 }

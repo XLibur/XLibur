@@ -25,9 +25,12 @@ namespace XLibur.Benchmarks;
 [MemoryDiagnoser]
 public class FirstEditAfterLoadBenchmarks
 {
-    /// <summary>Rows of the fixture, each with two formulas.</summary>
-    [Params(1_000, 10_000)]
-    public int Rows { get; set; }
+    /// <summary>
+    /// Rows × formulas per row. The two narrow shapes are the ones #504 measured. The wide shape is
+    /// the 200,000-formula row of #513 (see <see cref="FirstEditFixture"/>).
+    /// </summary>
+    [Params("1000x2", "10000x2", "25000x8")]
+    public string Shape { get; set; } = "";
 
     private byte[] _package = null!;
 
@@ -36,22 +39,8 @@ public class FirstEditAfterLoadBenchmarks
     {
         SixLaborsV1FontBootstrap.Register();
 
-        using var workbook = new XLWorkbook();
-        var sheet = workbook.AddWorksheet("Data");
-        for (var row = 1; row <= Rows; row++)
-        {
-            sheet.Cell(row, 1).Value = row;
-            sheet.Cell(row, 2).Value = row * 2;
-            sheet.Cell(row, 3).FormulaA1 = $"A{row}*B{row}+1";
-            sheet.Cell(row, 4).FormulaA1 = $"IF(C{row}>100,SUM(A{row}:C{row}),C{row}/2)";
-        }
-
-        // Calculated, so that each formula is saved with a cached value and loads clean.
-        workbook.RecalculateAllFormulas();
-
-        using var buffer = new MemoryStream();
-        workbook.SaveAs(buffer);
-        _package = buffer.ToArray();
+        var parts = Shape.Split('x');
+        _package = FirstEditFixture.Build(int.Parse(parts[0]), int.Parse(parts[1]));
     }
 
     [Benchmark(Baseline = true)]
