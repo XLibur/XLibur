@@ -163,7 +163,8 @@ public class SheetLifecycleCharacterizationTests
         Apply(wb, sheetEvent);
 
         // Each was "=Data!$A$1:$A$3", unchanged by all three, and the save wrote the dangling reference
-        // (D63). The delete's #REF! is pending the dv-delete-after fixture.
+        // (D63). The rename and the delete are what Excel wrote (the dv-rename-after and dv-delete-after
+        // fixtures).
         var expected = Expect(sheetEvent,
             rename: "=Renamed!$A$1:$A$3",
             worksheetDelete: "=#REF!",

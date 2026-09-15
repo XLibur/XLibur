@@ -5,9 +5,10 @@
 **Dependencies:** **Hard: spec 54** (rename and delete rewrite through `FormulaText`) and **parser 4.0.0**,
 which is this spec's task 0. **Excel-authored fixtures from the owner** gate tasks 3, 5 and 6. Sequenced
 **after spec 44** and **before spec 48** — see *Conflicts*.
-**Status:** 🟡 Part 1 merged as [#495](https://github.com/XLibur/XLibur/pull/495) (`56c80a3f`), part 2 as
-[#500](https://github.com/XLibur/XLibur/pull/500) (`8694919f`). Only data validation (D63) is left, and
-it is in progress (Q55c). From the 2026-09-13 architecture review (round 4). Every design decision below
+**Status:** ✅ Done. Part 1 merged as [#495](https://github.com/XLibur/XLibur/pull/495) (`56c80a3f`), part 2 as
+[#500](https://github.com/XLibur/XLibur/pull/500) (`8694919f`), and data validation (D63) as
+[#518](https://github.com/XLibur/XLibur/pull/518) (`c1971685`), compared with Excel's `dv-*` fixture on
+#528 (Q55c). From the 2026-09-13 architecture review (round 4). Every design decision below
 was taken by the owner in a design interview (see *Decisions*). Also recorded:
 `docs/adr/0002-refused-formula-never-rewritten.md`, and the terms *defined name*, *scope*,
 *3D reference* and *unsupported sheet* in `CONTEXT.md`.
@@ -404,7 +405,8 @@ from the saved XML.
 - **No data validation.** In `rename-*` and `delete-*`, `Other!B1` holds `=Data!$A$2:$A$4` as a
   spilled array formula (`B1:B3`) instead of a list validation. Validation waits for spec 44 anyway
   (Q55b), and needs its own fixture pair when it is dispatched. The `B1` formula stays, as one more
-  holder. *(2026-09-15: validation no longer waits for spec 44; see Q55c.)*
+  holder. *(2026-09-15: validation no longer waits for spec 44; see Q55c. Its own fixture, `dv-*`,
+  was made the same day; see below.)*
 - **Excel's prompt on delete** (owner, 2026-09-14): deleting `Data` in `delete-before.xlsx` showed
   *"Excel found a problem with one or more formula references in this worksheet."* The owner
   dismissed it and the delete went ahead. It is only a notice, and no choice changed what Excel
@@ -479,7 +481,8 @@ no prompt).
   - a referred-to name whose name a workbook-scoped name already holds, because in `scoped-delete-*`
     nothing referred to the `Data`-scoped `Clash`;
   - whether a reference from a conditional format, a chart or another non-formula holder counts. The
-    fixtures show cell formulas and defined names only.
+    fixtures show cell formulas and defined names only. For a data validation the case cannot occur:
+    Excel refuses one that refers to a name scoped to another sheet (2026-09-15).
 - **Confirmed as predicted:** the narrowing of a 3D reference (Q34), including through two deletes to
   a single sheet; `Sheet!#REF!` becoming `#REF!` (D56); and a name scoped to another sheet becoming
   `#REF!` (D54). The broken-file claim in the comment at `XLDefinedName.cs:285-288` is wrong.
@@ -531,8 +534,8 @@ no prompt).
 
 **Not done.**
 
-- **Still open: data validation (D63).** It is the only part of spec 55 left. By owner decision on
-  2026-09-15 it goes ahead before spec 44 (Q55c), and an agent is working on it.
+- ~~**Still open: data validation (D63).**~~ Fixed in #518 (`c1971685`), before spec 44 by owner
+  decision (Q55c), and compared with the owner's `dv-*` fixture in #528. Spec 55 is complete.
 - ~~A ChartEx chart is rewritten in memory, but the patcher writes only its title (#497).~~ Fixed in
   #503 (`19aa30c8`), following the owner's `chartex-pivotcf-*` fixture.
   - Excel's ChartEx references go through hidden `_xlchart.*` names.
@@ -546,3 +549,35 @@ no prompt).
 - ~~A kept `x14` rule does not shift on a row or column insert (#499).~~ Fixed in #509 (`1124bbf9`),
   with D77. A kept `x14` rule that a partial edit cuts is still not split.
 - The pivot records writer omits `count`.
+
+### Data-validation fixture (owner, 2026-09-15)
+
+The owner made `dv-before.xlsx`, `dv-rename-after.xlsx` and `dv-delete-after.xlsx` in Excel desktop.
+`dv-before` has the sheets `Data` and `Other`, and every rule is on `Other`. `Data` has none. What
+follows was read from the saved XML.
+
+| Holder | Before | Rename `Data` to `New Data` | Delete `Data` |
+|---|---|---|---|
+| `B1`, list (in the `x14` extension) | `Data!$A$2:$A$4` | `'New Data'!$A$2:$A$4` | `#REF!` |
+| `B2`, list (`x14`) | `OFFSET(Data!$A$2,0,0,3,1)` | `OFFSET('New Data'!$A$2,0,0,3,1)` | `OFFSET(#REF!,0,0,3,1)` |
+| `B3`, custom (`x14`) | `B3<=MAX(Data!$A$2:$A$4)` | `B3<=MAX('New Data'!$A$2:$A$4)` | `B3<=MAX(#REF!)` |
+| `B4`, whole number, between (`x14`) | `Data!$A$2`, `Data!$A$4` | `'New Data'!$A$2`, `'New Data'!$A$4` | `#REF!`, `#REF!` |
+| `B5`, list | `ListW` | unchanged | unchanged |
+| `B6`, list | `INDIRECT("Data!$A$2:$A$4")` | unchanged | unchanged |
+| `B7`, list | `"x,y,z"` | unchanged | unchanged |
+| `DvOnly` (scope `Data`) | `Data!$A$2:$A$4` | `'New Data'!$A$2:$A$4` | **removed** |
+| `ListW` (workbook) | `Data!$B$2:$B$4` | `'New Data'!$B$2:$B$4` | `#REF!` |
+
+- **Every expectation #518 held matches.** `SheetLifecycleDataValidationFixtureTests` compares each
+  rule by `sqref` (type, operator and both formulas) and every name, in the saved file and in the
+  model, through a reload and a second save. No code changed.
+- **After the delete, Excel keeps `B1` to `B4` in the `x14` extension.** XLibur writes them in the
+  standard form, because `DataValidationWriter.UsesExternalSheet` sends a rule to the extension only
+  when a formula is a range address on another sheet, and `#REF!` is not one. The text matches; only
+  the XML form differs. For the same reason XLibur writes `B2` and `B3` in the standard form on any
+  save. The form belongs to spec 44, so the writer is left alone, and one test pins what it writes.
+- **Excel refuses a validation that refers to a name scoped to another sheet.** Entering
+  `=Data!DvOnly` on `Other` gave *"This type of reference cannot be used in Data validation
+  Formula"*. So no Excel-authored file holds that case. XLibur keeps its behaviour for text set
+  through the API: the name goes with its sheet, and the criterion reads `#REF!`.
+- **`DvOnly`, which nothing refers to, went with the sheet**, as `Alone` did in `scoped-delete-*`.

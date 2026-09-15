@@ -201,9 +201,8 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
     #region IWorkbookListener
 
     /// <summary>
-    /// The renamed sheet is renamed in every criterion of every rule, as Excel renames it in a cell
-    /// formula, a defined name, a conditional format and a print area (the <c>rename-*</c> fixtures).
-    /// No fixture holds a data validation yet (D63).
+    /// The renamed sheet is renamed in every criterion of every rule, quoted where the new name needs
+    /// it, as Excel renames it in <c>dv-rename-after.xlsx</c> (D63).
     /// </summary>
     /// <remarks>
     /// A rule on the renamed sheet that names that sheet is renamed too. <c>List(IXLRange)</c> stores
@@ -215,9 +214,9 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
         => RewriteCriteria(SheetRewrite.Rename(oldSheetName, newSheetName));
 
     /// <summary>
-    /// A reference to the deleted sheet becomes <c>#REF!</c> in every criterion of every rule, in the
-    /// form the <c>delete-*</c> fixture shows Excel writing for a conditional format (D63). No fixture
-    /// holds a data validation yet. A rule on the deleted sheet goes with it, as a print area does.
+    /// A reference to the deleted sheet becomes <c>#REF!</c> in every criterion of every rule, as Excel
+    /// writes it in <c>dv-delete-after.xlsx</c> (D63). A rule on the deleted sheet goes with it, as a
+    /// print area does.
     /// </summary>
     void IWorkbookListener.OnSheetDeleting(string sheetName)
     {
