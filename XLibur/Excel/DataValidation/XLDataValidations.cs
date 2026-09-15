@@ -2,13 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Ranges.Index;
 using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal sealed class XLDataValidations : IXLDataValidations, ISheetListener
+internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IWorkbookListener
 {
     private readonly XLRangeIndex<XLDataValidationIndexEntry> _dataValidationIndex;
 
@@ -196,6 +197,71 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener
     }
 
     #endregion ISheetListener
+
+    #region IWorkbookListener
+
+    /// <summary>
+    /// The renamed sheet is renamed in every criterion of every rule, as Excel renames it in a cell
+    /// formula, a defined name, a conditional format and a print area (the <c>rename-*</c> fixtures).
+    /// No fixture holds a data validation yet (D63).
+    /// </summary>
+    /// <remarks>
+    /// A rule on the renamed sheet that names that sheet is renamed too. <c>List(IXLRange)</c> stores
+    /// the rule's own sheet's name, and the writer drops the name only when it is the name the sheet
+    /// has now. Left as it was, the old name was saved as a reference to another sheet, one the
+    /// workbook no longer has.
+    /// </remarks>
+    void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
+        => RewriteCriteria(SheetRewrite.Rename(oldSheetName, newSheetName));
+
+    /// <summary>
+    /// A reference to the deleted sheet becomes <c>#REF!</c> in every criterion of every rule, in the
+    /// form the <c>delete-*</c> fixture shows Excel writing for a conditional format (D63). No fixture
+    /// holds a data validation yet. A rule on the deleted sheet goes with it, as a print area does.
+    /// </summary>
+    void IWorkbookListener.OnSheetDeleting(string sheetName)
+    {
+        if (XLHelper.SheetComparer.Equals(sheetName, _worksheet.Name))
+            return;
+
+        RewriteCriteria(SheetRewrite.Delete(_worksheet.Workbook, sheetName));
+    }
+
+    private void RewriteCriteria(SheetRewrite rewrite)
+    {
+        foreach (var dv in _dataValidations)
+        {
+            if (TryRewriteCriterion(dv.MinValue, rewrite, out var minValue))
+                dv.MinValue = minValue;
+            if (TryRewriteCriterion(dv.MaxValue, rewrite, out var maxValue))
+                dv.MaxValue = maxValue;
+        }
+    }
+
+    /// <summary>
+    /// Rewrites one criterion and keeps the form it had. A rule built in code keeps a leading
+    /// <c>=</c>, a loaded rule has none, and the rewrite reads the text without it. A literal list is
+    /// a string, which the rewrite never changes. A formula the parser refuses keeps its text (ADR 0002).
+    /// </summary>
+    /// <returns><c>true</c> when the text changed.</returns>
+    private bool TryRewriteCriterion(string criterion, SheetRewrite rewrite, out string rewritten)
+    {
+        rewritten = criterion;
+        if (string.IsNullOrEmpty(criterion))
+            return false;
+
+        var hasEquals = criterion[0] == '=';
+        var formula = hasEquals ? criterion[1..] : criterion;
+
+        // The rewrite does not move a reference, so any origin reads the criterion the same way.
+        if (!rewrite.TryRewrite(formula, _worksheet.Name, new Point(1, 1), out var result) || result == formula)
+            return false;
+
+        rewritten = hasEquals ? "=" + result : result;
+        return true;
+    }
+
+    #endregion IWorkbookListener
 
     public IEnumerator<IXLDataValidation> GetEnumerator()
     {

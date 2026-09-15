@@ -100,8 +100,8 @@ public class SheetLifecycleTests
 
     /// <summary>
     /// The order holders hear of a rename or a delete: the calc engine, each sheet's cells
-    /// collection, the workbook's names, each sheet's names, then each sheet's conditional formats,
-    /// print areas and charts, and last the pivot caches.
+    /// collection, the workbook's names, each sheet's names, then each sheet's data validations,
+    /// conditional formats, print areas and charts, and last the pivot caches.
     /// </summary>
     /// <remarks>
     /// Delete keeps the order rename already had. The calc engine renames its dependency tree on a
@@ -129,6 +129,7 @@ public class SheetLifecycleTests
             XLCalcEngine engine when ReferenceEquals(engine, wb.CalcEngine) => "calc engine",
             XLCellsCollection cells => $"cells of {Of(cells, s.Internals.CellsCollection)}",
             XLDefinedName name => $"name {name.Name} ({name.Scope})",
+            XLDataValidations validations => $"data validations of {Of(validations, s.DataValidations)}",
             XLConditionalFormats formats => $"conditional formats of {Of(formats, s.ConditionalFormats)}",
             XLPrintAreas areas => $"print areas of {Of(areas, s.PageSetup.PrintAreas)}",
             XLCharts charts => $"charts of {Of(charts, s.Charts)}",
@@ -148,9 +149,11 @@ public class SheetLifecycleTests
             "name W (Workbook)",
             "name LS (Worksheet)",
             "name LT (Worksheet)",
+            "data validations of S",
             "conditional formats of S",
             "print areas of S",
             "charts of S",
+            "data validations of T",
             "conditional formats of T",
             "print areas of T",
             "charts of T",
@@ -277,6 +280,55 @@ public class SheetLifecycleTests
         await Assert.That(host.ConditionalFormats.Last().Values[1].Value).IsEqualTo("#REF!");
         await Assert.That(host.ConditionalFormats.TryGetExtensionRuleFormulas(ruleId, out var kept)).IsTrue();
         await Assert.That(kept).IsEquivalentTo(new[] { "SUM(Sheet1!A1", "#REF!" }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// A sheet's data validations, worst input: none at all, a rule with no criteria, a criterion that
+    /// is only <c>=</c>, one the parser refuses, ones already <c>#REF!</c>, a sheet name with an
+    /// apostrophe, and a 3D reference with the deleted sheet at one end. The delete of the rules' own
+    /// sheet changes none of them, since they go with it.
+    /// </summary>
+    [Test]
+    public async Task The_data_validation_adapter_does_not_throw()
+    {
+        using var wb = new XLWorkbook();
+        var empty = (XLWorksheet)wb.AddWorksheet("Empty");
+        IXLWorksheet sheet = wb.AddWorksheet("Host");
+        var host = (XLWorksheet)sheet;
+        wb.AddWorksheet("It's");
+        wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Last");
+        var blank = sheet.Range("A1:A2").CreateDataValidation();
+        var equalsOnly = sheet.Range("B1:B2").CreateDataValidation();
+        equalsOnly.Custom("=");
+        var refused = sheet.Range("C1:C2").CreateDataValidation();
+        refused.Custom("=SUM(Sheet1!A1");
+        var already = sheet.Range("D1:D2").CreateDataValidation();
+        already.WholeNumber.Between("#REF!", "Sheet1!#REF!");
+        var quoted = sheet.Range("E1:E2").CreateDataValidation();
+        quoted.List("='It''s'!$A$1:$A$3");
+        var threeD = sheet.Range("F1:F2").CreateDataValidation();
+        threeD.Custom("=SUM(Sheet1:Last!$A$1)>0");
+        var own = sheet.Range("G1:G2").CreateDataValidation();
+        own.List("=Host!$H$1:$H$3");
+        IWorkbookListener none = empty.DataValidations;
+        IWorkbookListener validations = host.DataValidations;
+
+        await Assert.That(() => none.OnSheetRenamed("Sheet1", "Renamed")).ThrowsNothing();
+        await Assert.That(() => none.OnSheetDeleting("Sheet1")).ThrowsNothing();
+        await Assert.That(() => validations.OnSheetRenamed("It's", "Bob's")).ThrowsNothing();
+        await Assert.That(() => validations.OnSheetDeleting("Sheet1")).ThrowsNothing();
+        await Assert.That(() => validations.OnSheetDeleting("Host")).ThrowsNothing();
+
+        await Assert.That(blank.MinValue).IsEqualTo("");
+        await Assert.That(equalsOnly.Value).IsEqualTo("=");
+        // A refused formula is never rewritten (ADR 0002); the rest were.
+        await Assert.That(refused.Value).IsEqualTo("=SUM(Sheet1!A1");
+        await Assert.That(already.MinValue).IsEqualTo("#REF!");
+        await Assert.That(already.MaxValue).IsEqualTo("#REF!");
+        await Assert.That(quoted.Value).IsEqualTo("='Bob''s'!$A$1:$A$3");
+        await Assert.That(threeD.Value).IsEqualTo("=SUM(Last!$A$1)>0");
+        await Assert.That(own.Value).IsEqualTo("=Host!$H$1:$H$3");
     }
 
     /// <summary>

@@ -359,6 +359,7 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
         foreach (var sheet in _worksheets.Values)
         {
+            yield return sheet.DataValidations;
             yield return sheet.ConditionalFormats;
             yield return (XLPrintAreas)sheet.PageSetup.PrintAreas;
             yield return (XLCharts)sheet.Charts;
