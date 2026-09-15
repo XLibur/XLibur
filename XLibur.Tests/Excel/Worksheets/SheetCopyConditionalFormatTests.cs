@@ -181,6 +181,108 @@ public class SheetCopyConditionalFormatTests
     }
 
     /// <summary>
+    /// A copy writes the sheet's own rules and its pivot table's rules in the order the original does,
+    /// so the same rule wins on the cell both cover. A copied pivot rule kept its priority, but a copied
+    /// sheet rule got priority 0, so the copy wrote every sheet rule first (review of #515).
+    /// </summary>
+    [Test]
+    [Arguments("pivot rule first")]
+    [Arguments("sheet rule first")]
+    public async Task A_sheet_copy_keeps_the_order_of_its_rules_and_its_pivot_tables_rules(string order)
+    {
+        var pivotFirst = order == "pivot rule first";
+        using var built = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            var other = wb.AddWorksheet("Other");
+            data.Cell("A1").Value = "Num";
+            data.Cell("B1").Value = "Label";
+            data.Cell("A2").Value = 10;
+            data.Cell("B2").Value = "x";
+            var pivotTable = (XLPivotTable)other.PivotTables.Add("pt", other.Cell("F1"), data.Range("A1:B2"));
+            pivotTable.RowLabels.Add("Label");
+
+            var pivotRule = (XLConditionalFormat)other.Range("G2").AddConditionalFormat();
+            pivotRule.WhenIsTrue("G2>0").Fill.SetBackgroundColor(XLColor.Red);
+            ((XLWorksheet)other).ConditionalFormats.Remove(f => f == pivotRule);
+            pivotTable.AddConditionalFormat(new XLPivotConditionalFormat(pivotRule));
+
+            var sheetRule = (XLConditionalFormat)other.Range("G2").AddConditionalFormat();
+            sheetRule.WhenIsTrue("G2>=0").Fill.SetBackgroundColor(XLColor.Blue);
+
+            pivotRule.Priority = pivotFirst ? 1 : 2;
+            sheetRule.Priority = pivotFirst ? 2 : 1;
+            wb.SaveAs(built);
+        }
+
+        // Loaded, so that each rule has the priority the file gave it.
+        using var saved = new MemoryStream();
+        built.Position = 0;
+        using (var wb = new XLWorkbook(built))
+        {
+            wb.Worksheet("Other").CopyTo(Copy);
+            wb.SaveAs(saved);
+        }
+
+        var expected = pivotFirst ? "pivot G2>0, sheet G2>=0" : "sheet G2>=0, pivot G2>0";
+        var original = RulesByPriority(saved, "Other");
+        await Assert.That(string.Join(", ", original.Select(r => r.Rule))).IsEqualTo(expected);
+        await Assert.That(string.Join(", ", RulesByPriority(saved, Copy))).IsEqualTo(string.Join(", ", original));
+    }
+
+    /// <summary>
+    /// The same holds for the sheet's own rules alone. A rule added after the load has priority 0, so a
+    /// save writes it before the rules the file gave priorities to, but the copy wrote it last: every
+    /// copied rule got priority 0, and the copy kept the order of the sheet's list.
+    /// </summary>
+    [Test]
+    public async Task A_sheet_copy_keeps_the_order_of_a_rule_added_after_the_load()
+    {
+        using var built = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Other").Range("A1").AddConditionalFormat().WhenIsTrue("A1>0")
+                .Fill.SetBackgroundColor(XLColor.Red);
+            wb.SaveAs(built);
+        }
+
+        using var saved = new MemoryStream();
+        built.Position = 0;
+        using (var wb = new XLWorkbook(built))
+        {
+            wb.Worksheet("Other").Range("A1").AddConditionalFormat().WhenIsTrue("A1>=0")
+                .Fill.SetBackgroundColor(XLColor.Blue);
+            wb.Worksheet("Other").CopyTo(Copy);
+            wb.SaveAs(saved);
+        }
+
+        var original = RulesByPriority(saved, "Other");
+        await Assert.That(string.Join(", ", original.Select(r => r.Rule))).IsEqualTo("sheet A1>=0, sheet A1>0");
+        await Assert.That(string.Join(", ", RulesByPriority(saved, Copy))).IsEqualTo(string.Join(", ", original));
+    }
+
+    /// <summary>
+    /// Each rule <paramref name="sheetName"/> holds in the 2007 schema, lowest priority first: whether it
+    /// is a pivot table's, its formula, and the differential format it applies.
+    /// </summary>
+    private static List<(string Rule, string Format)> RulesByPriority(Stream package, string sheetName)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var formats = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet!.DifferentialFormats!
+            .Elements<S.DifferentialFormat>().ToList();
+        return PivotConditionalFormatLinkTests.Sheet(document, sheetName).Worksheet!
+            .Elements<S.ConditionalFormatting>()
+            .SelectMany(block => block.Elements<S.ConditionalFormattingRule>().Select(rule => (Block: block, Rule: rule)))
+            .OrderBy(x => x.Rule.Priority!.Value)
+            .Select(x => (
+                $"{(x.Block.Pivot?.Value == true ? "pivot" : "sheet")} {x.Rule.Elements<S.Formula>().Single().Text}",
+                x.Rule.FormatId is { } id ? formats[checked((int)id.Value)].OuterXml : "no format"))
+            .ToList();
+    }
+
+    /// <summary>
     /// An edit after the copy reaches the copy's kept rules as it reaches the original's, and leaves both
     /// pivot tables naming a rule of their own sheet: a rename and a delete of the sheet the rule refers
     /// to (#498), an insert there, and an insert on the copy (#509).
