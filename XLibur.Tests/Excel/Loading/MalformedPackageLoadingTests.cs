@@ -125,6 +125,23 @@ public class MalformedPackageLoadingTests
     }
 
     /// <summary>
+    /// A cell reference whose row is past the sheet's last row. The row digits are folded into an
+    /// int, so a row long enough to overflow wraps to a small in-range value and the cell lands
+    /// somewhere the file never put it (ClosedXML#2885). <c>A1048577</c> is the control: one
+    /// row past the end, no overflow.
+    /// </summary>
+    [Test]
+    [Arguments("A1048577")]
+    [Arguments("A4294967297")]
+    [Arguments("A2147483648")]
+    public async Task Cell_reference_past_the_last_row_is_rejected(string cellRef)
+    {
+        using var package = BuildSheetPackage($"""<row r="1"><c r="{cellRef}"><v>1</v></c></row>""", cellFormatCount: 1);
+
+        await Assert.That(() => new XLWorkbook(package)).Throws<FormatException>();
+    }
+
+    /// <summary>
     /// A cell whose numeric literal overflows a double. Well-formed XML, but no cell can hold
     /// infinity, so the load is refused with XLibur's own type rather than letting XLCellValue's
     /// precondition escape as an ArgumentException naming the parameter 'number' (D29).

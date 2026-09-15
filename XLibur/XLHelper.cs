@@ -260,9 +260,9 @@ public static partial class XLHelper
 
     /// <summary>
     /// Digits in <see cref="MaxRowNumber"/>, and so the longest a row reference can be. Bounds the
-    /// accumulator in <see cref="IsValidRow"/> well below overflow.
+    /// accumulator in <see cref="IsValidRow"/> and <see cref="Point.TryParse"/> well below overflow.
     /// </summary>
-    private const int MaxRowDigits = 7;
+    internal const int MaxRowDigits = 7;
 
     public static bool IsValidA1Address(string address)
     {
