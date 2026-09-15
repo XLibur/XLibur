@@ -723,6 +723,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         // alone, because those still mean the sheet they name.
         targetSheet.Internals.CellsCollection.RenameSheetInFormulas(Name, newSheetName);
         DataValidations.ForEach(dv => targetSheet.DataValidations.Add(new XLDataValidation(dv, this)));
+        // So must a data validation's criteria: Excel's copy of a rule refers to the copy's cells where the
+        // original refers to the original's (dv-copy-after.xlsx, #525).
+        targetSheet.DataValidations.RenameSheetInCriteria(Name, newSheetName);
         targetSheet.Visibility = Visibility;
         targetSheet.ColumnWidth = ColumnWidth;
         targetSheet.ColumnWidthChanged = ColumnWidthChanged;
