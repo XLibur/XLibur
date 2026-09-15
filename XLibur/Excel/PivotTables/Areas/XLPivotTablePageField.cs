@@ -22,7 +22,8 @@ internal sealed class XLPivotTablePageField : XLPivotFieldBase
 
     public override string CustomName
     {
-        get => GetField().Name!;
+        // Excel saves no name for a field nobody renamed, and shows the source field's name for it.
+        get => GetField().Name ?? SourceName;
         set => GetField().Name = value;
     }
 

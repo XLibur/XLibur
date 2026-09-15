@@ -186,11 +186,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
         }
 
-        // A field that was never renamed has no name of its own, and Excel writes none for it, so its
-        // CustomName reads null. Passed on, that made the copy find its own unnamed fields already using
-        // the name, and throw. The copy's field is named after its source, as a field added in code is.
+        // A field that was never renamed has no name of its own, and its CustomName is its source name.
+        // Another producer can save name="" instead. Passed on, an empty name made the copy find a
+        // second such field already using it, and throw. The copy's field is named after its source,
+        // as a field added in code is.
         static string NameOf(IXLPivotField field)
-            => string.IsNullOrEmpty(field.CustomName) ? field.SourceName : field.CustomName;
+            => field.CustomName.Length == 0 ? field.SourceName : field.CustomName;
 
         foreach (var rf in ReportFilters)
             CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, NameOf(rf)));
@@ -207,11 +208,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
                 .SetSummaryFormula(v.SummaryFormula)
                 .SetCalculation(v.Calculation);
 
-            // The base field and the base item go across as the positions they are, and so does a
-            // "previous" or "next" base item, which is held as a position too. The copy has the same
-            // cache and the same fields, so they name the same field and item. Read by its value, the
-            // base item threw for a base field with no items, and Excel writes baseField="0"
-            // baseItem="0" on every value field, whether or not "Show values as" uses them.
+            // The copy has the same cache and the same fields, so the base field goes across as the
+            // position it is. The copy lists a field's items in the cache's order, so the base item is
+            // moved to the same item's position here. It is not read by its value: that threw for a
+            // base field with no items, and Excel writes baseField="0" baseItem="0" on every value
+            // field, whether or not "Show values as" uses them.
             ((XLPivotDataField)pivotValue).CopyBaseFrom((XLPivotDataField)v);
 
             pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;

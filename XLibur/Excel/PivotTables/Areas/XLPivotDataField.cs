@@ -92,13 +92,53 @@ internal sealed class XLPivotDataField : IXLPivotValue
 
     /// <summary>
     /// Gives this value field the <see cref="BaseField"/> and <see cref="BaseItem"/> of
-    /// <paramref name="other"/>, as the positions they are. For a copy of a pivot table over the same
-    /// pivot cache, whose fields are in the same order.
+    /// <paramref name="other"/>, for a copy of a pivot table over the same pivot cache, whose fields
+    /// are in the same order. The base field goes across as the position it is. The base item is a
+    /// position in the base field's items. The copy lists the items of a field on its rows, columns
+    /// or filters in the pivot cache's order, which can differ from the original's, so for such a
+    /// field a base item that is an item of the field goes across as the same item, at its position
+    /// here. Any other base item goes across as it is: "previous", "next", no base item, a position
+    /// the base field has no item at, such as Excel's <c>baseItem="0"</c> on a field with no items,
+    /// and a base item of a field the copy has on no axis. The copy gives such a field no items, and
+    /// an item added here would be there twice once the field is put on an axis.
     /// </summary>
+    /// <remarks>
+    /// The pivot table copy puts its fields on their axes before it copies the value fields, so
+    /// <see cref="XLPivotTableField.Axis"/> of the base field is already set when this runs.
+    /// </remarks>
     internal void CopyBaseFrom(XLPivotDataField other)
     {
         _baseField = other._baseField;
         _baseItem = other._baseItem;
+
+        if (other.GetBaseFieldItem()?.ItemIndex is not { } sharedItemIndex)
+            return;
+
+        var baseField = _pivotTable.PivotFields[_baseField];
+        if (baseField.Axis is null)
+            return;
+
+        var item = baseField.GetOrAddItemByCacheIndex(sharedItemIndex);
+        _baseItem = checked((uint)baseField.IndexOf(item));
+    }
+
+    /// <summary>
+    /// The item of the base field at <see cref="BaseItem"/>, or <c>null</c> when there is none: no base
+    /// field, no base item, "previous" or "next", or a position the base field has no item at.
+    /// </summary>
+    private XLPivotFieldItem? GetBaseFieldItem()
+    {
+        var pivotFields = _pivotTable.PivotFields;
+        if (_baseField < 0 || _baseField >= pivotFields.Count)
+            return null;
+
+        if (_baseItem is BaseItemDefaultValue or BaseItemPreviousValue or BaseItemNextValue)
+            return null;
+
+        // Excel writes baseField="0" baseItem="0" on every value field, whether or not "Show values
+        // as" uses them, so the base field can have no item at that position.
+        var baseItems = pivotFields[_baseField].Items;
+        return _baseItem < baseItems.Count ? baseItems[(int)_baseItem] : null;
     }
 
     /// <summary>
@@ -137,35 +177,19 @@ internal sealed class XLPivotDataField : IXLPivotValue
 
     public XLCellValue BaseItemValue
     {
-        get
-        {
-            var baseFieldSpecified = _baseField != BaseFieldDefaultValue;
-            if (!baseFieldSpecified)
-                return Blank.Value;
-
-            var baseItemSpecified = _baseItem != BaseItemDefaultValue;
-            if (!baseItemSpecified)
-                return Blank.Value;
-
-            if (_baseItem == BaseItemPreviousValue)
-                return Blank.Value;
-
-            if (_baseItem == BaseItemNextValue)
-                return Blank.Value;
-
-            var baseField = _pivotTable.PivotFields[_baseField];
-            var fieldItem = baseField.Items[checked((int)BaseItem)];
-            return fieldItem.GetValue() ?? Blank.Value;
-        }
+        // A position the base field has no item at, as for Excel's baseItem="0" on a field with no
+        // items, is no base item, as when none is set.
+        get => GetBaseFieldItem()?.GetValue() ?? Blank.Value;
         set
         {
-            if (_baseField == BaseItemDefaultValue)
+            if (_baseField == BaseFieldDefaultValue)
                 throw new InvalidOperationException("Base field not specified for the field.");
 
+            // The base item is a position in the base field's items, which is what the getter reads
+            // and what Excel means by baseItem. It is not the item's index among the cache's values.
             var pivotField = _pivotTable.PivotFields[_baseField];
             var fieldItem = pivotField.GetOrAddItem(value);
-            var itemIndex = fieldItem.ItemIndex ?? BaseFieldDefaultValue;
-            _baseItem = checked((uint)itemIndex);
+            _baseItem = checked((uint)pivotField.IndexOf(fieldItem));
         }
     }
 

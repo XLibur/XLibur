@@ -295,18 +295,86 @@ public class XLPivotTableTests
     }
 
     /// <summary>
-    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotField.CustomName"/> is declared non-null,
-    /// but it reads <c>null</c> for a field that Excel saved with no name. CopyTo works round it (#515).
+    /// Excel saved this file: pivot table on <c>pvt1</c>, with field 3 on its rows and field 4 in its
+    /// filters, and no name on either.
     /// </summary>
+    private const string FilterFieldWithNoName = @"Other\PivotTableReferenceFiles\VersioningAttributes\inputfile.xlsx";
+
     [Test]
-    public async Task Known_gap_CustomName_reads_null_for_a_field_Excel_saved_with_no_name()
+    [Property("Description", "#520: CustomName is declared non-null, but read null for a row field Excel saved with no name")]
+    public async Task CustomName_of_a_row_field_Excel_saved_with_no_name_is_its_source_name()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable));
         using var wb = new XLWorkbook(stream);
-        string? name = wb.Worksheet("Pivot").PivotTables.Single().RowLabels.Single().CustomName;
+        var pt = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+        var field = pt.RowLabels.Single();
 
-        await Assert.That(name).IsNull();
+        await Assert.That(field.CustomName).IsEqualTo(field.SourceName);
+        await Assert.That(pt.PivotFields[field.Offset].Name).IsNull()
+            .Because("reading the name must not give the field one");
     }
+
+    [Test]
+    [Property("Description", "#520: CustomName is declared non-null, but read null for a filter field Excel saved with no name")]
+    public async Task CustomName_of_a_filter_field_Excel_saved_with_no_name_is_its_source_name()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(FilterFieldWithNoName));
+        using var wb = new XLWorkbook(stream);
+        var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.Single();
+        var field = pt.ReportFilters.Single();
+
+        await Assert.That(field.CustomName).IsEqualTo(field.SourceName);
+        await Assert.That(pt.PivotFields[field.Offset].Name).IsNull()
+            .Because("reading the name must not give the field one");
+    }
+
+    [Test]
+    [Arguments(ChartsheetAndPivotTable, "Pivot")]
+    [Arguments(FilterFieldWithNoName, "pvt1")]
+    [Property("Description", "#520: the source name that CustomName returns for a field with no name is not stored, so a save still writes no name")]
+    public async Task A_field_Excel_saved_with_no_name_is_saved_with_no_name_after_its_CustomName_is_read(
+        string fixture, string sheetName)
+    {
+        using var original = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(fixture)))
+            stream.CopyTo(original);
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            var pt = wb.Worksheet(sheetName).PivotTables.Single();
+            var names = pt.RowLabels.Concat(pt.ColumnLabels).Concat(pt.ReportFilters)
+                .Select(f => f.CustomName)
+                .ToList();
+            await Assert.That(names.All(name => name is not null)).IsTrue();
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(FieldNameList(saved, sheetName)).IsEqualTo(FieldNameList(original, sheetName));
+        await Assert.That(PivotFieldNames(saved, sheetName).All(name => name is null)).IsTrue()
+            .Because("Excel wrote no name for any field of this pivot table, and nothing renamed one");
+    }
+
+    [Test]
+    [Property("Description", "#520: the setter of CustomName is unchanged; a name set on a field Excel saved with no name is saved")]
+    public async Task CustomName_set_on_a_field_Excel_saved_with_no_name_is_saved()
+    {
+        using var saved = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var field = wb.Worksheet("Pivot").PivotTables.Single().RowLabels.Single();
+            field.CustomName = "Pastry";
+            await Assert.That(field.CustomName).IsEqualTo("Pastry");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(PivotFieldNames(saved, "Pivot")[0]).IsEqualTo("Pastry");
+    }
+
+    /// <summary>The <c>name</c> of each pivot field, in field order, with <c>-</c> for a field with none.</summary>
+    private static string FieldNameList(Stream package, string sheetName)
+        => string.Join(",", PivotFieldNames(package, sheetName).Select(name => name ?? "-"));
 
     /// <summary>
     /// Excel saved this file. Excel writes <c>baseField="0" baseItem="0"</c> on every value field, and
@@ -342,18 +410,201 @@ public class XLPivotTableTests
     }
 
     /// <summary>
-    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotValue.BaseItemValue"/> throws for a value
-    /// field whose base field has no items, although Excel writes <c>baseItem="0"</c> on every value
-    /// field. CopyTo no longer reads it (#515).
+    /// Excel saved this file. On <c>PivotTableSubtotals</c>, field 0 is on the rows and lists its items
+    /// out of the pivot cache's order. The value field's base item is Excel's <c>baseItem="0"</c>, the
+    /// field's first item, which is the second value in the cache.
     /// </summary>
+    private const string BaseItemOutOfCacheOrder = @"TryToLoad\LoadPivotTables.xlsx";
+
     [Test]
-    public async Task Known_gap_BaseItemValue_throws_for_a_base_field_with_no_items()
+    [Property("Description", "#515 copied the base item as a position, but the copy lists a field's items in the cache's order, so the position named another item when the original listed them in another order")]
+    public async Task CopyTo_keeps_the_base_item_of_a_base_field_whose_items_are_not_in_the_caches_order()
+    {
+        using var saved = new MemoryStream();
+        XLCellValue baseItem;
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(BaseItemOutOfCacheOrder)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var pt = (XLPivotTable)wb.Worksheet("PivotTableSubtotals").PivotTables.Single();
+            var value = (XLPivotDataField)pt.Values.Single();
+            await Assert.That((value.BaseField, value.BaseItem)).IsEqualTo((0, 0U));
+            await Assert.That(pt.PivotFields[0].Items[0].ItemIndex).IsEqualTo(1)
+                .Because("the base item must not be the first value in the cache, or this proves nothing");
+            baseItem = value.BaseItemValue;
+
+            var copy = pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.Values.Single().BaseItemValue).IsEqualTo(baseItem);
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Copy").PivotTables.Single().Values.Single().BaseItemValue)
+            .IsEqualTo(baseItem);
+        await Assert.That(reloaded.Worksheet("PivotTableSubtotals").PivotTables.Single().Values.Single().BaseItemValue)
+            .IsEqualTo(baseItem);
+    }
+
+    [Test]
+    [Property("Description", "CopyTo moved a base item to the same item of the base field in the copy, and for a base field the copy has on no axis it added that one item, so putting the field on an axis then gave it the item twice")]
+    public async Task CopyTo_keeps_the_base_item_as_it_is_when_the_base_field_is_on_no_axis()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("Name", "Sold"),
+                ("Pie", 7),
+                ("Cake", 10),
+            });
+            var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Sold").ShowAsPercentageFrom("Name").And("Cake");
+
+            // Taken off the rows, the field keeps its items, as a field Excel saved on no axis can.
+            pt.RowLabels.Remove("Name");
+            var baseField = pt.PivotFields[0];
+            await Assert.That(baseField.Axis).IsNull();
+            await Assert.That(baseField.Items.Any(item => item.ItemIndex is not null)).IsTrue()
+                .Because("the base field must keep its items, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.PivotFields[0].Items).IsEmpty()
+                .Because("the copy gives items only to the fields it puts on an axis");
+            await Assert.That(((XLPivotDataField)copy.Values.Single()).BaseItem)
+                .IsEqualTo(((XLPivotDataField)pt.Values.Single()).BaseItem);
+
+            copy.RowLabels.Add("Name");
+            var cacheIndexes = copy.PivotFields[0].Items.Select(item => item.ItemIndex).OfType<int>().ToList();
+            await Assert.That(cacheIndexes).IsEquivalentTo(new[] { 0, 1 })
+                .Because("each value of the field has one item");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedCopy = reloaded.Worksheet("Copy").PivotTables.Single();
+        await Assert.That(reloadedCopy.RowLabels.Single().SourceName).IsEqualTo("Name");
+        await Assert.That(reloadedCopy.Values.Single().BaseItemValue).IsEqualTo("Cake");
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    [Property("Description", "a field saved with name=\"\" passed its empty name to the copy, so a second such field found the name already used, and the copy threw")]
+    public async Task A_pivot_table_whose_fields_have_an_empty_name_can_be_copied(bool copyTheSheet)
+    {
+        // A producer other than Excel can write name="". Give every field of the filter fixture's
+        // pivot table one: it has a field on its rows and a field in its filters.
+        using var package = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(FilterFieldWithNoName)))
+            stream.CopyTo(package);
+        using (var document = SpreadsheetDocument.Open(package, true))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts
+                .SelectMany(part => part.PivotTableParts)
+                .Single().PivotTableDefinition!;
+            foreach (var field in definition.PivotFields!.Elements<DocumentFormat.OpenXml.Spreadsheet.PivotField>())
+                field.Name = "";
+        }
+
+        package.Position = 0;
+        using var wb = new XLWorkbook(package);
+        var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.Single();
+        await Assert.That(pt.PivotFields.All(field => field.Name == "")).IsTrue()
+            .Because("every field must load with an empty name, or this proves nothing");
+
+        var copy = copyTheSheet
+            ? wb.Worksheet("pvt1").CopyTo("Copy").PivotTables.Single()
+            : pt.CopyTo(wb.AddWorksheet("Copy").Cell("A3"));
+
+        await Assert.That(copy.RowLabels.Single().CustomName).IsEqualTo(pt.RowLabels.Single().SourceName)
+            .Because("a field with an empty name is named after its source in the copy");
+        await Assert.That(copy.ReportFilters.Single().CustomName).IsEqualTo(pt.ReportFilters.Single().SourceName);
+    }
+
+    [Test]
+    [Property("Description", "#521: Excel writes baseField=0 baseItem=0 on every value field; BaseItemValue threw when field 0 has no items")]
+    public async Task BaseItemValue_is_blank_for_a_base_item_the_base_field_does_not_have()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero));
         using var wb = new XLWorkbook(stream);
-        var value = wb.Worksheet("Other").PivotTables.Single().Values.Single();
+        var pt = (XLPivotTable)wb.Worksheet("Other").PivotTables.Single();
+        var value = pt.Values.Single();
+        await Assert.That(pt.PivotFields[0].Items).IsEmpty()
+            .Because("the base field must have no items, or this proves nothing");
 
-        await Assert.That(() => value.BaseItemValue).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
+        await Assert.That(pt.PivotFields[0].Items).IsEmpty().Because("reading the base item adds no item");
+    }
+
+    [Test]
+    [Property("Description", "#521: reading BaseItemValue changes nothing, so a save keeps the base field and item Excel wrote")]
+    public async Task A_value_field_keeps_the_base_field_and_item_Excel_wrote_after_its_BaseItemValue_is_read()
+    {
+        using var untouched = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero)))
+        using (var wb = new XLWorkbook(stream))
+            wb.SaveAs(untouched);
+
+        using var saved = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var value = wb.Worksheet("Other").PivotTables.Single().Values.Single();
+            await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(DataFieldBases(saved, "Other")).IsEquivalentTo(new[] { "0/0" });
+        await Assert.That(PivotFieldItemCounts(saved, "Other")).IsEqualTo(PivotFieldItemCounts(untouched, "Other"))
+            .Because("reading the base item adds no item to any field");
+    }
+
+    [Test]
+    [Property("Description", "#521: the setter stored the base item's index among the cache's values, and the getter reads it as a position in the base field's items")]
+    public async Task BaseItemValue_reads_back_the_value_it_was_set_to()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var range = ws.Cell("A1").InsertData(new object[]
+        {
+            ("Name", "Sold"),
+            ("Pie", 7),
+            ("Cake", 10),
+        });
+        var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+
+        // Name is on no axis, so it has no items. Setting the base item adds Cake as its first item,
+        // while Cake is the second value in the cache.
+        var value = pt.Values.Add("Sold").ShowAsPercentageFrom("Name").And("Cake");
+
+        await Assert.That(pt.PivotFields[0].Items.Count).IsEqualTo(1);
+        await Assert.That(value.BaseItemValue).IsEqualTo("Cake");
+        await Assert.That(((XLPivotDataField)value).BaseItem).IsEqualTo(0U)
+            .Because("baseItem is a position in the base field's items");
+    }
+
+    [Test]
+    [Property("Description", "#521: the setter tested the base field against the base item's default, so with no base field it threw ArgumentOutOfRangeException from the field list")]
+    public async Task BaseItemValue_can_not_be_set_on_a_value_field_with_no_base_field()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var range = ws.Cell("A1").InsertData(new object[]
+        {
+            ("Name", "Sold"),
+            ("Pie", 7),
+        });
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+        var value = pt.Values.Add("Sold");
+
+        await Assert.That(() => value.SetBaseItemValue("Pie")).Throws<InvalidOperationException>();
+        await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
     }
 
     /// <summary>

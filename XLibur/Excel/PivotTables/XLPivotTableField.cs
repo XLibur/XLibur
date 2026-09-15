@@ -211,6 +211,11 @@ internal sealed class XLPivotTableField
         return (uint)index;
     }
 
+    /// <summary>
+    /// Position of <paramref name="item"/> in <see cref="Items"/>, or <c>-1</c> if the field doesn't have it.
+    /// </summary>
+    internal int IndexOf(XLPivotFieldItem item) => _items.IndexOf(item);
+
     internal void AddSubtotal(XLSubtotalFunction value)
     {
         if (!Subtotals.Add(value))
@@ -256,7 +261,15 @@ internal sealed class XLPivotTableField
         var cache = _pivotTable.PivotCache;
         var cacheValues = cache.GetFieldValues(index);
         var sharedItemIndex = cacheValues.GetOrAddSharedItem(value);
+        return GetOrAddItemByCacheIndex(sharedItemIndex);
+    }
 
+    /// <summary>
+    /// Get the item that refers to the shared item at <paramref name="sharedItemIndex"/> in the pivot
+    /// cache, and add one at the end of <see cref="Items"/> if the field has none.
+    /// </summary>
+    internal XLPivotFieldItem GetOrAddItemByCacheIndex(int sharedItemIndex)
+    {
         // Excel tries to repair workbook, when there are duplicates in pivotFields.Items
         // therefore add only if necessary
         var existingItem = _items.FirstOrDefault(x => x.ItemIndex == sharedItemIndex);
