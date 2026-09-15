@@ -100,7 +100,7 @@ internal sealed class XLPivotDataField : IXLPivotValue
     /// here. Any other base item goes across as it is: "previous", "next", no base item, a position
     /// the base field has no item at, such as Excel's <c>baseItem="0"</c> on a field with no items,
     /// and a base item of a field the copy has on no axis. The copy gives such a field no items, and
-    /// an item added here would be there twice once the field is put on an axis.
+    /// this adds none.
     /// </summary>
     /// <remarks>
     /// The pivot table copy puts its fields on their axes before it copies the value fields, so
