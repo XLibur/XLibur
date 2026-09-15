@@ -409,6 +409,43 @@ public class XLPivotTableTests
             .Because("the copy adds no item to any field");
     }
 
+    /// <summary>
+    /// Excel saved this file. On <c>PivotTableSubtotals</c>, field 0 is on the rows and lists its items
+    /// out of the pivot cache's order. The value field's base item is Excel's <c>baseItem="0"</c>, the
+    /// field's first item, which is the second value in the cache.
+    /// </summary>
+    private const string BaseItemOutOfCacheOrder = @"TryToLoad\LoadPivotTables.xlsx";
+
+    [Test]
+    [Property("Description", "#515 copied the base item as a position, but the copy lists a field's items in the cache's order, so the position named another item when the original listed them in another order")]
+    public async Task CopyTo_keeps_the_base_item_of_a_base_field_whose_items_are_not_in_the_caches_order()
+    {
+        using var saved = new MemoryStream();
+        XLCellValue baseItem;
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(BaseItemOutOfCacheOrder)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var pt = (XLPivotTable)wb.Worksheet("PivotTableSubtotals").PivotTables.Single();
+            var value = (XLPivotDataField)pt.Values.Single();
+            await Assert.That((value.BaseField, value.BaseItem)).IsEqualTo((0, 0U));
+            await Assert.That(pt.PivotFields[0].Items[0].ItemIndex).IsEqualTo(1)
+                .Because("the base item must not be the first value in the cache, or this proves nothing");
+            baseItem = value.BaseItemValue;
+
+            var copy = pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.Values.Single().BaseItemValue).IsEqualTo(baseItem);
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Copy").PivotTables.Single().Values.Single().BaseItemValue)
+            .IsEqualTo(baseItem);
+        await Assert.That(reloaded.Worksheet("PivotTableSubtotals").PivotTables.Single().Values.Single().BaseItemValue)
+            .IsEqualTo(baseItem);
+    }
+
     [Test]
     [Arguments(false)]
     [Arguments(true)]

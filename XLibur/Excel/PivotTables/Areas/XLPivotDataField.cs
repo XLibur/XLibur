@@ -92,13 +92,44 @@ internal sealed class XLPivotDataField : IXLPivotValue
 
     /// <summary>
     /// Gives this value field the <see cref="BaseField"/> and <see cref="BaseItem"/> of
-    /// <paramref name="other"/>, as the positions they are. For a copy of a pivot table over the same
-    /// pivot cache, whose fields are in the same order.
+    /// <paramref name="other"/>, for a copy of a pivot table over the same pivot cache, whose fields
+    /// are in the same order. The base field goes across as the position it is. The base item is a
+    /// position in the base field's items, and the two tables can list those items in different
+    /// orders, so a base item that is an item of the base field goes across as the same item, at its
+    /// position here. Any other base item goes across as it is: "previous", "next", no base item, and
+    /// a position the base field has no item at, such as Excel's <c>baseItem="0"</c> on a field with
+    /// no items.
     /// </summary>
     internal void CopyBaseFrom(XLPivotDataField other)
     {
         _baseField = other._baseField;
         _baseItem = other._baseItem;
+
+        if (other.GetBaseFieldItem()?.ItemIndex is not { } sharedItemIndex)
+            return;
+
+        var baseField = _pivotTable.PivotFields[_baseField];
+        var item = baseField.GetOrAddItemByCacheIndex(sharedItemIndex);
+        _baseItem = checked((uint)baseField.IndexOf(item));
+    }
+
+    /// <summary>
+    /// The item of the base field at <see cref="BaseItem"/>, or <c>null</c> when there is none: no base
+    /// field, no base item, "previous" or "next", or a position the base field has no item at.
+    /// </summary>
+    private XLPivotFieldItem? GetBaseFieldItem()
+    {
+        var pivotFields = _pivotTable.PivotFields;
+        if (_baseField < 0 || _baseField >= pivotFields.Count)
+            return null;
+
+        if (_baseItem is BaseItemDefaultValue or BaseItemPreviousValue or BaseItemNextValue)
+            return null;
+
+        // Excel writes baseField="0" baseItem="0" on every value field, whether or not "Show values
+        // as" uses them, so the base field can have no item at that position.
+        var baseItems = pivotFields[_baseField].Items;
+        return _baseItem < baseItems.Count ? baseItems[(int)_baseItem] : null;
     }
 
     /// <summary>
@@ -137,24 +168,9 @@ internal sealed class XLPivotDataField : IXLPivotValue
 
     public XLCellValue BaseItemValue
     {
-        get
-        {
-            var pivotFields = _pivotTable.PivotFields;
-            if (_baseField < 0 || _baseField >= pivotFields.Count)
-                return Blank.Value;
-
-            if (_baseItem is BaseItemDefaultValue or BaseItemPreviousValue or BaseItemNextValue)
-                return Blank.Value;
-
-            // Excel writes baseField="0" baseItem="0" on every value field, whether or not "Show
-            // values as" uses them, so the base field can have no item at that position. That is
-            // no base item, as when none is set.
-            var baseItems = pivotFields[_baseField].Items;
-            if (_baseItem >= baseItems.Count)
-                return Blank.Value;
-
-            return baseItems[(int)_baseItem].GetValue() ?? Blank.Value;
-        }
+        // A position the base field has no item at, as for Excel's baseItem="0" on a field with no
+        // items, is no base item, as when none is set.
+        get => GetBaseFieldItem()?.GetValue() ?? Blank.Value;
         set
         {
             if (_baseField == BaseFieldDefaultValue)

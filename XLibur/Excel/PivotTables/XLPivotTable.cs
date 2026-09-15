@@ -208,11 +208,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
                 .SetSummaryFormula(v.SummaryFormula)
                 .SetCalculation(v.Calculation);
 
-            // The base field and the base item go across as the positions they are, and so does a
-            // "previous" or "next" base item, which is held as a position too. The copy has the same
-            // cache and the same fields, so they name the same field and item. Read by its value, the
-            // base item threw for a base field with no items, and Excel writes baseField="0"
-            // baseItem="0" on every value field, whether or not "Show values as" uses them.
+            // The copy has the same cache and the same fields, so the base field goes across as the
+            // position it is. The copy lists a field's items in the cache's order, so the base item is
+            // moved to the same item's position here. It is not read by its value: that threw for a
+            // base field with no items, and Excel writes baseField="0" baseItem="0" on every value
+            // field, whether or not "Show values as" uses them.
             ((XLPivotDataField)pivotValue).CopyBaseFrom((XLPivotDataField)v);
 
             pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;
