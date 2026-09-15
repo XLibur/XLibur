@@ -1,12 +1,9 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using TUnit.Assertions.Enums;
 using XLibur.Excel;
-using S = DocumentFormat.OpenXml.Spreadsheet;
-using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
@@ -247,7 +244,7 @@ public class DataValidationSheetLifecycleTests
             wb.SaveAs(original);
         }
 
-        await Assert.That(SavedCriteria(original, "Other"))
+        await Assert.That(SavedDataValidations.Criteria(original, "Other"))
             .IsEquivalentTo(new[] { ("x14", "Data!$A$1:$A$3", "") }, CollectionOrdering.Matching);
 
         using var loaded = new XLWorkbook(original);
@@ -338,7 +335,7 @@ public class DataValidationSheetLifecycleTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        var saved = SavedCriteria(ms, sheetName).Select((c, i) =>
+        var saved = SavedDataValidations.Criteria(ms, sheetName).Select((c, i) =>
             (i < expected.Length && expected[i].Form is null ? null : (string?)c.Form, c.Formula1, c.Formula2));
         await Assert.That(saved).IsEquivalentTo(expected, CollectionOrdering.Matching);
         await Assert.That(SavedSheetXml(ms, sheetName)).DoesNotContain("Data!");
@@ -350,37 +347,12 @@ public class DataValidationSheetLifecycleTests
             .IsEquivalentTo(expected.Select(e => (e.Formula1, e.Formula2)), CollectionOrdering.Matching);
     }
 
-    /// <summary>
-    /// Each rule in <paramref name="sheetName"/>'s part: <c>standard</c> for one in
-    /// <c>&lt;dataValidations&gt;</c>, <c>x14</c> for one in the extension, with its two formulas, an
-    /// absent one read as empty.
-    /// </summary>
-    private static List<(string Form, string Formula1, string Formula2)> SavedCriteria(Stream package,
-        string sheetName)
-    {
-        package.Position = 0;
-        using var document = SpreadsheetDocument.Open(package, false);
-        var worksheet = SheetPart(document, sheetName).Worksheet!;
-        var standard = worksheet.Elements<S.DataValidations>()
-            .SelectMany(d => d.Elements<S.DataValidation>())
-            .Select(dv => ("standard", dv.Formula1?.Text ?? "", dv.Formula2?.Text ?? ""));
-        var extension = worksheet.Descendants<X14.DataValidation>()
-            .Select(dv => ("x14", dv.DataValidationForumla1?.InnerText ?? "", dv.DataValidationForumla2?.InnerText ?? ""));
-        return standard.Concat(extension).ToList();
-    }
-
     private static string SavedSheetXml(Stream package, string sheetName)
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
-        using var reader = new StreamReader(SheetPart(document, sheetName).GetStream(FileMode.Open, FileAccess.Read));
+        using var reader = new StreamReader(SavedDataValidations.SheetPart(document, sheetName)
+            .GetStream(FileMode.Open, FileAccess.Read));
         return reader.ReadToEnd();
-    }
-
-    private static WorksheetPart SheetPart(SpreadsheetDocument document, string sheetName)
-    {
-        var workbookPart = document.WorkbookPart!;
-        var sheet = workbookPart.Workbook!.Descendants<S.Sheet>().Single(s => s.Name?.Value == sheetName);
-        return (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
     }
 }
