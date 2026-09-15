@@ -437,21 +437,28 @@ internal static class PivotTableDefinitionPartWriter2
     /// <summary>
     /// Write the <c>x14:conditionalFormats</c> list of the pivot table's <c>x14</c> extension: its link,
     /// by rule id, to each rule the sheet keeps only in the sheet's <c>x14</c> extension, marked
-    /// <c>pivot="1"</c>. The sheet writes such a rule back as it was loaded, id and priority included,
-    /// and it is written before its pivot tables, so the loaded id and priority are the ones it has.
+    /// <c>pivot="1"</c>. The sheet writes such a rule back as it was loaded, id included, with the
+    /// priority that numbers it among all the sheet's rules (#552), and it is written before its pivot
+    /// tables. So each entry names the rule by its loaded id and the priority the sheet just wrote.
     /// </summary>
     private static void WriteExtensionConditionalFormats(XmlWriter xml, XLPivotTable pt)
     {
         if (pt.ExtensionConditionalFormats.Count == 0)
             return;
 
+        var sheetFormats = ((XLWorksheet)pt.Worksheet).ConditionalFormats;
         xml.WriteStartElement("conditionalFormats", X14Main2009SsNs);
         xml.WriteAttribute(CountAttr, pt.ExtensionConditionalFormats.Count);
         foreach (var conditionalFormat in pt.ExtensionConditionalFormats)
         {
             xml.WriteStartElement("conditionalFormat", X14Main2009SsNs);
             WriteConditionalFormatScopeAndType(xml, conditionalFormat.Scope, conditionalFormat.Type);
-            xml.WriteAttribute("priority", conditionalFormat.Priority);
+
+            // A rule the sheet does not hold names no rule either way, so it keeps its loaded priority.
+            if (sheetFormats.TryGetExtensionRulePriority(conditionalFormat.RuleId, out var priority))
+                xml.WriteAttribute("priority", priority);
+            else
+                xml.WriteAttribute("priority", conditionalFormat.Priority);
             xml.WriteAttribute("id", conditionalFormat.RuleId);
             WriteConditionalFormatAreas(xml, X14Main2009SsNs, conditionalFormat.Areas);
             xml.WriteEndElement(); // conditionalFormat

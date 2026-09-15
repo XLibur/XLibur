@@ -41,16 +41,16 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// <c>x14</c> rule has a new id, where XLibur's keeps its id (#515), so the id is not compared.
 /// </para>
 /// <para>
-/// A rule is compared cell by cell: the form it is written in, its type, and the text of its formulas
-/// without the name of the rule's own sheet. Excel never writes that name. XLibur keeps it, so on the copy
-/// it names the copy, quoted where the name needs it. A reference without a sheet name is to a cell of the
-/// rule's own sheet, so the two forms refer to the same cells.
+/// A rule is compared cell by cell: its priority, the form it is written in, its type, and the text of its
+/// formulas without the name of the rule's own sheet. Excel never writes that name. XLibur keeps it, so on
+/// the copy it names the copy, quoted where the name needs it. A reference without a sheet name is to a
+/// cell of the rule's own sheet, so the two forms refer to the same cells.
 /// </para>
 /// <para>
-/// The priority is not compared either. A save numbers the rules XLibur models from 1, apart from the
-/// priorities of the rules it keeps in <c>x14</c>, so <c>B4</c> and <c>B5</c> are written with the
-/// priorities 2 and 3, which <c>B2</c> and <c>B3</c> have too. That is so on the original sheet as on the
-/// copy, so it is not a matter of the copy.
+/// Excel numbers the rules of each sheet 1 to 5, <c>B1</c> to <c>B5</c>, across both forms. A save used to
+/// number only the rules XLibur models from 1, so <c>B4</c> and <c>B5</c> were written with the priorities
+/// 2 and 3, which <c>B2</c> and <c>B3</c> have too, and this comparison left the priority out. A save
+/// numbers the kept rules with the modelled ones now (#552).
 /// </para>
 /// </remarks>
 public class SheetCopyConditionalFormatFixtureTests
@@ -161,16 +161,17 @@ public class SheetCopyConditionalFormatFixtureTests
 
     /// <summary>The conditional formats of every sheet of a saved package, in either form.</summary>
     /// <remarks>
-    /// One line for each area of each rule: the sheet and the area, the form, the rule's type, and its
-    /// formulas without the name of the rule's own sheet.
+    /// One line for each area of each rule: the sheet and the area, the rule's priority, the form, the
+    /// rule's type, and its formulas without the name of the rule's own sheet.
     /// </remarks>
     private static List<string> Read(Stream package)
     {
         var lines = new List<string>();
-        ForEachRule(package, (sheetName, sqref, form, type, formulas) =>
+        ForEachRule(package, (sheetName, sqref, priority, form, type, formulas) =>
         {
             var text = string.Join(" | ", formulas.Select(f => WithoutOwnSheet(f, sheetName)));
-            lines.AddRange(Areas(sqref).Select(area => $"{sheetName}!{area}: {form} {type} | {text}"));
+            lines.AddRange(Areas(sqref)
+                .Select(area => $"{sheetName}!{area}: priority {priority} {form} {type} | {text}"));
         });
         return lines.Order(StringComparer.Ordinal).ToList();
     }
@@ -182,7 +183,7 @@ public class SheetCopyConditionalFormatFixtureTests
     private static List<string> Formulas(Stream package, string sheetName)
     {
         var lines = new List<string>();
-        ForEachRule(package, (sheet, sqref, _, _, formulas) =>
+        ForEachRule(package, (sheet, sqref, _, _, _, formulas) =>
         {
             if (sheet == sheetName)
                 lines.Add($"{Areas(sqref).First()}: {string.Join(" | ", formulas)}");
@@ -192,10 +193,10 @@ public class SheetCopyConditionalFormatFixtureTests
 
     /// <summary>
     /// Calls <paramref name="action"/> for each rule of each sheet of a saved package, with the sheet's name,
-    /// the rule's <c>sqref</c>, its form, its type, and its formulas as they are written.
+    /// the rule's <c>sqref</c>, its priority, its form, its type, and its formulas as they are written.
     /// </summary>
     private static void ForEachRule(Stream package,
-        Action<string, string?, string, string?, IEnumerable<string>> action)
+        Action<string, string?, int?, string, string?, IEnumerable<string>> action)
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
@@ -209,8 +210,8 @@ public class SheetCopyConditionalFormatFixtureTests
             {
                 foreach (var rule in block.Elements<S.ConditionalFormattingRule>())
                 {
-                    action(sheetName, block.SequenceOfReferences?.InnerText, "standard", rule.Type?.InnerText,
-                        rule.Elements<S.Formula>().Select(f => f.Text));
+                    action(sheetName, block.SequenceOfReferences?.InnerText, rule.Priority?.Value, "standard",
+                        rule.Type?.InnerText, rule.Elements<S.Formula>().Select(f => f.Text));
                 }
             }
 
@@ -218,8 +219,9 @@ public class SheetCopyConditionalFormatFixtureTests
             {
                 foreach (var rule in block.Elements<X14.ConditionalFormattingRule>())
                 {
-                    action(sheetName, block.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text, "x14",
-                        rule.Type?.InnerText, rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text));
+                    action(sheetName, block.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text,
+                        rule.Priority?.Value, "x14", rule.Type?.InnerText,
+                        rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text));
                 }
             }
         }

@@ -319,6 +319,10 @@ public class SheetCopyConditionalFormatTests
     /// to the copy's cells (<c>cf-copy-after.xlsx</c>, <see cref="SheetCopyConditionalFormatFixtureTests"/>).
     /// A reference to another sheet is left as it is, and the original's rules go on naming the original.
     /// </summary>
+    /// <remarks>
+    /// The rule on <c>E1</c> is added in code, so a save writes it first, and the kept rules move down one
+    /// each, in their order (#552). They used to keep 1 and 2, and the colour scale shared 1 with it.
+    /// </remarks>
     [Test]
     [Arguments("OtherCopy", "OtherCopy!$A$1>0")]
     [Arguments("Other Copy", "'Other Copy'!$A$1>0")]
@@ -332,14 +336,14 @@ public class SheetCopyConditionalFormatTests
         await Assert.That(ModelledFormulas(saved, copyName)).IsEquivalentTo(new[] { expected });
         await Assert.That(KeptRules(saved, copyName)).IsEquivalentTo(new[]
         {
-            $"expression {{2EA358DE-EB2F-4288-A420-DA6A39CC4C3B}} priority 2: {expected} on C1",
-            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 1: Data!$A$2 on C2:C4",
+            $"expression {{2EA358DE-EB2F-4288-A420-DA6A39CC4C3B}} priority 3: {expected} on C1",
+            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 2: Data!$A$2 on C2:C4",
         });
         await Assert.That(ModelledFormulas(saved, "Other")).IsEquivalentTo(new[] { "Other!$A$1>0" });
         await Assert.That(KeptRules(saved, "Other")).IsEquivalentTo(new[]
         {
-            "expression {2EA358DE-EB2F-4288-A420-DA6A39CC4C3B} priority 2: Other!$A$1>0 on C1",
-            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 1: Data!$A$2 on C2:C4",
+            "expression {2EA358DE-EB2F-4288-A420-DA6A39CC4C3B} priority 3: Other!$A$1>0 on C1",
+            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 2: Data!$A$2 on C2:C4",
         });
     }
 
