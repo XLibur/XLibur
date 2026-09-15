@@ -648,9 +648,11 @@ internal static class PivotTableDefinitionPartReader
 
     private static void LoadExtensionList(PivotTableDefinition pivotTable, XLPivotTable xlPivotTable)
     {
-        var extList = pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>();
-        var ext2010 = extList?.GetFirstChild<PivotTableDefinitionExtension>();
-        var ptExt2010 = ext2010?.GetFirstChild<X14.PivotTableDefinition>();
+        // The x14 extension need not come first: an extList holds its extensions in any order.
+        var ptExt2010 = pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>()?
+            .Elements<PivotTableDefinitionExtension>()
+            .Select(ext => ext.GetFirstChild<X14.PivotTableDefinition>())
+            .FirstOrDefault(definition => definition is not null);
         if (ptExt2010 is not null)
         {
             xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;

@@ -54,6 +54,32 @@ public class PivotConditionalFormatLinkTests
     }
 
     /// <summary>
+    /// The pivot table's <c>x14</c> extension need not be the first in its <c>extLst</c>. The reader
+    /// looked for <c>x14:pivotTableDefinition</c> only in the first extension, so another extension ahead
+    /// of it hid the list, and a save cut the link.
+    /// </summary>
+    /// <remarks>
+    /// Excel wrote the fixture with the <c>x14</c> extension first and its <c>xpdl</c> extension after
+    /// it. The schema allows them in any order, so this test moves the <c>x14</c> extension to the end.
+    /// </remarks>
+    [Test]
+    public async Task The_list_is_kept_when_another_extension_comes_before_it()
+    {
+        using var source = Resource(Before);
+        using var reordered = WithX14ExtensionLast(source);
+        await Assert.That(FirstExtensionHoldsX14(reordered)).IsFalse();
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(reordered))
+            wb.SaveAs(saved, true);
+
+        await Assert.That(Lines(PivotTableLists(saved))).IsEqualTo(Lines(PivotTableLists(Resource(Before))));
+        var (named, broken) = Links(saved);
+        await Assert.That(named).IsEqualTo(1);
+        await Assert.That(broken).IsEmpty();
+    }
+
+    /// <summary>
     /// Each rule id the pivot table names is a rule on its sheet, in a <c>pivot="1"</c> block, with the
     /// same priority. The sheet keeps the rule as it was loaded, id and priority included, so an edit
     /// that rewrites or moves the rule must not break the link.
@@ -178,6 +204,47 @@ public class PivotConditionalFormatLinkTests
 
     private static Stream Resource(string fileName)
         => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Folder + fileName));
+
+    /// <summary>
+    /// A copy of <paramref name="source"/> with the <c>x14</c> extension of each pivot table on
+    /// <c>Other</c> moved to the end of its <c>extLst</c>, behind the extensions Excel wrote after it.
+    /// </summary>
+    private static MemoryStream WithX14ExtensionLast(Stream source)
+    {
+        var ms = new MemoryStream();
+        source.CopyTo(ms);
+        ms.Position = 0;
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            foreach (var part in Other(document).PivotTableParts)
+            {
+                var extList = part.PivotTableDefinition!.GetFirstChild<S.PivotTableDefinitionExtensionList>()!;
+                var x14 = extList.Elements<S.PivotTableDefinitionExtension>()
+                    .Single(ext => ext.GetFirstChild<X14.PivotTableDefinition>() is not null);
+                x14.Remove();
+                extList.AppendChild(x14);
+            }
+        }
+
+        ms.Position = 0;
+        return ms;
+    }
+
+    private static bool FirstExtensionHoldsX14(Stream package)
+    {
+        package.Position = 0;
+        bool holds;
+        using (var document = SpreadsheetDocument.Open(package, false))
+        {
+            holds = Other(document).PivotTableParts.Any(p =>
+                p.PivotTableDefinition!.GetFirstChild<S.PivotTableDefinitionExtensionList>()!
+                    .GetFirstChild<S.PivotTableDefinitionExtension>()!
+                    .GetFirstChild<X14.PivotTableDefinition>() is not null);
+        }
+
+        package.Position = 0;
+        return holds;
+    }
 
     private static string Lines(IEnumerable<string> items) => string.Join(Environment.NewLine, items);
 
