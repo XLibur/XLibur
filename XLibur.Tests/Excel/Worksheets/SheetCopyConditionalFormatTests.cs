@@ -27,9 +27,16 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// priority too.
 /// </para>
 /// <para>
-/// Unverified: no file shows what Excel writes for a sheet copy. <c>chartex-pivotcf-before.xlsx</c> with
-/// <c>Other</c> copied through Move or Copy, Create a copy, and saved by Excel, would settle the ids,
-/// the priorities, and the text of a rule that names its own sheet.
+/// <c>cf-copy-after.xlsx</c>, a sheet copy Excel saved, settles part of this for rules that are not a
+/// pivot table's (<see cref="SheetCopyConditionalFormatFixtureTests"/>). Excel's copy keeps each rule's
+/// priority, as XLibur's does. It gives each rule kept in <c>x14</c> a new id, where XLibur's keeps the
+/// id, which does no harm, since an id need only be unique within its sheet. A rule whose formula names
+/// the copied sheet refers to the copy's cells on Excel's copy, and names the copy on XLibur's (#535).
+/// </para>
+/// <para>
+/// Unverified for a pivot table's rules: no file shows what Excel writes for them on a copy.
+/// <c>chartex-pivotcf-before.xlsx</c> with <c>Other</c> copied through Move or Copy, Create a copy, and
+/// saved by Excel, would settle it.
 /// </para>
 /// </remarks>
 public class SheetCopyConditionalFormatTests
@@ -307,37 +314,98 @@ public class SheetCopyConditionalFormatTests
     }
 
     /// <summary>
-    /// A kept rule whose formula names the copied sheet itself is copied as XLibur copies a modelled rule
-    /// with its sheet: the text is not changed, so the copy's rule goes on naming the sheet it was copied
-    /// from. A cell formula on the copy is repointed at the copy instead.
+    /// #535: a rule whose formula names the copied sheet names the copy, quoted where the copy's name needs
+    /// it, whether XLibur models the rule or keeps it only in <c>x14</c>. Excel's copy of such a rule refers
+    /// to the copy's cells (<c>cf-copy-after.xlsx</c>, <see cref="SheetCopyConditionalFormatFixtureTests"/>).
+    /// A reference to another sheet is left as it is, and the original's rules go on naming the original.
     /// </summary>
-    /// <remarks>
-    /// Unverified: this pins XLibur's behaviour, not Excel's. A copy of a sheet whose rule names that
-    /// sheet, saved by Excel, would show whether Excel repoints the rule at the copy.
-    /// </remarks>
     [Test]
-    public async Task A_kept_rule_that_names_its_own_sheet_is_copied_unchanged_as_a_modelled_rule_is()
+    [Arguments("OtherCopy", "OtherCopy!$A$1>0")]
+    [Arguments("Other Copy", "'Other Copy'!$A$1>0")]
+    public async Task A_rule_that_names_its_own_sheet_names_the_copy(string copyName, string expected)
     {
         using var source = WithKeptExpression(Resource(KeptRulesFixture), "Other!$A$1>0");
-        using var saved = CopyOtherAndSave(source, validate: false, before: wb =>
+        using var saved = CopyOtherAndSave(source, validate: false, copyName: copyName, before: wb =>
             wb.Worksheet("Other").Range("E1").AddConditionalFormat().WhenIsTrue("Other!$A$1>0")
                 .Fill.SetBackgroundColor(XLColor.Red));
 
-        saved.Position = 0;
-        List<string> modelled;
-        using (var document = SpreadsheetDocument.Open(saved, false))
+        await Assert.That(ModelledFormulas(saved, copyName)).IsEquivalentTo(new[] { expected });
+        await Assert.That(KeptRules(saved, copyName)).IsEquivalentTo(new[]
         {
-            modelled = PivotConditionalFormatLinkTests.Sheet(document, Copy).Worksheet!
-                .Elements<S.ConditionalFormatting>()
-                .SelectMany(c => c.Descendants<S.Formula>())
-                .Select(f => f.Text)
-                .ToList();
-        }
+            $"expression {{2EA358DE-EB2F-4288-A420-DA6A39CC4C3B}} priority 2: {expected} on C1",
+            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 1: Data!$A$2 on C2:C4",
+        });
+        await Assert.That(ModelledFormulas(saved, "Other")).IsEquivalentTo(new[] { "Other!$A$1>0" });
+        await Assert.That(KeptRules(saved, "Other")).IsEquivalentTo(new[]
+        {
+            "expression {2EA358DE-EB2F-4288-A420-DA6A39CC4C3B} priority 2: Other!$A$1>0 on C1",
+            "colorScale {9496D6DB-CF52-4009-BC20-6298A5ACDC5C} priority 1: Data!$A$2 on C2:C4",
+        });
+    }
 
-        var kept = KeptRules(saved, Copy).Single(r => r.StartsWith("expression", StringComparison.Ordinal));
-        await Assert.That(modelled).IsEquivalentTo(new[] { "Other!$A$1>0" });
-        await Assert.That(kept).IsEqualTo(
-            "expression {2EA358DE-EB2F-4288-A420-DA6A39CC4C3B} priority 2: Other!$A$1>0 on C1");
+    /// <summary>
+    /// Every formula of a copied modelled rule that names the copied sheet names the copy: an expression,
+    /// a colour scale's formula value, and a pivot table's rule. A reference to another sheet, and one
+    /// without a sheet name, are left as they are, and the original's rules are not touched.
+    /// </summary>
+    /// <remarks>
+    /// The fixture has only expressions, on the sheet itself. A scale's value and a pivot table's rule are
+    /// rewritten through the same step, as a sheet rename rewrites them (#498). What Excel writes for a
+    /// pivot table's rule on a copy is unverified (see the class remarks).
+    /// </remarks>
+    [Test]
+    public async Task Every_formula_of_a_modelled_rule_that_names_its_own_sheet_names_the_copy()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        var other = wb.AddWorksheet("Other");
+        data.Cell("A1").Value = "Num";
+        data.Cell("B1").Value = "Label";
+        data.Cell("A2").Value = 10;
+        data.Cell("B2").Value = "x";
+        var pivotTable = (XLPivotTable)other.PivotTables.Add("pt", other.Cell("F1"), data.Range("A1:B2"));
+        pivotTable.RowLabels.Add("Label");
+        var pivotRule = (XLConditionalFormat)other.Range("G2").AddConditionalFormat();
+        pivotRule.WhenIsTrue("Other!$G$2>0");
+        ((XLWorksheet)other).ConditionalFormats.Remove(f => f == pivotRule);
+        pivotTable.AddConditionalFormat(new XLPivotConditionalFormat(pivotRule));
+
+        other.Range("A1").AddConditionalFormat().WhenIsTrue("AND(Other!$B$1>0,Data!$A$2>0,$C$1>0)");
+        other.Range("A2:A4").AddConditionalFormat().ColorScale()
+            .Minimum(XLCFContentType.Formula, "Other!$B$1", XLColor.Red);
+
+        var copy = (XLWorksheet)other.CopyTo(Copy);
+
+        await Assert.That(ModelFormulas(copy)).IsEquivalentTo(new[]
+        {
+            "AND(OtherCopy!$B$1>0,Data!$A$2>0,$C$1>0)",
+            "OtherCopy!$B$1",
+        });
+        await Assert.That(ModelFormulas((XLWorksheet)other)).IsEquivalentTo(new[]
+        {
+            "AND(Other!$B$1>0,Data!$A$2>0,$C$1>0)",
+            "Other!$B$1",
+        });
+        var copiedPivotRule = ((XLPivotTable)((IXLWorksheet)copy).PivotTables.Single()).ConditionalFormats.Single()
+            .Format;
+        await Assert.That(copiedPivotRule.Values[1].Value).IsEqualTo("OtherCopy!$G$2>0");
+        await Assert.That(pivotRule.Values[1].Value).IsEqualTo("Other!$G$2>0");
+    }
+
+    /// <summary>The text of every formula of every rule <paramref name="sheet"/> models.</summary>
+    private static List<string> ModelFormulas(XLWorksheet sheet)
+        => sheet.ConditionalFormats.SelectMany(cf => cf.Values.Values.Select(v => v.Value)).ToList();
+
+    /// <summary>The formulas of each rule <paramref name="sheetName"/> holds in the 2007 schema.</summary>
+    private static List<string> ModelledFormulas(Stream package, string sheetName)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return PivotConditionalFormatLinkTests.Sheet(document, sheetName).Worksheet!
+            .Elements<S.ConditionalFormatting>()
+            .SelectMany(c => c.Descendants<S.Formula>())
+            .Select(f => f.Text)
+            .ToList();
     }
 
     /// <summary>
@@ -409,17 +477,17 @@ public class SheetCopyConditionalFormatTests
 
     /// <summary>
     /// Loads <paramref name="source"/>, runs <paramref name="before"/>, copies <c>Other</c> to
-    /// <c>OtherCopy</c>, runs <paramref name="after"/>, and saves, validating the package unless told
-    /// not to (see <see cref="KeptRulesFixture"/>).
+    /// <paramref name="copyName"/>, <c>OtherCopy</c> unless told otherwise, runs <paramref name="after"/>,
+    /// and saves, validating the package unless told not to (see <see cref="KeptRulesFixture"/>).
     /// </summary>
     private static MemoryStream CopyOtherAndSave(Stream source, Action<XLWorkbook>? after = null,
-        Action<XLWorkbook>? before = null, bool validate = true)
+        Action<XLWorkbook>? before = null, bool validate = true, string copyName = Copy)
     {
         var ms = new MemoryStream();
         using (var wb = new XLWorkbook(source))
         {
             before?.Invoke(wb);
-            wb.Worksheet("Other").CopyTo(Copy);
+            wb.Worksheet("Other").CopyTo(copyName);
             after?.Invoke(wb);
             wb.SaveAs(ms, validate);
         }

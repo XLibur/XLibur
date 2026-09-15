@@ -146,8 +146,8 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// <remarks>
     /// Each rule keeps its id. An id need only be unique within its sheet, and a pivot table copied with
     /// the sheet names its rules by the same ids. The formula text is copied as it is, as a modelled
-    /// rule's is by <see cref="XLConditionalFormat.CopyTo"/>, so a rule that names this sheet goes on
-    /// naming it.
+    /// rule's is by <see cref="XLConditionalFormat.CopyTo"/>. A sheet copy then points the copy's rules
+    /// at the copy (<see cref="RenameSheetInFormulas"/>).
     /// </remarks>
     internal void CopyKeptRulesTo(XLConditionalFormats target)
     {
@@ -157,6 +157,25 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
 
         foreach (var (ruleId, areas) in _extensionRuleAreas)
             target._extensionRuleAreas[ruleId] = areas;
+    }
+
+    /// <summary>
+    /// Renames <paramref name="oldSheetName"/> to <paramref name="newSheetName"/> in every formula of
+    /// every rule on this sheet: modelled, kept only in the <c>x14</c> extension, and a pivot table's. A
+    /// sheet copy calls it on the copy's rules with the name of the sheet they were copied from, so that
+    /// a rule that referred to that sheet refers to the copy instead, as Excel's does in
+    /// <c>cf-copy-after.xlsx</c> (#535). A reference to any other sheet still means the sheet it names.
+    /// </summary>
+    /// <remarks>
+    /// The copy's cell formulas and data validations are renamed the same way, by
+    /// <c>XLCellsCollection.RenameSheetInFormulas</c> and <c>XLDataValidations.RenameSheetInCriteria</c>.
+    /// </remarks>
+    internal void RenameSheetInFormulas(string oldSheetName, string newSheetName)
+    {
+        if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
+            return;
+
+        RewriteSheet(SheetRewrite.Rename(oldSheetName, newSheetName));
     }
 
     #region ISheetListener

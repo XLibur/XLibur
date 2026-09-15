@@ -758,6 +758,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
                 copied.Priority = source.Priority;
         });
         ConditionalFormats.CopyKeptRulesTo(targetSheet.ConditionalFormats);
+        // So must a conditional format's formulas, the sheet's own and its pivot tables', modelled or kept
+        // only in x14: Excel's copy of a rule refers to the copy's cells (cf-copy-after.xlsx, #535).
+        targetSheet.ConditionalFormats.RenameSheetInFormulas(Name, newSheetName);
         SparklineGroups.CopyTo(targetSheet);
         MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
         SelectedRanges.ForEach(sr =>
