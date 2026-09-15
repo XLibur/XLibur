@@ -308,6 +308,112 @@ public class XLPivotTableTests
         await Assert.That(name).IsNull();
     }
 
+    /// <summary>
+    /// Excel saved this file. Excel writes <c>baseField="0" baseItem="0"</c> on every value field, and
+    /// here field 0 is the field being summed, which has no items.
+    /// </summary>
+    private const string ValueFieldIsFieldZero = @"Other\SheetLifecycle\chartex-pivotcf-before.xlsx";
+
+    [Test]
+    [Property("Description", "#515: Excel writes baseField=0 baseItem=0 on every value field; CopyTo read the base item by value, which threw for a base field with no items")]
+    public async Task CopyTo_copies_a_value_fields_base_field_and_item_as_Excel_wrote_them()
+    {
+        using var saved = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var pt = (XLPivotTable)wb.Worksheet("Other").PivotTables.Single();
+            var value = (XLPivotDataField)pt.Values.Single();
+            await Assert.That((value.BaseField, value.BaseItem)).IsEqualTo((0, 0U));
+            await Assert.That(pt.PivotFields[0].Items).IsEmpty()
+                .Because("the base field must have no items, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            var copied = (XLPivotDataField)copy.Values.Single();
+            await Assert.That((copied.BaseField, copied.BaseItem)).IsEqualTo((0, 0U));
+            wb.SaveAs(saved, true);
+        }
+
+        await Assert.That(DataFieldBases(saved, "Copy")).IsEquivalentTo(new[] { "0/0" });
+        await Assert.That(DataFieldBases(saved, "Other")).IsEquivalentTo(new[] { "0/0" });
+        await Assert.That(PivotFieldItemCounts(saved, "Copy")).IsEqualTo(PivotFieldItemCounts(saved, "Other"))
+            .Because("the copy adds no item to any field");
+    }
+
+    /// <summary>
+    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotValue.BaseItemValue"/> throws for a value
+    /// field whose base field has no items, although Excel writes <c>baseItem="0"</c> on every value
+    /// field. CopyTo no longer reads it (#515).
+    /// </summary>
+    [Test]
+    public async Task Known_gap_BaseItemValue_throws_for_a_base_field_with_no_items()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero));
+        using var wb = new XLWorkbook(stream);
+        var value = wb.Worksheet("Other").PivotTables.Single().Values.Single();
+
+        await Assert.That(() => value.BaseItemValue).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    /// A sheet holding a pivot table that Excel saved can be copied and saved, and the copy's pivot
+    /// table reads back with the fields of the original. Each file has fields Excel never renamed, and
+    /// a value field with the base field and item Excel writes on every value field (#515).
+    /// </summary>
+    [Test]
+    [Arguments(@"Other\SheetLifecycle\chartex-pivotcf-before.xlsx", "Other")]
+    [Arguments(@"Other\SheetLifecycle\rename-before.xlsx", "Other")]
+    [Arguments(ChartsheetAndPivotTable, "Pivot")]
+    public async Task A_sheet_holding_a_pivot_table_Excel_saved_can_be_copied(string fixture, string sheetName)
+    {
+        using var saved = new MemoryStream();
+        List<string> expected;
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(fixture)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            expected = FieldsOf(wb.Worksheet(sheetName).PivotTables.Single());
+            wb.Worksheet(sheetName).CopyTo("Copy");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(FieldsOf(reloaded.Worksheet("Copy").PivotTables.Single())).IsEquivalentTo(expected);
+    }
+
+    private static List<string> FieldsOf(IXLPivotTable pivotTable)
+        => pivotTable.RowLabels.Select(f => "row " + f.SourceName)
+            .Concat(pivotTable.ColumnLabels.Select(f => "column " + f.SourceName))
+            .Concat(pivotTable.ReportFilters.Select(f => "filter " + f.SourceName))
+            .Concat(pivotTable.Values.Select(v => $"value {v.SourceName} as {v.CustomName}"))
+            .ToList();
+
+    /// <summary>The <c>baseField/baseItem</c> of each value field of the one pivot table on the sheet.</summary>
+    private static List<string> DataFieldBases(Stream package, string sheetName)
+        => ReadPivotDefinition(package, sheetName, definition => definition.DataFields!
+            .Elements<DocumentFormat.OpenXml.Spreadsheet.DataField>()
+            .Select(f => $"{f.BaseField?.Value}/{f.BaseItem?.Value}")
+            .ToList());
+
+    /// <summary>How many items each pivot field of the one pivot table on the sheet has, in field order.</summary>
+    private static string PivotFieldItemCounts(Stream package, string sheetName)
+        => ReadPivotDefinition(package, sheetName, definition => string.Join(",", definition.PivotFields!
+            .Elements<DocumentFormat.OpenXml.Spreadsheet.PivotField>()
+            .Select(f => f.Items?.Elements<DocumentFormat.OpenXml.Spreadsheet.Item>().Count() ?? 0)));
+
+    private static T ReadPivotDefinition<T>(Stream package, string sheetName,
+        Func<DocumentFormat.OpenXml.Spreadsheet.PivotTableDefinition, T> read)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var workbookPart = document.WorkbookPart!;
+        var sheet = workbookPart.Workbook!.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>()
+            .Single(s => s.Name == sheetName);
+        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
+        return read(worksheetPart.PivotTableParts.Single().PivotTableDefinition!);
+    }
+
     /// <summary>Every <c>OpenXmlValidator</c> error of a saved package, one line each.</summary>
     private static List<string> ValidationErrors(Stream package)
     {

@@ -204,10 +204,14 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         {
             var pivotValue = newPivotTable.Values.Add(v.SourceName, v.CustomName)
                 .SetSummaryFormula(v.SummaryFormula)
-                .SetCalculation(v.Calculation)
-                .SetCalculationItem(v.CalculationItem)
-                .SetBaseFieldName(v.BaseFieldName)
-                .SetBaseItemValue(v.BaseItemValue);
+                .SetCalculation(v.Calculation);
+
+            // The base field and the base item go across as the positions they are, and so does a
+            // "previous" or "next" base item, which is held as a position too. The copy has the same
+            // cache and the same fields, so they name the same field and item. Read by its value, the
+            // base item threw for a base field with no items, and Excel writes baseField="0"
+            // baseItem="0" on every value field, whether or not "Show values as" uses them.
+            ((XLPivotDataField)pivotValue).CopyBaseFrom((XLPivotDataField)v);
 
             pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;
             pivotValue.NumberFormat.Format = v.NumberFormat.Format;
