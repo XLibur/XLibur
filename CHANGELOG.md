@@ -126,6 +126,8 @@
 
 - **Deleting a sheet that is already deleted does nothing.** Calling `IXLWorksheet.Delete()` a second time found the sheet by its name. If a sheet had been added since under that name, the call deleted the new sheet, and every formula and workbook-scoped name that referred to it became `#REF!`. If no sheet had the name, it threw `KeyNotFoundException`. It now deletes only the sheet it is called on, and leaves a sheet that is already deleted as it is.
 
+- **`List(IXLRange, inCellDropdown: false)` now hides the in-cell dropdown.** The overload ignored its second argument and always showed the dropdown, although `List(string, false)` hid it. `InCellDropdown` now reads `false` after the call, and a save writes the rule with its dropdown hidden, whether the range is on the rule's own sheet or on another. ([#526](https://github.com/XLibur/XLibur/issues/526))
+
 
 ### Changed
 

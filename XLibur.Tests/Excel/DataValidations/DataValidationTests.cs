@@ -6,6 +6,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System.Threading.Tasks;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
@@ -673,6 +674,47 @@ public class DataValidationTests
 
         // Pre-quoted string should be stored verbatim
         await Assert.That(dv.Value).IsEqualTo("\"New,Backdated,Old,Other\"");
+    }
+
+    /// <summary>
+    /// <c>List(IXLRange, false)</c> hides the in-cell dropdown, as <c>List(string, false)</c> does, in the
+    /// model, in the saved file and after a reload. It passed <c>true</c> on instead (#526). The file
+    /// says so with <c>showDropDown="1"</c>, as Excel writes it: the attribute means the opposite of its
+    /// name. A range on the rule's own sheet is written in the standard element, one on another sheet in
+    /// the <c>x14</c> extension, so both writers are checked.
+    /// </summary>
+    [Test]
+    [Arguments("Sheet1")]
+    [Arguments("Items")]
+    public async Task List_FromRange_WithoutInCellDropdown_HidesTheDropdown(string listSheet)
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            wb.AddWorksheet("Items");
+            var dv = ws.Cell("B1").CreateDataValidation();
+
+            dv.List(wb.Worksheet(listSheet).Range("A1:A3"), inCellDropdown: false);
+
+            await Assert.That(dv.InCellDropdown).IsFalse();
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using (var doc = SpreadsheetDocument.Open(ms, false))
+        {
+            var worksheets = doc.WorkbookPart!.WorksheetParts.Select(p => p.Worksheet!).ToList();
+            var showDropDown = worksheets
+                .SelectMany(w => w.Descendants<DataValidation>().Select(dv => dv.ShowDropDown?.Value))
+                .Concat(worksheets.SelectMany(w => w.Descendants<X14.DataValidation>().Select(dv => dv.ShowDropDown?.Value)))
+                .Single();
+            await Assert.That(showDropDown).IsTrue();
+        }
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        await Assert.That(reloaded.Worksheet("Sheet1").Cell("B1").GetDataValidation().InCellDropdown).IsFalse();
     }
 
 
