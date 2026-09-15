@@ -40,7 +40,8 @@ public class DataValidationSheetLifecycleTests
     /// <summary>
     /// The form of a rule after a delete, which these tests do not check. Excel keeps a rule whose
     /// criterion now reads <c>#REF!</c> in the <c>x14</c> extension (<c>dv-delete-after.xlsx</c>), and
-    /// XLibur writes it in the standard form. That known difference is pinned once, by
+    /// XLibur writes it in the standard form, because a bare <c>#REF!</c> names no sheet (#536). That
+    /// known difference is pinned once, by
     /// <c>SheetLifecycleDataValidationFixtureTests.Known_difference_a_deleted_sheets_rules_are_written_in_the_standard_form</c>.
     /// </summary>
     private const string? AnyForm = null;
@@ -93,8 +94,8 @@ public class DataValidationSheetLifecycleTests
     }
 
     /// <summary>
-    /// Saved without the <c>=</c> (#523), in the standard form, where Excel writes the extension
-    /// (<c>SheetLifecycleDataValidationFixtureTests</c>).
+    /// Saved without the <c>=</c> (#523), in the <c>x14</c> extension, as Excel writes it (#536). After
+    /// the delete its form is not checked (<see cref="AnyForm"/>).
     /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
@@ -111,12 +112,14 @@ public class DataValidationSheetLifecycleTests
             rename: "=OFFSET('New Data'!$A$1,0,0,COUNTA('New Data'!$A:$A),1)",
             delete: "=OFFSET(#REF!,0,0,COUNTA(#REF!),1)"); // As Excel wrote B2 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
+        await AssertSavedAndReloaded(wb, "Other",
+            (Expect(sheetEvent, "x14", AnyForm), SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>
     /// The relative reference is to the rule's own sheet, and keeps its text. Saved without the
-    /// <c>=</c> (#523), in the standard form, where Excel writes the extension.
+    /// <c>=</c> (#523), in the <c>x14</c> extension, as Excel writes it (#536). After the delete its
+    /// form is not checked (<see cref="AnyForm"/>).
     /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
@@ -133,7 +136,8 @@ public class DataValidationSheetLifecycleTests
             rename: "=AND(B1>0,B1<='New Data'!$A$1)",
             delete: "=AND(B1>0,B1<=#REF!)"); // As Excel wrote B3 in dv-delete-after
         await Assert.That(rule.Value).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
+        await AssertSavedAndReloaded(wb, "Other",
+            (Expect(sheetEvent, "x14", AnyForm), SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>

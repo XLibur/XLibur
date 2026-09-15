@@ -41,7 +41,7 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// <c>=</c> and without the name of the rule's own sheet. Excel never writes that name. XLibur writes it
 /// everywhere except before a plain range (<c>DataValidationWriter</c>). A reference without a sheet name is
 /// to a cell of the rule's own sheet, so the two forms refer to the same cells. The form a rule is written
-/// in, standard or <c>x14</c>, is not compared.
+/// in, standard or <c>x14</c>, is compared on its own, by <see cref="The_forms_match_Excel"/>.
 /// </para>
 /// </remarks>
 public class SheetCopyDataValidationFixtureTests
@@ -57,6 +57,20 @@ public class SheetCopyDataValidationFixtureTests
         using var saved = CopyAndSave();
 
         await Assert.That(Lines(Read(saved))).IsEqualTo(Lines(Read(Resource(After))));
+    }
+
+    /// <summary>
+    /// Each rule on both sheets is written in the form Excel wrote it in. A rule whose formulas refer only to
+    /// its own sheet is in the standard form, whether XLibur writes the sheet's name, as in
+    /// <c>OFFSET(Sheet1!$A$1,0,0,3,1)</c>, or not. <c>B2</c> and <c>B7</c>, which also refer to <c>Data</c>,
+    /// are in the <c>x14</c> extension (#536).
+    /// </summary>
+    [Test]
+    public async Task The_forms_match_Excel()
+    {
+        using var saved = CopyAndSave();
+
+        await Assert.That(Lines(Forms(saved))).IsEqualTo(Lines(Forms(Resource(After))));
     }
 
     /// <summary>
@@ -189,6 +203,32 @@ public class SheetCopyDataValidationFixtureTests
                 .SelectMany(dv => Describe(sheetName, dv.ReferenceSequence?.Text, dv.Type?.InnerText ?? "none",
                     dv.Operator?.InnerText, dv.DataValidationForumla1?.InnerText,
                     dv.DataValidationForumla2?.InnerText)));
+        }
+
+        return lines.Order(StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// Each area of each rule of every sheet of a saved package, with the form it is written in:
+    /// <c>standard</c> in <c>&lt;dataValidations&gt;</c>, <c>x14</c> in the extension.
+    /// </summary>
+    private static List<string> Forms(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var workbookPart = document.WorkbookPart!;
+        var lines = new List<string>();
+        foreach (var sheet in workbookPart.Workbook!.Sheets!.Elements<S.Sheet>())
+        {
+            var sheetName = sheet.Name!.Value!;
+            var worksheet = ((WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!)).Worksheet!;
+            lines.AddRange(worksheet.Elements<S.DataValidations>()
+                .SelectMany(d => d.Elements<S.DataValidation>())
+                .SelectMany(dv => Areas(dv.SequenceOfReferences?.InnerText))
+                .Select(area => $"{sheetName}!{area} standard"));
+            lines.AddRange(worksheet.Descendants<X14.DataValidation>()
+                .SelectMany(dv => Areas(dv.ReferenceSequence?.Text))
+                .Select(area => $"{sheetName}!{area} x14"));
         }
 
         return lines.Order(StringComparer.Ordinal).ToList();
