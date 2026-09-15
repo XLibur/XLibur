@@ -282,6 +282,50 @@ internal sealed class XLPivotTableField
     }
 
     /// <summary>
+    /// Give the field an item for each value of its pivot cache field that it has no item for. The
+    /// items it has keep their positions, because a base item and the saved layout refer to an item
+    /// by its position. The new items go in before the subtotal items at the end, which must stay last
+    /// (see <see cref="Subtotals"/>).
+    /// </summary>
+    internal void AddMissingValueItems()
+    {
+        var fieldIndex = _pivotTable.GetFieldIndex(this);
+        var sharedItemCount = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex).Count;
+        var hasItem = new bool[sharedItemCount];
+        foreach (var item in _items)
+        {
+            if (item.ItemIndex is { } index && index < sharedItemCount)
+                hasItem[index] = true;
+        }
+
+        var missingItems = new List<XLPivotFieldItem>();
+        for (var i = 0; i < sharedItemCount; ++i)
+        {
+            if (!hasItem[i])
+                missingItems.Add(new XLPivotFieldItem(this, i));
+        }
+
+        var subtotalItemsStart = _items.Count;
+        while (subtotalItemsStart > 0 && _items[subtotalItemsStart - 1].ItemIndex is null)
+            subtotalItemsStart--;
+
+        _items.InsertRange(subtotalItemsStart, missingItems);
+    }
+
+    /// <summary>
+    /// Give the field an item for each function in <see cref="Subtotals"/> that it has no item for.
+    /// </summary>
+    internal void AddMissingSubtotalItems()
+    {
+        foreach (var subtotal in Subtotals)
+        {
+            var itemType = GetItemTypeForSubtotal(subtotal);
+            if (!_items.Exists(item => item.ItemType == itemType))
+                _items.Add(new XLPivotFieldItem(this, null) { ItemType = itemType });
+        }
+    }
+
+    /// <summary>
     /// <para>
     /// Filter all shared items of the field through a <paramref name="predicate"/> and return
     /// all <see cref="Items">items</see> that represent a value that satisfies the <paramref

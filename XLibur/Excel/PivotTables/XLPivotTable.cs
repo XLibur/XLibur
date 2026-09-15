@@ -1582,42 +1582,18 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         field.Name = customName;
         field.Axis = axis;
 
-        // If it is an axis, all possible values to field items, because they should be referenced in items.
-        // The page field must have the default item, otherwise Excel asks for repair.
-        var sharedItems = _cache.GetFieldSharedItems(fieldIndex);
-        for (var i = 0; i < sharedItems.Count; ++i)
-            field.AddItem(new XLPivotFieldItem(field, i));
+        // A field on an axis needs an item for each value in the cache, because the layout refers to
+        // them. It can already have items: it was on an axis before, a base item was set on it, or a
+        // loaded file kept them. Those keep their positions, and only the missing ones are added.
+        field.AddMissingValueItems();
 
         // Subtotal items must be synchronized with subtotals. If field has a an item for
         // subtotal function, but doesn't declare subtotals function, Excel will try to
-        // repair workbook. Subtotal items can be in any order.
-        AddSubtotalItems(field);
+        // repair workbook. Subtotal items can be in any order. The page field must have the
+        // default item, otherwise Excel asks for repair.
+        field.AddMissingSubtotalItems();
 
         return fieldIndex;
-    }
-
-    private static void AddSubtotalItems(XLPivotTableField field)
-    {
-        foreach (var subtotalFunction in field.Subtotals)
-        {
-            var itemType = subtotalFunction switch
-            {
-                XLSubtotalFunction.Automatic => XLPivotItemType.Default,
-                XLSubtotalFunction.Sum => XLPivotItemType.Sum,
-                XLSubtotalFunction.Count => XLPivotItemType.CountA,
-                XLSubtotalFunction.Average => XLPivotItemType.Avg,
-                XLSubtotalFunction.Minimum => XLPivotItemType.Min,
-                XLSubtotalFunction.Maximum => XLPivotItemType.Max,
-                XLSubtotalFunction.Product => XLPivotItemType.Product,
-                XLSubtotalFunction.CountNumbers => XLPivotItemType.Count,
-                XLSubtotalFunction.StandardDeviation => XLPivotItemType.StdDev,
-                XLSubtotalFunction.PopulationStandardDeviation => XLPivotItemType.StdDevP,
-                XLSubtotalFunction.Variance => XLPivotItemType.Var,
-                XLSubtotalFunction.PopulationVariance => XLPivotItemType.VarP,
-                _ => throw new UnreachableException(),
-            };
-            field.AddItem(new XLPivotFieldItem(field, null) { ItemType = itemType });
-        }
     }
 
     internal void RemoveFieldFromAxis(FieldIndex index)
