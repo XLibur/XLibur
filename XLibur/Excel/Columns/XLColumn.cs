@@ -434,13 +434,25 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     {
         column.Clear();
         var newColumn = (XLColumn)column;
-        newColumn.Width = Width;
-        newColumn.InnerStyle = InnerStyle;
-        newColumn.IsHidden = IsHidden;
+        CopyPropertiesTo(newColumn);
 
         (this as XLRangeBase).CopyTo(column);
 
         return newColumn;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="target"/> this column's width, style and visibility, and none of its cells.
+    /// </summary>
+    /// <remarks>
+    /// A sheet copy copies the cells, and each rule over them, once for the whole sheet. Copying each
+    /// column's contents as well copied a rule over the column twice (#522).
+    /// </remarks>
+    internal void CopyPropertiesTo(XLColumn target)
+    {
+        target.Width = Width;
+        target.InnerStyle = InnerStyle;
+        target.IsHidden = IsHidden;
     }
 
     public XLRangeColumn Column(int start, int end)

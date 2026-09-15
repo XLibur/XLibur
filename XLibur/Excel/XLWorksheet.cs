@@ -709,8 +709,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             throw new InvalidOperationException($"`{Name}` has been deleted and cannot be copied.");
 
         var targetSheet = (XLWorksheet)workbook.WorksheetsInternal.Add(newSheetName, position);
-        Internals.ColumnsCollection.ForEach(kp => kp.Value.CopyTo(targetSheet.Column(kp.Key)));
-        Internals.RowsCollection.ForEach(kp => kp.Value.CopyTo(targetSheet.Row(kp.Key)));
+        // A row or column gives the copy its height or width, style and visibility, not its cells: the
+        // cells, merges, validations and rules are each copied once below for the whole sheet. A row's or
+        // column's own CopyTo copies its contents too, so a loaded sheet, which has a row for every row
+        // with a cell, got each rule over those rows twice (#522).
+        Internals.ColumnsCollection.ForEach(kp => kp.Value.CopyPropertiesTo(targetSheet.Column(kp.Key)));
+        Internals.RowsCollection.ForEach(kp => kp.Value.CopyPropertiesTo(targetSheet.Row(kp.Key)));
         Internals.CellsCollection.GetCells().ForEach(c =>
             targetSheet.Cell(c.Address).CopyFrom(c, XLCellCopyOptions.Values | XLCellCopyOptions.Styles));
 
@@ -719,6 +723,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         // alone, because those still mean the sheet they name.
         targetSheet.Internals.CellsCollection.RenameSheetInFormulas(Name, newSheetName);
         DataValidations.ForEach(dv => targetSheet.DataValidations.Add(new XLDataValidation(dv, this)));
+        // So must a data validation's criteria: Excel's copy of a rule refers to the copy's cells where the
+        // original refers to the original's (dv-copy-after.xlsx, #525).
+        targetSheet.DataValidations.RenameSheetInCriteria(Name, newSheetName);
         targetSheet.Visibility = Visibility;
         targetSheet.ColumnWidth = ColumnWidth;
         targetSheet.ColumnWidthChanged = ColumnWidthChanged;

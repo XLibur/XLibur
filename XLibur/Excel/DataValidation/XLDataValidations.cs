@@ -226,6 +226,23 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
         RewriteCriteria(SheetRewrite.Delete(_worksheet.Workbook, sheetName));
     }
 
+    /// <summary>
+    /// Renames <paramref name="oldSheetName"/> to <paramref name="newSheetName"/> in every criterion of
+    /// every rule. A sheet copy calls it on the copy's rules with the name of the sheet they were copied
+    /// from, so that a rule that referred to that sheet refers to the copy instead, as Excel's does in
+    /// <c>dv-copy-after.xlsx</c> (#525). A reference to any other sheet still means the sheet it names.
+    /// </summary>
+    /// <remarks>
+    /// The copy's cell formulas are renamed the same way, by <c>XLCellsCollection.RenameSheetInFormulas</c>.
+    /// </remarks>
+    internal void RenameSheetInCriteria(string oldSheetName, string newSheetName)
+    {
+        if (XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
+            return;
+
+        RewriteCriteria(SheetRewrite.Rename(oldSheetName, newSheetName));
+    }
+
     private void RewriteCriteria(SheetRewrite rewrite)
     {
         foreach (var dv in _dataValidations)
