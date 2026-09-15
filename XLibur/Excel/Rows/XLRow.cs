@@ -517,14 +517,26 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         row.Clear();
         var newRow = (XLRow)row;
-        newRow._height = _height;
-        newRow.HeightChanged = HeightChanged;
-        newRow.InnerStyle = GetStyle();
-        newRow.IsHidden = IsHidden;
+        CopyPropertiesTo(newRow);
 
         AsRange().CopyTo(row);
 
         return newRow;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="target"/> this row's height, style and visibility, and none of its cells.
+    /// </summary>
+    /// <remarks>
+    /// A sheet copy copies the cells, and each rule over them, once for the whole sheet. Copying each
+    /// row's contents as well copied a rule over the row twice (#522).
+    /// </remarks>
+    internal void CopyPropertiesTo(XLRow target)
+    {
+        target._height = _height;
+        target.HeightChanged = HeightChanged;
+        target.InnerStyle = GetStyle();
+        target.IsHidden = IsHidden;
     }
 
     public IXLRangeRow Row(int start, int end)

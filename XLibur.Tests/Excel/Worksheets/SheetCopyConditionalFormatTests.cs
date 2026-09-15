@@ -331,12 +331,9 @@ public class SheetCopyConditionalFormatTests
                 .Elements<S.ConditionalFormatting>()
                 .SelectMany(c => c.Descendants<S.Formula>())
                 .Select(f => f.Text)
-                .Distinct()
                 .ToList();
         }
 
-        // Distinct: a copy of this sheet writes the modelled rule twice, before #515 as after it
-        // (Known_gap_a_copy_of_this_sheet_doubles_a_rule_XLibur_models).
         var kept = KeptRules(saved, Copy).Single(r => r.StartsWith("expression", StringComparison.Ordinal));
         await Assert.That(modelled).IsEquivalentTo(new[] { "Other!$A$1>0" });
         await Assert.That(kept).IsEqualTo(
@@ -344,29 +341,35 @@ public class SheetCopyConditionalFormatTests
     }
 
     /// <summary>
-    /// KNOWN GAP, not #515's and a follow-up candidate: a copy of <c>Other</c> in Excel's
-    /// <c>rename-before.xlsx</c> holds a rule XLibur models twice, though the sheet holds it once. The
-    /// same rule on a sheet built in code is copied once. The copy doubled it before #515 changed
-    /// anything, and it does so with the sheet's pivot table deleted first.
+    /// A copy of a sheet holds each rule XLibur models once, as the sheet does (#522). The copy used to
+    /// copy each row and column the sheet has a record for through the row's or column's own
+    /// <c>CopyTo</c>, which copies every rule over that row or column too, and then copy every rule
+    /// again. A loaded sheet has a record for each row with a cell and each column with a width, so
+    /// <c>rename-before.xlsx</c> doubled a rule on <c>E1</c>; a sheet built in code has none until a
+    /// row height or a column width is set.
     /// </summary>
-    /// <remarks>
-    /// Likely path, not proven: <c>XLCellCopyHelper.CopyFromRange</c> copies every rule over its source
-    /// range whatever the copy options say, and something on the loaded sheet (its array formula, its
-    /// hyperlink or its drawing) reaches it during the copy, on top of <c>XLConditionalFormat.CopyTo</c>.
-    /// </remarks>
     [Test]
-    [Arguments("loaded", 2)]
-    [Arguments("built", 1)]
-    public async Task Known_gap_a_copy_of_this_sheet_doubles_a_rule_XLibur_models(string kind, int onCopy)
+    [Arguments("loaded")]
+    [Arguments("built")]
+    [Arguments("built, column E with a width")]
+    [Arguments("built, row 1 with a height")]
+    public async Task A_sheet_copy_holds_each_rule_XLibur_models_once(string kind)
     {
         using var wb = kind == "loaded" ? new XLWorkbook(Resource(KeptRulesFixture)) : new XLWorkbook();
         var other = kind == "loaded" ? wb.Worksheet("Other") : wb.AddWorksheet("Other");
+        if (kind == "built, column E with a width")
+            other.Column("E").Width = 20;
+        if (kind == "built, row 1 with a height")
+            other.Row(1).Height = 30;
         other.Range("E1").AddConditionalFormat().WhenIsTrue("Other!$A$1>0").Fill.SetBackgroundColor(XLColor.Red);
 
         var copy = (XLWorksheet)other.CopyTo(Copy);
 
         await Assert.That(((XLWorksheet)other).ConditionalFormats.Count()).IsEqualTo(1);
-        await Assert.That(copy.ConditionalFormats.Count()).IsEqualTo(onCopy);
+        await Assert.That(copy.ConditionalFormats
+                .Select(cf => cf.Ranges.Single().RangeAddress.ToStringRelative(false))
+                .ToList())
+            .IsEquivalentTo(new[] { "E1:E1" });
     }
 
     /// <summary>
