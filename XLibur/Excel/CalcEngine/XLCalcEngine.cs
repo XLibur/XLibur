@@ -129,6 +129,16 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         return _parser.TryGetAst(expression, isA1: true, out formula, out _);
     }
 
+    /// <summary>
+    /// Parses R1C1 text, as <see cref="TryParse"/> parses A1 text. A relative reference in the result
+    /// resolves against the cell that it is resolved for, so one result serves every cell of a shared
+    /// formula.
+    /// </summary>
+    internal bool TryParseR1C1(string expression, [NotNullWhen(true)] out Formula? formula)
+    {
+        return _parser.TryGetAst(expression, isA1: false, out formula, out _);
+    }
+
     /// <summary>A workbook starts to load. See <see cref="_loading"/>.</summary>
     internal void BeginLoad() => _loading = true;
 

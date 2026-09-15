@@ -22,7 +22,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //   template    the open->edit->save round trip of an existing workbook, split into parse
     //               and serialise; optionally takes a path to a real .xlsx template
     //   firstedit   the dependency-tree build that the first edit after a load pays (#513),
-    //               with allocation by type; optionally takes rows, formulas per row, dotmemory
+    //               with allocation by type; optionally takes rows, formulas per row, shared,
+    //               dotmemory
     // Every other mode attaches dotMemory and targets the load path.
     // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
     // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.

@@ -32,14 +32,17 @@ public static class FirstEditProfile
         var formulasPerRow = args.Length > 3 ? int.Parse(args[3]) : 8;
         var formulas = rows * formulasPerRow;
 
-        Console.WriteLine($"Building fixture: {rows:N0} rows x {formulasPerRow} formulas = {formulas:N0} formulas...");
-        var package = FirstEditFixture.Build(rows, formulasPerRow);
+        var shared = args.Any(a => a.Equals("shared", StringComparison.OrdinalIgnoreCase));
+
+        Console.WriteLine($"Building fixture: {rows:N0} rows x {formulasPerRow} formulas = {formulas:N0} formulas{(shared ? ", shared down each column" : "")}...");
+        var package = FirstEditFixture.Build(rows, formulasPerRow, shared);
 
         // Warm-up, so that the JIT is not in any measured number.
-        var warmup = FirstEditFixture.Build(200, formulasPerRow);
+        var warmup = FirstEditFixture.Build(200, formulasPerRow, shared);
         EditAfterLoad(warmup);
         BuildTree(warmup);
         ParseAll(warmup);
+        ConvertAll(warmup, out _);
 
         Console.WriteLine();
         Console.WriteLine("| Probe | Allocated | per formula | Kept alive | per formula | ms |");
@@ -48,7 +51,9 @@ public static class FirstEditProfile
         Report("First edit (public API)", formulas, EditAfterLoad(package));
         Report("DependencyTree.CreateFrom alone", formulas, BuildTree(package));
         Report("Parse every formula alone", formulas, ParseAll(package));
+        Report("Convert every formula to R1C1 alone", formulas, ConvertAll(package, out var distinctR1C1));
         Console.WriteLine();
+        Console.WriteLine($"Distinct R1C1 texts: {distinctR1C1:N0} of {formulas:N0} formulas.");
         Console.WriteLine("Bytes are exact. Times are single-shot — use BenchmarkDotNet for time claims.");
 
         Console.WriteLine();
@@ -129,6 +134,37 @@ public static class FirstEditProfile
             engine.TryParse(text, out _);
         watch.Stop();
         var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocBefore;
+        return new Probe(allocated, 0, watch.Elapsed.TotalMilliseconds);
+    }
+
+    /// <summary>
+    /// The cost of getting the R1C1 text of every formula from its A1 text. A parse cache keyed on
+    /// R1C1 text pays this for each formula whose R1C1 text the loader did not keep (#513, change 5).
+    /// </summary>
+    private static Probe ConvertAll(byte[] package, out int distinct)
+    {
+        using var workbook = new XLWorkbook(new MemoryStream(package, writable: false));
+        var formulas = new List<(string Text, Point Point)>();
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+            while (enumerator.MoveNext())
+                formulas.Add((enumerator.Current.A1, enumerator.Point));
+        }
+
+        var converted = new string[formulas.Count];
+        ForceGC();
+        var allocBefore = GC.GetTotalAllocatedBytes(precise: true);
+        var watch = Stopwatch.StartNew();
+        for (var i = 0; i < formulas.Count; ++i)
+        {
+            FormulaText.TryConvert(formulas[i].Text, formulas[i].Point, FormulaNotation.R1C1, out var r1c1, out _);
+            converted[i] = r1c1;
+        }
+
+        watch.Stop();
+        var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocBefore;
+        distinct = new HashSet<string>(converted, StringComparer.Ordinal).Count;
         return new Probe(allocated, 0, watch.Elapsed.TotalMilliseconds);
     }
 

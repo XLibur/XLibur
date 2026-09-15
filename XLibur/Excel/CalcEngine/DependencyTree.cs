@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using RBush;
@@ -57,6 +58,13 @@ internal sealed class DependencyTree
     private DependenciesContext? _context;
 
     /// <summary>
+    /// During <see cref="CreateFrom"/>, the ASTs of the shared formulas parsed so far, keyed by their
+    /// R1C1 text, with <c>null</c> for text that the parser refused. <c>null</c> outside a build, so
+    /// that the tree does not keep the ASTs.
+    /// </summary>
+    private Dictionary<string, Formula?>? _sharedAsts;
+
+    /// <summary>
     /// Visitor to extract precedents of formulas.
     /// </summary>
     private readonly DependenciesVisitor _visitor;
@@ -97,6 +105,10 @@ internal sealed class DependencyTree
         // and each node split, and areas that arrive row by row split many nodes (#513).
         foreach (var sheetTree in tree._sheetTrees.Values)
             sheetTree.BeginBulkLoad();
+
+        // A formula filled down a column is one shared formula in a file that Excel saved. Its cells
+        // share one parse of the R1C1 text, instead of one parse of each cell's A1 text (#513).
+        tree._sharedAsts = new Dictionary<string, Formula?>(StringComparer.Ordinal);
 
         foreach (var sheet in workbook.WorksheetsInternal)
         {
@@ -148,6 +160,7 @@ internal sealed class DependencyTree
         foreach (var sheetTree in tree._sheetTrees.Values)
             sheetTree.EndBulkLoad();
 
+        tree._sharedAsts = null;
         return tree;
     }
 #pragma warning restore S3776
@@ -213,6 +226,11 @@ internal sealed class DependencyTree
         CollectPrecedents(formulaArea, formula, workbook, precedents);
         return precedents;
     }
+
+    /// <summary>
+    /// The precedent areas that the tree keeps for a formula in it. For tests.
+    /// </summary>
+    internal IReadOnlyList<SheetArea> GetKeptPrecedents(XLCellFormula formula) => _dependencies[formula];
 
     /// <summary>
     /// Re-register a dynamic-array formula under a new spill footprint. Called after a spill
@@ -416,7 +434,7 @@ internal sealed class DependencyTree
         // on every cell, so any change marks it dirty (see MarkDirty). That matters for a formula a
         // load gave a cached value: it is clean, and would otherwise keep that value after an edit
         // it may read. The cell fails when it is evaluated.
-        if (!formula.TryGetAst(workbook.CalcEngine, out var ast))
+        if (!TryGetAst(formulaArea, formula, workbook, out var ast))
         {
             precedents.MarkPrecedentsUnknown();
             return;
@@ -433,6 +451,39 @@ internal sealed class DependencyTree
         // If formula references are propagated to the root, make sure to add them.
         if (rootReference.IsReference)
             context.AddAreas(rootReference);
+    }
+
+    /// <summary>
+    /// Get the AST of a formula. During <see cref="CreateFrom"/>, a formula that the loader read from a
+    /// shared formula uses the one AST of its group, parsed from the R1C1 text. The visitor resolves
+    /// each relative reference against the anchor of the formula, so one AST serves every cell of the
+    /// group (#513). Parsing the A1 text of each cell was more than half of what a build allocated.
+    /// </summary>
+    /// <remarks>
+    /// The loader made the A1 text of each cell from the R1C1 text, so both give the same references.
+    /// If the parser refuses the R1C1 text, the cell parses its own A1 text instead, so that a refusal
+    /// is always the one that the A1 text gets.
+    /// </remarks>
+    private bool TryGetAst(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook,
+        [NotNullWhen(true)] out Formula? ast)
+    {
+        var sharedAsts = _sharedAsts;
+        if (sharedAsts is not null && formula.TryGetSharedR1C1(formulaArea.Area.FirstPoint, out var r1c1))
+        {
+            if (!sharedAsts.TryGetValue(r1c1, out var sharedAst))
+            {
+                workbook.CalcEngine.TryParseR1C1(r1c1, out sharedAst);
+                sharedAsts.Add(r1c1, sharedAst);
+            }
+
+            if (sharedAst is not null)
+            {
+                ast = sharedAst;
+                return true;
+            }
+        }
+
+        return formula.TryGetAst(workbook.CalcEngine, out ast);
     }
 
     /// <summary>

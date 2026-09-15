@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
+using XLibur.Tests.Excel.IO;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.CalcEngine;
@@ -475,6 +477,148 @@ internal class DependencyTreeTests
             ((XLCell)sheet.Cell(row, 3)).Formula!.MarkClean();
         }
     }
+
+    #region Shared formulas
+
+    /// <summary>
+    /// #513. A tree built from a loaded workbook parses each shared formula once, from the R1C1 text
+    /// that the loader kept, and resolves it for each cell. Each cell must get the precedents that its
+    /// own A1 text gives. The groups have relative, mixed, absolute, other-sheet and defined-name
+    /// references, and one group is filled across a row.
+    /// </summary>
+    [Test]
+    public async Task Shared_formula_cells_get_the_precedents_of_their_own_A1_text()
+    {
+        using var wb = LoadWithSharedFormulas();
+        var sheet = wb.Worksheet("Sheet1");
+        var tree = DependencyTree.CreateFrom(wb);
+
+        foreach (var address in SharedFormulaCells)
+        {
+            var cell = (XLCell)sheet.Cell(address);
+            var formula = cell.Formula!;
+            var formulaArea = new SheetArea(sheet.Name, new Area(cell.SheetPoint, cell.SheetPoint));
+
+            // Without the kept text, the build parses the A1 text, and the comparison proves nothing.
+            await Assert.That(formula.TryGetSharedR1C1(cell.SheetPoint, out _)).IsTrue();
+            await Assert.That(tree.GetKeptPrecedents(formula))
+                .IsEquivalentTo(tree.GetPrecedents(formulaArea, formula, wb).Areas);
+        }
+    }
+
+    /// <summary>
+    /// #513. A row inserted above moves a formula that reads another sheet, and its A1 text stays the
+    /// same. Its R1C1 text changes, so the build must not resolve the kept R1C1 text at the new cell.
+    /// </summary>
+    [Test]
+    public async Task Shared_formula_moved_by_a_row_insert_depends_on_what_its_text_reads()
+    {
+        using var wb = LoadWithSharedFormulas();
+        var sheet = wb.Worksheet("Sheet1");
+        var other = wb.Worksheet("Sheet2");
+
+        sheet.Row(1).InsertRowsAbove(1);
+        var moved = (XLCell)sheet.Cell("F2");
+        await Assert.That(moved.FormulaA1).IsEqualTo("Sheet2!A1*2");
+        await Assert.That(moved.Formula!.TryGetSharedR1C1(moved.SheetPoint, out _)).IsFalse();
+        foreach (var cell in sheet.Range("F2:F5").Cells())
+            _ = cell.Value;
+
+        other.Cell("A1").Value = 7;
+
+        await Assert.That(sheet.Cell("F2").NeedsRecalculation).IsTrue();
+        await Assert.That(sheet.Cell("F3").NeedsRecalculation).IsFalse();
+        await Assert.That(sheet.Cell("F2").Value).IsEqualTo(14);
+    }
+
+    [Test]
+    public async Task Kept_R1C1_text_is_given_only_at_its_cell_and_until_the_A1_text_changes()
+    {
+        var formula = XLCellFormula.NormalA1("A1*2");
+        formula.SetSharedR1C1("RC[-1]*2", new Point(1, 2));
+
+        await Assert.That(formula.TryGetSharedR1C1(new Point(1, 2), out var r1c1)).IsTrue();
+        await Assert.That(r1c1).IsEqualTo("RC[-1]*2");
+        await Assert.That(formula.TryGetSharedR1C1(new Point(2, 2), out _)).IsFalse();
+
+        formula.UpdateShiftedA1("A2*2");
+        await Assert.That(formula.TryGetSharedR1C1(new Point(1, 2), out _)).IsFalse();
+    }
+
+    private static readonly string[] SharedFormulaCells =
+    [
+        "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "E1", "E2", "E3", "E4", "F1", "F2", "F3", "F4",
+        "G1", "H1", "I1",
+    ];
+
+    /// <summary>
+    /// Save a workbook with XLibur, which writes a formula in each cell. Then rewrite the formulas as
+    /// shared formulas, as Excel saves them, and load the result.
+    /// </summary>
+    private static XLWorkbook LoadWithSharedFormulas()
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            var other = wb.AddWorksheet("Sheet2");
+            wb.DefinedNames.Add("Total", "Sheet1!$B$4");
+            for (var row = 1; row <= 4; row++)
+            {
+                ws.Cell(row, 1).Value = row;
+                ws.Cell(row, 2).Value = row * 10;
+                other.Cell(row, 1).Value = row * 100;
+                ws.Cell(row, 3).FormulaA1 = $"A{row}+$B$1+Sheet2!A{row}";
+                ws.Cell(row, 4).FormulaA1 = $"SUM(A$1:A{row})";
+                ws.Cell(row, 5).FormulaA1 = $"IF(A{row}=1,B{row},Total)";
+                ws.Cell(row, 6).FormulaA1 = $"Sheet2!A{row}*2";
+            }
+
+            ws.Cell("G1").FormulaA1 = "A1*2";
+            ws.Cell("H1").FormulaA1 = "B1*2";
+            ws.Cell("I1").FormulaA1 = "C1*2";
+            wb.RecalculateAllFormulas();
+            wb.SaveAs(package);
+        }
+
+        package.RewriteSheet1(xml =>
+        {
+            xml = ShareFormula(xml, 0, "C1:C4", Rows(row => $"A{row}+$B$1+Sheet2!A{row}"));
+            xml = ShareFormula(xml, 1, "D1:D4", Rows(row => $"SUM(A$1:A{row})"));
+            xml = ShareFormula(xml, 2, "E1:E4", Rows(row => $"IF(A{row}=1,B{row},Total)"));
+            xml = ShareFormula(xml, 3, "F1:F4", Rows(row => $"Sheet2!A{row}*2"));
+            return ShareFormula(xml, 4, "G1:I1", ["A1*2", "B1*2", "C1*2"]);
+
+            static string[] Rows(Func<int, string> formula) => [formula(1), formula(2), formula(3), formula(4)];
+        });
+
+        package.Position = 0;
+        return new XLWorkbook(package);
+    }
+
+    /// <summary>
+    /// Make the formulas in <paramref name="cellFormulas"/>, in cell order, one shared formula. The
+    /// first cell keeps its text and the others refer to it by <paramref name="index"/>.
+    /// </summary>
+    private static string ShareFormula(string sheetXml, int index, string reference, string[] cellFormulas)
+    {
+        for (var i = 0; i < cellFormulas.Length; ++i)
+        {
+            var original = $"<x:f>{cellFormulas[i]}</x:f>";
+            var shared = i == 0
+                ? $"<x:f t=\"shared\" ref=\"{reference}\" si=\"{index}\">{cellFormulas[i]}</x:f>"
+                : $"<x:f t=\"shared\" si=\"{index}\" />";
+            var rewritten = sheetXml.Replace(original, shared, StringComparison.Ordinal);
+            if (ReferenceEquals(rewritten, sheetXml))
+                throw new InvalidOperationException($"'{original}' was not found in the sheet part.");
+
+            sheetXml = rewritten;
+        }
+
+        return sheetXml;
+    }
+
+    #endregion Shared formulas
 
     #endregion
 
