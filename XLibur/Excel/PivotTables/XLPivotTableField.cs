@@ -221,15 +221,43 @@ internal sealed class XLPivotTableField
         if (!Subtotals.Add(value))
             return;
 
-        var subtotalItemType = GetItemTypeForSubtotal(value);
-        _items.Add(new XLPivotFieldItem(this, null) { ItemType = subtotalItemType });
+        // The automatic subtotal is ignored while a custom one is set, so it gives the field no default
+        // item then. A custom subtotal takes the default item's place, as Excel writes such a field.
+        if (value == XLSubtotalFunction.Automatic)
+        {
+            if (!HasCustomSubtotals)
+                AddSubtotalItemIfMissing(XLPivotItemType.Default);
+
+            return;
+        }
+
+        _items.RemoveAll(item => item.ItemType == XLPivotItemType.Default);
+        AddSubtotalItemIfMissing(GetItemTypeForSubtotal(value));
     }
 
     internal void RemoveSubtotal(XLSubtotalFunction value)
     {
         Subtotals.Remove(value);
         var subtotalItemType = GetItemTypeForSubtotal(value);
-        _items.RemoveAll(item => item.ItemType == subtotalItemType);
+        var removedCount = _items.RemoveAll(item => item.ItemType == subtotalItemType);
+
+        // Without its last custom subtotal, the field's automatic subtotal applies again, and the
+        // default item takes the place of the removed one.
+        if (removedCount > 0 && Subtotals.Contains(XLSubtotalFunction.Automatic) && !HasCustomSubtotals)
+            AddSubtotalItemIfMissing(XLPivotItemType.Default);
+    }
+
+    /// <summary>
+    /// Does the field have a subtotal function other than <see cref="XLSubtotalFunction.Automatic"/>?
+    /// Then the automatic one is ignored, even if it is present (see <see cref="Subtotals"/>), and the
+    /// field has no default item.
+    /// </summary>
+    private bool HasCustomSubtotals => Subtotals.Count > (Subtotals.Contains(XLSubtotalFunction.Automatic) ? 1 : 0);
+
+    private void AddSubtotalItemIfMissing(XLPivotItemType itemType)
+    {
+        if (!_items.Exists(item => item.ItemType == itemType))
+            _items.Add(new XLPivotFieldItem(this, null) { ItemType = itemType });
     }
 
     internal void SetLayout(XLPivotLayout value)
@@ -314,14 +342,21 @@ internal sealed class XLPivotTableField
 
     /// <summary>
     /// Give the field an item for each function in <see cref="Subtotals"/> that it has no item for.
+    /// With custom subtotals the automatic one is ignored, so the field gets no default item, and loses
+    /// one an older XLibur saved next to the custom items.
     /// </summary>
     internal void AddMissingSubtotalItems()
     {
+        var hasCustomSubtotals = HasCustomSubtotals;
+        if (hasCustomSubtotals)
+            _items.RemoveAll(item => item.ItemType == XLPivotItemType.Default);
+
         foreach (var subtotal in Subtotals)
         {
-            var itemType = GetItemTypeForSubtotal(subtotal);
-            if (!_items.Exists(item => item.ItemType == itemType))
-                _items.Add(new XLPivotFieldItem(this, null) { ItemType = itemType });
+            if (subtotal == XLSubtotalFunction.Automatic && hasCustomSubtotals)
+                continue;
+
+            AddSubtotalItemIfMissing(GetItemTypeForSubtotal(subtotal));
         }
     }
 
