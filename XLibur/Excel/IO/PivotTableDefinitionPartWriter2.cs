@@ -85,6 +85,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeOptional("altTextSummary", pt.Description);
         xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
         xml.WriteAttribute("hideValuesRow", !pt.ShowValuesRow);
+        WriteExtensionConditionalFormats(xml, pt);
         xml.WriteEndElement(); // pivotTableDefinition
         xml.WriteEndElement(); // ext
 
@@ -427,20 +428,59 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WriteConditionalFormat(XmlWriter xml, XLPivotConditionalFormat conditionalFormat)
     {
         xml.WriteStartElement("conditionalFormat", Main2006SsNs);
-        if (conditionalFormat.Scope != XLPivotCfScope.SelectedCells)
-            xml.WriteAttribute("scope", ToAttr(conditionalFormat.Scope.ToOpenXml()));
-
-        if (conditionalFormat.Type != XLPivotCfRuleType.None)
-            xml.WriteAttribute("type", ToAttr(conditionalFormat.Type.ToOpenXml()));
-
+        WriteConditionalFormatScopeAndType(xml, conditionalFormat.Scope, conditionalFormat.Type);
         xml.WriteAttribute("priority", conditionalFormat.Format.Priority);
-        xml.WriteStartElement("pivotAreas", Main2006SsNs);
-        xml.WriteAttribute(CountAttr, conditionalFormat.Areas.Count);
-        foreach (var pivotArea in conditionalFormat.Areas)
+        WriteConditionalFormatAreas(xml, Main2006SsNs, conditionalFormat.Areas);
+        xml.WriteEndElement(); // conditionalFormat
+    }
+
+    /// <summary>
+    /// Write the <c>x14:conditionalFormats</c> list of the pivot table's <c>x14</c> extension: its link,
+    /// by rule id, to each rule the sheet keeps only in the sheet's <c>x14</c> extension, marked
+    /// <c>pivot="1"</c>. The sheet writes such a rule back as it was loaded, id and priority included,
+    /// and it is written before its pivot tables, so the loaded id and priority are the ones it has.
+    /// </summary>
+    private static void WriteExtensionConditionalFormats(XmlWriter xml, XLPivotTable pt)
+    {
+        if (pt.ExtensionConditionalFormats.Count == 0)
+            return;
+
+        xml.WriteStartElement("conditionalFormats", X14Main2009SsNs);
+        xml.WriteAttribute(CountAttr, pt.ExtensionConditionalFormats.Count);
+        foreach (var conditionalFormat in pt.ExtensionConditionalFormats)
+        {
+            xml.WriteStartElement("conditionalFormat", X14Main2009SsNs);
+            WriteConditionalFormatScopeAndType(xml, conditionalFormat.Scope, conditionalFormat.Type);
+            xml.WriteAttribute("priority", conditionalFormat.Priority);
+            xml.WriteAttribute("id", conditionalFormat.RuleId);
+            WriteConditionalFormatAreas(xml, X14Main2009SsNs, conditionalFormat.Areas);
+            xml.WriteEndElement(); // conditionalFormat
+        }
+
+        xml.WriteEndElement(); // conditionalFormats
+    }
+
+    private static void WriteConditionalFormatScopeAndType(XmlWriter xml, XLPivotCfScope scope, XLPivotCfRuleType type)
+    {
+        if (scope != XLPivotCfScope.SelectedCells)
+            xml.WriteAttribute("scope", ToAttr(scope.ToOpenXml()));
+
+        if (type != XLPivotCfRuleType.None)
+            xml.WriteAttribute("type", ToAttr(type.ToOpenXml()));
+    }
+
+    /// <summary>
+    /// Write a conditional format's <c>pivotAreas</c>, in <paramref name="ns"/>. The <c>pivotArea</c>
+    /// children are in the main namespace in both lists.
+    /// </summary>
+    private static void WriteConditionalFormatAreas(XmlWriter xml, string ns, IReadOnlyList<XLPivotArea> areas)
+    {
+        xml.WriteStartElement("pivotAreas", ns);
+        xml.WriteAttribute(CountAttr, areas.Count);
+        foreach (var pivotArea in areas)
             WritePivotArea(xml, pivotArea);
 
         xml.WriteEndElement(); // pivotAreas
-        xml.WriteEndElement(); // conditionalFormat
     }
 
     private static void WritePivotTableStyleInfo(XmlWriter xml, XLPivotTable pt)

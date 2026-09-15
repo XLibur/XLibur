@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.Coordinates;
 using XLibur.Utils;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
 
@@ -647,9 +648,11 @@ internal static class PivotTableDefinitionPartReader
 
     private static void LoadExtensionList(PivotTableDefinition pivotTable, XLPivotTable xlPivotTable)
     {
-        var extList = pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>();
-        var ext2010 = extList?.GetFirstChild<PivotTableDefinitionExtension>();
-        var ptExt2010 = ext2010?.GetFirstChild<DocumentFormat.OpenXml.Office2010.Excel.PivotTableDefinition>();
+        // The x14 extension need not come first: an extList holds its extensions in any order.
+        var ptExt2010 = pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>()?
+            .Elements<PivotTableDefinitionExtension>()
+            .Select(ext => ext.GetFirstChild<X14.PivotTableDefinition>())
+            .FirstOrDefault(definition => definition is not null);
         if (ptExt2010 is not null)
         {
             xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;
@@ -657,6 +660,43 @@ internal static class PivotTableDefinitionPartReader
             xlPivotTable.EnableCellEditing = ptExt2010.EnableEdit?.Value ?? false;
             var hideValuesRow = ptExt2010.HideValuesRow?.Value ?? false;
             xlPivotTable.ShowValuesRow = !hideValuesRow;
+            LoadExtensionConditionalFormats(ptExt2010.ConditionalFormats, xlPivotTable);
+        }
+    }
+
+    /// <summary>
+    /// Load the <c>x14:conditionalFormats</c> list, the pivot table's link, by rule id, to each rule
+    /// the sheet keeps only in its <c>x14</c> extension. The rules stay on the sheet as they were
+    /// loaded; this keeps the pivot table's side, so a save writes it back (#507).
+    /// </summary>
+    /// <remarks>
+    /// An entry with no id or no priority names no rule, so it is skipped rather than failing a load
+    /// that read nothing of this list before.
+    /// </remarks>
+    private static void LoadExtensionConditionalFormats(X14.ConditionalFormats? conditionalFormats,
+        XLPivotTable xlPivotTable)
+    {
+        if (conditionalFormats is null)
+            return;
+
+        foreach (var conditionalFormat in conditionalFormats.Elements<X14.ConditionalFormat>())
+        {
+            var ruleId = conditionalFormat.Id?.Value;
+            var priority = conditionalFormat.Priority?.Value;
+            if (string.IsNullOrEmpty(ruleId) || priority is null)
+                continue;
+
+            var xlConditionalFormat = new XLPivotExtensionConditionalFormat(ruleId, priority.Value)
+            {
+                Scope = conditionalFormat.Scope?.Value.ToXLibur() ?? XLPivotCfScope.SelectedCells,
+                Type = conditionalFormat.Type?.Value.ToXLibur() ?? XLPivotCfRuleType.None,
+            };
+
+            var pivotAreas = conditionalFormat.PivotAreas?.Elements<PivotArea>() ?? [];
+            foreach (var pivotArea in pivotAreas)
+                xlConditionalFormat.AddArea(LoadPivotArea(pivotArea));
+
+            xlPivotTable.AddExtensionConditionalFormat(xlConditionalFormat);
         }
     }
 }

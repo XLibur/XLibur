@@ -31,11 +31,11 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// holds an empty <c>cx:lvl</c> for each level it had, and the series loses its <c>cx:tx</c>.
 /// </para>
 /// <para>
-/// Two things are left out of the comparison. On the delete Excel gives the pivot cache's source an
+/// One thing is left out of the comparison. On the delete Excel gives the pivot cache's source an
 /// <c>r:id</c>, a relationship to the path of the file it was saved from, and XLibur does not, so the
-/// source is compared by its sheet and range. And the pivot table's own list of its conditional
-/// formats, in the pivot table's <c>x14</c> extension, is not written back by XLibur's pivot table
-/// writer on any save, edit or none, which is a defect of its own.
+/// source is compared by its sheet and range. The pivot table's own list of its conditional formats,
+/// in the pivot table's <c>x14</c> extension, names the rule by its id, and Excel keeps it as it was
+/// through both edits (#507).
 /// </para>
 /// </remarks>
 public class SheetLifecycleChartExFixtureTests
@@ -297,6 +297,7 @@ public class SheetLifecycleChartExFixtureTests
         await Assert.That(Lines(saved.ChartNames)).IsEqualTo(Lines(excel.ChartNames));
         await Assert.That(Lines(saved.ChartData)).IsEqualTo(Lines(excel.ChartData));
         await Assert.That(Lines(saved.PivotConditionalFormats)).IsEqualTo(Lines(excel.PivotConditionalFormats));
+        await Assert.That(Lines(saved.PivotTableConditionalFormats)).IsEqualTo(Lines(excel.PivotTableConditionalFormats));
         await Assert.That(saved.PivotSource).IsEqualTo(excel.PivotSource);
     }
 
@@ -361,11 +362,19 @@ public class SheetLifecycleChartExFixtureTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
+        // The pivot table's side of the link: each rule it names, by id, with the priority and the
+        // number of pivot areas. PivotConditionalFormatLinkTests compares the areas in full.
+        var pivotTableConditionalFormats = other.PivotTableParts
+            .SelectMany(p => p.PivotTableDefinition!.Descendants<X14.ConditionalFormat>())
+            .Select(cf => $"scope={cf.Scope?.InnerText} priority={cf.Priority?.InnerText} {cf.Id?.Value}: " +
+                          $"{cf.PivotAreas?.Elements<S.PivotArea>().Count()} area(s)")
+            .ToList();
+
         var cacheSource = workbookPart.PivotTableCacheDefinitionParts.SingleOrDefault()?
             .PivotCacheDefinition?.CacheSource?.WorksheetSource;
         var pivotSource = cacheSource is null ? null : $"{cacheSource.Sheet?.Value}!{cacheSource.Reference?.Value}";
 
-        return new Holders(chartNames, chartData, pivotConditionalFormats, pivotSource);
+        return new Holders(chartNames, chartData, pivotConditionalFormats, pivotTableConditionalFormats, pivotSource);
     }
 
     /// <summary>
@@ -405,5 +414,6 @@ public class SheetLifecycleChartExFixtureTests
         List<string> ChartNames,
         List<string> ChartData,
         List<string> PivotConditionalFormats,
+        List<string> PivotTableConditionalFormats,
         string? PivotSource);
 }

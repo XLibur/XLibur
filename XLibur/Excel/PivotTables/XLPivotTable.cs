@@ -28,6 +28,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
     private readonly List<XLPivotFormat> _formats = new();
     private readonly List<XLPivotConditionalFormat> _conditionalFormats = new();
+    private readonly List<XLPivotExtensionConditionalFormat> _extensionConditionalFormats = new();
     private readonly List<XLPivotChartFormat> _chartFormats = new();
     private readonly List<XLPivotFilter> _pivotFilters = new();
     private XLPivotCache _cache;
@@ -129,6 +130,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal IReadOnlyList<XLPivotFormat> Formats => _formats;
 
     internal IReadOnlyList<XLPivotConditionalFormat> ConditionalFormats => _conditionalFormats;
+
+    /// <summary>
+    /// The <c>x14:conditionalFormats</c> list: the rules, by id, that the sheet keeps only in its
+    /// <c>x14</c> extension for this pivot table.
+    /// </summary>
+    internal IReadOnlyList<XLPivotExtensionConditionalFormat> ExtensionConditionalFormats => _extensionConditionalFormats;
 
     internal IReadOnlyList<XLPivotChartFormat> ChartFormats => _chartFormats;
 
@@ -844,6 +851,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal void AddConditionalFormat(XLPivotConditionalFormat conditionalFormat)
     {
         _conditionalFormats.Add(conditionalFormat);
+    }
+
+    internal void AddExtensionConditionalFormat(XLPivotExtensionConditionalFormat conditionalFormat)
+    {
+        _extensionConditionalFormats.Add(conditionalFormat);
     }
 
     internal void AddChartFormat(XLPivotChartFormat chartFormat)
