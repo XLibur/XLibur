@@ -39,7 +39,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
     public void Clear()
     {
         foreach (var field in _fields)
-            _pivotTable.RemoveFieldFromAxis(field.Field);
+            _pivotTable.RemoveFieldFromAxis((FieldIndex)field.Field);
         _fields.Clear();
     }
 
@@ -81,7 +81,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
             return;
 
         var dataField = _fields[index];
-        _pivotTable.RemoveFieldFromAxis(dataField.Field);
+        _pivotTable.RemoveFieldFromAxis((FieldIndex)dataField.Field);
         _fields.Remove(dataField);
     }
 

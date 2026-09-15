@@ -33,7 +33,7 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
     public void Clear()
     {
         foreach (var field in _fields)
-            _pivotTable.RemoveFieldFromAxis(field.Field);
+            _pivotTable.RemoveFieldFromAxis((FieldIndex)field.Field);
 
         _fields.Clear();
     }
@@ -100,8 +100,10 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
         var heightDifference = GetHeightDifference(-1);
         var movedArea = _pivotTable.Area.ShiftRows(heightDifference);
 
+        // index is the filter's position among the report filters, not a pivot field index.
+        var fieldIndex = (FieldIndex)_fields[index].Field;
         _fields.RemoveAt(index);
-        _pivotTable.RemoveFieldFromAxis(index);
+        _pivotTable.RemoveFieldFromAxis(fieldIndex);
 
         _pivotTable.Area = movedArea;
     }

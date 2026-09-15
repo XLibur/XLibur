@@ -487,7 +487,7 @@ internal static class PivotTableDefinitionPartReader
                 if (fieldIndex >= xlPivotTable.PivotFields.Count || (fieldIndex < 0 && fieldIndex != ValuesFieldIndex))
                     throw PartStructureException.IncorrectAttributeValue();
 
-                axis.AddField(fieldIndex);
+                axis.AddField((FieldIndex)fieldIndex);
             }
         }
     }
@@ -532,7 +532,7 @@ internal static class PivotTableDefinitionPartReader
         var fieldPosition = pivotArea.FieldPosition?.Value;
         var xlPivotArea = new XLPivotArea
         {
-            Field = field,
+            Field = (FieldIndex?)field,
             Type = type,
             DataOnly = dataOnly,
             LabelOnly = labelOnly,

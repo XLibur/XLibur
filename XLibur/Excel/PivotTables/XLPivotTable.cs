@@ -1593,7 +1593,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         // default item, otherwise Excel asks for repair.
         field.AddMissingSubtotalItems();
 
-        return fieldIndex;
+        return (FieldIndex)fieldIndex;
     }
 
     internal void RemoveFieldFromAxis(FieldIndex index)
@@ -1623,7 +1623,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
         if (PivotCache.TryGetFieldIndex(sourceName, out var fldIndex))
         {
-            index = fldIndex;
+            index = (FieldIndex)fldIndex;
             return true;
         }
 
@@ -1644,7 +1644,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         for (var i = 0; i < allFields.Count; ++i)
         {
             if (!comparer.Equals(customName, allFields[i].Name)) continue;
-            index = i;
+            index = (FieldIndex)i;
             return true;
         }
 
