@@ -8,7 +8,7 @@ which is this spec's task 0. **Excel-authored fixtures from the owner** gate tas
 **Status:** ✅ Done. Part 1 merged as [#495](https://github.com/XLibur/XLibur/pull/495) (`56c80a3f`), part 2 as
 [#500](https://github.com/XLibur/XLibur/pull/500) (`8694919f`), and data validation (D63) as
 [#518](https://github.com/XLibur/XLibur/pull/518) (`c1971685`), compared with Excel's `dv-*` fixture on
-this branch (Q55c). From the 2026-09-13 architecture review (round 4). Every design decision below
+#528 (Q55c). From the 2026-09-13 architecture review (round 4). Every design decision below
 was taken by the owner in a design interview (see *Decisions*). Also recorded:
 `docs/adr/0002-refused-formula-never-rewritten.md`, and the terms *defined name*, *scope*,
 *3D reference* and *unsupported sheet* in `CONTEXT.md`.
@@ -535,7 +535,7 @@ no prompt).
 **Not done.**
 
 - ~~**Still open: data validation (D63).**~~ Fixed in #518 (`c1971685`), before spec 44 by owner
-  decision (Q55c), and compared with the owner's `dv-*` fixture on this branch. Spec 55 is complete.
+  decision (Q55c), and compared with the owner's `dv-*` fixture in #528. Spec 55 is complete.
 - ~~A ChartEx chart is rewritten in memory, but the patcher writes only its title (#497).~~ Fixed in
   #503 (`19aa30c8`), following the owner's `chartex-pivotcf-*` fixture.
   - Excel's ChartEx references go through hidden `_xlchart.*` names.

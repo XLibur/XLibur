@@ -66,7 +66,7 @@ two variants worth naming:
   a save no longer throws; defined-name copy keeps its `_isFormulaUnderstood` guard. Found in passing:
   #489.
 
-### Spec 55 — Sheet lifecycle ✅ Merged (part 1 [#495](https://github.com/XLibur/XLibur/pull/495), `56c80a3f`; part 2 [#500](https://github.com/XLibur/XLibur/pull/500), `8694919f`; data validation [#518](https://github.com/XLibur/XLibur/pull/518), `c1971685`, ahead of spec 44 (Q55c), with its fixture comparison on this branch)
+### Spec 55 — Sheet lifecycle ✅ Merged (part 1 [#495](https://github.com/XLibur/XLibur/pull/495), `56c80a3f`; part 2 [#500](https://github.com/XLibur/XLibur/pull/500), `8694919f`; data validation [#518](https://github.com/XLibur/XLibur/pull/518), `c1971685`, ahead of spec 44 (Q55c), with its fixture comparison in #528)
 
 Split into two PRs by the owner on 2026-09-14 (spec 55 Q55a, Q55b):
 - **Part 1:** 55.0, 55.1, 55.2, 55.4, 55.7 and 55.8.
@@ -86,7 +86,7 @@ Split into two PRs by the owner on 2026-09-14 (spec 55 Q55a, Q55b):
 - [x] **55.6** Charts and the pivot cache source *(fixtures)* — PR #500
 - [x] **55.7** `Position` setter; unsupported-sheet names — PR #495
 - [x] **55.8** Cost, recorded: rename +8%, delete +10% (BenchmarkDotNet medians of three) — PR #495
-- [x] **55.9** Changelog (`fix!:`) — PR #495, PR #500, PR #518, this branch
+- [x] **55.9** Changelog (`fix!:`) — PR #495, PR #500, PR #518, #528
 
 ### Spec 56 — Evaluation outcome ✅ Merged ([#494](https://github.com/XLibur/XLibur/pull/494), `767aa7c3`; also fixed #492)
 
@@ -146,7 +146,7 @@ The issues specs 55 and 56 left, and the defects their fixes found.
 Spec 55 needed Excel-authored fixtures (spec 55, design §5 has the recipes). Tasks 3, 5 and 6 stayed
 blocked until they existed, so the implementing agent never had to guess. **Done 2026-09-14:** four
 pairs, committed by PR #500. The fourth pair, `scoped-delete`, settled a question the first three raised.
-**Done 2026-09-15:** the data-validation set, committed by this branch.
+**Done 2026-09-15:** the data-validation set, committed by #528.
 
 - [x] `rename-before.xlsx` / `rename-after.xlsx`
 - [x] `delete-before.xlsx` / `delete-after.xlsx`
