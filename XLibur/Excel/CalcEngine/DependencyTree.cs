@@ -477,12 +477,13 @@ internal sealed class DependencyTree
         }
 
         // A refused formula's precedents cannot be known: the parser could not read its references
-        // (ADR 0002). Before, the parse threw, and one such formula stopped every write to the
-        // workbook and every recalculation from building the tree (#489). It is now taken to depend
-        // on every cell, so any change marks it dirty (see MarkDirty). That matters for a formula a
-        // load gave a cached value: it is clean, and would otherwise keep that value after an edit
-        // it may read. The cell fails when it is evaluated. The walk may have added precedents
-        // before the parser refused the text, and they go.
+        // (ADR 0002), or the calc engine refused a part of it, such as a function with the wrong
+        // number of arguments (#543). Before, the parse threw, and one such formula stopped every
+        // write to the workbook and every recalculation from building the tree (#489). It is now
+        // taken to depend on every cell, so any change marks it dirty (see MarkDirty). That matters
+        // for a formula a load gave a cached value: it is clean, and would otherwise keep that value
+        // after an edit it may read. The cell fails when it is evaluated. The walk may have added
+        // precedents before the text was refused, and they go.
         precedents.Clear();
         precedents.MarkPrecedentsUnknown();
     }

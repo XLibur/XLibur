@@ -19,23 +19,51 @@ internal enum FormulaNotation
 }
 
 /// <summary>
-/// The parser's refusal of formula text, returned as a value instead of thrown. The references in a
-/// refused formula are unknown, so each caller of <see cref="FormulaText"/> decides what a refusal
-/// means to it.
+/// A refusal of formula text, returned as a value instead of thrown. The references in a refused
+/// formula are unknown, so each caller of <see cref="FormulaText"/> decides what a refusal means to it.
 /// </summary>
-/// <param name="Text">The formula text that was refused, as the caller passed it.</param>
-/// <param name="Cause">The parser's own exception, which says where in the text the parser stopped.</param>
-internal readonly record struct FormulaRefusal(string Text, ParsingException Cause)
+/// <remarks>
+/// Two things refuse text. The parser refuses text it cannot read, with <see cref="ParsingException"/>.
+/// A factory that XLibur gives the parser refuses a part of the text that the parser reads and the calc
+/// engine cannot take, with <see cref="ExpressionParseException"/>: a function with too many or too few
+/// arguments, or an error value that <see cref="XLError"/> has no member for (#543).
+/// </remarks>
+internal readonly record struct FormulaRefusal
 {
-    /// <summary>The parser's message, with the position it stopped at.</summary>
+    /// <summary>The parser refused the text.</summary>
+    internal FormulaRefusal(string text, ParsingException cause)
+    {
+        Text = text;
+        Cause = cause;
+    }
+
+    /// <summary>A factory refused a part of the text while the parser read it.</summary>
+    internal FormulaRefusal(string text, ExpressionParseException cause)
+    {
+        Text = text;
+        Cause = cause;
+    }
+
+    /// <summary>The formula text that was refused, as the caller passed it.</summary>
+    internal string Text { get; }
+
+    /// <summary>
+    /// What refused the text: the parser's own <see cref="ParsingException"/>, which says where in the
+    /// text the parser stopped, or the <see cref="ExpressionParseException"/> a factory threw.
+    /// </summary>
+    internal Exception Cause { get; }
+
+    /// <summary>The message of <see cref="Cause"/>. The parser's message has the position it stopped at.</summary>
     internal string Message => Cause.Message;
 
     /// <summary>
     /// The refusal as a public caller sees it. Only the public edges throw it: evaluation,
     /// <see cref="IXLCell.FormulaR1C1"/>, and copying a formula. The parser's exception stays inside
-    /// it, so the position the parser reported is still there.
+    /// it, so the position the parser reported is still there. A factory's exception is the public type
+    /// already, so it is given as it is, and evaluation throws what it threw before #543.
     /// </summary>
-    internal ExpressionParseException ToException() => new(Cause.Message, Cause);
+    internal ExpressionParseException ToException()
+        => Cause as ExpressionParseException ?? new ExpressionParseException(Cause.Message, Cause);
 }
 
 /// <summary>
@@ -52,10 +80,12 @@ internal readonly record struct FormulaRefusal(string Text, ParsingException Cau
 /// to evaluation the prefix comes off, in any case (<see cref="TryStripFuturePrefix"/>).</item>
 /// <item>Formula text has no leading <c>=</c>. Where a caller's text can have one, it comes off here
 /// (<see cref="WithoutLeadingEquals"/>).</item>
-/// <item>The parser refuses text by throwing <see cref="ParsingException"/>. That exception is caught
-/// in one place, <see cref="TryParse{TState,TResult}"/>, and returned as a
-/// <see cref="FormulaRefusal"/>. A caller makes one decision only: what a refused formula means to
-/// it. No other file in XLibur catches <see cref="ParsingException"/>.</item>
+/// <item>The parser refuses text by throwing <see cref="ParsingException"/>. A factory refuses a part
+/// of the text that the calc engine cannot take, such as a function with the wrong number of
+/// arguments, by throwing <see cref="ExpressionParseException"/> (#543). Both are caught in one place,
+/// <see cref="TryParse{TState,TResult}"/>, and returned as a <see cref="FormulaRefusal"/>. A caller
+/// makes one decision only: what a refused formula means to it. No other file in XLibur catches
+/// <see cref="ParsingException"/>.</item>
 /// </list>
 /// </remarks>
 internal static class FormulaText
@@ -234,8 +264,11 @@ internal static class FormulaText
         => text.Length > 0 && text[0] == '=' ? text[1..] : text;
 
     /// <summary>
-    /// Runs one parse. This is the only place in XLibur that catches <see cref="ParsingException"/>:
-    /// the parser signals a refusal by throwing it, and here the refusal becomes a value.
+    /// Runs one parse, and returns a refusal as a value. This is the only place in XLibur that catches
+    /// <see cref="ParsingException"/>, which the parser throws for text it cannot read. It also catches
+    /// <see cref="ExpressionParseException"/>, which a factory throws while the parser reads the text,
+    /// for a part the calc engine cannot take (#543). Only <paramref name="parse"/> runs inside the
+    /// <c>try</c>, so nothing else becomes a refusal, and any other exception reaches the caller.
     /// </summary>
     private static bool TryParse<TState, TResult>(string text, TState state, Func<TState, TResult> parse,
         [MaybeNullWhen(false)] out TResult result, out FormulaRefusal refusal)
@@ -247,6 +280,12 @@ internal static class FormulaText
             return true;
         }
         catch (ParsingException ex)
+        {
+            result = default;
+            refusal = new FormulaRefusal(text, ex);
+            return false;
+        }
+        catch (ExpressionParseException ex)
         {
             result = default;
             refusal = new FormulaRefusal(text, ex);

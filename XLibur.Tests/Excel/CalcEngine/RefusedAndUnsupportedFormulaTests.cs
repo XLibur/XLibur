@@ -425,11 +425,121 @@ public class RefusedAndUnsupportedFormulaTests
         await Assert.That(() => _ = ws.Cell("D1").Value).Throws<ExpressionParseException>();
     }
 
+    /// <summary>
+    /// #543. The parser reads a function with any number of arguments, and the calc engine refuses one
+    /// that has too many or too few. The messages are the calc engine's own, unchanged by #543.
+    /// </summary>
+    private const string TooManyArguments = "ABS(1,2)";
+
+    private const string TooManyArgumentsMessage =
+        "Too many parameters for function 'ABS'.Expected a minimum of 1 and a maximum of 1.";
+
+    private const string TooFewArguments = "ABS()";
+
+    private const string TooFewArgumentsMessage =
+        "Too few parameters for function 'ABS'. Expected a minimum of 1 and a maximum of 1.";
+
+    /// <summary>
+    /// #543. Reading the cell fails as it did before #543: with the calc engine's message, and with no
+    /// exception inside it.
+    /// </summary>
+    [Test]
+    [Arguments(TooManyArguments, TooManyArgumentsMessage)]
+    [Arguments(TooFewArguments, TooFewArgumentsMessage)]
+    public async Task Issue543_reading_the_cell_fails_with_the_argument_count_message(string formula, string message)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        ws.Cell("C1").FormulaA1 = formula;
+
+        await AssertArgumentCountFailure(ws.Cell("C1"), message);
+    }
+
+    /// <summary>
+    /// #543, as the issue gives it. After a read, the next edit builds the dependency tree. The build
+    /// threw on the formula with the wrong number of arguments, after the edit had been applied, as it
+    /// did on a refused formula before #489.
+    /// </summary>
+    [Test]
+    [Arguments(TooManyArguments, TooManyArgumentsMessage)]
+    [Arguments(TooFewArguments, TooFewArgumentsMessage)]
+    public async Task Issue543_an_edit_after_a_read_does_not_throw(string formula, string message)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        ws.Cell("A1").Value = 1;
+        ws.Cell("B1").FormulaA1 = "A1+1";
+        ws.Cell("C1").FormulaA1 = formula;
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(2);
+
+        ws.Cell("A1").Value = 2;
+
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("C1").NeedsRecalculation).IsTrue();
+        await AssertArgumentCountFailure(ws.Cell("C1"), message);
+    }
+
+    /// <summary>
+    /// #543. Recalculation builds the dependency tree, and the build threw. It now leaves the cell dirty,
+    /// with the formula that depends on it, and calculates the rest, as it does for a refused formula.
+    /// </summary>
+    [Test]
+    [Arguments(TooManyArguments, TooManyArgumentsMessage)]
+    [Arguments(TooFewArguments, TooFewArgumentsMessage)]
+    public async Task Issue543_RecalculateAllFormulas_leaves_the_cell_dirty_and_calculates_the_rest(string formula,
+        string message)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        ws.Cell("A1").FormulaA1 = formula;
+        ws.Cell("B1").FormulaA1 = "A1+1";
+        ws.Cell("C1").FormulaA1 = "2*3";
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(ws.Cell("C1").CachedValue).IsEqualTo(6);
+        await Assert.That(ws.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await AssertArgumentCountFailure(ws.Cell("A1"), message);
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<ExpressionParseException>();
+    }
+
+    /// <summary>
+    /// #543. Once the dependency tree exists, a formula set in a cell is parsed for its precedents, so a
+    /// formula with the wrong number of arguments threw from its own setter, after it had been stored.
+    /// Before the tree exists, the same set did not throw.
+    /// </summary>
+    [Test]
+    [Arguments(TooManyArguments, TooManyArgumentsMessage)]
+    [Arguments(TooFewArguments, TooFewArgumentsMessage)]
+    public async Task Issue543_the_formula_can_be_set_after_a_recalculation(string formula, string message)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+        ws.Cell("B1").FormulaA1 = "1+1";
+        wb.RecalculateAllFormulas();
+
+        ws.Cell("C1").FormulaA1 = formula;
+
+        await Assert.That(ws.Cell("C1").FormulaA1).IsEqualTo(formula);
+        ws.Cell("D1").Value = 5;
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(5);
+        await AssertArgumentCountFailure(ws.Cell("C1"), message);
+    }
+
     /// <summary>What makes a formula's precedents unknown.</summary>
     public enum UnknownPrecedents
     {
         RefusedFormula,
         RefusedName,
+
+        /// <summary>#543. A function with the wrong number of arguments, which the calc engine refuses.</summary>
+        WrongArgumentCount,
+
+        /// <summary>#543. A defined name whose text calls a function with the wrong number of arguments.</summary>
+        WrongArgumentCountInName,
     }
 
     /// <summary>
@@ -440,6 +550,8 @@ public class RefusedAndUnsupportedFormulaTests
     [Test]
     [Arguments(UnknownPrecedents.RefusedFormula)]
     [Arguments(UnknownPrecedents.RefusedName)]
+    [Arguments(UnknownPrecedents.WrongArgumentCount)]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName)]
     public async Task A_loaded_formula_with_unknown_precedents_reads_its_cached_value_before_any_edit(UnknownPrecedents unknown)
     {
         using var wb = LoadedWithUnknownPrecedents(unknown);
@@ -465,6 +577,10 @@ public class RefusedAndUnsupportedFormulaTests
     [Arguments(UnknownPrecedents.RefusedFormula, "D9")]
     [Arguments(UnknownPrecedents.RefusedName, "A2")]
     [Arguments(UnknownPrecedents.RefusedName, "D9")]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, "A2")]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, "D9")]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, "A2")]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, "D9")]
     public async Task After_an_edit_a_loaded_formula_with_unknown_precedents_fails_when_read(
         UnknownPrecedents unknown, string edited)
     {
@@ -488,6 +604,10 @@ public class RefusedAndUnsupportedFormulaTests
     [Arguments(UnknownPrecedents.RefusedFormula, "D9")]
     [Arguments(UnknownPrecedents.RefusedName, "A2")]
     [Arguments(UnknownPrecedents.RefusedName, "D9")]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, "A2")]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, "D9")]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, "A2")]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, "D9")]
     public async Task A_save_after_an_edit_writes_no_cached_value_for_a_loaded_formula_with_unknown_precedents(
         UnknownPrecedents unknown, string edited)
     {
@@ -514,6 +634,10 @@ public class RefusedAndUnsupportedFormulaTests
     [Arguments(UnknownPrecedents.RefusedFormula, true)]
     [Arguments(UnknownPrecedents.RefusedName, false)]
     [Arguments(UnknownPrecedents.RefusedName, true)]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, false)]
+    [Arguments(UnknownPrecedents.WrongArgumentCount, true)]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, false)]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName, true)]
     public async Task A_save_with_an_in_cell_image_keeps_the_cached_value_of_a_loaded_formula_with_unknown_precedents(
         UnknownPrecedents unknown, bool evaluateFormulas)
     {
@@ -541,6 +665,8 @@ public class RefusedAndUnsupportedFormulaTests
     [Test]
     [Arguments(UnknownPrecedents.RefusedFormula)]
     [Arguments(UnknownPrecedents.RefusedName)]
+    [Arguments(UnknownPrecedents.WrongArgumentCount)]
+    [Arguments(UnknownPrecedents.WrongArgumentCountInName)]
     public async Task On_a_fresh_load_an_edit_marks_it_dirty_as_it_marks_an_ordinary_formula(
         UnknownPrecedents unknown)
     {
@@ -558,7 +684,8 @@ public class RefusedAndUnsupportedFormulaTests
 
     /// <summary>
     /// A workbook as a load leaves it. B1 reads A2 through a formula whose precedents are unknown: its
-    /// text is refused, or it uses the name <c>Ext</c>, whose text is refused. B1 has Excel's cached
+    /// text is refused, or it uses the name <c>Ext</c>, whose text is refused, or it calls a function
+    /// with the wrong number of arguments, itself or through the name <c>Wrong</c> (#543). B1 has Excel's cached
     /// value 10, E1, which reads B1, has 20, and F1, an ordinary formula that reads A2, has 3, so all
     /// three are clean, so the next edit builds the calc engine's dependency tree (#504). C1 has no
     /// cached value, and reading it is a calculation. With <paramref name="withInCellImage"/>,
@@ -572,8 +699,17 @@ public class RefusedAndUnsupportedFormulaTests
             var ws = wb.AddWorksheet("Sheet1");
             var values = ((XLWorksheet)ws).Internals.CellsCollection.ValueSlice;
             ws.Cell("A2").Value = 1;
+            if (unknown == UnknownPrecedents.WrongArgumentCountInName)
+                wb.DefinedNames.Add("Wrong", TooManyArguments);
+
             var b1 = (XLCell)ws.Cell("B1");
-            b1.FormulaA1 = unknown == UnknownPrecedents.RefusedFormula ? Refused + "+A2" : "Ext+A2";
+            b1.FormulaA1 = unknown switch
+            {
+                UnknownPrecedents.RefusedFormula => Refused + "+A2",
+                UnknownPrecedents.RefusedName => "Ext+A2",
+                UnknownPrecedents.WrongArgumentCount => TooManyArguments + "+A2",
+                _ => "Wrong+A2",
+            };
             values.SetCellValue(b1.SheetPoint, 10);
             b1.Formula!.MarkClean();
             var e1 = (XLCell)ws.Cell("E1");
@@ -629,6 +765,17 @@ public class RefusedAndUnsupportedFormulaTests
             throw new InvalidOperationException("The defined name was not spliced into the workbook part.");
 
         return rewritten;
+    }
+
+    /// <summary>
+    /// What reading a formula with the wrong number of arguments throws: the calc engine's own
+    /// exception, with its message, and nothing inside it, unchanged by #543.
+    /// </summary>
+    private static async Task AssertArgumentCountFailure(IXLCell cell, string message)
+    {
+        var thrown = await Assert.That(() => _ = cell.Value).Throws<ExpressionParseException>();
+        await Assert.That(thrown!.Message).IsEqualTo(message);
+        await Assert.That(thrown.InnerException).IsNull();
     }
 
     /// <summary>What reading the cell throws for <paramref name="failure"/>, unchanged by #489 and #490.</summary>

@@ -21,8 +21,8 @@ namespace XLibur.Excel.CalcEngine;
 /// The rule for each kind of node is the one that <see cref="DependenciesVisitor"/> uses, in a method
 /// that both call, for example <see cref="DependenciesVisitor.ApplyFunction{TArguments}"/>. The visitor
 /// still reads the AST of a shared formula. The factory checks a function as the parser's own factory
-/// does (<see cref="FormulaParser.ResolveFunction"/>), so the parser refuses, and throws for, the same
-/// formulas.
+/// does (<see cref="FormulaParser.ResolveFunction"/>), so both refuse the same formulas. A function with
+/// the wrong number of arguments is a refusal for both, as text the parser cannot read is (#543).
 /// </para>
 /// <para>
 /// The factory gets the arguments of a node after the parser has read them, so it has added their
