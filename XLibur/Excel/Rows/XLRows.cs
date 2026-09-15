@@ -61,6 +61,7 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         {
             _worksheet.Internals.RowsCollection.Clear();
             _worksheet.Internals.CellsCollection.Clear();
+            _worksheet.Workbook.CalcEngine.OnAllCellsCleared(_worksheet);
         }
         else
         {

@@ -313,6 +313,9 @@ public class FormulaCachingTests
         FormulaR1C1,
         InsertData,
         Clear,
+        CopyTo,
+        RangeCopyTo,
+        WorksheetSetCellValue,
     }
 
     /// <summary>
@@ -328,6 +331,9 @@ public class FormulaCachingTests
     [Arguments(EditOfA2.FormulaR1C1)]
     [Arguments(EditOfA2.InsertData)]
     [Arguments(EditOfA2.Clear)]
+    [Arguments(EditOfA2.CopyTo)]
+    [Arguments(EditOfA2.RangeCopyTo)]
+    [Arguments(EditOfA2.WorksheetSetCellValue)]
     public async Task EditAfterLoadInvalidatesDependentCells(EditOfA2 edit)
     {
         using var wb = LoadedWithCachedValues();
@@ -344,6 +350,15 @@ public class FormulaCachingTests
             case EditOfA2.FormulaR1C1: a2.FormulaR1C1 = "2+3"; break;
             case EditOfA2.InsertData: a2.InsertData(new[] { 5 }); break;
             case EditOfA2.Clear: a2.Clear(); break;
+            case EditOfA2.CopyTo:
+                ws.Cell("H9").Value = 5;
+                ws.Cell("H9").CopyTo(a2);
+                break;
+            case EditOfA2.RangeCopyTo:
+                ws.Cell("H9").Value = 5;
+                ws.Range("H9:H9").CopyTo(ws.Range("A2:A2"));
+                break;
+            case EditOfA2.WorksheetSetCellValue: ws.SetCellValue(2, 1, 5); break;
             default: throw new ArgumentOutOfRangeException(nameof(edit));
         }
 
@@ -555,6 +570,152 @@ public class FormulaCachingTests
         await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsFalse();
         await Assert.That(sheet.Cell("A1").Value).IsEqualTo(2);
         await Assert.That(sheet.Cell("B1").Value).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// #504 re-review. A sort moves cell contents between the cells' slices directly, not through
+    /// the setters an edit uses, so the calc engine heard of nothing. After a load, B1 = A2*10 kept 10
+    /// when the sort put 2 in A2, and a save wrote 10 as its cached value.
+    /// </summary>
+    [Test]
+    public async Task SortByRowsAfterLoadInvalidatesADependentOutsideTheSortedArea()
+    {
+        using var wb = Reload(builder =>
+        {
+            var ws = builder.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 3;
+            ws.Cell("A2").Value = 1;
+            ws.Cell("A3").Value = 2;
+            ws.Cell("B1").FormulaA1 = "A2*10";
+        });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedClean([sheet.Cell("B1")]);
+
+        sheet.Range("A1:A3").Sort();
+
+        await Assert.That(sheet.Cell("A2").Value).IsEqualTo(2);
+        await Assert.That(sheet.Cell("B1").NeedsRecalculation).IsTrue();
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        await Assert.That(EvaluationOutcomeTests.CachedValueInFile(saved, "B1")).IsEqualTo("B1 has no <v>");
+        await Assert.That(sheet.Cell("B1").Value).IsEqualTo(20);
+    }
+
+    /// <summary>#504 re-review. As <see cref="SortByRowsAfterLoadInvalidatesADependentOutsideTheSortedArea"/>, by columns.</summary>
+    [Test]
+    public async Task SortLeftToRightAfterLoadInvalidatesADependentOutsideTheSortedArea()
+    {
+        using var wb = Reload(builder =>
+        {
+            var ws = builder.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 3;
+            ws.Cell("B1").Value = 1;
+            ws.Cell("C1").Value = 2;
+            ws.Cell("A3").FormulaA1 = "B1*10";
+        });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedClean([sheet.Cell("A3")]);
+
+        sheet.Range("A1:C1").SortLeftToRight();
+
+        await Assert.That(sheet.Cell("B1").Value).IsEqualTo(2);
+        await Assert.That(sheet.Cell("A3").NeedsRecalculation).IsTrue();
+        await Assert.That(sheet.Cell("A3").Value).IsEqualTo(20);
+    }
+
+    /// <summary>
+    /// #504 re-review. A sort that moves formulas: each formula in B reads its own row, so it moves
+    /// with the row and still reads the value beside it. D1, outside the sorted area, reads B2, which
+    /// the sort gave another formula, so it must be calculated again.
+    /// </summary>
+    [Test]
+    public async Task SortAfterLoadMovesFormulasAndInvalidatesWhatReadsThem()
+    {
+        using var wb = Reload(builder =>
+        {
+            var ws = builder.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 3;
+            ws.Cell("A2").Value = 1;
+            ws.Cell("A3").Value = 2;
+            for (var row = 1; row <= 3; row++)
+                ws.Cell(row, 2).FormulaA1 = $"A{row}*2";
+            ws.Cell("D1").FormulaA1 = "B2+100";
+        });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedClean(sheet.Range("B1:B3").Cells().Append(sheet.Cell("D1")));
+
+        sheet.Range("A1:B3").Sort();
+
+        await Assert.That(sheet.Cell("B2").FormulaA1).IsEqualTo("A2*2");
+        await Assert.That(sheet.Cell("D1").NeedsRecalculation).IsTrue();
+        await Assert.That(sheet.Cell("B1").Value).IsEqualTo(2);
+        await Assert.That(sheet.Cell("B2").Value).IsEqualTo(4);
+        await Assert.That(sheet.Cell("B3").Value).IsEqualTo(6);
+        await Assert.That(sheet.Cell("D1").Value).IsEqualTo(104);
+    }
+
+    /// <summary>
+    /// #504 re-review. A transpose swaps cell contents directly, as a sort does. After a load,
+    /// D1 = B1*10 kept 20 when the transpose put 3 in B1.
+    /// </summary>
+    [Test]
+    public async Task TransposeAfterLoadInvalidatesADependentOfTheTransposedArea()
+    {
+        using var wb = Reload(builder =>
+        {
+            var ws = builder.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 1;
+            ws.Cell("B1").Value = 2;
+            ws.Cell("A2").Value = 3;
+            ws.Cell("B2").Value = 4;
+            ws.Cell("D1").FormulaA1 = "B1*10";
+        });
+        var sheet = wb.Worksheet("Sheet1");
+        await AssertLoadedClean([sheet.Cell("D1")]);
+
+        sheet.Range("A1:B2").Transpose(XLTransposeOptions.ReplaceCells);
+
+        await Assert.That(sheet.Cell("B1").Value).IsEqualTo(3);
+        await Assert.That(sheet.Cell("D1").NeedsRecalculation).IsTrue();
+        await Assert.That(sheet.Cell("D1").Value).IsEqualTo(30);
+    }
+
+    /// <summary>
+    /// #504 re-review. <c>ws.Rows().Delete()</c> and <c>ws.Columns().Delete()</c> empty every cell of
+    /// the sheet directly, and the calc engine heard of nothing. After a load, Report!A1, which reads
+    /// the emptied sheet, kept its value. After a recalculation, the calculation chain also kept
+    /// Data!B1, whose formula was gone, so the next recalculation threw.
+    /// </summary>
+    [Test]
+    [Arguments(true, false)]
+    [Arguments(false, false)]
+    [Arguments(true, true)]
+    [Arguments(false, true)]
+    public async Task DeletingEveryRowOrColumnOfASheetAfterLoadInvalidatesWhatReadsIt(bool rows, bool recalculatedFirst)
+    {
+        using var wb = Reload(builder =>
+        {
+            var data = builder.AddWorksheet("Data");
+            data.Cell("A2").Value = 1;
+            data.Cell("B1").FormulaA1 = "A2+1";
+            builder.AddWorksheet("Report").Cell("A1").FormulaA1 = "Data!A2*10";
+        });
+        var report = wb.Worksheet("Report");
+        await AssertLoadedClean([report.Cell("A1")]);
+        if (recalculatedFirst)
+            wb.RecalculateAllFormulas();
+
+        var sheet = wb.Worksheet("Data");
+        if (rows)
+            sheet.Rows().Delete();
+        else
+            sheet.Columns().Delete();
+
+        await Assert.That(sheet.Cell("A2").IsEmpty()).IsTrue();
+        await Assert.That(sheet.Cell("B1").HasFormula).IsFalse();
+        await Assert.That(report.Cell("A1").NeedsRecalculation).IsTrue();
+        await Assert.That(report.Cell("A1").Value).IsEqualTo(0);
+        await Assert.That(wb.RecalculateAllFormulas).ThrowsNothing();
     }
 
     /// <summary>Gives <paramref name="address"/> the rich text "ab", "a" in bold.</summary>

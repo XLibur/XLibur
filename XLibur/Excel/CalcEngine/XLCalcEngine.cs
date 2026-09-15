@@ -218,6 +218,17 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// Every cell of <paramref name="sheet"/> was emptied at once, not through the setters an edit
+    /// uses, as deleting all of a sheet's rows or columns does. The sheet's formulas are gone and
+    /// every formula that read the sheet is out of date, so the engine starts again, as it does after
+    /// a row or column insert or delete (#504).
+    /// </summary>
+    internal void OnAllCellsCleared(XLWorksheet sheet)
+    {
+        Purge(sheet.Workbook.WorksheetsInternal);
+    }
+
+    /// <summary>
     /// A formula that read the deleted sheet must be calculated again, so the dependency tree is
     /// dropped and every formula in the workbook is marked dirty. Before a delete had one door this
     /// was <c>OnDeletingSheet</c>, and only <c>IXLWorksheet.Delete()</c> called it (D53).

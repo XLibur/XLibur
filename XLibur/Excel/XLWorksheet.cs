@@ -1916,6 +1916,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         }
 
         Internals.CellsCollection.ValueSlice.SetCellValue(point, value);
+
+        // Written to the slice directly, so the calc engine is told here, as XLCell.Value tells it:
+        // every formula that reads the cell is marked dirty (#504).
+        Workbook.CalcEngine.MarkDirty(this, point);
     }
 
     /// <summary>

@@ -212,6 +212,13 @@ internal class XLRange : XLStoredRangeBase, IXLRange
         MoveOrClearForTranspose(transposeOption, rowCount, columnCount);
         TransposeMerged(squareSide);
         TransposeRange(squareSide);
+
+        // The transpose swaps cell contents directly, not through the setters an edit uses, so it
+        // tells the calc engine itself: every formula that reads the square is marked dirty (#504).
+        var firstRow = firstCell.Address.RowNumber;
+        var firstColumn = firstCell.Address.ColumnNumber;
+        Worksheet.Workbook.CalcEngine.MarkDirty(Worksheet,
+            new Area(firstRow, firstColumn, firstRow + squareSide - 1, firstColumn + squareSide - 1));
         RangeAddress = new XLRangeAddress(
             RangeAddress.FirstAddress,
             new XLAddress(Worksheet,

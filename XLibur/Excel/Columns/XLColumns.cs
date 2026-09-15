@@ -64,6 +64,7 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
         {
             _worksheet.Internals.ColumnsCollection.Clear();
             _worksheet.Internals.CellsCollection.Clear();
+            _worksheet.Workbook.CalcEngine.OnAllCellsCleared(_worksheet);
         }
         else
         {
