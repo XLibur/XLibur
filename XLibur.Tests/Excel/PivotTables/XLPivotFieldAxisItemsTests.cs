@@ -141,7 +141,7 @@ internal class XLPivotFieldAxisItemsTests
     [Arguments("rows")]
     [Arguments("columns")]
     [Arguments("filters")]
-    [Property("Description", "#550: Excel leaves defaultSubtotal out on a field with custom subtotals, so the load gave the field the automatic subtotal too, and putting it on an axis added a default item. Excel, moving this field to the filters, the columns, or off the rows and back, writes the items it had and no default item")]
+    [Property("Description", "#550: Excel leaves defaultSubtotal out on a field with custom subtotals, so the load gave the field the automatic subtotal too, and putting it on an axis added a default item. The file holds this field on the rows. Excel itself, asked to move it to the page axis and to the columns, wrote the same items and no default item there either, so the columns and filters cases hold XLibur to what Excel does")]
     public async Task Excels_field_with_custom_subtotals_taken_off_the_rows_and_put_on_an_axis_gets_no_default_item(string axis)
     {
         using var original = ReadResource(CustomSubtotals);
@@ -222,6 +222,41 @@ internal class XLPivotFieldAxisItemsTests
 
         await Assert.That(SavedItems(saved, CustomSubtotalsSheet, CustomSubtotalsSheet, 0))
             .IsEqualTo(SavedItems(original, CustomSubtotalsSheet, CustomSubtotalsSheet, 0));
+    }
+
+    [Test]
+    [Property("Description", "#550: a default item that a value item follows stays, because a base item and the saved layout refer to an item by its position")]
+    public async Task A_default_item_that_a_value_item_follows_stays_when_the_field_is_put_on_an_axis()
+    {
+        using var withDefaultItem = ReadResource(CustomSubtotals);
+        EditPivotDefinition(withDefaultItem, CustomSubtotalsSheet, CustomSubtotalsSheet, definition =>
+        {
+            var items = definition.PivotFields!.Elements<PivotField>().First().Items!;
+            items.InsertAt(new Item { ItemType = ItemValues.Default }, 1);
+            items.Count = (uint)items.Elements<Item>().Count();
+        });
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(withDefaultItem))
+        {
+            var pt = (XLPivotTable)wb.Worksheet(CustomSubtotalsSheet).PivotTables.Single();
+            var field = pt.PivotFields[0];
+            await Assert.That(Describe(field)).IsEqualTo("x1,default,x0,sum,countA,avg")
+                .Because("a value item must follow the default item, or this proves nothing");
+            var baseItem = pt.Values.Single().BaseItemValue;
+
+            var sourceName = pt.RowLabels.Get(0).SourceName;
+            pt.RowLabels.Remove(sourceName);
+            pt.RowLabels.Add(sourceName);
+
+            await Assert.That(Describe(field)).IsEqualTo("x1,default,x0,sum,countA,avg")
+                .Because("no value item moves, so the base item still names the same value");
+            await Assert.That(pt.Values.Single().BaseItemValue).IsEqualTo(baseItem);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedItems(saved, CustomSubtotalsSheet, CustomSubtotalsSheet, 0))
+            .IsEqualTo("x1,default,x0,sum,countA,avg");
     }
 
     /// <summary>Change the definition of one pivot table in a package, in place, and rewind the package.</summary>

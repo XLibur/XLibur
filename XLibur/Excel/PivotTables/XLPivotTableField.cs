@@ -231,7 +231,7 @@ internal sealed class XLPivotTableField
             return;
         }
 
-        _items.RemoveAll(item => item.ItemType == XLPivotItemType.Default);
+        RemoveDefaultSubtotalItem();
         AddSubtotalItemIfMissing(GetItemTypeForSubtotal(value));
     }
 
@@ -349,7 +349,7 @@ internal sealed class XLPivotTableField
     {
         var hasCustomSubtotals = HasCustomSubtotals;
         if (hasCustomSubtotals)
-            _items.RemoveAll(item => item.ItemType == XLPivotItemType.Default);
+            RemoveDefaultSubtotalItem();
 
         foreach (var subtotal in Subtotals)
         {
@@ -357,6 +357,23 @@ internal sealed class XLPivotTableField
                 continue;
 
             AddSubtotalItemIfMissing(GetItemTypeForSubtotal(subtotal));
+        }
+    }
+
+    /// <summary>
+    /// Take the default item off the subtotal items at the end of the field. A default item that a
+    /// value item follows stays: a base item and the saved layout refer to an item by its position,
+    /// so removing it would move that value item.
+    /// </summary>
+    private void RemoveDefaultSubtotalItem()
+    {
+        for (var i = _items.Count - 1; i >= 0; --i)
+        {
+            if (_items[i].ItemIndex is not null)
+                return;
+
+            if (_items[i].ItemType == XLPivotItemType.Default)
+                _items.RemoveAt(i);
         }
     }
 
