@@ -111,6 +111,12 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.Indent;
         set
         {
+            // An indent the style already holds is skipped wherever XLStyle.SkipsUnchangedValues
+            // allows, as every other setter's unchanged value is. On a cell it was a no-op anyway;
+            // a worksheet, row or column is spared a walk of its cells, and a pivot area a format
+            // that changes nothing.
+            if (Key.Indent == value && _style.SkipsUnchangedValues) return;
+
             if (!_style.IsWholeStyle)
             {
                 // A range, a worksheet, a row or a column styles cells that need not share this

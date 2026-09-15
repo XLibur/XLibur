@@ -129,6 +129,12 @@ internal class XLPivotTableStyleFormatsTests
 
         await Assert.That(pt.Formats.Count).IsEqualTo(0);
 
+        // An indent the area already holds - none - changes nothing either.
+        var area = pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style;
+        area.Alignment.Indent = 0;
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
         pt.StyleFormats.RowGrandTotalFormats
             .ForElement(XLPivotStyleFormatElement.All).Style
             .Font.SetBold(true);

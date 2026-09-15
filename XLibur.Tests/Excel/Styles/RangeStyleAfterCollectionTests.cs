@@ -496,6 +496,26 @@ public class RangeStyleAfterCollectionTests
     }
 
     /// <summary>
+    /// A worksheet skips an indent its own style already holds, as it skips every other value it
+    /// holds, so a cell given its own indent directly keeps it - and the sheet is not walked.
+    /// </summary>
+    [Test]
+    public async Task Setting_a_worksheet_indent_it_already_holds_leaves_a_cell_indented_directly_alone()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("B2").Value = 2;
+        ws.Style.Alignment.Indent = 2;
+        ws.Cell("A1").Style.Alignment.Indent = 1;
+
+        ws.Style.Alignment.Indent = 2;
+
+        await Assert.That(ws.Cell("A1").Style.Alignment.Indent).IsEqualTo(1);
+        await Assert.That(ws.Cell("B2").Style.Alignment.Indent).IsEqualTo(2);
+    }
+
+    /// <summary>
     /// Which containers keep the unchanged-value skip, and which decide from their own key. A
     /// selection of cells does neither; everything that holds a style of its own for its lifetime
     /// keeps the skip. The skip changes cost, not the cells, so only this can see a container lose
