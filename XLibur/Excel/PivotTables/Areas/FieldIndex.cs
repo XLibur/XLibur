@@ -21,7 +21,7 @@ internal readonly record struct FieldIndex
     /// <summary>
     /// The index of a 'data' field (<see cref="XLConstants.PivotTable.ValuesSentinalLabel"/>).
     /// </summary>
-    internal static FieldIndex DataField => -2;
+    internal static FieldIndex DataField => new(-2);
 
     /// <summary>
     /// Index of a field in <see cref="XLPivotTable.PivotFields"/>. Can be -2 for 'data' field,
@@ -36,5 +36,5 @@ internal readonly record struct FieldIndex
 
     public static implicit operator int(FieldIndex index) => index.Value;
 
-    public static implicit operator FieldIndex(int index) => new(index);
+    public static explicit operator FieldIndex(int index) => new(index);
 }

@@ -15,7 +15,7 @@ internal sealed class XLPivotTableAxisFieldStyleFormats : IXLPivotFieldStyleForm
 
     #region IXLPivotFieldStyleFormats
 
-    public IXLPivotValueStyleFormat DataValuesFormat => new XLPivotValueStyleFormat(_pivotTable, _axisField.Offset);
+    public IXLPivotValueStyleFormat DataValuesFormat => new XLPivotValueStyleFormat(_pivotTable, (FieldIndex)_axisField.Offset);
 
     public IXLPivotStyleFormat Header
     {
@@ -37,7 +37,7 @@ internal sealed class XLPivotTableAxisFieldStyleFormats : IXLPivotFieldStyleForm
             var fieldAxis = _axisField.Axis;
             var headerArea = new XLPivotArea
             {
-                Field = _axisField.Offset,
+                Field = (FieldIndex)_axisField.Offset,
                 Type = XLPivotAreaType.Button,
                 Axis = fieldAxis,
                 FieldPosition = (uint)fieldPosition,

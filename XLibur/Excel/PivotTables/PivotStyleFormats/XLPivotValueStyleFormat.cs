@@ -25,13 +25,13 @@ internal sealed class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivot
 
     public IXLPivotValueStyleFormat AndWith(IXLPivotField field)
     {
-        _fieldReferences.Add(new FieldReference(field.Offset));
+        _fieldReferences.Add(new FieldReference((FieldIndex)field.Offset));
         return this;
     }
 
     public IXLPivotValueStyleFormat AndWith(IXLPivotField field, Predicate<XLCellValue>? predicate)
     {
-        FieldIndex fieldIndex = field.Offset;
+        var fieldIndex = (FieldIndex)field.Offset;
         if (fieldIndex.IsDataField)
             throw new ArgumentException("Field is a 'data' field.", nameof(field));
 
@@ -44,7 +44,7 @@ internal sealed class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivot
             .Select(itemIndex => (uint)itemIndex)
             .ToList();
 
-        _fieldReferences.Add(new FieldReference(field.Offset, filteredItems));
+        _fieldReferences.Add(new FieldReference((FieldIndex)field.Offset, filteredItems));
         return this;
     }
 
