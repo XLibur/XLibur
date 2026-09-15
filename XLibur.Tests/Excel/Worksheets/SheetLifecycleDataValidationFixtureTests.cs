@@ -28,7 +28,8 @@ namespace XLibur.Tests.Excel.Worksheets;
 /// <para>
 /// A rule is compared by its <c>sqref</c>: its type, its operator, and the text of both formulas, a
 /// leading <c>=</c> left out, as the rewrite reads it. The form the rule is written in, standard or
-/// <c>x14</c>, is not compared. After a delete it differs from Excel's, and
+/// <c>x14</c>, is compared on its own: after a rename and on a round trip it is Excel's (#536). After a
+/// delete it differs from Excel's, and
 /// <see cref="Known_difference_a_deleted_sheets_rules_are_written_in_the_standard_form"/> pins it.
 /// </para>
 /// </remarks>
@@ -127,16 +128,45 @@ public class SheetLifecycleDataValidationFixtureTests
     }
 
     /// <summary>
+    /// Each rule is written in the form Excel wrote it in after the rename. <c>B1</c> to <c>B4</c> refer
+    /// to <c>New Data</c>, as a plain range, through <c>OFFSET</c>, in a custom formula and at both ends
+    /// of a between rule, and are in the <c>x14</c> extension. <c>B5</c> to <c>B7</c>, a defined name,
+    /// <c>INDIRECT</c> over a string and a literal list, are in the standard form. <c>B2</c> and
+    /// <c>B3</c> were written in the standard form (#536).
+    /// </summary>
+    [Test]
+    public async Task The_forms_match_Excel_after_a_rename()
+    {
+        using var saved = EditAndSave(SheetEvent.Rename);
+
+        await Assert.That(Lines(Forms(saved))).IsEqualTo(Lines(Forms(Resource("dv-rename-after.xlsx"))));
+    }
+
+    /// <summary>A load and a save keep the form Excel wrote each rule in (#536).</summary>
+    [Test]
+    [Arguments("dv-before.xlsx")]
+    [Arguments("dv-rename-after.xlsx")]
+    public async Task A_round_trip_keeps_the_forms_Excel_wrote(string fileName)
+    {
+        using var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource(fileName)))
+            wb.SaveAs(resaved);
+
+        await Assert.That(Lines(Forms(resaved))).IsEqualTo(Lines(Forms(Resource(fileName))));
+    }
+
+    /// <summary>
     /// After the delete, Excel keeps <c>B1</c> to <c>B4</c>, now <c>#REF!</c>, in the <c>x14</c>
-    /// extension. XLibur writes them in the standard form. The text is the same; only the XML form
-    /// differs. The writer puts a rule in the extension only when a formula is a range address on
-    /// another sheet (<c>DataValidationWriter.UsesExternalSheet</c>), and <c>#REF!</c> is not one.
+    /// extension. XLibur writes them in the standard form, after the delete and on a round trip of
+    /// Excel's file. The text is the same; only the XML form differs.
     /// </summary>
     /// <remarks>
-    /// The same test sends <c>B2</c> and <c>B3</c>, an <c>OFFSET</c> and a custom formula, to the
-    /// standard form on every save, a rename or a plain round trip included, where Excel keeps them in
-    /// the extension. Which form a rule is written in belongs to spec 44 (data validation mapping), so
-    /// this pins what XLibur writes today and the writer is left alone.
+    /// A rule goes to the extension when a reference in its formula names another sheet
+    /// (<c>DataValidationWriter.UsesExternalSheet</c>, #536). A bare <c>#REF!</c> names no sheet. The
+    /// text cannot say whether it stood for a reference to another sheet: Excel 2013 saved a list that
+    /// reads <c>#REF!</c> in the standard form (<c>TryToLoad/TemplateWithTableSourcePivotTables.xlsx</c>),
+    /// the same text as <c>B1</c> here. Keeping Excel's form for both would need the rule to remember
+    /// where its <c>#REF!</c> came from, which the model does not hold.
     /// </remarks>
     [Test]
     public async Task Known_difference_a_deleted_sheets_rules_are_written_in_the_standard_form()
@@ -150,6 +180,12 @@ public class SheetLifecycleDataValidationFixtureTests
         await Assert.That(Lines(Forms(saved))).IsEqualTo(Lines([
             "B1 standard", "B2 standard", "B3 standard", "B4 standard", "B5 standard", "B6 standard", "B7 standard",
         ]));
+
+        using var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(Resource("dv-delete-after.xlsx")))
+            wb.SaveAs(resaved);
+
+        await Assert.That(Lines(Forms(resaved))).IsEqualTo(Lines(Forms(saved)));
     }
 
     private static string After(SheetEvent sheetEvent)

@@ -200,20 +200,110 @@ public class DataValidationCriteriaTests
     }
 
     /// <summary>
-    /// A custom formula set with a leading <c>=</c> is saved without it, with the text Excel wrote for
-    /// <c>B6</c>. Excel wrote that rule in the <c>x14</c> extension, because the formula refers to another
-    /// sheet. XLibur writes a rule there only when a criterion is a range address on another sheet, so
-    /// this one goes to the standard form, which Excel reads. Which form a rule takes belongs to spec 44.
+    /// A custom formula that refers to another sheet is saved as Excel saved <c>B6</c>: without the
+    /// leading <c>=</c>, and in the <c>x14</c> extension. The rule was written in the standard form,
+    /// because only a criterion that was a range address on another sheet went to the extension (#536).
     /// </summary>
     [Test]
-    public async Task A_custom_formula_set_with_a_leading_equals_is_saved_without_it()
+    public async Task A_custom_formula_that_refers_to_another_sheet_is_saved_as_Excel_saves_it()
     {
         using var wb = NewBook(out _, out var other);
         var rule = other.Cell("B6").CreateDataValidation();
 
         rule.Custom("=B6<=MAX(Data!$A$1:$A$3)");
 
-        await AssertSavedAndReloaded(wb, "standard", "B6<=MAX(Data!$A$1:$A$3)", "");
+        await AssertSavedAndReloaded(wb, "x14", "B6<=MAX(Data!$A$1:$A$3)", ""); // As Excel wrote B6
+    }
+
+    /// <summary>
+    /// A rule goes to the <c>x14</c> extension when a reference anywhere in its formula names another
+    /// sheet (#536). A reference to the rule's own sheet, written with the sheet's name or without it, a
+    /// defined name, and text in a string name no other sheet, so such a rule stays in the standard form.
+    /// </summary>
+    /// <remarks>
+    /// <c>dv-before</c> and <c>dv-copy-after</c> are in <c>Resource/Other/SheetLifecycle</c>. Excel drops
+    /// the name of the rule's own sheet from the formula. XLibur keeps it, so only the form is Excel's for
+    /// <c>OFFSET(Other!$D$1,…)</c>.
+    /// </remarks>
+    [Test]
+    [Arguments("=OFFSET(Data!$A$1,0,0,3,1)", "x14")] // As Excel wrote B2 in dv-before
+    [Arguments("=OFFSET('My Data'!$A$1,0,0,3,1)", "x14")]
+    [Arguments("=OFFSET($D$1,0,0,3,1)", "standard")] // As Excel wrote B5 in dv-copy-after
+    [Arguments("=OFFSET(Other!$D$1,0,0,3,1)", "standard")] // As Excel wrote B5 in dv-copy-after
+    [Arguments("=Items", "standard")] // As Excel wrote B5 in dv-before, a list through ListW
+    [Arguments("=INDIRECT(\"Data!$A$1:$A$3\")", "standard")] // As Excel wrote B6 in dv-before
+    public async Task A_list_through_a_formula_is_saved_in_x14_when_it_refers_to_another_sheet(string list,
+        string form)
+    {
+        using var wb = NewBook(out _, out var other);
+        wb.AddWorksheet("My Data");
+        wb.DefinedNames.Add("Items", "Data!$A$1:$A$3");
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.List(list);
+
+        await AssertSavedAndReloaded(wb, form, SavedDataValidations.AsSaved(list), "");
+    }
+
+    /// <summary>
+    /// A custom formula goes to the <c>x14</c> extension when a reference in it names another sheet: a
+    /// reference to a cell, a 3D reference, or <c>Data!#REF!</c>, which a row delete on <c>Data</c>
+    /// leaves (#536). No Excel file holds the last two; each names another sheet, as the others do.
+    /// </summary>
+    [Test]
+    [Arguments("=AND(B1>0,B1<=Data!$A$1)", "x14")]
+    [Arguments("=B1<=SUM(Data:'My Data'!$A$1)", "x14")]
+    [Arguments("=B1<>Data!#REF!", "x14")]
+    [Arguments("=B1<='My Data'!$A$1", "x14")]
+    [Arguments("=B1<=MAX($D$1:$D$3)", "standard")]
+    [Arguments("=Other!$A$1>0", "standard")] // As Excel wrote B6 in dv-copy-after, without the name
+    public async Task A_custom_formula_is_saved_in_x14_when_it_refers_to_another_sheet(string formula,
+        string form)
+    {
+        using var wb = NewBook(out _, out var other);
+        wb.AddWorksheet("My Data");
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.Custom(formula);
+
+        await AssertSavedAndReloaded(wb, form, SavedDataValidations.AsSaved(formula), "");
+    }
+
+    /// <summary>
+    /// A criterion that reads a bare <c>#REF!</c> names no sheet, and is saved in the standard form, as
+    /// before (#536). Excel has written the same list text in both forms. It kept a list that a sheet
+    /// delete left as <c>#REF!</c> in the <c>x14</c> extension (<c>dv-delete-after</c>), and Excel 2013
+    /// saved a list that reads <c>#REF!</c> in the standard form
+    /// (<c>TryToLoad/TemplateWithTableSourcePivotTables.xlsx</c>). The text cannot tell the two apart.
+    /// </summary>
+    [Test]
+    [Arguments("=#REF!")]
+    [Arguments("=OFFSET(#REF!,0,0,3,1)")]
+    public async Task A_list_that_reads_a_bare_REF_error_is_saved_in_the_standard_form(string list)
+    {
+        using var wb = NewBook(out _, out var other);
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.List(list);
+
+        await AssertSavedAndReloaded(wb, "standard", SavedDataValidations.AsSaved(list), "");
+    }
+
+    /// <summary>
+    /// A formula the parser refuses is saved as it was before #536, in the standard form, and the save
+    /// does not fail.
+    /// </summary>
+    [Test]
+    public async Task A_formula_the_parser_refuses_is_saved_in_the_standard_form()
+    {
+        using var wb = NewBook(out _, out var other);
+        other.Cell("B1").CreateDataValidation().Custom("=SUM(Data!A1");
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        await Assert.That(SavedDataValidations.Criteria(ms, "Other"))
+            .IsEquivalentTo(new[] { ("standard", "SUM(Data!A1", "") }, CollectionOrdering.Matching);
     }
 
     /// <summary>

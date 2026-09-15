@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.ContentManagers;
 using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -62,22 +63,36 @@ internal static class DataValidationWriter
     }
 
     /// <summary>
-    /// The text a criterion is written with, and whether it is a range on another sheet, which Excel
-    /// writes only in the <c>x14</c> extension.
+    /// The text a criterion is written with, and whether it refers to another sheet, which Excel writes
+    /// only in the <c>x14</c> extension.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A file stores a criterion as formula text, which has no leading <c>=</c>. A rule built in code can
     /// have one, as in <c>List("=Data!$A$1:$A$3")</c>, so it comes off first. Written as it was, the
     /// <c>=</c> went into <c>&lt;formula1&gt;</c>, and the address check below, which allows no <c>=</c>,
     /// sent a range on another sheet to the standard form (#523). Excel writes such a rule in the
     /// extension, without the <c>=</c>. The rule itself keeps its text, so
     /// <see cref="IXLDataValidation.MinValue"/> still returns what was set.
+    /// </para>
+    /// <para>
+    /// A criterion that is not a plain range refers to another sheet when a reference anywhere in it
+    /// names one, as in <c>OFFSET(Data!$A$1,0,0,3,1)</c> or <c>B1&lt;=MAX(Data!$A$1:$A$3)</c>. Excel writes
+    /// such a rule in the extension too (#536). The parser finds the references, so a defined name and
+    /// text in a string, as in <c>INDIRECT("Data!A1")</c>, do not count. Text the parser refuses is
+    /// written in the standard form, as it was before.
+    /// </para>
+    /// <para>
+    /// A bare <c>#REF!</c> names no sheet, so it stays in the standard form. Excel keeps a list that a
+    /// sheet delete left as <c>#REF!</c> in the extension, and has saved a list with the same text in
+    /// the standard form, so the text alone cannot say which form Excel would use.
+    /// </para>
     /// </remarks>
     private static (bool, string) UsesExternalSheet(XLWorksheet sheet, string value)
     {
         var formula = CalcEngine.FormulaText.WithoutLeadingEquals(value);
         if (!XLHelper.IsValidRangeAddress(formula))
-            return (false, formula);
+            return (OtherSheetReferenceFinder.RefersToAnotherSheet(formula, sheet.Name), formula);
 
         var separatorIndex = formula.LastIndexOf('!');
         var hasSheet = separatorIndex >= 0;
