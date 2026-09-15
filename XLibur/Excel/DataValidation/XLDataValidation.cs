@@ -317,7 +317,7 @@ internal sealed class XLDataValidation : IXLDataValidation
 
     public void List(IXLRange range, bool inCellDropdown)
     {
-        List(range.RangeAddress.ToStringFixed(XLReferenceStyle.A1, true));
+        List(range.RangeAddress.ToStringFixed(XLReferenceStyle.A1, true), inCellDropdown);
     }
 
     private string QuoteListValueIfNeeded(string list)

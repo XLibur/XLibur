@@ -253,6 +253,6 @@ public class DataValidationFormulaShiftTests
         var dv = sheetPart.Worksheet!.Descendants<DataValidation>().Single();
 
         await Assert.That(dv.SequenceOfReferences!.InnerText).IsEqualTo("F3:F816");
-        await Assert.That(dv.Formula1!.InnerText.TrimStart('=')).IsEqualTo("$E3>0");
+        await Assert.That(dv.Formula1!.InnerText).IsEqualTo("$E3>0");
     }
 }

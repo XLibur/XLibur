@@ -1,12 +1,9 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using TUnit.Assertions.Enums;
 using XLibur.Excel;
-using S = DocumentFormat.OpenXml.Spreadsheet;
-using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Tests.Excel.DataValidations;
 
@@ -48,6 +45,11 @@ public class DataValidationSheetLifecycleTests
     /// </summary>
     private const string? AnyForm = null;
 
+    /// <summary>
+    /// A list set with a leading <c>=</c>, as a formula is typed. A save writes it without the <c>=</c>,
+    /// in the <c>x14</c> extension, as it writes the same list made with <c>List(IXLRange)</c> (#523).
+    /// After the delete its form is not checked (<see cref="AnyForm"/>).
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -63,7 +65,8 @@ public class DataValidationSheetLifecycleTests
             rename: "='New Data'!$A$1:$A$3",
             delete: "=#REF!"); // As Excel wrote B1 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other",
+            (Expect(sheetEvent, "x14", AnyForm), SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>
@@ -89,6 +92,10 @@ public class DataValidationSheetLifecycleTests
         await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", AnyForm), expected, ""));
     }
 
+    /// <summary>
+    /// Saved without the <c>=</c> (#523), in the standard form, where Excel writes the extension
+    /// (<c>SheetLifecycleDataValidationFixtureTests</c>).
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -104,10 +111,13 @@ public class DataValidationSheetLifecycleTests
             rename: "=OFFSET('New Data'!$A$1,0,0,COUNTA('New Data'!$A:$A),1)",
             delete: "=OFFSET(#REF!,0,0,COUNTA(#REF!),1)"); // As Excel wrote B2 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
     }
 
-    /// <summary>The relative reference is to the rule's own sheet, and keeps its text.</summary>
+    /// <summary>
+    /// The relative reference is to the rule's own sheet, and keeps its text. Saved without the
+    /// <c>=</c> (#523), in the standard form, where Excel writes the extension.
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -123,7 +133,7 @@ public class DataValidationSheetLifecycleTests
             rename: "=AND(B1>0,B1<='New Data'!$A$1)",
             delete: "=AND(B1>0,B1<=#REF!)"); // As Excel wrote B3 in dv-delete-after
         await Assert.That(rule.Value).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>
@@ -169,7 +179,7 @@ public class DataValidationSheetLifecycleTests
         await Assert.That(wb.DefinedNames.Single().RefersTo).IsEqualTo(Expect(sheetEvent,
             rename: "'New Data'!$A$1:$A$3",
             delete: "#REF!"));
-        await AssertSavedAndReloaded(wb, "Other", ("standard", "=Items", ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", "Items", "")); // Without the '=' (#523)
     }
 
     /// <summary>
@@ -196,7 +206,8 @@ public class DataValidationSheetLifecycleTests
 
     /// <summary>
     /// A rule that names its own sheet follows that sheet's rename. A delete of its own sheet takes
-    /// the rule with it.
+    /// the rule with it. A save writes it without the <c>=</c> (#523) and without the sheet's name, as
+    /// Excel writes a reference to the rule's own sheet.
     /// </summary>
     [Test]
     public async Task A_list_on_its_own_sheet_follows_a_rename_of_that_sheet()
@@ -208,7 +219,7 @@ public class DataValidationSheetLifecycleTests
         Apply(wb, SheetEvent.Rename);
 
         await Assert.That(rule.MinValue).IsEqualTo("='New Data'!$A$1:$A$3");
-        await AssertSavedAndReloaded(wb, "New Data", ("standard", "='New Data'!$A$1:$A$3", ""));
+        await AssertSavedAndReloaded(wb, "New Data", ("standard", "$A$1:$A$3", ""));
     }
 
     /// <summary>
@@ -247,7 +258,7 @@ public class DataValidationSheetLifecycleTests
             wb.SaveAs(original);
         }
 
-        await Assert.That(SavedCriteria(original, "Other"))
+        await Assert.That(SavedDataValidations.Criteria(original, "Other"))
             .IsEquivalentTo(new[] { ("x14", "Data!$A$1:$A$3", "") }, CollectionOrdering.Matching);
 
         using var loaded = new XLWorkbook(original);
@@ -338,7 +349,7 @@ public class DataValidationSheetLifecycleTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        var saved = SavedCriteria(ms, sheetName).Select((c, i) =>
+        var saved = SavedDataValidations.Criteria(ms, sheetName).Select((c, i) =>
             (i < expected.Length && expected[i].Form is null ? null : (string?)c.Form, c.Formula1, c.Formula2));
         await Assert.That(saved).IsEquivalentTo(expected, CollectionOrdering.Matching);
         await Assert.That(SavedSheetXml(ms, sheetName)).DoesNotContain("Data!");
@@ -350,37 +361,12 @@ public class DataValidationSheetLifecycleTests
             .IsEquivalentTo(expected.Select(e => (e.Formula1, e.Formula2)), CollectionOrdering.Matching);
     }
 
-    /// <summary>
-    /// Each rule in <paramref name="sheetName"/>'s part: <c>standard</c> for one in
-    /// <c>&lt;dataValidations&gt;</c>, <c>x14</c> for one in the extension, with its two formulas, an
-    /// absent one read as empty.
-    /// </summary>
-    private static List<(string Form, string Formula1, string Formula2)> SavedCriteria(Stream package,
-        string sheetName)
-    {
-        package.Position = 0;
-        using var document = SpreadsheetDocument.Open(package, false);
-        var worksheet = SheetPart(document, sheetName).Worksheet!;
-        var standard = worksheet.Elements<S.DataValidations>()
-            .SelectMany(d => d.Elements<S.DataValidation>())
-            .Select(dv => ("standard", dv.Formula1?.Text ?? "", dv.Formula2?.Text ?? ""));
-        var extension = worksheet.Descendants<X14.DataValidation>()
-            .Select(dv => ("x14", dv.DataValidationForumla1?.InnerText ?? "", dv.DataValidationForumla2?.InnerText ?? ""));
-        return standard.Concat(extension).ToList();
-    }
-
     private static string SavedSheetXml(Stream package, string sheetName)
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
-        using var reader = new StreamReader(SheetPart(document, sheetName).GetStream(FileMode.Open, FileAccess.Read));
+        using var reader = new StreamReader(SavedDataValidations.SheetPart(document, sheetName)
+            .GetStream(FileMode.Open, FileAccess.Read));
         return reader.ReadToEnd();
-    }
-
-    private static WorksheetPart SheetPart(SpreadsheetDocument document, string sheetName)
-    {
-        var workbookPart = document.WorkbookPart!;
-        var sheet = workbookPart.Workbook!.Descendants<S.Sheet>().Single(s => s.Name?.Value == sheetName);
-        return (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
     }
 }

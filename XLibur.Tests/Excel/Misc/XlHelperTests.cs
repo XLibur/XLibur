@@ -19,6 +19,65 @@ public class XlHelperTests
         await Assert.That(() => XLHelper.GetColumnNumberFromLetter(null!)).ThrowsExactly<ArgumentNullException>();
     }
 
+    /// <summary>
+    /// A quoted sheet name doubles each apostrophe it holds, wherever it is, as a formula writes it. The
+    /// check accepted a quoted name that was one doubled apostrophe and nothing else, so
+    /// <c>'Bob''s'!A1</c> was not a range address. A data validation that named such a sheet was then
+    /// saved in the standard form instead of the <c>x14</c> extension, and <c>List(IXLRange)</c> stored
+    /// the range as a literal list.
+    /// </summary>
+    [Test]
+    [Arguments("'Bob''s'!A1")]
+    [Arguments("'Bob''s'!$A$1:$A$3")]
+    [Arguments("'''a'!A1")]
+    [Arguments("'a'''!A1")]
+    [Arguments("'O''Neil''s data'!$A$1:$B$2")]
+    [Arguments("''''!A1")]
+    [Arguments("'My Data'!A1")]
+    [Arguments("Data!$A:$A")]
+    [Arguments("$A$1:$B$2")]
+    public async Task A_quoted_sheet_name_may_hold_a_doubled_apostrophe_anywhere(string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsTrue();
+    }
+
+    /// <summary>
+    /// An apostrophe inside a quoted name must be doubled, the name cannot be empty, and a quoted name
+    /// is closed by an apostrophe followed by <c>!</c>.
+    /// </summary>
+    [Test]
+    [Arguments("'Bob's'!A1")]
+    [Arguments("''!A1")]
+    [Arguments("'Bob''s!A1")]
+    [Arguments("'Bob''s'A1")]
+    [Arguments("'a:b'!A1")]
+    public async Task A_quoted_sheet_name_with_a_single_apostrophe_inside_or_no_name_is_not_a_range_address(
+        string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
+    }
+
+    /// <summary>
+    /// The callers of <see cref="XLHelper.IsValidRangeAddress(string)"/> that now read
+    /// <c>'Bob''s'!A1:A3</c> as a range address resolve it as they resolve any other quoted name: a
+    /// worksheet's <c>Range</c> takes the address, and a defined name at either scope still adds.
+    /// </summary>
+    [Test]
+    public async Task A_range_on_a_sheet_whose_name_has_an_apostrophe_resolves()
+    {
+        using var wb = new XLWorkbook();
+        var bobs = wb.AddWorksheet("Bob's");
+
+        await Assert.That(wb.Range("'Bob''s'!A1:A3")!.Worksheet).IsSameReferenceAs(bobs);
+        await Assert.That(bobs.Range("'Bob''s'!A1:A3")?.RangeAddress.ToString()).IsEqualTo("A1:A3");
+
+        wb.DefinedNames.Add("Items", "'Bob''s'!$A$1:$A$3");
+        bobs.DefinedNames.Add("Local", "'Bob''s'!$A$1:$A$3");
+
+        await Assert.That(wb.DefinedName("Items")!.Ranges.Count).IsEqualTo(1);
+        await Assert.That(bobs.DefinedName("Local").Ranges.Count).IsEqualTo(1);
+    }
+
     [Test]
     public async Task InvalidA1Addresses()
     {

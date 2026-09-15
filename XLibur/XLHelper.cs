@@ -72,8 +72,9 @@ public static partial class XLHelper
         + "(?<Reference>" // Start Group to pick
         + "(?<Sheet>" // Start Sheet Name, optional
         + "("
-        + @"\'([^\[\]\*/\\\?:\']+|\'\')\'"
-        // Sheet name with special characters, surrounding apostrophes are required
+        + @"\'(?:[^\[\]\*/\\\?:\']|\'\')+\'"
+        // Sheet name with special characters, surrounding apostrophes are required. An apostrophe in
+        // the name is doubled, and can be anywhere in it, as in 'Bob''s'.
         + "|"
         + @"\'?\w+\'?" // Sheet name with letters and numbers, surrounding apostrophes are optional
         + ")"
@@ -579,7 +580,10 @@ public static partial class XLHelper
     /// </summary>
     internal static double DegToRad(double angle) => Math.PI * angle / 180.0;
 
-    [GeneratedRegex(@"^('?(?<Sheet>[^'!]+)'?!(?<Range>.+))|((?<Table>[^\[]+)\[(?<Column>[^\]]+)\])$",
+    // The first sheet alternative is a quoted name that doubles each apostrophe it holds, as in
+    // 'Bob''s'!A1, which A1SimpleRegex accepts too. Without it such a reference fell through
+    // XLDefinedNames' check for a sheet-qualified address.
+    [GeneratedRegex(@"^(('(?<Sheet>([^']|'')+)'|'?(?<Sheet>[^'!]+)'?)!(?<Range>.+))|((?<Table>[^\[]+)\[(?<Column>[^\]]+)\])$",
         RegexOptions.ExplicitCapture | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex NamedRangeReferenceRegexCompiled();
 
