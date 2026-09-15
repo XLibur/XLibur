@@ -247,6 +247,93 @@ public class XLPivotTableTests
         await Assert.That(comparer.Equals(original, copy)).IsTrue();
     }
 
+    /// <summary>
+    /// Excel saved this file: pivot table <c>Pastries</c> on <c>Pivot</c>, whose fields have no
+    /// <c>name</c> because nobody renamed them.
+    /// </summary>
+    private const string ChartsheetAndPivotTable = @"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx";
+
+    [Test]
+    [Property("Description", "#515: a field Excel never renamed has no name, CustomName read null, and CopyTo passed that on, so the copy found its own unnamed fields already using it and threw")]
+    public async Task CopyTo_copies_a_pivot_table_Excel_saved_whose_fields_have_no_name()
+    {
+        using var saved = new MemoryStream();
+        string source;
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var pt = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+            await Assert.That(pt.PivotFields.All(f => f.Name is null)).IsTrue()
+                .Because("Excel wrote no name for any field, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A3"));
+
+            source = pt.RowLabels.Single().SourceName;
+            await Assert.That(copy.RowLabels.Single().SourceName).IsEqualTo(source);
+            await Assert.That(copy.RowLabels.Single().CustomName).IsEqualTo(source)
+                .Because("the copy's field is named after its source, as a field added in code is");
+            wb.SaveAs(saved);
+        }
+
+        // The copy adds no validator error. A save of the untouched workbook fails validation too, on
+        // the fixture's own chart part (c:showDLblsOverMax), so the two lists are compared.
+        using var untouched = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable)))
+        using (var wb = new XLWorkbook(stream))
+            wb.SaveAs(untouched);
+        await Assert.That(ValidationErrors(saved)).IsEquivalentTo(ValidationErrors(untouched));
+
+        // The row field is field 0. The original keeps no name; the copy's is written.
+        await Assert.That(PivotFieldNames(saved, "Pivot")[0]).IsNull();
+        await Assert.That(PivotFieldNames(saved, "Copy")[0]).IsEqualTo(source);
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedCopy = reloaded.Worksheet("Copy").PivotTables.Single();
+        await Assert.That(reloadedCopy.RowLabels.Single().CustomName).IsEqualTo(source);
+        await Assert.That(reloadedCopy.Values.Single().CustomName).IsEqualTo("Sum of Sold");
+    }
+
+    /// <summary>
+    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotField.CustomName"/> is declared non-null,
+    /// but it reads <c>null</c> for a field that Excel saved with no name. CopyTo works round it (#515).
+    /// </summary>
+    [Test]
+    public async Task Known_gap_CustomName_reads_null_for_a_field_Excel_saved_with_no_name()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable));
+        using var wb = new XLWorkbook(stream);
+        string? name = wb.Worksheet("Pivot").PivotTables.Single().RowLabels.Single().CustomName;
+
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>Every <c>OpenXmlValidator</c> error of a saved package, one line each.</summary>
+    private static List<string> ValidationErrors(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return new DocumentFormat.OpenXml.Validation.OpenXmlValidator().Validate(document)
+            .Select(e => $"{e.Part?.Uri} {e.Path?.XPath}: {e.Description}")
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>The <c>name</c> of each pivot field of the one pivot table on <paramref name="sheetName"/>.</summary>
+    private static List<string?> PivotFieldNames(Stream package, string sheetName)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var workbookPart = document.WorkbookPart!;
+        var sheet = workbookPart.Workbook!.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>()
+            .Single(s => s.Name == sheetName);
+        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
+        return worksheetPart.PivotTableParts.Single().PivotTableDefinition!.PivotFields!
+            .Elements<DocumentFormat.OpenXml.Spreadsheet.PivotField>()
+            .Select(f => f.Name?.Value)
+            .ToList();
+    }
+
     [Test]
     [Property("Description", "spec 39: CopyTo carried the table's own compact/outline pair but not the per-field one, so a copy of a tabular table said tabular at the table level and compact on every field")]
     public async Task CopyTo_carries_the_layout_of_every_pivot_field_not_just_the_table()
