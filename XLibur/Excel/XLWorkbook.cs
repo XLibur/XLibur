@@ -485,6 +485,7 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.Stream;
         _originalStream = package;
         _originalFile = null;
+        _templateSheetSource = null;
 
         _encryptionPassword = password;
         _encryptedFile = file;
@@ -574,6 +575,7 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.File;
         _originalFile = file;
         _originalStream = null;
+        _templateSheetSource = null;
         ClearEncryptedOrigin();
     }
 
@@ -654,6 +656,7 @@ public partial class XLWorkbook : IXLWorkbook
         _loadSource = XLLoadSource.Stream;
         _originalStream = stream;
         _originalFile = null;
+        _templateSheetSource = null;
         ClearEncryptedOrigin();
     }
 
@@ -860,7 +863,8 @@ public partial class XLWorkbook : IXLWorkbook
     /// The package of the template this workbook was opened from, kept only when the template holds
     /// sheets XLibur keeps but does not model, such as a chartsheet. A save out of a template writes
     /// a new package (<see cref="XLLoadSource.New"/>), and those sheets are copied into it from here.
-    /// Once saved, the workbook's package holds them, so later saves do not need it.
+    /// The first save that succeeds clears it: the workbook's package then holds those sheets, so
+    /// later saves copy them from there.
     /// </summary>
     private byte[]? _templateSheetSource;
 

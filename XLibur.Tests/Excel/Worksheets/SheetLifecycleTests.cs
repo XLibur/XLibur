@@ -1180,6 +1180,27 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// #527: the first save out of a template lets go of the template's package. A later save starts
+    /// from the package that first save wrote, which holds the chartsheet, so it keeps it too.
+    /// </summary>
+    [Test]
+    public async Task A_second_save_after_a_template_load_keeps_the_chartsheet()
+    {
+        using var template = ResourceAsFile(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var first = new MemoryStream();
+        using var second = new MemoryStream();
+        using (var wb = XLWorkbook.OpenFromTemplate(template.Path))
+        {
+            wb.SaveAs(first);
+            wb.AddWorksheet("New");
+            wb.SaveAs(second);
+        }
+
+        await AssertSavedWithChartsheetIntact(second, "Data", "Pivot", "New");
+        await Assert.That(SavedTabOrder(second)).IsEquivalentTo(["Data", "Pivot", "Chart", "New"], CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     /// <c>IXLWorksheet.Delete()</c> deletes the sheet it is called on, not whichever sheet has its name
     /// now. Called again on a deleted sheet, after a sheet was added under the same name, it used to
     /// delete the new sheet: rewrite every formula pointing at it to <c>#REF!</c>, make a name pointing
