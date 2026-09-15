@@ -857,6 +857,14 @@ public partial class XLWorkbook : IXLWorkbook
     private Stream? _originalStream;
 
     /// <summary>
+    /// The package of the template this workbook was opened from, kept only when the template holds
+    /// sheets XLibur keeps but does not model, such as a chartsheet. A save out of a template writes
+    /// a new package (<see cref="XLLoadSource.New"/>), and those sheets are copied into it from here.
+    /// Once saved, the workbook's package holds them, so later saves do not need it.
+    /// </summary>
+    private byte[]? _templateSheetSource;
+
+    /// <summary>
     /// The password this workbook was opened with, or last saved under. Non-null exactly when the
     /// workbook's origin is an encrypted container, which is what lets <see cref="Save()"/> put it
     /// back the way it came. Held for the lifetime of the workbook rather than for the load, so a
