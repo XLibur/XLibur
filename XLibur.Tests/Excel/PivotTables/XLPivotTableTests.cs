@@ -447,6 +447,52 @@ public class XLPivotTableTests
     }
 
     [Test]
+    [Property("Description", "CopyTo moved a base item to the same item of the base field in the copy, and for a base field the copy has on no axis it added that one item, so putting the field on an axis then gave it the item twice")]
+    public async Task CopyTo_keeps_the_base_item_as_it_is_when_the_base_field_is_on_no_axis()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("Name", "Sold"),
+                ("Pie", 7),
+                ("Cake", 10),
+            });
+            var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Sold").ShowAsPercentageFrom("Name").And("Cake");
+
+            // Taken off the rows, the field keeps its items, as a field Excel saved on no axis can.
+            pt.RowLabels.Remove("Name");
+            var baseField = pt.PivotFields[0];
+            await Assert.That(baseField.Axis).IsNull();
+            await Assert.That(baseField.Items.Any(item => item.ItemIndex is not null)).IsTrue()
+                .Because("the base field must keep its items, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.PivotFields[0].Items).IsEmpty()
+                .Because("the copy gives items only to the fields it puts on an axis");
+            await Assert.That(((XLPivotDataField)copy.Values.Single()).BaseItem)
+                .IsEqualTo(((XLPivotDataField)pt.Values.Single()).BaseItem);
+
+            copy.RowLabels.Add("Name");
+            var cacheIndexes = copy.PivotFields[0].Items.Select(item => item.ItemIndex).OfType<int>().ToList();
+            await Assert.That(cacheIndexes).IsEquivalentTo(new[] { 0, 1 })
+                .Because("each value of the field has one item");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedCopy = reloaded.Worksheet("Copy").PivotTables.Single();
+        await Assert.That(reloadedCopy.RowLabels.Single().SourceName).IsEqualTo("Name");
+        await Assert.That(reloadedCopy.Values.Single().BaseItemValue).IsEqualTo("Cake");
+    }
+
+    [Test]
     [Arguments(false)]
     [Arguments(true)]
     [Property("Description", "a field saved with name=\"\" passed its empty name to the copy, so a second such field found the name already used, and the copy threw")]

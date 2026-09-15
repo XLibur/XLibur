@@ -94,12 +94,18 @@ internal sealed class XLPivotDataField : IXLPivotValue
     /// Gives this value field the <see cref="BaseField"/> and <see cref="BaseItem"/> of
     /// <paramref name="other"/>, for a copy of a pivot table over the same pivot cache, whose fields
     /// are in the same order. The base field goes across as the position it is. The base item is a
-    /// position in the base field's items, and the two tables can list those items in different
-    /// orders, so a base item that is an item of the base field goes across as the same item, at its
-    /// position here. Any other base item goes across as it is: "previous", "next", no base item, and
-    /// a position the base field has no item at, such as Excel's <c>baseItem="0"</c> on a field with
-    /// no items.
+    /// position in the base field's items. The copy lists the items of a field on its rows, columns
+    /// or filters in the pivot cache's order, which can differ from the original's, so for such a
+    /// field a base item that is an item of the field goes across as the same item, at its position
+    /// here. Any other base item goes across as it is: "previous", "next", no base item, a position
+    /// the base field has no item at, such as Excel's <c>baseItem="0"</c> on a field with no items,
+    /// and a base item of a field the copy has on no axis. The copy gives such a field no items, and
+    /// an item added here would be there twice once the field is put on an axis.
     /// </summary>
+    /// <remarks>
+    /// The pivot table copy puts its fields on their axes before it copies the value fields, so
+    /// <see cref="XLPivotTableField.Axis"/> of the base field is already set when this runs.
+    /// </remarks>
     internal void CopyBaseFrom(XLPivotDataField other)
     {
         _baseField = other._baseField;
@@ -109,6 +115,9 @@ internal sealed class XLPivotDataField : IXLPivotValue
             return;
 
         var baseField = _pivotTable.PivotFields[_baseField];
+        if (baseField.Axis is null)
+            return;
+
         var item = baseField.GetOrAddItemByCacheIndex(sharedItemIndex);
         _baseItem = checked((uint)baseField.IndexOf(item));
     }
