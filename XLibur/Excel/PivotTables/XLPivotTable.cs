@@ -186,20 +186,16 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
         }
 
-        // A field that was never renamed has no name of its own, and Excel writes none for it, so its
-        // CustomName reads null. Passed on, that made the copy find its own unnamed fields already using
-        // the name, and throw. The copy's field is named after its source, as a field added in code is.
-        static string NameOf(IXLPivotField field)
-            => string.IsNullOrEmpty(field.CustomName) ? field.SourceName : field.CustomName;
-
+        // A field that was never renamed has no name of its own, and its CustomName is its source name,
+        // so the copy's field is named after its source, as a field added in code is.
         foreach (var rf in ReportFilters)
-            CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, NameOf(rf)));
+            CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, rf.CustomName));
 
         foreach (var cl in ColumnLabels)
-            CopyPivotField(cl, newPivotTable.ColumnLabels.Add(cl.SourceName, NameOf(cl)));
+            CopyPivotField(cl, newPivotTable.ColumnLabels.Add(cl.SourceName, cl.CustomName));
 
         foreach (var rl in RowLabels)
-            CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, NameOf(rl)));
+            CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, rl.CustomName));
 
         foreach (var v in Values)
         {

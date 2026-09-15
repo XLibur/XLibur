@@ -31,7 +31,8 @@ internal sealed class XLPivotTableAxisField : XLPivotFieldBase
 
     public override string CustomName
     {
-        get => GetFieldValue(f => f.Name!, PivotTable.DataCaption);
+        // Excel saves no name for a field nobody renamed, and shows the source field's name for it.
+        get => GetFieldValue(f => f.Name ?? SourceName, PivotTable.DataCaption);
         set
         {
             if (_index.IsDataField)

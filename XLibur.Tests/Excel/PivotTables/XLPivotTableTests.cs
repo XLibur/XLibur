@@ -295,18 +295,86 @@ public class XLPivotTableTests
     }
 
     /// <summary>
-    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotField.CustomName"/> is declared non-null,
-    /// but it reads <c>null</c> for a field that Excel saved with no name. CopyTo works round it (#515).
+    /// Excel saved this file: pivot table on <c>pvt1</c>, with field 3 on its rows and field 4 in its
+    /// filters, and no name on either.
     /// </summary>
+    private const string FilterFieldWithNoName = @"Other\PivotTableReferenceFiles\VersioningAttributes\inputfile.xlsx";
+
     [Test]
-    public async Task Known_gap_CustomName_reads_null_for_a_field_Excel_saved_with_no_name()
+    [Property("Description", "#520: CustomName is declared non-null, but read null for a row field Excel saved with no name")]
+    public async Task CustomName_of_a_row_field_Excel_saved_with_no_name_is_its_source_name()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable));
         using var wb = new XLWorkbook(stream);
-        string? name = wb.Worksheet("Pivot").PivotTables.Single().RowLabels.Single().CustomName;
+        var pt = (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+        var field = pt.RowLabels.Single();
 
-        await Assert.That(name).IsNull();
+        await Assert.That(field.CustomName).IsEqualTo(field.SourceName);
+        await Assert.That(pt.PivotFields[field.Offset].Name).IsNull()
+            .Because("reading the name must not give the field one");
     }
+
+    [Test]
+    [Property("Description", "#520: CustomName is declared non-null, but read null for a filter field Excel saved with no name")]
+    public async Task CustomName_of_a_filter_field_Excel_saved_with_no_name_is_its_source_name()
+    {
+        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(FilterFieldWithNoName));
+        using var wb = new XLWorkbook(stream);
+        var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.Single();
+        var field = pt.ReportFilters.Single();
+
+        await Assert.That(field.CustomName).IsEqualTo(field.SourceName);
+        await Assert.That(pt.PivotFields[field.Offset].Name).IsNull()
+            .Because("reading the name must not give the field one");
+    }
+
+    [Test]
+    [Arguments(ChartsheetAndPivotTable, "Pivot")]
+    [Arguments(FilterFieldWithNoName, "pvt1")]
+    [Property("Description", "#520: the source name that CustomName returns for a field with no name is not stored, so a save still writes no name")]
+    public async Task A_field_Excel_saved_with_no_name_is_saved_with_no_name_after_its_CustomName_is_read(
+        string fixture, string sheetName)
+    {
+        using var original = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(fixture)))
+            stream.CopyTo(original);
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            var pt = wb.Worksheet(sheetName).PivotTables.Single();
+            var names = pt.RowLabels.Concat(pt.ColumnLabels).Concat(pt.ReportFilters)
+                .Select(f => f.CustomName)
+                .ToList();
+            await Assert.That(names.All(name => name is not null)).IsTrue();
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(FieldNameList(saved, sheetName)).IsEqualTo(FieldNameList(original, sheetName));
+        await Assert.That(PivotFieldNames(saved, sheetName).All(name => name is null)).IsTrue()
+            .Because("Excel wrote no name for any field of this pivot table, and nothing renamed one");
+    }
+
+    [Test]
+    [Property("Description", "#520: the setter of CustomName is unchanged; a name set on a field Excel saved with no name is saved")]
+    public async Task CustomName_set_on_a_field_Excel_saved_with_no_name_is_saved()
+    {
+        using var saved = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ChartsheetAndPivotTable)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var field = wb.Worksheet("Pivot").PivotTables.Single().RowLabels.Single();
+            field.CustomName = "Pastry";
+            await Assert.That(field.CustomName).IsEqualTo("Pastry");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(PivotFieldNames(saved, "Pivot")[0]).IsEqualTo("Pastry");
+    }
+
+    /// <summary>The <c>name</c> of each pivot field, in field order, with <c>-</c> for a field with none.</summary>
+    private static string FieldNameList(Stream package, string sheetName)
+        => string.Join(",", PivotFieldNames(package, sheetName).Select(name => name ?? "-"));
 
     /// <summary>
     /// Excel saved this file. Excel writes <c>baseField="0" baseItem="0"</c> on every value field, and

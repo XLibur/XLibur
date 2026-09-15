@@ -52,6 +52,10 @@ public interface IXLPivotField
     /// multiple times, it must have custom name, e.g. <c>Sum1 of Field</c>,
     /// <c>Sum2 of Field</c>).
     /// </summary>
+    /// <remarks>
+    /// A field that was never renamed has no custom name of its own, and Excel saves none for it.
+    /// For such a field, the getter returns <see cref="SourceName"/>, the caption Excel shows.
+    /// </remarks>
     /// <exception cref="ArgumentException">When setting name to a name that is already used by
     ///     another field.</exception>
     string CustomName { get; set; }
