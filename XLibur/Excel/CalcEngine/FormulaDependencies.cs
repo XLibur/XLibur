@@ -46,12 +46,10 @@ internal sealed class FormulaDependencies
 
     internal void MarkPrecedentsUnknown() => HasUnknownPrecedents = true;
 
-    internal void AddAreas(List<SheetArea> sheetAreas)
+    internal void AddAreas(in ReferenceAreas sheetAreas)
     {
-        // A loop over the list, not UnionWith: UnionWith takes an IEnumerable, so it boxes the
-        // enumerator of the list, once for each reference in each formula of a build.
-        foreach (var sheetArea in sheetAreas)
-            _areas.Add(sheetArea);
+        for (var i = 0; i < sheetAreas.Count; ++i)
+            _areas.Add(sheetAreas[i]);
     }
 
     internal void AddName(XLName name)

@@ -23,6 +23,17 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
         Dependencies = dependencies;
     }
 
+    /// <summary>
+    /// Make the context ready for the next formula. The dependency tree keeps one context for every
+    /// formula it adds, so a build does not allocate one per formula (#513).
+    /// </summary>
+    internal void Reset(SheetArea formulaArea, XLWorkbook workbook, FormulaDependencies dependencies)
+    {
+        FormulaArea = formulaArea;
+        Workbook = workbook;
+        Dependencies = dependencies;
+    }
+
     /// <inheritdoc />
     /// <remarks>
     /// Resolved from <see cref="FormulaArea"/> on demand, and only read for a table-less
@@ -46,19 +57,19 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
     /// <summary>
     /// An area of a formula, in most cases just one cell, for array formulas area of cells.
     /// </summary>
-    internal SheetArea FormulaArea { get; }
+    internal SheetArea FormulaArea { get; private set; }
 
-    public XLWorkbook Workbook { get; }
+    public XLWorkbook Workbook { get; private set; }
 
     /// <summary>
     /// The result. Visitor adds all areas/names formula depends on to this.
     /// </summary>
-    internal FormulaDependencies Dependencies { get; }
+    internal FormulaDependencies Dependencies { get; private set; }
 
     /// <summary>
     /// Add areas to a list of areas the formula depends on. Disregards duplicate entries.
     /// </summary>
-    internal void AddAreas(List<SheetArea> sheetAreas) => Dependencies.AddAreas(sheetAreas);
+    internal void AddAreas(in ReferenceAreas sheetAreas) => Dependencies.AddAreas(sheetAreas);
 
     /// <summary>
     /// Add name to a list of names the formula depends on. Disregards duplicate entries.
