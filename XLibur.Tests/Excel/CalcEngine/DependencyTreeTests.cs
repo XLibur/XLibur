@@ -418,6 +418,64 @@ internal class DependencyTreeTests
         await AssertNotDirty(ws, "B1");
     }
 
+    /// <summary>
+    /// <see cref="DependencyTree.CreateFrom"/> loads the precedent areas of each sheet into the
+    /// R-tree in one bulk load, but <see cref="DependencyTree.AddFormula"/> inserts areas one at a
+    /// time (#513). The workbook has enough areas for the bulk load to build more than one R-tree
+    /// node, and every formula in column B reads <c>$D$1</c>, so that one area has 50 dependents.
+    /// </summary>
+    [Test]
+    public async Task Tree_built_from_a_workbook_marks_dependents_and_accepts_later_changes()
+    {
+        const int rows = 50;
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        for (var row = 1; row <= rows; row++)
+        {
+            SetCleanFormula(ws, $"B{row}", $"A{row}*$D$1");
+            SetCleanFormula(ws, $"C{row}", $"B{row}+1");
+        }
+
+        var tree = DependencyTree.CreateFrom(wb);
+
+        MarkDirty(tree, ws, "A7");
+        await AssertDirty(ws, "B7:C7");
+        await AssertNotDirty(ws, "B1:C6", $"B8:C{rows}");
+
+        MarkAllClean(ws, rows);
+        MarkDirty(tree, ws, "D1");
+        await AssertDirty(ws, $"B1:C{rows}");
+
+        // After the bulk load, the tree still takes one formula out and puts another in.
+        MarkAllClean(ws, rows);
+        tree.RemoveFormula(((XLCell)ws.Cell("B7")).Formula!);
+        var replacement = SetCleanFormula(ws, "B7", "A8");
+        tree.AddFormula(new SheetArea(ws.Name, Area.Parse("B7")), replacement, wb);
+
+        MarkDirty(tree, ws, "A7");
+        await AssertNotDirty(ws, "B7:C7");
+
+        MarkDirty(tree, ws, "A8");
+        await AssertDirty(ws, "B7:C8");
+    }
+
+    private static XLCellFormula SetCleanFormula(IXLWorksheet sheet, string address, string formula)
+    {
+        var cell = (XLCell)sheet.Cell(address);
+        cell.Formula = XLCellFormula.NormalA1(formula);
+        cell.Formula.MarkClean();
+        return cell.Formula;
+    }
+
+    private static void MarkAllClean(IXLWorksheet sheet, int rows)
+    {
+        for (var row = 1; row <= rows; row++)
+        {
+            ((XLCell)sheet.Cell(row, 2)).Formula!.MarkClean();
+            ((XLCell)sheet.Cell(row, 3)).Formula!.MarkClean();
+        }
+    }
+
     #endregion
 
     #region Rename sheet
@@ -639,7 +697,7 @@ internal class DependencyTreeTests
         cell.SetFormulaA1("SUM(TableName[Second])");
 
         var cellFormula = ((XLCell)cell).Formula!;
-        var dependencies = tree.AddFormula(new SheetArea(report.Name, cellFormula.Range), cellFormula, wb);
+        var dependencies = tree.GetPrecedents(new SheetArea(report.Name, cellFormula.Range), cellFormula, wb);
 
         await Assert.That(dependencies.Areas)
             .IsEquivalentTo(new SheetArea[] { new("Data", Area.Parse("F8:F10")) });
@@ -673,7 +731,7 @@ internal class DependencyTreeTests
         cell.SetFormulaA1(formula);
 
         var cellFormula = ((XLCell)cell).Formula!;
-        var dependencies = tree.AddFormula(new SheetArea(ws.Name, cellFormula.Range), cellFormula, wb);
+        var dependencies = tree.GetPrecedents(new SheetArea(ws.Name, cellFormula.Range), cellFormula, wb);
         return dependencies;
     }
 

@@ -36,7 +36,19 @@ internal sealed class DependencyTree
     /// The source of the truth, a storage of formula dependencies. The dependency tree is
     /// constructed from this collection.
     /// </summary>
-    private readonly Dictionary<XLCellFormula, FormulaDependencies> _dependencies = new();
+    /// <remarks>
+    /// Each formula keeps its precedent areas in an array of the exact size, not a
+    /// <see cref="FormulaDependencies"/> with two sets, because the tree keeps one for every formula
+    /// in the workbook (#513).
+    /// </remarks>
+    private readonly Dictionary<XLCellFormula, SheetArea[]> _dependencies = new();
+
+    /// <summary>
+    /// Collects the precedents of the formula that <see cref="AddFormula"/> adds. One instance serves
+    /// every formula: the tree is used from one thread at a time, and adding a formula never adds
+    /// another one.
+    /// </summary>
+    private readonly FormulaDependencies _scratch = new();
 
     /// <summary>
     /// Visitor to extract precedents of formulas.
@@ -69,6 +81,16 @@ internal sealed class DependencyTree
         // Add tree before adding formulas, because formula can reference any sheet.
         foreach (var sheet in workbook.WorksheetsInternal)
             tree.AddSheetTree(sheet);
+
+        // Sized once, so that the dictionary does not grow and copy itself about 18 times on a
+        // workbook of 200,000 formulas.
+        tree._dependencies.EnsureCapacity(CountFormulaCells(workbook));
+
+        // Each sheet tree is empty, so it can take all its areas in one bulk load at the end. One
+        // RBush insert per area allocated enumerators, LINQ iterators and node arrays for each insert
+        // and each node split, and areas that arrive row by row split many nodes (#513).
+        foreach (var sheetTree in tree._sheetTrees.Values)
+            sheetTree.BeginBulkLoad();
 
         foreach (var sheet in workbook.WorksheetsInternal)
         {
@@ -117,9 +139,30 @@ internal sealed class DependencyTree
             }
         }
 
+        foreach (var sheetTree in tree._sheetTrees.Values)
+            sheetTree.EndBulkLoad();
+
         return tree;
     }
 #pragma warning restore S3776
+
+    /// <summary>
+    /// The number of cells that hold a formula. An array formula is counted once for each of its
+    /// cells, but the tree adds it once, so the count can be larger than the number of formulas the
+    /// tree adds.
+    /// </summary>
+    private static int CountFormulaCells(XLWorkbook workbook)
+    {
+        var count = 0;
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+            while (enumerator.MoveNext())
+                count++;
+        }
+
+        return count;
+    }
 
     /// <summary>
     /// Add a formula to the dependency tree.
@@ -127,18 +170,20 @@ internal sealed class DependencyTree
     /// <param name="formulaArea">Area of a formula, for normal cells 1x1, for array can be larger.</param>
     /// <param name="formula">The cell formula.</param>
     /// <param name="workbook">Workbook that is used to find precedents (names ect.).</param>
-    /// <returns>Added cell formula dependencies.</returns>
     /// <exception cref="ArgumentException">Formula already is in the tree.</exception>
-    internal FormulaDependencies AddFormula(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    internal void AddFormula(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
     {
-        var precedents = GetFormulaPrecedents(formulaArea, formula, workbook);
+        var precedents = _scratch;
+        precedents.Clear();
+        CollectPrecedents(formulaArea, formula, workbook, precedents);
 
-        _dependencies.Add(formula, precedents);
+        var precedentAreas = precedents.ToAreaArray();
+        _dependencies.Add(formula, precedentAreas);
 
         if (precedents.HasUnknownPrecedents)
             _unknownPrecedents[formula] = formulaArea;
 
-        foreach (var precedentArea in precedents.Areas)
+        foreach (var precedentArea in precedentAreas)
         {
             // Add dependency to its sheet dependency tree. The formula might contain
             // a dependency for a sheet that doesn't exist in a workbook. Such dependencies
@@ -150,7 +195,16 @@ internal sealed class DependencyTree
                 sheetTree.AddDependent(precedentArea.Area, dependent);
             }
         }
+    }
 
+    /// <summary>
+    /// The precedents of a formula, as <see cref="AddFormula"/> finds them, without adding the
+    /// formula to the tree. Tests use it to read the names as well, which the tree does not keep.
+    /// </summary>
+    internal FormulaDependencies GetPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    {
+        var precedents = new FormulaDependencies();
+        CollectPrecedents(formulaArea, formula, workbook, precedents);
         return precedents;
     }
 
@@ -172,12 +226,12 @@ internal sealed class DependencyTree
     /// <param name="formula">Formula to remove.</param>
     internal void RemoveFormula(XLCellFormula formula)
     {
-        if (!_dependencies.Remove(formula, out var dependencies))
+        if (!_dependencies.Remove(formula, out var precedentAreas))
             return;
 
         _unknownPrecedents.Remove(formula);
 
-        foreach (var precedentArea in dependencies.Areas)
+        foreach (var precedentArea in precedentAreas)
         {
             // An area on a sheet the workbook does not have was never added to a sheet tree (see
             // AddFormula), so there is nothing to take out. This threw, so a formula such as
@@ -194,8 +248,18 @@ internal sealed class DependencyTree
 
     internal void RenameSheet(string oldSheetName, string newSheetName)
     {
-        foreach (var formulaDependencies in _dependencies.Values)
-            formulaDependencies.RenameSheet(oldSheetName, newSheetName);
+        // In place, because each array belongs to the tree. A formula that reads both the old name
+        // and a missing sheet that has the new name then holds the same area twice. RemoveFormula
+        // finds nothing to remove for the second copy, so that does no harm.
+        foreach (var precedentAreas in _dependencies.Values)
+        {
+            for (var i = 0; i < precedentAreas.Length; ++i)
+            {
+                var precedentArea = precedentAreas[i];
+                if (XLHelper.SheetComparer.Equals(precedentArea.Name, oldSheetName))
+                    precedentAreas[i] = new SheetArea(newSheetName, precedentArea.Area);
+            }
+        }
 
         foreach (var formula in _unknownPrecedents.Keys.ToList())
         {
@@ -307,8 +371,10 @@ internal sealed class DependencyTree
                 var sheetTree = _sheetTrees[affectedArea.Name];
                 foreach (var area in sheetTree.FindDependentsAreas(affectedArea.Area))
                 {
-                    foreach (var dependent in area.Dependents)
+                    for (var i = 0; i < area.Count; ++i)
                     {
+                        var dependent = area[i];
+
                         // Ensure we don't end up in an infinite cycle: a formula already enqueued
                         // by this walk is not enqueued again, regardless of its dirty state.
                         if (!dependent.Formula.TryVisit(walkId))
@@ -335,7 +401,8 @@ internal sealed class DependencyTree
         }
     }
 
-    private FormulaDependencies GetFormulaPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook)
+    private void CollectPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook,
+        FormulaDependencies precedents)
     {
         // A refused formula's precedents cannot be known: the parser could not read its references
         // (ADR 0002). Before, the parse threw, and one such formula stopped every write to the
@@ -345,19 +412,16 @@ internal sealed class DependencyTree
         // it may read. The cell fails when it is evaluated.
         if (!formula.TryGetAst(workbook.CalcEngine, out var ast))
         {
-            var unknown = new FormulaDependencies();
-            unknown.MarkPrecedentsUnknown();
-            return unknown;
+            precedents.MarkPrecedentsUnknown();
+            return;
         }
 
-        var context = new DependenciesContext(formulaArea, workbook);
+        var context = new DependenciesContext(formulaArea, workbook, precedents);
         var rootReference = ast.AstRoot.Accept(context, _visitor);
 
         // If formula references are propagated to the root, make sure to add them.
         if (rootReference is not null)
             context.AddAreas(rootReference);
-
-        return context.Dependencies;
     }
 
     /// <summary>
@@ -373,12 +437,22 @@ internal sealed class DependencyTree
         /// </summary>
         private readonly Envelope _area;
 
-        private readonly List<Dependent> _dependents;
+        /// <summary>
+        /// The first formula that depends on the area. It is held in a field, because most areas
+        /// have one dependent: a list for each area cost the list and its array (#513).
+        /// </summary>
+        private Dependent _first;
+
+        /// <summary>
+        /// The formulas after the first that depend on the area, or <c>null</c> until a second one
+        /// does.
+        /// </summary>
+        private List<Dependent>? _others;
 
         internal AreaDependents(in Envelope area, Dependent firstDependent)
         {
             _area = area;
-            _dependents = [firstDependent];
+            _first = firstDependent;
         }
 
         /// <summary>
@@ -388,46 +462,73 @@ internal sealed class DependencyTree
         public ref readonly Envelope Envelope => ref _area;
 
         /// <summary>
-        /// List of formulas that depend on the range, always at least one.
+        /// The number of formulas that depend on the area, always at least one.
         /// </summary>
-        internal List<Dependent> Dependents => _dependents;
+        internal int Count => 1 + (_others?.Count ?? 0);
+
+        /// <summary>
+        /// A formula that depends on the area, from <c>0</c> to <see cref="Count"/> - 1.
+        /// </summary>
+        internal Dependent this[int index] => index == 0 ? _first : _others![index - 1];
 
         internal void AddDependent(Dependent dependent)
         {
-            _dependents.Add(dependent);
+            // Capacity 1, because a second dependent is often the last: an empty list grows to 4 on
+            // its first add, 96 B more than one slot for each such area.
+            (_others ??= new List<Dependent>(1)).Add(dependent);
         }
 
-        internal void RemoveDependent(XLCellFormula formula)
+        /// <summary>
+        /// Remove the dependent of <paramref name="formula"/>. Several different formulas can depend
+        /// on the same area, so only the dependent of this formula goes.
+        /// </summary>
+        /// <returns>
+        /// <c>true</c> when no formula depends on the area any more, and the caller must discard it.
+        /// </returns>
+        internal bool RemoveDependent(XLCellFormula formula)
         {
-            for (var i = 0; i < _dependents.Count; ++i)
+            if (_others is not null)
             {
-                var dependent = _dependents[i];
+                // Move the last element into the place of the removed one. The loop goes backwards,
+                // so the element it moves has already been compared.
+                for (var i = _others.Count - 1; i >= 0; --i)
+                {
+                    if (_others[i].Formula != formula)
+                        continue;
 
-                // several different formulas can depend on same area,
-                // remove only dependent of the formula.
-                if (dependent.Formula != formula)
-                    continue;
-
-                // Remove from list by moving the last element to the removed
-                // element place and decrease capacity.
-                _dependents[i] = _dependents[^1];
-
-                // Remove last item, capacity is unchanged, only list size is updated.
-                _dependents.RemoveAt(_dependents.Count - 1);
+                    _others[i] = _others[^1];
+                    _others.RemoveAt(_others.Count - 1);
+                }
             }
+
+            if (_first.Formula != formula)
+                return false;
+
+            if (_others is null || _others.Count == 0)
+                return true;
+
+            _first = _others[^1];
+            _others.RemoveAt(_others.Count - 1);
+            return false;
         }
 
         internal void RenameSheet(string oldSheetName, string newSheetName)
         {
-            for (var i = 0; i < _dependents.Count; ++i)
-            {
-                var dependent = _dependents[i];
-                if (XLHelper.SheetComparer.Equals(dependent.FormulaArea.Name, oldSheetName))
-                {
-                    var renamedArea = new SheetArea(newSheetName, dependent.FormulaArea.Area);
-                    _dependents[i] = new Dependent(renamedArea, dependent.Formula);
-                }
-            }
+            _first = Renamed(_first, oldSheetName, newSheetName);
+            if (_others is null)
+                return;
+
+            for (var i = 0; i < _others.Count; ++i)
+                _others[i] = Renamed(_others[i], oldSheetName, newSheetName);
+        }
+
+        private static Dependent Renamed(Dependent dependent, string oldSheetName, string newSheetName)
+        {
+            if (!XLHelper.SheetComparer.Equals(dependent.FormulaArea.Name, oldSheetName))
+                return dependent;
+
+            var renamedArea = new SheetArea(newSheetName, dependent.FormulaArea.Area);
+            return new Dependent(renamedArea, dependent.Formula);
         }
     }
 
@@ -484,7 +585,34 @@ internal sealed class DependencyTree
             _precedentAreas = new Dictionary<Area, AreaDependents>();
         }
 
+        /// <summary>
+        /// Set between <see cref="BeginBulkLoad"/> and <see cref="EndBulkLoad"/>. A new area then
+        /// goes only into <see cref="_precedentAreas"/>, and <see cref="EndBulkLoad"/> loads all of
+        /// them into <see cref="_tree"/> at once.
+        /// </summary>
+        private bool _bulkLoading;
+
         internal bool IsEmpty => _tree.Count == 0;
+
+        /// <summary>
+        /// Start to collect areas for one bulk load. Only <see cref="AddDependent"/> is valid until
+        /// <see cref="EndBulkLoad"/>.
+        /// </summary>
+        internal void BeginBulkLoad()
+        {
+            Debug.Assert(_precedentAreas.Count == 0, "A bulk load fills an empty sheet tree.");
+            _bulkLoading = true;
+        }
+
+        /// <summary>
+        /// Load every area collected since <see cref="BeginBulkLoad"/> into the R-tree.
+        /// </summary>
+        internal void EndBulkLoad()
+        {
+            _bulkLoading = false;
+            if (_precedentAreas.Count > 0)
+                _tree.BulkLoad(_precedentAreas.Values);
+        }
 
         internal void AddDependent(Area precedentRange, Dependent dependent)
         {
@@ -492,7 +620,8 @@ internal sealed class DependencyTree
             {
                 precedentArea = new AreaDependents(ToEnvelope(precedentRange), dependent);
                 _precedentAreas.Add(precedentRange, precedentArea);
-                _tree.Insert(precedentArea);
+                if (!_bulkLoading)
+                    _tree.Insert(precedentArea);
             }
             else
             {
@@ -502,6 +631,7 @@ internal sealed class DependencyTree
 
         internal IReadOnlyList<AreaDependents> FindDependentsAreas(Area dirtyRange)
         {
+            Debug.Assert(!_bulkLoading, "The R-tree is incomplete during a bulk load.");
             return _tree.Search(ToEnvelope(dirtyRange));
         }
 
@@ -513,11 +643,11 @@ internal sealed class DependencyTree
         /// <param name="formula">Formula depending on the <paramref name="precedentRange"/>.</param>
         internal void RemoveDependent(Area precedentRange, XLCellFormula formula)
         {
+            Debug.Assert(!_bulkLoading, "The R-tree is incomplete during a bulk load.");
             if (!_precedentAreas.TryGetValue(precedentRange, out var precedentArea))
                 return;
 
-            precedentArea.RemoveDependent(formula);
-            if (precedentArea.Dependents.Count == 0)
+            if (precedentArea.RemoveDependent(formula))
             {
                 _tree.Delete(precedentArea);
                 _precedentAreas.Remove(precedentRange);
