@@ -162,10 +162,16 @@ public class SheetLifecycleCharacterizationTests
 
         Apply(wb, sheetEvent);
 
-        // Not handled by any of the three (D63). Written verbatim, as a reference to another sheet, so
-        // it dangles in the saved file. The listener waits for spec 44 (spec 55, Q55b).
-        await Assert.That(other.DataValidations.Single().MinValue).IsEqualTo("=Data!$A$1:$A$3");
-        await Assert.That(SavedSheetXml(wb, "Other")).Contains("Data!$A$1:$A$3");
+        // Each was "=Data!$A$1:$A$3", unchanged by all three, and the save wrote the dangling reference
+        // (D63). The delete's #REF! is pending the dv-delete-after fixture.
+        var expected = Expect(sheetEvent,
+            rename: "=Renamed!$A$1:$A$3",
+            worksheetDelete: "=#REF!",
+            collectionDelete: "=#REF!");
+        await Assert.That(other.DataValidations.Single().MinValue).IsEqualTo(expected);
+        var xml = SavedSheetXml(wb, "Other");
+        await Assert.That(xml).Contains(expected);
+        await Assert.That(xml).DoesNotContain("Data!");
     }
 
     [Test]
