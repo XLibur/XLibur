@@ -70,6 +70,11 @@ internal sealed class DependencyTree
     private readonly DependenciesVisitor _visitor;
 
     /// <summary>
+    /// Collects the precedents of a formula while the parser reads it, with no AST (#513).
+    /// </summary>
+    private readonly PrecedentsFactory _factory = new();
+
+    /// <summary>
     /// A dependency tree for each sheet (key is sheet name).
     /// </summary>
     private readonly Dictionary<string, SheetDependencyTree> _sheetTrees = new(XLHelper.SheetComparer);
@@ -428,24 +433,48 @@ internal sealed class DependencyTree
     private void CollectPrecedents(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook,
         FormulaDependencies precedents)
     {
-        // A refused formula's precedents cannot be known: the parser could not read its references
-        // (ADR 0002). Before, the parse threw, and one such formula stopped every write to the
-        // workbook and every recalculation from building the tree (#489). It is now taken to depend
-        // on every cell, so any change marks it dirty (see MarkDirty). That matters for a formula a
-        // load gave a cached value: it is clean, and would otherwise keep that value after an edit
-        // it may read. The cell fails when it is evaluated.
-        if (!TryGetAst(formulaArea, formula, workbook, out var ast))
-        {
-            precedents.MarkPrecedentsUnknown();
-            return;
-        }
-
         var context = _context;
         if (context is null)
             _context = context = new DependenciesContext(formulaArea, workbook, precedents);
         else
             context.Reset(formulaArea, workbook, precedents);
 
+        // A shared formula from a file that Excel saved: one AST serves every cell of its group.
+        if (TryGetSharedAst(formulaArea, formula, workbook, out var sharedAst))
+        {
+            VisitAst(context, sharedAst);
+            return;
+        }
+
+        // Any other formula: the precedents are collected while the parser reads the text, and no
+        // AST is built (#513).
+        if (_factory.TryCollect(formula.A1, context))
+        {
+            if (!context.NeedsAst)
+                return;
+
+            // Rare: the walk added precedents that the visitor does not add (see PrecedentsFactory).
+            precedents.Clear();
+            if (formula.TryGetAst(workbook.CalcEngine, out var ast))
+            {
+                VisitAst(context, ast);
+                return;
+            }
+        }
+
+        // A refused formula's precedents cannot be known: the parser could not read its references
+        // (ADR 0002). Before, the parse threw, and one such formula stopped every write to the
+        // workbook and every recalculation from building the tree (#489). It is now taken to depend
+        // on every cell, so any change marks it dirty (see MarkDirty). That matters for a formula a
+        // load gave a cached value: it is clean, and would otherwise keep that value after an edit
+        // it may read. The cell fails when it is evaluated. The walk may have added precedents
+        // before the parser refused the text, and they go.
+        precedents.Clear();
+        precedents.MarkPrecedentsUnknown();
+    }
+
+    private void VisitAst(DependenciesContext context, Formula ast)
+    {
         var rootReference = ast.AstRoot.Accept(context, _visitor);
 
         // If formula references are propagated to the root, make sure to add them.
@@ -454,17 +483,17 @@ internal sealed class DependencyTree
     }
 
     /// <summary>
-    /// Get the AST of a formula. During <see cref="CreateFrom"/>, a formula that the loader read from a
-    /// shared formula uses the one AST of its group, parsed from the R1C1 text. The visitor resolves
-    /// each relative reference against the anchor of the formula, so one AST serves every cell of the
-    /// group (#513). Parsing the A1 text of each cell was more than half of what a build allocated.
+    /// Get the AST of a shared formula. During <see cref="CreateFrom"/>, a formula that the loader read
+    /// from a shared formula uses the one AST of its group, parsed from the R1C1 text. The visitor
+    /// resolves each relative reference against the anchor of the formula, so one AST serves every
+    /// cell of the group (#513).
     /// </summary>
     /// <remarks>
     /// The loader made the A1 text of each cell from the R1C1 text, so both give the same references.
-    /// If the parser refuses the R1C1 text, the cell parses its own A1 text instead, so that a refusal
+    /// If the parser refuses the R1C1 text, the cell reads its own A1 text instead, so that a refusal
     /// is always the one that the A1 text gets.
     /// </remarks>
-    private bool TryGetAst(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook,
+    private bool TryGetSharedAst(SheetArea formulaArea, XLCellFormula formula, XLWorkbook workbook,
         [NotNullWhen(true)] out Formula? ast)
     {
         var sharedAsts = _sharedAsts;
@@ -483,7 +512,8 @@ internal sealed class DependencyTree
             }
         }
 
-        return formula.TryGetAst(workbook.CalcEngine, out ast);
+        ast = null;
+        return false;
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ClosedXML.Parser;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 
@@ -28,9 +29,33 @@ namespace XLibur.Excel.CalcEngine;
 /// range operator. The result is a <see cref="ReferenceAreas"/>, which holds one area without
 /// allocating anything.
 /// </para>
+/// <para>
+/// The rule for each kind of node is a static <c>Apply</c> method, which <see cref="PrecedentsFactory"/>
+/// calls too. The factory collects precedents while the parser reads a formula, without an AST, and the
+/// shared rules keep the two from giving different precedents (#513).
+/// </para>
 /// </summary>
 internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext, ReferenceAreas>
 {
+    /// <summary>
+    /// The arguments of a function, each read once by <see cref="ApplyFunction{TArguments}"/>. The
+    /// visitor reads an argument when the rule asks for it, and the factory has read them already.
+    /// </summary>
+    internal interface IFunctionArguments
+    {
+        int Count { get; }
+
+        ReferenceAreas Evaluate(int index);
+    }
+
+    /// <summary>
+    /// Reads the formula of a defined name for <see cref="ApplyName{TFormula}"/>.
+    /// </summary>
+    internal interface INameFormula
+    {
+        ReferenceAreas Evaluate(XLDefinedName definedName);
+    }
+
     /// <summary>
     /// The defined names whose formulas are being visited, on the path from the cell formula down to
     /// the node being visited.
@@ -58,76 +83,19 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
     public ReferenceAreas Visit(DependenciesContext context, UnaryNode node)
     {
-        var sheetAreas = node.Expression.Accept(context, this);
-
-        // If the operand of unary node is not a reference -> end immediately,
-        // the operator can't modify a non-reference into a reference.
-        if (!sheetAreas.IsReference)
-            return ReferenceAreas.None;
-
-        // Operand is a reference
-        if (node.Operation is UnaryOp.ImplicitIntersection or UnaryOp.SpillRange)
-        {
-            // The operand's area is propagated as-is: for `#` that is the spill anchor cell,
-            // which is enough for dirty propagation because spilled cells only change when the
-            // anchor re-evaluates (and the anchor's whole footprint is registered as its formula
-            // area — see DependencyTree.CreateFrom). Implicit intersection only ever shrinks the
-            // area, so propagating the operand is a safe over-approximation there too.
-
-            // The reference must be propagated upward, because there could be
-            // a range operator (e.g. `B7:@A1:A5`)
-            return sheetAreas;
-        }
-
-        // Some other operator is applied to the reference -> reference is converted
-        // to an array
-        context.AddAreas(sheetAreas);
-        return ReferenceAreas.None;
+        return ApplyUnary(context, node.Operation, node.Expression.Accept(context, this));
     }
 
     public ReferenceAreas Visit(DependenciesContext context, BinaryNode node)
     {
         var leftAreas = node.LeftExpression.Accept(context, this);
         var rightAreas = node.RightExpression.Accept(context, this);
-
-        // Reference operation only makes sense if both sides are references.
-        // Otherwise, the reference operation results in an error.
-        if (leftAreas.IsReference && rightAreas.IsReference)
-            return VisitBinaryReferenceOp(context, node.Operation, leftAreas, rightAreas);
-
-        // Both children aren't references, or only one is -> binary operation transforms it
-        // to a non-reference, either value or #REF!
-        AddAreasIfReference(context, leftAreas);
-        AddAreasIfReference(context, rightAreas);
-        return ReferenceAreas.None;
+        return ApplyBinary(context, node.Operation, leftAreas, rightAreas);
     }
 
     public ReferenceAreas Visit(DependenciesContext context, FunctionNode node)
     {
-        // According to grammar, ref functions are: CHOOSE, IF, INDEX, INDIRECT, OFFSET
-        // Only these functions are allowed to return references, per grammar.
-        // However, OFFSET and INDIRECT are volatile functions that always have to be
-        // recalculated (=are always marked dirty).
-        if (XLHelper.FunctionComparer.Equals(node.Name, "IF"))
-            return VisitIfFunction(context, node);
-
-        if (XLHelper.FunctionComparer.Equals(node.Name, "INDEX"))
-            return VisitIndexFunction(context, node);
-
-        if (XLHelper.FunctionComparer.Equals(node.Name, "CHOOSE"))
-            return VisitChooseFunction(context, node);
-
-        if (XLHelper.FunctionComparer.Equals(node.Name, "INDIRECT"))
-        {
-            // INDIRECT references are dynamic — can't determine at parse time.
-            // The Volatile flag ensures recalculation. Accept args for their dependencies.
-            AcceptAndAddAllParameters(context, node);
-            return ReferenceAreas.None;
-        }
-
-        // All other functions can have references as arguments, but not as an output value.
-        AcceptAndAddAllParameters(context, node);
-        return ReferenceAreas.None;
+        return ApplyFunction(context, node.Name, new VisitedArguments(this, context, node.Parameters));
     }
 
     public ReferenceAreas Visit(DependenciesContext context, NotSupportedNode node)
@@ -157,9 +125,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             sheetName = context.FormulaArea.Name;
         }
 
-        var anchor = context.FormulaArea.Area.FirstPoint;
-        var sheetRange = node.ReferenceArea.ToSheetRange(anchor);
-        return ReferenceAreas.Of(new SheetArea(sheetName, sheetRange));
+        return ReferenceOnSheet(context, sheetName, node.ReferenceArea);
     }
 
     public ReferenceAreas Visit(DependenciesContext context, NameNode node)
@@ -168,71 +134,156 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (node.Prefix is { IsInOtherWorkbook: true })
             return ReferenceAreas.None;
 
-        // [0]!Name is this workbook's workbook-scoped name, whatever sheet the formula is on.
-        if (node.Prefix is { IsThisWorkbookScope: true })
+        return ApplyName(context, _namesOnPath, node.Prefix?.Sheet, node.Prefix is { IsThisWorkbookScope: true },
+            node.Name, new ParsedNameFormula(this, context));
+    }
+
+    public ReferenceAreas Visit(DependenciesContext context, StructuredReferenceNode node)
+    {
+        return ApplyStructuredReference(context, node);
+    }
+
+    public ReferenceAreas Visit(DependenciesContext context, PrefixNode node)
+    {
+        throw new InvalidOperationException("Should never be called.");
+    }
+
+    public ReferenceAreas Visit(DependenciesContext context, FileNode node)
+    {
+        throw new InvalidOperationException("Should never be called.");
+    }
+
+    /// <summary>
+    /// A reference to <paramref name="area"/> on a sheet. A relative reference is resolved against the
+    /// anchor of the formula.
+    /// </summary>
+    internal static ReferenceAreas ReferenceOnSheet(DependenciesContext context, string sheetName, ReferenceArea area)
+    {
+        var anchor = context.FormulaArea.Area.FirstPoint;
+        var sheetRange = area.ToSheetRange(anchor);
+        return ReferenceAreas.Of(new SheetArea(sheetName, sheetRange));
+    }
+
+    internal static ReferenceAreas ApplyUnary(DependenciesContext context, UnaryOp operation, ReferenceAreas operand)
+    {
+        // If the operand of unary node is not a reference -> end immediately,
+        // the operator can't modify a non-reference into a reference.
+        if (!operand.IsReference)
+            return ReferenceAreas.None;
+
+        // Operand is a reference
+        if (operation is UnaryOp.ImplicitIntersection or UnaryOp.SpillRange)
         {
-            context.AddName(new XLName(node.Name));
-            return context.Workbook.DefinedNamesInternal.TryGetScopedValue(node.Name, out var thisBookName)
-                ? VisitName(thisBookName)
+            // The operand's area is propagated as-is: for `#` that is the spill anchor cell,
+            // which is enough for dirty propagation because spilled cells only change when the
+            // anchor re-evaluates (and the anchor's whole footprint is registered as its formula
+            // area — see DependencyTree.CreateFrom). Implicit intersection only ever shrinks the
+            // area, so propagating the operand is a safe over-approximation there too.
+
+            // The reference must be propagated upward, because there could be
+            // a range operator (e.g. `B7:@A1:A5`)
+            return operand;
+        }
+
+        // Some other operator is applied to the reference -> reference is converted
+        // to an array
+        context.AddAreas(operand);
+        return ReferenceAreas.None;
+    }
+
+    internal static ReferenceAreas ApplyBinary(DependenciesContext context, BinaryOp operation,
+        ReferenceAreas leftAreas, ReferenceAreas rightAreas)
+    {
+        // Reference operation only makes sense if both sides are references.
+        // Otherwise, the reference operation results in an error.
+        if (leftAreas.IsReference && rightAreas.IsReference)
+            return VisitBinaryReferenceOp(context, operation, leftAreas, rightAreas);
+
+        // Both children aren't references, or only one is -> binary operation transforms it
+        // to a non-reference, either value or #REF!
+        AddAreasIfReference(context, leftAreas);
+        AddAreasIfReference(context, rightAreas);
+        return ReferenceAreas.None;
+    }
+
+    internal static ReferenceAreas ApplyFunction<TArguments>(DependenciesContext context, string name,
+        TArguments arguments)
+        where TArguments : IFunctionArguments
+    {
+        // According to grammar, ref functions are: CHOOSE, IF, INDEX, INDIRECT, OFFSET
+        // Only these functions are allowed to return references, per grammar.
+        // However, OFFSET and INDIRECT are volatile functions that always have to be
+        // recalculated (=are always marked dirty).
+        if (XLHelper.FunctionComparer.Equals(name, "IF"))
+            return ApplyIf(context, arguments);
+
+        if (XLHelper.FunctionComparer.Equals(name, "INDEX"))
+            return ApplyIndex(context, arguments);
+
+        if (XLHelper.FunctionComparer.Equals(name, "CHOOSE"))
+            return ApplyChoose(context, arguments);
+
+        // INDIRECT references are dynamic — can't determine at parse time. The Volatile flag
+        // ensures recalculation. Accept args for their dependencies. All other functions can have
+        // references as arguments, but not as an output value.
+        for (var i = 0; i < arguments.Count; ++i)
+            AddAreasIfReference(context, arguments.Evaluate(i));
+
+        return ReferenceAreas.None;
+    }
+
+    internal static ReferenceAreas ApplyName<TFormula>(DependenciesContext context,
+        HashSet<XLDefinedName> namesOnPath, string? prefixSheet, bool isThisWorkbookScope, string name,
+        TFormula formula)
+        where TFormula : INameFormula
+    {
+        // [0]!Name is this workbook's workbook-scoped name, whatever sheet the formula is on.
+        if (isThisWorkbookScope)
+        {
+            context.AddName(new XLName(name));
+            return context.Workbook.DefinedNamesInternal.TryGetScopedValue(name, out var thisBookName)
+                ? Follow(thisBookName)
                 : ReferenceAreas.None;
         }
 
-        var name = node.Prefix?.Sheet is { } sheetName
-            ? new XLName(sheetName, node.Name)
-            : new XLName(node.Name);
-        context.AddName(name);
+        context.AddName(prefixSheet is not null ? new XLName(prefixSheet, name) : new XLName(name));
 
         // First, try to interpret name as a sheet scoped name.
-        sheetName = node.Prefix?.Sheet ?? context.FormulaArea.Name;
+        var sheetName = prefixSheet ?? context.FormulaArea.Name;
         if (context.Workbook.TryGetWorksheet(sheetName, out XLWorksheet? sheet) &&
-            sheet.DefinedNames.TryGetScopedValue(node.Name, out var sheetDefinedName))
+            sheet.DefinedNames.TryGetScopedValue(name, out var sheetDefinedName))
         {
-            return VisitName(sheetDefinedName);
+            return Follow(sheetDefinedName);
         }
 
         // Name is not a sheet scoped one, try workbook scoped one
-        if (context.Workbook.DefinedNamesInternal.TryGetScopedValue(node.Name, out var bookNamedRange))
+        if (context.Workbook.DefinedNamesInternal.TryGetScopedValue(name, out var bookNamedRange))
         {
-            return VisitName(bookNamedRange);
+            return Follow(bookNamedRange);
         }
 
         // Name is not found in the workbook
         return ReferenceAreas.None;
 
-        ReferenceAreas VisitName(XLDefinedName definedName)
+        ReferenceAreas Follow(XLDefinedName definedName)
         {
             // A circular name adds nothing more where it meets itself: its precedents are already
             // being collected further up the path. Evaluating the name is what reports the cycle.
-            if (!_namesOnPath.Add(definedName))
+            if (!namesOnPath.Add(definedName))
                 return ReferenceAreas.None;
 
             try
             {
-                // A load keeps a name whose text the parser refuses, so that one bad name cannot stop
-                // the workbook from opening. Its references are unknown, so the formula that uses it
-                // is taken to depend on every cell, as a refused cell formula is, instead of failing
-                // the tree (#489).
-                // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
-                if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
-                {
-                    context.Dependencies.MarkPrecedentsUnknown();
-                    return ReferenceAreas.None;
-                }
-
-                var nameReferences = ast.AstRoot.Accept(context, this);
-
-                // If the formula returned a reference, propagate it, rather
-                // than add to the context (required for `A1:name` ).
-                return nameReferences;
+                return formula.Evaluate(definedName);
             }
             finally
             {
-                _namesOnPath.Remove(definedName);
+                namesOnPath.Remove(definedName);
             }
         }
     }
 
-    public ReferenceAreas Visit(DependenciesContext context, StructuredReferenceNode node)
+    internal static ReferenceAreas ApplyStructuredReference(DependenciesContext context, StructuredReferenceNode node)
     {
         // Resolve to the area the table currently covers, the same way evaluation does. Like a
         // defined name, the answer changes when the table is resized, renamed, added or
@@ -249,16 +300,6 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // is workbook scoped. Propagated rather than added to the context, so an enclosing range
         // operator can combine it — the same contract the other reference-producing nodes follow.
         return ReferenceAreas.Of(new SheetArea(worksheet.Name, range));
-    }
-
-    public ReferenceAreas Visit(DependenciesContext context, PrefixNode node)
-    {
-        throw new InvalidOperationException("Should never be called.");
-    }
-
-    public ReferenceAreas Visit(DependenciesContext context, FileNode node)
-    {
-        throw new InvalidOperationException("Should never be called.");
     }
 
     private static ReferenceAreas VisitBinaryReferenceOp(
@@ -337,16 +378,17 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return leftAreas.Concat(rightAreas);
     }
 
-    private ReferenceAreas VisitIfFunction(DependenciesContext context, FunctionNode node)
+    private static ReferenceAreas ApplyIf<TArguments>(DependenciesContext context, TArguments arguments)
+        where TArguments : IFunctionArguments
     {
         // Tested value is not propagated, it's evaluated as an argument.
-        AcceptAndAddParameter(context, node.Parameters[0]);
+        AddAreasIfReference(context, arguments.Evaluate(0));
 
         // If argument is reference and test is evaluated to TRUE,
         // the reference is returned => propagate.
-        var valueIfTrueReference = node.Parameters[1].Accept(context, this);
-        var valueIfFalseReference = node.Parameters.Count == 3
-            ? node.Parameters[2].Accept(context, this)
+        var valueIfTrueReference = arguments.Evaluate(1);
+        var valueIfFalseReference = arguments.Count == 3
+            ? arguments.Evaluate(2)
             : ReferenceAreas.None;
 
         if (valueIfFalseReference.IsReference && valueIfTrueReference.IsReference)
@@ -355,28 +397,30 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return valueIfFalseReference.IsReference ? valueIfFalseReference : valueIfTrueReference;
     }
 
-    private ReferenceAreas VisitIndexFunction(DependenciesContext context, FunctionNode node)
+    private static ReferenceAreas ApplyIndex<TArguments>(DependenciesContext context, TArguments arguments)
+        where TArguments : IFunctionArguments
     {
         // Add argument references, INDEX can have 2 or 3 arguments.
-        for (var i = 1; i < node.Parameters.Count; ++i)
-            AcceptAndAddParameter(context, node.Parameters[i]);
+        for (var i = 1; i < arguments.Count; ++i)
+            AddAreasIfReference(context, arguments.Evaluate(i));
 
         // If an INDEX function indexes into an area, it returns a reference,
         // not a value. Either way, return the whole reference that is indexed,
         // even though it's larger than the actual function result.
-        return node.Parameters[0].Accept(context, this);
+        return arguments.Evaluate(0);
     }
 
-    private ReferenceAreas VisitChooseFunction(DependenciesContext context, FunctionNode node)
+    private static ReferenceAreas ApplyChoose<TArguments>(DependenciesContext context, TArguments arguments)
+        where TArguments : IFunctionArguments
     {
         // Index argument is used to select value, so don't propagate.
-        AcceptAndAddParameter(context, node.Parameters[0]);
+        AddAreasIfReference(context, arguments.Evaluate(0));
 
         // Any of arguments can be propagated -> propagate all.
         var parametersReference = ReferenceAreas.None;
-        for (var i = 1; i < node.Parameters.Count; ++i)
+        for (var i = 1; i < arguments.Count; ++i)
         {
-            var parameterReference = node.Parameters[i].Accept(context, this);
+            var parameterReference = arguments.Evaluate(i);
             if (!parameterReference.IsReference)
                 continue;
 
@@ -388,23 +432,47 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return parametersReference;
     }
 
-    private void AcceptAndAddParameter(DependenciesContext context, ValueNode parameter)
-    {
-        AddAreasIfReference(context, parameter.Accept(context, this));
-    }
-
-    private void AcceptAndAddAllParameters(DependenciesContext context, FunctionNode node)
-    {
-        // An indexed loop: Parameters is an IReadOnlyList, so foreach would box its enumerator for
-        // each function in each formula.
-        var parameters = node.Parameters;
-        for (var i = 0; i < parameters.Count; ++i)
-            AcceptAndAddParameter(context, parameters[i]);
-    }
-
     private static void AddAreasIfReference(DependenciesContext context, in ReferenceAreas areas)
     {
         if (areas.IsReference)
             context.AddAreas(areas);
+    }
+
+    /// <summary>
+    /// The parameters of a function node, each visited when the rule reads it.
+    /// </summary>
+    private readonly struct VisitedArguments(
+        DependenciesVisitor visitor,
+        DependenciesContext context,
+        IReadOnlyList<ValueNode> parameters) : IFunctionArguments
+    {
+        public int Count => parameters.Count;
+
+        public ReferenceAreas Evaluate(int index) => parameters[index].Accept(context, visitor);
+    }
+
+    /// <summary>
+    /// Parses the formula of a defined name and visits it.
+    /// </summary>
+    private readonly struct ParsedNameFormula(DependenciesVisitor visitor, DependenciesContext context)
+        : INameFormula
+    {
+        public ReferenceAreas Evaluate(XLDefinedName definedName)
+        {
+            // A load keeps a name whose text the parser refuses, so that one bad name cannot stop
+            // the workbook from opening. Its references are unknown, so the formula that uses it
+            // is taken to depend on every cell, as a refused cell formula is, instead of failing
+            // the tree (#489).
+            // The named range is stored as A1 and thus parsed as A1, but should be interpreted as R1C1
+            if (!context.Workbook.CalcEngine.TryParse(definedName.RefersTo, out var ast))
+            {
+                context.Dependencies.MarkPrecedentsUnknown();
+                return ReferenceAreas.None;
+            }
+
+            // If the formula returned a reference, propagate it, rather
+            // than add to the context (required for `A1:name` ).
+            return ast.AstRoot.Accept(context, visitor);
+        }
     }
 }
