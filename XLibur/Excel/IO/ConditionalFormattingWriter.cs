@@ -140,8 +140,17 @@ internal static class ConditionalFormattingWriter
     /// it is, kept rules interleaved with modelled ones, which is what the fixtures pin.
     /// </para>
     /// <para>
-    /// A data bar's <c>x14</c> twin is not numbered: its priority is the modelled rule's, in the standard
-    /// element. A pivot table names each rule by the priority given here: a modelled rule by its
+    /// The <c>x14</c> half of a rule written in both schemas is not numbered, because it is not a rule of
+    /// its own: the rule in the standard element names it by id in <c>extLst/x14:id</c>, and the two halves
+    /// are one rule on one priority. A data bar's half carries no priority at all, and a custom icon set's
+    /// repeats the rule's, so numbering the half would split the pair. Such a half keeps the priority it
+    /// was loaded with, as it did before this numbering. KNOWN GAP: it therefore does not follow its own
+    /// half when that one is renumbered, because only a data bar's id reaches the model
+    /// (<c>ConditionalFormatReader.LoadDataBarFormat</c>); the halves part company on a sheet whose rules
+    /// changed, as they did before #552.
+    /// </para>
+    /// <para>
+    /// A pivot table names each rule by the priority given here: a modelled rule by its
     /// <see cref="XLConditionalFormat.Priority"/>, a kept rule through its id
     /// (<c>PivotTableDefinitionPartWriter2</c>). Both are written after the sheet.
     /// </para>
@@ -153,8 +162,17 @@ internal static class ConditionalFormattingWriter
         if (extensionList is null && modelled.Count == 0)
             return;
 
+        // The ids the standard element names, read before it is rewritten from the model further down, so
+        // these are the links the file was loaded with.
+        var twinIds = worksheet.Elements<ConditionalFormatting>()
+            .SelectMany(block => block.Elements<ConditionalFormattingRule>())
+            .SelectMany(rule => rule.Descendants<X14.Id>())
+            .Select(id => id.Text)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var kept = extensionList?.Descendants<X14.ConditionalFormattingRule>()
-            .Where(rule => !(rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar))
+            .Where(rule => !IsHalfOfModelledRule(rule, twinIds))
             .ToList() ?? [];
 
         // By priority, then kept before modelled, then the order each set is in.
@@ -182,6 +200,15 @@ internal static class ConditionalFormattingWriter
                 xlWorksheet.ConditionalFormats.SetExtensionRulePriority(id, priority);
         }
     }
+
+    /// <summary>
+    /// Is this <c>x14</c> rule the other half of a rule the model holds, rather than a rule of its own? A
+    /// data bar is one by its type, written in both schemas whether or not the standard element still names
+    /// it; any other rule by its id being named in <paramref name="twinIds"/>, as a custom icon set's is.
+    /// </summary>
+    private static bool IsHalfOfModelledRule(X14.ConditionalFormattingRule rule, HashSet<string> twinIds)
+        => (rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar)
+           || (rule.Id?.Value is { Length: > 0 } id && twinIds.Contains(id));
 
     /// <summary>
     /// The priority a kept <c>x14</c> rule is ordered by: the one the last save gave it, else the one in

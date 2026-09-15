@@ -244,6 +244,88 @@ public class ConditionalFormatPriorityTests
         await Assert.That(MainListPriorities(resaved, "Other")).IsEquivalentTo(new[] { 1U });
     }
 
+    /// <summary>
+    /// The two halves of a rule Excel writes in both schemas are one rule, and keep the one priority they
+    /// were loaded with. Excel links them by id: the rule in the standard element carries
+    /// <c>extLst/x14:id</c>, and the rule in the <c>x14</c> extension has that id. A custom icon set is
+    /// written this way, and its <c>x14</c> half repeats the priority, where a data bar's carries none.
+    /// </summary>
+    /// <remarks>
+    /// Numbering the <c>x14</c> half as a rule of its own would split the pair: the half in the standard
+    /// element would be numbered after it and the two would name different priorities, where before they
+    /// agreed. Found by review of #552. No fixture in the suite has this shape, so the file is built here.
+    /// KNOWN GAP, as before #552: the <c>x14</c> half keeps the priority it was loaded with, so on a sheet
+    /// whose rules changed it no longer matches the half that was renumbered. Only a data bar's id reaches
+    /// the model, so there is nothing to carry a custom icon set's new priority across to its other half.
+    /// </remarks>
+    [Test]
+    public async Task The_two_halves_of_one_rule_keep_one_priority()
+    {
+        using var built = WithIconSetTwin();
+        await AssertRules(built, "Other", $"1: A1:A10 standard", $"1: A1:A10 x14 {TwinId}", "2: B1 standard");
+
+        using var saved = LoadEditAndSave(built, _ => { });
+
+        await AssertRules(saved, "Other", $"1: A1:A10 standard", $"1: A1:A10 x14 {TwinId}", "2: B1 standard");
+    }
+
+    private const string TwinId = "{6F1E2A34-5C7D-4B8E-9A01-2D3E4F5A6B7C}";
+
+    /// <summary>
+    /// A workbook whose sheet <c>Other</c> holds an icon set on <c>A1:A10</c> written in both schemas, as
+    /// Excel writes a custom icon set, and an expression on <c>B1</c> after it.
+    /// </summary>
+    private static MemoryStream WithIconSetTwin()
+    {
+        var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var sheet = wb.AddWorksheet("Other");
+            for (var row = 1; row <= 10; row++)
+                sheet.Cell(row, 1).Value = row;
+
+            sheet.Range("A1:A10").AddConditionalFormat().IconSet(XLIconSetStyle.ThreeTrafficLights1)
+                .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "0", XLCFContentType.Number)
+                .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "3", XLCFContentType.Number)
+                .AddValue(XLCFIconSetOperator.EqualOrGreaterThan, "6", XLCFContentType.Number);
+            sheet.Range("B1").AddConditionalFormat().WhenIsTrue("B1>0").Fill.SetBackgroundColor(XLColor.Red);
+            wb.SaveAs(ms, false);
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var worksheet = PivotConditionalFormatLinkTests.Sheet(document, "Other").Worksheet!;
+            var iconSet = worksheet.Elements<S.ConditionalFormatting>()
+                .SelectMany(block => block.Elements<S.ConditionalFormattingRule>())
+                .Single(rule => rule.Type?.Value == S.ConditionalFormatValues.IconSet);
+
+            iconSet.Append(new S.ConditionalFormattingRuleExtensionList(
+                "<x:extLst xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<x:ext uri=\"{B025F937-C7B1-47D3-B67F-A62EFF666E3E}\" " +
+                "xmlns:x14=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/main\">" +
+                $"<x14:id>{TwinId}</x14:id></x:ext></x:extLst>"));
+
+            worksheet.Append(new S.WorksheetExtensionList(
+                "<x:extLst xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<x:ext uri=\"{78C0D931-6437-407d-A8EE-F0AAD7539E65}\" " +
+                "xmlns:x14=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/main\">" +
+                "<x14:conditionalFormattings>" +
+                "<x14:conditionalFormatting xmlns:xm=\"http://schemas.microsoft.com/office/excel/2006/main\">" +
+                $"<x14:cfRule type=\"iconSet\" priority=\"1\" id=\"{TwinId}\">" +
+                "<x14:iconSet custom=\"1\">" +
+                "<x14:cfvo type=\"percent\"><xm:f>0</xm:f></x14:cfvo>" +
+                "<x14:cfvo type=\"percent\"><xm:f>33</xm:f></x14:cfvo>" +
+                "<x14:cfvo type=\"percent\"><xm:f>67</xm:f></x14:cfvo>" +
+                "</x14:iconSet></x14:cfRule>" +
+                "<xm:sqref>A1:A10</xm:sqref>" +
+                "</x14:conditionalFormatting></x14:conditionalFormattings></x:ext></x:extLst>"));
+            worksheet.Save();
+        }
+
+        ms.Position = 0;
+        return ms;
+    }
+
     private static async Task AssertRules(Stream package, string sheetName, params string[] expected)
     {
         await Assert.That(string.Join(Environment.NewLine, Rules(package, sheetName)))
