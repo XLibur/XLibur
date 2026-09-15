@@ -5,7 +5,9 @@
 **Dependencies:** **Hard: spec 54** (rename and delete rewrite through `FormulaText`) and **parser 4.0.0**,
 which is this spec's task 0. **Excel-authored fixtures from the owner** gate tasks 3, 5 and 6. Sequenced
 **after spec 44** and **before spec 48** — see *Conflicts*.
-**Status:** Proposed. From the 2026-09-13 architecture review (round 4). Every design decision below
+**Status:** 🟡 Part 1 merged as [#495](https://github.com/XLibur/XLibur/pull/495) (`56c80a3f`), part 2 as
+[#500](https://github.com/XLibur/XLibur/pull/500) (`8694919f`). Only data validation (D63) is left, and
+it is in progress (Q55c). From the 2026-09-13 architecture review (round 4). Every design decision below
 was taken by the owner in a design interview (see *Decisions*). Also recorded:
 `docs/adr/0002-refused-formula-never-rewritten.md`, and the terms *defined name*, *scope*,
 *3D reference* and *unsupported sheet* in `CONTEXT.md`.
@@ -139,6 +141,7 @@ Two further sheet-list defects (R):
 | Q37 | The owner makes the Excel fixtures from this spec's recipes before the task that needs them is dispatched. A task whose fixture is missing stays blocked. On 2026-09-14 the owner replaced `chartsheet-name.xlsx` with an existing Excel-authored file (design §5), so three fixture pairs remain to make. |
 | Q55a | (2026-09-14) Spec 55 lands in two PRs. **Part 1:** tasks 0, 1, 2, 4, 7 and 8, which need no fixture. **Part 2:** tasks 3, 5 and 6, once the owner's fixtures exist, plus the rest of task 9. In part 1, a 3D reference that touches a deleted sheet is left unchanged (not collapsed to `#REF!`) until task 3 adds the narrowing (Q34). |
 | Q55b | (2026-09-14) Task 5 splits. Conditional formats, hyperlinks and print-area text go ahead with the fixtures. Data validation alone waits for spec 44. |
+| Q55c | (2026-09-15) Data validation no longer waits for spec 44. Its half of task 5 (D63) goes ahead now, and an agent is working on it. |
 
 ## Non-goals
 
@@ -380,7 +383,7 @@ scope. `fix:` for the rest.
 | Spec | Shared ground | Resolution |
 |---|---|---|
 | **54** | `FormulaText`, `XLCellFormula.cs`, `XLDefinedName.cs` | **Hard. 54 first.** |
-| **44** | `XLDataValidations.cs`, `DataValidationWriter.cs` | **44 first.** 55 then adds one listener to the reorganised module |
+| **44** | `XLDataValidations.cs`, `DataValidationWriter.cs` | ~~**44 first.** 55 then adds one listener to the reorganised module~~ **Overturned 2026-09-15 (Q55c):** D63 goes first |
 | **48, 49** | `XLConditionalFormat*.cs` | **55 before 48.** 55 adds only a listener; 48 and 49 then work inside the module |
 | **41** | `PivotTableCacheDefinitionPartWriter.cs` | Soft. 41 owns cache items; 55 changes only the emitted source sheet. Either order |
 | **31** | worksheet part writers | None, unless task 5 finds the validation writer needs changing — then sequence after 31 |
@@ -401,7 +404,7 @@ from the saved XML.
 - **No data validation.** In `rename-*` and `delete-*`, `Other!B1` holds `=Data!$A$2:$A$4` as a
   spilled array formula (`B1:B3`) instead of a list validation. Validation waits for spec 44 anyway
   (Q55b), and needs its own fixture pair when it is dispatched. The `B1` formula stays, as one more
-  holder.
+  holder. *(2026-09-15: validation no longer waits for spec 44; see Q55c.)*
 - **Excel's prompt on delete** (owner, 2026-09-14): deleting `Data` in `delete-before.xlsx` showed
   *"Excel found a problem with one or more formula references in this worksheet."* The owner
   dismissed it and the delete went ahead. It is only a notice, and no choice changed what Excel
@@ -515,6 +518,7 @@ no prompt).
 
 - **D75, a loader bug (#496),** puts `delete-before.xlsx`'s `Data` print area onto `Other` on load. It is
   out of scope (a non-goal, candidate 04), so `Print_Area` is left out of that one comparison.
+  D75 has since been fixed, in #501 (`c19660fc`).
 - **`OpenXmlValidator`:** Excel's own `delete-before`, `delete-after` and `rename-before` already
   fail it, on a chart extension and on a page-setup dpi of 0. The test asserts instead that a delete
   adds no validation errors compared with an untouched save.
@@ -527,7 +531,18 @@ no prompt).
 
 **Not done.**
 
-- A ChartEx chart is rewritten in memory, but the patcher writes only its title (#497).
-- Conditional formats on pivot tables are not rewritten (#498).
-- A kept `x14` rule does not shift on a row or column insert. That predates this change (#499).
+- **Still open: data validation (D63).** It is the only part of spec 55 left. By owner decision on
+  2026-09-15 it goes ahead before spec 44 (Q55c), and an agent is working on it.
+- ~~A ChartEx chart is rewritten in memory, but the patcher writes only its title (#497).~~ Fixed in
+  #503 (`19aa30c8`), following the owner's `chartex-pivotcf-*` fixture.
+  - Excel's ChartEx references go through hidden `_xlchart.*` names.
+  - On a delete, those names go, and so do the `cx:f` elements that name them.
+  - A name that a chart XLibur didn't load still uses is kept, and reads `#REF!`.
+- ~~Conditional formats on pivot tables are not rewritten (#498).~~ Fixed in #503 (`19aa30c8`).
+- ~~A pivot table loses its link to its conditional formats on every save (D81, #507).~~ Fixed in
+  #511 (`f156d730`).
+  - **Follow-up, #515:** copying a worksheet or a pivot table loses the pivot table's conditional
+    formats. `coderabbit review` found it on #511's branch, and it is being fixed.
+- ~~A kept `x14` rule does not shift on a row or column insert (#499).~~ Fixed in #509 (`1124bbf9`),
+  with D77. A kept `x14` rule that a partial edit cuts is still not split.
 - The pivot records writer omits `count`.

@@ -4,7 +4,8 @@
 **Effort:** M (~4 days)
 **Dependencies:** None hard. **Must land before spec 32**, which rewrites `SignatureAdapter.cs`. Soft
 file overlaps with specs 42, 43, 04, 30 and 54 — see *Conflicts*.
-**Status:** Proposed. From the 2026-09-13 architecture review (round 4). Every design decision below
+**Status:** ✅ **Merged** as [#494](https://github.com/XLibur/XLibur/pull/494) (`767aa7c3`), with
+follow-ups in #502 and #514. From the 2026-09-13 architecture review (round 4). Every design decision below
 was taken by the owner in a design interview (see *Decisions*). Also recorded:
 `docs/adr/0001-save-policy-on-evaluation-failure.md`, and the terms *error value*, *unsupported
 feature*, *defect*, *circular reference*, *cached value* and *dirty* in `CONTEXT.md`.
@@ -161,11 +162,30 @@ cells are decided by this spec; the rest record today's behaviour, which task 1 
 | `TryGetValue`, `GetFormattedString`, `Search` | today | today | today | today | throw (#459) |
 | `Evaluate`, `EvaluateExpr` | **throw `XLCircularReferenceException`** | today | today | throw `XLNoWorksheetContextException` (D37) | throw |
 | `XLFunctionLibrary.TryInvoke` | today | today | today | throw `XLNoWorksheetContextException` | throw |
-| `RecalculateAllFormulas`, recalculate-on-load | **skip the cycle's cells, carry on** | today | today | today | throw |
+| `RecalculateAllFormulas`, recalculate-on-load | **skip the cycle's cells, carry on** | **leave the cell dirty, carry on** (#490, #502) | **leave the cell dirty, carry on** (#489, #502) | today | throw |
 | Save | **no cached value** | **no cached value** | **no cached value** | **throw** | **throw** |
-| Report `CellEvaluator` | **template error** | today | today | template error (today) | throw |
+| Report `CellEvaluator` | **template error** | **template error** (#488, #502) | **template error** (#488, #502) | template error (today) | throw |
 
 The translation from `MissingContextException` to the public type is written once, in this module.
+
+**Follow-ups merged in #502 (`d500b575`, 2026-09-14).** The rows above marked #488–#490 changed there.
+- **A failure elsewhere.** When a read falls back to a full pass, that pass now leaves every expected
+  failure the read cell doesn't depend on uncalculated. That covers a cycle (#492), and now also an
+  unsupported feature or a refused formula. So `Value`, both `Evaluate`s, `GetFormattedString` and
+  `TryGetValue` return the read cell's own value.
+- **Formulas whose precedents can't be known.** A refused formula, or one that uses a refused defined
+  name, gets no precedents, so it no longer blocks writes. Once the engine has its dependency tree,
+  any edit marks such a formula dirty (#489).
+- **`wb.Evaluate` and defined names.** `wb.Evaluate` reads a defined name that needs no cell (#491).
+- **Circular defined names.** A circular defined name is a cycle at every entry point (D79).
+- ~~**Still open:** after a fresh load, with nothing calculated yet, an edit marks nothing dirty. That
+  affects every formula; it is D80, tracked as #504.~~ Fixed in #514 (`a7a95393`, 2026-09-15).
+
+**Follow-up merged in #514 (`a7a95393`, 2026-09-15), `fix!:`.** After a fresh load, an edit now marks
+dependent formulas dirty (D80, #504).
+- The first edit after a load builds the whole dependency tree. At 20,000 formulas that costs about
+  157 ms and 103 MB. The owner accepted the cost, and #513 tracks it for large workbooks.
+- After a load, the first edit makes reading a refused formula throw.
 
 ### 3. `Evaluate` calculates a dirty formula first
 

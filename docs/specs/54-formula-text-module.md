@@ -4,7 +4,8 @@
 **Effort:** M (~4–5 days)
 **Dependencies:** None hard. **Must land before spec 55**, which builds sheet rename and sheet delete
 on this module. Soft file overlaps with specs 42, 56 and 04 — see *Conflicts*.
-**Status:** Proposed. From the 2026-09-13 architecture review (round 4). Every design decision below
+**Status:** ✅ **Merged** as [#493](https://github.com/XLibur/XLibur/pull/493) (`1b476e8f`). From the
+2026-09-13 architecture review (round 4). Every design decision below
 was taken by the owner in a design interview; the table in *Decisions* records them. Also recorded:
 `docs/adr/0002-refused-formula-never-rewritten.md`, and the terms *formula text*, *refused formula*
 and *future function* in `CONTEXT.md` at the repo root.
