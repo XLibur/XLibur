@@ -8,6 +8,7 @@ using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Tests.Excel.IO;
+using XLibur.Tests.Utils;
 using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace XLibur.Tests.Excel.Worksheets;
@@ -1118,6 +1119,88 @@ public class SheetLifecycleTests
     }
 
     /// <summary>
+    /// #527: a workbook opened as a template, holding a chartsheet with the highest <c>sheetId</c>,
+    /// saves with each <c>sheetId</c> once and the chartsheet in its tab.
+    /// </summary>
+    [Test]
+    public async Task A_template_with_a_chartsheet_saves_each_sheetId_once_and_keeps_the_chartsheet()
+    {
+        using var template = ResourceAsFile(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var ms = new MemoryStream();
+        using (var wb = XLWorkbook.OpenFromTemplate(template.Path))
+            wb.SaveAs(ms);
+
+        await AssertSavedWithChartsheetIntact(ms, "Data", "Pivot");
+        await Assert.That(SavedTabOrder(ms)).IsEquivalentTo(["Data", "Pivot", "Chart"], CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// #527: in a template whose chartsheet has the lowest <c>sheetId</c> and sits between the
+    /// worksheets, numbering the worksheets again from 1 gave <c>Data</c> the chartsheet's id. The
+    /// writer finds a sheet's <c>&lt;sheet&gt;</c> element by its id, so it took one for the other.
+    /// Each sheet now keeps the id it was loaded with.
+    /// </summary>
+    [Test]
+    public async Task A_template_whose_chartsheet_has_the_lowest_id_keeps_every_sheetId()
+    {
+        using var template = ResourceAsFile(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        SetTabs(template.Path, ("Data", 2), ("Chart", 1), ("Pivot", 3));
+
+        using var ms = new MemoryStream();
+        using (var wb = XLWorkbook.OpenFromTemplate(template.Path))
+        {
+            await Assert.That(wb.UnsupportedSheets.Single().SheetId).IsEqualTo(1u);
+            wb.SaveAs(ms);
+        }
+
+        await AssertSavedWithChartsheetIntact(ms, "Data", "Pivot");
+        await Assert.That(SavedTabOrder(ms)).IsEquivalentTo(["Data", "Chart", "Pivot"], CollectionOrdering.Matching);
+        await Assert.That(SavedSheetIds(ms)).IsEquivalentTo([2u, 1u, 3u], CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// #527: a worksheet added after a template load takes an id that neither the chartsheet nor a
+    /// loaded worksheet has.
+    /// </summary>
+    [Test]
+    public async Task A_worksheet_added_after_a_template_load_takes_an_id_no_sheet_has()
+    {
+        using var template = ResourceAsFile(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var ms = new MemoryStream();
+        using (var wb = XLWorkbook.OpenFromTemplate(template.Path))
+        {
+            var added = (XLWorksheet)wb.AddWorksheet("New");
+
+            await Assert.That(LiveSheetIds(wb).Count(id => id == added.SheetId)).IsEqualTo(1);
+            wb.SaveAs(ms);
+        }
+
+        await AssertSavedWithChartsheetIntact(ms, "Data", "Pivot", "New");
+        await Assert.That(SavedTabOrder(ms)).IsEquivalentTo(["Data", "Pivot", "Chart", "New"], CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// #527: the first save out of a template lets go of the template's package. A later save starts
+    /// from the package that first save wrote, which holds the chartsheet, so it keeps it too.
+    /// </summary>
+    [Test]
+    public async Task A_second_save_after_a_template_load_keeps_the_chartsheet()
+    {
+        using var template = ResourceAsFile(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var first = new MemoryStream();
+        using var second = new MemoryStream();
+        using (var wb = XLWorkbook.OpenFromTemplate(template.Path))
+        {
+            wb.SaveAs(first);
+            wb.AddWorksheet("New");
+            wb.SaveAs(second);
+        }
+
+        await AssertSavedWithChartsheetIntact(second, "Data", "Pivot", "New");
+        await Assert.That(SavedTabOrder(second)).IsEquivalentTo(["Data", "Pivot", "Chart", "New"], CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     /// <c>IXLWorksheet.Delete()</c> deletes the sheet it is called on, not whichever sheet has its name
     /// now. Called again on a deleted sheet, after a sheet was added under the same name, it used to
     /// delete the new sheet: rewrite every formula pointing at it to <c>#REF!</c>, make a name pointing
@@ -1195,6 +1278,52 @@ public class SheetLifecycleTests
         => wb.WorksheetsInternal.Select<XLWorksheet, uint>(w => w.SheetId)
             .Concat(wb.UnsupportedSheets.Select(s => s.SheetId))
             .ToArray();
+
+    /// <summary>A copy of a test resource on disk, for <see cref="XLWorkbook.OpenFromTemplate"/>, which takes a path.</summary>
+    private static TemporaryFile ResourceAsFile(string resource)
+    {
+        var file = new TemporaryFile();
+        using var source = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource));
+        using var target = File.Create(file.Path);
+        source.CopyTo(target);
+        return file;
+    }
+
+    /// <summary>The names in the saved workbook's <c>&lt;sheets&gt;</c>, in tab order.</summary>
+    private static string[] SavedTabOrder(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return document.WorkbookPart!.Workbook!.Sheets!.Elements<S.Sheet>().Select(s => s.Name!.Value!).ToArray();
+    }
+
+    /// <summary>The <c>sheetId</c> of each sheet in the saved workbook's <c>&lt;sheets&gt;</c>, in tab order.</summary>
+    private static uint[] SavedSheetIds(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return document.WorkbookPart!.Workbook!.Sheets!.Elements<S.Sheet>().Select(s => s.SheetId!.Value).ToArray();
+    }
+
+    /// <summary>
+    /// Rewrite the <c>&lt;sheets&gt;</c> of the workbook at <paramref name="path"/> so its sheets stand in
+    /// the order given, each with the <c>sheetId</c> given. Nothing else in the fixture refers to a
+    /// sheet by its id or its tab: the pivot cache names its source sheet, and the chart names its
+    /// cells by sheet name.
+    /// </summary>
+    private static void SetTabs(string path, params (string Name, uint SheetId)[] tabs)
+    {
+        using var document = SpreadsheetDocument.Open(path, true);
+        var sheets = document.WorkbookPart!.Workbook!.Sheets!;
+        var byName = sheets.Elements<S.Sheet>().ToDictionary(s => s.Name!.Value!);
+        sheets.RemoveAllChildren();
+        foreach (var (name, sheetId) in tabs)
+        {
+            var sheet = byName[name];
+            sheet.SheetId = sheetId;
+            sheets.AppendChild(sheet);
+        }
+    }
 
     /// <summary>
     /// The saved workbook declares each <c>sheetId</c> once, its <c>Chart</c> still points at the

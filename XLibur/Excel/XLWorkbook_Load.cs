@@ -65,7 +65,15 @@ public partial class XLWorkbook
     private void LoadSheetsFromTemplate(string fileName)
     {
         using (var dSpreadsheet = SpreadsheetDocument.CreateFromTemplate(fileName))
+        {
             LoadSpreadsheetDocument(dSpreadsheet);
+
+            // A save out of a template writes a new package, so a sheet XLibur keeps but does not
+            // model, such as a chartsheet, has no part to be written from unless the template's
+            // package is kept for it (#527).
+            if (UnsupportedSheets.Count > 0)
+                _templateSheetSource = ClonePackage(dSpreadsheet);
+        }
 
         // If we load a workbook as a template, we have to treat it as a "new" workbook.
         // The original file will NOT be copied into place before changes are applied
@@ -73,16 +81,30 @@ public partial class XLWorkbook
         ResetAllRelIds();
     }
 
+    private static byte[] ClonePackage(SpreadsheetDocument document)
+    {
+        using var buffer = new MemoryStream();
+
+        // Disposing the clone writes it out to the buffer.
+        document.Clone(buffer).Dispose();
+        return buffer.ToArray();
+    }
+
+    /// <remarks>
+    /// Each sheet keeps the <c>sheetId</c> it was loaded with. The loader has already refused a file
+    /// that declares an id twice (D35), and the sheets XLibur does not model keep theirs, so the ids
+    /// are unique as they stand. Numbering the worksheets again from 1 gave a worksheet the id of a
+    /// chartsheet that had a low one, and the writer, which finds a <c>&lt;sheet&gt;</c> element by
+    /// its id, then took one sheet for the other (#527). A worksheet added later takes an id past all
+    /// of them (D76).
+    /// </remarks>
     private void ResetAllRelIds()
     {
         foreach (var pc in PivotCachesInternal)
             pc.WorkbookCacheRelId = null;
 
-        var sheetId = 1u;
         foreach (var ws in WorksheetsInternal)
         {
-            // Ensure unique sheetId for each sheet.
-            ws.SheetId = sheetId++;
             ws.RelId = null;
 
             foreach (var pt in ws.PivotTables.Cast<XLPivotTable>())

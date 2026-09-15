@@ -157,6 +157,10 @@ public partial class XLWorkbook
 
         context.RelIdGenerator.AddExistingValues(workbookPart, this);
 
+        // Before the workbook part is generated: its writer puts each sheet in its tab, and it
+        // finds an unsupported sheet's <sheet> element by sheetId.
+        CopyUnsupportedSheetsFromTemplate(workbookPart, context);
+
         // Before the workbook part is generated: the #N/A defined name each slicer cache needs has
         // to be in the model by the time WorkbookPartWriter rebuilds the defined-name block.
         SlicerCacheWriter.PrepareSlicerCaches(workbookPart, this, context);
@@ -194,6 +198,45 @@ public partial class XLWorkbook
 
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
+    }
+
+    /// <summary>
+    /// Copies each sheet XLibur keeps but does not model, such as a chartsheet, from the template the
+    /// workbook was opened from into the new package the save writes. The part is copied with the
+    /// parts it relates to (a chartsheet's drawing and chart), and the <c>&lt;sheet&gt;</c> element with
+    /// its name, <c>sheetId</c> and state, under a relationship id no other part has.
+    /// </summary>
+    /// <remarks>
+    /// A save of a workbook loaded from a file or stream starts from a copy of that package, which
+    /// already holds these sheets. A save out of a template starts from an empty one, so without this
+    /// the chartsheet was lost, and the writer threw when it looked for its <c>&lt;sheet&gt;</c>
+    /// element (#527). A sheet whose relationship names no part is copied as the template declares
+    /// it, without a part.
+    /// </remarks>
+    private void CopyUnsupportedSheetsFromTemplate(WorkbookPart workbookPart, SaveContext context)
+    {
+        if (_loadSource != XLLoadSource.New || _templateSheetSource is null)
+            return;
+
+        using var buffer = new MemoryStream(_templateSheetSource, writable: false);
+        using var template = SpreadsheetDocument.Open(buffer, false);
+        var templateWorkbookPart = template.WorkbookPart!;
+        var templateSheets = templateWorkbookPart.Workbook!.Sheets!.Elements<Sheet>().ToList();
+
+        workbookPart.Workbook ??= new Workbook();
+        var sheets = workbookPart.Workbook.Sheets ??= new Sheets();
+
+        foreach (var unsupportedSheet in UnsupportedSheets)
+        {
+            var templateSheet = templateSheets.Single(s => s.SheetId! == unsupportedSheet.SheetId);
+            var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
+            if (templateWorkbookPart.TryGetPartById(templateSheet.Id!.Value!, out var sheetPart))
+                workbookPart.AddPart(sheetPart, relId);
+
+            var sheet = (Sheet)templateSheet.CloneNode(true);
+            sheet.Id = relId;
+            sheets.AppendChild(sheet);
+        }
     }
 
     /// <summary>
