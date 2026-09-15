@@ -127,7 +127,24 @@ public partial class XLWorkbook
         return workbookPart ?? throw PartStructureException.MissingPart("/xl/workbook.xml");
     }
 
+    /// <summary>
+    /// Loads the workbook. The calc engine hears of no cell the load writes, and learns at the end
+    /// whether the load left any formula clean (#504).
+    /// </summary>
     private void LoadSpreadsheetDocument(SpreadsheetDocument dSpreadsheet)
+    {
+        CalcEngine.BeginLoad();
+        try
+        {
+            LoadSpreadsheetDocumentContent(dSpreadsheet);
+        }
+        finally
+        {
+            CalcEngine.EndLoad(this);
+        }
+    }
+
+    private void LoadSpreadsheetDocumentContent(SpreadsheetDocument dSpreadsheet)
     {
         var context = new LoadContext();
         ShapeIdManager = new XLIdManager();

@@ -587,6 +587,8 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// for date/time types. It does not clear formulas, check merged ranges,
     /// or refresh table headers. Use <see cref="IXLCell.SetValue"/> for the
     /// full-featured API.</para>
+    /// <para>Formulas that read the cell are marked for recalculation, as they are
+    /// when a cell's value is set.</para>
     /// </remarks>
     /// <param name="row">Row number (1-based).</param>
     /// <param name="column">Column number (1-based).</param>

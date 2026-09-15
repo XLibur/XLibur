@@ -453,6 +453,7 @@ internal static class WorksheetSheetDataReader
             cellWasSetWithEmptyValue = true;
         }
 
+        // The calc engine learns that the load left formulas clean when the load ends (#504).
         if (formula is not null && (cellHasValue || cellWasSetWithEmptyValue))
             formula.MarkClean();
 

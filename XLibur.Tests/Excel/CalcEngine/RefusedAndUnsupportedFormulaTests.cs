@@ -532,16 +532,16 @@ public class RefusedAndUnsupportedFormulaTests
     }
 
     /// <summary>
-    /// D80, pinned as it is today and left for its own fix. After a load the calc engine has no
-    /// dependency tree, and it builds one on an edit only once it has calculated a formula. So on a
-    /// freshly loaded workbook an edit marks nothing dirty: a formula whose precedents are unknown
-    /// keeps reading its cached value, exactly as the ordinary F1, which reads the edited A2, does.
-    /// When D80 is fixed, both are marked dirty by the edit and this test changes.
+    /// #504 (D80). After a load the calc engine had no dependency tree, and it built one on an edit
+    /// only once it had calculated a formula. So on a freshly loaded workbook an edit marked nothing
+    /// dirty: a formula whose precedents are unknown kept reading its cached value, as the ordinary
+    /// F1, which reads the edited A2, did. A load that leaves a formula clean now has the next edit
+    /// build the tree, so the edit marks both dirty, with E1, which reads B1.
     /// </summary>
     [Test]
     [Arguments(UnknownPrecedents.RefusedFormula)]
     [Arguments(UnknownPrecedents.RefusedName)]
-    public async Task D80_on_a_fresh_load_an_edit_leaves_it_clean_as_it_leaves_an_ordinary_formula(
+    public async Task On_a_fresh_load_an_edit_marks_it_dirty_as_it_marks_an_ordinary_formula(
         UnknownPrecedents unknown)
     {
         using var wb = LoadedWithUnknownPrecedents(unknown);
@@ -549,18 +549,19 @@ public class RefusedAndUnsupportedFormulaTests
 
         ws.Cell("A2").Value = 5;
 
-        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsFalse();
-        await Assert.That(ws.Cell("B1").Value).IsEqualTo(10);
-        await Assert.That(ws.Cell("F1").NeedsRecalculation).IsFalse();
-        await Assert.That(ws.Cell("F1").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("E1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("F1").NeedsRecalculation).IsTrue();
+        await Assert.That(ws.Cell("F1").Value).IsEqualTo(15);
+        await Assert.That(() => _ = ws.Cell("B1").Value).Throws<ExpressionParseException>();
     }
 
     /// <summary>
     /// A workbook as a load leaves it. B1 reads A2 through a formula whose precedents are unknown: its
     /// text is refused, or it uses the name <c>Ext</c>, whose text is refused. B1 has Excel's cached
     /// value 10, E1, which reads B1, has 20, and F1, an ordinary formula that reads A2, has 3, so all
-    /// three are clean. C1 has no cached value. Reading it is a calculation, after which the calc
-    /// engine builds its dependency tree on the next edit. With <paramref name="withInCellImage"/>,
+    /// three are clean, so the next edit builds the calc engine's dependency tree (#504). C1 has no
+    /// cached value, and reading it is a calculation. With <paramref name="withInCellImage"/>,
     /// G1, which nothing reads, holds an in-cell image.
     /// </summary>
     private static XLWorkbook LoadedWithUnknownPrecedents(UnknownPrecedents unknown, bool withInCellImage = false)

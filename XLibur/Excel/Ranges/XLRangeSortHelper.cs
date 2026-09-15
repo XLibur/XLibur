@@ -31,6 +31,7 @@ internal static class XLRangeSortHelper
         Array.Sort(rows, comparer);
 
         cellsCollection.RemapRows(rows, sortRange);
+        MarkSortedDirty(range, sortRange);
     }
 
     internal static void SortRangeColumns(XLRangeBase range, IXLSortElements sortRows)
@@ -52,7 +53,17 @@ internal static class XLRangeSortHelper
         Array.Sort(columns, comparer);
 
         cellsCollection.RemapColumns(columns, sortRange);
+        MarkSortedDirty(range, sortRange);
     }
+
+    /// <summary>
+    /// A sort moves cell contents between the cells' slices directly, not through the setters an edit
+    /// uses, so it tells the calc engine itself, as a range value write does. Every formula that reads
+    /// a cell of the sorted area is marked dirty. A formula the sort moved is a new, dirty formula
+    /// already (#504).
+    /// </summary>
+    private static void MarkSortedDirty(XLRangeBase range, Area sortRange)
+        => range.Worksheet.Workbook.CalcEngine.MarkDirty(range.Worksheet, sortRange);
 
     internal static IEnumerable<XLSortElement> ParseSortOrder(string columnsToSortBy, XLSortOrder defaultSortOrder, bool matchCase, bool ignoreBlanks)
     {

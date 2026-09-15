@@ -28,11 +28,22 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private XLCalculationChain? _chain;
 
     /// <summary>
-    /// Set to true after <see cref="TryEvaluateSingleCell"/> clears a formula's dirty flag,
-    /// indicating that future MarkDirty calls need a dependency tree to
-    /// correctly propagate dirtiness to dependents.
+    /// Set when a formula is clean while the engine has no dependency tree: a load left it with the
+    /// cached value Excel saved (<see cref="EndLoad"/>), or <see cref="TryEvaluateSingleCell"/>
+    /// calculated it on its own. A clean formula keeps its value until an edit marks it dirty, and
+    /// only the tree knows which formulas an edit reaches, so the next
+    /// <see cref="MarkDirty(XLWorksheet, Area)"/> builds it. While every formula is dirty an edit has
+    /// nothing to mark, so no tree is built.
     /// </summary>
     private bool _needsDependencyTree;
+
+    /// <summary>
+    /// Set while a workbook loads. The loader writes some cells through the setters an edit uses, as
+    /// it does for rich text, but a load is not an edit: every formula it loads is as Excel left it.
+    /// So while it is set, nothing is marked dirty and no dependency tree is built (#504). A tree
+    /// built in the middle of a load would lack every formula loaded after it.
+    /// </summary>
+    private bool _loading;
 
     /// <summary>
     /// The spill footprint of every dynamic-array formula, one entry per formula (a rectangle,
@@ -118,16 +129,60 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         return _parser.TryGetAst(expression, isA1: true, out formula, out _);
     }
 
+    /// <summary>A workbook starts to load. See <see cref="_loading"/>.</summary>
+    internal void BeginLoad() => _loading = true;
+
+    /// <summary>
+    /// A workbook has loaded. If the load left any formula clean, with the cached value Excel saved,
+    /// the next edit builds the dependency tree to find the formulas it reaches.
+    /// </summary>
+    /// <remarks>
+    /// The cached value is what a read returns until a cell the formula reads changes. The loader used
+    /// to mark such a formula clean without telling the engine. Until a formula had been calculated,
+    /// an edit then built no tree and marked nothing dirty, and every formula that read the edited
+    /// cell kept the value from the file (#504). Anything built from the workbook during the load is
+    /// dropped, because it lacks every formula loaded after it.
+    /// </remarks>
+    internal void EndLoad(XLWorkbook workbook)
+    {
+        _loading = false;
+        _dependencyTree = null;
+        _chain = null;
+        _spillOwners.Clear();
+        _needsDependencyTree = AnyFormulaClean(workbook);
+    }
+
+    /// <summary>
+    /// Whether any formula in <paramref name="workbook"/> is clean. Stops at the first one, which in
+    /// a file Excel saved is nearly always the first formula it meets.
+    /// </summary>
+    private static bool AnyFormulaClean(XLWorkbook workbook)
+    {
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+            while (enumerator.MoveNext())
+            {
+                if (enumerator.Current.IsClean())
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The three methods below update the dependency tree and the calculation chain each on its own.
+    // An edit builds the tree without the chain (MarkDirty), which after a load is the usual state.
+    // A formula set after that must be in the tree, or an edit of a cell it reads never reaches it,
+    // and a formula taken out must leave it. Before, both were updated only when both existed.
+
     /// <summary>
     /// Add an array formula to the calc engine to manage dirty tracking and evaluation.
     /// </summary>
     internal void AddArrayFormula(Area range, XLCellFormula arrayFormula, XLWorksheet sheet)
     {
-        if (_chain is not null && _dependencyTree is not null)
-        {
-            _dependencyTree.AddFormula(new SheetArea(sheet.Name, range), arrayFormula, sheet.Workbook);
-            _chain.AppendArea(sheet.SheetId, range);
-        }
+        _dependencyTree?.AddFormula(new SheetArea(sheet.Name, range), arrayFormula, sheet.Workbook);
+        _chain?.AppendArea(sheet.SheetId, range);
     }
 
     /// <summary>
@@ -135,12 +190,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     internal void AddNormalFormula(SheetPoint point, string sheetName, XLCellFormula formula, XLWorkbook workbook)
     {
-        if (_chain is not null && _dependencyTree is not null)
+        if (_dependencyTree is not null)
         {
             var pointArea = new SheetArea(sheetName, new Area(point.Point, point.Point));
             _dependencyTree.AddFormula(pointArea, formula, workbook);
-            _chain.AddLast(point);
         }
+
+        _chain?.AddLast(point);
     }
 
     /// <summary>
@@ -152,14 +208,22 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     internal void RemoveFormula(SheetPoint point, XLCellFormula formula)
     {
-        if (_chain is not null && _dependencyTree is not null)
-        {
-            _dependencyTree.RemoveFormula(formula);
-            _chain.Remove(point);
-        }
+        _dependencyTree?.RemoveFormula(formula);
+        _chain?.Remove(point);
     }
 
     internal void OnAddedSheet(XLWorksheet sheet)
+    {
+        Purge(sheet.Workbook.WorksheetsInternal);
+    }
+
+    /// <summary>
+    /// Every cell of <paramref name="sheet"/> was emptied at once, not through the setters an edit
+    /// uses, as deleting all of a sheet's rows or columns does. The sheet's formulas are gone and
+    /// every formula that read the sheet is out of date, so the engine starts again, as it does after
+    /// a row or column insert or delete (#504).
+    /// </summary>
+    internal void OnAllCellsCleared(XLWorksheet sheet)
     {
         Purge(sheet.Workbook.WorksheetsInternal);
     }
@@ -243,6 +307,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     private void Purge(XLWorksheets sheets)
     {
+        // A load is not an edit (see _loading), and EndLoad drops whatever was built meanwhile.
+        if (_loading)
+            return;
+
         _dependencyTree = null;
         _chain = null;
         _needsDependencyTree = false;
@@ -270,6 +338,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     internal void MarkDirty(XLWorksheet sheet, Area area)
     {
+        // A cell a load writes is not an edit (see _loading): it marks nothing dirty and builds no tree.
+        if (_loading)
+            return;
+
         if (_dependencyTree is null && _needsDependencyTree)
         {
             _dependencyTree = DependencyTree.CreateFrom(sheet.Workbook);
@@ -385,7 +457,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         PassCount++;
 
-        // Lazy, so initialize chain from wb, if it is empty
+        // Lazy, so initialize chain from wb, if it is empty. A tree that an edit built without the
+        // chain is built again with it, not kept: keeping it is safe only if every path that adds a
+        // formula keeps the tree complete, and that is not shown (#504 review).
         if (_chain is null || _dependencyTree is null)
         {
             _chain = XLCalculationChain.CreateFrom(wb);
