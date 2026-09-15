@@ -736,9 +736,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         Tables.ForEach<XLTable>(t => t.CopyTo(targetSheet, false));
         DefinedNames.ForEach<XLDefinedName>(nr =>
             nr.CopyTo(targetSheet)); // Names must modify table references, so keep the order.
-        PivotTables.ForEach<XLPivotTable>(pt =>
-            pt.CopyTo(targetSheet.Cell(pt.TargetCell.Address.CastTo<XLAddress>().WithoutWorksheet())));
+        // A sheet copy carries each pivot table's conditional formats, and the rules the sheet keeps only
+        // in its x14 extension, which the copied pivot tables name by id (#515). A pivot table copied on
+        // its own carries neither.
+        PivotTables.ForEach<XLPivotTable>(pt => pt.CopyConditionalFormatsTo((XLPivotTable)pt.CopyTo(
+            targetSheet.Cell(pt.TargetCell.Address.CastTo<XLAddress>().WithoutWorksheet()))));
         ConditionalFormats.ForEach(cf => cf.CopyTo(targetSheet));
+        ConditionalFormats.CopyKeptRulesTo(targetSheet.ConditionalFormats);
         SparklineGroups.CopyTo(targetSheet);
         MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
         SelectedRanges.ForEach(sr =>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.IO;
 using XLibur.Excel.PivotTables.Areas;
@@ -866,6 +867,53 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal void AddExtensionConditionalFormat(XLPivotExtensionConditionalFormat conditionalFormat)
     {
         _extensionConditionalFormats.Add(conditionalFormat);
+    }
+
+    /// <summary>
+    /// Gives <paramref name="copy"/>, this pivot table's copy on a copy of its sheet, this pivot table's
+    /// conditional formats (#515). Each format of the 2007 schema becomes a new format over the same
+    /// cells of the copy's sheet, with its priority, and is linked by that priority, as the original is.
+    /// The <c>x14:conditionalFormats</c> list is copied as it is: the copy's sheet holds the same kept
+    /// rules, under the same ids and priorities (<see cref="XLConditionalFormats.CopyKeptRulesTo"/>).
+    /// </summary>
+    /// <remarks>
+    /// Only a sheet copy calls this. <see cref="CopyTo"/> on its own copies neither list: a pivot table
+    /// copied to another cell would need its formats' ranges and pivot areas moved with it, and no Excel
+    /// file shows what that looks like. The pivot areas are shared, not copied, because nothing changes
+    /// an area once it is loaded or built.
+    /// </remarks>
+    internal void CopyConditionalFormatsTo(XLPivotTable copy)
+    {
+        var targetSheet = copy.Worksheet;
+        foreach (var conditionalFormat in _conditionalFormats)
+        {
+            var format = conditionalFormat.Format;
+            var ranges = format.Ranges
+                .Select(r => targetSheet.Range(((XLRangeAddress)r.RangeAddress).WithoutWorksheet()));
+            var formatCopy = new XLConditionalFormat(format, ranges) { Priority = format.Priority };
+            var copied = new XLPivotConditionalFormat(formatCopy)
+            {
+                Scope = conditionalFormat.Scope,
+                Type = conditionalFormat.Type,
+            };
+            foreach (var area in conditionalFormat.Areas)
+                copied.AddArea(area);
+
+            copy.AddConditionalFormat(copied);
+        }
+
+        foreach (var conditionalFormat in _extensionConditionalFormats)
+        {
+            var copied = new XLPivotExtensionConditionalFormat(conditionalFormat.RuleId, conditionalFormat.Priority)
+            {
+                Scope = conditionalFormat.Scope,
+                Type = conditionalFormat.Type,
+            };
+            foreach (var area in conditionalFormat.Areas)
+                copied.AddArea(area);
+
+            copy.AddExtensionConditionalFormat(copied);
+        }
     }
 
     internal void AddChartFormat(XLPivotChartFormat chartFormat)

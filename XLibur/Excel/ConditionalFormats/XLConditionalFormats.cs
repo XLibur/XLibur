@@ -43,6 +43,17 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// </remarks>
     private readonly Dictionary<string, XLAreaList> _extensionRuleAreas = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The XML of each <c>x14:conditionalFormatting</c> element that holds a kept rule, as it was
+    /// loaded, with only its kept rules in it.
+    /// </summary>
+    /// <remarks>
+    /// A loaded sheet's part already holds these rules, and the writer rewrites them there in place. A
+    /// copy of the sheet has a new part that holds none of them, so the writer puts this XML into it
+    /// first (#515). The formula text and ranges above are then written over it, as for a loaded rule.
+    /// </remarks>
+    private readonly List<string> _extensionRuleXml = [];
+
     private readonly XLWorksheet _worksheet;
 
     internal XLConditionalFormats(XLWorksheet worksheet)
@@ -112,6 +123,41 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// </summary>
     internal bool TryGetExtensionRuleAreas(string ruleId, [NotNullWhen(true)] out XLAreaList? areas)
         => _extensionRuleAreas.TryGetValue(ruleId, out areas);
+
+    /// <summary>
+    /// Keeps the XML of an <c>x14:conditionalFormatting</c> element that holds kept rules (see
+    /// <see cref="_extensionRuleXml"/>).
+    /// </summary>
+    internal void SeedExtensionRuleXml(string conditionalFormattingXml)
+    {
+        _extensionRuleXml.Add(conditionalFormattingXml);
+    }
+
+    /// <summary>
+    /// The XML of each <c>x14:conditionalFormatting</c> element that holds kept rules, as it was loaded.
+    /// </summary>
+    internal IReadOnlyList<string> ExtensionRuleXml => _extensionRuleXml;
+
+    /// <summary>
+    /// Gives <paramref name="target"/>, the conditional formats of a copy of this sheet, every kept
+    /// <c>x14</c> rule of this sheet: its XML, and its formula text and range as edits have left them
+    /// (#515).
+    /// </summary>
+    /// <remarks>
+    /// Each rule keeps its id. An id need only be unique within its sheet, and a pivot table copied with
+    /// the sheet names its rules by the same ids. The formula text is copied as it is, as a modelled
+    /// rule's is by <see cref="XLConditionalFormat.CopyTo"/>, so a rule that names this sheet goes on
+    /// naming it.
+    /// </remarks>
+    internal void CopyKeptRulesTo(XLConditionalFormats target)
+    {
+        target._extensionRuleXml.AddRange(_extensionRuleXml);
+        foreach (var (ruleId, formulas) in _extensionRuleFormulas)
+            target._extensionRuleFormulas[ruleId] = (string[])formulas.Clone();
+
+        foreach (var (ruleId, areas) in _extensionRuleAreas)
+            target._extensionRuleAreas[ruleId] = areas;
+    }
 
     #region ISheetListener
 

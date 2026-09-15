@@ -249,28 +249,29 @@ public class PivotConditionalFormatLinkTests
     private static string Lines(IEnumerable<string> items) => string.Join(Environment.NewLine, items);
 
     /// <summary>
-    /// For each pivot table on <c>Other</c>, its <c>x14:conditionalFormats</c> list in full, attributes in
-    /// name order so the comparison does not depend on the order an attribute was written in.
+    /// For each pivot table on <paramref name="sheetName"/>, its <c>x14:conditionalFormats</c> list in
+    /// full, attributes in name order so the comparison does not depend on the order an attribute was
+    /// written in.
     /// </summary>
-    private static List<string> PivotTableLists(Stream package)
+    internal static List<string> PivotTableLists(Stream package, string sheetName = "Other")
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
-        return Other(document).PivotTableParts
+        return Sheet(document, sheetName).PivotTableParts
             .Select(p => p.PivotTableDefinition!.Descendants<X14.ConditionalFormats>().SingleOrDefault())
             .Select(list => list is null ? "no x14:conditionalFormats" : Canonical(list))
             .ToList();
     }
 
     /// <summary>
-    /// How many rules the pivot tables on <c>Other</c> name, and each one that is not a rule of the
-    /// sheet in a <c>pivot="1"</c> block with the same priority.
+    /// How many rules the pivot tables on <paramref name="sheetName"/> name, and each one that is not a
+    /// rule of the sheet in a <c>pivot="1"</c> block with the same priority.
     /// </summary>
-    private static (int Named, List<string> Broken) Links(Stream package)
+    internal static (int Named, List<string> Broken) Links(Stream package, string sheetName = "Other")
     {
         package.Position = 0;
         using var document = SpreadsheetDocument.Open(package, false);
-        var other = Other(document);
+        var other = Sheet(document, sheetName);
         var pivotRules = other.Worksheet!.Descendants<X14.ConditionalFormattingRule>()
             .Where(r => r.Parent is X14.ConditionalFormatting { Pivot.Value: true })
             .ToDictionary(r => r.Id?.Value ?? string.Empty, r => r.Priority?.InnerText);
@@ -286,14 +287,16 @@ public class PivotConditionalFormatLinkTests
         return (named.Count, broken);
     }
 
-    private static WorksheetPart Other(SpreadsheetDocument document)
+    private static WorksheetPart Other(SpreadsheetDocument document) => Sheet(document, "Other");
+
+    internal static WorksheetPart Sheet(SpreadsheetDocument document, string sheetName)
     {
         var workbookPart = document.WorkbookPart!;
-        var sheet = workbookPart.Workbook!.Sheets!.Elements<S.Sheet>().Single(s => s.Name == "Other");
+        var sheet = workbookPart.Workbook!.Sheets!.Elements<S.Sheet>().Single(s => s.Name == sheetName);
         return (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
     }
 
-    private static string Canonical(OpenXmlElement element)
+    internal static string Canonical(OpenXmlElement element)
     {
         var attributes = element.GetAttributes()
             .Select(a => $"{a.LocalName}={a.Value}")

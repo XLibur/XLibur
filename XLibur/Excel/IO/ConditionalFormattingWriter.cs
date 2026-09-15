@@ -17,6 +17,9 @@ namespace XLibur.Excel.IO;
 
 internal static class ConditionalFormattingWriter
 {
+    /// <summary>The uri of the worksheet extension that holds <c>x14:conditionalFormattings</c>.</summary>
+    private const string ConditionalFormattingsExtensionUri = "{78C0D931-6437-407d-A8EE-F0AAD7539E65}";
+
     internal static void WriteConditionalFormatting(
         Worksheet worksheet,
         XLWorksheetContentManager cm,
@@ -24,6 +27,7 @@ internal static class ConditionalFormattingWriter
         SaveContext context)
     {
         // Before the fast path: a sheet whose only rules are unmodelled x14 ones has no model rules.
+        AddKeptRulesMissingFromPart(worksheet, cm, xlWorksheet);
         WriteExtensionRuleFormulas(worksheet, xlWorksheet);
         WriteExtensionRuleRanges(worksheet, cm, xlWorksheet);
 
@@ -101,6 +105,67 @@ internal static class ConditionalFormattingWriter
         }
 
         WriteExtensionDataBars(worksheet, cm, xlWorksheet, context);
+    }
+
+    /// <summary>
+    /// Puts into the sheet's <c>x14</c> extension each kept rule that the part does not hold: the rules
+    /// of a sheet copied from a loaded one, whose part is new (#515). A loaded sheet's part holds its
+    /// kept rules, which are rewritten there in place, so for it this adds nothing. A rule goes in as it
+    /// was loaded; the two steps after this write its formula text and range over it.
+    /// </summary>
+    private static void AddKeptRulesMissingFromPart(Worksheet worksheet, XLWorksheetContentManager cm,
+        XLWorksheet xlWorksheet)
+    {
+        var keptXml = xlWorksheet.ConditionalFormats.ExtensionRuleXml;
+        if (keptXml.Count == 0)
+            return;
+
+        var idsInPart = worksheet.Elements<WorksheetExtensionList>()
+            .SelectMany(list => list.Descendants<X14.ConditionalFormattingRule>())
+            .Select(rule => rule.Id?.Value)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        X14.ConditionalFormattings? conditionalFormattings = null;
+        foreach (var xml in keptXml)
+        {
+            var conditionalFormatting = new X14.ConditionalFormatting(xml);
+            if (conditionalFormatting.Elements<X14.ConditionalFormattingRule>()
+                .Any(rule => rule.Id?.Value is { } id && idsInPart.Contains(id)))
+                continue;
+
+            conditionalFormattings ??= GetOrAddConditionalFormattings(worksheet, cm);
+            conditionalFormattings.Append(conditionalFormatting);
+        }
+    }
+
+    /// <summary>
+    /// The sheet's <c>x14:conditionalFormattings</c>, added with its extension, and the extension list,
+    /// if the sheet has none.
+    /// </summary>
+    private static X14.ConditionalFormattings GetOrAddConditionalFormattings(Worksheet worksheet,
+        XLWorksheetContentManager cm)
+    {
+        if (!worksheet.Elements<WorksheetExtensionList>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
+            worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
+        }
+
+        var extensionList = worksheet.Elements<WorksheetExtensionList>().First();
+        cm.SetElement(XLWorksheetContents.WorksheetExtensionList, extensionList);
+
+        var existing = extensionList.Descendants<X14.ConditionalFormattings>().FirstOrDefault();
+        if (existing is not null)
+            return existing;
+
+        var extension = new WorksheetExtension { Uri = ConditionalFormattingsExtensionUri };
+        extension.AddNamespaceDeclaration("x14", X14Main2009SsNs);
+        extensionList.Append(extension);
+
+        var conditionalFormattings = new X14.ConditionalFormattings();
+        extension.Append(conditionalFormattings);
+        return conditionalFormattings;
     }
 
     /// <summary>
@@ -247,7 +312,7 @@ internal static class ConditionalFormattingWriter
                 .Descendants<X14.ConditionalFormattings>().SingleOrDefault();
             if (conditionalFormattings == null || !conditionalFormattings.Any())
             {
-                var worksheetExtension1 = new WorksheetExtension { Uri = "{78C0D931-6437-407d-A8EE-F0AAD7539E65}" };
+                var worksheetExtension1 = new WorksheetExtension { Uri = ConditionalFormattingsExtensionUri };
                 worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
                 worksheetExtensionList.Append(worksheetExtension1);
 
