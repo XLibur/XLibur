@@ -211,6 +211,11 @@ internal sealed class XLPivotTableField
         return (uint)index;
     }
 
+    /// <summary>
+    /// Position of <paramref name="item"/> in <see cref="Items"/>, or <c>-1</c> if the field doesn't have it.
+    /// </summary>
+    internal int IndexOf(XLPivotFieldItem item) => _items.IndexOf(item);
+
     internal void AddSubtotal(XLSubtotalFunction value)
     {
         if (!Subtotals.Add(value))

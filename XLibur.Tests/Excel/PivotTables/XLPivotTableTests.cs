@@ -409,19 +409,84 @@ public class XLPivotTableTests
             .Because("the copy adds no item to any field");
     }
 
-    /// <summary>
-    /// KNOWN GAP, a follow-up candidate: <see cref="IXLPivotValue.BaseItemValue"/> throws for a value
-    /// field whose base field has no items, although Excel writes <c>baseItem="0"</c> on every value
-    /// field. CopyTo no longer reads it (#515).
-    /// </summary>
     [Test]
-    public async Task Known_gap_BaseItemValue_throws_for_a_base_field_with_no_items()
+    [Property("Description", "#521: Excel writes baseField=0 baseItem=0 on every value field; BaseItemValue threw when field 0 has no items")]
+    public async Task BaseItemValue_is_blank_for_a_base_item_the_base_field_does_not_have()
     {
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero));
         using var wb = new XLWorkbook(stream);
-        var value = wb.Worksheet("Other").PivotTables.Single().Values.Single();
+        var pt = (XLPivotTable)wb.Worksheet("Other").PivotTables.Single();
+        var value = pt.Values.Single();
+        await Assert.That(pt.PivotFields[0].Items).IsEmpty()
+            .Because("the base field must have no items, or this proves nothing");
 
-        await Assert.That(() => value.BaseItemValue).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
+        await Assert.That(pt.PivotFields[0].Items).IsEmpty().Because("reading the base item adds no item");
+    }
+
+    [Test]
+    [Property("Description", "#521: reading BaseItemValue changes nothing, so a save keeps the base field and item Excel wrote")]
+    public async Task A_value_field_keeps_the_base_field_and_item_Excel_wrote_after_its_BaseItemValue_is_read()
+    {
+        using var untouched = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero)))
+        using (var wb = new XLWorkbook(stream))
+            wb.SaveAs(untouched);
+
+        using var saved = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(ValueFieldIsFieldZero)))
+        using (var wb = new XLWorkbook(stream))
+        {
+            var value = wb.Worksheet("Other").PivotTables.Single().Values.Single();
+            await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(DataFieldBases(saved, "Other")).IsEquivalentTo(new[] { "0/0" });
+        await Assert.That(PivotFieldItemCounts(saved, "Other")).IsEqualTo(PivotFieldItemCounts(untouched, "Other"))
+            .Because("reading the base item adds no item to any field");
+    }
+
+    [Test]
+    [Property("Description", "#521: the setter stored the base item's index among the cache's values, and the getter reads it as a position in the base field's items")]
+    public async Task BaseItemValue_reads_back_the_value_it_was_set_to()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var range = ws.Cell("A1").InsertData(new object[]
+        {
+            ("Name", "Sold"),
+            ("Pie", 7),
+            ("Cake", 10),
+        });
+        var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+
+        // Name is on no axis, so it has no items. Setting the base item adds Cake as its first item,
+        // while Cake is the second value in the cache.
+        var value = pt.Values.Add("Sold").ShowAsPercentageFrom("Name").And("Cake");
+
+        await Assert.That(pt.PivotFields[0].Items.Count).IsEqualTo(1);
+        await Assert.That(value.BaseItemValue).IsEqualTo("Cake");
+        await Assert.That(((XLPivotDataField)value).BaseItem).IsEqualTo(0U)
+            .Because("baseItem is a position in the base field's items");
+    }
+
+    [Test]
+    [Property("Description", "#521: the setter tested the base field against the base item's default, so with no base field it threw ArgumentOutOfRangeException from the field list")]
+    public async Task BaseItemValue_can_not_be_set_on_a_value_field_with_no_base_field()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var range = ws.Cell("A1").InsertData(new object[]
+        {
+            ("Name", "Sold"),
+            ("Pie", 7),
+        });
+        var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
+        var value = pt.Values.Add("Sold");
+
+        await Assert.That(() => value.SetBaseItemValue("Pie")).Throws<InvalidOperationException>();
+        await Assert.That(value.BaseItemValue).IsEqualTo(Blank.Value);
     }
 
     /// <summary>

@@ -139,33 +139,32 @@ internal sealed class XLPivotDataField : IXLPivotValue
     {
         get
         {
-            var baseFieldSpecified = _baseField != BaseFieldDefaultValue;
-            if (!baseFieldSpecified)
+            var pivotFields = _pivotTable.PivotFields;
+            if (_baseField < 0 || _baseField >= pivotFields.Count)
                 return Blank.Value;
 
-            var baseItemSpecified = _baseItem != BaseItemDefaultValue;
-            if (!baseItemSpecified)
+            if (_baseItem is BaseItemDefaultValue or BaseItemPreviousValue or BaseItemNextValue)
                 return Blank.Value;
 
-            if (_baseItem == BaseItemPreviousValue)
+            // Excel writes baseField="0" baseItem="0" on every value field, whether or not "Show
+            // values as" uses them, so the base field can have no item at that position. That is
+            // no base item, as when none is set.
+            var baseItems = pivotFields[_baseField].Items;
+            if (_baseItem >= baseItems.Count)
                 return Blank.Value;
 
-            if (_baseItem == BaseItemNextValue)
-                return Blank.Value;
-
-            var baseField = _pivotTable.PivotFields[_baseField];
-            var fieldItem = baseField.Items[checked((int)BaseItem)];
-            return fieldItem.GetValue() ?? Blank.Value;
+            return baseItems[(int)_baseItem].GetValue() ?? Blank.Value;
         }
         set
         {
-            if (_baseField == BaseItemDefaultValue)
+            if (_baseField == BaseFieldDefaultValue)
                 throw new InvalidOperationException("Base field not specified for the field.");
 
+            // The base item is a position in the base field's items, which is what the getter reads
+            // and what Excel means by baseItem. It is not the item's index among the cache's values.
             var pivotField = _pivotTable.PivotFields[_baseField];
             var fieldItem = pivotField.GetOrAddItem(value);
-            var itemIndex = fieldItem.ItemIndex ?? BaseFieldDefaultValue;
-            _baseItem = checked((uint)itemIndex);
+            _baseItem = checked((uint)pivotField.IndexOf(fieldItem));
         }
     }
 
