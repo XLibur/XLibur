@@ -410,6 +410,41 @@ public class XLPivotTableTests
     }
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    [Property("Description", "a field saved with name=\"\" passed its empty name to the copy, so a second such field found the name already used, and the copy threw")]
+    public async Task A_pivot_table_whose_fields_have_an_empty_name_can_be_copied(bool copyTheSheet)
+    {
+        // A producer other than Excel can write name="". Give every field of the filter fixture's
+        // pivot table one: it has a field on its rows and a field in its filters.
+        using var package = new MemoryStream();
+        using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(FilterFieldWithNoName)))
+            stream.CopyTo(package);
+        using (var document = SpreadsheetDocument.Open(package, true))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts
+                .SelectMany(part => part.PivotTableParts)
+                .Single().PivotTableDefinition!;
+            foreach (var field in definition.PivotFields!.Elements<DocumentFormat.OpenXml.Spreadsheet.PivotField>())
+                field.Name = "";
+        }
+
+        package.Position = 0;
+        using var wb = new XLWorkbook(package);
+        var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.Single();
+        await Assert.That(pt.PivotFields.All(field => field.Name == "")).IsTrue()
+            .Because("every field must load with an empty name, or this proves nothing");
+
+        var copy = copyTheSheet
+            ? wb.Worksheet("pvt1").CopyTo("Copy").PivotTables.Single()
+            : pt.CopyTo(wb.AddWorksheet("Copy").Cell("A3"));
+
+        await Assert.That(copy.RowLabels.Single().CustomName).IsEqualTo(pt.RowLabels.Single().SourceName)
+            .Because("a field with an empty name is named after its source in the copy");
+        await Assert.That(copy.ReportFilters.Single().CustomName).IsEqualTo(pt.ReportFilters.Single().SourceName);
+    }
+
+    [Test]
     [Property("Description", "#521: Excel writes baseField=0 baseItem=0 on every value field; BaseItemValue threw when field 0 has no items")]
     public async Task BaseItemValue_is_blank_for_a_base_item_the_base_field_does_not_have()
     {
