@@ -71,7 +71,7 @@ internal sealed class XLProtection : IXLProtection
         set
         {
             var key = Key;
-            if (key.Locked == value) return;
+            if (key.Locked == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Locked = value });
             else
@@ -85,7 +85,7 @@ internal sealed class XLProtection : IXLProtection
         set
         {
             var key = Key;
-            if (key.Hidden == value) return;
+            if (key.Hidden == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Hidden = value });
             else
@@ -137,6 +137,12 @@ internal sealed class XLProtection : IXLProtection
         _value = _style.Value.Protection;
     }
 
+    /// <remarks>
+    /// A setter skips a value equal to <see cref="Key"/> only where
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
+    /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
+    /// not share (#505), so there the setter always writes.
+    /// </remarks>
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
         Key = modification(Key);

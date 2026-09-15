@@ -82,6 +82,21 @@ internal sealed class XLFill : IXLFill
         _value = _style.Value.Fill;
     }
 
+    /// <summary>
+    /// Non-cell path (ranges, worksheets, conditional formats): apply the delta to each cell's own
+    /// fill key.
+    /// </summary>
+    /// <remarks>
+    /// A setter skips a value equal to <see cref="Key"/> only where
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. Every other
+    /// decision - whether a background colour brings the solid pattern with it, whether a new
+    /// pattern needs a background colour - is taken from the key only on the cell path, where it is
+    /// the cell's own style. On any other container the key is only that container's record of its
+    /// style, which its cells need not share: a range is held weakly by its worksheet, and one
+    /// rebuilt after a collection starts from its parent's style rather than its cells' (#505). So
+    /// the non-cell path hands the decision to <paramref name="modification"/>, which runs once per
+    /// distinct cell style.
+    /// </remarks>
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
         Key = modification(Key);
@@ -89,17 +104,26 @@ internal sealed class XLFill : IXLFill
     }
 
     /// <summary>
-    /// Applies a key delta on behalf of a caller that has already read <see cref="Key"/>, so the
-    /// cell path does not read it a second time. The delta is still needed for the non-cell path,
-    /// which must apply it to each cell's own key rather than to this facade's.
+    /// <paramref name="key"/> with <paramref name="value"/> as its background colour, and the
+    /// pattern that colour implies if the fill had no pattern of its own.
     /// </summary>
-    private void ApplyKeyUpdate(in XLFillKey key, Func<XLFillKey, XLFillKey> update)
-    {
-        if (_style.IsCellContainer)
-            SetKey(update(key));
-        else
-            Modify(update);
-    }
+    private static XLFillKey WithBackgroundColor(in XLFillKey key, XLColor value)
+        => ShouldAdjustPatternTypeForBackgroundColor(in key)
+            ? key with { BackgroundColor = value.Key, PatternType = PatternTypeFromBackgroundColor(value) }
+            : key with { BackgroundColor = value.Key };
+
+    /// <summary>
+    /// <paramref name="key"/> with <paramref name="value"/> as its pattern.
+    /// </summary>
+    /// <remarks>
+    /// A fill that was empty and is given a pattern needs a background colour too. Otherwise the
+    /// fill is still considered empty, and the pattern does not update (the cached empty fill is
+    /// used).
+    /// </remarks>
+    private static XLFillKey WithPatternType(in XLFillKey key, XLFillPatternValues value)
+        => key.PatternType == XLFillPatternValues.None && value != XLFillPatternValues.None
+            ? key with { BackgroundColor = DefaultPatternBackgroundColorKey(), PatternType = value }
+            : key with { PatternType = value };
 
     private static XLFillPatternValues PatternTypeFromBackgroundColor(XLColor color)
         => color.HasValue ? XLFillPatternValues.Solid : XLFillPatternValues.None;
@@ -134,16 +158,10 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            var key = Key;
-            if (ShouldAdjustPatternTypeForBackgroundColor(in key))
-            {
-                var patternType = PatternTypeFromBackgroundColor(value);
-                ApplyKeyUpdate(in key, k => k with { BackgroundColor = value.Key, PatternType = patternType });
-            }
+            if (_style.IsCellContainer)
+                SetKey(WithBackgroundColor(Key, value));
             else
-            {
-                ApplyKeyUpdate(in key, k => k with { BackgroundColor = value.Key });
-            }
+                Modify(k => WithBackgroundColor(k, value));
         }
     }
 
@@ -160,8 +178,11 @@ internal sealed class XLFill : IXLFill
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
             var key = Key;
-            if (key.PatternColor == value.Key) return;
-            ApplyKeyUpdate(in key, k => k with { PatternColor = value.Key });
+            if (key.PatternColor == value.Key && _style.SkipsUnchangedValues) return;
+            if (_style.IsCellContainer)
+                SetKey(key with { PatternColor = value.Key });
+            else
+                Modify(k => k with { PatternColor = value.Key });
         }
     }
 
@@ -171,19 +192,11 @@ internal sealed class XLFill : IXLFill
         set
         {
             var key = Key;
-            if (key.PatternType == XLFillPatternValues.None &&
-                value != XLFillPatternValues.None)
-            {
-                // If fill was empty and the pattern changes to non-empty, we have to specify a background color too.
-                // Otherwise, the fill will be considered empty, and the pattern won't update (the cached empty fill will be used).
-                var defaultBackgroundColor = DefaultPatternBackgroundColorKey();
-                ApplyKeyUpdate(in key, k => k with { BackgroundColor = defaultBackgroundColor, PatternType = value });
-            }
+            if (key.PatternType == value && _style.SkipsUnchangedValues) return;
+            if (_style.IsCellContainer)
+                SetKey(WithPatternType(key, value));
             else
-            {
-                if (key.PatternType == value) return;
-                ApplyKeyUpdate(in key, k => k with { PatternType = value });
-            }
+                Modify(k => WithPatternType(k, value));
         }
     }
 

@@ -98,7 +98,7 @@ internal sealed class XLAlignment : IXLAlignment
         set
         {
             var key = Key;
-            if (key.Vertical == value) return;
+            if (key.Vertical == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { Vertical = value });
             else
@@ -111,6 +111,16 @@ internal sealed class XLAlignment : IXLAlignment
         get => Key.Indent;
         set
         {
+            if (!_style.IsWholeStyle)
+            {
+                // A range, a worksheet, a row or a column styles cells that need not share this
+                // key, so each cell is asked for itself, inside the one modification - see
+                // WithIndent. Nothing is validated against the key, so the write cannot stop
+                // part-way through the cells (#505).
+                Modify(k => WithIndent(k, value));
+                return;
+            }
+
             if (Indent != value)
             {
                 if (Horizontal == XLAlignmentHorizontalValues.General)
@@ -133,13 +143,40 @@ internal sealed class XLAlignment : IXLAlignment
         }
     }
 
+    /// <summary>
+    /// <paramref name="key"/> with <paramref name="value"/> as its indent, and left alignment where
+    /// its own horizontal alignment cannot take one.
+    /// </summary>
+    /// <remarks>
+    /// The <see cref="Indent"/> setter's rules, asked of one cell. A general alignment becomes left
+    /// whenever the indent changes, as on a cell. Where a single cell refuses an indent its
+    /// alignment cannot take, a cell styled through a range, worksheet, row or column is given left
+    /// alignment instead: throwing there would leave the cells already written behind.
+    /// </remarks>
+    private static XLAlignmentKey WithIndent(XLAlignmentKey key, int value)
+    {
+        if (key.Indent == value)
+            return key;
+
+        var horizontal = key.Horizontal;
+        if (horizontal == XLAlignmentHorizontalValues.General
+            || (value > 0 && horizontal is not (XLAlignmentHorizontalValues.Left
+                or XLAlignmentHorizontalValues.Right
+                or XLAlignmentHorizontalValues.Distributed)))
+        {
+            horizontal = XLAlignmentHorizontalValues.Left;
+        }
+
+        return key with { Horizontal = horizontal, Indent = value };
+    }
+
     public bool JustifyLastLine
     {
         get => Key.JustifyLastLine;
         set
         {
             var key = Key;
-            if (key.JustifyLastLine == value) return;
+            if (key.JustifyLastLine == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { JustifyLastLine = value });
             else
@@ -153,7 +190,7 @@ internal sealed class XLAlignment : IXLAlignment
         set
         {
             var key = Key;
-            if (key.ReadingOrder == value) return;
+            if (key.ReadingOrder == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { ReadingOrder = value });
             else
@@ -167,7 +204,7 @@ internal sealed class XLAlignment : IXLAlignment
         set
         {
             var key = Key;
-            if (key.RelativeIndent == value) return;
+            if (key.RelativeIndent == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { RelativeIndent = value });
             else
@@ -181,7 +218,7 @@ internal sealed class XLAlignment : IXLAlignment
         set
         {
             var key = Key;
-            if (key.ShrinkToFit == value) return;
+            if (key.ShrinkToFit == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { ShrinkToFit = value });
             else
@@ -200,7 +237,7 @@ internal sealed class XLAlignment : IXLAlignment
                 throw new ArgumentException("TextRotation must be between -90 and 90 degrees, or 255.");
 
             var key = Key;
-            if (key.TextRotation == rotation) return;
+            if (key.TextRotation == rotation && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { TextRotation = rotation });
             else
@@ -214,7 +251,7 @@ internal sealed class XLAlignment : IXLAlignment
         set
         {
             var key = Key;
-            if (key.WrapText == value) return;
+            if (key.WrapText == value && _style.SkipsUnchangedValues) return;
             if (_style.IsCellContainer)
                 SetKey(key with { WrapText = value });
             else
@@ -332,6 +369,12 @@ internal sealed class XLAlignment : IXLAlignment
         _value = _style.Value.Alignment;
     }
 
+    /// <remarks>
+    /// A setter skips a value equal to <see cref="Key"/> only where
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
+    /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
+    /// not share (#505), so there the setter always writes.
+    /// </remarks>
     private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
     {
         Key = modification(Key);
