@@ -51,6 +51,12 @@ internal sealed class DependencyTree
     private readonly FormulaDependencies _scratch = new();
 
     /// <summary>
+    /// The context of the visit, kept for every formula for the same reason as <see cref="_scratch"/>.
+    /// Created by the first visit, because only a visit knows the workbook.
+    /// </summary>
+    private DependenciesContext? _context;
+
+    /// <summary>
     /// Visitor to extract precedents of formulas.
     /// </summary>
     private readonly DependenciesVisitor _visitor;
@@ -416,11 +422,16 @@ internal sealed class DependencyTree
             return;
         }
 
-        var context = new DependenciesContext(formulaArea, workbook, precedents);
+        var context = _context;
+        if (context is null)
+            _context = context = new DependenciesContext(formulaArea, workbook, precedents);
+        else
+            context.Reset(formulaArea, workbook, precedents);
+
         var rootReference = ast.AstRoot.Accept(context, _visitor);
 
         // If formula references are propagated to the root, make sure to add them.
-        if (rootReference is not null)
+        if (rootReference.IsReference)
             context.AddAreas(rootReference);
     }
 
