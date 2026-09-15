@@ -190,7 +190,37 @@ internal static class ConditionalFormatReader
         LoadX14DataValidations(extensions, ws);
         LoadX14DataBarExtensions(extensions, ws);
         LoadX14ExtensionRuleFormulas(extensions, ws);
+        KeepX14ExtensionRuleXml(extensions, ws);
         LoadSparklineGroups(extensions, ws, workbook);
+    }
+
+    /// <summary>
+    /// Is <paramref name="rule"/> an <c>x14</c> rule this library keeps without modelling it? A data bar
+    /// rule is modelled, with its twin in the main part (see <see cref="LoadX14DataBarExtensions"/>),
+    /// and a rule with no id cannot be found again to be written back.
+    /// </summary>
+    private static bool IsKept(X14.ConditionalFormattingRule rule)
+        => !(rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar)
+           && !string.IsNullOrEmpty(rule.Id?.Value);
+
+    /// <summary>
+    /// Keeps the XML of each <c>x14:conditionalFormatting</c> element that holds a kept rule, with the
+    /// element's other rules taken out, so that a copy of the sheet can write the kept rules into its
+    /// own part (#515). A data bar rule is one of those taken out: a copy writes it from the model.
+    /// </summary>
+    private static void KeepX14ExtensionRuleXml(WorksheetExtensionList extensions, XLWorksheet ws)
+    {
+        foreach (var conditionalFormatting in extensions.Descendants<X14.ConditionalFormatting>())
+        {
+            if (!conditionalFormatting.Elements<X14.ConditionalFormattingRule>().Any(IsKept))
+                continue;
+
+            var kept = (X14.ConditionalFormatting)conditionalFormatting.CloneNode(true);
+            foreach (var rule in kept.Elements<X14.ConditionalFormattingRule>().Where(r => !IsKept(r)).ToList())
+                rule.Remove();
+
+            ws.ConditionalFormats.SeedExtensionRuleXml(kept.OuterXml);
+        }
     }
 
     /// <summary>
@@ -205,7 +235,7 @@ internal static class ConditionalFormatReader
     {
         foreach (var rule in extensions.Descendants<X14.ConditionalFormattingRule>())
         {
-            if (rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar)
+            if (!IsKept(rule))
                 continue;
 
             var id = rule.Id?.Value;

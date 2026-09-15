@@ -736,9 +736,21 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         Tables.ForEach<XLTable>(t => t.CopyTo(targetSheet, false));
         DefinedNames.ForEach<XLDefinedName>(nr =>
             nr.CopyTo(targetSheet)); // Names must modify table references, so keep the order.
-        PivotTables.ForEach<XLPivotTable>(pt =>
-            pt.CopyTo(targetSheet.Cell(pt.TargetCell.Address.CastTo<XLAddress>().WithoutWorksheet())));
-        ConditionalFormats.ForEach(cf => cf.CopyTo(targetSheet));
+        // A sheet copy carries each pivot table's conditional formats, and the rules the sheet keeps only
+        // in its x14 extension, which the copied pivot tables name by id (#515). A pivot table copied on
+        // its own carries neither.
+        PivotTables.ForEach<XLPivotTable>(pt => pt.CopyConditionalFormatsTo((XLPivotTable)pt.CopyTo(
+            targetSheet.Cell(pt.TargetCell.Address.CastTo<XLAddress>().WithoutWorksheet()))));
+        // Each copied rule keeps its priority, as a copied pivot table's rule does, so the copy writes the
+        // sheet's rules and its pivot tables' rules in the order the original does. IXLConditionalFormat
+        // .CopyTo alone still gives the copy priority 0, which puts it first among the target's rules.
+        ConditionalFormats.ForEach(cf =>
+        {
+            var copy = cf.CopyTo(targetSheet);
+            if (cf is XLConditionalFormat source && copy is XLConditionalFormat copied)
+                copied.Priority = source.Priority;
+        });
+        ConditionalFormats.CopyKeptRulesTo(targetSheet.ConditionalFormats);
         SparklineGroups.CopyTo(targetSheet);
         MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
         SelectedRanges.ForEach(sr =>

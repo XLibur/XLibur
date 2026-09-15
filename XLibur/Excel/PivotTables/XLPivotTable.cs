@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using XLibur.Excel.CalcEngine;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.IO;
 using XLibur.Excel.PivotTables.Areas;
@@ -185,23 +186,33 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
         }
 
+        // A field that was never renamed has no name of its own, and Excel writes none for it, so its
+        // CustomName reads null. Passed on, that made the copy find its own unnamed fields already using
+        // the name, and throw. The copy's field is named after its source, as a field added in code is.
+        static string NameOf(IXLPivotField field)
+            => string.IsNullOrEmpty(field.CustomName) ? field.SourceName : field.CustomName;
+
         foreach (var rf in ReportFilters)
-            CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, rf.CustomName));
+            CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, NameOf(rf)));
 
         foreach (var cl in ColumnLabels)
-            CopyPivotField(cl, newPivotTable.ColumnLabels.Add(cl.SourceName, cl.CustomName));
+            CopyPivotField(cl, newPivotTable.ColumnLabels.Add(cl.SourceName, NameOf(cl)));
 
         foreach (var rl in RowLabels)
-            CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, rl.CustomName));
+            CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, NameOf(rl)));
 
         foreach (var v in Values)
         {
             var pivotValue = newPivotTable.Values.Add(v.SourceName, v.CustomName)
                 .SetSummaryFormula(v.SummaryFormula)
-                .SetCalculation(v.Calculation)
-                .SetCalculationItem(v.CalculationItem)
-                .SetBaseFieldName(v.BaseFieldName)
-                .SetBaseItemValue(v.BaseItemValue);
+                .SetCalculation(v.Calculation);
+
+            // The base field and the base item go across as the positions they are, and so does a
+            // "previous" or "next" base item, which is held as a position too. The copy has the same
+            // cache and the same fields, so they name the same field and item. Read by its value, the
+            // base item threw for a base field with no items, and Excel writes baseField="0"
+            // baseItem="0" on every value field, whether or not "Show values as" uses them.
+            ((XLPivotDataField)pivotValue).CopyBaseFrom((XLPivotDataField)v);
 
             pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;
             pivotValue.NumberFormat.Format = v.NumberFormat.Format;
@@ -856,6 +867,53 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     internal void AddExtensionConditionalFormat(XLPivotExtensionConditionalFormat conditionalFormat)
     {
         _extensionConditionalFormats.Add(conditionalFormat);
+    }
+
+    /// <summary>
+    /// Gives <paramref name="copy"/>, this pivot table's copy on a copy of its sheet, this pivot table's
+    /// conditional formats (#515). Each format of the 2007 schema becomes a new format over the same
+    /// cells of the copy's sheet, with its priority, and is linked by that priority, as the original is.
+    /// The <c>x14:conditionalFormats</c> list is copied as it is: the copy's sheet holds the same kept
+    /// rules, under the same ids and priorities (<see cref="XLConditionalFormats.CopyKeptRulesTo"/>).
+    /// </summary>
+    /// <remarks>
+    /// Only a sheet copy calls this. <see cref="CopyTo"/> on its own copies neither list: a pivot table
+    /// copied to another cell would need its formats' ranges and pivot areas moved with it, and no Excel
+    /// file shows what that looks like. The pivot areas are shared, not copied, because nothing changes
+    /// an area once it is loaded or built.
+    /// </remarks>
+    internal void CopyConditionalFormatsTo(XLPivotTable copy)
+    {
+        var targetSheet = copy.Worksheet;
+        foreach (var conditionalFormat in _conditionalFormats)
+        {
+            var format = conditionalFormat.Format;
+            var ranges = format.Ranges
+                .Select(r => targetSheet.Range(((XLRangeAddress)r.RangeAddress).WithoutWorksheet()));
+            var formatCopy = new XLConditionalFormat(format, ranges) { Priority = format.Priority };
+            var copied = new XLPivotConditionalFormat(formatCopy)
+            {
+                Scope = conditionalFormat.Scope,
+                Type = conditionalFormat.Type,
+            };
+            foreach (var area in conditionalFormat.Areas)
+                copied.AddArea(area);
+
+            copy.AddConditionalFormat(copied);
+        }
+
+        foreach (var conditionalFormat in _extensionConditionalFormats)
+        {
+            var copied = new XLPivotExtensionConditionalFormat(conditionalFormat.RuleId, conditionalFormat.Priority)
+            {
+                Scope = conditionalFormat.Scope,
+                Type = conditionalFormat.Type,
+            };
+            foreach (var area in conditionalFormat.Areas)
+                copied.AddArea(area);
+
+            copy.AddExtensionConditionalFormat(copied);
+        }
     }
 
     internal void AddChartFormat(XLPivotChartFormat chartFormat)

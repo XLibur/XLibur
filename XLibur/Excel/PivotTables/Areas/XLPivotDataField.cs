@@ -91,6 +91,17 @@ internal sealed class XLPivotDataField : IXLPivotValue
     }
 
     /// <summary>
+    /// Gives this value field the <see cref="BaseField"/> and <see cref="BaseItem"/> of
+    /// <paramref name="other"/>, as the positions they are. For a copy of a pivot table over the same
+    /// pivot cache, whose fields are in the same order.
+    /// </summary>
+    internal void CopyBaseFrom(XLPivotDataField other)
+    {
+        _baseField = other._baseField;
+        _baseItem = other._baseItem;
+    }
+
+    /// <summary>
     /// Formatting to apply to the data field. If <see cref="XLPivotFormat"/> disagree, this has precedence.
     /// </summary>
     internal XLNumberFormatValue? NumberFormatValue { get; set; }
