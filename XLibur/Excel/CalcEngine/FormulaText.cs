@@ -96,7 +96,7 @@ internal static class FormulaText
     /// name and does not read it as a range operator. It is one UTF-16 character, the same width as
     /// the colon, so every <see cref="SymbolRange"/> the parser reports indexes the original text.
     /// </summary>
-    private const char ColonPlaceholder = '：';
+    internal const char ColonPlaceholder = '：';
 
     /// <summary>The prefix a file puts on a future function, for example <c>_xlfn.CONCAT</c>.</summary>
     private const string FuturePrefix = "_xlfn.";
@@ -210,6 +210,66 @@ internal static class FormulaText
 
         converted = wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
         return true;
+    }
+
+    /// <summary>
+    /// Parses R1C1 <paramref name="text"/> once, into a template that writes its A1 text at any cell:
+    /// the text that <see cref="TryConvert"/> gives when it converts <paramref name="text"/> to
+    /// <see cref="FormulaNotation.A1"/> at that cell (#542).
+    /// </summary>
+    /// <param name="text">The formula text, in R1C1 notation.</param>
+    /// <param name="template">
+    /// The template, or <c>null</c> when the text calls a cell as a function, as in <c>R1C1(5)</c>,
+    /// which the template does not take. Then convert the text at each cell with
+    /// <see cref="TryConvert"/>.
+    /// </param>
+    /// <param name="refusal">
+    /// Why the parser refused the text, when it did. A refusal does not depend on the cell, so it is
+    /// the refusal that <see cref="TryConvert"/> gives at every cell.
+    /// </param>
+    /// <returns><c>false</c> when the parser refused the text.</returns>
+    internal static bool TryCreateA1Template(string text, out A1Template? template, out FormulaRefusal refusal)
+    {
+        var parseable = ProtectStructuredRefColons(text, out var wasProtected);
+        var builder = new A1Template.Builder(parseable);
+        if (!TryParse(
+                text,
+                (Text: parseable, Builder: builder),
+                static s => FormulaParser<SymbolRange, SymbolRange, A1Template.Builder>.CellFormulaR1C1(
+                    s.Text, s.Builder, A1Template.Factory),
+                out var root,
+                out refusal))
+        {
+            template = null;
+            return false;
+        }
+
+        template = builder.Build(text, root, wasProtected);
+        return true;
+    }
+
+    /// <summary>
+    /// Writes a sheet prefix, such as <c>'My Sheet'!</c> or <c>[1]Sheet1:Sheet3!</c>, as the
+    /// conversion to A1 writes it, for <see cref="A1Template"/>. The parser decides which names need
+    /// quotes, so the parser writes it: as the prefix of a reference to the first cell.
+    /// </summary>
+    /// <param name="prefix">The prefix as the R1C1 text writes it, up to and including its <c>!</c>.</param>
+    /// <param name="written">The prefix as the conversion writes it.</param>
+    /// <returns><c>false</c> when the parser did not write the prefix of that reference.</returns>
+    internal static bool TryWriteSheetPrefix(string prefix, [NotNullWhen(true)] out string? written)
+    {
+        const string firstCellR1C1 = "R1C1";
+        const string firstCellA1 = "$A$1";
+        var probe = prefix + firstCellR1C1;
+        if (TryParse(probe, probe, static p => FormulaConverter.ToA1(p, 1, 1), out var probeA1, out _) &&
+            probeA1.EndsWith(firstCellA1, StringComparison.Ordinal))
+        {
+            written = probeA1[..^firstCellA1.Length];
+            return true;
+        }
+
+        written = null;
+        return false;
     }
 
     /// <summary>

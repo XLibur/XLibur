@@ -35,7 +35,7 @@ internal static class WorksheetSheetDataReader
         StylesheetData styles,
         XLWorksheet worksheet,
         SharedStringEntry[]? sharedStrings,
-        Dictionary<uint, string> sharedFormulasR1C1,
+        Dictionary<uint, SharedFormula> sharedFormulas,
         StyleValueCache styleCache,
         Dictionary<XLNumberFormatValue, XLDataType> numberDataTypeCache,
         bool use1904DateSystem,
@@ -45,7 +45,7 @@ internal static class WorksheetSheetDataReader
         public readonly StylesheetData Styles = styles;
         public readonly XLWorksheet Worksheet = worksheet;
         public readonly SharedStringEntry[]? SharedStrings = sharedStrings;
-        public readonly Dictionary<uint, string> SharedFormulasR1C1 = sharedFormulasR1C1;
+        public readonly Dictionary<uint, SharedFormula> SharedFormulas = sharedFormulas;
         public readonly StyleValueCache StyleCache = styleCache;
 
         /// <summary>
@@ -424,7 +424,7 @@ internal static class WorksheetSheetDataReader
     {
         // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
         var formula = IsMainElement(reader, "f")
-            ? SetCellFormulaXml(reader, ws, cellAddress, context.SharedFormulasR1C1, cellMetaIndex, context.DynamicArrayCmIndexes)
+            ? SetCellFormulaXml(reader, ws, cellAddress, context.SharedFormulas, cellMetaIndex, context.DynamicArrayCmIndexes)
             : null;
 
         // A formula result string is stored in <v>, never in the shared string table. That is true
@@ -470,7 +470,7 @@ internal static class WorksheetSheetDataReader
 
 #pragma warning disable S3776 // Shared, array and dynamic-array formulas are decided by flat, documented tests
     private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, Point cellAddress,
-        Dictionary<uint, string> sharedFormulasR1C1, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
+        Dictionary<uint, SharedFormula> sharedFormulas, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
         string? typeAttr = null;
         string? refAttr = null;
@@ -530,7 +530,7 @@ internal static class WorksheetSheetDataReader
         }
         else if (formulaType == CellFormulaValues.Shared && sharedIndex is { } si)
         {
-            formula = LoadSharedFormula(formulaText, cellAddress, si, sharedFormulasR1C1, formulaSlice);
+            formula = LoadSharedFormula(formulaText, cellAddress, si, sharedFormulas, formulaSlice);
         }
         else if (formulaType == CellFormulaValues.DataTable && refAttr is not null)
         {
@@ -1040,10 +1040,10 @@ internal static class WorksheetSheetDataReader
     }
 
     private static XLCellFormula LoadSharedFormula(string formulaText, Point cellAddress,
-        uint sharedIndex, Dictionary<uint, string> sharedFormulasR1C1, FormulaSlice formulaSlice)
+        uint sharedIndex, Dictionary<uint, SharedFormula> sharedFormulas, FormulaSlice formulaSlice)
     {
         XLCellFormula formula;
-        if (!sharedFormulasR1C1.TryGetValue(sharedIndex, out var sharedR1C1Formula))
+        if (!sharedFormulas.TryGetValue(sharedIndex, out var sharedFormula))
         {
             formula = XLCellFormula.NormalA1(formulaText);
             formulaSlice.SetDuringLoad(cellAddress, formula);
@@ -1054,7 +1054,7 @@ internal static class WorksheetSheetDataReader
                     out var refusal))
                 throw refusal.ToException();
 
-            sharedFormulasR1C1.Add(sharedIndex, formulaR1C1);
+            sharedFormulas.Add(sharedIndex, new SharedFormula(formulaR1C1));
 
             // Each cell keeps the R1C1 text of its group, so the dependency tree parses the group once
             // instead of the A1 text of each cell (#513).
@@ -1062,16 +1062,55 @@ internal static class WorksheetSheetDataReader
         }
         else
         {
-            if (!FormulaText.TryConvert(sharedR1C1Formula, cellAddress, FormulaNotation.A1, out var sharedFormulaA1,
-                    out var refusal))
-                throw refusal.ToException();
-
-            formula = XLCellFormula.NormalA1(sharedFormulaA1);
-            formula.SetSharedR1C1(sharedR1C1Formula, cellAddress);
+            formula = XLCellFormula.NormalA1(sharedFormula.ToA1(cellAddress));
+            formula.SetSharedR1C1(sharedFormula.R1C1, cellAddress);
             formulaSlice.SetDuringLoad(cellAddress, formula);
         }
 
         return formula;
+    }
+
+    /// <summary>
+    /// One shared formula of a sheet: the R1C1 text that each of its cells keeps (#513), and the
+    /// template that writes the A1 text of each cell after the first (#542).
+    /// </summary>
+    internal sealed class SharedFormula(string r1c1)
+    {
+        private A1Template? _template;
+        private bool _parsed;
+
+        /// <summary>The R1C1 text of the formula. Every cell of the formula gets this one string.</summary>
+        internal string R1C1 { get; } = r1c1;
+
+        /// <summary>
+        /// The A1 text of the formula in the cell at <paramref name="origin"/>: the text that
+        /// <see cref="FormulaText.TryConvert"/> gives there.
+        /// </summary>
+        /// <remarks>
+        /// The first call parses the R1C1 text into a template, and each call writes its cell's text
+        /// from it. A formula of one cell never needs the call, so it never parses the text again.
+        /// Loading a shared formula is a public edge: a refused formula reaches the caller as
+        /// <see cref="ExpressionParseException"/>, from the second cell of the formula, as before.
+        /// </remarks>
+        internal string ToA1(Point origin)
+        {
+            if (!_parsed)
+            {
+                if (!FormulaText.TryCreateA1Template(R1C1, out _template, out var refusal))
+                    throw refusal.ToException();
+
+                _parsed = true;
+            }
+
+            if (_template is not null)
+                return _template.ToA1(origin);
+
+            // A cell called as a function, which the template does not take.
+            if (!FormulaText.TryConvert(R1C1, origin, FormulaNotation.A1, out var a1, out var conversionRefusal))
+                throw conversionRefusal.ToException();
+
+            return a1;
+        }
     }
 
     private static void SetNumberCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,

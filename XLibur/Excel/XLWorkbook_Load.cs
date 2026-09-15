@@ -489,10 +489,10 @@ public partial class XLWorkbook
         LoadContext context)
     {
         var styles = context.Styles;
-        var sharedFormulasR1C1 = new Dictionary<uint, string>();
+        var sharedFormulas = new Dictionary<uint, WorksheetSheetDataReader.SharedFormula>();
         var numberDataTypeCache = new Dictionary<XLNumberFormatValue, XLDataType>();
         var sheetDataContext = new WorksheetSheetDataReader.SheetDataReadContext(
-            styles, ws, sharedStrings, sharedFormulasR1C1, context.StyleCache, numberDataTypeCache,
+            styles, ws, sharedStrings, sharedFormulas, context.StyleCache, numberDataTypeCache,
             Use1904DateSystem, context.DynamicArrayCmIndexes);
         var sheetDataState = new WorksheetSheetDataReader.SheetDataReadState();
         var elementContext = new WorksheetElementContext
