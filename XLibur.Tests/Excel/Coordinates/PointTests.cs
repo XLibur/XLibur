@@ -47,6 +47,9 @@ public class PointTests
     [Arguments("A01")]
     [Arguments("A0")]
     [Arguments("A-1")]
+    [Arguments("A4294967297")] // 2^32 + 1, wraps to row 1 in 32-bit arithmetic
+    [Arguments("XFD4296015872")] // 2^32 + 1048576, wraps to the last row
+    [Arguments("A2147483648")] // 2^31, wraps to int.MinValue
     public async Task InvalidInputsAreNotParsed(string cellRef)
     {
         await Assert.That(() => Point.Parse(cellRef.AsSpan())).Throws<FormatException>();

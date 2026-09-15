@@ -229,6 +229,8 @@ public class TextToNumberCoercionTests
     [Arguments("24:60", null)] // Only one part can be outside of limit, here are both
     [Arguments("30:59", 1.290972222)] // Hour part can be over 23
     [Arguments("23:300", 1.166666667)] // Minute part over 59
+    [Arguments("4294967306:", null)] // 2^32 + 10, would wrap to 10 in 32-bit arithmetic
+    [Arguments("2147483648:", null)] // 2^31, would wrap to int.MinValue
     public async Task TimeSpan_Format20(string timeSpan, double? expectedValue) // 'h:mm'
     {
         await AssertCoercion(timeSpan, expectedValue, Tolerance);
@@ -262,6 +264,7 @@ public class TextToNumberCoercionTests
     [Arguments("59:300.0", 0.044444444)] // Seconds are added to the minutes, the result is 1:04 minutes
     [Arguments("59:300.59", 0.044451273)] // Can specify 2 digit ms
     [Arguments("00:57.180", 0.000661806)] // Can specify 3 digit ms
+    [Arguments("00:57.18000000000", 0.000661806)] // Fraction digits past an int's range don't wrap
     public async Task TimeSpan_Format47(string timeSpan, double? expectedValue) // 'mm:ss.0'
     {
         await AssertCoercion(timeSpan, expectedValue, Tolerance);

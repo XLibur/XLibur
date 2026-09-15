@@ -140,17 +140,23 @@ internal static class TimeSpanParser
 
     private static bool TryReadNumber(ref int i, string t, out int num)
     {
+        // A part is at most 9999, so a fifth digit already rules it out. Rejecting it before it is
+        // accumulated, rather than checking the value afterwards, keeps num from overflowing and
+        // wrapping back under the limit: '4294967306' was read as 10 (ClosedXML#2885).
+        const int maxPartDigits = 4;
         var start = i;
         num = 0;
         var digitCount = 0;
         while (i < t.Length && t[i] >= '0' && t[i] <= '9')
         {
+            if (++digitCount > maxPartDigits)
+                return false;
+
             num = num * 10 + t[i] - '0';
-            digitCount++;
             i++;
         }
 
-        if (digitCount == 0 || num > 9999)
+        if (digitCount == 0)
             return false;
         if (t[start] == '0' && digitCount > 2)
             return false;
@@ -159,12 +165,20 @@ internal static class TimeSpanParser
 
     private static int ReadFractionInMs(ref int i, string t)
     {
+        // Three digits are the milliseconds and the fourth rounds them, so the rest can't change
+        // the result. They are consumed but not accumulated, which keeps a long fraction from
+        // overflowing num.
+        const int keptDigits = 4;
         var num = 0;
         var digitCount = 0;
         while (i < t.Length && t[i] >= '0' && t[i] <= '9')
         {
-            num = num * 10 + t[i] - '0';
-            digitCount++;
+            if (digitCount < keptDigits)
+            {
+                num = num * 10 + t[i] - '0';
+                digitCount++;
+            }
+
             i++;
         }
 

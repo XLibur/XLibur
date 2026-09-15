@@ -155,9 +155,16 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
         if (c is < '1' or > '9')
             return false;
 
+        // Digits are capped before they are accumulated. Checking only the result against
+        // MaxRowNumber let a row long enough to overflow wrap to a small in-range value, so
+        // 'A4294967297' parsed as A1 (ClosedXML#2885).
         var rowIndex = c - '0';
+        var rowDigits = 1;
         while (i < input.Length && IsDigit(input[i]))
         {
+            if (++rowDigits > XLHelper.MaxRowDigits)
+                return false;
+
             c = input[i];
             rowIndex = rowIndex * 10 + c - '0';
             i++;
