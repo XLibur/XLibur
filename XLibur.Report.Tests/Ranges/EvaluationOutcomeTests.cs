@@ -130,6 +130,47 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
+    /// #508: with two items or more, the template row is copied for the other items. Copying a
+    /// refused formula threw <see cref="ExpressionParseException"/> out of <c>Generate()</c>, from the
+    /// copy. The copy now keeps the refused text (ADR 0002), and the result is what #488 records for
+    /// one item: the expander reads the template row for tags and expressions before it copies it,
+    /// so the formula is read, and its error recorded, once, at the template cell. Every generated
+    /// row keeps the formula. An unsupported formula, which copied already, gives the same result.
+    /// </summary>
+    [Test]
+    [Arguments(RefusedFormula, RefusedMessage, typeof(ExpressionParseException), 2)]
+    [Arguments(RefusedFormula, RefusedMessage, typeof(ExpressionParseException), 3)]
+    [Arguments(UnsupportedFormula, UnsupportedMessage, typeof(NotImplementedException), 2)]
+    public async Task An_unevaluable_formula_in_a_repeated_row_is_a_template_error_at_its_template_cell(
+        string formula,
+        string message,
+        Type exceptionType,
+        int itemCount)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Report");
+        sheet.Cell("A1").Value = "{{ item.Product }}";
+        sheet.Cell("B1").FormulaA1 = formula;
+        sheet.DefinedNames.Add("Items", sheet.Range("A1:C2"));
+
+        using var template = new XLTemplate(workbook);
+        template.AddVariable("Items", Enumerable.Range(1, itemCount)
+            .Select(i => new SaleItem { Product = "Widget " + i, Quantity = i, UnitPrice = 1m, SoldOn = new DateTime(2026, 1, i) })
+            .ToList());
+        var result = template.Generate();
+
+        await Assert.That(result.ParsingErrors.Count).IsEqualTo(1);
+        await Assert.That(result.ParsingErrors[0].Location).IsEqualTo("Report!B1");
+        await Assert.That(result.ParsingErrors[0].Message).IsEqualTo(message);
+        await Assert.That(exceptionType.IsInstanceOfType(result.ParsingErrors[0].Exception)).IsTrue();
+        foreach (var row in Enumerable.Range(1, itemCount))
+        {
+            await Assert.That(sheet.Cell(row, 1).Value.GetText()).IsEqualTo("Widget " + row);
+            await Assert.That(sheet.Cell(row, 2).FormulaA1).IsEqualTo(formula);
+        }
+    }
+
+    /// <summary>
     /// A cell whose own formula is valid, but which reads a cell that cannot be evaluated, fails
     /// with the precedent's kind. It is the cell in the bound range that is reported.
     /// </summary>

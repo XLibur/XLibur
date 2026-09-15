@@ -17,7 +17,9 @@ internal static class XLCellCopyHelper
         else
             target.SliceRichText = sourceRichText;
 
-        target.FormulaR1C1 = source.FormulaR1C1;
+        // Not through FormulaR1C1: reading it throws on a refused normal formula, whose text a copy
+        // keeps exactly as it is (#508). A data table, or a refused array formula, still throws.
+        target.FormulaA1 = source.Formula?.GetCopiedA1(source.SheetPoint, target.SheetPoint) ?? string.Empty;
         // Clear both annotation kinds before assigning, because a note and a thread cannot coexist
         // and the target may currently hold the other kind.
         target.SliceComment = null;
@@ -245,7 +247,7 @@ internal static class XLCellCopyHelper
 
         var sparkline = otherCell.Sparkline!;
         var sourceDataAddress = sparkline.SourceData.RangeAddress.ToString()!;
-        var shiftedRangeAddress = target.GetFormulaA1(otherCell.GetFormulaR1C1(sourceDataAddress));
+        var shiftedRangeAddress = XLCellFormula.GetCopiedA1(sourceDataAddress, otherCell.SheetPoint, target.SheetPoint);
         var sourceDataWorksheet = otherCell.Worksheet == sparkline.SourceData.Worksheet
             ? target.Worksheet
             : (XLWorksheet)sparkline.SourceData.Worksheet;
@@ -266,7 +268,8 @@ internal static class XLCellCopyHelper
                         ? target.Worksheet
                         : sparkline.SparklineGroup.DateRange.Worksheet;
                 var dateRangeAddress = sparkline.SparklineGroup.DateRange.RangeAddress.ToString()!;
-                var shiftedDateRangeAddress = target.GetFormulaA1(otherCell.GetFormulaR1C1(dateRangeAddress));
+                var shiftedDateRangeAddress =
+                    XLCellFormula.GetCopiedA1(dateRangeAddress, otherCell.SheetPoint, target.SheetPoint);
                 group.SetDateRange(dateRangeWorksheet.Range(shiftedDateRangeAddress));
             }
         }
@@ -288,8 +291,8 @@ internal static class XLCellCopyHelper
     {
         var thisDv = (XLDataValidation)target.GetDataValidation();
         thisDv.CopyFrom(otherDv);
-        thisDv.Value = target.GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.Value));
-        thisDv.MinValue = target.GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.MinValue));
-        thisDv.MaxValue = target.GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.MaxValue));
+        thisDv.Value = XLCellFormula.GetCopiedA1(otherDv.Value, otherCell.SheetPoint, target.SheetPoint);
+        thisDv.MinValue = XLCellFormula.GetCopiedA1(otherDv.MinValue, otherCell.SheetPoint, target.SheetPoint);
+        thisDv.MaxValue = XLCellFormula.GetCopiedA1(otherDv.MaxValue, otherCell.SheetPoint, target.SheetPoint);
     }
 }

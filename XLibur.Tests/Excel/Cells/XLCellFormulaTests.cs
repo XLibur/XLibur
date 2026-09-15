@@ -74,16 +74,7 @@ public class XLCellFormulaTests
 
     // The formula bar shows an external reference as '[file.xlsx]Sheet'!A1, but a file stores it as
     // [1]Sheet!A1, and the parser refuses the displayed form. Setting FormulaA1 doesn't parse it.
-    [Test]
-    public async Task CopyTo_OfAFormulaTheParserRefuses_ThrowsExpressionParseException()
-    {
-        using var wb = new XLWorkbook();
-        var ws = wb.AddWorksheet();
-        ws.Cell("C2").FormulaA1 = "'[file.xlsx]Sheet'!A1";
-
-        await Assert.That(() => ws.Cell("C2").CopyTo(ws.Cell("E5"))).Throws<ExpressionParseException>();
-    }
-
+    // Copying such a formula keeps its text (#508): see RefusedFormulaCopyTests.
     [Test]
     public async Task FormulaR1C1_OfAFormulaTheParserRefuses_ThrowsExpressionParseException()
     {

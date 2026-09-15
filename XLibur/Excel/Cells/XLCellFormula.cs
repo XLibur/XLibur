@@ -238,12 +238,63 @@ internal sealed class XLCellFormula
     /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
     internal static string GetFormula(string strValue, FormulaConversionType conversionType, Point cellAddress)
     {
-        // Reading FormulaR1C1 and copying a formula are public edges: a refused formula reaches the
-        // caller as ExpressionParseException.
+        // Reading FormulaR1C1 is a public edge: a refused formula reaches the caller as
+        // ExpressionParseException. A copy keeps a refused formula's text instead (GetCopiedA1).
         if (!TryGetFormula(strValue, conversionType, cellAddress, out var converted, out var refusal))
             throw refusal.ToException();
 
         return converted;
+    }
+
+    /// <summary>
+    /// The text of a formula copied from the cell <paramref name="origin"/> to the cell
+    /// <paramref name="destination"/>: each relative reference moves by the offset between them.
+    /// </summary>
+    /// <remarks>
+    /// A refused formula is copied exactly as it is (ADR 0002, #508). Its references are unknown, so
+    /// there is nothing to move, and guessing at them would invent meaning. The copy holds the same
+    /// refused text, so reading it fails as reading the original does.
+    /// </remarks>
+    /// <param name="text">The formula text in A1 notation. Leading whitespace and a leading <c>=</c> are kept.</param>
+    /// <param name="origin">The cell the formula is copied from.</param>
+    /// <param name="destination">The cell the formula is copied to.</param>
+    internal static string GetCopiedA1(string text, Point origin, Point destination)
+    {
+        if (!TryGetFormula(text, FormulaConversionType.A1ToR1C1, origin, out var r1c1, out _)
+            || !TryGetFormula(r1c1, FormulaConversionType.R1C1ToA1, destination, out var a1, out _))
+            return text;
+
+        return a1;
+    }
+
+    /// <summary>
+    /// The A1 text of this formula copied from the cell <paramref name="origin"/> to the cell
+    /// <paramref name="destination"/>, as a copy of the cell's value writes it into a normal formula.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only a normal formula whose text the parser refuses is copied exactly as it is (#508). Every
+    /// other type is converted as a copy converted it before #508, which throws on text the parser
+    /// refuses.
+    /// </para>
+    /// <para>
+    /// That matters for a data table. Its <see cref="A1"/> is only a placeholder, such as
+    /// <c>{TABLE(A1,B1}</c>, which the parser always refuses. XLibur has no model of what a copy of a
+    /// data table becomes, so the copy still fails (pre-existing, D78 / #508), instead of writing the
+    /// placeholder into a normal formula, which Excel reports as unreadable content. An array formula
+    /// the parser reads is copied into each cell as a normal formula, as before.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ExpressionParseException">
+    /// The formula is not a normal formula, and the parser refuses its text.
+    /// </exception>
+    internal string GetCopiedA1(Point origin, Point destination)
+    {
+        if (Type == FormulaType.Normal)
+            return GetCopiedA1(A1, origin, destination);
+
+        var r1c1 = GetFormula(A1, FormulaConversionType.A1ToR1C1, origin);
+        return GetFormula(r1c1, FormulaConversionType.R1C1ToA1, destination);
     }
 
     /// <summary>
@@ -634,13 +685,8 @@ internal sealed class XLCellFormula
         if (Type != FormulaType.Normal)
             throw new InvalidOperationException("Can only swap normal formulas.");
 
-        // Copying or moving a formula is a public edge: a refused formula reaches the caller as
-        // ExpressionParseException.
-        if (!FormulaText.TryConvert(A1, origin, FormulaNotation.R1C1, out var originR1C1, out var refusal)
-            || !FormulaText.TryConvert(originR1C1, destination, FormulaNotation.A1, out var targetA1, out refusal))
-            throw refusal.ToException();
-
-        var targetFormula = NormalA1(targetA1);
+        // A refused formula moves with its text exactly as it is, as a copy keeps it (#508).
+        var targetFormula = NormalA1(GetCopiedA1(A1, origin, destination));
         targetFormula.MarkExplicitlyDirty();
         return targetFormula;
     }
