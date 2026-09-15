@@ -282,6 +282,32 @@ internal class DependencyTreeTests
         await Assert.That(tree.IsEmpty).IsTrue();
     }
 
+    /// <summary>
+    /// A removed formula takes its precedent cells and areas out of the tree, and a precedent cell
+    /// that another formula reads stays. A precedent cell is kept outside the R-tree (#513).
+    /// </summary>
+    [Test]
+    public async Task Removing_formula_removes_its_precedent_cells_and_areas_from_tree()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var tree = new DependencyTree();
+        tree.AddSheetTree(ws);
+        var first = AddFormula(tree, ws, "B1", "=A1+SUM(A2:A3)");
+        var second = AddFormula(tree, ws, "B2", "=A1");
+
+        tree.RemoveFormula(first);
+        MarkDirty(tree, ws, "A2:A3");
+        await AssertNotDirty(ws, "B1:B2");
+
+        MarkDirty(tree, ws, "A1");
+        await AssertDirty(ws, "B2");
+        await AssertNotDirty(ws, "B1");
+
+        tree.RemoveFormula(second);
+        await Assert.That(tree.IsEmpty).IsTrue();
+    }
+
     #endregion
 
     #region Mark dirty
@@ -423,8 +449,9 @@ internal class DependencyTreeTests
     /// <summary>
     /// <see cref="DependencyTree.CreateFrom"/> loads the precedent areas of each sheet into the
     /// R-tree in one bulk load, but <see cref="DependencyTree.AddFormula"/> inserts areas one at a
-    /// time (#513). The workbook has enough areas for the bulk load to build more than one R-tree
-    /// node, and every formula in column B reads <c>$D$1</c>, so that one area has 50 dependents.
+    /// time (#513). Each formula in column C reads an area of two cells, so the bulk load has enough
+    /// areas to build more than one R-tree node. A single cell is kept outside the R-tree, and every
+    /// formula in column B reads <c>$D$1</c>, so that one cell has 50 dependents.
     /// </summary>
     [Test]
     public async Task Tree_built_from_a_workbook_marks_dependents_and_accepts_later_changes()
@@ -435,7 +462,7 @@ internal class DependencyTreeTests
         for (var row = 1; row <= rows; row++)
         {
             SetCleanFormula(ws, $"B{row}", $"A{row}*$D$1");
-            SetCleanFormula(ws, $"C{row}", $"B{row}+1");
+            SetCleanFormula(ws, $"C{row}", $"B{row}+SUM(F{row}:G{row})");
         }
 
         var tree = DependencyTree.CreateFrom(wb);
@@ -443,6 +470,11 @@ internal class DependencyTreeTests
         MarkDirty(tree, ws, "A7");
         await AssertDirty(ws, "B7:C7");
         await AssertNotDirty(ws, "B1:C6", $"B8:C{rows}");
+
+        MarkAllClean(ws, rows);
+        MarkDirty(tree, ws, "G9");
+        await AssertDirty(ws, "C9");
+        await AssertNotDirty(ws, $"B1:B{rows}", "C1:C8", $"C10:C{rows}");
 
         MarkAllClean(ws, rows);
         MarkDirty(tree, ws, "D1");
@@ -459,6 +491,38 @@ internal class DependencyTreeTests
 
         MarkDirty(tree, ws, "A8");
         await AssertDirty(ws, "B7:C8");
+    }
+
+    /// <summary>
+    /// A precedent cell is kept outside the R-tree (#513). A dirty area looks up each of its cells
+    /// when it has no more cells than the sheet has precedent cells, and tests each precedent cell
+    /// when it has more. The sheet has three precedent cells, A1, A2 and A3, and one precedent area,
+    /// A1:A2.
+    /// </summary>
+    [Test]
+    [Arguments("A2", "B2,C1", "B1,B3")]
+    [Arguments("A1:A3", "B1:B3,C1", "")]
+    [Arguments("A3:A4", "B3", "B1:B2,C1")]
+    [Arguments("A3:A1048576", "B3", "B1:B2,C1")]
+    [Arguments("A1:A1048576", "B1:B3,C1", "")]
+    [Arguments("B1:D1048576", "", "B1:B3,C1")]
+    public async Task Dirty_area_marks_the_dependents_of_the_precedent_cells_in_it(string dirtyArea, string dirty,
+        string clean)
+    {
+        using var wb = new XLWorkbook();
+        var tree = new DependencyTree();
+        var ws = wb.AddWorksheet();
+        tree.AddSheetTree(ws);
+        AddFormula(tree, ws, "B1", "=A1");
+        AddFormula(tree, ws, "B2", "=A2");
+        AddFormula(tree, ws, "B3", "=A3");
+        AddFormula(tree, ws, "C1", "=SUM(A1:A2)");
+
+        MarkDirty(tree, ws, dirtyArea);
+        await AssertDirty(ws, Split(dirty));
+        await AssertNotDirty(ws, Split(clean));
+
+        static string[] Split(string ranges) => ranges.Split(',', StringSplitOptions.RemoveEmptyEntries);
     }
 
     private static XLCellFormula SetCleanFormula(IXLWorksheet sheet, string address, string formula)

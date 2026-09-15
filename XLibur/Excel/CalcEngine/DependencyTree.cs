@@ -336,6 +336,12 @@ internal sealed class DependencyTree
     private readonly Queue<SheetArea> _walkQueue = new();
 
     /// <summary>
+    /// The dependents that one step of <see cref="MarkDirty"/> finds, reused for the same reason as
+    /// <see cref="_walkQueue"/>.
+    /// </summary>
+    private readonly List<Dependents> _found = new();
+
+    /// <summary>
     /// Capacity above which <see cref="MarkDirty"/> releases the reused queue's backing array
     /// instead of holding it for the tree's lifetime. One unusually wide walk on a long-lived
     /// workbook would otherwise retain a slot per node it visited, along with a sheet-name
@@ -375,6 +381,7 @@ internal sealed class DependencyTree
         // formulas long, attacker could supply malicious excel with recursion
         // leading to stack overflow => use queue even with extra allocation cost.
         var queue = _walkQueue;
+        var found = _found;
         try
         {
             queue.Enqueue(dirtyArea);
@@ -398,11 +405,13 @@ internal sealed class DependencyTree
             {
                 var affectedArea = queue.Dequeue();
                 var sheetTree = _sheetTrees[affectedArea.Name];
-                foreach (var area in sheetTree.FindDependentsAreas(affectedArea.Area))
+                found.Clear();
+                sheetTree.FindDependents(affectedArea.Area, found);
+                foreach (var precedent in found)
                 {
-                    for (var i = 0; i < area.Count; ++i)
+                    for (var i = 0; i < precedent.Count; ++i)
                     {
-                        var dependent = area[i];
+                        var dependent = precedent[i];
 
                         // Ensure we don't end up in an infinite cycle: a formula already enqueued
                         // by this walk is not enqueued again, regardless of its dirty state.
@@ -425,6 +434,11 @@ internal sealed class DependencyTree
             // otherwise expose on every target framework.
             if (queue.EnsureCapacity(0) > WalkQueueRetainedCapacity)
                 queue.TrimExcess();
+
+            // A dirty area such as a whole column can find thousands of precedent cells in one step.
+            found.Clear();
+            if (found.Capacity > WalkQueueRetainedCapacity)
+                found.TrimExcess();
 
             _walkInProgress = false;
         }
@@ -517,49 +531,36 @@ internal sealed class DependencyTree
     }
 
     /// <summary>
-    /// An area that is referred by formulas in different cells, i.e. it
-    /// contains precedent cells for a formula. If anything in the area
-    /// potentially changes, all dependents might also change.
+    /// The formulas that depend on one precedent: a cell, or an area of more than one cell (see
+    /// <see cref="AreaDependents"/>). If anything in the precedent potentially changes, all
+    /// dependents might also change.
     /// </summary>
-    private sealed class AreaDependents : ISpatialData
+    private class Dependents
     {
         /// <summary>
-        /// An area in a sheet that is used by formulas, converted to RBush envelope.
-        /// All RBush <c>double</c> coordinates are whole numbers.
-        /// </summary>
-        private readonly Envelope _area;
-
-        /// <summary>
-        /// The first formula that depends on the area. It is held in a field, because most areas
-        /// have one dependent: a list for each area cost the list and its array (#513).
+        /// The first formula that depends on the precedent. It is held in a field, because most
+        /// precedents have one dependent: a list for each precedent cost the list and its array (#513).
         /// </summary>
         private Dependent _first;
 
         /// <summary>
-        /// The formulas after the first that depend on the area, or <c>null</c> until a second one
-        /// does.
+        /// The formulas after the first that depend on the precedent, or <c>null</c> until a second
+        /// one does.
         /// </summary>
         private List<Dependent>? _others;
 
-        internal AreaDependents(in Envelope area, Dependent firstDependent)
+        internal Dependents(Dependent firstDependent)
         {
-            _area = area;
             _first = firstDependent;
         }
 
         /// <summary>
-        /// The area in a sheet on which some formulas depend on.
-        /// </summary>
-        /// <example><c>SIN(A4)</c> depends on <c>A4:A4</c> area.</example>.
-        public ref readonly Envelope Envelope => ref _area;
-
-        /// <summary>
-        /// The number of formulas that depend on the area, always at least one.
+        /// The number of formulas that depend on the precedent, always at least one.
         /// </summary>
         internal int Count => 1 + (_others?.Count ?? 0);
 
         /// <summary>
-        /// A formula that depends on the area, from <c>0</c> to <see cref="Count"/> - 1.
+        /// A formula that depends on the precedent, from <c>0</c> to <see cref="Count"/> - 1.
         /// </summary>
         internal Dependent this[int index] => index == 0 ? _first : _others![index - 1];
 
@@ -572,10 +573,10 @@ internal sealed class DependencyTree
 
         /// <summary>
         /// Remove the dependent of <paramref name="formula"/>. Several different formulas can depend
-        /// on the same area, so only the dependent of this formula goes.
+        /// on the same precedent, so only the dependent of this formula goes.
         /// </summary>
         /// <returns>
-        /// <c>true</c> when no formula depends on the area any more, and the caller must discard it.
+        /// <c>true</c> when no formula depends on the precedent any more, and the caller must discard it.
         /// </returns>
         internal bool RemoveDependent(XLCellFormula formula)
         {
@@ -625,6 +626,30 @@ internal sealed class DependencyTree
     }
 
     /// <summary>
+    /// The formulas that depend on an area of more than one cell, kept in the R-tree of its sheet.
+    /// </summary>
+    private sealed class AreaDependents : Dependents, ISpatialData
+    {
+        /// <summary>
+        /// An area in a sheet that is used by formulas, converted to RBush envelope.
+        /// All RBush <c>double</c> coordinates are whole numbers.
+        /// </summary>
+        private readonly Envelope _area;
+
+        internal AreaDependents(in Envelope area, Dependent firstDependent)
+            : base(firstDependent)
+        {
+            _area = area;
+        }
+
+        /// <summary>
+        /// The area in a sheet on which some formulas depend on.
+        /// </summary>
+        /// <example><c>SUM(A4:A6)</c> depends on <c>A4:A6</c> area.</example>.
+        public ref readonly Envelope Envelope => ref _area;
+    }
+
+    /// <summary>
     /// A dependent on a precedent area. If the precedent area changes,
     /// the dependent might also now be invalid.
     /// </summary>
@@ -659,22 +684,29 @@ internal sealed class DependencyTree
     private sealed class SheetDependencyTree
     {
         /// <summary>
-        /// The precedent areas are not duplicated, though two areas might overlap.
+        /// The precedent areas of more than one cell. The areas are not duplicated, though two areas
+        /// might overlap.
         /// </summary>
         private readonly RBush<AreaDependents> _tree;
 
         /// <summary>
-        /// All precedent areas in the sheet for all formulas in the workbook.
+        /// The precedent areas of more than one cell in the sheet, for all formulas in the workbook.
+        /// They are the objects in <see cref="_tree"/>, found here by their area.
         /// </summary>
-        /// <remarks>
-        /// Not sure extra memory (at least 32 bytes per formula) is worth less CPU: O(1) vs O(log N)....
-        /// </remarks>
         private readonly Dictionary<Area, AreaDependents> _precedentAreas;
+
+        /// <summary>
+        /// The precedent cells in the sheet, for all formulas in the workbook. A cell is not in
+        /// <see cref="_tree"/>. Most precedents are one cell, and each cost an envelope, a place in an
+        /// R-tree node, and a place in the sort of the bulk load (#513).
+        /// </summary>
+        private readonly Dictionary<Point, Dependents> _precedentCells;
 
         internal SheetDependencyTree()
         {
             _tree = new RBush<AreaDependents>();
             _precedentAreas = new Dictionary<Area, AreaDependents>();
+            _precedentCells = new Dictionary<Point, Dependents>();
         }
 
         /// <summary>
@@ -684,7 +716,7 @@ internal sealed class DependencyTree
         /// </summary>
         private bool _bulkLoading;
 
-        internal bool IsEmpty => _tree.Count == 0;
+        internal bool IsEmpty => _tree.Count == 0 && _precedentCells.Count == 0;
 
         /// <summary>
         /// Start to collect areas for one bulk load. Only <see cref="AddDependent"/> is valid until
@@ -692,7 +724,7 @@ internal sealed class DependencyTree
         /// </summary>
         internal void BeginBulkLoad()
         {
-            Debug.Assert(_precedentAreas.Count == 0, "A bulk load fills an empty sheet tree.");
+            Debug.Assert(_precedentAreas.Count == 0 && _precedentCells.Count == 0, "A bulk load fills an empty sheet tree.");
             _bulkLoading = true;
         }
 
@@ -708,6 +740,17 @@ internal sealed class DependencyTree
 
         internal void AddDependent(Area precedentRange, Dependent dependent)
         {
+            if (IsCell(precedentRange))
+            {
+                var cell = precedentRange.FirstPoint;
+                if (_precedentCells.TryGetValue(cell, out var precedentCell))
+                    precedentCell.AddDependent(dependent);
+                else
+                    _precedentCells.Add(cell, new Dependents(dependent));
+
+                return;
+            }
+
             if (!_precedentAreas.TryGetValue(precedentRange, out var precedentArea))
             {
                 precedentArea = new AreaDependents(ToEnvelope(precedentRange), dependent);
@@ -721,10 +764,44 @@ internal sealed class DependencyTree
             }
         }
 
-        internal IReadOnlyList<AreaDependents> FindDependentsAreas(Area dirtyRange)
+        /// <summary>
+        /// Add to <paramref name="found"/> the dependents of each precedent cell and area that
+        /// <paramref name="dirtyRange"/> intersects.
+        /// </summary>
+        internal void FindDependents(Area dirtyRange, List<Dependents> found)
         {
             Debug.Assert(!_bulkLoading, "The R-tree is incomplete during a bulk load.");
-            return _tree.Search(ToEnvelope(dirtyRange));
+            if (_tree.Count > 0)
+            {
+                var areas = _tree.Search(ToEnvelope(dirtyRange));
+                for (var i = 0; i < areas.Count; ++i)
+                    found.Add(areas[i]);
+            }
+
+            if (_precedentCells.Count == 0)
+                return;
+
+            // A small range looks up each of its cells. A large one, such as a whole column, tests
+            // each precedent cell instead. Either way, the cost is the smaller of the two counts.
+            if ((long)dirtyRange.Width * dirtyRange.Height <= _precedentCells.Count)
+            {
+                for (var row = dirtyRange.TopRow; row <= dirtyRange.BottomRow; ++row)
+                {
+                    for (var column = dirtyRange.LeftColumn; column <= dirtyRange.RightColumn; ++column)
+                    {
+                        if (_precedentCells.TryGetValue(new Point(row, column), out var precedentCell))
+                            found.Add(precedentCell);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var (cell, precedentCell) in _precedentCells)
+                {
+                    if (dirtyRange.Contains(cell))
+                        found.Add(precedentCell);
+                }
+            }
         }
 
         /// <summary>
@@ -736,6 +813,15 @@ internal sealed class DependencyTree
         internal void RemoveDependent(Area precedentRange, XLCellFormula formula)
         {
             Debug.Assert(!_bulkLoading, "The R-tree is incomplete during a bulk load.");
+            if (IsCell(precedentRange))
+            {
+                var cell = precedentRange.FirstPoint;
+                if (_precedentCells.TryGetValue(cell, out var precedentCell) && precedentCell.RemoveDependent(formula))
+                    _precedentCells.Remove(cell);
+
+                return;
+            }
+
             if (!_precedentAreas.TryGetValue(precedentRange, out var precedentArea))
                 return;
 
@@ -752,7 +838,12 @@ internal sealed class DependencyTree
             // enough to change _precedentAreas.
             foreach (var areaDependents in _precedentAreas.Values)
                 areaDependents.RenameSheet(oldSheetName, newSheetName);
+
+            foreach (var cellDependents in _precedentCells.Values)
+                cellDependents.RenameSheet(oldSheetName, newSheetName);
         }
+
+        private static bool IsCell(Area range) => range.FirstPoint == range.LastPoint;
 
         private static Envelope ToEnvelope(Area range)
         {
