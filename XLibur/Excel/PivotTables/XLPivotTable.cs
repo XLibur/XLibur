@@ -1589,8 +1589,10 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
         // Subtotal items must be synchronized with subtotals. If field has a an item for
         // subtotal function, but doesn't declare subtotals function, Excel will try to
-        // repair workbook. Subtotal items can be in any order. The page field must have the
-        // default item, otherwise Excel asks for repair.
+        // repair workbook. Subtotal items can be in any order. A field whose only subtotal is the
+        // automatic one must have the default item, the page field included, otherwise Excel asks
+        // for repair. A field with custom subtotals has none: Excel writes no default item for one
+        // on the rows, the columns or the page axis (#550).
         field.AddMissingSubtotalItems();
 
         return (FieldIndex)fieldIndex;
