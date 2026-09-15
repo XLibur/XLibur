@@ -32,6 +32,12 @@ internal static class SavedDataValidations
         return standard.Concat(extension).ToList();
     }
 
+    /// <summary>
+    /// A criterion as a save writes it: without a leading <c>=</c>, which a file never holds (#523). A
+    /// rule built in code keeps the <c>=</c> in its criteria until then.
+    /// </summary>
+    internal static string AsSaved(string criterion) => criterion is ['=', .. var formula] ? formula : criterion;
+
     internal static WorksheetPart SheetPart(SpreadsheetDocument document, string sheetName)
     {
         var workbookPart = document.WorkbookPart!;

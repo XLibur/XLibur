@@ -171,7 +171,8 @@ public class SheetLifecycleCharacterizationTests
             collectionDelete: "=#REF!");
         await Assert.That(other.DataValidations.Single().MinValue).IsEqualTo(expected);
         var xml = SavedSheetXml(wb, "Other");
-        await Assert.That(xml).Contains(expected);
+        // The file holds the criterion without its '=', as Excel writes it (#523).
+        await Assert.That(xml).Contains(">" + expected[1..] + "<");
         await Assert.That(xml).DoesNotContain("Data!");
     }
 

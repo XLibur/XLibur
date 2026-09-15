@@ -45,6 +45,11 @@ public class DataValidationSheetLifecycleTests
     /// </summary>
     private const string? AnyForm = null;
 
+    /// <summary>
+    /// A list set with a leading <c>=</c>, as a formula is typed. A save writes it without the <c>=</c>,
+    /// in the <c>x14</c> extension, as it writes the same list made with <c>List(IXLRange)</c> (#523).
+    /// After the delete its form is not checked (<see cref="AnyForm"/>).
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -60,7 +65,8 @@ public class DataValidationSheetLifecycleTests
             rename: "='New Data'!$A$1:$A$3",
             delete: "=#REF!"); // As Excel wrote B1 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other",
+            (Expect(sheetEvent, "x14", AnyForm), SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>
@@ -86,6 +92,10 @@ public class DataValidationSheetLifecycleTests
         await AssertSavedAndReloaded(wb, "Other", (Expect(sheetEvent, "x14", AnyForm), expected, ""));
     }
 
+    /// <summary>
+    /// Saved without the <c>=</c> (#523), in the standard form, where Excel writes the extension
+    /// (<c>SheetLifecycleDataValidationFixtureTests</c>).
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -101,10 +111,13 @@ public class DataValidationSheetLifecycleTests
             rename: "=OFFSET('New Data'!$A$1,0,0,COUNTA('New Data'!$A:$A),1)",
             delete: "=OFFSET(#REF!,0,0,COUNTA(#REF!),1)"); // As Excel wrote B2 in dv-delete-after
         await Assert.That(rule.MinValue).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
     }
 
-    /// <summary>The relative reference is to the rule's own sheet, and keeps its text.</summary>
+    /// <summary>
+    /// The relative reference is to the rule's own sheet, and keeps its text. Saved without the
+    /// <c>=</c> (#523), in the standard form, where Excel writes the extension.
+    /// </summary>
     [Test]
     [Arguments(SheetEvent.Rename)]
     [Arguments(SheetEvent.Delete)]
@@ -120,7 +133,7 @@ public class DataValidationSheetLifecycleTests
             rename: "=AND(B1>0,B1<='New Data'!$A$1)",
             delete: "=AND(B1>0,B1<=#REF!)"); // As Excel wrote B3 in dv-delete-after
         await Assert.That(rule.Value).IsEqualTo(expected);
-        await AssertSavedAndReloaded(wb, "Other", ("standard", expected, ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", SavedDataValidations.AsSaved(expected), ""));
     }
 
     /// <summary>
@@ -166,7 +179,7 @@ public class DataValidationSheetLifecycleTests
         await Assert.That(wb.DefinedNames.Single().RefersTo).IsEqualTo(Expect(sheetEvent,
             rename: "'New Data'!$A$1:$A$3",
             delete: "#REF!"));
-        await AssertSavedAndReloaded(wb, "Other", ("standard", "=Items", ""));
+        await AssertSavedAndReloaded(wb, "Other", ("standard", "Items", "")); // Without the '=' (#523)
     }
 
     /// <summary>
@@ -193,7 +206,8 @@ public class DataValidationSheetLifecycleTests
 
     /// <summary>
     /// A rule that names its own sheet follows that sheet's rename. A delete of its own sheet takes
-    /// the rule with it.
+    /// the rule with it. A save writes it without the <c>=</c> (#523) and without the sheet's name, as
+    /// Excel writes a reference to the rule's own sheet.
     /// </summary>
     [Test]
     public async Task A_list_on_its_own_sheet_follows_a_rename_of_that_sheet()
@@ -205,7 +219,7 @@ public class DataValidationSheetLifecycleTests
         Apply(wb, SheetEvent.Rename);
 
         await Assert.That(rule.MinValue).IsEqualTo("='New Data'!$A$1:$A$3");
-        await AssertSavedAndReloaded(wb, "New Data", ("standard", "='New Data'!$A$1:$A$3", ""));
+        await AssertSavedAndReloaded(wb, "New Data", ("standard", "$A$1:$A$3", ""));
     }
 
     /// <summary>

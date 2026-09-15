@@ -154,6 +154,68 @@ public class DataValidationCriteriaTests
         await AssertSavedAndReloaded(wb, form, formula1, formula2);
     }
 
+    /// <summary>
+    /// A list set with a leading <c>=</c>, as a formula is typed, is saved as Excel saves the same rule:
+    /// without the <c>=</c>, and in the <c>x14</c> extension when it refers to another sheet. The <c>=</c>
+    /// was written into <c>&lt;formula1&gt;</c>, and the rule went to the standard form whatever it
+    /// referred to, because the check for another sheet allows no <c>=</c> (#523). The rule keeps its
+    /// text, <c>=</c> included, until it is saved; a reload reads the text the file holds.
+    /// </summary>
+    [Test]
+    [Arguments("=Data!$A$1:$A$3", "x14", "Data!$A$1:$A$3")] // As Excel wrote B1
+    [Arguments("='My Data'!$A$1:$A$3", "x14", "'My Data'!$A$1:$A$3")] // As Excel wrote B8
+    [Arguments("=$D$1:$D$3", "standard", "$D$1:$D$3")] // As Excel wrote B5
+    [Arguments("=Other!$D$1:$D$3", "standard", "$D$1:$D$3")] // As Excel wrote B10
+    public async Task A_list_set_with_a_leading_equals_is_saved_as_Excel_saves_it(string list, string form,
+        string formula1)
+    {
+        using var wb = NewBook(out _, out var other);
+        wb.AddWorksheet("My Data");
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.List(list);
+
+        await Assert.That(rule.MinValue).IsEqualTo(list);
+        await AssertSavedAndReloaded(wb, form, formula1, "");
+    }
+
+    /// <summary>
+    /// Both ends of a between rule set as text with a leading <c>=</c> are saved as Excel saves the same
+    /// rule.
+    /// </summary>
+    [Test]
+    [Arguments("=Data!$A$1", "=Data!$A$2", "x14", "Data!$A$1", "Data!$A$2")] // As Excel wrote B3
+    [Arguments("=$D$1", "=$D$2", "standard", "$D$1", "$D$2")] // As Excel wrote B7
+    public async Task A_between_rule_set_with_a_leading_equals_is_saved_as_Excel_saves_it(string min, string max,
+        string form, string formula1, string formula2)
+    {
+        using var wb = NewBook(out _, out var other);
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.WholeNumber.Between(min, max);
+
+        await Assert.That(rule.MinValue).IsEqualTo(min);
+        await Assert.That(rule.MaxValue).IsEqualTo(max);
+        await AssertSavedAndReloaded(wb, form, formula1, formula2);
+    }
+
+    /// <summary>
+    /// A custom formula set with a leading <c>=</c> is saved without it, with the text Excel wrote for
+    /// <c>B6</c>. Excel wrote that rule in the <c>x14</c> extension, because the formula refers to another
+    /// sheet. XLibur writes a rule there only when a criterion is a range address on another sheet, so
+    /// this one goes to the standard form, which Excel reads. Which form a rule takes belongs to spec 44.
+    /// </summary>
+    [Test]
+    public async Task A_custom_formula_set_with_a_leading_equals_is_saved_without_it()
+    {
+        using var wb = NewBook(out _, out var other);
+        var rule = other.Cell("B6").CreateDataValidation();
+
+        rule.Custom("=B6<=MAX(Data!$A$1:$A$3)");
+
+        await AssertSavedAndReloaded(wb, "standard", "B6<=MAX(Data!$A$1:$A$3)", "");
+    }
+
     private static XLWorkbook NewBook(out IXLWorksheet data, out IXLWorksheet other)
     {
         var wb = new XLWorkbook();

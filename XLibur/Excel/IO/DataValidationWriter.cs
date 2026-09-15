@@ -61,24 +61,37 @@ internal static class DataValidationWriter
         WriteExtensionDataValidations(worksheet, cm, dataValidationsExtension);
     }
 
+    /// <summary>
+    /// The text a criterion is written with, and whether it is a range on another sheet, which Excel
+    /// writes only in the <c>x14</c> extension.
+    /// </summary>
+    /// <remarks>
+    /// A file stores a criterion as formula text, which has no leading <c>=</c>. A rule built in code can
+    /// have one, as in <c>List("=Data!$A$1:$A$3")</c>, so it comes off first. Written as it was, the
+    /// <c>=</c> went into <c>&lt;formula1&gt;</c>, and the address check below, which allows no <c>=</c>,
+    /// sent a range on another sheet to the standard form (#523). Excel writes such a rule in the
+    /// extension, without the <c>=</c>. The rule itself keeps its text, so
+    /// <see cref="IXLDataValidation.MinValue"/> still returns what was set.
+    /// </remarks>
     private static (bool, string) UsesExternalSheet(XLWorksheet sheet, string value)
     {
-        if (!XLHelper.IsValidRangeAddress(value))
-            return (false, value);
+        var formula = CalcEngine.FormulaText.WithoutLeadingEquals(value);
+        if (!XLHelper.IsValidRangeAddress(formula))
+            return (false, formula);
 
-        var separatorIndex = value.LastIndexOf('!');
+        var separatorIndex = formula.LastIndexOf('!');
         var hasSheet = separatorIndex >= 0;
         if (!hasSheet)
-            return (false, value);
+            return (false, formula);
 
-        var sheetName = value[..separatorIndex].UnescapeSheetName();
+        var sheetName = formula[..separatorIndex].UnescapeSheetName();
         if (XLHelper.SheetComparer.Equals(sheet.Name, sheetName))
         {
             // The spec wants us to include references to ranges on the same worksheet without the sheet name
-            return (false, value[(separatorIndex + 1)..]);
+            return (false, formula[(separatorIndex + 1)..]);
         }
 
-        return (true, value);
+        return (true, formula);
     }
 
     private static void WriteStandardDataValidations(
