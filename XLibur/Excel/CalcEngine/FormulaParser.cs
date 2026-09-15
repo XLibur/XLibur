@@ -65,7 +65,10 @@ internal sealed class FormulaParser
     /// <param name="functionName">The name as written. It becomes the name without the prefix when the prefix was removed.</param>
     /// <param name="argumentCount">The number of arguments in the formula.</param>
     /// <returns><c>false</c> when there is no such function. It evaluates to <c>#NAME?</c>.</returns>
-    /// <exception cref="ExpressionParseException">The function takes a different number of arguments.</exception>
+    /// <exception cref="ExpressionParseException">
+    /// The function takes a different number of arguments. Thrown while the parser reads the text, so
+    /// <see cref="FormulaText"/> returns it as a refusal, as it returns the parser's own (#543).
+    /// </exception>
     internal static bool ResolveFunction(FunctionRegistry registry, ref string functionName, int argumentCount)
     {
         var foundFunction = registry.TryGetFunc(functionName, out var minParams, out var maxParams);

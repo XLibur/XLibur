@@ -457,6 +457,68 @@ public class FormulaTextTests
         await Assert.That(refusal.Message).Contains("char 0");
     }
 
+    /// <summary>
+    /// #543. The parser reads a function with any number of arguments. The calc engine's factory
+    /// refuses one with too many or too few, by throwing <see cref="ExpressionParseException"/> while
+    /// the parser reads the text. That is a refusal, as the parser's own is, so the parse returns it,
+    /// and a public edge throws the same exception that evaluation threw before.
+    /// </summary>
+    [Test]
+    [Arguments("ABS(1,2)", "Too many parameters for function 'ABS'.Expected a minimum of 1 and a maximum of 1.")]
+    [Arguments("ABS()", "Too few parameters for function 'ABS'. Expected a minimum of 1 and a maximum of 1.")]
+    public async Task Issue543_a_function_with_the_wrong_number_of_arguments_is_a_refusal(string text, string message)
+    {
+        using var wb = new XLWorkbook();
+        var parser = new FormulaParser(wb.CalcEngine.Functions);
+
+        var accepted = parser.TryGetAst(text, isA1: true, out _, out var refusal);
+
+        await Assert.That(accepted).IsFalse();
+        await Assert.That(refusal.Message).IsEqualTo(message);
+        var thrown = await Assert.That(() => parser.GetAst(text, isA1: true)).Throws<ExpressionParseException>();
+        await Assert.That(thrown!.Message).IsEqualTo(message);
+        await Assert.That(thrown.InnerException).IsNull();
+    }
+
+    /// <summary>
+    /// #543. Any factory that refuses a part of the text with <see cref="ExpressionParseException"/>
+    /// gives a refusal, and the refusal throws that exception itself.
+    /// </summary>
+    [Test]
+    public async Task A_factory_that_throws_ExpressionParseException_gives_a_refusal()
+    {
+        var refused = new ExpressionParseException("refused by the factory");
+
+        var accepted = FormulaText.TryWalk("SUM(A1)", new List<string>(), new ThrowingProbe(refused),
+            FormulaNotation.A1, out _, out var refusal);
+
+        await Assert.That(accepted).IsFalse();
+        await Assert.That(refusal.Cause).IsSameReferenceAs(refused);
+        await Assert.That(refusal.Message).IsEqualTo("refused by the factory");
+        await Assert.That(refusal.ToException()).IsSameReferenceAs(refused);
+    }
+
+    /// <summary>
+    /// #543. Only a refusal becomes a value. Any other exception from a factory is a defect, and it
+    /// reaches the caller.
+    /// </summary>
+    [Test]
+    public async Task Any_other_exception_from_a_factory_reaches_the_caller()
+    {
+        var defect = new InvalidOperationException("a defect in the factory");
+
+        await Assert.That(() => FormulaText.TryWalk("SUM(A1)", new List<string>(), new ThrowingProbe(defect),
+            FormulaNotation.A1, out _, out _)).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>Throws the exception it is given for the first function in the text.</summary>
+    private sealed class ThrowingProbe(Exception exception) : CollectVisitor<List<string>>
+    {
+        public override object? Function(List<string> context, SymbolRange range, ReadOnlySpan<char> functionName,
+            IReadOnlyList<object?> arguments)
+            => throw exception;
+    }
+
     /// <summary>Records every column name a structured reference names.</summary>
     private sealed class ColumnProbe : CollectVisitor<List<string>>
     {

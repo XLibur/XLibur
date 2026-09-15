@@ -689,8 +689,9 @@ internal class DependencyTreeTests
     /// <summary>
     /// #513, change 6. <see cref="PrecedentsFactory"/> collects the precedents while the parser reads a
     /// formula, and <see cref="DependenciesVisitor"/> reads the AST of a shared formula. Both must give
-    /// the same precedents, names and unknown flag, and throw the same exception. The factory may ask for
-    /// the AST only where it cannot read the formula in one pass.
+    /// the same precedents, names and unknown flag. Neither throws: text that either cannot read, a
+    /// function with the wrong number of arguments included (#543), is a refusal for both. The factory
+    /// may ask for the AST only where it cannot read the formula in one pass.
     /// </summary>
     [Test]
     [MethodDataSource(nameof(ParityFormulas))]
@@ -699,37 +700,14 @@ internal class DependencyTreeTests
         using var wb = ParityWorkbook();
         var formulaArea = new SheetArea("Sheet", Area.Parse("D2"));
 
-        FormulaDependencies? visited = null;
-        Exception? visitorError = null;
-        try
-        {
-            visited = CollectThroughAst(wb, formulaArea, formula);
-        }
-        catch (Exception e)
-        {
-            visitorError = e;
-        }
-
+        var visited = CollectThroughAst(wb, formulaArea, formula);
         var walked = new FormulaDependencies();
         var context = new DependenciesContext(formulaArea, wb, walked);
-        var accepted = false;
-        Exception? factoryError = null;
-        try
-        {
-            accepted = new PrecedentsFactory().TryCollect(formula, context);
-        }
-        catch (Exception e)
-        {
-            factoryError = e;
-        }
-
-        await Assert.That(factoryError?.GetType()).IsEqualTo(visitorError?.GetType());
-        if (visitorError is not null)
-            return;
+        var accepted = new PrecedentsFactory().TryCollect(formula, context);
 
         // The tree clears what a refused walk added, so the formula has no precedents but unknown ones.
         var viaTree = new DependencyTree().GetPrecedents(formulaArea, XLCellFormula.NormalA1(formula), wb);
-        await Assert.That(viaTree.Areas).IsEquivalentTo(visited!.Areas);
+        await Assert.That(viaTree.Areas).IsEquivalentTo(visited.Areas);
         await Assert.That(viaTree.Names).IsEquivalentTo(visited.Names);
         await Assert.That(viaTree.HasUnknownPrecedents).IsEqualTo(visited.HasUnknownPrecedents);
 
@@ -749,6 +727,31 @@ internal class DependencyTreeTests
         await Assert.That(walked.Areas).IsEquivalentTo(visited.Areas);
         await Assert.That(walked.Names).IsEquivalentTo(visited.Names);
         await Assert.That(walked.HasUnknownPrecedents).IsEqualTo(visited.HasUnknownPrecedents);
+    }
+
+    /// <summary>
+    /// #543. A function with the wrong number of arguments is a refusal for the factory and for the
+    /// visitor, as <c>1+</c> is. Both threw <see cref="ExpressionParseException"/>, and the tree let it
+    /// out of every build. The tree now takes the formula to depend on every cell, and drops the
+    /// precedents the walk added before it refused the text.
+    /// </summary>
+    [Test]
+    [Arguments("1+")]
+    [Arguments("ABS()")]
+    [Arguments("ABS(1,2)")]
+    [Arguments("ABS(A1,B1)")]
+    public async Task A_wrong_number_of_arguments_is_a_refusal_as_unreadable_text_is(string formula)
+    {
+        using var wb = ParityWorkbook();
+        var formulaArea = new SheetArea("Sheet", Area.Parse("D2"));
+        var context = new DependenciesContext(formulaArea, wb, new FormulaDependencies());
+
+        await Assert.That(new PrecedentsFactory().TryCollect(formula, context)).IsFalse();
+        await Assert.That(wb.CalcEngine.TryParse(formula, out _)).IsFalse();
+
+        var viaTree = new DependencyTree().GetPrecedents(formulaArea, XLCellFormula.NormalA1(formula), wb);
+        await Assert.That(viaTree.HasUnknownPrecedents).IsTrue();
+        await Assert.That(viaTree.Areas).IsEmpty();
     }
 
     /// <summary>
