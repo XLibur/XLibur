@@ -216,6 +216,56 @@ public class DataValidationCriteriaTests
         await AssertSavedAndReloaded(wb, "standard", "B6<=MAX(Data!$A$1:$A$3)", "");
     }
 
+    /// <summary>
+    /// A cell on a sheet whose name holds an apostrophe names the sheet with the apostrophe doubled, and
+    /// the rule is saved in the <c>x14</c> extension, as Excel saved the same rule over <c>Bob's</c>
+    /// (2026-09-15). The check for another sheet did not read <c>'Bob''s'!$A$1</c> as a range address,
+    /// so the rule went to the standard form.
+    /// </summary>
+    [Test]
+    public async Task A_between_rule_over_cells_on_a_sheet_with_an_apostrophe_is_saved_as_Excel_saves_it()
+    {
+        using var wb = NewBook(out _, out var other);
+        var bobs = wb.AddWorksheet("Bob's");
+
+        other.Cell("B1").CreateDataValidation().WholeNumber.Between(bobs.Cell("A1"), bobs.Cell("A2"));
+
+        await AssertSavedAndReloaded(wb, "x14", "'Bob''s'!$A$1", "'Bob''s'!$A$2");
+    }
+
+    /// <summary>
+    /// <c>List(IXLRange)</c> over a sheet whose name holds an apostrophe stores the range, not a literal
+    /// list, and a save writes it in the <c>x14</c> extension, as Excel saved the same list. The range
+    /// text was not read as a range address, so it was quoted as a list of one item.
+    /// </summary>
+    [Test]
+    public async Task A_list_from_a_range_on_a_sheet_with_an_apostrophe_is_a_range()
+    {
+        using var wb = NewBook(out _, out var other);
+        var bobs = wb.AddWorksheet("Bob's");
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        rule.List(bobs.Range("A1:A3"));
+
+        await Assert.That(rule.MinValue).IsEqualTo("'Bob''s'!$A$1:$A$3");
+        await AssertSavedAndReloaded(wb, "x14", "'Bob''s'!$A$1:$A$3", "");
+    }
+
+    /// <summary>
+    /// The same list on the sheet it refers to is saved in the standard element without the sheet's
+    /// name, as Excel saved it.
+    /// </summary>
+    [Test]
+    public async Task A_list_from_a_range_on_its_own_sheet_with_an_apostrophe_is_saved_without_the_name()
+    {
+        using var wb = NewBook(out _, out _);
+        var bobs = wb.AddWorksheet("Bob's");
+
+        bobs.Cell("C1").CreateDataValidation().List(bobs.Range("A1:A3"));
+
+        await AssertSavedAndReloaded(wb, "standard", "$A$1:$A$3", "", sheetName: "Bob's");
+    }
+
     private static XLWorkbook NewBook(out IXLWorksheet data, out IXLWorksheet other)
     {
         var wb = new XLWorkbook();
@@ -272,20 +322,22 @@ public class DataValidationCriteriaTests
         => comparison is XLOperator.Between or XLOperator.NotBetween;
 
     /// <summary>
-    /// Saves <paramref name="wb"/>, checks that <c>Other</c> holds one rule, written in the form and with
-    /// the criteria given, and that a reload reads the criteria back as they were written.
+    /// Saves <paramref name="wb"/>, checks that <paramref name="sheetName"/> holds one rule, written in
+    /// the form and with the criteria given, and that a reload reads the criteria back as they were
+    /// written.
     /// </summary>
-    private static async Task AssertSavedAndReloaded(XLWorkbook wb, string form, string formula1, string formula2)
+    private static async Task AssertSavedAndReloaded(XLWorkbook wb, string form, string formula1, string formula2,
+        string sheetName = "Other")
     {
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
 
-        await Assert.That(SavedDataValidations.Criteria(ms, "Other"))
+        await Assert.That(SavedDataValidations.Criteria(ms, sheetName))
             .IsEquivalentTo(new[] { (form, formula1, formula2) }, CollectionOrdering.Matching);
 
         ms.Position = 0;
         using var reloaded = new XLWorkbook(ms);
-        var rule = reloaded.Worksheet("Other").DataValidations.Single();
+        var rule = reloaded.Worksheet(sheetName).DataValidations.Single();
         await Assert.That(rule.MinValue).IsEqualTo(formula1);
         await Assert.That(rule.MaxValue).IsEqualTo(formula2);
     }
