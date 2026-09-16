@@ -248,6 +248,146 @@ public class XLPivotTableTests
     }
 
     /// <summary>
+    /// #593: a table with two or more values keeps the <c>{{Values}}</c> sentinel (field index -2)
+    /// on an axis, and <see cref="XLPivotTable.CopyTo"/> copied every axis field, including that
+    /// one, through a local function that called <see cref="IXLPivotField.SetSort"/> and friends on
+    /// it first. Those reach <see cref="XLPivotTableAxisField.GetField"/>, which throws on purpose
+    /// because the sentinel is not a field of the cache. The fix skips property copying for it and
+    /// keeps only its position on the axis.
+    /// </summary>
+    private static (XLWorkbook Workbook, XLWorksheet DataSheet, XLPivotTable PivotTable) BuildPivotTableWithTwoValues()
+    {
+        var wb = new XLWorkbook();
+        var ws = (XLWorksheet)wb.AddWorksheet("Data");
+        ws.Cell("A1")!.Value = "Name";
+        ws.Cell("B1")!.Value = "Qty";
+        ws.Cell("C1")!.Value = "Price";
+        ws.Cell("A2")!.Value = "a";
+        ws.Cell("B2")!.Value = 1;
+        ws.Cell("C2")!.Value = 2;
+        ws.Cell("A3")!.Value = "b";
+        ws.Cell("B3")!.Value = 4;
+        ws.Cell("C3")!.Value = 5;
+        var table = ws.Range("A1:C3")!.CreateTable();
+
+        var pivotSheet = (XLWorksheet)wb.AddWorksheet("Pivot");
+        var pt = (XLPivotTable)pivotSheet.PivotTables.Add("pt", pivotSheet.Cell("A1")!, table);
+        pt.RowLabels.Add("Name");
+        pt.Values.Add("Qty");
+        pt.Values.Add("Price"); // Second value puts {{Values}} on ColumnLabels.
+
+        return (wb, ws, pt);
+    }
+
+    [Test]
+    [Property("Description", "#593: CopyTo threw for a pivot table with two or more values, because it called SetSort and other setters on the {{Values}} sentinel field before it reached the code that skips it")]
+    public async Task CopyTo_copies_a_pivot_table_with_two_values()
+    {
+        var (wb, _, pt) = BuildPivotTableWithTwoValues();
+        using var _wb = wb;
+
+        var copySheet = wb.AddWorksheet("Copy");
+        XLPivotTable? copy = null;
+        await Assert.That(() => copy = (XLPivotTable)pt.CopyTo(copySheet.Cell("A1"))).ThrowsNothing();
+
+        await Assert.That(copy!.ColumnLabels.Select(f => f.SourceName))
+            .IsEquivalentTo(pt.ColumnLabels.Select(f => f.SourceName))
+            .Because("the {{Values}} sentinel's position on the axis is the one thing CopyTo must keep for it");
+        await Assert.That(copy.ColumnLabels.Count(f => f.SourceName == XLConstants.PivotTable.ValuesSentinalLabel)).IsEqualTo(1)
+            .Because("the axis copy already adds the sentinel explicitly, so the Values loop must not add a second one");
+        await Assert.That(copy.RowLabels.Select(f => f.SourceName)).IsEquivalentTo(pt.RowLabels.Select(f => f.SourceName));
+        await Assert.That(copy.Values.Select(v => v.CustomName)).IsEquivalentTo(pt.Values.Select(v => v.CustomName));
+
+        using var ms = new MemoryStream();
+        await Assert.That(() => wb.SaveAs(ms)).ThrowsNothing();
+    }
+
+    [Test]
+    [Property("Description", "#593: the {{Values}} sentinel can sit anywhere on the axis, not only last -- CopyTo must keep it at the source's own position, not move it to the end")]
+    public async Task CopyTo_keeps_the_Values_field_in_the_middle_of_the_column_axis()
+    {
+        using var wb = new XLWorkbook();
+        var ws = (XLWorksheet)wb.AddWorksheet("Data");
+        ws.Cell("A1")!.Value = "Name";
+        ws.Cell("B1")!.Value = "Category";
+        ws.Cell("C1")!.Value = "Qty";
+        ws.Cell("D1")!.Value = "Price";
+        ws.Cell("A2")!.Value = "a";
+        ws.Cell("B2")!.Value = "x";
+        ws.Cell("C2")!.Value = 1;
+        ws.Cell("D2")!.Value = 2;
+        var table = ws.Range("A1:D2")!.CreateTable();
+
+        var pivotSheet = (XLWorksheet)wb.AddWorksheet("Pivot");
+        var pt = (XLPivotTable)pivotSheet.PivotTables.Add("pt", pivotSheet.Cell("A1")!, table);
+        pt.RowLabels.Add("Name");
+        pt.ColumnLabels.Add("Category");
+        pt.Values.Add("Qty");
+        pt.Values.Add("Price");
+
+        // Move the sentinel between the two explicit column fields the hard way, since the public
+        // API only ever appends: clear the axis and rebuild it in the order under test.
+        var columnSourceNames = pt.ColumnLabels.Select(f => f.SourceName).ToList();
+        pt.ColumnLabels.Clear();
+        pt.ColumnLabels.Add(columnSourceNames[0]);
+        pt.ColumnLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+
+        await Assert.That(pt.ColumnLabels.Select(f => f.SourceName))
+            .IsEquivalentTo(new[] { "Category", XLConstants.PivotTable.ValuesSentinalLabel })
+            .Because("the sentinel sits after Category, i.e. in the middle of the column axis, not only at the end -- this proves the fixture exercises that shape");
+
+        XLPivotTable? copy = null;
+        await Assert.That(() => copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"))).ThrowsNothing();
+
+        await Assert.That(copy!.ColumnLabels.Select(f => f.SourceName))
+            .IsEquivalentTo(pt.ColumnLabels.Select(f => f.SourceName))
+            .Because("the sentinel must stay in the middle, at the source's own position, not move to the end of the axis");
+        await Assert.That(copy.ColumnLabels.Count(f => f.SourceName == XLConstants.PivotTable.ValuesSentinalLabel)).IsEqualTo(1);
+    }
+
+    [Test]
+    [Property("Description", "#593: IXLWorksheet.CopyTo copies every pivot table on the sheet, so a sheet holding a pivot table with two or more values could not be copied either")]
+    public async Task Worksheet_CopyTo_copies_a_sheet_with_a_pivot_table_that_has_two_values()
+    {
+        var (wb, _, pt) = BuildPivotTableWithTwoValues();
+        using var _wb = wb;
+
+        IXLWorksheet? copySheet = null;
+        await Assert.That(() => copySheet = pt.Worksheet.CopyTo("PivotCopy")).ThrowsNothing();
+
+        var copy = (XLPivotTable)copySheet!.PivotTables.Single();
+        await Assert.That(copy.ColumnLabels.Select(f => f.SourceName))
+            .IsEquivalentTo(pt.ColumnLabels.Select(f => f.SourceName));
+        await Assert.That(copy.Values.Select(v => v.CustomName)).IsEquivalentTo(pt.Values.Select(v => v.CustomName));
+    }
+
+    [Test]
+    [Property("Description", "#593: the same throw happened for a workbook that was saved and reloaded, not only a table built in code")]
+    public async Task Worksheet_CopyTo_copies_a_sheet_with_a_pivot_table_that_has_two_values_after_save_and_reload()
+    {
+        var built = BuildPivotTableWithTwoValues();
+        using var _wb = built.Workbook;
+        using var ms = new MemoryStream();
+        built.Workbook.SaveAs(ms);
+
+        ms.Position = 0;
+        using var wb = new XLWorkbook(ms);
+        var pivotSheet = wb.Worksheet("Pivot");
+
+        IXLWorksheet? copySheet = null;
+        await Assert.That(() => copySheet = pivotSheet.CopyTo("PivotCopy")).ThrowsNothing();
+
+        var original = (XLPivotTable)pivotSheet.PivotTables.Single();
+        var copy = (XLPivotTable)copySheet!.PivotTables.Single();
+        await Assert.That(copy.ColumnLabels.Select(f => f.SourceName))
+            .IsEquivalentTo(original.ColumnLabels.Select(f => f.SourceName));
+        await Assert.That(copy.Values.Select(v => v.CustomName)).IsEquivalentTo(original.Values.Select(v => v.CustomName));
+
+        using var saved = new MemoryStream();
+        await Assert.That(() => wb.SaveAs(saved)).ThrowsNothing();
+    }
+
+    /// <summary>
     /// Excel saved this file: pivot table <c>Pastries</c> on <c>Pivot</c>, whose fields have no
     /// <c>name</c> because nobody renamed them.
     /// </summary>
