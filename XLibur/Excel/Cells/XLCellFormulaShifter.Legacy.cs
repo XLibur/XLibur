@@ -73,26 +73,22 @@ internal static partial class XLCellFormulaShifter
     }
 
     /// <summary>
-    /// The sheet a matched reference names, found by the name it really has.
+    /// The sheet a matched reference names, which is always the sheet being shifted: both callers reach
+    /// their append only once the reference's sheet name has matched that sheet's name.
     /// </summary>
     /// <remarks>
-    /// Not <see cref="XLWorkbook.Worksheet(string)"/>: that undoubles the apostrophes of the name it is
-    /// given, and <see cref="ExtractSheetName"/> has already done so. A sheet legally named
-    /// <c>Ann''s</c> was therefore looked for as <c>Ann's</c>, a sheet that does not exist. Until the
-    /// sheet-name pattern was fixed nothing reached this, because such a reference was never recognised
-    /// as naming the shifted sheet in the first place (#570).
+    /// Taking the sheet from the shifted range rather than looking the name up again is what makes a
+    /// name holding a doubled apostrophe work. <see cref="XLWorkbook.Worksheet(string)"/> undoubles the
+    /// apostrophes of the name it is given, and <see cref="ExtractSheetName"/> has already done so, so
+    /// a sheet legally named <c>Ann''s</c> was looked for as <c>Ann's</c> — a sheet that does not
+    /// exist. Nothing reached that until the sheet-name pattern was fixed, because such a reference was
+    /// never recognised as naming the shifted sheet in the first place (#570).
     /// </remarks>
     /// <returns>
     /// The sheet as <see cref="IXLWorksheet"/>, so that <c>Range(string)</c> keeps raising its own
     /// exception for an address it cannot read rather than handing back null.
     /// </returns>
-    private static IXLWorksheet ReferencedSheet(XLWorksheet worksheetInAction, string sheetName)
-    {
-        if (worksheetInAction.Workbook.WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out var sheet))
-            return sheet;
-
-        throw new ArgumentException("There isn't a worksheet named '" + sheetName + "'.");
-    }
+    private static IXLWorksheet ReferencedSheet(XLRange shiftedRange) => shiftedRange.Worksheet;
 
     private static void AppendShiftedRowMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
         XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)
@@ -104,7 +100,7 @@ internal static partial class XLCellFormulaShifter
             return;
         }
 
-        var matchRange = ReferencedSheet(worksheetInAction, sheetName).Range(rangeAddress);
+        var matchRange = ReferencedSheet(shiftedRange).Range(rangeAddress);
         if (!IsRowRangeWithinShiftedRange(shiftedRange, matchRange))
         {
             sb.Append(matchString);
@@ -301,7 +297,7 @@ internal static partial class XLCellFormulaShifter
             return;
         }
 
-        var matchRange = ReferencedSheet(worksheetInAction, sheetName).Range(rangeAddress);
+        var matchRange = ReferencedSheet(shiftedRange).Range(rangeAddress);
         if (!IsColumnRangeWithinShiftedRange(shiftedRange, matchRange))
         {
             sb.Append(matchString);
@@ -466,6 +462,13 @@ internal static partial class XLCellFormulaShifter
     /// <c>Sheet'!A1</c>, whose sheet name matches no real sheet, so the reference is left alone.
     /// Narrowing this to <c>\w+</c> would leave a bare <c>A1</c> to match on its own, which the shifter
     /// would then read as a reference to the sheet the formula lives on and move.
+    /// <para>
+    /// Keeping them does mean this alternative still admits a name with one apostrophe instead of two,
+    /// as in <c>'Data!A1</c>, which <see cref="ExtractSheetName"/> then reads as <c>Dat</c>: it removes
+    /// a closing apostrophe that was never there. That is unchanged here and reaches nothing unless a
+    /// sheet is really named <c>Dat</c>, but it is the price of the branch above and not an endorsement
+    /// of the form.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"(?<Reference>(?<Sheet>(" + XLHelper.QuotedSheetNamePattern + @"|\'?\w+\'?)!)?(?<Range>(?<![\w\d])\$?[a-zA-Z]{1,3}\$?\d{1,7}(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?(?![\w\d])|(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})|(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})))",
