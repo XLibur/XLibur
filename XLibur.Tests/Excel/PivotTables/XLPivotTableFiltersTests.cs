@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using Field = DocumentFormat.OpenXml.Spreadsheet.Field;
@@ -149,6 +150,128 @@ public class XLPivotTableFiltersTests
         await Assert.That(SavedLayout(saved)).IsEqualTo(new Layout(
             "-:-,axisCol:Month,-:-", Rows: "", Columns: "1", Pages: "", "E1", RowPageCount: 0));
         await Assert.That(ReloadedLabels(saved)).IsEqualTo("rows= columns=Month filters=");
+    }
+
+    [Test]
+    [Property("Description", "#556: GetSize used DivRem's quotient and remainder as the filter area's two dimensions, so any wrap other than 0 gave a size that was not the area")]
+    // A wrap of 0 is no wrap: one column going down, or one row going across. Unchanged.
+    [Arguments(XLFilterAreaOrder.DownThenOver, 0, 0, 0, 0)]
+    [Arguments(XLFilterAreaOrder.DownThenOver, 1, 0, 1, 1)]
+    [Arguments(XLFilterAreaOrder.DownThenOver, 3, 0, 1, 3)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 0, 0, 0, 0)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 1, 0, 1, 1)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 3, 0, 3, 1)]
+    // A wrap of 1 starts a new line for every filter.
+    [Arguments(XLFilterAreaOrder.DownThenOver, 1, 1, 1, 1)]
+    [Arguments(XLFilterAreaOrder.DownThenOver, 3, 1, 3, 1)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 3, 1, 1, 3)]
+    // A wrap the filters reach exactly, and a wrap they run past.
+    [Arguments(XLFilterAreaOrder.DownThenOver, 2, 2, 1, 2)]
+    [Arguments(XLFilterAreaOrder.DownThenOver, 3, 2, 2, 2)]
+    [Arguments(XLFilterAreaOrder.DownThenOver, 5, 2, 3, 2)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 2, 2, 2, 1)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 3, 2, 2, 2)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 5, 2, 2, 3)]
+    // A wrap larger than the number of filters never wraps, so it matches a wrap of 0.
+    [Arguments(XLFilterAreaOrder.DownThenOver, 2, 5, 1, 2)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 2, 5, 2, 1)]
+    // No filters take up no room, whatever the wrap.
+    [Arguments(XLFilterAreaOrder.DownThenOver, 0, 2, 0, 0)]
+    [Arguments(XLFilterAreaOrder.OverThenDown, 0, 2, 0, 0)]
+    public async Task Filter_area_fills_each_line_up_to_the_page_wrap_then_starts_the_next(
+        XLFilterAreaOrder order, int filterCount, int pageWrap, int expectedWidth, int expectedHeight)
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreateWithFilters(wb, order, pageWrap, filterCount);
+
+        await Assert.That(Size(pt)).IsEqualTo($"{expectedWidth}x{expectedHeight}");
+    }
+
+    [Test]
+    [Property("Description", "#556: two filters with a wrap of 2 sized the area 2 wide and 0 high, so the table never moved down and the file said the filter area had no rows")]
+    public async Task Two_filters_with_a_page_wrap_of_two_stack_into_one_column_and_push_the_table_down()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var pt = CreateWithFilters(wb, XLFilterAreaOrder.DownThenOver, pageWrap: 2, filterCount: 2, rowLabel: "F5");
+
+            await Assert.That(Size(pt)).IsEqualTo("1x2");
+
+            // Two filter rows plus the divider row below them, so the table starts at row 4.
+            await Assert.That(pt.Area.ToString()).IsEqualTo("H4");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedFilterArea(saved))
+            .IsEqualTo("ref=H4 rowPageCount=2 colPageCount=1 pageWrap=2");
+
+        // rowPageCount and colPageCount are not read back, they are derived again from the
+        // wrap, the order and the filter count, so a reload must reach the same size.
+        await Assert.That(ReloadedFilterArea(saved)).IsEqualTo("ref=H4 size=1x2 pageWrap=2");
+    }
+
+    private static string Size(XLPivotTable pt)
+    {
+        var size = pt.Filters.GetSize();
+        return $"{size.Width}x{size.Height}";
+    }
+
+    private static XLPivotTable CreateWithFilters(
+        XLWorkbook wb, XLFilterAreaOrder order, int pageWrap, int filterCount, string? rowLabel = null)
+    {
+        var ws = wb.AddWorksheet("Data");
+        var range = ws.Cell("A1").InsertData(new object[]
+        {
+            ("F1", "F2", "F3", "F4", "F5", "Value"),
+            ("a", "b", "c", "d", "e", 1),
+        });
+
+        var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("H1"), range!);
+
+        // Neither setter moves the table, so both must be set before the filters are added.
+        pt.FilterAreaOrder = order;
+        pt.FilterFieldsPageWrap = pageWrap;
+
+        if (rowLabel is not null)
+            pt.RowLabels.Add(rowLabel);
+
+        for (var i = 1; i <= filterCount; i++)
+            pt.ReportFilters.Add($"F{i}");
+
+        return pt;
+    }
+
+    private static string SavedFilterArea(Stream package)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var definition = document.WorkbookPart!.WorksheetParts
+            .SelectMany(part => part.PivotTableParts)
+            .Select(part => part.PivotTableDefinition!)
+            .Single();
+        var location = definition.Location!;
+        return $"ref={location.Reference!.Value} " +
+               $"rowPageCount={Attribute(location, "rowPageCount")} " +
+               $"colPageCount={Attribute(location, "colPageCount")} " +
+               $"pageWrap={Attribute(definition, "pageWrap")}";
+    }
+
+    /// <summary>
+    /// The attribute as the file holds it, or the value Excel assumes when it is absent. Read by
+    /// name so that the assertion is about the file, not about how the SDK names the attribute.
+    /// </summary>
+    private static string Attribute(OpenXmlElement element, string localName)
+    {
+        return element.GetAttributes().FirstOrDefault(a => a.LocalName == localName).Value ?? "0";
+    }
+
+    private static string ReloadedFilterArea(Stream package)
+    {
+        package.Position = 0;
+        using var wb = new XLWorkbook(package);
+        var pt = (XLPivotTable)wb.Worksheet("Data").PivotTables.Single();
+        return $"ref={pt.Area} size={Size(pt)} pageWrap={pt.FilterFieldsPageWrap}";
     }
 
     private static XLPivotTable CreatePivotTable(XLWorkbook wb)

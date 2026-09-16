@@ -162,16 +162,23 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
 
     private static (int Width, int Height) GetSize(int fieldCount, XLFilterAreaOrder order, int filterWrap)
     {
+        // A wrap of 0 is no wrap at all, so the fields never start a second line.
         if (filterWrap == 0)
             filterWrap = int.MaxValue;
 
-        var dim1 = Math.DivRem(fieldCount, filterWrap, out var dim2);
-        dim1 = fieldCount > 0 ? dim1 + 1 : dim1;
+        // The fields fill one line up to the wrap, then start the next. The line runs down the
+        // sheet for DownThenOver and across it for OverThenDown, so the wrap caps how long a
+        // line gets, and the number of lines is the area's other dimension.
+        var lineLength = Math.Min(fieldCount, filterWrap);
+
+        // Written this way rather than (fieldCount + filterWrap - 1) / filterWrap, which
+        // overflows once filterWrap is int.MaxValue.
+        var lineCount = fieldCount == 0 ? 0 : (fieldCount - 1) / filterWrap + 1;
 
         return order switch
         {
-            XLFilterAreaOrder.DownThenOver => new ValueTuple<int, int>(dim1, dim2),
-            XLFilterAreaOrder.OverThenDown => new ValueTuple<int, int>(dim2, dim1),
+            XLFilterAreaOrder.DownThenOver => new ValueTuple<int, int>(lineCount, lineLength),
+            XLFilterAreaOrder.OverThenDown => new ValueTuple<int, int>(lineLength, lineCount),
             _ => throw new UnreachableException(),
         };
     }
