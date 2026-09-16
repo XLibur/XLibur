@@ -39,7 +39,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
     public void Clear()
     {
         foreach (var field in _fields)
-            _pivotTable.RemoveFieldFromAxis((FieldIndex)field.Field);
+            _pivotTable.RemoveFieldFromValues((FieldIndex)field.Field);
         _fields.Clear();
     }
 
@@ -81,8 +81,12 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
             return;
 
         var dataField = _fields[index];
-        _pivotTable.RemoveFieldFromAxis((FieldIndex)dataField.Field);
         _fields.Remove(dataField);
+
+        // The same field can back several values, such as a sum and a count of one column. The
+        // flag says the field is in the data fields, so it stays while another value uses it.
+        if (_fields.All(f => f.Field != dataField.Field))
+            _pivotTable.RemoveFieldFromValues((FieldIndex)dataField.Field);
     }
 
     IEnumerator<IXLPivotValue> IEnumerable<IXLPivotValue>.GetEnumerator()

@@ -1598,6 +1598,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         return (FieldIndex)fieldIndex;
     }
 
+    /// <summary>
+    /// Take a field off the row, the column or the page axis. The same field can be in the values
+    /// at the same time, so only what the axis owns is cleared: the name, the axis and the multiple
+    /// item selection flag. The data field flag belongs to the values, and
+    /// <see cref="RemoveFieldFromValues"/> clears it (#555).
+    /// </summary>
     internal void RemoveFieldFromAxis(FieldIndex index)
     {
         if (index.IsDataField)
@@ -1610,9 +1616,28 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             var field = _fields[index];
             field.Name = null;
             field.Axis = null;
-            field.DataField = false;
             field.MultipleItemSelectionAllowed = false;
         }
+    }
+
+    /// <summary>
+    /// Take a field out of the values. The same field can be on the row, the column or the page
+    /// axis at the same time, so only the data field flag is cleared. The axis keeps its own
+    /// settings, which <see cref="RemoveFieldFromAxis"/> clears (#555).
+    /// </summary>
+    internal void RemoveFieldFromValues(FieldIndex index)
+    {
+        // The 'data' field is a position on an axis, it is never in the values.
+        Debug.Assert(!index.IsDataField);
+
+        var field = _fields[index];
+        field.DataField = false;
+
+        // A field on no axis has no use for a name: only an axis shows one, and a data field
+        // shows XLPivotDataField.DataFieldName instead. Keeping it would hold the name taken
+        // against every other field.
+        if (field.Axis is null)
+            field.Name = null;
     }
 
     internal bool TryGetSourceNameFieldIndex(string sourceName, out FieldIndex index)
