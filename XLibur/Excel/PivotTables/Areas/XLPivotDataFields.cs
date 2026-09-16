@@ -38,10 +38,14 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
 
     public void Clear()
     {
-        foreach (var field in _fields)
-            _pivotTable.RemoveFieldFromValues((FieldIndex)field.Field);
-        _fields.Clear();
-        SyncValuesSentinel();
+        // Every position goes, so every 'data' field reference in the style formats is emptied and
+        // its format dropped. Taking the positions off the top one at a time, rather than by a
+        // rule of its own, keeps this and Remove on the one path, so the two cannot drift apart.
+        // After taking position 'index' off, exactly 'index' values are left.
+        for (var index = _fields.Count - 1; index >= 0; index--)
+            _pivotTable.RemoveValueFromFormats(index, index);
+
+        ClearWithoutPruningFormats();
     }
 
     public bool Contains(string customName)
@@ -88,6 +92,11 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         // flag says the field is in the data fields, so it stays while another value uses it.
         if (_fields.All(f => f.Field != dataField.Field))
             _pivotTable.RemoveFieldFromValues((FieldIndex)dataField.Field);
+
+        // A style format names a value by its position here, so the positions after the removed
+        // one have shifted and the references naming them must follow (#577). The field is already
+        // out of _fields, so its count is how many values are left.
+        _pivotTable.RemoveValueFromFormats(index, _fields.Count);
 
         SyncValuesSentinel();
     }
@@ -168,6 +177,28 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         {
             _pivotTable.ColumnLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
         }
+    }
+
+    /// <summary>
+    /// Empty the values without touching the pivot table's style formats — the counterpart, on the
+    /// removing side, of <see cref="AddField(XLPivotDataField)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="XLPivotTable.UpdateCacheFields"/> is the only caller: a cache refresh empties the
+    /// values only to put the surviving ones straight back, so pruning here would throw away the
+    /// formatting of a value the table still has on nothing more than a refresh. A refresh can
+    /// also drop a value for good, when its source column is gone from the cache, and those are
+    /// pruned by the caller before it gets here — this skips the pruning, it does not decide that
+    /// none is needed. The public <see cref="Clear"/> prunes for itself, because there a caller
+    /// really means every value to go.
+    /// </remarks>
+    internal void ClearWithoutPruningFormats()
+    {
+        foreach (var field in _fields)
+            _pivotTable.RemoveFieldFromValues((FieldIndex)field.Field);
+
+        _fields.Clear();
+        SyncValuesSentinel();
     }
 
     /// <remarks>
