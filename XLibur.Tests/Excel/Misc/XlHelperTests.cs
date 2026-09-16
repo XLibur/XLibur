@@ -58,6 +58,45 @@ public class XlHelperTests
     }
 
     /// <summary>
+    /// An apostrophe around a sheet name is either matched by its pair or absent. The alternative that
+    /// reads a name of letters and digits made each apostrophe optional on its own, as
+    /// <c>'?\w+'?</c>, so a leading apostrophe with no closing one matched, and so did the other way
+    /// round. <c>DataValidationWriter.UsesExternalSheet</c> then took everything before the last
+    /// <c>!</c> as a sheet name and wrote the rule in the <c>x14</c> extension with that broken
+    /// quoting, while the parser-based check refused the same text (#560).
+    /// </summary>
+    [Test]
+    [Arguments("'Data!A1")]
+    [Arguments("Data'!A1")]
+    [Arguments("'Data!$A$1:$B$2")]
+    [Arguments("Data'!$A$1:$B$2")]
+    [Arguments("'Data!$A:$A")]
+    [Arguments("Data'!1:1")]
+    public async Task A_sheet_name_with_an_unterminated_apostrophe_is_not_a_range_address(string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
+    }
+
+    /// <summary>
+    /// The forms the letters-and-digits alternative exists for are unaffected: a name written without
+    /// apostrophes, and the same name with both of them. A quoted name of word characters is read by
+    /// the alternative for quoted names, which allows every one of them.
+    /// </summary>
+    [Test]
+    [Arguments("Data!A1")]
+    [Arguments("'Data'!A1")]
+    [Arguments("Data!$A$1:$B$2")]
+    [Arguments("'Data'!$A$1:$B$2")]
+    [Arguments("Sheet_1!A1")]
+    [Arguments("'Sheet_1'!A1")]
+    [Arguments("Data1!1:1")]
+    [Arguments("'Data1'!$A:$A")]
+    public async Task A_sheet_name_of_letters_and_digits_is_read_with_both_apostrophes_or_neither(string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsTrue();
+    }
+
+    /// <summary>
     /// The callers of <see cref="XLHelper.IsValidRangeAddress(string)"/> that now read
     /// <c>'Bob''s'!A1:A3</c> as a range address resolve it as they resolve any other quoted name: a
     /// worksheet's <c>Range</c> takes the address, and a defined name at either scope still adds.

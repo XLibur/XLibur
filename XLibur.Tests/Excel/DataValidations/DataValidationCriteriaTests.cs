@@ -307,6 +307,29 @@ public class DataValidationCriteriaTests
     }
 
     /// <summary>
+    /// A criterion whose sheet name has one apostrophe instead of two names no sheet, so it is saved in
+    /// the standard form. <c>XLHelper.IsValidRangeAddress</c> accepted such text, so the writer took
+    /// everything before the last <c>!</c> as a sheet name and wrote the rule in the <c>x14</c>
+    /// extension with the broken quoting, while the parser it asks about every other criterion refused
+    /// the same text (#560).
+    /// </summary>
+    [Test]
+    [Arguments("='Data!A1", "'Data!A1")]
+    [Arguments("=Data'!A1", "Data'!A1")]
+    public async Task A_sheet_name_with_an_unterminated_apostrophe_is_saved_in_the_standard_form(
+        string criterion, string formula1)
+    {
+        using var wb = NewBook(out _, out var other);
+        other.Cell("B1").CreateDataValidation().Custom(criterion);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+
+        await Assert.That(SavedDataValidations.Criteria(ms, "Other"))
+            .IsEquivalentTo(new[] { ("standard", formula1, "") }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     /// A cell on a sheet whose name holds an apostrophe names the sheet with the apostrophe doubled, and
     /// the rule is saved in the <c>x14</c> extension, as Excel saved the same rule over <c>Bob's</c>
     /// (2026-09-15). The check for another sheet did not read <c>'Bob''s'!$A$1</c> as a range address,

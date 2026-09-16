@@ -76,7 +76,12 @@ public static partial class XLHelper
         // Sheet name with special characters, surrounding apostrophes are required. An apostrophe in
         // the name is doubled, and can be anywhere in it, as in 'Bob''s'.
         + "|"
-        + @"\'?\w+\'?" // Sheet name with letters and numbers, surrounding apostrophes are optional
+        + @"\w+"
+        // Sheet name of letters, digits and underscores, written without apostrophes. The quoted form
+        // of such a name, as in 'Data'!A1, is read by the alternative above, which allows every word
+        // character. This was '?\w+'?, where each apostrophe was optional on its own, so a name with
+        // one apostrophe instead of two matched: 'Data!A1 and Data'!A1 were both reported as valid
+        // range addresses (#560).
         + ")"
         + "!)?" // End Sheet Name, optional
         + "(?<Range>" // Start range
