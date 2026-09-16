@@ -441,6 +441,218 @@ public class FormulaTextTests
     }
 
     /// <summary>
+    /// #557. A colon inside a single-bracket column name is hidden from the parser behind a
+    /// placeholder character, and the placeholder used to be put back over the whole converted text.
+    /// A fullwidth colon (U+FF1A) the formula really had — in a quoted sheet name, in a string, or in
+    /// another column name — became an ordinary colon. The sheet name was then quoted for a name it
+    /// no longer had: <c>'x：y'!RC</c> converted to <c>x:y!C3</c>.
+    /// </summary>
+    [Test]
+    [Arguments("Table1[a:b]&'x：y'!RC", "Table1[a:b]&x：y!C3")]
+    [Arguments("Table1[a:b]&\"x：y\"&RC", "Table1[a:b]&\"x：y\"&C3")]
+    [Arguments("Table1[a:b]+Table1[x：y]", "Table1[a:b]+Table1[x：y]")]
+    [Arguments("Table1[a:b：c]&RC", "Table1[a:b：c]&C3")]
+    public async Task Issue557_converting_to_A1_keeps_a_fullwidth_colon_the_formula_really_had(
+        string r1c1, string a1)
+    {
+        var converted = FormulaText.TryConvert(r1c1, new Point(3, 3), FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo(a1);
+    }
+
+    /// <summary>#557, in the other direction.</summary>
+    [Test]
+    [Arguments("Table1[a:b]&'x：y'!C3", "Table1[a:b]&x：y!RC")]
+    [Arguments("Table1[a:b]&\"x：y\"&C3", "Table1[a:b]&\"x：y\"&RC")]
+    [Arguments("Table1[a:b：c]&C3", "Table1[a:b：c]&RC")]
+    public async Task Issue557_converting_to_R1C1_keeps_a_fullwidth_colon_the_formula_really_had(
+        string a1, string r1c1)
+    {
+        var converted = FormulaText.TryConvert(a1, new Point(3, 3), FormulaNotation.R1C1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo(r1c1);
+    }
+
+    /// <summary>
+    /// The control for the tests above. A conversion writes each reference again, and the parser
+    /// decides there which sheet names need quotes: a name that needs none loses them, whether or not
+    /// anything in the formula turned the colon protection on. So a converted <c>'x：y'!RC</c> reads
+    /// <c>x：y!C3</c> either way, and what #557 changed is the name itself, which used to come back as
+    /// <c>x:y</c> — a different sheet.
+    /// </summary>
+    [Test]
+    [Arguments("'x：y'!RC", "x：y!C3")]
+    [Arguments("'My Sheet'!RC", "'My Sheet'!C3")]
+    [Arguments("'Sheet1'!RC", "Sheet1!C3")]
+    public async Task A_conversion_writes_the_quotes_a_sheet_name_needs_whatever_the_rest_holds(
+        string r1c1, string a1)
+    {
+        var converted = FormulaText.TryConvert(r1c1, new Point(3, 3), FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo(a1);
+    }
+
+    /// <summary>
+    /// #557. The converted text names the same sheet it started with, so converting it back gives the
+    /// formula again. Before, <c>'x：y'</c> came back as <c>x:y</c>, which no sheet is called.
+    /// </summary>
+    [Test]
+    public async Task Issue557_a_converted_formula_still_names_the_sheet_it_started_with()
+    {
+        const string r1c1 = "Table1[a:b]&'x：y'!RC";
+        var origin = new Point(3, 3);
+
+        await Assert.That(FormulaText.TryConvert(r1c1, origin, FormulaNotation.A1, out var a1, out _)).IsTrue();
+        await Assert.That(FormulaText.TryConvert(a1, origin, FormulaNotation.R1C1, out var back, out _)).IsTrue();
+
+        await Assert.That(a1).Contains("x：y");
+        await Assert.That(back).IsEqualTo("Table1[a:b]&x：y!RC");
+    }
+
+    /// <summary>#557, through <see cref="FormulaText.TryRewrite"/>.</summary>
+    [Test]
+    public async Task Issue557_adding_a_future_prefix_keeps_a_fullwidth_colon_the_formula_really_had()
+    {
+        var prefixed = FormulaText.AddFuturePrefixes("acot(Table1[a:b])&'x：y'!A1", "Sheet1", new Point(3, 3));
+
+        await Assert.That(prefixed).IsEqualTo("_xlfn.ACOT(Table1[a:b])&'x：y'!A1");
+    }
+
+    /// <summary>
+    /// #557, through <see cref="FormulaText.TryWalk"/>: the column names the factory receives. The
+    /// colon comes back in the name it was hidden in, and a fullwidth colon in another name stays.
+    /// </summary>
+    [Test]
+    public async Task Issue557_a_walked_column_name_keeps_a_fullwidth_colon_the_formula_really_had()
+    {
+        var columns = new List<string>();
+
+        var accepted = FormulaText.TryWalk("Table1[a:b]+Table1[x：y]", columns, ColumnProbe.Instance,
+            FormulaNotation.A1, out _, out _);
+
+        await Assert.That(accepted).IsTrue();
+        await Assert.That(string.Join("|", columns)).IsEqualTo("a:b|x：y");
+    }
+
+    /// <summary>
+    /// #557. The protection hides a colon in a column name behind a character the formula does not
+    /// hold: the fullwidth colon, or, when the formula holds that one, a private-use character. Each
+    /// of them has to reach the parser inside a column name and come back as it was written, or the
+    /// protection would change the formula it is meant to leave alone. Both ends of the private-use
+    /// range are included, because the search can choose either. This checks only what the parser
+    /// does with the character; that the search reaches the last one is checked separately, below.
+    /// </summary>
+    [Test]
+    [Arguments('：')] // The fullwidth colon, the placeholder used when the formula has none.
+    [Arguments('')] // The first private-use character.
+    [Arguments('')] // One inside the private-use range.
+    [Arguments('')] // The last private-use character.
+    public async Task Issue557_a_character_the_protection_can_choose_is_kept_in_a_column_name(char placeholder)
+    {
+        var text = $"Table1[a{placeholder}b]&R1C1";
+
+        var converted = FormulaText.TryConvert(text, new Point(3, 3), FormulaNotation.A1, out var result,
+            out var refusal);
+
+        await Assert.That(converted).IsTrue()
+            .Because($"U+{(int)placeholder:X4} was refused: {(converted ? string.Empty : refusal.Message)}");
+        await Assert.That(result).IsEqualTo($"Table1[a{placeholder}b]&$A$1");
+    }
+
+    /// <summary>
+    /// #557. A formula that holds the fullwidth colon is given another placeholder, so a colon in a
+    /// column name is still hidden from the parser and still comes back. Without the protection the
+    /// parser would read that colon as the range operator.
+    /// </summary>
+    [Test]
+    public async Task Issue557_a_colon_in_a_column_name_is_still_protected_when_the_formula_holds_the_placeholder()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("x：y");
+        ws.Cell("A1").Value = "Name";
+        ws.Cell("B1").Value = "Start: Date";
+        ws.Cell("A2").Value = "a";
+        ws.Cell("B2").Value = 3;
+        ws.Range("A1:B2").CreateTable("Table1");
+
+        ws.Cell("D1").FormulaA1 = "SUM(Table1[Start: Date])&'x：y'!A2";
+
+        await Assert.That(ws.Cell("D1").FormulaA1).IsEqualTo("SUM(Table1[Start: Date])&'x：y'!A2");
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo("3a");
+    }
+
+    /// <summary>
+    /// #557, through a rewrite. A modifier writes names of its own into the result, and such a name
+    /// was never in the text the placeholder was chosen against. Renaming a sheet to a name that
+    /// holds a fullwidth colon, while the formula also hides a colon in a column name, put an
+    /// ordinary colon in the new name, so the formula named a sheet the workbook does not have.
+    /// </summary>
+    [Test]
+    public async Task Issue557_renaming_a_sheet_to_a_name_with_a_fullwidth_colon_keeps_that_name()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var other = wb.AddWorksheet("Foo");
+        other.Cell("A1").Value = 5;
+        ws.Cell("A1").Value = "Name";
+        ws.Cell("B1").Value = "Start: Date";
+        ws.Cell("A2").Value = "a";
+        ws.Cell("B2").Value = 3;
+        ws.Range("A1:B2").CreateTable("Table1");
+        ws.Cell("D1").FormulaA1 = "SUM(Table1[Start: Date])+Foo!A1";
+
+        other.Name = "x：y";
+
+        var formula = ws.Cell("D1").FormulaA1;
+        await Assert.That(formula).Contains("x：y");
+        await Assert.That(formula).DoesNotContain("x:y");
+        await Assert.That(formula).Contains("Table1[Start: Date]");
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(8);
+    }
+
+    /// <summary>
+    /// #557. The search walks the private-use range from one end to the other, so a formula that
+    /// holds the fullwidth colon and every private-use character but the last is given the last one.
+    /// That reaches the far end of the range, and shows the character works there: the hidden colon
+    /// comes back and every character the formula really had is still in the text.
+    /// </summary>
+    [Test]
+    public async Task Issue557_the_last_private_use_character_is_chosen_when_every_earlier_one_is_taken()
+    {
+        // U+FF1A and U+E000 to U+F8FE are all taken, so only U+F8FF is left to choose.
+        var taken = new string(Enumerable.Range(0xE000, 0xF8FF - 0xE000).Select(c => (char)c).ToArray());
+        var literal = $"\"：{taken}\"";
+
+        var converted = FormulaText.TryConvert($"Table1[a:b]&{literal}&RC", new Point(3, 3),
+            FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo($"Table1[a:b]&{literal}&C3");
+    }
+
+    /// <summary>
+    /// #557, the limit the code documents. A formula that holds the fullwidth colon and every
+    /// private-use character leaves nothing to choose, so the fullwidth colon is used, as it was
+    /// before #557, and the one the formula held comes back as an ordinary colon. Reaching this takes
+    /// a formula of more than 6,400 characters, and no same-length placeholder can do better for a
+    /// text that already uses every character.
+    /// </summary>
+    [Test]
+    public async Task Issue557_a_formula_that_holds_every_candidate_falls_back_to_the_fullwidth_colon()
+    {
+        var taken = new string(Enumerable.Range(0xE000, 0xF8FF - 0xE000 + 1).Select(c => (char)c).ToArray());
+
+        var converted = FormulaText.TryConvert($"Table1[a:b]&\"：{taken}\"&RC", new Point(3, 3),
+            FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo($"Table1[a:b]&\":{taken}\"&C3");
+    }
+
+    /// <summary>
     /// The public edges turn a refusal into <see cref="ExpressionParseException"/>. The parser's own
     /// exception stays inside it, so the position the parser reported still reaches the caller.
     /// </summary>

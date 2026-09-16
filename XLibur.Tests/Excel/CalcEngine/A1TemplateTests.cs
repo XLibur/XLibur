@@ -226,6 +226,25 @@ public class A1TemplateTests
         }
     }
 
+    /// <summary>
+    /// #557. The template put the colon placeholder back over the whole text it writes, so a
+    /// fullwidth colon (U+FF1A) the formula really had became an ordinary colon: in a quoted sheet
+    /// name, which the template writes as a slot's prefix, and in a string, which it keeps as a
+    /// literal. <see cref="FormulaText.TryConvert"/> did the same, so comparing the two hid it.
+    /// </summary>
+    [Test]
+    [Arguments("Table1[a:b]&'x：y'!RC", "Table1[a:b]&x：y!C3")]
+    [Arguments("Table1[a:b]&\"x：y\"&RC", "Table1[a:b]&\"x：y\"&C3")]
+    [Arguments("Table1[a:b]+Table1[x：y]", "Table1[a:b]+Table1[x：y]")]
+    [Arguments("Table1[a:b：c]&RC", "Table1[a:b：c]&C3")]
+    public async Task Issue557_template_keeps_a_fullwidth_colon_the_formula_really_had(string r1c1, string a1)
+    {
+        await Assert.That(FormulaText.TryCreateA1Template(r1c1, out var template, out _)).IsTrue();
+        await Assert.That(template).IsNotNull();
+
+        await Assert.That(template!.ToA1(new Point(3, 3))).IsEqualTo(a1);
+    }
+
     public static IEnumerable<object[]> R1C1Texts()
     {
         string[] texts =

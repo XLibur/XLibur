@@ -67,6 +67,17 @@ internal readonly record struct FormulaRefusal
 }
 
 /// <summary>
+/// A <see cref="FormulaModifier"/> that writes text of its own into the formula, rather than only
+/// moving what the formula already held. The placeholder that hides a colon has to avoid that text
+/// too, because it is not in the text the placeholder was chosen against (#557).
+/// </summary>
+internal interface IInjectsText
+{
+    /// <summary>Every text the modifier can write into the formula, such as a new sheet name.</summary>
+    IEnumerable<string> InjectedText { get; }
+}
+
+/// <summary>
 /// The only code in XLibur that hands formula text to <c>ClosedXML.Parser</c>.
 /// </summary>
 /// <remarks>
@@ -91,12 +102,30 @@ internal readonly record struct FormulaRefusal
 internal static class FormulaText
 {
     /// <summary>
-    /// A placeholder character (fullwidth colon U+FF1A) that stands in for a colon inside a
-    /// single-bracket column name while the parser reads the text. The parser accepts it in a column
-    /// name and does not read it as a range operator. It is one UTF-16 character, the same width as
-    /// the colon, so every <see cref="SymbolRange"/> the parser reports indexes the original text.
+    /// The placeholder that stands in for a colon inside a single-bracket column name while the
+    /// parser reads the text, when the formula does not hold this character itself (the usual case).
+    /// It is the fullwidth colon, U+FF1A. The parser accepts it in a column name and does not read it
+    /// as a range operator. It is one UTF-16 character, the same width as the colon, so every
+    /// <see cref="SymbolRange"/> the parser reports indexes the original text.
     /// </summary>
     internal const char ColonPlaceholder = '：';
+
+    /// <summary>
+    /// No colon was hidden, so there is nothing to put back. <see cref="PickPlaceholder"/> returns
+    /// either <see cref="ColonPlaceholder"/> or a private-use character, so it never returns this one,
+    /// and a hidden colon is never mistaken for none.
+    /// </summary>
+    internal const char NoPlaceholder = '\0';
+
+    /// <summary>
+    /// The characters <see cref="PickPlaceholder"/> falls back to, the Unicode Private Use Area. A
+    /// character in it has no meaning of its own, and the parser keeps one in a column name as it is
+    /// written.
+    /// </summary>
+    private const int FirstPrivateUse = 0xE000;
+
+    /// <inheritdoc cref="FirstPrivateUse"/>
+    private const int LastPrivateUse = 0xF8FF;
 
     /// <summary>The prefix a file puts on a future function, for example <c>_xlfn.CONCAT</c>.</summary>
     private const string FuturePrefix = "_xlfn.";
@@ -134,12 +163,12 @@ internal static class FormulaText
         [MaybeNullWhen(false)] out TNode root,
         out FormulaRefusal refusal)
     {
-        var parseable = ProtectStructuredRefColons(text, out var wasProtected);
+        var parseable = ProtectStructuredRefColons(text, out var placeholder);
 
         // Only text that had a colon hidden needs the column names restored. Everything else goes to
         // the caller's factory directly, so it costs no allocation.
-        if (wasProtected)
-            factory = new ColonRestoringFactory<TScalar, TNode, TContext>(factory);
+        if (placeholder != NoPlaceholder)
+            factory = new ColonRestoringFactory<TScalar, TNode, TContext>(factory, placeholder);
 
         return TryParse(
             text,
@@ -165,7 +194,8 @@ internal static class FormulaText
     internal static bool TryRewrite(string text, string sheetName, Point origin, FormulaModifier modifier,
         out string rewritten, out FormulaRefusal refusal)
     {
-        var parseable = ProtectStructuredRefColons(text, out var wasProtected);
+        // A modifier writes names of its own into the result, so the placeholder must avoid those too.
+        var parseable = ProtectStructuredRefColons(text, out var placeholder, modifier as IInjectsText);
         if (!TryParse(
                 text,
                 (Text: parseable, Sheet: sheetName, Origin: origin, Modifier: modifier),
@@ -177,7 +207,7 @@ internal static class FormulaText
             return false;
         }
 
-        rewritten = wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+        rewritten = RestoreColons(result, placeholder);
         return true;
     }
 
@@ -194,7 +224,7 @@ internal static class FormulaText
     internal static bool TryConvert(string text, Point origin, FormulaNotation to,
         out string converted, out FormulaRefusal refusal)
     {
-        var parseable = ProtectStructuredRefColons(text, out var wasProtected);
+        var parseable = ProtectStructuredRefColons(text, out var placeholder);
         if (!TryParse(
                 text,
                 (Text: parseable, Origin: origin, To: to),
@@ -208,7 +238,7 @@ internal static class FormulaText
             return false;
         }
 
-        converted = wasProtected ? result.Replace(ColonPlaceholder, ':') : result;
+        converted = RestoreColons(result, placeholder);
         return true;
     }
 
@@ -230,7 +260,7 @@ internal static class FormulaText
     /// <returns><c>false</c> when the parser refused the text.</returns>
     internal static bool TryCreateA1Template(string text, out A1Template? template, out FormulaRefusal refusal)
     {
-        var parseable = ProtectStructuredRefColons(text, out var wasProtected);
+        var parseable = ProtectStructuredRefColons(text, out var placeholder);
         var builder = new A1Template.Builder(parseable);
         if (!TryParse(
                 text,
@@ -244,7 +274,7 @@ internal static class FormulaText
             return false;
         }
 
-        template = builder.Build(text, root, wasProtected);
+        template = builder.Build(text, root, placeholder);
         return true;
     }
 
@@ -354,8 +384,8 @@ internal static class FormulaText
     }
 
     /// <summary>
-    /// Replace colons inside single-bracket structured reference column names with
-    /// <see cref="ColonPlaceholder"/> so the parser does not treat them as range operators.
+    /// Replace colons inside single-bracket structured reference column names with a placeholder
+    /// character so the parser does not treat them as range operators.
     /// <para>
     /// Single-bracket references like <c>Table[Some Header: Other]</c> contain a literal
     /// column name. Double-bracket references like <c>Table[[Col1]:[Col2]]</c> use the colon
@@ -368,9 +398,20 @@ internal static class FormulaText
     /// for plain ranges like <c>SUM(A1:A10)</c>) cost nothing beyond the scan.
     /// </para>
     /// </summary>
-    private static string ProtectStructuredRefColons(string formula, out bool wasProtected)
+    /// <param name="formula">The formula text.</param>
+    /// <param name="placeholder">
+    /// The character each hidden colon was replaced with, which <see cref="PickPlaceholder"/> chose so
+    /// that <paramref name="formula"/> does not hold it, or <see cref="NoPlaceholder"/> when no colon
+    /// was hidden.
+    /// </param>
+    /// <param name="injected">
+    /// Text that a modifier writes into the result, which the placeholder must avoid as well, or
+    /// <c>null</c> when nothing is written but what the formula already held.
+    /// </param>
+    private static string ProtectStructuredRefColons(string formula, out char placeholder,
+        IInjectsText? injected = null)
     {
-        wasProtected = false;
+        placeholder = NoPlaceholder;
 
         // Quick check: if no colon at all, nothing to protect.
         if (formula.IndexOf(':') < 0)
@@ -398,7 +439,7 @@ internal static class FormulaText
 
             if (c == '[')
             {
-                i = ProcessBracket(formula, input, i, ref rentedArray, ref buffer);
+                i = ProcessBracket(formula, input, i, ref rentedArray, ref buffer, ref placeholder, injected);
                 continue;
             }
 
@@ -408,7 +449,6 @@ internal static class FormulaText
         if (rentedArray is null)
             return formula;
 
-        wasProtected = true;
         var result = new string(buffer);
         ArrayPool<char>.Shared.Return(rentedArray);
         return result;
@@ -423,7 +463,7 @@ internal static class FormulaText
     }
 
     private static int ProcessBracket(string sourceFormula, ReadOnlySpan<char> input, int i,
-        ref char[]? rentedArray, ref Span<char> buffer)
+        ref char[]? rentedArray, ref Span<char> buffer, ref char placeholder, IInjectsText? injected)
     {
         var next = i + 1;
         if (next < input.Length && input[next] != '[' && input[next] != '#')
@@ -435,12 +475,13 @@ internal static class FormulaText
                 {
                     if (rentedArray is null)
                     {
+                        placeholder = PickPlaceholder(sourceFormula, injected);
                         rentedArray = ArrayPool<char>.Shared.Rent(input.Length);
                         buffer = rentedArray.AsSpan(0, input.Length);
                         sourceFormula.AsSpan().CopyTo(buffer);
                     }
 
-                    buffer[j] = ColonPlaceholder;
+                    buffer[j] = placeholder;
                 }
 
                 j++;
@@ -451,6 +492,78 @@ internal static class FormulaText
 
         return i + 1;
     }
+
+    /// <summary>
+    /// Choose the character that stands in for a hidden colon while the parser reads
+    /// <paramref name="formula"/>: one that <paramref name="formula"/> does not hold itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The placeholder has to be told apart from the same character the formula really had, or
+    /// restoring it puts an ordinary colon where the formula wanted that character (#557). No
+    /// character can be ruled out by itself, because a formula can hold any character in a string, in
+    /// a quoted sheet name or in a column name. A character this formula does not hold can be ruled
+    /// out, and that is what is chosen here.
+    /// </para>
+    /// <para>
+    /// That makes the restore exact. A conversion writes back only the characters of
+    /// <paramref name="formula"/> and the ASCII a reference is written with, so a character absent
+    /// from both can only be one this method put there. A rewrite also writes what its modifier gives
+    /// it, a new sheet or table name that was never in <paramref name="formula"/>, so that text is
+    /// avoided as well, through <paramref name="injected"/>. Without it, renaming a sheet to a name
+    /// holding the fullwidth colon put an ordinary colon in the new name, which is #557 again.
+    /// </para>
+    /// <para>
+    /// A modifier that writes only ASCII, such as the future-function remap, needs no
+    /// <paramref name="injected"/>: every candidate here is outside ASCII.
+    /// </para>
+    /// <para>
+    /// A formula that holds every one of the 6,400 private-use characters, and the fullwidth colon,
+    /// leaves nothing to choose; it would have to be at least 6,401 characters long. Then the
+    /// fullwidth colon is used, as it was before #557. No same-length placeholder can do better for a
+    /// text that already uses every character, and the length has to be kept, because every
+    /// <see cref="SymbolRange"/> the parser reports indexes the original text.
+    /// </para>
+    /// </remarks>
+    private static char PickPlaceholder(string formula, IInjectsText? injected)
+    {
+        // Almost every formula takes this branch: it costs one scan and keeps the character the
+        // parser has always been given.
+        if (!Holds(ColonPlaceholder))
+            return ColonPlaceholder;
+
+        for (var candidate = FirstPrivateUse; candidate <= LastPrivateUse; ++candidate)
+        {
+            if (!Holds((char)candidate))
+                return (char)candidate;
+        }
+
+        return ColonPlaceholder;
+
+        bool Holds(char candidate)
+        {
+            if (formula.Contains(candidate))
+                return true;
+
+            if (injected is null)
+                return false;
+
+            foreach (var text in injected.InjectedText)
+            {
+                if (text.Contains(candidate))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Put back each colon that <see cref="ProtectStructuredRefColons"/> hid behind
+    /// <paramref name="placeholder"/>, and leave every other character as it is.
+    /// </summary>
+    private static string RestoreColons(string text, char placeholder)
+        => placeholder == NoPlaceholder ? text : text.Replace(placeholder, ':');
 
     private static bool MightContainFutureFunction(ReadOnlySpan<char> formula)
     {
@@ -465,11 +578,13 @@ internal static class FormulaText
 
     /// <summary>
     /// Hands the caller's factory every column name with its colon put back. The parser read the text
-    /// with <see cref="ColonPlaceholder"/> in place of each colon inside a single-bracket column name,
+    /// with <paramref name="placeholder"/> in place of each colon inside a single-bracket column name,
     /// and a column name is the only part of a formula that can hold one: a colon in a string, or in a
-    /// quoted sheet name, was never replaced.
+    /// quoted sheet name, was never replaced. The placeholder is a character the text does not hold
+    /// itself, so a column name that really holds that character keeps it (#557).
     /// </summary>
-    private sealed class ColonRestoringFactory<TScalar, TNode, TContext>(IAstFactory<TScalar, TNode, TContext> inner)
+    private sealed class ColonRestoringFactory<TScalar, TNode, TContext>(
+        IAstFactory<TScalar, TNode, TContext> inner, char placeholder)
         : IAstFactory<TScalar, TNode, TContext>
     {
         public TNode StructureReference(TContext context, SymbolRange range, StructuredReferenceArea area,
@@ -593,7 +708,7 @@ internal static class FormulaText
         public TNode Nested(TContext context, SymbolRange range, TNode node)
             => inner.Nested(context, range, node);
 
-        private static string? Restore(string? column) => column?.Replace(ColonPlaceholder, ':');
+        private string? Restore(string? column) => column?.Replace(placeholder, ':');
     }
 
     /// <summary>

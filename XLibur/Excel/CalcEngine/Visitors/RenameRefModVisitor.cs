@@ -7,8 +7,34 @@ namespace XLibur.Excel.CalcEngine.Visitors;
 /// <summary>
 /// A factory to rename named reference object (sheets, tables ect.).
 /// </summary>
-internal sealed class RenameRefModVisitor : FormulaModifier
+internal sealed class RenameRefModVisitor : FormulaModifier, IInjectsText
 {
+    /// <summary>
+    /// The new names this visitor writes into a formula. They were never in the formula the
+    /// placeholder was chosen against, so the choice has to see them too (#557): renaming a sheet to
+    /// a name holding the fullwidth colon used to put an ordinary colon in it.
+    /// </summary>
+    public IEnumerable<string> InjectedText
+    {
+        get
+        {
+            if (_sheets is not null)
+            {
+                foreach (var newName in _sheets.Values)
+                {
+                    if (newName is not null)
+                        yield return newName;
+                }
+            }
+
+            if (_tables is null)
+                yield break;
+
+            foreach (var newName in _tables.Values)
+                yield return newName;
+        }
+    }
+
     private readonly Dictionary<string, string?>? _sheets;
     private readonly Dictionary<string, string>? _tables;
     private readonly IReadOnlyList<string>? _tabOrder;
