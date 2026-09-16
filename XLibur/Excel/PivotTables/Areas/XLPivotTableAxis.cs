@@ -140,9 +140,16 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
     {
         var field = AddField(sourceName, customName);
 
-        // New fields added via API get default automatic subtotal.
-        if (field.Offset != FieldIndex.DataField.Value)
-            _pivotTable.PivotFields[field.Offset].AddSubtotal(XLSubtotalFunction.Automatic);
+        if (field.Offset == FieldIndex.DataField.Value)
+            return field;
+
+        // A field built in code has no subtotal setting of its own, so it gets the automatic subtotal
+        // here. A field that a loaded file gave its subtotals keeps them, including none: Excel saves a
+        // field on an axis with defaultSubtotal="0" and no subtotal item, and taking such a field off an
+        // axis and putting it back must not invent a subtotal the file never had (#562).
+        var pivotField = _pivotTable.PivotFields[field.Offset];
+        if (!pivotField.SubtotalsFromFile)
+            pivotField.AddSubtotal(XLSubtotalFunction.Automatic);
 
         return field;
     }

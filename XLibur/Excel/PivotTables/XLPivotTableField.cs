@@ -173,6 +173,21 @@ internal sealed class XLPivotTableField
     /// </remarks>
     internal HashSet<XLSubtotalFunction> Subtotals { get; init; }
 
+    /// <summary>
+    /// Did a file state the field's <see cref="Subtotals"/>? Such a field keeps them when it goes on an
+    /// axis, including when it has none, instead of getting the automatic subtotal that a field built in
+    /// code gets. Excel saves a field on an axis with <c>defaultSubtotal="0"</c> and no subtotal item,
+    /// and that field must not gain a subtotal it never had (#562).
+    /// </summary>
+    /// <remarks>
+    /// Only a field that a file had on an axis states its subtotals. A field starts with no subtotal at
+    /// all, and the writer writes <c>defaultSubtotal="0"</c> whenever the automatic subtotal is absent,
+    /// so XLibur writes that attribute for every field it never put on an axis. A field that a file had
+    /// on no axis therefore says nothing about its subtotals, and gets the automatic default when it
+    /// goes on an axis, exactly as a field built in code does.
+    /// </remarks>
+    internal bool SubtotalsFromFile { get; init; }
+
     internal bool ShowPropCell { get; init; } = false;
 
     internal bool ShowPropTip { get; init; } = false;

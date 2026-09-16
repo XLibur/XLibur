@@ -417,6 +417,7 @@ internal static class PivotTableDefinitionPartReader
             NonAutoSortDefault = nonAutoSortDefault,
             RankBy = rankBy,
             Subtotals = subtotals,
+            SubtotalsFromFile = axis is not null,
             ShowPropCell = showPropCell,
             ShowPropTip = showPropTip,
             ShowPropAsCaption = showPropAsCaption,
