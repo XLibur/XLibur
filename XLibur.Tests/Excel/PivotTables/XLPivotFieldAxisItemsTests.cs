@@ -267,6 +267,87 @@ internal class XLPivotFieldAxisItemsTests
     }
 
     [Test]
+    [Property("Description", "#561: CopyTo never copied a field's subtotals, so the copy's field kept the automatic subtotal the axis gives a field added to it, and Excel's field with sum, count and average copied as a field with the automatic subtotal")]
+    public async Task A_copy_of_Excels_field_with_custom_subtotals_has_the_same_subtotals()
+    {
+        using var original = ReadResource(CustomSubtotals);
+        using var saved = new MemoryStream();
+        string copyName;
+        using (var wb = new XLWorkbook(original))
+        {
+            var pt = (XLPivotTable)wb.Worksheet(CustomSubtotalsSheet).PivotTables.Single();
+            var source = pt.RowLabels.Get(0);
+            await Assert.That(source.Subtotals).IsEquivalentTo(new[]
+            {
+                XLSubtotalFunction.Automatic,
+                XLSubtotalFunction.Sum,
+                XLSubtotalFunction.Count,
+                XLSubtotalFunction.Average,
+            }).Because("the source field must have Excel's custom subtotals, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A3"));
+            copyName = copy.Name;
+
+            await Assert.That(copy.RowLabels.Get(0).Subtotals).IsEquivalentTo(source.Subtotals);
+            await Assert.That(Describe(copy.PivotFields[0])).IsEqualTo("x0,x1,sum,countA,avg")
+                .Because("the copy has an item for each custom subtotal and no default item");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedSubtotals(saved, "Copy", copyName, 0))
+            .IsEqualTo(SavedSubtotals(original, CustomSubtotalsSheet, CustomSubtotalsSheet, 0));
+    }
+
+    [Test]
+    [Property("Description", "#561: the copy's field already holds the automatic subtotal, so the source's subtotals must replace that set rather than join it, or a copy of a field with only custom subtotals keeps a stray automatic one")]
+    public async Task A_copy_of_a_field_with_no_automatic_subtotal_keeps_none()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var pt = CreatePivotTable(wb);
+            var name = pt.RowLabels.Add("Name")
+                .SetSubtotal(XLSubtotalFunction.Automatic, false)
+                .AddSubtotal(XLSubtotalFunction.Sum);
+            pt.Values.Add("Sold");
+            await Assert.That(name.Subtotals).IsEquivalentTo(new[] { XLSubtotalFunction.Sum })
+                .Because("the source field must have no automatic subtotal, or this proves nothing");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.RowLabels.Get(0).Subtotals).IsEquivalentTo(new[] { XLSubtotalFunction.Sum });
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedSubtotals(saved, "Copy", "pt", 0)).IsEqualTo("defaultSubtotal=0,sumSubtotal=1")
+            .Because("the copy's field has the source's subtotals, and no automatic one to write a default subtotal from");
+    }
+
+    [Test]
+    [Property("Description", "#561: a field put in the report filters starts with no subtotals, unlike one put on the rows or the columns, so a copied report filter field lost its subtotals altogether rather than falling back to the automatic one")]
+    public async Task A_copy_of_a_report_filter_field_has_the_subtotals_of_its_source()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var pt = CreatePivotTable(wb);
+            var filter = pt.ReportFilters.Add("Name");
+            await Assert.That(filter.Subtotals).IsEmpty()
+                .Because("a report filter starts with no subtotals, unlike a field on the rows, or this proves nothing");
+
+            filter.AddSubtotal(XLSubtotalFunction.Sum);
+            pt.Values.Add("Sold");
+
+            var copy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").Cell("A1"));
+
+            await Assert.That(copy.ReportFilters.Get(0).Subtotals).IsEquivalentTo(new[] { XLSubtotalFunction.Sum });
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedSubtotals(saved, "Copy", "pt", 0)).IsEqualTo("defaultSubtotal=0,sumSubtotal=1");
+    }
+
+    [Test]
     [Property("Description", "#550: an older XLibur saved a default item next to a field's custom subtotal items; putting the field on an axis now removes it")]
     public async Task A_default_item_saved_next_to_custom_subtotal_items_goes_when_the_field_is_put_on_an_axis()
     {
