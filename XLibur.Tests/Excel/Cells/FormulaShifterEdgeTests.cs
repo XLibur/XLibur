@@ -208,6 +208,75 @@ public class FormulaShifterEdgeTests
     }
 
     /// <summary>
+    /// A sheet name written with one apostrophe instead of two names no sheet, so the reference is left
+    /// exactly as written. The regex shifter used to strip a closing apostrophe that was never there,
+    /// reading <c>'Data!A1</c> as a reference to a sheet named <c>Dat</c>, and a workbook that really
+    /// had a sheet by that name got the malformed reference shifted along with it (#576).
+    /// </summary>
+    /// <remarks>
+    /// The truncated name has to hit a real sheet for anything to happen, so the sheet being shifted
+    /// here is named for what the old code read rather than for what the reference says: without a
+    /// sheet named <c>Dat</c> the reference matched nothing either way. The trailing-apostrophe row is
+    /// the external-workbook mechanism seen from the inside — the reference regex's optional
+    /// apostrophes are what swallow the closing apostrophe of <c>'[file.xlsx]Data'!A1</c>, so the name
+    /// reaching this helper is <c>Data'</c>, which no sheet can be called.
+    /// </remarks>
+    [Test]
+    [Arguments("'Data!A1", "Dat")]
+    [Arguments("Data'!A1", "Data")]
+    public async Task The_regex_shifter_leaves_a_sheet_name_written_with_one_apostrophe_alone(
+        string formula, string shiftedSheetName)
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Formulas");
+        var shiftedSheet = (XLWorksheet)wb.AddWorksheet(shiftedSheetName);
+        var inserted = (XLRange)shiftedSheet.Range(1, 1, 3, XLHelper.MaxColumnNumber);
+
+        var shifted = XLCellFormulaShifter.ShiftUnparseable(
+            formula, formulaSheet, inserted, 3, XLCellFormulaShifter.ShiftAxis.Row);
+
+        await Assert.That(shifted).IsEqualTo(formula);
+    }
+
+    /// <summary>
+    /// The column axis of the same malformed name. It reads the sheet name through the same helper and
+    /// has its own matching test, so both call sites have to agree that no sheet was named.
+    /// </summary>
+    [Test]
+    public async Task A_column_shift_leaves_a_sheet_name_written_with_one_apostrophe_alone()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Formulas");
+        var shiftedSheet = (XLWorksheet)wb.AddWorksheet("Dat");
+        var inserted = (XLRange)shiftedSheet.Range(1, 1, XLHelper.MaxRowNumber, 2);
+
+        var shifted = XLCellFormulaShifter.ShiftUnparseable(
+            "'Data!E5", formulaSheet, inserted, 3, XLCellFormulaShifter.ShiftAxis.Column);
+
+        await Assert.That(shifted).IsEqualTo("'Data!E5");
+    }
+
+    /// <summary>
+    /// The same malformed name reached the way a workbook reaches it: beside an external workbook
+    /// reference, which is what makes the parser refuse the formula and hand it to the regex shifter.
+    /// The well-formed reference in the same formula still moves, so the malformed one is being left
+    /// alone rather than the whole formula being skipped.
+    /// </summary>
+    [Test]
+    public async Task A_row_shift_leaves_a_malformed_sheet_name_alone_beside_an_external_reference()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+        var shiftedSheet = (XLWorksheet)wb.AddWorksheet("Dat");
+        var inserted = (XLRange)shiftedSheet.Range(1, 1, 3, XLHelper.MaxColumnNumber);
+
+        var shifted = XLCellFormulaShifter.ShiftFormulaRows(
+            "'[file.xlsx]Sheet'!A1+'Data!A1+Dat!A5", formulaSheet, inserted, 3);
+
+        await Assert.That(shifted).IsEqualTo("'[file.xlsx]Sheet'!A1+'Data!A1+Dat!A8");
+    }
+
+    /// <summary>
     /// A zero-row or zero-column shift is a no-op, returned before the formula is parsed at all. The
     /// corpus has no zero-shift row because a shift of nothing is not an equivalence case.
     /// </summary>

@@ -42,7 +42,7 @@ internal static partial class XLCellFormulaShifter
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
 
-                if (String.Compare(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase) == 0)
+                if (sheetName is not null && string.Equals(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase))
                     AppendShiftedRowMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, rowsShifted);
                 else
                     sb.Append(matchString);
@@ -59,17 +59,51 @@ internal static partial class XLCellFormulaShifter
         return sb.ToString();
     }
 
-    private static (string sheetName, bool useSheetName) ExtractSheetName(string matchString, XLWorksheet worksheetInAction)
+    /// <summary>
+    /// The sheet a matched reference names: the name written before its <c>!</c>, unquoted and
+    /// unescaped, or the sheet the formula lives on when the reference names none.
+    /// </summary>
+    /// <remarks>
+    /// A name opened with an apostrophe has to close with one, and this used to assume it did. The
+    /// reference regex's unquoted alternative admits a name written with one apostrophe instead of two
+    /// (see <see cref="A1SimpleRegexGenerated"/>), and unescaping <c>'Data</c> as though it were
+    /// quoted took <c>Substring(1, 3)</c> of five characters and read the name as <c>Dat</c> — so a
+    /// workbook that really had a sheet named <c>Dat</c> got the malformed reference shifted as one of
+    /// its references (#576). Such a name is reported as no sheet at all, which is the outcome the
+    /// truncation was hiding: an unrecognised sheet name leaves its reference verbatim.
+    /// <para>
+    /// No name comes back for a quoted name holding a <c>!</c> either, which is a legal sheet-name
+    /// character (<see cref="XLHelper.TryValidateSheetName"/> excludes <c>: \ / ? * [ ]</c> and not
+    /// this one). The match is split at its first <c>!</c>, so <c>'Q1!Sales'!A5</c> yields the name
+    /// <c>'Q1</c> and fails the same test. A reference to such a sheet is left where it is when that
+    /// sheet is shifted, which is wrong, but it is what the old code did too — it read the name as
+    /// <c>Q</c> and matched nothing either. Reading one needs the separator found after the closing
+    /// apostrophe, and <see cref="AppendShiftedRowMatch"/> and
+    /// <see cref="AppendShiftedColumnMatch"/> take the range at the first <c>!</c> as well, so it is
+    /// a change of its own and not part of #576.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The sheet name, or <c>null</c> when no sheet name can be read out of the match, and whether
+    /// the reference wrote a sheet name at all — a rewritten reference has to write it back.
+    /// </returns>
+    private static (string? sheetName, bool useSheetName) ExtractSheetName(string matchString, XLWorksheet worksheetInAction)
     {
-        if (matchString.Contains('!'))
-        {
-            var sheetName = matchString.Substring(0, matchString.IndexOf('!'));
-            if (sheetName[0] == '\'')
-                sheetName = sheetName.Substring(1, sheetName.Length - 2).Replace("''", "'");
-            return (sheetName, true);
-        }
+        var separatorIndex = matchString.IndexOf('!');
+        if (separatorIndex < 0)
+            return (worksheetInAction.Name, false);
 
-        return (worksheetInAction.Name, false);
+        var sheetName = matchString.Substring(0, separatorIndex);
+        if (!sheetName.StartsWith('\''))
+            return (sheetName, true);
+
+        // A quoted name is an opening apostrophe, at least one character of name and a closing one, so
+        // fewer than three characters is malformed however they are arranged: ' has no closing
+        // apostrophe and '' has no name between the two it has.
+        if (sheetName.Length < 3 || !sheetName.EndsWith('\''))
+            return (null, true);
+
+        return (sheetName.Substring(1, sheetName.Length - 2).Replace("''", "'"), true);
     }
 
     /// <summary>
@@ -270,7 +304,7 @@ internal static partial class XLCellFormulaShifter
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
                 var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
 
-                if (String.Compare(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase) == 0)
+                if (sheetName is not null && string.Equals(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase))
                     AppendShiftedColumnMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, columnsShifted);
                 else
                     sb.Append(matchString);
@@ -464,10 +498,9 @@ internal static partial class XLCellFormulaShifter
     /// would then read as a reference to the sheet the formula lives on and move.
     /// <para>
     /// Keeping them does mean this alternative still admits a name with one apostrophe instead of two,
-    /// as in <c>'Data!A1</c>, which <see cref="ExtractSheetName"/> then reads as <c>Dat</c>: it removes
-    /// a closing apostrophe that was never there. That is unchanged here and reaches nothing unless a
-    /// sheet is really named <c>Dat</c>, but it is the price of the branch above and not an endorsement
-    /// of the form.
+    /// as in <c>'Data!A1</c>. That is the price of the branch above and not an endorsement of the form:
+    /// matching such a name is not the same as reading it, and <see cref="ExtractSheetName"/> reports
+    /// no sheet for it rather than unescaping it into a shorter, real one (#576).
     /// </para>
     /// </remarks>
     [GeneratedRegex(
