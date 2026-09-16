@@ -253,13 +253,16 @@ internal sealed class A1Template
         /// </summary>
         /// <param name="original">The R1C1 text as the caller passed it.</param>
         /// <param name="root">The range of the whole formula in the text.</param>
-        /// <param name="restoreColons">
-        /// The parser read the text with <see cref="FormulaText.ColonPlaceholder"/> for a colon in a
-        /// column name. The conversion then replaces each placeholder in its result with a colon, and so
-        /// does the template.
+        /// <param name="placeholder">
+        /// The character the parser read in place of a colon inside a single-bracket column name, or
+        /// <see cref="FormulaText.NoPlaceholder"/> when no colon was hidden. Only a sheet prefix can
+        /// reach the template still holding it, because a prefix is taken from the text the parser
+        /// read. Every literal is taken from <paramref name="original"/>, the caller's own text, so a
+        /// literal holds the real colon already, and a character the formula really had — a fullwidth
+        /// colon in a string, say — must be left alone (#557).
         /// </param>
         /// <returns><c>null</c> when the text has a part the template does not take.</returns>
-        internal A1Template? Build(string original, SymbolRange root, bool restoreColons)
+        internal A1Template? Build(string original, SymbolRange root, char placeholder)
         {
             if (_hasCellFunction)
                 return null;
@@ -304,25 +307,20 @@ internal sealed class A1Template
                         break;
                 }
 
-                literals.Add(Finish(literal, restoreColons));
+                literals.Add(literal.ToString());
                 literal.Clear();
                 var error = rewrite.Prefix == SlotPrefix.Bang ? BangRefError : RefError;
-                slots.Add(new Slot(rewrite.Area, restoreColons ? RestoreColons(prefix) : prefix, error));
+                slots.Add(new Slot(rewrite.Area, RestoreColons(prefix, placeholder), error));
             }
 
             literal.Append(original, position, root.End - position);
             var trimmedLength = original.AsSpan().TrimEnd().Length;
             literal.Append(original, trimmedLength, original.Length - trimmedLength);
-            literals.Add(Finish(literal, restoreColons));
+            literals.Add(literal.ToString());
             return new A1Template(literals.ToArray(), slots.ToArray());
 
-            static string Finish(StringBuilder literal, bool restoreColons)
-            {
-                var finished = literal.ToString();
-                return restoreColons ? RestoreColons(finished) : finished;
-            }
-
-            static string RestoreColons(string value) => value.Replace(FormulaText.ColonPlaceholder, ':');
+            static string RestoreColons(string value, char placeholder)
+                => placeholder == FormulaText.NoPlaceholder ? value : value.Replace(placeholder, ':');
         }
 
         internal void AddReference(SymbolRange range, ReferenceArea reference, SlotPrefix prefix)
