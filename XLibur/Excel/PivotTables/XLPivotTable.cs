@@ -183,6 +183,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             if (originalPivotField.SubtotalsAtTop.HasValue)
                 newPivotField.SetSubtotalsAtTop(originalPivotField.SubtotalsAtTop.Value);
 
+            // The copy's field already holds the subtotals its axis gave it: the automatic one on the
+            // rows and the columns, and none in the report filters. The source's subtotals replace
+            // that set rather than join it, or the copy of a field whose automatic subtotal was
+            // removed would keep a stray one. The field exposes no RemoveSubtotal, so a subtotal comes
+            // off through SetSubtotal. Subtotals is the field's own live set, so it is taken as a list
+            // before it is changed. A data field on an axis has no subtotals either side, so neither
+            // loop touches it.
+            foreach (var subtotal in newPivotField.Subtotals.ToList())
+                newPivotField.SetSubtotal(subtotal, false);
+
+            foreach (var subtotal in originalPivotField.Subtotals)
+                newPivotField.AddSubtotal(subtotal);
+
             newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
         }
 
