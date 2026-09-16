@@ -67,14 +67,27 @@ public static partial class XLHelper
         @"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?$"
         , RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout);
 
+    /// <summary>
+    /// A sheet name written in apostrophes. The surrounding apostrophes are required, and an
+    /// apostrophe in the name itself is doubled and may appear anywhere in it, as in
+    /// <c>'Bob''s'</c>.
+    /// </summary>
+    /// <remarks>
+    /// Shared with the legacy formula shifter's own reference regex (see
+    /// <c>XLCellFormulaShifter.Legacy.cs</c>), which held a second copy of this sub-pattern with the
+    /// <c>+</c> bound to the negated class alone. That copy could not read a doubled apostrophe, and
+    /// because it is unanchored it matched <c>'Bob''s'!A1</c> from the second apostrophe onwards, as a
+    /// reference to a sheet named <c>s</c> (#570). One definition so a third copy cannot drift again.
+    /// </remarks>
+    internal const string QuotedSheetNamePattern = @"\'(?:[^\[\]\*/\\\?:\']|\'\')+\'";
+
     internal static readonly Regex A1SimpleRegex = new(
         @"\A"
         + "(?<Reference>" // Start Group to pick
         + "(?<Sheet>" // Start Sheet Name, optional
         + "("
-        + @"\'(?:[^\[\]\*/\\\?:\']|\'\')+\'"
-        // Sheet name with special characters, surrounding apostrophes are required. An apostrophe in
-        // the name is doubled, and can be anywhere in it, as in 'Bob''s'.
+        + QuotedSheetNamePattern
+        // Sheet name with special characters, written in apostrophes. See the pattern's own summary.
         + "|"
         + @"\w+"
         // Sheet name of letters, digits and underscores, written without apostrophes. The quoted form
