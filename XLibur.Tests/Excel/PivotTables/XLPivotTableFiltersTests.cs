@@ -229,7 +229,9 @@ public class XLPivotTableFiltersTests
 
         var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("H1"), range!);
 
-        // Neither setter moves the table, so both must be set before the filters are added.
+        // Set before the filters are added, so that the layout is the one the wrap and the order
+        // give on their own. Setting them afterwards reaches the same layout, by moving the area
+        // (XLPivotTableFilterAreaTests).
         pt.FilterAreaOrder = order;
         pt.FilterFieldsPageWrap = pageWrap;
 

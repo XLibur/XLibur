@@ -32,10 +32,14 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
 
     public void Clear()
     {
+        var filterHeight = GetSizeWithGap().Height;
+
         foreach (var field in _fields)
             _pivotTable.RemoveFieldFromAxis((FieldIndex)field.Field);
 
         _fields.Clear();
+
+        _pivotTable.MoveAreaForFilterHeightChange(filterHeight);
     }
 
     public bool Contains(string sourceName)
@@ -97,15 +101,14 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
         if (index == -1)
             return;
 
-        var heightDifference = GetHeightDifference(-1);
-        var movedArea = _pivotTable.Area.ShiftRows(heightDifference);
+        var filterHeight = GetSizeWithGap().Height;
 
         // index is the filter's position among the report filters, not a pivot field index.
         var fieldIndex = (FieldIndex)_fields[index].Field;
         _fields.RemoveAt(index);
         _pivotTable.RemoveFieldFromAxis(fieldIndex);
 
-        _pivotTable.Area = movedArea;
+        _pivotTable.MoveAreaForFilterHeightChange(filterHeight);
     }
 
     internal IReadOnlyList<XLPivotPageField> Fields => _fields;
@@ -115,14 +118,13 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
         if (sourceName == XLConstants.PivotTable.ValuesSentinalLabel)
             throw new ArgumentException($"The column '{sourceName}' does not appear in the source range.", nameof(sourceName));
 
-        var heightDifference = GetHeightDifference(1);
-        var movedArea = _pivotTable.Area.ShiftRows(heightDifference);
+        var filterHeight = GetSizeWithGap().Height;
 
         var fieldIndex = _pivotTable.AddFieldToAxis(sourceName, customName, XLPivotAxis.AxisPage);
         var filterField = new XLPivotPageField(fieldIndex);
         _fields.Add(filterField);
 
-        _pivotTable.Area = movedArea;
+        _pivotTable.MoveAreaForFilterHeightChange(filterHeight);
         return new XLPivotTablePageField(_pivotTable, filterField);
     }
 
@@ -151,13 +153,6 @@ internal sealed class XLPivotTableFilters : IXLPivotFields
     internal (int Width, int Height) GetSizeWithGap()
     {
         return GetSizeWithGap(_fields.Count, _pivotTable.FilterAreaOrder, _pivotTable.FilterFieldsPageWrap);
-    }
-
-    private int GetHeightDifference(int fieldChangeCount)
-    {
-        var originalHeight = GetSizeWithGap(_fields.Count, _pivotTable.FilterAreaOrder, _pivotTable.FilterFieldsPageWrap).Height;
-        var modifiedHeight = GetSizeWithGap(_fields.Count + fieldChangeCount, _pivotTable.FilterAreaOrder, _pivotTable.FilterFieldsPageWrap).Height;
-        return modifiedHeight - originalHeight;
     }
 
     private static (int Width, int Height) GetSize(int fieldCount, XLFilterAreaOrder order, int filterWrap)

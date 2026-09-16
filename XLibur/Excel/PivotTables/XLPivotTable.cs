@@ -34,6 +34,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     private readonly List<XLPivotFilter> _pivotFilters = new();
     private XLPivotCache _cache;
     private int _filterFieldsPageWrap;
+    private XLFilterAreaOrder _filterAreaOrder = XLFilterAreaOrder.DownThenOver;
     private bool _outline = true;
     private bool _outlineData;
     private bool _compact = true;
@@ -979,11 +980,45 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         if (edit.Sheet != _worksheet)
             return;
 
-        Area = KeepRoomForFilters(GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift));
+        Area = KeepRoomForFilters(GridShift.MoveArea<TAxis>(Area, edit.Range, edit.Shift), rowShift: 0);
     }
 
     /// <summary>
-    /// Holds the area far enough down the sheet that the report filters still fit above it.
+    /// Moves the area by however much the height of the filter area has just changed, so that the
+    /// filters still fit above it and <see cref="TargetCell"/> stays where it is.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TargetCell"/>, not <see cref="Area"/>, is where the caller put the table: the
+    /// filters are laid out from it downwards and the area follows below them. Every change to the
+    /// height of the filter area therefore moves the area — a filter added or taken off
+    /// (<see cref="XLPivotTableFilters"/>), and a change to <see cref="FilterFieldsPageWrap"/> or
+    /// <see cref="FilterAreaOrder"/>, which change how many rows the same filters need.
+    /// <para>
+    /// The two settings did not, and the area stayed put while the filter area above it grew. On a
+    /// table near the top of the sheet the filters then had nowhere to go but into the table:
+    /// three filters at <c>E1</c> laid out across the sheet sit in <c>E1:G1</c> with the table at
+    /// <c>E3</c>, and a page wrap of 1 needs <c>E1:E3</c> for the filters and the gap row at
+    /// <c>E4</c>, both inside the table. The target cell computed from that is above row 1 and
+    /// <c>TargetCell.Address</c> read <c>#REF!</c> (#571). Setting either property before the first
+    /// filter was added was the way round it, and still gives the same layout, because a height
+    /// that changes while there are no filters has nothing to move.
+    /// </para>
+    /// </remarks>
+    /// <param name="previousFilterHeight">
+    /// The height of the filter area, gap row included, before the change.
+    /// </param>
+    internal void MoveAreaForFilterHeightChange(int previousFilterHeight)
+    {
+        var rowShift = Filters.GetSizeWithGap().Height - previousFilterHeight;
+        if (rowShift == 0)
+            return;
+
+        Area = KeepRoomForFilters(Area, rowShift);
+    }
+
+    /// <summary>
+    /// Shifts the area by <paramref name="rowShift"/> rows and holds it far enough down the sheet
+    /// that the report filters still fit above it.
     /// </summary>
     /// <remarks>
     /// The filters sit above the area with a one-row gap, and <see cref="TargetCell"/> is
@@ -996,18 +1031,25 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <para>
     /// Pushing the area down rather than clamping only its top keeps the table's height, which
     /// matters for an area read from a file — <c>location/@ref</c> is a real extent, not a corner.
+    /// The one case that cannot keep it is a shift into the bottom edge of the sheet, where the
+    /// extent is clipped at the last row: the rows it wants are not there to move into.
+    /// </para>
+    /// <para>
+    /// The shift is a parameter rather than something the callers apply themselves, because
+    /// <see cref="Area.ShiftRows"/> would build the shifted area before it could be clamped, and
+    /// an upward shift past row 1 wraps in <see cref="Point"/> rather than throwing. Every caller
+    /// that moves the area for the filters goes through here, so the row it asks for is clamped
+    /// before the area is built.
     /// </para>
     /// </remarks>
-    private Area KeepRoomForFilters(Area area)
+    private Area KeepRoomForFilters(Area area, int rowShift)
     {
-        var minRow = Filters.GetSizeWithGap().Height + 1;
-        if (area.FirstPoint.Row >= minRow)
-            return area;
-
-        var down = minRow - area.FirstPoint.Row;
+        var minRow = Math.Min(Filters.GetSizeWithGap().Height + 1, XLHelper.MaxRowNumber);
+        var topRow = Math.Clamp(area.FirstPoint.Row + rowShift, minRow, XLHelper.MaxRowNumber);
+        var bottomRow = Math.Min(topRow + area.Height - 1, XLHelper.MaxRowNumber);
         return new Area(
-            new Point(minRow, area.FirstPoint.Column),
-            new Point(Math.Min(area.LastPoint.Row + down, XLHelper.MaxRowNumber), area.LastPoint.Column));
+            new Point(topRow, area.FirstPoint.Column),
+            new Point(bottomRow, area.LastPoint.Column));
     }
 
     #endregion ISheetListener
@@ -1302,13 +1344,24 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
 
+            var filterHeight = Filters.GetSizeWithGap().Height;
             _filterFieldsPageWrap = value;
+            MoveAreaForFilterHeightChange(filterHeight);
         }
     }
 
     /// <inheritdoc />
     /// <remarks>Also called <em>PageOverThenDown</em>.</remarks>
-    public XLFilterAreaOrder FilterAreaOrder { get; set; } = XLFilterAreaOrder.DownThenOver;
+    public XLFilterAreaOrder FilterAreaOrder
+    {
+        get => _filterAreaOrder;
+        set
+        {
+            var filterHeight = Filters.GetSizeWithGap().Height;
+            _filterAreaOrder = value;
+            MoveAreaForFilterHeightChange(filterHeight);
+        }
+    }
 
     /// <summary>
     /// A flag that indicates whether hidden pivot items should be included in subtotal
