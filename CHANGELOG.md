@@ -17,6 +17,16 @@
 
 ## Unreleased
 
+### Changed
+
+- The formula parser is now `XLibur.ClosedXML.Parser` 5.0.0. The parser's assembly is renamed from
+  `ClosedXML.Parser` to `XLibur.ClosedXML.Parser`, and its namespace from `ClosedXML.Parser` to
+  `XLibur.Parser`. The old assembly had the same name and strong-name key as the upstream
+  `ClosedXML.Parser`, so an application that referenced both ClosedXML and XLibur loaded only one
+  parser, and one of the two libraries failed at runtime. The two now load side by side. No public
+  API of XLibur exposes parser types, so XLibur users change nothing; code that uses the parser
+  directly replaces `using ClosedXML.Parser` with `using XLibur.Parser`.
+
 ## v0.600.0 - 2026-09-16
 
 ### Summary

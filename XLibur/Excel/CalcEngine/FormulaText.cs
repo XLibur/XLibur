@@ -3,7 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using ClosedXML.Parser;
+using XLibur.Parser;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Excel.Coordinates;
 
@@ -78,7 +78,7 @@ internal interface IInjectsText
 }
 
 /// <summary>
-/// The only code in XLibur that hands formula text to <c>ClosedXML.Parser</c>.
+/// The only code in XLibur that hands formula text to <c>XLibur.Parser</c>.
 /// </summary>
 /// <remarks>
 /// Everything that must happen to formula text before the parser sees it, and after the parser is

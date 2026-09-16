@@ -5,7 +5,7 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ClosedXML.Parser;
+using XLibur.Parser;
 using JetBrains.Profiler.SelfApi;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
