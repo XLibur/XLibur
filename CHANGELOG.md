@@ -164,6 +164,9 @@
 
 - **`List(IXLRange, inCellDropdown: false)` now hides the in-cell dropdown.** The overload ignored its second argument and always showed the dropdown, although `List(string, false)` hid it. `InCellDropdown` now reads `false` after the call, and a save writes the rule with its dropdown hidden, whether the range is on the rule's own sheet or on another. ([#526](https://github.com/XLibur/XLibur/issues/526))
 
+#### Pivot tables
+
+- **Taking a pivot field off one of the places it is used no longer clears the settings its other uses need.** A field can be on the rows, the columns or the filters and in the values at the same time. Taking it off any one of those cleared its name, its axis, its data field flag and its multiple item selection flag, so whatever use was left lost what it needed. After `RowLabels.Add("Name")`, `Values.Add("Name", "Count")` and then `Values.Remove("Count")`, the field was still listed among the row fields, but it had lost its axis, and a save wrote a row field with no `axisRow` for it. Removing a report filter, or clearing the filters, for a field that was also a value cleared the value's data field flag in the same way, and taking a field off the rows or the columns did too. Each use now clears only what belongs to it: the name, the axis and the multiple item selection flag go with the row, the column or the page axis, and the data field flag goes with the values. A field used in one place only is cleared exactly as before. ([#555](https://github.com/XLibur/XLibur/issues/555))
 
 ### Changed
 
