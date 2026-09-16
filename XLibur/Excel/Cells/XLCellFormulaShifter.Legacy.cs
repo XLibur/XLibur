@@ -72,15 +72,14 @@ internal static partial class XLCellFormulaShifter
     /// its references (#576). Such a name is reported as no sheet at all, which is the outcome the
     /// truncation was hiding: an unrecognised sheet name leaves its reference verbatim.
     /// <para>
-    /// No name comes back for a quoted name holding a <c>!</c> either, which is a legal sheet-name
-    /// character (<see cref="XLHelper.TryValidateSheetName"/> excludes <c>: \ / ? * [ ]</c> and not
-    /// this one). The match is split at its first <c>!</c>, so <c>'Q1!Sales'!A5</c> yields the name
-    /// <c>'Q1</c> and fails the same test. A reference to such a sheet is left where it is when that
-    /// sheet is shifted, which is wrong, but it is what the old code did too — it read the name as
-    /// <c>Q</c> and matched nothing either. Reading one needs the separator found after the closing
-    /// apostrophe, and <see cref="AppendShiftedRowMatch"/> and
-    /// <see cref="AppendShiftedColumnMatch"/> take the range at the first <c>!</c> as well, so it is
-    /// a change of its own and not part of #576.
+    /// The separator between the sheet part and the range is found by
+    /// <see cref="FindSheetSeparatorIndex"/>, which looks past a quoted name's closing apostrophe
+    /// (accounting for doubled apostrophes inside it) rather than stopping at the first <c>!</c> in the
+    /// match. A quoted name may itself contain <c>!</c>, a legal sheet-name character
+    /// (<see cref="XLHelper.TryValidateSheetName"/> excludes <c>: \ / ? * [ ]</c> and not this one), so
+    /// <c>'Q1!Sales'!A5</c> now reads the sheet as <c>Q1!Sales</c> instead of splitting inside the name
+    /// (#584). <see cref="AppendShiftedRowMatch"/> and <see cref="AppendShiftedColumnMatch"/> use the
+    /// same helper for their range extraction, so all three sites agree on where a reference splits.
     /// </para>
     /// </remarks>
     /// <returns>
@@ -89,7 +88,7 @@ internal static partial class XLCellFormulaShifter
     /// </returns>
     private static (string? sheetName, bool useSheetName) ExtractSheetName(string matchString, XLWorksheet worksheetInAction)
     {
-        var separatorIndex = matchString.IndexOf('!');
+        var separatorIndex = FindSheetSeparatorIndex(matchString);
         if (separatorIndex < 0)
             return (worksheetInAction.Name, false);
 
@@ -104,6 +103,51 @@ internal static partial class XLCellFormulaShifter
             return (null, true);
 
         return (sheetName.Substring(1, sheetName.Length - 2).Replace("''", "'"), true);
+    }
+
+    /// <summary>
+    /// The index of the <c>!</c> that separates a matched reference's sheet part from its range part —
+    /// the shared helper <see cref="ExtractSheetName"/>, <see cref="AppendShiftedRowMatch"/> and
+    /// <see cref="AppendShiftedColumnMatch"/> all split on, so the three sites cannot disagree about
+    /// where a reference splits.
+    /// </summary>
+    /// <remarks>
+    /// An unquoted name cannot contain <c>!</c> or an apostrophe, so the first <c>!</c> in the match is
+    /// still the right separator for one, and also for a match with no sheet name at all. A quoted name
+    /// can contain <c>!</c>, so for one the separator is the <c>!</c> immediately after its closing
+    /// apostrophe, skipping over any doubled apostrophes (<c>''</c>, an escaped apostrophe) inside the
+    /// name. A match that opens with an apostrophe but never closes it — the malformed, one-apostrophe
+    /// form <see cref="ExtractSheetName"/>'s remarks describe — falls back to the first <c>!</c> too,
+    /// which is what lets that method keep reporting such a name as unrecognised rather than reading a
+    /// range address out of it.
+    /// </remarks>
+    private static int FindSheetSeparatorIndex(string matchString)
+    {
+        if (matchString.Length == 0 || matchString[0] != '\'')
+            return matchString.IndexOf('!');
+
+        var i = 1;
+        while (i < matchString.Length)
+        {
+            if (matchString[i] != '\'')
+            {
+                i++;
+                continue;
+            }
+
+            if (i + 1 < matchString.Length && matchString[i + 1] == '\'')
+            {
+                i += 2;
+                continue;
+            }
+
+            // matchString[i] is the closing apostrophe of the quoted name; the separator is the '!' that
+            // must follow it directly. If it does not, the name never really closed and the caller falls
+            // back to the first '!' in the match, same as an unquoted, unterminated name.
+            return i + 1 < matchString.Length && matchString[i + 1] == '!' ? i + 1 : matchString.IndexOf('!');
+        }
+
+        return matchString.IndexOf('!');
     }
 
     /// <summary>
@@ -127,7 +171,7 @@ internal static partial class XLCellFormulaShifter
     private static void AppendShiftedRowMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
         XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)
     {
-        var rangeAddress = matchString.Substring(matchString.IndexOf('!') + 1);
+        var rangeAddress = matchString.Substring(FindSheetSeparatorIndex(matchString) + 1);
         if (A1ColumnRegex.IsMatch(rangeAddress))
         {
             sb.Append(matchString);
@@ -324,7 +368,7 @@ internal static partial class XLCellFormulaShifter
     private static void AppendShiftedColumnMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
         XLWorksheet worksheetInAction, XLRange shiftedRange, int columnsShifted)
     {
-        var rangeAddress = matchString[(matchString.IndexOf('!') + 1)..];
+        var rangeAddress = matchString[(FindSheetSeparatorIndex(matchString) + 1)..];
         if (A1RowRegex.IsMatch(rangeAddress))
         {
             sb.Append(matchString);

@@ -238,6 +238,34 @@ internal class XLPivotDataFieldsTests
     }
 
     [Test]
+    [Property("Description", "#586: a removal must never add a sentinel the caller took off by hand")]
+    public async Task Removing_one_of_three_values_does_not_add_a_sentinel_the_caller_took_off()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb);
+        pt.Values.Add("Price");
+        pt.Values.Add("Qty");
+        pt.Values.Add("Name");
+
+        await Assert.That(SourceNames(pt.ColumnLabels)).IsEqualTo(XLConstants.PivotTable.ValuesSentinalLabel)
+            .Because("a second value puts the sentinel on the column axis, or this test proves nothing");
+
+        // Take the sentinel off by hand, the way the issue reaches the state: through the axis,
+        // not through Values.
+        pt.ColumnLabels.Remove(XLConstants.PivotTable.ValuesSentinalLabel);
+
+        await Assert.That(SourceNames(pt.ColumnLabels)).IsEmpty()
+            .Because("the sentinel must be off both axes, or this test proves nothing");
+        await Assert.That(SourceNames(pt.RowLabels)).IsEmpty();
+
+        pt.Values.Remove("Price");
+
+        await Assert.That(SourceNames(pt.ColumnLabels)).IsEmpty()
+            .Because("a removal may take a stale sentinel off, but must never impose one the caller did not ask for");
+        await Assert.That(SourceNames(pt.RowLabels)).IsEmpty();
+    }
+
+    [Test]
     [Property("Description", "#572: an explicitly placed sentinel is kept while a value is left for it to name")]
     public async Task Clearing_down_to_one_value_keeps_a_sentinel_that_was_placed_by_hand()
     {
