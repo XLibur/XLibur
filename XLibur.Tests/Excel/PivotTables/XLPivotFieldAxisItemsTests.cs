@@ -137,6 +137,13 @@ internal class XLPivotFieldAxisItemsTests
 
     private const string CustomSubtotalsSheet = "PivotTableSubtotals";
 
+    /// <summary>
+    /// Field 4 of that pivot table, <c>Month</c>. Excel has it on the columns with
+    /// <c>defaultSubtotal="0"</c> and no other subtotal attribute, so it has no subtotal at all, and
+    /// Excel gave it no subtotal item.
+    /// </summary>
+    private const int NoSubtotalsField = 4;
+
     [Test]
     [Arguments("rows")]
     [Arguments("columns")]
@@ -189,6 +196,74 @@ internal class XLPivotFieldAxisItemsTests
                 .IsEqualTo(SavedSubtotals(original, CustomSubtotalsSheet, CustomSubtotalsSheet, i))
                 .Because($"the subtotal attributes of field {i}");
         }
+    }
+
+    [Test]
+    [Arguments("rows")]
+    [Arguments("columns")]
+    [Arguments("filters")]
+    [Property("Description", "#562: putting a field on an axis gave it the automatic subtotal, whatever the file said, so a field Excel saved with defaultSubtotal=\"0\" gained a subtotal, a default item, and defaultSubtotal=\"1\" in the saved file")]
+    public async Task Excels_field_with_no_subtotal_taken_off_the_columns_and_put_on_an_axis_gains_none(string axis)
+    {
+        using var original = ReadResource(CustomSubtotals);
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            var pt = (XLPivotTable)wb.Worksheet(CustomSubtotalsSheet).PivotTables.Single();
+            var field = pt.PivotFields[NoSubtotalsField];
+            await Assert.That(field.Subtotals).IsEmpty()
+                .Because("Excel must have saved the field with defaultSubtotal=\"0\", or this proves nothing");
+            await Assert.That(Describe(field)).IsEqualTo("x0,x2,x1");
+
+            var sourceName = pt.ColumnLabels.Get(0).SourceName;
+            pt.ColumnLabels.Remove(sourceName);
+            Fields(pt, axis).Add(sourceName);
+
+            await Assert.That(field.Subtotals).IsEmpty()
+                .Because("the field keeps the subtotals the file gave it, which are none");
+            await Assert.That(Describe(field)).IsEqualTo("x0,x2,x1")
+                .Because("a field with no subtotal has no subtotal item");
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(SavedSubtotals(saved, CustomSubtotalsSheet, CustomSubtotalsSheet, NoSubtotalsField))
+            .IsEqualTo("defaultSubtotal=0");
+        await Assert.That(SavedItems(saved, CustomSubtotalsSheet, CustomSubtotalsSheet, NoSubtotalsField))
+            .IsEqualTo("x0,x2,x1");
+    }
+
+    [Test]
+    [Property("Description", "#562: XLibur writes defaultSubtotal=\"0\" for every field it never put on an axis, so a field put on an axis for the first time after a save and a load must still get the automatic subtotal")]
+    public async Task A_field_first_put_on_the_rows_after_a_load_still_gets_the_automatic_subtotal()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("Name", "Region", "Sold"),
+                ("Pie", "North", 7),
+                ("Cake", "South", 10),
+            });
+            var pt = (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("F1"), range!);
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Sold");
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedTable = (XLPivotTable)reloaded.Worksheet("Data").PivotTables.Single();
+        var region = reloadedTable.PivotFields[1];
+        await Assert.That(region.Subtotals).IsEmpty()
+            .Because("the save must have written defaultSubtotal=\"0\" for the field it never put on an axis, or this proves nothing");
+
+        reloadedTable.RowLabels.Add("Region");
+
+        await Assert.That(region.Subtotals).Contains(XLSubtotalFunction.Automatic)
+            .Because("a file that had the field on no axis says nothing about its subtotals, so it gets the automatic default like a field built in code");
+        await Assert.That(Describe(region)).IsEqualTo("x0,x1,default");
     }
 
     [Test]
