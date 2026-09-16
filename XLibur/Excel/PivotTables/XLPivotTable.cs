@@ -883,9 +883,10 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
     /// <summary>
     /// Take the value that was at position <paramref name="removedPosition"/> of
-    /// <see cref="DataFields"/> out of the style formats, after it has been removed from there
-    /// (#577). <paramref name="remainingValueCount"/> is how many values are left, so that a
-    /// position the removal leaves out of range goes too.
+    /// <see cref="DataFields"/> out of the style formats, the conditional formats (both the 2007
+    /// list and the <c>x14</c> one, as a single population — #552) and the chart formats, after it
+    /// has been removed from there (#577, #585). <paramref name="remainingValueCount"/> is how many
+    /// values are left, so that a position the removal leaves out of range goes too.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -895,7 +896,8 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// writes it that way itself: in <c>TryToLoad/TemplateWithTableSourcePivotTables.xlsx</c> the
     /// data fields of <c>pivotTable6</c> are backed by pivot fields 16 and 18 while the format
     /// reference names items 0 and 1, and <c>pivotTable3</c> has two of its four values backed by
-    /// the one pivot field 6, so the position is the only thing that tells them apart.
+    /// the one pivot field 6, so the position is the only thing that tells them apart. All four
+    /// collections hold the same kind of reference, so all four are renumbered here.
     /// </para>
     /// <para>
     /// The positions after the removed one therefore shift down, and a reference naming one of
@@ -904,11 +906,14 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// silently restyle the next value instead.
     /// </para>
     /// <para>
-    /// A reference left naming nothing takes its whole format with it. An area is the intersection
-    /// of its references — a cell is styled only if it lies on every one of them — so keeping the
-    /// format after dropping one reference would widen the area onto values the format was never
-    /// written for, which is worse than losing it. A reference that named no position to begin
-    /// with is left alone: it singles out no value, so no removal can make it stale.
+    /// A reference left naming nothing takes its area with it, style format and chart format
+    /// alike: an area is the intersection of its references — a cell is styled only if it lies on
+    /// every one of them — so keeping the format after dropping one reference would widen the area
+    /// onto values the format was never written for, which is worse than losing it. A conditional
+    /// format's <em>areas</em> are a union rather than an intersection, so there only the emptied
+    /// area goes; the format itself goes only once every one of its areas is gone. A reference that
+    /// named no position to begin with is left alone: it singles out no value, so no removal can
+    /// make it stale.
     /// </para>
     /// <para>
     /// A position at or past <paramref name="remainingValueCount"/> goes as well. The loader does
@@ -924,39 +929,48 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// after the renumbering they really do describe the same cells, and merging them would have
     /// to throw one of the two styles away.
     /// </para>
+    /// <para>
+    /// The conditional formats' areas are renumbered in place, same as the style formats', which is
+    /// safe only because <see cref="CopyConditionalFormatsTo"/> gives a copy its own areas rather
+    /// than sharing this table's. The chart formats' areas need no such care: nothing copies
+    /// <see cref="ChartFormats"/>. A chart format also carries an index into the chart part's own
+    /// formatting records (<see cref="XLPivotChartFormat.Format"/>), but XLibur never parses or
+    /// rewrites that part's contents — the crosswalk here is the whole of what a save controls —
+    /// so dropping an entry needs nothing from the chart part to stay consistent.
+    /// </para>
     /// </remarks>
     internal void RemoveValueFromFormats(int removedPosition, int remainingValueCount)
     {
         var removed = checked((uint)removedPosition);
         var remaining = checked((uint)remainingValueCount);
         _formats.RemoveAll(format => RenumberDataFieldPositions(format.PivotArea, removed, remaining));
+        _conditionalFormats.RemoveAll(format => format.RemoveEmptiedAreas(removed, remaining));
+        _extensionConditionalFormats.RemoveAll(format => format.RemoveEmptiedAreas(removed, remaining));
+        _chartFormats.RemoveAll(format => RenumberDataFieldPositions(format.PivotArea, removed, remaining));
     }
 
     /// <summary>
     /// Renumber the 'data' field references of <paramref name="area"/> around the removal of the
-    /// value at <paramref name="removedPosition"/>.
+    /// value at <paramref name="removedPosition"/>. Shared by <see cref="RemoveValueFromFormats"/>
+    /// for the style formats and the chart formats, and by <see cref="XLPivotConditionalFormat.
+    /// RemoveEmptiedAreas"/>/<see cref="XLPivotExtensionConditionalFormat.RemoveEmptiedAreas"/> for
+    /// the conditional formats' own areas — the same reference can appear in any of them.
     /// </summary>
     /// <returns>
-    /// <c>true</c> when a reference is left naming no value at all, meaning the owning format has
-    /// to go.
+    /// <c>true</c> when a reference is left naming no value at all, meaning the area names nothing
+    /// and the owning format or, for a conditional format, the one area has to go.
     /// </returns>
     /// <remarks>
-    /// <para>
-    /// The items are renumbered in place. The areas of <see cref="Formats"/> are not shared with
-    /// anything: the loader builds one per <c>format</c> element and
-    /// <see cref="XLPivotStyleFormatBase"/> builds one per format it adds.
-    /// </para>
-    /// <para>
-    /// Two known gaps, both left alone on purpose rather than missed. The areas of
-    /// <see cref="ConditionalFormats"/> can hold the same reference and are written back verbatim,
-    /// but they are shared with a copy of the table (<see cref="CopyConditionalFormatsTo"/>), so
-    /// renumbering one in place would change the copy's too, and fixing that needs the shared area
-    /// copied first. The areas of <see cref="ChartFormats"/> can hold it as well, and there each
-    /// entry also carries an index into the chart part's own formatting records, so dropping one
-    /// would have to reach into the chart part to stay consistent.
-    /// </para>
+    /// The items are renumbered in place. That is safe for the areas of <see cref="Formats"/> and
+    /// <see cref="ChartFormats"/>, because neither is ever shared: the loader builds one area per
+    /// <c>format</c>/<c>chartFormat</c> element and <see cref="XLPivotStyleFormatBase"/> builds one
+    /// per style format it adds, and nothing copies <see cref="ChartFormats"/>. It is safe for
+    /// <see cref="ConditionalFormats"/> and <see cref="ExtensionConditionalFormats"/> only because
+    /// <see cref="CopyConditionalFormatsTo"/> gives a copy its own areas (<see cref="XLPivotArea.
+    /// Clone"/>) rather than sharing this table's — otherwise renumbering one table's area in place
+    /// would renumber the copy's identically-positioned area too.
     /// </remarks>
-    private static bool RenumberDataFieldPositions(XLPivotArea area, uint removedPosition, uint remainingValueCount)
+    internal static bool RenumberDataFieldPositions(XLPivotArea area, uint removedPosition, uint remainingValueCount)
     {
         var emptiedReference = false;
         foreach (var reference in area.References)
@@ -1013,10 +1027,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <remarks>
     /// Only a sheet copy calls this. <see cref="CopyTo"/> on its own copies neither list: a pivot table
     /// copied to another cell would need its formats' ranges and pivot areas moved with it, and no Excel
-    /// file shows what that looks like. The pivot areas are shared, not copied, because nothing changes
-    /// a <em>conditional</em> format's area once it is loaded or built — the areas of
-    /// <see cref="Formats"/> are renumbered in place when a value is removed
-    /// (<see cref="RemoveValueFromFormats"/>), which is why those are not shared with a copy.
+    /// file shows what that looks like. The pivot areas are cloned (<see cref="XLPivotArea.Clone"/>),
+    /// not shared: a conditional format's area can change after the copy, when a value is removed from
+    /// either table's <see cref="DataFields"/> renumbers its 'data' field references
+    /// (<see cref="RemoveValueFromFormats"/>), and sharing the area would let a removal on one table
+    /// renumber the other's format for a value it never lost (#585).
     /// </remarks>
     internal void CopyConditionalFormatsTo(XLPivotTable copy)
     {
@@ -1033,7 +1048,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
                 Type = conditionalFormat.Type,
             };
             foreach (var area in conditionalFormat.Areas)
-                copied.AddArea(area);
+                copied.AddArea(area.Clone());
 
             copy.AddConditionalFormat(copied);
         }
@@ -1046,7 +1061,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
                 Type = conditionalFormat.Type,
             };
             foreach (var area in conditionalFormat.Areas)
-                copied.AddArea(area);
+                copied.AddArea(area.Clone());
 
             copy.AddExtensionConditionalFormat(copied);
         }

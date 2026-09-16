@@ -54,4 +54,17 @@ internal sealed class XLPivotExtensionConditionalFormat
     {
         _areas.Add(pivotArea);
     }
+
+    /// <inheritdoc cref="XLPivotConditionalFormat.RemoveEmptiedAreas"/>
+    /// <remarks>
+    /// The 2007 list and this one are treated as one population for this pruning (#552, #585): a fix
+    /// here always runs alongside <see cref="XLPivotConditionalFormat.RemoveEmptiedAreas"/>, never in
+    /// its place.
+    /// </remarks>
+    internal bool RemoveEmptiedAreas(uint removedPosition, uint remainingValueCount)
+    {
+        var hadAreas = _areas.Count > 0;
+        _areas.RemoveAll(area => XLPivotTable.RenumberDataFieldPositions(area, removedPosition, remainingValueCount));
+        return hadAreas && _areas.Count == 0;
+    }
 }

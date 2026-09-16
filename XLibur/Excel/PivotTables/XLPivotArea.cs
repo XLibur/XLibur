@@ -88,4 +88,34 @@ internal sealed class XLPivotArea
     {
         _references.Add(reference);
     }
+
+    /// <summary>
+    /// A copy with its own <see cref="References"/>, each cloned in turn, so that renumbering the
+    /// copy's 'data' field positions (<see cref="XLPivotTable.RenumberDataFieldPositions"/>) never
+    /// touches this area, and the reverse. Used to give a copied pivot table's conditional formats
+    /// their own areas (<see cref="XLPivotTable.CopyConditionalFormatsTo"/>), rather than sharing
+    /// this one with the original.
+    /// </summary>
+    internal XLPivotArea Clone()
+    {
+        var clone = new XLPivotArea
+        {
+            Field = Field,
+            Type = Type,
+            DataOnly = DataOnly,
+            LabelOnly = LabelOnly,
+            GrandRow = GrandRow,
+            GrandCol = GrandCol,
+            CacheIndex = CacheIndex,
+            Outline = Outline,
+            Offset = Offset,
+            CollapsedLevelsAreSubtotals = CollapsedLevelsAreSubtotals,
+            Axis = Axis,
+            FieldPosition = FieldPosition,
+        };
+        foreach (var reference in _references)
+            clone.AddReference(reference.Clone());
+
+        return clone;
+    }
 }

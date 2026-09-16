@@ -62,4 +62,25 @@ internal sealed class XLPivotReference
     {
         _fieldItems.Add(fieldItem);
     }
+
+    /// <summary>
+    /// A copy with its own <see cref="FieldItems"/> and <see cref="Subtotals"/>, so that renumbering
+    /// the copy's items (<see cref="XLPivotTable.RenumberDataFieldPositions"/>) never touches this
+    /// reference, and the reverse.
+    /// </summary>
+    internal XLPivotReference Clone()
+    {
+        var clone = new XLPivotReference
+        {
+            Field = Field,
+            Selected = Selected,
+            ByPosition = ByPosition,
+            Relative = Relative,
+            Subtotals = new HashSet<XLSubtotalFunction>(Subtotals),
+        };
+        foreach (var fieldItem in _fieldItems)
+            clone.AddFieldItem(fieldItem);
+
+        return clone;
+    }
 }
