@@ -48,4 +48,22 @@ internal sealed class XLPivotConditionalFormat
     {
         _area.Add(pivotArea);
     }
+
+    /// <summary>
+    /// Renumber the 'data' field positions of every area around the removal of the value at
+    /// <paramref name="removedPosition"/> (#585, following #577's <see cref="XLPivotTable.
+    /// RemoveValueFromFormats"/>), dropping an area left naming no value. The areas are this
+    /// format's own (<see cref="XLPivotTable.CopyConditionalFormatsTo"/> clones them for a copy), so
+    /// renumbering in place cannot corrupt another table's format.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> when this format is left with no area at all, meaning it applies to nothing and
+    /// has to go.
+    /// </returns>
+    internal bool RemoveEmptiedAreas(uint removedPosition, uint remainingValueCount)
+    {
+        var hadAreas = _area.Count > 0;
+        _area.RemoveAll(area => XLPivotTable.RenumberDataFieldPositions(area, removedPosition, remainingValueCount));
+        return hadAreas && _area.Count == 0;
+    }
 }
