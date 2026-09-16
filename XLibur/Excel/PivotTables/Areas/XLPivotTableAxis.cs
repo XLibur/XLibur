@@ -25,7 +25,11 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
     private readonly List<FieldIndex> _fields = new();
 
     /// <summary>
-    /// Values of one row/column in an axis. Items are not kept in sync with <see cref="_fields"/>.
+    /// Values of one row/column in an axis. An item names a value of each field on the axis by
+    /// position, so items only ever come from a loaded file (<see cref="AddItem"/>): nothing here
+    /// computes new ones for a field added in code. Adding or removing a field clears the list
+    /// instead of trying to keep it in sync with <see cref="_fields"/>, and Excel lays the axis out
+    /// again from what is left.
     /// </summary>
     private readonly List<XLPivotFieldAxisItem> _axisItems = new();
 
@@ -85,6 +89,13 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
         return IndexOf(pf.SourceName);
     }
 
+    /// <summary>
+    /// Take a field off the axis. The axis' <see cref="Items"/> go with it, for the same reason as
+    /// in <see cref="RemoveDataField"/>: an item names a value of each field on the axis by position
+    /// through its <c>x</c> elements, so once a field is gone from the axis, every item is stale. An
+    /// axis with no items is what a table built in code writes anyway, and Excel lays the axis out
+    /// again from the fields that are left.
+    /// </summary>
     void IXLPivotFields.Remove(string sourceName)
     {
         var index = IndexOf(sourceName);
@@ -93,6 +104,7 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
 
         _pivotTable.RemoveFieldFromAxis(_fields[index]);
         _fields.RemoveAt(index);
+        _axisItems.Clear();
     }
 
     IEnumerator<IXLPivotField> IEnumerable<IXLPivotField>.GetEnumerator() => GetEnumerator();
@@ -158,6 +170,14 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
     {
         var index = _pivotTable.AddFieldToAxis(sourceName, customName, _axis);
         _fields.Add(index);
+
+        // An item's x elements name a value of each field on the axis by position, one per field, so
+        // an axis that already had items (a loaded file kept them, or a field was added and removed
+        // before) has too few once another field joins it. Clearing them here is the same call as
+        // IXLPivotFields.Remove and RemoveDataField make: Excel lays the axis out again from its
+        // fields.
+        _axisItems.Clear();
+
         return new XLPivotTableAxisField(_pivotTable, index);
     }
 
