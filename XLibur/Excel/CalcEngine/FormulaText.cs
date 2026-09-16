@@ -67,6 +67,17 @@ internal readonly record struct FormulaRefusal
 }
 
 /// <summary>
+/// A <see cref="FormulaModifier"/> that writes text of its own into the formula, rather than only
+/// moving what the formula already held. The placeholder that hides a colon has to avoid that text
+/// too, because it is not in the text the placeholder was chosen against (#557).
+/// </summary>
+internal interface IInjectsText
+{
+    /// <summary>Every text the modifier can write into the formula, such as a new sheet name.</summary>
+    IEnumerable<string> InjectedText { get; }
+}
+
+/// <summary>
 /// The only code in XLibur that hands formula text to <c>ClosedXML.Parser</c>.
 /// </summary>
 /// <remarks>
@@ -183,7 +194,8 @@ internal static class FormulaText
     internal static bool TryRewrite(string text, string sheetName, Point origin, FormulaModifier modifier,
         out string rewritten, out FormulaRefusal refusal)
     {
-        var parseable = ProtectStructuredRefColons(text, out var placeholder);
+        // A modifier writes names of its own into the result, so the placeholder must avoid those too.
+        var parseable = ProtectStructuredRefColons(text, out var placeholder, modifier as IInjectsText);
         if (!TryParse(
                 text,
                 (Text: parseable, Sheet: sheetName, Origin: origin, Modifier: modifier),
@@ -392,7 +404,12 @@ internal static class FormulaText
     /// that <paramref name="formula"/> does not hold it, or <see cref="NoPlaceholder"/> when no colon
     /// was hidden.
     /// </param>
-    private static string ProtectStructuredRefColons(string formula, out char placeholder)
+    /// <param name="injected">
+    /// Text that a modifier writes into the result, which the placeholder must avoid as well, or
+    /// <c>null</c> when nothing is written but what the formula already held.
+    /// </param>
+    private static string ProtectStructuredRefColons(string formula, out char placeholder,
+        IInjectsText? injected = null)
     {
         placeholder = NoPlaceholder;
 
@@ -422,7 +439,7 @@ internal static class FormulaText
 
             if (c == '[')
             {
-                i = ProcessBracket(formula, input, i, ref rentedArray, ref buffer, ref placeholder);
+                i = ProcessBracket(formula, input, i, ref rentedArray, ref buffer, ref placeholder, injected);
                 continue;
             }
 
@@ -446,7 +463,7 @@ internal static class FormulaText
     }
 
     private static int ProcessBracket(string sourceFormula, ReadOnlySpan<char> input, int i,
-        ref char[]? rentedArray, ref Span<char> buffer, ref char placeholder)
+        ref char[]? rentedArray, ref Span<char> buffer, ref char placeholder, IInjectsText? injected)
     {
         var next = i + 1;
         if (next < input.Length && input[next] != '[' && input[next] != '#')
@@ -458,7 +475,7 @@ internal static class FormulaText
                 {
                     if (rentedArray is null)
                     {
-                        placeholder = PickPlaceholder(sourceFormula);
+                        placeholder = PickPlaceholder(sourceFormula, injected);
                         rentedArray = ArrayPool<char>.Shared.Rent(input.Length);
                         buffer = rentedArray.AsSpan(0, input.Length);
                         sourceFormula.AsSpan().CopyTo(buffer);
@@ -489,31 +506,56 @@ internal static class FormulaText
     /// out, and that is what is chosen here.
     /// </para>
     /// <para>
-    /// That makes the restore exact: what the parser writes back is made of the characters of
+    /// That makes the restore exact. A conversion writes back only the characters of
     /// <paramref name="formula"/> and the ASCII a reference is written with, so a character absent
-    /// from both can only be one this method put there.
+    /// from both can only be one this method put there. A rewrite also writes what its modifier gives
+    /// it, a new sheet or table name that was never in <paramref name="formula"/>, so that text is
+    /// avoided as well, through <paramref name="injected"/>. Without it, renaming a sheet to a name
+    /// holding the fullwidth colon put an ordinary colon in the new name, which is #557 again.
+    /// </para>
+    /// <para>
+    /// A modifier that writes only ASCII, such as the future-function remap, needs no
+    /// <paramref name="injected"/>: every candidate here is outside ASCII.
     /// </para>
     /// <para>
     /// A formula that holds every one of the 6,400 private-use characters, and the fullwidth colon,
     /// leaves nothing to choose; it would have to be at least 6,401 characters long. Then the
     /// fullwidth colon is used, as it was before #557. No same-length placeholder can do better for a
-    /// text that already uses every character.
+    /// text that already uses every character, and the length has to be kept, because every
+    /// <see cref="SymbolRange"/> the parser reports indexes the original text.
     /// </para>
     /// </remarks>
-    private static char PickPlaceholder(string formula)
+    private static char PickPlaceholder(string formula, IInjectsText? injected)
     {
         // Almost every formula takes this branch: it costs one scan and keeps the character the
         // parser has always been given.
-        if (!formula.Contains(ColonPlaceholder))
+        if (!Holds(ColonPlaceholder))
             return ColonPlaceholder;
 
         for (var candidate = FirstPrivateUse; candidate <= LastPrivateUse; ++candidate)
         {
-            if (!formula.Contains((char)candidate))
+            if (!Holds((char)candidate))
                 return (char)candidate;
         }
 
         return ColonPlaceholder;
+
+        bool Holds(char candidate)
+        {
+            if (formula.Contains(candidate))
+                return true;
+
+            if (injected is null)
+                return false;
+
+            foreach (var text in injected.InjectedText)
+            {
+                if (text.Contains(candidate))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     /// <summary>

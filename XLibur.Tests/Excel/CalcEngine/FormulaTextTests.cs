@@ -541,8 +541,9 @@ public class FormulaTextTests
     /// #557. The protection hides a colon in a column name behind a character the formula does not
     /// hold: the fullwidth colon, or, when the formula holds that one, a private-use character. Each
     /// of them has to reach the parser inside a column name and come back as it was written, or the
-    /// protection would change the formula it is meant to leave alone. The ends of the private-use
-    /// range are checked, because the search walks it from one end to the other.
+    /// protection would change the formula it is meant to leave alone. Both ends of the private-use
+    /// range are included, because the search can choose either. This checks only what the parser
+    /// does with the character; that the search reaches the last one is checked separately, below.
     /// </summary>
     [Test]
     [Arguments('：')] // The fullwidth colon, the placeholder used when the formula has none.
@@ -581,6 +582,74 @@ public class FormulaTextTests
 
         await Assert.That(ws.Cell("D1").FormulaA1).IsEqualTo("SUM(Table1[Start: Date])&'x：y'!A2");
         await Assert.That(ws.Cell("D1").Value).IsEqualTo("3a");
+    }
+
+    /// <summary>
+    /// #557, through a rewrite. A modifier writes names of its own into the result, and such a name
+    /// was never in the text the placeholder was chosen against. Renaming a sheet to a name that
+    /// holds a fullwidth colon, while the formula also hides a colon in a column name, put an
+    /// ordinary colon in the new name, so the formula named a sheet the workbook does not have.
+    /// </summary>
+    [Test]
+    public async Task Issue557_renaming_a_sheet_to_a_name_with_a_fullwidth_colon_keeps_that_name()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var other = wb.AddWorksheet("Foo");
+        other.Cell("A1").Value = 5;
+        ws.Cell("A1").Value = "Name";
+        ws.Cell("B1").Value = "Start: Date";
+        ws.Cell("A2").Value = "a";
+        ws.Cell("B2").Value = 3;
+        ws.Range("A1:B2").CreateTable("Table1");
+        ws.Cell("D1").FormulaA1 = "SUM(Table1[Start: Date])+Foo!A1";
+
+        other.Name = "x：y";
+
+        var formula = ws.Cell("D1").FormulaA1;
+        await Assert.That(formula).Contains("x：y");
+        await Assert.That(formula).DoesNotContain("x:y");
+        await Assert.That(formula).Contains("Table1[Start: Date]");
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(8);
+    }
+
+    /// <summary>
+    /// #557. The search walks the private-use range from one end to the other, so a formula that
+    /// holds the fullwidth colon and every private-use character but the last is given the last one.
+    /// That reaches the far end of the range, and shows the character works there: the hidden colon
+    /// comes back and every character the formula really had is still in the text.
+    /// </summary>
+    [Test]
+    public async Task Issue557_the_last_private_use_character_is_chosen_when_every_earlier_one_is_taken()
+    {
+        // U+FF1A and U+E000 to U+F8FE are all taken, so only U+F8FF is left to choose.
+        var taken = new string(Enumerable.Range(0xE000, 0xF8FF - 0xE000).Select(c => (char)c).ToArray());
+        var literal = $"\"：{taken}\"";
+
+        var converted = FormulaText.TryConvert($"Table1[a:b]&{literal}&RC", new Point(3, 3),
+            FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo($"Table1[a:b]&{literal}&C3");
+    }
+
+    /// <summary>
+    /// #557, the limit the code documents. A formula that holds the fullwidth colon and every
+    /// private-use character leaves nothing to choose, so the fullwidth colon is used, as it was
+    /// before #557, and the one the formula held comes back as an ordinary colon. Reaching this takes
+    /// a formula of more than 6,400 characters, and no same-length placeholder can do better for a
+    /// text that already uses every character.
+    /// </summary>
+    [Test]
+    public async Task Issue557_a_formula_that_holds_every_candidate_falls_back_to_the_fullwidth_colon()
+    {
+        var taken = new string(Enumerable.Range(0xE000, 0xF8FF - 0xE000 + 1).Select(c => (char)c).ToArray());
+
+        var converted = FormulaText.TryConvert($"Table1[a:b]&\"：{taken}\"&RC", new Point(3, 3),
+            FormulaNotation.A1, out var text, out _);
+
+        await Assert.That(converted).IsTrue();
+        await Assert.That(text).IsEqualTo($"Table1[a:b]&\":{taken}\"&C3");
     }
 
     /// <summary>
