@@ -138,8 +138,12 @@ internal static class WorksheetSheetDataReader
     /// read through it: a cell reference is at most 10 characters (<c>XFD1048576</c>), a style or
     /// metadata index at most 10 digits, and a round-tripped double at most 24. Longer content still
     /// reads correctly — it just falls back to a materialized string.
+    /// <para>
+    /// Internal because the test that covers that fallback sizes its padding from it, so raising the
+    /// capacity keeps the test on the spill path instead of quietly taking it off.
+    /// </para>
     /// </summary>
-    private const int ValueBufferLength = 64;
+    internal const int ValueBufferLength = 64;
 
     private static readonly string[] DateCellFormats =
     [

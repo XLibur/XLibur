@@ -131,7 +131,9 @@ public class WorksheetSheetDataReaderTests
     [Test]
     public async Task A_shared_formula_index_longer_than_the_scratch_buffer_is_read_in_full()
     {
-        var padded = new string(' ', 80) + "0";
+        // Sized from the buffer itself, so raising its capacity cannot quietly take this test off
+        // the spill path -- which is the only coverage an attribute value has of it.
+        var padded = new string(' ', WorksheetSheetDataReader.ValueBufferLength + 16) + "0";
         using var package = SharedPackage(
             $"t=\"shared\" ref=\"B1:B3\" si=\"{padded}\"", $"t=\"shared\" si=\"{padded}\"");
 
@@ -162,6 +164,12 @@ public class WorksheetSheetDataReaderTests
     /// A package whose B1:B3 hold <c>A{row}*10</c> as one shared formula, with the attributes of the
     /// first cell and of the other two written exactly as given.
     /// </summary>
+    /// <remarks>
+    /// B2 and B3 are saved holding a formula of their own that the rewrite replaces with an empty
+    /// shared member, so their loaded text can only be <c>A{row}*10</c> if the shared formula really
+    /// drove them. Saving them as <c>A{row}*10</c> in the first place would let a rewrite that
+    /// matched nothing pass on the text that was already there.
+    /// </remarks>
     private static MemoryStream SharedPackage(string masterAttributes, string memberAttributes)
     {
         var package = new MemoryStream();
@@ -171,7 +179,7 @@ public class WorksheetSheetDataReaderTests
             for (var row = 1; row <= 3; row++)
             {
                 ws.Cell(row, 1).Value = row;
-                ws.Cell(row, 2).FormulaA1 = $"A{row}*10";
+                ws.Cell(row, 2).FormulaA1 = row == 1 ? "A1*10" : $"A{row}*999";
             }
 
             wb.SaveAs(package);
@@ -180,18 +188,17 @@ public class WorksheetSheetDataReaderTests
         return package.RewriteSheet1(xml =>
         {
             xml = ReplaceOnce(xml, "<x:f>A1*10</x:f>", $"<x:f {masterAttributes}>A1*10</x:f>");
-            xml = ReplaceOnce(xml, "<x:f>A2*10</x:f>", $"<x:f {memberAttributes} />");
-            return ReplaceOnce(xml, "<x:f>A3*10</x:f>", $"<x:f {memberAttributes} />");
+            xml = ReplaceOnce(xml, "<x:f>A2*999</x:f>", $"<x:f {memberAttributes} />");
+            return ReplaceOnce(xml, "<x:f>A3*999</x:f>", $"<x:f {memberAttributes} />");
         });
     }
 
     private static string ReplaceOnce(string xml, string original, string rewritten)
     {
-        var result = xml.Replace(original, rewritten, StringComparison.Ordinal);
-        if (ReferenceEquals(result, xml))
+        if (!xml.Contains(original, StringComparison.Ordinal))
             throw new InvalidOperationException($"'{original}' was not found in the sheet part.");
 
-        return result;
+        return xml.Replace(original, rewritten, StringComparison.Ordinal);
     }
 
     private static async Task AssertSharedFormulaLoaded(MemoryStream package)
