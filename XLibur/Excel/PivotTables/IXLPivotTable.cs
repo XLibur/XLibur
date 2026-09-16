@@ -47,12 +47,22 @@ public interface IXLPivotTable
     /// uses <see cref="FilterFieldsPageWrap"/> to determine when to break to a new row or
     /// column. Default value is <see cref="XLFilterAreaOrder.DownThenOver"/>.
     /// </summary>
+    /// <remarks>
+    /// A change to the order can change how many rows the filter fields need. The table itself
+    /// then moves, up or down, so that they still fit above it and <see cref="TargetCell"/> stays
+    /// where it is.
+    /// </remarks>
     XLFilterAreaOrder FilterAreaOrder { get; set; }
 
     /// <summary>
     /// Specifies the number of page fields to display before starting another row or column.
     /// Value = 0 means unlimited.
     /// </summary>
+    /// <remarks>
+    /// A change to the wrap can change how many rows the filter fields need. The table itself then
+    /// moves, up or down, so that they still fit above it and <see cref="TargetCell"/> stays where
+    /// it is.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">If value &lt; 0.</exception>
     int FilterFieldsPageWrap { get; set; } // PageWrap
     string? ErrorValueReplacement { get; set; } // ErrorCaption
