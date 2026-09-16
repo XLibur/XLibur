@@ -19,6 +19,16 @@
 
 ## v0.600.0 - 2026-09-16
 
+### Summary
+
+This release focuses on making formula recalculation and workbook editing much more robust. Unsupported, unreadable and circular formulas no longer stop unrelated recalculation or edits, while genuine XLibur calculation bugs now surface instead of being silently hidden during save.
+
+Sheet renames, deletes and copies now update references much more consistently across formulas, defined names, data validation, conditional formatting, charts, pivot tables and print areas. Pivot-table handling also receives a large set of fixes around copying, filters, values, subtotals and formatting.
+
+Performance is substantially improved for formula-heavy workbooks: building the calculation dependency tree uses much less memory, and loading large shared-formula sheets now allocates close to the same amount as ordinary formulas.
+
+The release also upgrades the formula parser to `XLibur.ClosedXML.Parser` 4.0.0 and adds the public `XLCircularReferenceException`.
+
 ### ⚠️ Breaking Changes
 
 #### Formulas
