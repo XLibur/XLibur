@@ -193,6 +193,102 @@ public class XLPivotTableFilterAreaTests
         await Assert.That(Describe(pt)).IsEqualTo("target=E1 area=E4 filters=1x2");
     }
 
+    [Test]
+    [Property("Description", "#578: the shift clipped the area at the last row, so a table at the bottom of the sheet lost height when it gained a filter")]
+    public async Task A_filter_added_to_a_table_at_the_bottom_of_the_sheet_keeps_the_table_whole()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+
+        // A ten-row table whose last row is the last row of the sheet. Set directly, because the
+        // area of a table built here is one row high.
+        pt.Area = new Area(XLHelper.MaxRowNumber - 9, 5, XLHelper.MaxRowNumber, 5);
+
+        pt.ReportFilters.Add("F1");
+
+        // The filter and its gap row need two rows and there are none below the table to move
+        // into, so the table keeps all ten of its rows and takes the two rows above it instead.
+        // The target cell is the cost of that: it is two rows higher than where the table was put.
+        await Assert.That(Describe(pt)).IsEqualTo(
+            $"target=E{XLHelper.MaxRowNumber - 11} " +
+            $"area=E{XLHelper.MaxRowNumber - 9}:E{XLHelper.MaxRowNumber} filters=1x1");
+    }
+
+    [Test]
+    [Property("Description", "#578: the cap must only bite when the rows really are not there, so a table with room below it moves the whole shift")]
+    public async Task A_filter_added_to_a_table_with_room_below_it_moves_the_table_the_whole_shift()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+
+        // The same ten-row table, eleven rows higher: the shift has somewhere to go.
+        pt.Area = new Area(XLHelper.MaxRowNumber - 20, 5, XLHelper.MaxRowNumber - 11, 5);
+
+        pt.ReportFilters.Add("F1");
+
+        // The filter area needs two rows and there are eleven below the table, so the table moves
+        // down by the whole two and the target cell stays exactly where it was put.
+        await Assert.That(Describe(pt)).IsEqualTo(
+            $"target=E{XLHelper.MaxRowNumber - 20} " +
+            $"area=E{XLHelper.MaxRowNumber - 18}:E{XLHelper.MaxRowNumber - 9} filters=1x1");
+    }
+
+    [Test]
+    [Property("Description", "#578: a table taller than the rows left below its filter area cannot keep both, and the filters have to win")]
+    public async Task A_table_too_tall_for_the_rows_below_its_filter_area_keeps_the_filters_room()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+
+        // A table that covers all but the first row of the sheet, so there is no arrangement that
+        // both fits it whole and leaves two rows above it for the filter area.
+        pt.Area = new Area(2, 5, XLHelper.MaxRowNumber, 5);
+
+        pt.ReportFilters.Add("F1");
+
+        // The filters keep their two rows and the extent gives up the single row that cannot
+        // exist, because the alternative is the target cell above row 1 that #571 was about.
+        await Assert.That(Describe(pt))
+            .IsEqualTo($"target=E1 area=E3:E{XLHelper.MaxRowNumber} filters=1x1");
+    }
+
+    [Test]
+    [Property("Description", "#578: taking the filter off again must not need the rows the table never got, so the height survives the round trip")]
+    public async Task Taking_the_filter_off_a_table_at_the_bottom_of_the_sheet_keeps_the_table_whole()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+        pt.Area = new Area(XLHelper.MaxRowNumber - 9, 5, XLHelper.MaxRowNumber, 5);
+        pt.ReportFilters.Add("F1");
+
+        pt.ReportFilters.Remove("F1");
+
+        // Nothing above the table any more, so the area comes back up to the target cell the added
+        // filter left it with. The ten rows are still there, which is what the cap is for: the
+        // table has slid two rows up the sheet, but it is the table it was.
+        await Assert.That(Describe(pt)).IsEqualTo(
+            $"target=E{XLHelper.MaxRowNumber - 11} " +
+            $"area=E{XLHelper.MaxRowNumber - 11}:E{XLHelper.MaxRowNumber - 2} filters=0x0");
+    }
+
+    [Test]
+    [Property("Description", "#578: a sheet edit really does consume the rows, so it still clips and must behave exactly as it did before #574")]
+    public async Task An_insert_that_pushes_a_table_off_the_bottom_of_the_sheet_still_clips_it()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+        pt.Area = new Area(XLHelper.MaxRowNumber - 9, 5, XLHelper.MaxRowNumber, 5);
+
+        wb.Worksheet("Data").Row(1000).InsertRowsAbove(5);
+
+        // The five rows the insert put above the table are five the table's last rows fall off the
+        // sheet to make room for. Unlike a filter needing room, the rows were genuinely consumed,
+        // so the extent is clipped at the last row, as every other extent on the sheet is.
+        await Assert.That(Describe(pt)).IsEqualTo(
+            $"target=E{XLHelper.MaxRowNumber - 4} " +
+            $"area=E{XLHelper.MaxRowNumber - 4}:E{XLHelper.MaxRowNumber} filters=0x0");
+    }
+
     /// <summary>
     /// The target cell, the area and the size of the filter area in one line. The target cell reads
     /// <c>#REF!</c> when the filters need more rows than there are above the area, because

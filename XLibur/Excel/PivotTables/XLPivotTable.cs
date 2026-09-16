@@ -1003,6 +1003,19 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// filter was added was the way round it, and still gives the same layout, because a height
     /// that changes while there are no filters has nothing to move.
     /// </para>
+    /// <para>
+    /// At the other end of the sheet the room has to come from somewhere too, and the table's own
+    /// height is not it: the shift is capped so the last row stays on the sheet, which leaves the
+    /// table whole and sitting higher than <see cref="TargetCell"/> asked for, rather than in place
+    /// and shorter than it was (#578). The extent is what the file records, and
+    /// <see cref="FirstHeaderRow"/>, <see cref="FirstDataRow"/> and <see cref="FirstDataCol"/> are
+    /// offsets into it, so clipping it wrote a <c>location</c> whose own offsets could point past
+    /// the bottom of its <c>ref</c>. Only a table taller than the rows left below its filter area
+    /// cannot have both, and there the filters still win and
+    /// <see cref="KeepRoomForFilters"/> clips what will not fit, because the alternative is the
+    /// target cell above row 1 that #571 was about. Either needs a table within its filter area's
+    /// height of the bottom of the sheet.
+    /// </para>
     /// </remarks>
     /// <param name="previousFilterHeight">
     /// The height of the filter area, gap row included, before the change.
@@ -1012,6 +1025,15 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         var rowShift = Filters.GetSizeWithGap().Height - previousFilterHeight;
         if (rowShift == 0)
             return;
+
+        // Leave the last row on the sheet. A filter needing another row does not insert one, so
+        // there is nothing here to legitimately push off the bottom the way a sheet edit does: a
+        // table in the last rows of the sheet gets the room by sitting higher than asked, rather
+        // than by losing rows off its own extent (#578). For an area on the sheet this only ever
+        // caps a shift downwards, and an area already hanging off the bottom — TargetCell's setter
+        // can build one, because Area.At preserves the height without clamping it — is pulled back
+        // on whole by the same expression, rather than clipped onto the last row.
+        rowShift = Math.Min(rowShift, XLHelper.MaxRowNumber - Area.LastPoint.Row);
 
         Area = KeepRoomForFilters(Area, rowShift);
     }
@@ -1032,7 +1054,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Pushing the area down rather than clamping only its top keeps the table's height, which
     /// matters for an area read from a file — <c>location/@ref</c> is a real extent, not a corner.
     /// The one case that cannot keep it is a shift into the bottom edge of the sheet, where the
-    /// extent is clipped at the last row: the rows it wants are not there to move into.
+    /// extent is clipped at the last row: the rows it wants are not there to move into. A sheet
+    /// edit reaches that legitimately, because rows really were consumed and the table has to keep
+    /// covering the cells it moved with, but a filter that merely needs more room has consumed
+    /// nothing, so <see cref="MoveAreaForFilterHeightChange"/> caps its own shift instead of
+    /// arriving here with one that would clip (#578).
     /// </para>
     /// <para>
     /// The shift is a parameter rather than something the callers apply themselves, because
