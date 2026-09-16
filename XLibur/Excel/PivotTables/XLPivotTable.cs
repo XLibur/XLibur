@@ -18,6 +18,13 @@ namespace XLibur.Excel;
 #pragma warning disable S2292
 internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 {
+    /// <summary>
+    /// The value <see cref="XLPivotReference.Field"/> carries when the reference is on the 'data'
+    /// field rather than on a pivot field: <see cref="FieldIndex.DataField"/> (-2) as an unsigned
+    /// integer, which is how the <c>field</c> attribute is written.
+    /// </summary>
+    private const uint DataFieldReferenceIndex = unchecked((uint)-2);
+
     private readonly XLWorksheet _worksheet;
 
     /// <summary>
@@ -874,6 +881,118 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         _formats.Add(pivotFormat);
     }
 
+    /// <summary>
+    /// Take the value that was at position <paramref name="removedPosition"/> of
+    /// <see cref="DataFields"/> out of the style formats, after it has been removed from there
+    /// (#577). <paramref name="remainingValueCount"/> is how many values are left, so that a
+    /// position the removal leaves out of range goes too.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A format's pivot area can hold a reference on the 'data' field
+    /// (<see cref="FieldIndex.DataField"/>), and such a reference names values by their
+    /// <em>position</em> in <see cref="DataFields"/> — not by the pivot field behind them. Excel
+    /// writes it that way itself: in <c>TryToLoad/TemplateWithTableSourcePivotTables.xlsx</c> the
+    /// data fields of <c>pivotTable6</c> are backed by pivot fields 16 and 18 while the format
+    /// reference names items 0 and 1, and <c>pivotTable3</c> has two of its four values backed by
+    /// the one pivot field 6, so the position is the only thing that tells them apart.
+    /// </para>
+    /// <para>
+    /// The positions after the removed one therefore shift down, and a reference naming one of
+    /// them is renumbered to follow its value rather than dropped: the value it was written for is
+    /// still in the table, and Excel identifies it by position, so leaving the number alone would
+    /// silently restyle the next value instead.
+    /// </para>
+    /// <para>
+    /// A reference left naming nothing takes its whole format with it. An area is the intersection
+    /// of its references — a cell is styled only if it lies on every one of them — so keeping the
+    /// format after dropping one reference would widen the area onto values the format was never
+    /// written for, which is worse than losing it. A reference that named no position to begin
+    /// with is left alone: it singles out no value, so no removal can make it stale.
+    /// </para>
+    /// <para>
+    /// A position at or past <paramref name="remainingValueCount"/> goes as well. The loader does
+    /// not check that a position names a value the file has (see
+    /// <see cref="XLPivotReference.AddFieldItem"/>), so a file can arrive naming one it does not;
+    /// renumbering such a position would only walk it down onto a valid-looking value it was never
+    /// written for. This is also what empties every reference once the last value is gone, so no
+    /// format can outlive the values whichever path took them away.
+    /// </para>
+    /// <para>
+    /// Two formats can be left naming the same area — one that named positions 1 and 2 and one
+    /// that named 2 alone both become 1 when value 1 goes. They are left as two entries, because
+    /// after the renumbering they really do describe the same cells, and merging them would have
+    /// to throw one of the two styles away.
+    /// </para>
+    /// </remarks>
+    internal void RemoveValueFromFormats(int removedPosition, int remainingValueCount)
+    {
+        var removed = checked((uint)removedPosition);
+        var remaining = checked((uint)remainingValueCount);
+        _formats.RemoveAll(format => RenumberDataFieldPositions(format.PivotArea, removed, remaining));
+    }
+
+    /// <summary>
+    /// Renumber the 'data' field references of <paramref name="area"/> around the removal of the
+    /// value at <paramref name="removedPosition"/>.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> when a reference is left naming no value at all, meaning the owning format has
+    /// to go.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The items are renumbered in place. The areas of <see cref="Formats"/> are not shared with
+    /// anything: the loader builds one per <c>format</c> element and
+    /// <see cref="XLPivotStyleFormatBase"/> builds one per format it adds.
+    /// </para>
+    /// <para>
+    /// Two known gaps, both left alone on purpose rather than missed. The areas of
+    /// <see cref="ConditionalFormats"/> can hold the same reference and are written back verbatim,
+    /// but they are shared with a copy of the table (<see cref="CopyConditionalFormatsTo"/>), so
+    /// renumbering one in place would change the copy's too, and fixing that needs the shared area
+    /// copied first. The areas of <see cref="ChartFormats"/> can hold it as well, and there each
+    /// entry also carries an index into the chart part's own formatting records, so dropping one
+    /// would have to reach into the chart part to stay consistent.
+    /// </para>
+    /// </remarks>
+    private static bool RenumberDataFieldPositions(XLPivotArea area, uint removedPosition, uint remainingValueCount)
+    {
+        var emptiedReference = false;
+        foreach (var reference in area.References)
+        {
+            if (reference.Field != DataFieldReferenceIndex)
+                continue;
+
+            var positions = reference.FieldItems;
+            if (positions.Count == 0)
+                continue;
+
+            for (var i = positions.Count - 1; i >= 0; i--)
+            {
+                var position = positions[i];
+                if (position == removedPosition)
+                {
+                    positions.RemoveAt(i);
+                    continue;
+                }
+
+                if (position > removedPosition)
+                    position--;
+
+                if (position >= remainingValueCount)
+                    positions.RemoveAt(i);
+                else
+                    positions[i] = position;
+            }
+
+            if (positions.Count == 0)
+                emptiedReference = true;
+        }
+
+        return emptiedReference;
+    }
+
     internal void AddConditionalFormat(XLPivotConditionalFormat conditionalFormat)
     {
         _conditionalFormats.Add(conditionalFormat);
@@ -895,7 +1014,9 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// Only a sheet copy calls this. <see cref="CopyTo"/> on its own copies neither list: a pivot table
     /// copied to another cell would need its formats' ranges and pivot areas moved with it, and no Excel
     /// file shows what that looks like. The pivot areas are shared, not copied, because nothing changes
-    /// an area once it is loaded or built.
+    /// a <em>conditional</em> format's area once it is loaded or built — the areas of
+    /// <see cref="Formats"/> are renumbered in place when a value is removed
+    /// (<see cref="RemoveValueFromFormats"/>), which is why those are not shared with a copy.
     /// </remarks>
     internal void CopyConditionalFormatsTo(XLPivotTable copy)
     {
@@ -1784,6 +1905,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
         // Source and custom name might not be valid at this point, so keep them.
         var keptDataFields = new List<(string SourceName, string? CustomName, XLPivotDataField Field)>();
+
+        // A value whose source column is gone from the cache is not put back below, so it is
+        // really removed and the style formats naming it have to go with it (#577).
+        var droppedValuePositions = new List<int>();
+        var valuePosition = 0;
         foreach (var dataField in DataFields)
         {
             var oldSourceName = oldFieldNames[dataField.Field];
@@ -1791,6 +1917,12 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             {
                 keptDataFields.Add((oldSourceName, dataField.DataFieldName, dataField));
             }
+            else
+            {
+                droppedValuePositions.Add(valuePosition);
+            }
+
+            valuePosition++;
         }
 
         var includeValuesField = keptDataFields.Count > 1;
@@ -1802,7 +1934,21 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         Filters.Clear();
         RowAxis.Clear();
         ColumnAxis.Clear();
-        DataFields.Clear();
+
+        // Prune the formats of the values that are not coming back, highest position first so each
+        // one is numbered against the positions still there. The kept values go back below in the
+        // order they are in now, so once these are out the positions the formats name are exactly
+        // the positions the kept values will land on (#577).
+        var valuesLeft = keptDataFields.Count + droppedValuePositions.Count;
+        for (var i = droppedValuePositions.Count - 1; i >= 0; i--)
+        {
+            valuesLeft--;
+            RemoveValueFromFormats(droppedValuePositions[i], valuesLeft);
+        }
+
+        // The values that are coming back are emptied only to be re-added a few lines below, so
+        // their formats are left exactly as they are rather than pruned as a real Clear would.
+        DataFields.ClearWithoutPruningFormats();
 
         _fields.Clear();
         foreach (var unused in PivotCache.FieldNames)
