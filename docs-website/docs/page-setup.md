@@ -169,6 +169,26 @@ ws.PageSetup.AddHorizontalPageBreak(20);   // break after row 20
 ws.PageSetup.AddVerticalPageBreak(6);      // break after column 6
 ```
 
+To remove breaks:
+
+```csharp
+bool removed = ws.PageSetup.RemoveHorizontalPageBreak(20);   // false if there was no break there
+ws.PageSetup.RemoveVerticalPageBreak(6);
+
+ws.PageSetup.ClearHorizontalPageBreaks();
+ws.PageSetup.ClearVerticalPageBreaks();
+```
+
+`RowBreaks` and `ColumnBreaks` list the breaks in order. They are read-only: use the methods above
+to change them. This keeps the list sorted and without duplicates.
+
+```csharp
+foreach (var row in ws.PageSetup.RowBreaks)
+{
+    Console.WriteLine($"Break after row {row}");
+}
+```
+
 ## Printed appearance
 
 ```csharp

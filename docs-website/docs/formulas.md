@@ -181,6 +181,19 @@ Three things deliberately do **not** intersect:
 - **An operator inside a function argument does not intersect**, so `MIN(A1:A2-B1)` and
   `SUMPRODUCT((A1:C2-E1:G2)^2/E1:G2)` are unaffected.
 
+### The `@` and space operators {#at-and-space-operators}
+
+You can also ask for an intersection yourself. XLibur calculates both operators:
+
+| Formula | What it gives |
+|---|---|
+| `=@B1:B10` in row 3 | `B3`, the cell of the range on the formula's row |
+| `=SUM(B7:D7 C6:C8)` | the sum of `C7`, the cell that both ranges contain |
+
+The `@` operator gives the cell on the formula's row or column. For an array, it gives the first
+element. The space operator gives the cells that both references have in common. If they have no
+cell in common, the result is `#NULL!`.
+
 :::caution
 Formulas of this shape used to answer with the range's *first* element — `142` for the example
 above — so a cached value computed by an earlier version can differ from the same formula
@@ -267,6 +280,68 @@ ws.RecalculateAllFormulas();
 workbook.RecalculateAllFormulas();
 ```
 
+### When a formula cannot be calculated
+
+Some formulas have no answer XLibur can give. There are three kinds:
+
+- **A circular reference.** The formula depends on its own value, directly or through other
+  formulas or defined names.
+- **A formula XLibur does not evaluate.** For example, a DDE link such as
+  `Sdemo123|tik!'id1?req?AAPL'`.
+- **A formula the parser cannot read.** For example, `'[Book2.xlsx]Sheet1'!A1`, or a function
+  called with the wrong number of arguments, such as `ABS(1,2)`.
+
+Reading such a cell throws. Each kind has its own exception, so you can tell them apart from a
+bug in XLibur:
+
+```csharp
+using XLibur.Excel.CalcEngine;
+using XLibur.Excel.CalcEngine.Exceptions;
+
+try
+{
+    var value = ws.Cell("A1").Value;
+}
+catch (XLCircularReferenceException)
+{
+    // the cell is in a cycle, or depends on one
+}
+catch (NotImplementedException)
+{
+    // the formula uses something XLibur does not evaluate
+}
+catch (ExpressionParseException)
+{
+    // the parser cannot read the formula
+}
+```
+
+`XLCircularReferenceException` derives from `InvalidOperationException`, so older code that
+catches that type still works.
+
+The problem stays with that cell and the cells that depend on it. The rest of the workbook still
+works:
+
+- You can still edit any cell, and reading a cell that does not depend on the problem cell
+  gives its value.
+- `RecalculateAllFormulas` (and `LoadOptions.RecalculateAllFormulas`) does not throw. It
+  calculates every other formula and leaves the problem cells with `NeedsRecalculation` set to
+  `true`.
+
+So, to find the problem cells after a recalculation, check `NeedsRecalculation`:
+
+```csharp
+workbook.RecalculateAllFormulas();
+
+var notCalculated = ws.CellsUsed(c => c.HasFormula && c.NeedsRecalculation).ToList();
+```
+
+:::caution
+In earlier versions `RecalculateAllFormulas` threw at the first circular reference or unsupported
+formula. If your code used that exception to find such a cell, it no longer sees one. Check
+`NeedsRecalculation` instead.
+:::
+
 ### Evaluating an expression directly
 
 You can run a formula without writing it into a cell:
@@ -318,8 +393,12 @@ workbook.SaveAs("Report.xlsx", new SaveOptions { EvaluateFormulasBeforeSaving = 
 ```
 
 :::note
-If a formula throws during evaluation, that cell's value is simply not written — the save still
-succeeds. This matters when the workbook uses a function XLibur does not implement.
+If a formula cannot be calculated — a circular reference, a function XLibur does not implement,
+or text the parser cannot read — the save still succeeds. XLibur writes that cell without a
+value, and Excel calculates it when it opens the file.
+
+Any other failure is a bug in XLibur, and the save throws it. Earlier versions hid these bugs and
+wrote the cell without a value.
 :::
 
 ### Calculation mode
@@ -343,6 +422,25 @@ Console.WriteLine(ws.Cell("C1").FormulaA1);   // "SUM(B2:B11)"
 ws.Name = "Renamed";
 // A formula elsewhere reading "=Data!A1" now reads "=Renamed!A1"
 ```
+
+Deleting a sheet also rewrites the formulas that refer to it, as Excel does. Each reference to
+the deleted sheet becomes `#REF!`:
+
+```csharp
+// Sheet2!A1 holds "=Sheet1!A1*2"
+workbook.Worksheet("Sheet1").Delete();
+Console.WriteLine(workbook.Worksheet("Sheet2").Cell("A1").FormulaA1);   // "#REF!*2"
+```
+
+A 3D reference that has the deleted sheet at one end gets smaller instead. Deleting `Sheet1`
+changes `SUM(Sheet1:Sheet3!A1)` to `SUM(Sheet2:Sheet3!A1)`. If you delete a sheet from the middle
+of the span, the reference does not change.
+
+Two kinds of text are not rewritten:
+
+- Text inside a string, such as `INDIRECT("Sheet1!A1")`.
+- A formula the parser cannot read. XLibur does not know which references it holds, so it keeps
+  the text as it is.
 
 ## Data tables
 
