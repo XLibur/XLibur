@@ -19,18 +19,23 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          # stryker-config.json pins target-framework to net10.0, so the 8.0 SDK is never used.
+          dotnet-version: 10.0.x
 
       - name: Restore tools
         run: dotnet tool restore
 
+      # Only the project under mutation and its test project matter here; restoring the whole
+      # solution pulls in six other test projects, the benchmarks and the examples for nothing.
       - name: Restore dependencies
-        run: dotnet restore XLibur.slnx
+        run: dotnet restore XLibur.Tests/XLibur.Tests.csproj
 
-      - name: Build
-        run: dotnet build XLibur.slnx --configuration Release --no-restore
+      # Stryker builds the project itself before mutating it, so a build step here is duplicated
+      # work. It also built Release, where GeneratePackageOnBuild is on for the seven packable
+      # projects, so every run packed (and SBOM-scanned) NuGet packages nothing consumed.
+      # Stryker's own build runs at the default Debug configuration and packs nothing.
+      # - name: Build
+      #   run: dotnet build XLibur.slnx --configuration Release --no-restore
 
       - name: Run Stryker
         env:
