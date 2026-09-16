@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using ClosedXML.Parser;
+using XLibur.Parser;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Extensions;
@@ -11,7 +11,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// Repoints the references inside a formula when rows or columns are inserted or deleted.
 /// <para>
-/// References are located with <see cref="ClosedXML.Parser"/> rather than a regex. The parser knows
+/// References are located with <see cref="XLibur.Parser"/> rather than a regex. The parser knows
 /// which spans of the formula are references and which are string literals, function names or
 /// structured references, and it hands back each reference already decomposed into row/column values
 /// and relative/absolute markers. That removes two whole classes of work the regex path needed: the
@@ -134,7 +134,7 @@ internal static partial class XLCellFormulaShifter
     /// </summary>
     /// <remarks>
     /// This is the other side of the shifter's one seam. It is reached only for formulas
-    /// <see cref="ClosedXML.Parser"/> rejects — external workbook references such as
+    /// <see cref="XLibur.Parser"/> rejects — external workbook references such as
     /// <c>'[file.xlsx]Sheet'!A1</c>. The two implementations disagree on 9 of the 2,072 rows in
     /// <c>FormulaShifterCorpus.tsv</c>, all of them the tail-deletion clamp; the corpus pins both
     /// columns so neither can drift.

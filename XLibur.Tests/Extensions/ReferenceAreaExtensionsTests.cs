@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using XLibur.Excel;
 using XLibur.Extensions;
-using ClosedXML.Parser;
+using XLibur.Parser;
 using XLibur.Excel.Coordinates;
-using static ClosedXML.Parser.ReferenceAxisType;
-using static ClosedXML.Parser.ReferenceStyle;
+using static XLibur.Parser.ReferenceAxisType;
+using static XLibur.Parser.ReferenceStyle;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Extensions;
