@@ -178,6 +178,13 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
         static void CopyPivotField(IXLPivotField originalPivotField, IXLPivotField newPivotField)
         {
+            // The 'Values' sentinel field (field index -2, XLConstants.PivotTable.ValuesSentinalLabel)
+            // is not a field of the cache: it only marks a position on the axis. The Add call that
+            // produced newPivotField already put it there, and none of the properties below apply to
+            // it - asking XLPivotTableAxisField.GetField() for any of them throws on purpose (#593).
+            if (originalPivotField.Offset == FieldIndex.DataField.Value)
+                return;
+
             newPivotField
                 .SetSort(originalPivotField.SortType)
                 .SetSubtotalCaption(originalPivotField.SubtotalCaption)
