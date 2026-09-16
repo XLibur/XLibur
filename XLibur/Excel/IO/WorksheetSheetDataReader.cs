@@ -424,7 +424,8 @@ internal static class WorksheetSheetDataReader
     {
         // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
         var formula = IsMainElement(reader, "f")
-            ? SetCellFormulaXml(reader, ws, cellAddress, context.SharedFormulas, cellMetaIndex, context.DynamicArrayCmIndexes)
+            ? SetCellFormulaXml(reader, context.ValueBuffer, ws, cellAddress, context.SharedFormulas, cellMetaIndex,
+                context.DynamicArrayCmIndexes)
             : null;
 
         // A formula result string is stored in <v>, never in the shared string table. That is true
@@ -469,10 +470,10 @@ internal static class WorksheetSheetDataReader
     }
 
 #pragma warning disable S3776 // Shared, array and dynamic-array formulas are decided by flat, documented tests
-    private static XLCellFormula? SetCellFormulaXml(XmlReader reader, XLWorksheet ws, Point cellAddress,
+    private static XLCellFormula? SetCellFormulaXml(XmlReader reader, char[] buffer, XLWorksheet ws, Point cellAddress,
         Dictionary<uint, SharedFormula> sharedFormulas, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
-        string? typeAttr = null;
+        var formulaType = CellFormulaValues.Normal; // Matches an absent t attribute.
         string? refAttr = null;
         string? r1Attr = null;
         string? r2Attr = null;
@@ -486,19 +487,39 @@ internal static class WorksheetSheetDataReader
                 if (reader.NamespaceURI.Length != 0)
                     continue;
 
-                switch (reader.LocalName)
+                // LocalName comes from the reader's name table, so it costs nothing.
+                var localName = reader.LocalName;
+
+                // ref, r1 and r2 are the only values kept as text, for the reference parsers. Only
+                // the master cell of an array, a data table or a shared group carries one, so a
+                // string for them is paid once per formula rather than once per cell.
+                switch (localName)
                 {
-                    // bx attribute of cell formula is never used, per MS-OI29500 2.1.620.
-                    case "t": typeAttr = reader.Value; break;
-                    case "ref": refAttr = reader.Value; break;
-                    case "si": sharedIndex = uint.Parse(reader.Value); break;
-                    case "aca": aca = ParseXmlBool(reader.Value); break;
-                    case "dt2D": dt2D = ParseXmlBool(reader.Value); break;
-                    case "del1": del1 = ParseXmlBool(reader.Value); break;
-                    case "del2": del2 = ParseXmlBool(reader.Value); break;
-                    case "r1": r1Attr = reader.Value; break;
-                    case "r2": r2Attr = reader.Value; break;
-                    case "dtr": dtr = ParseXmlBool(reader.Value); break;
+                    case "ref": refAttr = reader.Value; continue;
+                    case "r1": r1Attr = reader.Value; continue;
+                    case "r2": r2Attr = reader.Value; continue;
+                }
+
+                // bx attribute of cell formula is never used, per MS-OI29500 2.1.620.
+                if (localName is not ("t" or "si" or "aca" or "dt2D" or "del1" or "del2" or "dtr"))
+                    continue;
+
+                // Read as characters: Excel writes t="shared" and an si on every cell of a shared
+                // formula, and neither is retained as a string -- the type becomes an enum and the
+                // index a number, so materializing them allocated two strings per cell that were
+                // thrown away immediately (#558).
+                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+                switch (localName)
+                {
+                    case "t": formulaType = ParseFormulaType(value); break;
+                    case "si": sharedIndex = uint.Parse(value, CultureInfo.InvariantCulture); break;
+                    case "aca": aca = ParseXmlBool(value); break;
+                    case "dt2D": dt2D = ParseXmlBool(value); break;
+                    case "del1": del1 = ParseXmlBool(value); break;
+                    case "del2": del2 = ParseXmlBool(value); break;
+                    case "dtr": dtr = ParseXmlBool(value); break;
                 }
             }
 
@@ -506,16 +527,6 @@ internal static class WorksheetSheetDataReader
         }
 
         var formulaText = reader.ReadElementContentAsString(); // Reads <f> text and moves past </f>.
-
-        var formulaType = typeAttr switch
-        {
-            "normal" => CellFormulaValues.Normal,
-            "array" => CellFormulaValues.Array,
-            "dataTable" => CellFormulaValues.DataTable,
-            "shared" => CellFormulaValues.Shared,
-            null => CellFormulaValues.Normal,
-            _ => throw new NotSupportedException("Unknown formula type.")
-        };
 
         var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
         XLCellFormula? formula = null;
@@ -757,6 +768,25 @@ internal static class WorksheetSheetDataReader
         }
 
         throw new FormatException("Unknown cell type.");
+    }
+
+    /// <summary>
+    /// Maps the <c>t</c> attribute of an <c>&lt;f&gt;</c> to a formula type. An absent attribute means
+    /// <see cref="CellFormulaValues.Normal"/> and is handled by the caller's default. <c>shared</c>
+    /// comes first because Excel writes it on every cell of a filled-down column.
+    /// </summary>
+    private static CellFormulaValues ParseFormulaType(ReadOnlySpan<char> typeAttribute)
+    {
+        if (typeAttribute.SequenceEqual("shared"))
+            return CellFormulaValues.Shared;
+        if (typeAttribute.SequenceEqual("array"))
+            return CellFormulaValues.Array;
+        if (typeAttribute.SequenceEqual("normal"))
+            return CellFormulaValues.Normal;
+        if (typeAttribute.SequenceEqual("dataTable"))
+            return CellFormulaValues.DataTable;
+
+        throw new NotSupportedException("Unknown formula type.");
     }
 
     /// <summary>
