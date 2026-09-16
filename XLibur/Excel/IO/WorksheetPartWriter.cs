@@ -89,10 +89,10 @@ internal static class WorksheetPartWriter
         using (var partStream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read))
         using (var reader = PartXmlReader.CreateVerbatim(partStream))
         using (var writer = XmlWriter.Create(buffer, new XmlWriterSettings
-               {
-                   CloseOutput = false,
-                   Encoding = XLHelper.NoBomUTF8,
-               }))
+        {
+            CloseOutput = false,
+            Encoding = XLHelper.NoBomUTF8,
+        }))
         {
             if (reader.MoveToContent() != XmlNodeType.Element)
                 throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");

@@ -71,76 +71,76 @@ public class ChartGoldenCorpusTests
                 break;
 
             case "line-legend-bottom":
-            {
-                // Visible has to be assigned too: a legend nobody switched on is not written, which
-                // is what makes an unassigned legend round-trip untouched.
-                var legend = AddChart(ws, XLChartType.Line).Legend;
-                legend.Visible = true;
-                legend.Position = XLLegendPosition.Bottom;
-                legend.Overlay = true;
-                break;
-            }
+                {
+                    // Visible has to be assigned too: a legend nobody switched on is not written, which
+                    // is what makes an unassigned legend round-trip untouched.
+                    var legend = AddChart(ws, XLChartType.Line).Legend;
+                    legend.Visible = true;
+                    legend.Position = XLLegendPosition.Bottom;
+                    legend.Overlay = true;
+                    break;
+                }
 
             case "bar-titled":
-            {
-                var chart = AddChart(ws, XLChartType.ColumnClustered);
-                chart.Title = "Quarterly";
-                chart.ValueAxis.Title = "Units";
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.ColumnClustered);
+                    chart.Title = "Quarterly";
+                    chart.ValueAxis.Title = "Units";
+                    break;
+                }
 
             case "line-datalabels":
-            {
-                var chart = AddChart(ws, XLChartType.Line);
-                chart.DataLabels.ShowValue = true;
-                chart.DataLabels.Position = XLDataLabelPosition.Above;
-                chart.Series.First().DataLabels.ShowCategoryName = true;
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.Line);
+                    chart.DataLabels.ShowValue = true;
+                    chart.DataLabels.Position = XLDataLabelPosition.Above;
+                    chart.Series.First().DataLabels.ShowCategoryName = true;
+                    break;
+                }
 
             case "bar-secondary-axis":
-            {
-                var chart = AddChart(ws, XLChartType.ColumnClustered);
-                chart.Series.Add("Price", "Data!$C$1:$C$2", Categories).UseSecondaryAxis = true;
-                chart.SecondaryValueAxis.MajorGridlines = true;
-                chart.ValueAxis.MajorGridlines = true;
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.ColumnClustered);
+                    chart.Series.Add("Price", "Data!$C$1:$C$2", Categories).UseSecondaryAxis = true;
+                    chart.SecondaryValueAxis.MajorGridlines = true;
+                    chart.ValueAxis.MajorGridlines = true;
+                    break;
+                }
 
             case "line-series-format":
-            {
-                var chart = AddChart(ws, XLChartType.LineWithMarkers);
-                var series = chart.Series.First();
-                series.FillColor = XLColor.Red;
-                series.LineColor = XLColor.FromTheme(XLThemeColor.Accent2);
-                series.LineWidthPt = 2.25;
-                series.MarkerStyle = XLMarkerStyle.Diamond;
-                series.MarkerSize = 7;
-                series.MarkerFillColor = XLColor.Blue;
-                series.Smooth = true;
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.LineWithMarkers);
+                    var series = chart.Series.First();
+                    series.FillColor = XLColor.Red;
+                    series.LineColor = XLColor.FromTheme(XLThemeColor.Accent2);
+                    series.LineWidthPt = 2.25;
+                    series.MarkerStyle = XLMarkerStyle.Diamond;
+                    series.MarkerSize = 7;
+                    series.MarkerFillColor = XLColor.Blue;
+                    series.Smooth = true;
+                    break;
+                }
 
             case "bar-axis-scale":
-            {
-                var chart = AddChart(ws, XLChartType.ColumnClustered);
-                chart.ValueAxis.Min = 0;
-                chart.ValueAxis.Max = 500;
-                chart.ValueAxis.MajorUnit = 100;
-                chart.ValueAxis.MinorUnit = 25;
-                chart.ValueAxis.NumberFormat = "#,##0";
-                chart.ValueAxis.Orientation = XLAxisOrientation.MaxMin;
-                chart.CategoryAxis.Visible = false;
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.ColumnClustered);
+                    chart.ValueAxis.Min = 0;
+                    chart.ValueAxis.Max = 500;
+                    chart.ValueAxis.MajorUnit = 100;
+                    chart.ValueAxis.MinorUnit = 25;
+                    chart.ValueAxis.NumberFormat = "#,##0";
+                    chart.ValueAxis.Orientation = XLAxisOrientation.MaxMin;
+                    chart.CategoryAxis.Visible = false;
+                    break;
+                }
 
             case "scatter-smooth":
-            {
-                var chart = AddChart(ws, XLChartType.XYScatterSmoothLinesWithMarkers);
-                chart.ValueAxis.LogScale = true;
-                chart.ValueAxis.LogBase = 2;
-                break;
-            }
+                {
+                    var chart = AddChart(ws, XLChartType.XYScatterSmoothLinesWithMarkers);
+                    chart.ValueAxis.LogScale = true;
+                    chart.ValueAxis.LogBase = 2;
+                    break;
+                }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown chart fixture.");

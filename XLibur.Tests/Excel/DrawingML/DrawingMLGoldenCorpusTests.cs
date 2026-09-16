@@ -201,14 +201,14 @@ public class DrawingMLGoldenCorpusTests
                 break;
 
             case "patch-marker-formatted":
-            {
-                var line = chart.SecondarySeries.Single();
-                line.MarkerStyle = XLMarkerStyle.Square;
-                line.MarkerSize = 10;
-                line.MarkerFillColor = XLColor.FromHtml("#FFC000");
-                line.Smooth = false;
-                break;
-            }
+                {
+                    var line = chart.SecondarySeries.Single();
+                    line.MarkerStyle = XLMarkerStyle.Square;
+                    line.MarkerSize = 10;
+                    line.MarkerFillColor = XLColor.FromHtml("#FFC000");
+                    line.Smooth = false;
+                    break;
+                }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown patch fixture.");
