@@ -150,9 +150,10 @@ internal class XLPivotStyleFormatPruningTests
         // The source is A1:C5, columns F1, F2 and F3, with a value on each. Narrowing it to A:B
         // leaves F1 and F2, so the value at position 2 is gone for good.
         //
-        // Narrowing all the way to column A would be the sharper test, but it crashes in
-        // GetKeptNames on a defect of its own that predates this: with one value left the 'data'
-        // field is not kept, and the loop then reads oldNames[-2]. That is not touched here.
+        // Narrowing all the way to column A leaves only one value, which is #583: the 'Values'
+        // field still sits on the column axis at this point, and the loop used to read
+        // oldNames[-2] for it once includeDataField turned false. See
+        // Refreshing_onto_a_single_column_source_takes_the_values_field_off_the_axis below.
         using var saved = SaveFixture(pt =>
         {
             var source = pt.PivotCache.SourceRange!;
@@ -167,6 +168,59 @@ internal class XLPivotStyleFormatPruningTests
         await Assert.That(DataFieldReferences(xml)).IsEquivalentTo(["1", "0", "0,1", "0,1"])
             .Because("the format naming only the dropped value goes, and the two naming all three "
                      + "values must be left naming the two that are left");
+    }
+
+    /// <summary>
+    /// #583: narrowing the source down to one surviving value leaves the 'Values' field on the
+    /// column axis with nothing to distinguish, since <c>GetKeptNames</c> used to fall through to
+    /// <c>oldNames[-2]</c> and throw <see cref="ArgumentOutOfRangeException"/> once the field was
+    /// no longer kept. A single value needs no 'Values' field, so refreshing must take it off the
+    /// axis instead, the way removing values one at a time already does (#572).
+    /// </summary>
+    [Test]
+    [Property("Description", "#583: a refresh leaving one value must not throw, and must take Values off the axis")]
+    public async Task Refreshing_onto_a_single_column_source_takes_the_values_field_off_the_axis()
+    {
+        using var saved = SaveFixture(pt =>
+        {
+            var source = pt.PivotCache.SourceRange!;
+            pt.PivotCache.SetSourceRange(source.Worksheet.Range("A1:A5"));
+            pt.PivotCache.Refresh();
+        });
+
+        var xml = PivotTableXml(saved);
+
+        await Assert.That(DataFieldCount(xml)).IsEqualTo(1)
+            .Because("only F1's value survives the narrower source");
+        await Assert.That(xml).DoesNotContain("<colFields")
+            .Because("one value needs no 'Values' field to tell it apart from another");
+    }
+
+    /// <summary>
+    /// #583: the same fall-through is reached with zero surviving values, not just one, because
+    /// includeDataField is false in both cases.
+    /// </summary>
+    [Test]
+    [Property("Description", "#583: a refresh leaving no values must not throw, and must take Values off the axis")]
+    public async Task Refreshing_onto_a_source_with_no_matching_columns_drops_every_value()
+    {
+        using var saved = SaveFixture(pt =>
+        {
+            var otherSheet = pt.Worksheet.Workbook.AddWorksheet("Unrelated source");
+            otherSheet.Cell("A1").Value = "Other";
+            otherSheet.Cell("A2").Value = 1;
+            otherSheet.Cell("A3").Value = 2;
+
+            pt.PivotCache.SetSourceRange(otherSheet.Range("A1:A3"));
+            pt.PivotCache.Refresh();
+        });
+
+        var xml = PivotTableXml(saved);
+
+        await Assert.That(xml).DoesNotContain("<dataFields")
+            .Because("none of F1, F2 or F3 survive in the new source, so no value is left");
+        await Assert.That(xml).DoesNotContain("<colFields")
+            .Because("with no values left, the 'Values' field has nothing to tell apart");
     }
 
     /// <summary>
