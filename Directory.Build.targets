@@ -63,4 +63,21 @@
     </PropertyGroup>
   </Target>
 
+  <!--
+    A mutation run builds a whole solution (see XLibur.Mutation.slnx) but tests exactly one
+    framework: stryker-config.json pins target-framework to net10.0. The library multi-targets
+    three and the test project two, so the other builds are compiled and then never loaded.
+    Collapsing to the single framework the run uses cuts that build to a third.
+
+    This has to live in .targets rather than .props. Directory.Build.props is imported before the
+    project body, so a <TargetFrameworks> set there would be overwritten by the csproj's own
+    value; .targets is imported after it, while the property is still being evaluated and before
+    the outer build enumerates frameworks.
+
+    Guarded on TargetFrameworks being non-empty so single-targeted projects are left alone.
+  -->
+  <PropertyGroup Condition="'$(StrykerEnabled)' == 'true' AND '$(TargetFrameworks)' != ''">
+    <TargetFrameworks>net10.0</TargetFrameworks>
+  </PropertyGroup>
+
 </Project>

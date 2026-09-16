@@ -13,6 +13,71 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
+    # XLibur produces roughly 49,500 mutants at Standard level, which does not fit in one
+    # job. Each shard mutates one slice of the library and runs on its own runner, so the
+    # wall clock is the slowest shard rather than the sum of all of them.
+    #
+    # The slices are sized by lines of code, which mutant counts track closely -- 20K to 34K
+    # each. What they do NOT split is the fixed cost: every shard builds the solution, runs
+    # the full suite once and captures per-test coverage over all of it before mutating
+    # anything. That is why the build is scoped to XLibur.Mutation.slnx and to net10.0.
+    #
+    # The globs are relative to the project being mutated, so they start at Excel/ and not at
+    # XLibur/. Stryker matches a pattern against the file's full path and its path relative to
+    # the project, and neither of those begins with the project folder's own name. Getting this
+    # wrong does not fail: the filter simply matches nothing, every mutant is ignored, and the
+    # shard exits green having tested zero mutants. Check any change here against the
+    # "total mutants will be tested" line in the log, which must not be 0.
+    #
+    # fail-fast is off: a shard that trips the threshold says nothing about the others, and
+    # cancelling them would throw away the reports they had already earned.
+    #
+    # stryker-config.json deliberately sets no concurrency. Stryker defaults to
+    # Environment.ProcessorCount, which is right on every machine this runs on: 4 on a
+    # standard runner for a public repository, 2 if this repo or a fork of it is ever
+    # private, and whatever a contributor's desktop has. A hardcoded number is wrong on
+    # two of those three.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: calcengine
+            mutate: >-
+              --mutate "Excel/CalcEngine/**/*.cs"
+          - shard: io
+            mutate: >-
+              --mutate "Excel/IO/**/*.cs"
+          - shard: cells-pivot-style
+            mutate: >-
+              --mutate "Excel/Cells/**/*.cs"
+              --mutate "Excel/PivotTables/**/*.cs"
+              --mutate "Excel/Style/**/*.cs"
+          - shard: ranges-tables-drawings
+            mutate: >-
+              --mutate "Excel/Ranges/**/*.cs"
+              --mutate "Excel/Coordinates/**/*.cs"
+              --mutate "Excel/Tables/**/*.cs"
+              --mutate "Excel/ConditionalFormats/**/*.cs"
+              --mutate "Excel/Drawings/**/*.cs"
+              --mutate "Excel/Charts/**/*.cs"
+          # Whatever the named shards leave behind, so that adding a folder to XLibur cannot
+          # silently drop it out of mutation testing. Keep the exclusions in step with the
+          # includes above.
+          - shard: rest
+            mutate: >-
+              --mutate "**/*.cs"
+              --mutate "!Excel/CalcEngine/**/*.cs"
+              --mutate "!Excel/IO/**/*.cs"
+              --mutate "!Excel/Cells/**/*.cs"
+              --mutate "!Excel/PivotTables/**/*.cs"
+              --mutate "!Excel/Style/**/*.cs"
+              --mutate "!Excel/Ranges/**/*.cs"
+              --mutate "!Excel/Coordinates/**/*.cs"
+              --mutate "!Excel/Tables/**/*.cs"
+              --mutate "!Excel/ConditionalFormats/**/*.cs"
+              --mutate "!Excel/Drawings/**/*.cs"
+              --mutate "!Excel/Charts/**/*.cs"
+
     steps:
       - uses: actions/checkout@v7
 
@@ -25,10 +90,11 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      # Only the project under mutation and its test project matter here; restoring the whole
-      # solution pulls in six other test projects, the benchmarks and the examples for nothing.
+      # Matches the solution Stryker builds. Restoring XLibur.slnx here would pull in six other
+      # test projects, the benchmarks and the examples for nothing -- and restoring only the test
+      # project would be undone anyway, because Stryker's own build restores what it builds.
       - name: Restore dependencies
-        run: dotnet restore XLibur.Tests/XLibur.Tests.csproj
+        run: dotnet restore XLibur.Mutation.slnx
 
       # Stryker builds the project itself before mutating it, so a build step here is duplicated
       # work. It also built Release, where GeneratePackageOnBuild is on for the seven packable
@@ -37,15 +103,16 @@ jobs:
       # - name: Build
       #   run: dotnet build XLibur.slnx --configuration Release --no-restore
 
+      # StrykerEnabled also collapses multi-targeted projects to net10.0 -- see Directory.Build.targets.
       - name: Run Stryker
         env:
           StrykerEnabled: 'true'
-        run: dotnet stryker -f stryker-config.json
+        run: dotnet stryker -f stryker-config.json ${{ matrix.mutate }}
 
       - name: Upload mutation report
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: stryker-report
+          name: stryker-report-${{ matrix.shard }}
           path: StrykerOutput/**/reports/
           retention-days: 30

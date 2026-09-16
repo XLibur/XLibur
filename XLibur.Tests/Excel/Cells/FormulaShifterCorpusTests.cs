@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using ClosedXML.Parser;
 using XLibur.Excel;
@@ -41,12 +42,16 @@ namespace XLibur.Tests.Excel.Cells;
 public class FormulaShifterCorpusTests
 {
     [Test]
-    [MethodDataSource(nameof(Corpus))]
-    public async Task ShiftMatchesTheCorpus(CorpusCase test)
+    [MethodDataSource(nameof(CorpusChunks))]
+    public async Task ShiftMatchesTheCorpus(CorpusChunk chunk)
     {
-        var actual = Shift(test, legacy: false);
+        var failures = chunk.Cases
+            .Select(c => (Case: c, Actual: Shift(c, legacy: false)))
+            .Where(r => r.Actual != r.Case.Expected)
+            .Select(r => $"{r.Case}: got {r.Actual}, want {r.Case.Expected}")
+            .ToList();
 
-        await Assert.That(actual).IsEqualTo(test.Expected);
+        await Assert.That(failures).IsEmpty();
     }
 
     /// <summary>
@@ -56,12 +61,16 @@ public class FormulaShifterCorpusTests
     /// tail-deletion clamp described on the class.
     /// </summary>
     [Test]
-    [MethodDataSource(nameof(Corpus))]
-    public async Task LegacyShiftMatchesTheCorpus(CorpusCase test)
+    [MethodDataSource(nameof(CorpusChunks))]
+    public async Task LegacyShiftMatchesTheCorpus(CorpusChunk chunk)
     {
-        var actual = Shift(test, legacy: true);
+        var failures = chunk.Cases
+            .Select(c => (Case: c, Actual: Shift(c, legacy: true)))
+            .Where(r => r.Actual != r.Case.LegacyExpected)
+            .Select(r => $"{r.Case}: got {r.Actual}, want {r.Case.LegacyExpected}")
+            .ToList();
 
-        await Assert.That(actual).IsEqualTo(test.LegacyExpected);
+        await Assert.That(failures).IsEmpty();
     }
 
     /// <summary>
@@ -86,10 +95,15 @@ public class FormulaShifterCorpusTests
     /// shifter's fallback while claiming to test the parser path.
     /// </summary>
     [Test]
-    [MethodDataSource(nameof(Corpus))]
-    public async Task Every_corpus_formula_is_accepted_by_the_parser(CorpusCase test)
+    [MethodDataSource(nameof(CorpusChunks))]
+    public async Task Every_corpus_formula_is_accepted_by_the_parser(CorpusChunk chunk)
     {
-        await Assert.That(TryParse(test.Formula)).IsTrue();
+        var rejected = chunk.Cases
+            .Where(c => !TryParse(c.Formula))
+            .Select(c => c.Formula)
+            .ToList();
+
+        await Assert.That(rejected).IsEmpty();
     }
 
     /// <summary>
@@ -182,6 +196,35 @@ public class FormulaShifterCorpusTests
             : XLCellFormulaShifter.ShiftFormulaColumns(test.Formula, host, columnRange, test.Shift);
     }
 
+    /// <summary>
+    /// How many corpus rows each test case covers.
+    /// </summary>
+    /// <remarks>
+    /// The corpus is fed to the tests in chunks rather than a row at a time. Row-at-a-time is the
+    /// more natural shape and is what this used to be, but it makes 2,072 test cases per test and
+    /// 6,216 across the three, which is roughly 39% of the whole suite for about three seconds of
+    /// work. Stryker's Microsoft.Testing.Platform runner captures mutant coverage one test case at
+    /// a time, so that count is paid again as 6,216 capture round trips, and on this class the
+    /// coverage relay stops acknowledging partway through and every remaining case waits out its
+    /// full timeout. That alone outlasts the mutation workflow's budget.
+    ///
+    /// At 100 rows a chunk the three tests come to 63 cases, which costs the mutation run
+    /// essentially nothing and still points a failure at a named 100-row window rather than at the
+    /// corpus as a whole. Lower it if a failing row ever gets hard to find.
+    /// </remarks>
+    private const int ChunkSize = 100;
+
+    public static IEnumerable<Func<CorpusChunk>> CorpusChunks()
+    {
+        var index = 0;
+
+        foreach (var rows in Corpus().Select(row => row()).Chunk(ChunkSize))
+        {
+            var chunk = new CorpusChunk(index++, rows);
+            yield return () => chunk;
+        }
+    }
+
     public static IEnumerable<Func<CorpusCase>> Corpus()
     {
         // The extractor prefixes "XLibur.Tests.Resource." itself.
@@ -196,6 +239,18 @@ public class FormulaShifterCorpusTests
             var parsed = CorpusCase.Parse(line);
             yield return () => parsed;
         }
+    }
+
+    /// <summary>
+    /// A window of consecutive corpus rows, and the unit one test case covers.
+    /// </summary>
+    public sealed record CorpusChunk(int Index, IReadOnlyList<CorpusCase> Cases)
+    {
+        // Names the window by its 1-based row span, so a failing test says which part of the
+        // corpus to look at. Without this the test-name column shows the record's property dump,
+        // which for a hundred rows is unreadable.
+        public override string ToString() =>
+            $"rows {(Index * ChunkSize) + 1}-{(Index * ChunkSize) + Cases.Count}";
     }
 
     public sealed record CorpusCase(
