@@ -277,6 +277,92 @@ public class FormulaShifterEdgeTests
     }
 
     /// <summary>
+    /// <c>!</c> is a legal sheet-name character (<see cref="XLHelper.TryValidateSheetName"/> excludes
+    /// <c>: \ / ? * [ ]</c> and not this one), so <c>Q1!Sales</c> is a name a workbook can really have,
+    /// and Excel writes a reference to it as <c>'Q1!Sales'!A5</c>. The regex shifter used to split that
+    /// match at its first <c>!</c> — the one inside the name — reading the name as <c>'Q1</c>, which is
+    /// unterminated and reported as no sheet at all, so the reference was left where it was (#584).
+    /// Reached through the production entry point, alongside the external workbook reference that is
+    /// what makes the parser refuse the formula and hand it to this regex fallback in the first place.
+    /// </summary>
+    [Test]
+    public async Task A_row_shift_moves_a_reference_to_a_sheet_whose_name_holds_an_exclamation_mark()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+        var exclamationSheet = (XLWorksheet)wb.AddWorksheet("Q1!Sales");
+        var inserted = (XLRange)exclamationSheet.Range(1, 1, 3, XLHelper.MaxColumnNumber);
+
+        var shifted = XLCellFormulaShifter.ShiftFormulaRows(
+            "'[file.xlsx]Sheet'!A1+'Q1!Sales'!A5", formulaSheet, inserted, 3);
+
+        await Assert.That(shifted).IsEqualTo("'[file.xlsx]Sheet'!A1+'Q1!Sales'!A8");
+    }
+
+    /// <summary>
+    /// The column axis of the same defect. The column path's range extraction split at the first
+    /// <c>!</c> too, so it needed its own failure to prove the shared fix covers it — fixing only the
+    /// sheet-name extraction would still hand a malformed range address to <c>Range(string)</c> for a
+    /// reference like this one.
+    /// </summary>
+    [Test]
+    public async Task A_column_shift_moves_a_reference_to_a_sheet_whose_name_holds_an_exclamation_mark()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+        var exclamationSheet = (XLWorksheet)wb.AddWorksheet("Q1!Sales");
+        var inserted = (XLRange)exclamationSheet.Range(1, 1, XLHelper.MaxRowNumber, 2);
+
+        var shifted = XLCellFormulaShifter.ShiftFormulaColumns(
+            "'[file.xlsx]Sheet'!A1+'Q1!Sales'!E5", formulaSheet, inserted, 3);
+
+        await Assert.That(shifted).IsEqualTo("'[file.xlsx]Sheet'!A1+'Q1!Sales'!H5");
+    }
+
+    /// <summary>
+    /// The related case the issue flagged as worth checking: a workbook holding both a sheet named
+    /// <c>Q1!Sales</c> and a sheet actually named <c>Q</c>. Before #579 the truncated read of
+    /// <c>'Q1!Sales'!A5</c> could have matched <c>Q</c> and handed <c>Sales'!A5</c> to
+    /// <c>Range(string)</c>; #579 closed that specific path by rejecting the unterminated name, but the
+    /// fixed extraction has to read the whole <c>Q1!Sales</c> name correctly with a same-prefixed real
+    /// sheet in the workbook too, not just in isolation.
+    /// </summary>
+    [Test]
+    public async Task A_reference_to_a_sheet_whose_name_holds_an_exclamation_mark_moves_alongside_a_shorter_same_prefixed_sheet()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+        var exclamationSheet = (XLWorksheet)wb.AddWorksheet("Q1!Sales");
+        wb.AddWorksheet("Q");
+        var inserted = (XLRange)exclamationSheet.Range(1, 1, 3, XLHelper.MaxColumnNumber);
+
+        var shifted = XLCellFormulaShifter.ShiftUnparseable(
+            "'Q1!Sales'!A5", formulaSheet, inserted, 3, XLCellFormulaShifter.ShiftAxis.Row);
+
+        await Assert.That(shifted).IsEqualTo("'Q1!Sales'!A8");
+    }
+
+    /// <summary>
+    /// The other side of the same pairing: shifting the shorter sheet <c>Q</c> must not touch a
+    /// reference naming the longer <c>Q1!Sales</c>, since the extracted name is the whole quoted name
+    /// and never just its prefix.
+    /// </summary>
+    [Test]
+    public async Task A_shift_of_a_shorter_same_prefixed_sheet_leaves_a_reference_to_the_exclamation_marked_sheet_alone()
+    {
+        using var wb = new XLWorkbook();
+        var formulaSheet = (XLWorksheet)wb.AddWorksheet("Sheet1");
+        wb.AddWorksheet("Q1!Sales");
+        var qSheet = (XLWorksheet)wb.AddWorksheet("Q");
+        var inserted = (XLRange)qSheet.Range(1, 1, 3, XLHelper.MaxColumnNumber);
+
+        var shifted = XLCellFormulaShifter.ShiftUnparseable(
+            "'Q1!Sales'!A5", formulaSheet, inserted, 3, XLCellFormulaShifter.ShiftAxis.Row);
+
+        await Assert.That(shifted).IsEqualTo("'Q1!Sales'!A5");
+    }
+
+    /// <summary>
     /// A zero-row or zero-column shift is a no-op, returned before the formula is parsed at all. The
     /// corpus has no zero-shift row because a shift of nothing is not an equivalence case.
     /// </summary>
