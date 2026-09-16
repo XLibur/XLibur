@@ -10,8 +10,11 @@ namespace XLibur.Excel;
 /// <remarks>
 /// Excel writes a rule only in the extension when the 2007 schema cannot hold it, as for a formula
 /// that refers to another sheet. XLibur does not model such a rule. The sheet writes it back as it
-/// was loaded, id and priority included, and only its formula text follows an edit. So this keeps
-/// the id and the priority as they were loaded, and the two sides go on naming each other. A rule
+/// was loaded, id included, and only its formula text, its range and its priority follow an edit. So
+/// this keeps the id as it was loaded, and a save names the rule by the priority the sheet wrote it
+/// with (<see cref="XLibur.Excel.ConditionalFormats.XLConditionalFormats.TryGetExtensionRulePriority"/>,
+/// #552), and the two sides go
+/// on naming each other. A rule
 /// the sheet holds in the 2007 schema is linked by priority instead, through
 /// <see cref="XLPivotConditionalFormat"/>.
 /// </remarks>
@@ -31,7 +34,8 @@ internal sealed class XLPivotExtensionConditionalFormat
     internal string RuleId { get; }
 
     /// <summary>
-    /// The <c>priority</c> of the rule on the sheet, as it was loaded.
+    /// The <c>priority</c> of the rule on the sheet, as it was loaded. A save writes the priority the
+    /// sheet gave the rule instead, and this only where the sheet holds no rule with this id.
     /// </summary>
     internal uint Priority { get; }
 

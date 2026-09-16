@@ -54,6 +54,19 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     /// </remarks>
     private readonly List<string> _extensionRuleXml = [];
 
+    /// <summary>
+    /// The priority of each <c>x14</c> rule this library keeps but does not model, by the rule's id: as it
+    /// was loaded, and then as the last save wrote it.
+    /// </summary>
+    /// <remarks>
+    /// A save numbers the kept rules together with the modelled ones, so that no two rules on the sheet
+    /// share a priority (#552), and it renumbers the modelled rules in the model as it goes. This holds
+    /// the kept rules' numbers in the same terms, for the next save and for a copy of the sheet, whose
+    /// part holds the priorities the rules were loaded with. A pivot table names a kept rule by the
+    /// priority held here (<c>PivotTableDefinitionPartWriter2</c>).
+    /// </remarks>
+    private readonly Dictionary<string, int> _extensionRulePriorities = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly XLWorksheet _worksheet;
 
     internal XLConditionalFormats(XLWorksheet worksheet)
@@ -139,15 +152,32 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
     internal IReadOnlyList<string> ExtensionRuleXml => _extensionRuleXml;
 
     /// <summary>
+    /// Keeps the priority of an <c>x14</c> rule this library does not model (see
+    /// <see cref="_extensionRulePriorities"/>): the loaded one, and then the one each save writes.
+    /// </summary>
+    internal void SetExtensionRulePriority(string ruleId, int priority)
+    {
+        _extensionRulePriorities[ruleId] = priority;
+    }
+
+    /// <summary>
+    /// The priority of the unmodelled <c>x14</c> rule <paramref name="ruleId"/>, as the last save wrote it,
+    /// or as it was loaded before any save.
+    /// </summary>
+    internal bool TryGetExtensionRulePriority(string ruleId, out int priority)
+        => _extensionRulePriorities.TryGetValue(ruleId, out priority);
+
+    /// <summary>
     /// Gives <paramref name="target"/>, the conditional formats of a copy of this sheet, every kept
-    /// <c>x14</c> rule of this sheet: its XML, and its formula text and range as edits have left them
-    /// (#515).
+    /// <c>x14</c> rule of this sheet: its XML, its formula text and range as edits have left them
+    /// (#515), and its priority as the last save wrote it (#552).
     /// </summary>
     /// <remarks>
     /// Each rule keeps its id. An id need only be unique within its sheet, and a pivot table copied with
     /// the sheet names its rules by the same ids. The formula text is copied as it is, as a modelled
     /// rule's is by <see cref="XLConditionalFormat.CopyTo"/>. A sheet copy then points the copy's rules
-    /// at the copy (<see cref="RenameSheetInFormulas"/>).
+    /// at the copy (<see cref="RenameSheetInFormulas"/>). The priority is copied as a modelled rule's is,
+    /// so the copy orders its rules as this sheet does.
     /// </remarks>
     internal void CopyKeptRulesTo(XLConditionalFormats target)
     {
@@ -157,6 +187,9 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
 
         foreach (var (ruleId, areas) in _extensionRuleAreas)
             target._extensionRuleAreas[ruleId] = areas;
+
+        foreach (var (ruleId, priority) in _extensionRulePriorities)
+            target._extensionRulePriorities[ruleId] = priority;
     }
 
     /// <summary>

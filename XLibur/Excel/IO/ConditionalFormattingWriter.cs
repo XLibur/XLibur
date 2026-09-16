@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DocumentFormat.OpenXml;
@@ -44,6 +45,8 @@ internal static class ConditionalFormattingWriter
         if (!xlWorksheet.ConditionalFormats.Any() &&
             !xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Any()))
         {
+            // A sheet may still keep rules in x14, which a pivot table names by the priority this gives.
+            NumberRules(worksheet, xlWorksheet, []);
             worksheet.RemoveAllChildren<ConditionalFormatting>();
             cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
             return;
@@ -55,13 +58,13 @@ internal static class ConditionalFormattingWriter
 
         // Elements in sheet.ConditionalFormats were sorted according to priority during load,
         // but new ones have priority 0. CFs are also interleaved with sheet CF. To deal with
-        // these situations, set correct unique priority (also required for pivot CF).
+        // these situations, set correct unique priority (also required for pivot CF), counting
+        // the rules kept only in x14 too.
         var xlConditionalFormats = xlWorksheet.ConditionalFormats.Cast<XLConditionalFormat>()
             .Concat(xlSheetPivotCfs)
             .OrderBy(x => x.Priority)
             .ToList();
-        for (var i = 0; i < xlConditionalFormats.Count; ++i)
-            xlConditionalFormats[i].Priority = i + 1;
+        NumberRules(worksheet, xlWorksheet, xlConditionalFormats);
 
         if (xlConditionalFormats.Count == 0)
         {
@@ -106,6 +109,115 @@ internal static class ConditionalFormattingWriter
 
         WriteExtensionDataBars(worksheet, cm, xlWorksheet, context);
     }
+
+    /// <summary>
+    /// Gives every conditional format rule on the sheet its own priority, from 1 up with no gap (#552):
+    /// each rule of <paramref name="modelled"/>, which a save writes from the model, and each rule the
+    /// part holds only in its <c>x14</c> extension, which a save writes back as it was loaded. The rules
+    /// keep the order of the priorities they have, so a loaded sheet keeps the order Excel gave it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two sets were numbered apart: the modelled rules from 1, and each kept rule with the priority it
+    /// was loaded with. So <c>B4</c> and <c>B5</c> of <c>cf-copy-before.xlsx</c>, modelled at 4 and 5, were
+    /// written at 2 and 3, which the kept <c>B2</c> and <c>B3</c> have.
+    /// </para>
+    /// <para>
+    /// Numbering both sets together, rather than fitting the modelled rules around the kept rules'
+    /// priorities, is what holds up when the rules change: a rule added in code has priority 0, the pieces
+    /// of a rule an edit cut apart share its priority, and a removed rule leaves a gap. A kept rule is
+    /// ordered by the priority the last save gave it (<see cref="XLConditionalFormats.TryGetExtensionRulePriority"/>),
+    /// in the terms the modelled rules were renumbered in, and the loaded priority before any save. On a
+    /// tie the kept rule goes first. Ties come only from a file that already had a clash, and the save
+    /// that wrote one numbered only the modelled rules, and only ever down, so the modelled rule came
+    /// after the kept rule.
+    /// </para>
+    /// <para>
+    /// Excel, opening the file this bug wrote and saving it, repairs the clash the other way: it leaves
+    /// the modelled rules at 1, 2 and 3 and renumbers the two kept rules to 4 and 5 (driven over COM for
+    /// #552). Such a file has lost the order it was written in, so neither numbering recovers it, and
+    /// either way each rule ends with a priority of its own. Excel leaves a file this writes exactly as
+    /// it is, kept rules interleaved with modelled ones, which is what the fixtures pin.
+    /// </para>
+    /// <para>
+    /// The <c>x14</c> half of a rule written in both schemas is not numbered, because it is not a rule of
+    /// its own: the rule in the standard element names it by id in <c>extLst/x14:id</c>, and the two halves
+    /// are one rule on one priority. A data bar's half carries no priority at all, and a custom icon set's
+    /// repeats the rule's, so numbering the half would split the pair. Such a half keeps the priority it
+    /// was loaded with, as it did before this numbering. KNOWN GAP: it therefore does not follow its own
+    /// half when that one is renumbered, because only a data bar's id reaches the model
+    /// (<c>ConditionalFormatReader.LoadDataBarFormat</c>); the halves part company on a sheet whose rules
+    /// changed, as they did before #552.
+    /// </para>
+    /// <para>
+    /// A pivot table names each rule by the priority given here: a modelled rule by its
+    /// <see cref="XLConditionalFormat.Priority"/>, a kept rule through its id
+    /// (<c>PivotTableDefinitionPartWriter2</c>). Both are written after the sheet.
+    /// </para>
+    /// </remarks>
+    private static void NumberRules(Worksheet worksheet, XLWorksheet xlWorksheet,
+        IReadOnlyList<XLConditionalFormat> modelled)
+    {
+        var extensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
+        if (extensionList is null && modelled.Count == 0)
+            return;
+
+        // The ids the standard element names, read before it is rewritten from the model further down, so
+        // these are the links the file was loaded with.
+        var twinIds = worksheet.Elements<ConditionalFormatting>()
+            .SelectMany(block => block.Elements<ConditionalFormattingRule>())
+            .SelectMany(rule => rule.Descendants<X14.Id>())
+            .Select(id => id.Text)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var kept = extensionList?.Descendants<X14.ConditionalFormattingRule>()
+            .Where(rule => !IsHalfOfModelledRule(rule, twinIds))
+            .ToList() ?? [];
+
+        // By priority, then kept before modelled, then the order each set is in.
+        var order = new List<(int Priority, bool Modelled, int Index)>(kept.Count + modelled.Count);
+        for (var i = 0; i < kept.Count; i++)
+            order.Add((KeptPriority(kept[i], xlWorksheet.ConditionalFormats), false, i));
+        for (var i = 0; i < modelled.Count; i++)
+            order.Add((modelled[i].Priority, true, i));
+        order.Sort();
+
+        for (var n = 0; n < order.Count; n++)
+        {
+            var priority = n + 1;
+            var (_, isModelled, index) = order[n];
+            if (isModelled)
+            {
+                modelled[index].Priority = priority;
+                continue;
+            }
+
+            var rule = kept[index];
+            if (rule.Priority?.Value != priority)
+                rule.Priority = priority;
+            if (rule.Id?.Value is { Length: > 0 } id)
+                xlWorksheet.ConditionalFormats.SetExtensionRulePriority(id, priority);
+        }
+    }
+
+    /// <summary>
+    /// Is this <c>x14</c> rule the other half of a rule the model holds, rather than a rule of its own? A
+    /// data bar is one by its type, written in both schemas whether or not the standard element still names
+    /// it; any other rule by its id being named in <paramref name="twinIds"/>, as a custom icon set's is.
+    /// </summary>
+    private static bool IsHalfOfModelledRule(X14.ConditionalFormattingRule rule, HashSet<string> twinIds)
+        => (rule.Type is { HasValue: true } && rule.Type.Value == ConditionalFormatValues.DataBar)
+           || (rule.Id?.Value is { Length: > 0 } id && twinIds.Contains(id));
+
+    /// <summary>
+    /// The priority a kept <c>x14</c> rule is ordered by: the one the last save gave it, else the one in
+    /// the part. A rule with neither goes last, as a modelled rule loaded without one does.
+    /// </summary>
+    private static int KeptPriority(X14.ConditionalFormattingRule rule, XLConditionalFormats conditionalFormats)
+        => rule.Id?.Value is { Length: > 0 } id && conditionalFormats.TryGetExtensionRulePriority(id, out var priority)
+            ? priority
+            : rule.Priority?.Value ?? int.MaxValue;
 
     /// <summary>
     /// Puts into the sheet's <c>x14</c> extension each kept rule that the part does not hold: the rules

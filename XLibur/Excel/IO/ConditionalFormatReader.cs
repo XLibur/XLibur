@@ -248,6 +248,9 @@ internal static class ConditionalFormatReader
 
             if (TryReadRuleAreas(rule.Parent as X14.ConditionalFormatting, out var areas))
                 ws.ConditionalFormats.SeedExtensionRuleAreas(id, areas);
+
+            if (rule.Priority?.Value is { } priority)
+                ws.ConditionalFormats.SetExtensionRulePriority(id, priority);
         }
     }
 
