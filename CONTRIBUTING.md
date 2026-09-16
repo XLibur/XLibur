@@ -128,9 +128,14 @@ dotnet tool restore
 # Run mutation testing with the default config
 dotnet stryker -f stryker-config.json
 
-# Run against a specific file or folder
-dotnet stryker -f stryker-config.json --mutate "XLibur/Excel/Cells/**/*.cs"
+# Run against a specific file or folder. The path is relative to the project being mutated,
+# so it starts at Excel/ rather than XLibur/Excel/.
+dotnet stryker -f stryker-config.json --mutate "Excel/Cells/**/*.cs"
 ```
+
+A `--mutate` pattern that matches nothing does not fail the run. Stryker ignores every mutant
+and reports no score, so check the log for the line reading `total mutants will be tested` —
+if it says `0`, the pattern is wrong rather than the code being unmutatable.
 
 Reports are generated in `StrykerOutput/` — open the HTML report to see surviving mutants.
 

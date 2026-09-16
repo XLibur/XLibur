@@ -1,0 +1,20 @@
+<!--
+  The solution Stryker builds for a mutation run. Stryker does not build only the project
+  under mutation and its test project. It discovers a solution and runs
+  `dotnet build <solution>` over all of it. Pointed at XLibur.slnx that is sixteen projects
+  at up to three target frameworks each: the benchmarks, the examples, XLibur.Report and
+  six test projects that no mutation run touches.
+
+  This holds the actual closure of XLibur.Tests, which is the library under mutation, the
+  test project, and the two projects XLibur.Tests references (both of which reference only
+  XLibur).
+
+  Keep in step with the ProjectReference list in XLibur.Tests/XLibur.Tests.csproj. A project
+  added there and forgotten here fails the mutation build, not the normal one.
+-->
+<Solution>
+  <Project Path="XLibur/XLibur.csproj" />
+  <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
+  <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
+  <Project Path="XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj" />
+</Solution>

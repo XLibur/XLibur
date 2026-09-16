@@ -1,12 +1,13 @@
 {
   "stryker-config": {
+    "solution": "XLibur.Mutation.slnx",
     "project": "XLibur/XLibur.csproj",
     "test-projects": ["XLibur.Tests/XLibur.Tests.csproj"],
     "test-runner": "mtp",
     "target-framework": "net10.0",
-    "reporters": ["html", "markdown", "json"],
+    "reporters": ["html", "markdown", "json", "progress"],
     "verbosity": "info",
-    "concurrency": 2,
+    "coverage-analysis": "perTest",
     "thresholds": {
       "high": 80,
       "low": 60,
