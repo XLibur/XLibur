@@ -1987,9 +1987,14 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             var result = new List<string>();
             foreach (var fieldIndex in fieldIndexes)
             {
-                if (fieldIndex.IsDataField && includeDataField)
+                if (fieldIndex.IsDataField)
                 {
-                    result.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+                    // The 'data' field has no entry in oldNames (it isn't a cache field), so it
+                    // can't be looked up like the others below. Whether it stays depends on
+                    // includeDataField, but recognizing it does not.
+                    if (includeDataField)
+                        result.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+
                     continue;
                 }
 
