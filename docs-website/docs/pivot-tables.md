@@ -93,6 +93,32 @@ Two pivot tables built from the same range share one pivot cache automatically, 
 file smaller. To share deliberately, pass `existingPivot.PivotCache` to the `Add` overload.
 :::
 
+### Refreshing the cache
+
+A pivot cache holds a copy of the source data. After you change the source, refresh the cache so
+that the pivot table uses the new data:
+
+```csharp
+pivot.PivotCache.Refresh();
+```
+
+XLibur can refresh a cache only if its source is in the same workbook: a range, a table or a
+defined name. Excel can also make a pivot table from other sources, such as another workbook or a
+database. XLibur keeps these pivot tables when it saves the file, but it cannot read their data,
+so `Refresh` throws `NotSupportedException`. Check `SourceKind` first:
+
+```csharp
+var cache = pivot.PivotCache;
+
+if (cache.SourceKind is XLPivotSourceKind.Range or XLPivotSourceKind.Name)
+{
+    cache.Refresh();
+}
+```
+
+If you rename the sheet that holds the source data, the cache follows it. If you delete that
+sheet, the cache and its pivot tables stay, with the data they already had.
+
 Finding and removing pivot tables:
 
 ```csharp

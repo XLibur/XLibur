@@ -13,8 +13,7 @@ public API surface is largely unchanged. To migrate:
 
 1. Install the NuGet package (see [Getting Started](./getting-started.md#installation)).
 2. Replace `using ClosedXML` namespace references with `using XLibur`.
-3. Read [Breaking API changes](#breaking-api-changes) below — there are seven, and most projects
-   hit none of them.
+3. Read [Breaking API changes](#breaking-api-changes) below. Most projects hit none of them.
 
 Namespaces are prefixed with `XLibur`, so both libraries can be referenced from the same project
 while you port.
@@ -76,7 +75,7 @@ for the design rationale.
 
 ## Breaking API changes
 
-Twelve changes since 0.105 can break a build, throw where the old code returned, or silently do
+These changes since 0.105 can break a build, throw where the old code returned, or silently do
 something else. At a glance:
 
 | Change | ClosedXML 0.105 | XLibur | What to do |
@@ -90,12 +89,18 @@ something else. At a glance:
 | [`XLColorType` ordinals](#xlcolortype-members-are-renumbered) | `Color`=0, `Theme`=1, `Indexed`=2 | `Automatic`=0, `Color`=1, `Theme`=2, `Indexed`=3 | Remap any persisted numeric value; recompile against XLibur |
 | [`XLColor.NoColor.Color`](#reading-a-component-off-an-automatic-colour-throws) | returned ARGB `(0,0,0,0)` | throws | Test `IsAutomatic` before reading `Color`/`Indexed`/`ThemeColor` |
 | [`XLColor.NoColor`](#xlcolornocolor-is-deprecated) | current | `[Obsolete]`, aliases `XLColor.Automatic` | Rename to `XLColor.Automatic` |
-| [`XLError` gained `SpillRange`](#xlerror-gained-a-member) | 7 members | 8 members (`SpillRange = 7`) | Handle the new member in exhaustive `switch`es |
-| [Four interfaces gained members](#four-interfaces-gained-members) | — | new members | Only affects types outside XLibur that *implement* these interfaces |
+| [`XLError` gained members](#xlerror-gained-members) | 7 members | 18 members, starting at `GettingData = 7` | Handle the new members in exhaustive `switch`es |
+| [Interfaces gained members](#interfaces-gained-members) | — | new members | Only affects types outside XLibur that *implement* these interfaces |
 | [An operator applied to a range](#an-operator-applied-to-a-range-intersects) | kept the range's first element | intersects against the formula's cell | Expect different — correct — values from recalculation |
+| [Page break lists](#page-break-lists-are-read-only) | `List<int>` | `IReadOnlyList<int>` | Use the `Add…`, `Remove…` and `Clear…` methods |
+| [Parser exceptions](#a-formula-the-parser-cannot-read-throws-expressionparseexception) | `ClosedXML.Parser.ParsingException` | `ExpressionParseException` | Catch the new type |
+| [Refreshing an unsupported pivot source](#refreshing-an-unsupported-pivot-source-throws-notsupportedexception) | `NotImplementedException` | `NotSupportedException` | Catch the new type, or check `SourceKind` first |
+| [`RecalculateAllFormulas`](#recalculateallformulas-no-longer-throws-for-one-bad-formula) | threw at the first circular reference or unsupported formula | calculates the rest and leaves those cells not calculated | Check `NeedsRecalculation` instead of catching |
+| [Saving with calculated values](#a-save-that-calculates-formulas-throws-on-a-bug) | hid every failure | throws on a bug in XLibur | Nothing, unless you relied on the save always succeeding |
+| [`XLHelper.GetColumnNumberFromLetter("")`](#getcolumnnumberfromletter-with-an-empty-string) | `ArgumentNullException` | `ArgumentException` | Catch `ArgumentException` |
 
-The last two rows and `IXLColumn.CellCount()` have **no compile-time signal**: the code still
-builds and does something else.
+These rows have **no compile-time signal** — the code still builds and does something else:
+`IXLColumn.CellCount()`, `XLError`, an operator applied to a range, and every exception change.
 
 ### `IXLRange.Cell(string)` throws instead of returning null
 
@@ -271,18 +276,38 @@ cell.Style.Font.FontColor = XLColor.NoColor;    // before
 cell.Style.Font.FontColor = XLColor.Automatic;  // after — the same value
 ```
 
-### `XLError` gained a member
+### `XLError` gained members
 
-`XLError.SpillRange` (`#SPILL!`, ordinal 7) is appended for the new
-[dynamic-array spill engine](./formulas.md). Existing ordinals are unchanged, so nothing persisted
-needs remapping — but a `switch` over `XLError` that was exhaustive under 0.105 is no longer
-exhaustive, and a `switch` *expression* will throw at runtime rather than fail to compile. Add an
-arm for it, or a discard.
+`XLError` now has a member for every error value Excel shows. The seven errors from 0.105 keep
+their numbers, so nothing you stored needs to change. The new members are:
 
-### Four interfaces gained members
+| Member | Error | Value |
+|---|---|---|
+| `GettingData` | `#GETTING_DATA` | 7 |
+| `SpillRange` | `#SPILL!` | 8 |
+| `Connect` | `#CONNECT!` | 9 |
+| `Blocked` | `#BLOCKED!` | 10 |
+| `Unknown` | `#UNKNOWN!` | 11 |
+| `Field` | `#FIELD!` | 12 |
+| `Calc` | `#CALC!` | 13 |
+| `Busy` | `#BUSY!` | 14 |
+| `External` | `#EXTERNAL!` | 18 |
+| `Timeout` | `#TIMEOUT!` | 19 |
+| `Python` | `#PYTHON!` | 20 |
+
+A cell that holds one of these errors in a file now loads with that error. Before, it loaded as a
+blank cell. XLibur does not create the newer errors itself: for example, a function for which
+Excel gives `#CALC!` still gives `#VALUE!`.
+
+A `switch` over `XLError` that covered every member in 0.105 no longer does. A `switch`
+*expression* throws at run time, and does not fail to compile. Add arms for the new members, or a
+discard.
+
+### Interfaces gained members
 
 | Interface | New members |
 |---|---|
+| `IXLPageSetup` | `RemoveHorizontalPageBreak`, `RemoveVerticalPageBreak`, `ClearHorizontalPageBreaks`, `ClearVerticalPageBreaks` |
 | `IXLPivotCache` | `SourceKind`, `SourceRange`, `SourceName`, `SourceWorksheet`, `SetSourceRange` |
 | `IXLConditionalFormat` | `SetRanges` |
 | `IXLSheetView` | `FreezePanes` — the value that tells a freeze from a split |
@@ -314,6 +339,79 @@ silently and with no compile-time signal**, so a stored value computed by an ear
 differ from the same formula recalculated now. Dynamic-array formulas, `Evaluate` with no address,
 and operators inside function arguments are deliberately unchanged — see
 [Formulas](./formulas.md#implicit-intersection).
+
+### Page break lists are read-only
+
+`IXLPageSetup.RowBreaks` and `ColumnBreaks` were the page setup's own `List<int>`. Code could add
+to them directly, and skip the checks that keep the breaks sorted and without duplicates. They
+are now `IReadOnlyList<int>`.
+
+Code that only reads, counts or loops over the breaks still compiles. Code that calls `Add`,
+`Remove` or `Clear` on the lists does not. Use the page setup's methods:
+
+```csharp
+// ClosedXML 0.105
+ws.PageSetup.RowBreaks.Remove(20);
+ws.PageSetup.RowBreaks.Clear();
+
+// XLibur
+ws.PageSetup.RemoveHorizontalPageBreak(20);
+ws.PageSetup.ClearHorizontalPageBreaks();
+```
+
+See [Page Setup](./page-setup.md#page-breaks).
+
+### A formula the parser cannot read throws `ExpressionParseException`
+
+Some calls change a formula between A1 and R1C1 text: reading or setting `FormulaR1C1`, and
+loading a shared formula. When the parser could not read the formula, these calls let the
+parser's own `ClosedXML.Parser.ParsingException` out. Calculating the same formula already threw
+`ExpressionParseException`. Now all of them throw `ExpressionParseException`, with the parser's
+exception as `InnerException`.
+
+**A `catch (ParsingException)` around these calls no longer runs.**
+
+Copying such a formula no longer throws at all. The copy keeps the same text.
+
+### Refreshing an unsupported pivot source throws `NotSupportedException`
+
+XLibur cannot read the data of a pivot cache whose source is another workbook, a data connection,
+a consolidation or a scenario. `IXLPivotCache.Refresh` on such a cache threw
+`NotImplementedException`. It now throws `NotSupportedException`, because XLibur does not plan to
+read these sources.
+
+**A `catch (NotImplementedException)` around `Refresh` no longer runs.** Check `SourceKind` before
+you call `Refresh` — see [Pivot tables](./pivot-tables.md#refreshing-the-cache).
+
+### `RecalculateAllFormulas` no longer throws for one bad formula
+
+`IXLWorkbook.RecalculateAllFormulas`, `IXLWorksheet.RecalculateAllFormulas` and
+`LoadOptions.RecalculateAllFormulas` stopped at the first formula they could not calculate: a
+circular reference, a formula XLibur does not evaluate, or one the parser cannot read. So a
+workbook that Excel opens could fail to load.
+
+Now they calculate every other formula, and leave those cells with `NeedsRecalculation` set to
+`true`. Reading one of those cells still throws. A circular reference now throws the public
+`XLCircularReferenceException`, which derives from `InvalidOperationException`.
+
+**If you used the exception to find such a formula, check `NeedsRecalculation` instead.** See
+[Formulas](./formulas.md#when-a-formula-cannot-be-calculated).
+
+### A save that calculates formulas throws on a bug
+
+With `SaveOptions.EvaluateFormulasBeforeSaving`, a save calculates each formula so that it can
+write the value. Every failure was hidden, and the cell was written without a value. A bug in
+XLibur looked the same as a formula XLibur does not support.
+
+A circular reference, an unsupported feature and a formula the parser cannot read still give a
+cell without a value, and Excel calculates it when it opens the file. Any other exception is a
+bug in XLibur, and the save now throws it. Please report it.
+
+### `GetColumnNumberFromLetter` with an empty string
+
+`XLHelper.GetColumnNumberFromLetter("")` threw `ArgumentNullException`. It now throws
+`ArgumentException`, because an empty string is not a missing argument. `null` still throws
+`ArgumentNullException`. A `catch (ArgumentException)` catches both, as before.
 
 ## Deprecations
 
@@ -380,6 +478,42 @@ pin output with byte-comparison tests or golden files, expect those to move.
   formula cell through the `FormulaA1` setter, splitting one shared array formula into a normal
   formula per cell — and a spilled `=UNIQUE(...)` into several implicit-intersection
   `=@UNIQUE(...)` cells, even when the edit happened on an unrelated sheet.
+
+- **The `@` operator and the space (intersection) operator are calculated.** Both threw
+  `NotImplementedException`. See [Formulas](./formulas.md#at-and-space-operators).
+- **One formula that XLibur cannot read no longer blocks edits to the whole workbook.** An example
+  is `'[Book2.xlsx]Sheet1'!A1`, or a call with the wrong number of arguments such as `ABS(1,2)`.
+  After such a formula was read, every later edit, anywhere in the workbook, threw
+  `ExpressionParseException`. Now only reading that cell throws.
+- **`XLWorkbook.EvaluateExpr` is safe to call from several threads at once.** A workbook itself is
+  still not safe to use from several threads.
+
+### Sheets that are renamed, deleted or copied
+
+XLibur now updates the same things Excel updates. **Code that reads these values after a rename,
+delete or copy sees the new text.**
+
+- **Delete.** A formula that refers to the deleted sheet reads `#REF!` in its text, as in Excel.
+  Before, it kept the old sheet name, so a new sheet with the same name was read by the old
+  formula. The same applies to defined names at every scope, data validation rules, conditional
+  format rules and chart series. A 3D reference with the deleted sheet at one end gets smaller.
+  `IXLWorksheets.Delete(name)` now does the same work as `IXLWorksheet.Delete()`.
+- **Rename.** Data validation rules, conditional format rules, chart series, print areas, pivot
+  caches, and defined names that hold 3D references now use the new name.
+- **Copy.** A data validation or conditional format rule that refers to its own sheet by name
+  refers to the copy on the copy.
+
+See [Worksheets](./worksheets.md#what-happens-to-references-to-a-deleted-sheet).
+
+### Styles set through a range
+
+- **A style set through a range always reaches every cell.** A range remembered the style it was
+  last given, and skipped a value that matched that memory, even if a cell had changed since.
+  Because a range can be rebuilt after garbage collection, the result could change from one run to
+  the next. Now the value is always written to the cells.
+- **`Alignment.Indent` on a range, row, column or worksheet no longer throws when the alignment is
+  centred.** Each cell that cannot take an indent becomes left-aligned. On a single cell, it still
+  throws.
 
 :::note Dynamic arrays now spill
 XLibur adds `SEQUENCE`, `UNIQUE`, `SORT`, `SORTBY`, `FILTER`, `XLOOKUP` and `XMATCH` together with

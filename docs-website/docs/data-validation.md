@@ -95,8 +95,17 @@ ws.Cell("H3").Value = "N/A";
 ws.Range("F2:F100").CreateDataValidation().List(ws.Range("H1:H3"));
 ```
 
-**From a named range** — the cleanest option when the list lives on another sheet, because
-Excel's `List(range)` cannot cross sheets directly:
+**From a range on another sheet** — XLibur saves the rule in the form Excel 2010 and later use
+for a reference to another sheet:
+
+```csharp
+var data = workbook.Worksheet("Data");
+ws.Range("F2:F100").CreateDataValidation().List(data.Range("A1:A3"));
+// MinValue reads "Data!$A$1:$A$3"
+```
+
+**From a named range** — a good choice when several rules use the same list, or when the file
+must open in Excel 2007:
 
 ```csharp
 var lookups = workbook.Worksheets.Add("Lookups");
@@ -220,6 +229,33 @@ ws.DataValidations.Delete(v => v.AllowedValues == XLAllowedValues.List);
 // Or clear the rules on a range
 ws.Range("A2:A100").Clear(XLClearOptions.DataValidation);
 ```
+
+## Rules that refer to other sheets
+
+A limit set from a cell on another sheet keeps the name of that sheet. A cell on the rule's own
+sheet is kept without a sheet name, as Excel keeps it:
+
+```csharp
+var limits = workbook.Worksheet("Limits");
+
+ws.Range("B2:B100").CreateDataValidation()
+    .Decimal.Between(limits.Cell("A1"), ws.Cell("H1"));
+// MinValue reads "Limits!$A$1", MaxValue reads "$H$1"
+```
+
+XLibur keeps these references correct when you change the sheets:
+
+| You... | The rule |
+|---|---|
+| Rename a sheet the rule refers to | Uses the new name, with quotes if the name needs them |
+| Delete a sheet the rule refers to | Reads `#REF!` where the reference was |
+| Copy the sheet the rule is on | Refers to the copy where the original referred to its own sheet |
+
+A literal list such as `"Low,Medium,High"` and a list from a named range do not change.
+
+You can give a formula with or without a leading `=`. `MinValue`, `MaxValue` and `Value` return the
+text as you set it. The saved file never has the `=`, because Excel does not write one, so a
+workbook you load from the file returns the text without it.
 
 ## A worked example
 

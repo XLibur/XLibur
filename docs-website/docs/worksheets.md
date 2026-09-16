@@ -134,6 +134,25 @@ A workbook must contain at least one visible worksheet. Deleting the last one pr
 Excel will refuse to open.
 :::
 
+### What happens to references to a deleted sheet
+
+All three ways of deleting a sheet do the same work. XLibur updates everything that referred to
+the sheet, as Excel does:
+
+| What refers to the sheet | After the delete |
+|---|---|
+| A cell formula | The reference becomes `#REF!`, so `=Sheet1!A1*2` reads `=#REF!*2` |
+| A 3D reference with the sheet at one end | It gets smaller: `Sheet1:Sheet3!A1` reads `Sheet2:Sheet3!A1` |
+| A defined name, at any scope | The reference becomes `#REF!` |
+| A data validation or conditional format rule | The reference becomes `#REF!` |
+| A chart series | The reference becomes `#REF!`; the chart keeps its cached values |
+| A pivot cache | It is kept, with its data, as Excel keeps it |
+
+A name that belongs to the deleted sheet is deleted with it. But if a formula on another sheet
+uses that name, XLibur keeps the name and moves it to the workbook.
+
+Deleting a sheet that is already deleted does nothing.
+
 ## Moving
 
 `Position` is settable. Assigning to it shifts every other sheet accordingly, so you never have
@@ -172,8 +191,7 @@ for (var i = 0; i < ordered.Count; i++)
 
 ## Renaming
 
-Setting `Name` also rewrites every formula and defined name that refers to the sheet, so
-references do not break:
+Setting `Name` also rewrites everything that refers to the sheet, so references do not break:
 
 ```csharp
 var ws = workbook.Worksheet("Sheet1");
@@ -181,6 +199,22 @@ ws.Name = "Q1 Sales";
 
 // A formula elsewhere reading "=Sheet1!A1" now reads "='Q1 Sales'!A1"
 ```
+
+This includes:
+
+- cell formulas, including 3D references such as `SUM(Sheet1:Sheet3!A1)`
+- defined names, at every scope
+- data validation rules
+- conditional format rules, including the rules of pivot tables
+- chart series
+- print areas
+- the source of a pivot cache
+
+XLibur adds quotes to the name where a formula needs them. A formula the parser cannot read keeps
+its text, because XLibur does not know which references it holds.
+
+A worksheet cannot have the same name as a chartsheet in the workbook. `Add` and setting `Name`
+throw `ArgumentException` if you try.
 
 ## Copying
 
@@ -216,6 +250,13 @@ foreach (var region in new[] { "North", "South", "East", "West" })
 template.Delete();   // drop the template once the copies exist
 workbook.SaveAs("Regions.xlsx");
 ```
+
+If a formula, a data validation rule or a conditional format rule refers to its own sheet by
+name, the copy refers to the copy. For example, a rule on `Data` that reads `Data!$A$1>0` reads
+`'Data (2)'!$A$1>0` on a copy named `Data (2)`. References to other sheets do not change. This is
+what Excel does.
+
+A copy also keeps the pivot tables on the sheet, with their conditional formats.
 
 A copy also keeps the source sheet's appearance — gridlines, header visibility, zoom, view mode
 and tab colour — including when it is copied into a different workbook, where it used to adopt
