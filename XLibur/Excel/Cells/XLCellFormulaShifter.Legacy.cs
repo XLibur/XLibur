@@ -72,6 +72,28 @@ internal static partial class XLCellFormulaShifter
         return (worksheetInAction.Name, false);
     }
 
+    /// <summary>
+    /// The sheet a matched reference names, found by the name it really has.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="XLWorkbook.Worksheet(string)"/>: that undoubles the apostrophes of the name it is
+    /// given, and <see cref="ExtractSheetName"/> has already done so. A sheet legally named
+    /// <c>Ann''s</c> was therefore looked for as <c>Ann's</c>, a sheet that does not exist. Until the
+    /// sheet-name pattern was fixed nothing reached this, because such a reference was never recognised
+    /// as naming the shifted sheet in the first place (#570).
+    /// </remarks>
+    /// <returns>
+    /// The sheet as <see cref="IXLWorksheet"/>, so that <c>Range(string)</c> keeps raising its own
+    /// exception for an address it cannot read rather than handing back null.
+    /// </returns>
+    private static IXLWorksheet ReferencedSheet(XLWorksheet worksheetInAction, string sheetName)
+    {
+        if (worksheetInAction.Workbook.WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out var sheet))
+            return sheet;
+
+        throw new ArgumentException("There isn't a worksheet named '" + sheetName + "'.");
+    }
+
     private static void AppendShiftedRowMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
         XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)
     {
@@ -82,7 +104,7 @@ internal static partial class XLCellFormulaShifter
             return;
         }
 
-        var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
+        var matchRange = ReferencedSheet(worksheetInAction, sheetName).Range(rangeAddress);
         if (!IsRowRangeWithinShiftedRange(shiftedRange, matchRange))
         {
             sb.Append(matchString);
@@ -279,7 +301,7 @@ internal static partial class XLCellFormulaShifter
             return;
         }
 
-        var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
+        var matchRange = ReferencedSheet(worksheetInAction, sheetName).Range(rangeAddress);
         if (!IsColumnRangeWithinShiftedRange(shiftedRange, matchRange))
         {
             sb.Append(matchString);
@@ -430,8 +452,23 @@ internal static partial class XLCellFormulaShifter
         , RegexOptions.Compiled)]
     private static partial Regex A1ColumnRegexGenerated();
 
+    /// <summary>
+    /// The reference finder. Unlike <see cref="XLHelper.A1SimpleRegex"/>, which is anchored and asks
+    /// whether a whole string is one range address, this one scans a formula for every reference in it,
+    /// so it is unanchored and guards the bare A1 form with word boundaries instead. The two cannot be
+    /// one regex for that reason; the quoted sheet-name alternative they do share is
+    /// <see cref="XLHelper.QuotedSheetNamePattern"/>, defined once (#570, and #524 before it).
+    /// </summary>
+    /// <remarks>
+    /// The unquoted alternative keeps its optional apostrophes, where
+    /// <see cref="XLHelper.A1SimpleRegex"/> dropped them for #560. Here they are what consumes the
+    /// trailing apostrophe of an external workbook reference: <c>'[file.xlsx]Sheet'!A1</c> matches as
+    /// <c>Sheet'!A1</c>, whose sheet name matches no real sheet, so the reference is left alone.
+    /// Narrowing this to <c>\w+</c> would leave a bare <c>A1</c> to match on its own, which the shifter
+    /// would then read as a reference to the sheet the formula lives on and move.
+    /// </remarks>
     [GeneratedRegex(
-        @"(?<Reference>(?<Sheet>(\'([^\[\]\*/\\\?:\']+|\'\')\'|\'?\w+\'?)!)?(?<Range>(?<![\w\d])\$?[a-zA-Z]{1,3}\$?\d{1,7}(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?(?![\w\d])|(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})|(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})))",
+        @"(?<Reference>(?<Sheet>(" + XLHelper.QuotedSheetNamePattern + @"|\'?\w+\'?)!)?(?<Range>(?<![\w\d])\$?[a-zA-Z]{1,3}\$?\d{1,7}(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?(?![\w\d])|(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})|(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})))",
         RegexOptions.Compiled)]
     private static partial Regex A1SimpleRegexGenerated();
 }
