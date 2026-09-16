@@ -41,6 +41,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         foreach (var field in _fields)
             _pivotTable.RemoveFieldFromValues((FieldIndex)field.Field);
         _fields.Clear();
+        SyncValuesSentinel();
     }
 
     public bool Contains(string customName)
@@ -87,6 +88,8 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
         // flag says the field is in the data fields, so it stays while another value uses it.
         if (_fields.All(f => f.Field != dataField.Field))
             _pivotTable.RemoveFieldFromValues((FieldIndex)dataField.Field);
+
+        SyncValuesSentinel();
     }
 
     IEnumerator<IXLPivotValue> IEnumerable<IXLPivotValue>.GetEnumerator()
@@ -118,19 +121,61 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
             DataFieldName = customName,
         };
         AddField(dataField);
+        SyncValuesSentinel();
 
-        // If there are multiple values, at least the axis must contain the 'data' field.
-        // Otherwise, Excel requires a repair.
+        return dataField;
+    }
+
+    /// <summary>
+    /// Keep the 'data' field (the <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/>
+    /// sentinel) on the row/column axes in step with the values, so that a save never writes a
+    /// <c>rowFields</c>/<c>colFields</c> entry of <c>-2</c> that names data fields the file does
+    /// not have (#572). <see cref="AddField(string, string?)"/>, <see cref="Remove"/> and
+    /// <see cref="Clear"/> all end here, so none of them can drift from the others.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two directions are deliberately not mirror images of each other. The sentinel is
+    /// <em>added</em> only from the second value on, because that is when Excel needs it to tell
+    /// the values apart, and a file with several values and no sentinel on either axis makes Excel
+    /// ask to repair. It is <em>removed</em> only when the last value goes, because that is when it
+    /// names nothing at all.
+    /// </para>
+    /// <para>
+    /// In between, with exactly one value, the sentinel is left exactly as it is. Excel itself
+    /// never writes one there (of the 100 pivot tables Excel wrote in the test fixtures, all 27
+    /// with two or more values carry the sentinel and none of the 73 with one or none does), but a
+    /// caller may still place one by hand through <c>RowLabels</c>/<c>ColumnLabels</c>, which this
+    /// library supports and round-trips. Nothing records which of the two put it there, so taking
+    /// it off at one value would silently undo the caller's own placement; and unlike the empty
+    /// case it is not a dangling reference, because there is still a data field for it to name.
+    /// </para>
+    /// </remarks>
+    private void SyncValuesSentinel()
+    {
+        if (_fields.Count == 0)
+        {
+            // Only one axis can hold the sentinel, but clear both: it costs nothing and does not
+            // rely on that invariant holding in a file we merely loaded.
+            _pivotTable.RowAxis.RemoveDataField();
+            _pivotTable.ColumnAxis.RemoveDataField();
+            return;
+        }
+
         if (_fields.Count > 1 &&
             !_pivotTable.RowAxis.ContainsDataField &&
             !_pivotTable.ColumnAxis.ContainsDataField)
         {
             _pivotTable.ColumnLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
         }
-
-        return dataField;
     }
 
+    /// <remarks>
+    /// The loader's way in, and the one entry point that deliberately does not call
+    /// <see cref="SyncValuesSentinel"/>: a loaded file states where its own 'data' field is, and
+    /// the axis takes it straight from <c>rowFields</c>/<c>colFields</c>. Adding one here would
+    /// put a sentinel on a file that never had one.
+    /// </remarks>
     internal void AddField(XLPivotDataField dataField)
     {
         // Excel invariant - data field must have the flag if and only if it is in the data fields collection.

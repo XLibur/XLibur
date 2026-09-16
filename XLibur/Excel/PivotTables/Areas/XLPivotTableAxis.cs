@@ -110,6 +110,31 @@ internal sealed class XLPivotTableAxis : IXLPivotFields
         return _fields.IndexOf(index);
     }
 
+    /// <summary>
+    /// Take the 'data' field (the <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/>
+    /// sentinel) off the axis, if the axis holds it. It names the data fields rather than a field
+    /// of the cache, so it must go once there are no data fields left for it to name (#572).
+    /// </summary>
+    /// <remarks>
+    /// The axis' <see cref="Items"/> go with it, as they do in <see cref="Clear"/>. A loaded file
+    /// keeps the rendered rows/columns, and an item names a data field by index through its
+    /// <c>i</c> attribute, so a file whose column axis showed three values saves
+    /// <c>&lt;i i="1"&gt;</c> and <c>&lt;i i="2"&gt;</c>. Left behind, those would name data fields
+    /// the saved file no longer has, which is the same dangling reference as the <c>-2</c> field
+    /// itself. An axis with no items is what a table built in code writes anyway, and Excel lays
+    /// the axis out again from the fields.
+    /// </remarks>
+    internal void RemoveDataField()
+    {
+        var index = IndexOf(FieldIndex.DataField);
+        if (index < 0)
+            return;
+
+        _pivotTable.RemoveFieldFromAxis(FieldIndex.DataField);
+        _fields.RemoveAt(index);
+        _axisItems.Clear();
+    }
+
     internal bool Contains(string sourceName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var index))
