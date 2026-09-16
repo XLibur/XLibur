@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -149,6 +150,47 @@ public class XLPivotTableFilterAreaTests
         // The counts are not read back - the size is derived again from the wrap, the order and the
         // filter count - so a reload has to reach the same geometry.
         await Assert.That(ReloadedFilterArea(saved)).IsEqualTo("target=E2 area=E6 filters=1x3");
+    }
+
+    [Test]
+    [Property("Description", "#571 review: Clear took every report filter off without moving the table, so the target cell ended up where the table itself was")]
+    public async Task Clearing_the_report_filters_takes_the_table_back_up_to_its_target_cell()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+        AddFilters(pt, 3);
+
+        await Assert.That(Describe(pt)).IsEqualTo("target=E1 area=E5 filters=1x3");
+
+        pt.ReportFilters.Clear();
+
+        // Nothing above the table any more, so the table is back at the target cell, as it is
+        // when the same three filters are removed one at a time.
+        await Assert.That(Describe(pt)).IsEqualTo("target=E1 area=E1 filters=0x0");
+    }
+
+    [Test]
+    [Property("Description", "#571 review: Remove shifted the area with no lower bound, so a file whose ref has no room for its filters moved the target cell off the top of the sheet")]
+    public async Task Removing_a_filter_keeps_the_target_cell_on_the_sheet_when_the_area_has_no_room_for_the_filters()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb, "E1");
+        pt.FilterAreaOrder = XLFilterAreaOrder.OverThenDown;
+        pt.FilterFieldsPageWrap = 1;
+        AddFilters(pt, 3);
+
+        // The geometry a file saved before this fix holds: a ref with nowhere near enough room
+        // above it for the filter area the wrap asks for. Set directly, because XLibur no longer
+        // produces it.
+        pt.Area = new Area(2, 5, 2, 5);
+        await Assert.That(Describe(pt)).IsEqualTo("target=#REF! area=E2 filters=1x3")
+            .Because("the area must start above the filters, or this proves nothing");
+
+        pt.ReportFilters.Remove("F3");
+
+        // Two filters and the divider row need three rows, so the table is held at row 4 and the
+        // target cell lands on row 1 rather than off the top of the sheet.
+        await Assert.That(Describe(pt)).IsEqualTo("target=E1 area=E4 filters=1x2");
     }
 
     /// <summary>

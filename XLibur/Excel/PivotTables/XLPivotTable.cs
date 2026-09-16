@@ -984,29 +984,30 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     }
 
     /// <summary>
-    /// Moves the area so that the filter area keeps the height it had above it, after a change to
-    /// <see cref="FilterFieldsPageWrap"/> or <see cref="FilterAreaOrder"/> changed how many rows
-    /// the report filters need.
+    /// Moves the area by however much the height of the filter area has just changed, so that the
+    /// filters still fit above it and <see cref="TargetCell"/> stays where it is.
     /// </summary>
     /// <remarks>
     /// <see cref="TargetCell"/>, not <see cref="Area"/>, is where the caller put the table: the
-    /// filters are laid out from it downwards and the area follows below them, which is why adding
-    /// or removing a filter moves the area and leaves the target cell alone
-    /// (<see cref="XLPivotTableFilters.Add"/>). Both of these settings change the height the same
-    /// filters need, so they move the area for the same reason. Without it the area stayed put
-    /// while the filter area above it grew, and on a table near the top of the sheet the filters
-    /// had nowhere to go but into the table: three filters at <c>E1</c> laid out across the sheet
-    /// sit in <c>E1:G1</c> with the table at <c>E3</c>, and a page wrap of 1 then needs
-    /// <c>E1:E3</c> for the filters and the gap row at <c>E4</c>, both inside the table. The target
-    /// cell computed from that is above row 1 and <c>TargetCell.Address</c> read <c>#REF!</c>
-    /// (#571). Setting either property before the first filter was added was the way round it, and
-    /// still gives the same layout, because a height that changes while there are no filters
-    /// changes nothing to move.
+    /// filters are laid out from it downwards and the area follows below them. Every change to the
+    /// height of the filter area therefore moves the area — a filter added or taken off
+    /// (<see cref="XLPivotTableFilters"/>), and a change to <see cref="FilterFieldsPageWrap"/> or
+    /// <see cref="FilterAreaOrder"/>, which change how many rows the same filters need.
+    /// <para>
+    /// The two settings did not, and the area stayed put while the filter area above it grew. On a
+    /// table near the top of the sheet the filters then had nowhere to go but into the table:
+    /// three filters at <c>E1</c> laid out across the sheet sit in <c>E1:G1</c> with the table at
+    /// <c>E3</c>, and a page wrap of 1 needs <c>E1:E3</c> for the filters and the gap row at
+    /// <c>E4</c>, both inside the table. The target cell computed from that is above row 1 and
+    /// <c>TargetCell.Address</c> read <c>#REF!</c> (#571). Setting either property before the first
+    /// filter was added was the way round it, and still gives the same layout, because a height
+    /// that changes while there are no filters has nothing to move.
+    /// </para>
     /// </remarks>
     /// <param name="previousFilterHeight">
-    /// The height of the filter area, gap row included, before the setting changed.
+    /// The height of the filter area, gap row included, before the change.
     /// </param>
-    private void MoveAreaForFilterHeightChange(int previousFilterHeight)
+    internal void MoveAreaForFilterHeightChange(int previousFilterHeight)
     {
         var rowShift = Filters.GetSizeWithGap().Height - previousFilterHeight;
         if (rowShift == 0)
@@ -1030,12 +1031,15 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <para>
     /// Pushing the area down rather than clamping only its top keeps the table's height, which
     /// matters for an area read from a file — <c>location/@ref</c> is a real extent, not a corner.
+    /// The one case that cannot keep it is a shift into the bottom edge of the sheet, where the
+    /// extent is clipped at the last row: the rows it wants are not there to move into.
     /// </para>
     /// <para>
-    /// The shift is applied here rather than by the callers, because <see cref="Area.ShiftRows"/>
-    /// on its own would build the intermediate area first, and an upward shift past row 1 wraps in
-    /// <see cref="Point"/> instead of throwing. Clamping the top row before the area is built is
-    /// what keeps that unreachable.
+    /// The shift is a parameter rather than something the callers apply themselves, because
+    /// <see cref="Area.ShiftRows"/> would build the shifted area before it could be clamped, and
+    /// an upward shift past row 1 wraps in <see cref="Point"/> rather than throwing. Every caller
+    /// that moves the area for the filters goes through here, so the row it asks for is clamped
+    /// before the area is built.
     /// </para>
     /// </remarks>
     private Area KeepRoomForFilters(Area area, int rowShift)
