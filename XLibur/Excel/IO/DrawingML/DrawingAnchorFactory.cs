@@ -85,14 +85,14 @@ internal static class DrawingAnchorFactory
                 );
 
             case XLPicturePlacement.MoveAndSize:
-            {
-                // Resolved in this order because building a fallback marker registers a range with
-                // the workbook, and the inline code this replaced registered the from marker first.
-                var from = CreateMarker<Xdr.FromMarker>(FromMarkerOf(geometry), dpiX, dpiY);
-                var to = CreateMarker<Xdr.ToMarker>(ToMarkerOf(geometry), dpiX, dpiY);
+                {
+                    // Resolved in this order because building a fallback marker registers a range with
+                    // the workbook, and the inline code this replaced registered the from marker first.
+                    var from = CreateMarker<Xdr.FromMarker>(FromMarkerOf(geometry), dpiX, dpiY);
+                    var to = CreateMarker<Xdr.ToMarker>(ToMarkerOf(geometry), dpiX, dpiY);
 
-                return new Xdr.TwoCellAnchor(from, to, content, new Xdr.ClientData());
-            }
+                    return new Xdr.TwoCellAnchor(from, to, content, new Xdr.ClientData());
+                }
 
             case XLPicturePlacement.Move:
                 return new Xdr.OneCellAnchor(
@@ -137,10 +137,10 @@ internal static class DrawingAnchorFactory
     /// </remarks>
     private static TMarker CreateMarker<TMarker>(XLMarker marker, double dpiX, double dpiY)
         where TMarker : Xdr.MarkerType, new() => new()
-    {
-        ColumnId = new Xdr.ColumnId((marker.ColumnNumber - 1).ToInvariantString()),
-        RowId = new Xdr.RowId((marker.RowNumber - 1).ToInvariantString()),
-        ColumnOffset = new Xdr.ColumnOffset(DrawingUnits.PixelsToEmu(marker.Offset.X, dpiX).ToInvariantString()),
-        RowOffset = new Xdr.RowOffset(DrawingUnits.PixelsToEmu(marker.Offset.Y, dpiY).ToInvariantString())
-    };
+        {
+            ColumnId = new Xdr.ColumnId((marker.ColumnNumber - 1).ToInvariantString()),
+            RowId = new Xdr.RowId((marker.RowNumber - 1).ToInvariantString()),
+            ColumnOffset = new Xdr.ColumnOffset(DrawingUnits.PixelsToEmu(marker.Offset.X, dpiX).ToInvariantString()),
+            RowOffset = new Xdr.RowOffset(DrawingUnits.PixelsToEmu(marker.Offset.Y, dpiY).ToInvariantString())
+        };
 }

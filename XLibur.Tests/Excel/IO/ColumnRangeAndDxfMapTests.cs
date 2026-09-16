@@ -219,12 +219,14 @@ internal class ColumnRangeAndDxfMapTests
                 new DocumentFormat.OpenXml.Spreadsheet.Fonts(new Font()) { Count = 1U },
                 new DocumentFormat.OpenXml.Spreadsheet.Fills(
                     new Fill(new PatternFill { PatternType = PatternValues.None }),
-                    new Fill(new PatternFill { PatternType = PatternValues.Gray125 })) { Count = 2U },
+                    new Fill(new PatternFill { PatternType = PatternValues.Gray125 }))
+                { Count = 2U },
                 new DocumentFormat.OpenXml.Spreadsheet.Borders(new Border()) { Count = 1U },
                 new CellFormats(new CellFormat()) { Count = 1U },
                 new DifferentialFormats(
                     ColourDxf("FFFF0000"),
-                    ColourDxf("FF00FF00")) { Count = 2U });
+                    ColourDxf("FF00FF00"))
+                { Count = 2U });
             stylesPart.Stylesheet.Save();
 
             var wsPart = wbPart.AddNewPart<WorksheetPart>();
@@ -232,14 +234,18 @@ internal class ColumnRangeAndDxfMapTests
                 new SheetData(
                     new Row(new Cell
                     {
-                        CellReference = "A1", DataType = CellValues.String,
+                        CellReference = "A1",
+                        DataType = CellValues.String,
                         CellValue = new CellValue("h"),
-                    }) { RowIndex = 1U },
+                    })
+                    { RowIndex = 1U },
                     new Row(new Cell
                     {
-                        CellReference = "A2", DataType = CellValues.Number,
+                        CellReference = "A2",
+                        DataType = CellValues.Number,
                         CellValue = new CellValue("7"),
-                    }) { RowIndex = 2U }),
+                    })
+                    { RowIndex = 2U }),
                 new AutoFilter(
                     new FilterColumn(new ColorFilter { FormatId = 0U, CellColor = true })
                     { ColumnId = 0U })

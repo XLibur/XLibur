@@ -37,7 +37,8 @@ public class EvaluateExprConcurrencyTests
                     failures.Enqueue($"{expressions[i]}: {ex.GetType().Name}: {ex.Message}");
                 }
             }
-        }) { IsBackground = true }).ToArray();
+        })
+        { IsBackground = true }).ToArray();
 
         foreach (var thread in threads)
             thread.Start();

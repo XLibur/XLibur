@@ -75,34 +75,34 @@ public class FormulaTextCorpusTests
         switch (path)
         {
             case "evaluate":
-            {
-                using var wb = Fixture();
-                return Render(wb.Worksheet("Sheet1").Evaluate(text, "H2"));
-            }
+                {
+                    using var wb = Fixture();
+                    return Render(wb.Worksheet("Sheet1").Evaluate(text, "H2"));
+                }
             case "references":
-            {
-                using var wb = Fixture();
-                return References(wb, text);
-            }
+                {
+                    using var wb = Fixture();
+                    return References(wb, text);
+                }
             case "extent":
-            {
-                var extent = FormulaExtent.Of(text);
-                return string.Create(CultureInfo.InvariantCulture, $"{extent.MaxRow},{extent.MaxColumn}");
-            }
+                {
+                    var extent = FormulaExtent.Of(text);
+                    return string.Create(CultureInfo.InvariantCulture, $"{extent.MaxRow},{extent.MaxColumn}");
+                }
             case "shift":
-            {
-                // Two rows inserted above row 2 of Sheet1, by a formula on Sheet1.
-                using var wb = Fixture();
-                var sheet = (XLWorksheet)wb.Worksheet("Sheet1");
-                var inserted = (XLRange)sheet.Range(2, 1, 3, XLHelper.MaxColumnNumber);
-                return XLCellFormulaShifter.ShiftFormulaRows(text, sheet, inserted, 2);
-            }
+                {
+                    // Two rows inserted above row 2 of Sheet1, by a formula on Sheet1.
+                    using var wb = Fixture();
+                    var sheet = (XLWorksheet)wb.Worksheet("Sheet1");
+                    var inserted = (XLRange)sheet.Range(2, 1, 3, XLHelper.MaxColumnNumber);
+                    return XLCellFormulaShifter.ShiftFormulaRows(text, sheet, inserted, 2);
+                }
             case "rename":
-            {
-                var formula = XLCellFormula.NormalA1(text);
-                formula.RenameSheet(new Point(2, 8), "Sheet1", "Data");
-                return formula.A1;
-            }
+                {
+                    var formula = XLCellFormula.NormalA1(text);
+                    formula.RenameSheet(new Point(2, 8), "Sheet1", "Data");
+                    return formula.A1;
+                }
             case "to_r1c1":
                 return XLCellFormula.GetFormula(text, FormulaConversionType.A1ToR1C1, new Point(3, 3));
             case "add_prefix":
