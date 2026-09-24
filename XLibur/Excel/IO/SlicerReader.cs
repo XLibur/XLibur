@@ -205,20 +205,28 @@ internal static class SlicerReader
                 if (xlTable is null)
                     continue;
 
-                var positions = new Dictionary<uint, int>();
-                var position = 0;
-                foreach (var column in dTable.TableColumns?.Elements<TableColumn>() ?? [])
-                {
-                    position++;
-                    if (column.Id?.Value is { } columnId)
-                        positions[columnId] = position;
-                }
-
-                tables[tableId] = (xlTable, positions);
+                tables[tableId] = (xlTable, ColumnPositionsById(dTable));
             }
         }
 
         return tables;
+    }
+
+    /// <summary>
+    /// Maps each <c>tableColumn/@id</c> of a table to the column's 1-based position.
+    /// </summary>
+    private static Dictionary<uint, int> ColumnPositionsById(Table dTable)
+    {
+        var positions = new Dictionary<uint, int>();
+        var position = 0;
+        foreach (var column in dTable.TableColumns?.Elements<TableColumn>() ?? [])
+        {
+            position++;
+            if (column.Id?.Value is { } columnId)
+                positions[columnId] = position;
+        }
+
+        return positions;
     }
 
     // ── Slicers ─────────────────────────────────────────────────────────
@@ -232,15 +240,7 @@ internal static class SlicerReader
         foreach (var (worksheetPart, worksheet) in WorksheetParts(workbookPart, sheets, worksheets))
         {
             foreach (var slicersPart in worksheetPart.SlicersParts)
-            {
-                var slicers = ReadDetached<X14.Slicers>(slicersPart);
-                if (slicers is null)
-                    continue;
-
-                var relId = worksheetPart.GetIdOfPart(slicersPart);
-                foreach (var slicer in slicers.Elements<X14.Slicer>())
-                    AddSlicer(slicer, relId, worksheet, caches);
-            }
+                ReadSlicersPart(worksheetPart, slicersPart, worksheet, caches);
 
             // Where each slicer sits is in the drawing part, not the slicer part. Read after the
             // slicers exist, because the frames are matched to them by name.
@@ -251,6 +251,21 @@ internal static class SlicerReader
             if (worksheet.SlicersInternal.Count > 0)
                 SlicerAnchorXml.ReadPositions(worksheetPart.DrawingsPart, worksheet.SlicersInternal);
         }
+    }
+
+    private static void ReadSlicersPart(
+        WorksheetPart worksheetPart,
+        SlicersPart slicersPart,
+        XLWorksheet worksheet,
+        Dictionary<string, XLSlicerCache> caches)
+    {
+        var slicers = ReadDetached<X14.Slicers>(slicersPart);
+        if (slicers is null)
+            return;
+
+        var relId = worksheetPart.GetIdOfPart(slicersPart);
+        foreach (var slicer in slicers.Elements<X14.Slicer>())
+            AddSlicer(slicer, relId, worksheet, caches);
     }
 
     private static void AddSlicer(

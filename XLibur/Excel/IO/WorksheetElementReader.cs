@@ -162,6 +162,11 @@ internal static class WorksheetElementReader
         if (sheetView.ShowZeros != null) view.ShowZeros = sheetView.ShowZeros.Value;
         if (sheetView.TabSelected != null) view.TabSelected = sheetView.TabSelected.Value;
 
+        LoadSheetViewOption(sheetView, view);
+    }
+
+    private static void LoadSheetViewOption(SheetView sheetView, XLSheetView view)
+    {
         // Two ways a file can name a view this build cannot resolve: text that is not any member of
         // the SDK's enumeration (HasValue is false, and reading Value throws FormatException), and a
         // member the SDK knows but XLibur has no option for. Neither is a reason to refuse the file
@@ -349,24 +354,27 @@ internal static class WorksheetElementReader
             ws.TabColor = sheetProperty.TabColor.ToXLiburColor();
 
         if (sheetProperty.OutlineProperties != null)
-        {
-            if (sheetProperty.OutlineProperties.SummaryBelow != null)
-            {
-                ws.Outline.SummaryVLocation = sheetProperty.OutlineProperties.SummaryBelow
-                    ? XLOutlineSummaryVLocation.Bottom
-                    : XLOutlineSummaryVLocation.Top;
-            }
-
-            if (sheetProperty.OutlineProperties.SummaryRight != null)
-            {
-                ws.Outline.SummaryHLocation = sheetProperty.OutlineProperties.SummaryRight
-                    ? XLOutlineSummaryHLocation.Right
-                    : XLOutlineSummaryHLocation.Left;
-            }
-        }
+            LoadOutlineProperties(sheetProperty.OutlineProperties, ws);
 
         if (sheetProperty.PageSetupProperties != null)
             pageSetupProperties = sheetProperty.PageSetupProperties;
+    }
+
+    private static void LoadOutlineProperties(OutlineProperties outlineProperties, XLWorksheet ws)
+    {
+        if (outlineProperties.SummaryBelow != null)
+        {
+            ws.Outline.SummaryVLocation = outlineProperties.SummaryBelow
+                ? XLOutlineSummaryVLocation.Bottom
+                : XLOutlineSummaryVLocation.Top;
+        }
+
+        if (outlineProperties.SummaryRight != null)
+        {
+            ws.Outline.SummaryHLocation = outlineProperties.SummaryRight
+                ? XLOutlineSummaryHLocation.Right
+                : XLOutlineSummaryHLocation.Left;
+        }
     }
 
     private static void LoadRowBreaks(RowBreaks rowBreaks, XLWorksheet ws)
@@ -464,6 +472,12 @@ internal static class WorksheetElementReader
     {
         if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
         if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
+        ApplyDataValidationMessages(dvs, dvt);
+        ApplyDataValidationCriteria(dvs, dvt);
+    }
+
+    private static void ApplyDataValidationMessages(DataValidation dvs, XLDataValidation dvt)
+    {
         if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
         if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
         if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
@@ -471,6 +485,10 @@ internal static class WorksheetElementReader
         if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
         if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
         if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
+    }
+
+    private static void ApplyDataValidationCriteria(DataValidation dvs, XLDataValidation dvt)
+    {
         if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
         if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
         if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
@@ -487,18 +505,26 @@ internal static class WorksheetElementReader
         foreach (var hl in hyperlinks.Elements<Hyperlink>())
         {
             if (hl.Reference!.Value!.Equals("#REF")) continue;
-            var tooltip = hl.Tooltip != null ? hl.Tooltip.Value : string.Empty;
-            var xlRange = ws.Range(hl.Reference.Value);
-            foreach (var xlCell1 in xlRange!.Cells())
-            {
-                var xlCell = (XLCell)xlCell1;
-                if (hl.Id != null)
-                    xlCell.SetCellHyperlink(new XLHyperlink(hyperlinkDictionary[hl.Id.Value!], tooltip!));
-                else if (hl.Location != null)
-                    xlCell.SetCellHyperlink(new XLHyperlink(hl.Location.Value!, tooltip!));
-                else
-                    xlCell.SetCellHyperlink(new XLHyperlink(hl.Reference.Value, tooltip!));
-            }
+            LoadHyperlink(hl, hyperlinkDictionary, ws);
+        }
+    }
+
+    /// <summary>
+    /// Gives every cell of the hyperlink's range its own <see cref="XLHyperlink"/>.
+    /// </summary>
+    private static void LoadHyperlink(Hyperlink hl, Dictionary<string, Uri> hyperlinkDictionary, XLWorksheet ws)
+    {
+        var tooltip = hl.Tooltip != null ? hl.Tooltip.Value : string.Empty;
+        var xlRange = ws.Range(hl.Reference!.Value!);
+        foreach (var xlCell1 in xlRange!.Cells())
+        {
+            var xlCell = (XLCell)xlCell1;
+            if (hl.Id != null)
+                xlCell.SetCellHyperlink(new XLHyperlink(hyperlinkDictionary[hl.Id.Value!], tooltip!));
+            else if (hl.Location != null)
+                xlCell.SetCellHyperlink(new XLHyperlink(hl.Location.Value!, tooltip!));
+            else
+                xlCell.SetCellHyperlink(new XLHyperlink(hl.Reference.Value!, tooltip!));
         }
     }
 
@@ -623,23 +649,12 @@ internal static class WorksheetElementReader
 
         var valid = true;
 
-        if (xlGrouping >= XLDateTimeGrouping.Year)
-            valid = TryGetDatePart(dateGroupItem.Year, ref year) && valid;
-
-        if (xlGrouping >= XLDateTimeGrouping.Month)
-            valid = TryGetDatePart(dateGroupItem.Month, ref month) && valid;
-
-        if (xlGrouping >= XLDateTimeGrouping.Day)
-            valid = TryGetDatePart(dateGroupItem.Day, ref day) && valid;
-
-        if (xlGrouping >= XLDateTimeGrouping.Hour)
-            valid = TryGetDatePart(dateGroupItem.Hour, ref hour) && valid;
-
-        if (xlGrouping >= XLDateTimeGrouping.Minute)
-            valid = TryGetDatePart(dateGroupItem.Minute, ref minute) && valid;
-
-        if (xlGrouping >= XLDateTimeGrouping.Second)
-            valid = TryGetDatePart(dateGroupItem.Second, ref second) && valid;
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Year, dateGroupItem.Year, ref year, ref valid);
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Month, dateGroupItem.Month, ref month, ref valid);
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Day, dateGroupItem.Day, ref day, ref valid);
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Hour, dateGroupItem.Hour, ref hour, ref valid);
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Minute, dateGroupItem.Minute, ref minute, ref valid);
+        ReadGroupedDatePart(xlGrouping, XLDateTimeGrouping.Second, dateGroupItem.Second, ref second, ref valid);
 
         if (valid)
         {
@@ -658,6 +673,17 @@ internal static class WorksheetElementReader
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Reads one date part when the grouping is at least as fine as <paramref name="level"/>,
+    /// clearing <paramref name="valid"/> if that part is missing.
+    /// </summary>
+    private static void ReadGroupedDatePart(XLDateTimeGrouping grouping, XLDateTimeGrouping level,
+        ushort? value, ref int result, ref bool valid)
+    {
+        if (grouping >= level)
+            valid = TryGetDatePart(value, ref result) && valid;
     }
 
     private static void LoadTop10Filter(XLFilterColumn xlFilterColumn, XLTop10Criteria top10)

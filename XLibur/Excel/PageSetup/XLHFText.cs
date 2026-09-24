@@ -21,14 +21,7 @@ internal sealed class XLHFText
     {
         var wsFont = _hfItem.HeaderFooter.Worksheet.Style.Font;
 
-        var isRichText = RichText.FontName != null && RichText.FontName != wsFont.FontName
-                         || RichText.Bold != wsFont.Bold
-                         || RichText.Italic != wsFont.Italic
-                         || RichText.Strikethrough != wsFont.Strikethrough
-                         || RichText.FontSize > 0 && Math.Abs(RichText.FontSize - wsFont.FontSize) > XLHelper.Epsilon
-                         || RichText.VerticalAlignment != wsFont.VerticalAlignment
-                         || RichText.Underline != wsFont.Underline
-                         || !RichText.FontColor.Equals(wsFont.FontColor);
+        var isRichText = DiffersFromFont(wsFont);
 
         if (!isRichText)
             return RichText.Text;
@@ -37,12 +30,10 @@ internal sealed class XLHFText
 
         AppendFontNameAndStyle(sb, wsFont);
 
-        if (RichText.FontSize > 0 && Math.Abs(RichText.FontSize - wsFont.FontSize) > XLHelper.Epsilon)
+        if (HasOwnFontSize(wsFont))
             sb.Append("&" + RichText.FontSize);
 
-        if (RichText.Strikethrough && !wsFont.Strikethrough)
-            sb.Append("&S");
-
+        AppendStrikethrough(sb, wsFont);
         AppendVerticalAlignment(sb, wsFont);
         AppendUnderline(sb, wsFont);
         AppendFontColor(sb, prevText, wsFont);
@@ -51,16 +42,46 @@ internal sealed class XLHFText
 
         AppendUnderline(sb, wsFont);
         AppendVerticalAlignment(sb, wsFont);
-
-        if (RichText.Strikethrough && !wsFont.Strikethrough)
-            sb.Append("&S");
+        AppendStrikethrough(sb, wsFont);
 
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Whether the text states any formatting of its own over the worksheet font, and so needs
+    /// header/footer formatting codes.
+    /// </summary>
+    private bool DiffersFromFont(IXLFontBase wsFont)
+    {
+        return HasOwnFontName(wsFont)
+               || RichText.Bold != wsFont.Bold
+               || RichText.Italic != wsFont.Italic
+               || RichText.Strikethrough != wsFont.Strikethrough
+               || HasOwnFontSize(wsFont)
+               || RichText.VerticalAlignment != wsFont.VerticalAlignment
+               || RichText.Underline != wsFont.Underline
+               || !RichText.FontColor.Equals(wsFont.FontColor);
+    }
+
+    private bool HasOwnFontName(IXLFontBase wsFont)
+    {
+        return RichText.FontName != null && RichText.FontName != wsFont.FontName;
+    }
+
+    private bool HasOwnFontSize(IXLFontBase wsFont)
+    {
+        return RichText.FontSize > 0 && Math.Abs(RichText.FontSize - wsFont.FontSize) > XLHelper.Epsilon;
+    }
+
+    private void AppendStrikethrough(StringBuilder sb, IXLFontBase wsFont)
+    {
+        if (RichText.Strikethrough && !wsFont.Strikethrough)
+            sb.Append("&S");
+    }
+
     private void AppendFontNameAndStyle(StringBuilder sb, IXLFontBase wsFont)
     {
-        if (RichText.FontName != null && RichText.FontName != wsFont.FontName)
+        if (HasOwnFontName(wsFont))
             sb.Append("&\"" + RichText.FontName);
         else
             sb.Append("&\"-");

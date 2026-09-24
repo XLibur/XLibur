@@ -89,6 +89,24 @@ internal static class TimelinePatcher
     /// </summary>
     private static void ApplyDisplayToggles(X15.Timeline timeline, XLTimeline xlTimeline, XLTimelineFormat assigned)
     {
+        if (assigned.HasFlag(XLTimelineFormat.ShowHeader))
+            timeline.ShowHeader = DefaultTrueAttribute(xlTimeline.ShowHeader);
+
+        if (assigned.HasFlag(XLTimelineFormat.ShowSelectionLabel))
+            timeline.ShowSelectionLabel = DefaultTrueAttribute(xlTimeline.ShowSelectionLabel);
+
+        if (assigned.HasFlag(XLTimelineFormat.ShowTimeLevel))
+            timeline.ShowTimeLevel = DefaultTrueAttribute(xlTimeline.ShowTimeLevel);
+
+        if (assigned.HasFlag(XLTimelineFormat.ShowHorizontalScrollbar))
+            timeline.ShowHorizontalScrollbar = DefaultTrueAttribute(xlTimeline.ShowHorizontalScrollbar);
+    }
+
+    /// <summary>
+    /// The attribute value for one of the four show/hide booleans.
+    /// </summary>
+    private static BooleanValue? DefaultTrueAttribute(bool value)
+    {
         // The four booleans default to true; writing a value that is already the default is legal
         // but noisy, and it is not what Excel does.
         //
@@ -97,20 +115,7 @@ internal static class TimelinePatcher
         // branch is the only way to write the attribute out as false. Removing the literal is not
         // available — there is nothing for `!x` to produce when the answer is "omit the attribute".
 #pragma warning disable S1125
-        if (assigned.HasFlag(XLTimelineFormat.ShowHeader))
-            timeline.ShowHeader = xlTimeline.ShowHeader ? (BooleanValue?)null : false;
-
-        if (assigned.HasFlag(XLTimelineFormat.ShowSelectionLabel))
-            timeline.ShowSelectionLabel = xlTimeline.ShowSelectionLabel ? (BooleanValue?)null : false;
-
-        if (assigned.HasFlag(XLTimelineFormat.ShowTimeLevel))
-            timeline.ShowTimeLevel = xlTimeline.ShowTimeLevel ? (BooleanValue?)null : false;
-
-        if (assigned.HasFlag(XLTimelineFormat.ShowHorizontalScrollbar))
-        {
-            timeline.ShowHorizontalScrollbar =
-                xlTimeline.ShowHorizontalScrollbar ? (BooleanValue?)null : false;
-        }
+        return value ? (BooleanValue?)null : false;
 #pragma warning restore S1125
     }
 

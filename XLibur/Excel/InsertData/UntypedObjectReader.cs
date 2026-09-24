@@ -12,45 +12,49 @@ internal sealed class UntypedObjectReader : IInsertDataReader
     public UntypedObjectReader(IEnumerable data)
     {
         var data1 = (data ?? Array.Empty<object>()).Cast<object>();
-        _readers = CreateReaders().ToList();
+        _readers = CreateReaders(data1).ToList();
+    }
 
-        IEnumerable<IInsertDataReader> CreateReaders()
+    /// <summary>
+    /// Splits <paramref name="data"/> into runs of items of the same type and yields one reader
+    /// per run.
+    /// </summary>
+    private static IEnumerable<IInsertDataReader> CreateReaders(IEnumerable<object> data)
+    {
+        if (!data.Any())
+            yield break;
+
+        List<object> itemsOfSameType = new List<object>();
+        Type? previousType = null;
+
+        foreach (var item in data)
         {
-            if (!data1.Any())
-                yield break;
+            var currentType = item?.GetType();
 
-            List<object> itemsOfSameType = new List<object>();
-            Type? previousType = null;
-
-            foreach (var item in data1)
-            {
-                var currentType = item?.GetType();
-
-                if (previousType != currentType && itemsOfSameType.Count > 0)
-                {
-                    yield return CreateReader(itemsOfSameType, previousType);
-                    itemsOfSameType.Clear();
-                }
-                itemsOfSameType.Add(item!);
-                previousType = currentType;
-            }
-
-            if (itemsOfSameType.Count > 0)
+            if (previousType != currentType && itemsOfSameType.Count > 0)
             {
                 yield return CreateReader(itemsOfSameType, previousType);
+                itemsOfSameType.Clear();
             }
+            itemsOfSameType.Add(item!);
+            previousType = currentType;
         }
 
-        IInsertDataReader CreateReader(List<object> itemsOfSameType, Type? itemType)
+        if (itemsOfSameType.Count > 0)
         {
-            if (itemType == null)
-                return new NullDataReader(itemsOfSameType);
-
-            var items = Array.CreateInstance(itemType, itemsOfSameType.Count);
-            Array.Copy(itemsOfSameType.ToArray(), items, items.Length);
-
-            return InsertDataReaderFactory.CreateReader(items);
+            yield return CreateReader(itemsOfSameType, previousType);
         }
+    }
+
+    private static IInsertDataReader CreateReader(List<object> itemsOfSameType, Type? itemType)
+    {
+        if (itemType == null)
+            return new NullDataReader(itemsOfSameType);
+
+        var items = Array.CreateInstance(itemType, itemsOfSameType.Count);
+        Array.Copy(itemsOfSameType.ToArray(), items, items.Length);
+
+        return InsertDataReaderFactory.CreateReader(items);
     }
 
     public IEnumerable<IEnumerable<XLCellValue>> GetRecords()
