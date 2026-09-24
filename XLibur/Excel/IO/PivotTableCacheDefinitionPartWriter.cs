@@ -208,36 +208,39 @@ internal static class PivotTableCacheDefinitionPartWriter
     {
         var rangeSets = new RangeSets();
         foreach (var xlRangeSet in consolidationSource.RangeSets)
-        {
-            var indexes = xlRangeSet.Indexes;
-            var rangeSet = new RangeSet
-            {
-                FieldItemIndexPage1 = indexes.Count > 0 ? indexes[0] : null,
-                FieldItemIndexPage2 = indexes.Count > 1 ? indexes[1] : null,
-                FieldItemIndexPage3 = indexes.Count > 2 ? indexes[2] : null,
-                FieldItemIndexPage4 = indexes.Count > 3 ? indexes[3] : null,
-            };
-
-            // Properties can't be set to null and be skipped, OpenXML SDK would
-            // write out empty string. Don't touch them unless setting a value.
-            if (xlRangeSet.RelId is not null)
-                rangeSet.Id = xlRangeSet.RelId;
-
-            if (xlRangeSet.UsesName)
-            {
-                rangeSet.Name = xlRangeSet.TableOrName;
-            }
-            else
-            {
-                var rangeArea = xlRangeSet.Area.Value;
-                rangeSet.Sheet = rangeArea.Name;
-                rangeSet.Reference = rangeArea.Area.ToString();
-            }
-
-            rangeSets.AppendChild(rangeSet);
-        }
+            rangeSets.AppendChild(CreateRangeSet(xlRangeSet));
 
         return rangeSets;
+    }
+
+    private static RangeSet CreateRangeSet(XLPivotCacheSourceConsolidationRangeSet xlRangeSet)
+    {
+        var indexes = xlRangeSet.Indexes;
+        var rangeSet = new RangeSet
+        {
+            FieldItemIndexPage1 = indexes.Count > 0 ? indexes[0] : null,
+            FieldItemIndexPage2 = indexes.Count > 1 ? indexes[1] : null,
+            FieldItemIndexPage3 = indexes.Count > 2 ? indexes[2] : null,
+            FieldItemIndexPage4 = indexes.Count > 3 ? indexes[3] : null,
+        };
+
+        // Properties can't be set to null and be skipped, OpenXML SDK would
+        // write out empty string. Don't touch them unless setting a value.
+        if (xlRangeSet.RelId is not null)
+            rangeSet.Id = xlRangeSet.RelId;
+
+        if (xlRangeSet.UsesName)
+        {
+            rangeSet.Name = xlRangeSet.TableOrName;
+        }
+        else
+        {
+            var rangeArea = xlRangeSet.Area.Value;
+            rangeSet.Sheet = rangeArea.Name;
+            rangeSet.Reference = rangeArea.Area.ToString();
+        }
+
+        return rangeSet;
     }
 
     private static void WriteCacheFields(XLPivotCache pivotCache, CacheFields cacheFields)
@@ -344,20 +347,9 @@ internal static class PivotTableCacheDefinitionPartWriter
 
         sharedItems.ContainsDate = OpenXmlHelper.GetBooleanValue(stats.ContainsDate, false);
 
-        // Remember: Blank is not a type in OOXML, but is a value
-        var typesCount = 0;
-        if (stats.ContainsNumber)
-            typesCount++;
-
-        if (stats.ContainsString)
-            typesCount++;
-
-        if (stats.ContainsDate)
-            typesCount++;
-
         // ISO29500: Specifies a boolean value that indicates whether this field contains more than one data type.
         // MS-OI29500: In Office, the containsMixedTypes attribute assumes that boolean and error shall be considered part of the string type.
-        sharedItems.ContainsMixedTypes = OpenXmlHelper.GetBooleanValue(typesCount > 1, false);
+        sharedItems.ContainsMixedTypes = OpenXmlHelper.GetBooleanValue(CountTypes(stats) > 1, false);
 
         // ISO29500: Specifies a boolean value that indicates that the field contains at least one value that is not a date.
         var containsNonDate = stats.ContainsString || stats.ContainsNumber;
@@ -366,32 +358,9 @@ internal static class PivotTableCacheDefinitionPartWriter
         // Excel will have to repair the cache definition, if both @containsNumber and @containsDate are specified. Likely because
         // ultimately they are both numbers, but date has preference.
         if (stats.ContainsDate)
-        {
-            // If the field contains a date, the number values are considered serial date times.
-
-            // This is an exception to the "1900 is a leap year". Values are saved correctly, i.e starting at 1899-12-30.
-            long? minValueAsDateTime = stats.MinValue is not null ? DateTime.FromOADate(stats.MinValue.Value).Ticks : null;
-            long? maxValueAsDateTime = stats.MaxValue is not null ? DateTime.FromOADate(stats.MaxValue.Value).Ticks : null;
-
-            var minDateTicks = NullableMin(stats.MinDate?.Ticks, minValueAsDateTime);
-            var maxDateTicks = NullableMax(stats.MaxDate?.Ticks, maxValueAsDateTime);
-
-            // @minDate/@maxDate can be present, only if at least one child is a d element.
-            sharedItems.MinDate = minDateTicks is not null ? new DateTime(minDateTicks.Value, DateTimeKind.Unspecified) : null;
-            sharedItems.MaxDate = maxDateTicks is not null ? new DateTime(maxDateTicks.Value, DateTimeKind.Unspecified) : null;
-        }
+            WriteSharedItemDateStats(sharedItems, stats);
         else if (stats.ContainsNumber)
-        {
-            // Don't indicate that date field with numbers contains numbers, Excel would refuse to load the file
-            sharedItems.ContainsNumber = OpenXmlHelper.GetBooleanValue(stats.ContainsNumber, false);
-
-            // @containsInteger has a prerequisite @containsNumber, MS-OI29500: In Office, @containsNumber shall be 1 or true when @containsInteger is specified.
-            // MS-OI29500: In Office, a value of 1 or true for the containsInteger attribute indicates this field contains only integer values and does not contain non - integer numeric values.
-            sharedItems.ContainsInteger = OpenXmlHelper.GetBooleanValue(stats.ContainsInteger, false);
-
-            sharedItems.MinValue = stats.MinValue;
-            sharedItems.MaxValue = stats.MaxValue;
-        }
+            WriteSharedItemNumberStats(sharedItems, stats);
 
         // ISO29500: A value of 1 or true indicates at least one text value, and can also contain a mix of other data types and blank values.
         // MS-OI29500: Office expects that the containsSemiMixedTypes attribute is true when the field contains text, blank, boolean or error values.
@@ -402,6 +371,53 @@ internal static class PivotTableCacheDefinitionPartWriter
         sharedItems.ContainsString = OpenXmlHelper.GetBooleanValue(stats.ContainsString, true);
 
         sharedItems.LongText = OpenXmlHelper.GetBooleanValue(stats.LongText, false);
+    }
+
+    /// <summary>
+    /// The number of OOXML data types the field holds. Remember: Blank is not a type in OOXML, but is a value.
+    /// </summary>
+    private static int CountTypes(in XLPivotCacheValuesStats stats)
+    {
+        var typesCount = 0;
+        if (stats.ContainsNumber)
+            typesCount++;
+
+        if (stats.ContainsString)
+            typesCount++;
+
+        if (stats.ContainsDate)
+            typesCount++;
+
+        return typesCount;
+    }
+
+    private static void WriteSharedItemDateStats(SharedItems sharedItems, in XLPivotCacheValuesStats stats)
+    {
+        // If the field contains a date, the number values are considered serial date times.
+
+        // This is an exception to the "1900 is a leap year". Values are saved correctly, i.e starting at 1899-12-30.
+        long? minValueAsDateTime = stats.MinValue is not null ? DateTime.FromOADate(stats.MinValue.Value).Ticks : null;
+        long? maxValueAsDateTime = stats.MaxValue is not null ? DateTime.FromOADate(stats.MaxValue.Value).Ticks : null;
+
+        var minDateTicks = NullableMin(stats.MinDate?.Ticks, minValueAsDateTime);
+        var maxDateTicks = NullableMax(stats.MaxDate?.Ticks, maxValueAsDateTime);
+
+        // @minDate/@maxDate can be present, only if at least one child is a d element.
+        sharedItems.MinDate = minDateTicks is not null ? new DateTime(minDateTicks.Value, DateTimeKind.Unspecified) : null;
+        sharedItems.MaxDate = maxDateTicks is not null ? new DateTime(maxDateTicks.Value, DateTimeKind.Unspecified) : null;
+    }
+
+    private static void WriteSharedItemNumberStats(SharedItems sharedItems, in XLPivotCacheValuesStats stats)
+    {
+        // Don't indicate that date field with numbers contains numbers, Excel would refuse to load the file
+        sharedItems.ContainsNumber = OpenXmlHelper.GetBooleanValue(stats.ContainsNumber, false);
+
+        // @containsInteger has a prerequisite @containsNumber, MS-OI29500: In Office, @containsNumber shall be 1 or true when @containsInteger is specified.
+        // MS-OI29500: In Office, a value of 1 or true for the containsInteger attribute indicates this field contains only integer values and does not contain non - integer numeric values.
+        sharedItems.ContainsInteger = OpenXmlHelper.GetBooleanValue(stats.ContainsInteger, false);
+
+        sharedItems.MinValue = stats.MinValue;
+        sharedItems.MaxValue = stats.MaxValue;
     }
 
     private static long? NullableMin(long? val1, long? val2)

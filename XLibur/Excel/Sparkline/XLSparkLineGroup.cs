@@ -109,22 +109,11 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         }
         else if (singleRow)
         {
-            if (locationRange.ColumnCount() != sourceDataRange.ColumnCount())
-                throw new ArgumentException("locationRange and sourceDataRange must have the same width");
-            for (int i = 1; i <= locationRange.ColumnCount(); i++)
-            {
-                newSparklines.Add(Add(locationRange.Cell(1, i), sourceDataRange.Column(i).AsRange()));
-            }
+            AddAlongRow(locationRange, sourceDataRange, newSparklines);
         }
         else if (singleColumn)
         {
-            if (locationRange.RowCount() != sourceDataRange.RowCount())
-                throw new ArgumentException("locationRange and sourceDataRange must have the same height");
-
-            for (int i = 1; i <= locationRange.RowCount(); i++)
-            {
-                newSparklines.Add(Add(locationRange.Cell(i, 1), sourceDataRange.Row(i).AsRange()));
-            }
+            AddAlongColumn(locationRange, sourceDataRange, newSparklines);
         }
         else
             throw new ArgumentException("locationRange must have either a single row or a single column");
@@ -152,6 +141,27 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         var sourceDataRange = _worksheet.Workbook.Range(sourceDataAddress) ??
                               _worksheet.Range(sourceDataAddress)!;
         return Add(_worksheet.Range(locationRangeAddress)!, sourceDataRange);
+    }
+
+    private void AddAlongRow(IXLRange locationRange, IXLRange sourceDataRange, List<IXLSparkline> newSparklines)
+    {
+        if (locationRange.ColumnCount() != sourceDataRange.ColumnCount())
+            throw new ArgumentException("locationRange and sourceDataRange must have the same width");
+        for (int i = 1; i <= locationRange.ColumnCount(); i++)
+        {
+            newSparklines.Add(Add(locationRange.Cell(1, i), sourceDataRange.Column(i).AsRange()));
+        }
+    }
+
+    private void AddAlongColumn(IXLRange locationRange, IXLRange sourceDataRange, List<IXLSparkline> newSparklines)
+    {
+        if (locationRange.RowCount() != sourceDataRange.RowCount())
+            throw new ArgumentException("locationRange and sourceDataRange must have the same height");
+
+        for (int i = 1; i <= locationRange.RowCount(); i++)
+        {
+            newSparklines.Add(Add(locationRange.Cell(i, 1), sourceDataRange.Row(i).AsRange()));
+        }
     }
 
     /// <summary>

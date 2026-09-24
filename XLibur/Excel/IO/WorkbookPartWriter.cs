@@ -224,27 +224,7 @@ internal static class WorkbookPartWriter
             (from us in xlWorkbook.UnsupportedSheets where us.IsActive select (uint)us.Position - 1).FirstOrDefault();
 
         if (activeTab == 0)
-        {
-            uint? firstActiveTab = null;
-            uint? firstSelectedTab = null;
-            foreach (var ws in worksheets)
-            {
-                if (ws.TabActive)
-                {
-                    firstActiveTab = (uint)(ws.Position - 1);
-                    break;
-                }
-
-                if (ws.TabSelected)
-                {
-                    firstSelectedTab = (uint)(ws.Position - 1);
-                }
-            }
-
-            activeTab = firstActiveTab
-                        ?? firstSelectedTab
-                        ?? firstSheetVisible;
-        }
+            activeTab = ActiveTabFromWorksheets(worksheets, firstSheetVisible);
 
         if (workbookView == null)
         {
@@ -256,6 +236,33 @@ internal static class WorkbookPartWriter
             workbookView.ActiveTab = activeTab;
             workbookView.FirstSheet = firstSheetVisible;
         }
+    }
+
+    /// <summary>
+    /// The active tab when no unsupported sheet claims it: the first active worksheet, else the
+    /// last selected worksheet before it, else the first visible sheet.
+    /// </summary>
+    private static uint ActiveTabFromWorksheets(XLWorksheets worksheets, uint firstSheetVisible)
+    {
+        uint? firstActiveTab = null;
+        uint? firstSelectedTab = null;
+        foreach (var ws in worksheets)
+        {
+            if (ws.TabActive)
+            {
+                firstActiveTab = (uint)(ws.Position - 1);
+                break;
+            }
+
+            if (ws.TabSelected)
+            {
+                firstSelectedTab = (uint)(ws.Position - 1);
+            }
+        }
+
+        return firstActiveTab
+               ?? firstSelectedTab
+               ?? firstSheetVisible;
     }
 
     private static DefinedNames BuildDefinedNames(Workbook workbook, XLWorkbook xlWorkbook)

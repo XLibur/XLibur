@@ -56,34 +56,45 @@ internal static class ChartLegendXml
 
         if (element == null)
         {
-            // Position and Overlay are ignored while the legend is hidden, so assigning one of them
-            // on a chart that has no legend must not conjure one.
-            if (!legend.Visible)
-                return;
-
-            element = new C.Legend();
-            element.Append(new C.LegendPosition { Val = MapPosition(legend.Position) });
-            element.Append(new C.Overlay { Val = legend.Overlay });
-            ChartElementOrder.InsertOrdered(chart, element, ChartElementOrder.ChartChildOrder);
+            AddLegend(chart, legend);
             return;
         }
 
         if ((assigned & XLChartLegendFormat.Position) != 0)
-        {
-            foreach (var existing in element.Elements<C.LegendPosition>().ToList())
-                existing.Remove();
-            ChartElementOrder.InsertOrdered(element,
-                new C.LegendPosition { Val = MapPosition(legend.Position) },
-                ChartElementOrder.LegendChildOrder);
-        }
+            PatchPosition(element, legend);
 
         if ((assigned & XLChartLegendFormat.Overlay) != 0)
-        {
-            foreach (var existing in element.Elements<C.Overlay>().ToList())
-                existing.Remove();
-            ChartElementOrder.InsertOrdered(element, new C.Overlay { Val = legend.Overlay },
-                ChartElementOrder.LegendChildOrder);
-        }
+            PatchOverlay(element, legend);
+    }
+
+    private static void AddLegend(C.Chart chart, XLChartLegend legend)
+    {
+        // Position and Overlay are ignored while the legend is hidden, so assigning one of them
+        // on a chart that has no legend must not conjure one.
+        if (!legend.Visible)
+            return;
+
+        var element = new C.Legend();
+        element.Append(new C.LegendPosition { Val = MapPosition(legend.Position) });
+        element.Append(new C.Overlay { Val = legend.Overlay });
+        ChartElementOrder.InsertOrdered(chart, element, ChartElementOrder.ChartChildOrder);
+    }
+
+    private static void PatchPosition(C.Legend element, XLChartLegend legend)
+    {
+        foreach (var existing in element.Elements<C.LegendPosition>().ToList())
+            existing.Remove();
+        ChartElementOrder.InsertOrdered(element,
+            new C.LegendPosition { Val = MapPosition(legend.Position) },
+            ChartElementOrder.LegendChildOrder);
+    }
+
+    private static void PatchOverlay(C.Legend element, XLChartLegend legend)
+    {
+        foreach (var existing in element.Elements<C.Overlay>().ToList())
+            existing.Remove();
+        ChartElementOrder.InsertOrdered(element, new C.Overlay { Val = legend.Overlay },
+            ChartElementOrder.LegendChildOrder);
     }
 
     private static XLLegendPosition ReadPosition(C.Legend element)

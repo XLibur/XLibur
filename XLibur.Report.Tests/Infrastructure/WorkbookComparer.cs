@@ -117,59 +117,81 @@ public static class WorkbookComparer
         List<string> differences,
         string sheet)
     {
-        var address = expectedCell.Address.ToStringRelative();
+        var location = $"{sheet}!{expectedCell.Address.ToStringRelative()}";
 
         if (options.Values)
         {
-            var expectedValue = Describe(expectedCell.Value);
-            var actualValue = Describe(actualCell.Value);
-            if (!string.Equals(expectedValue, actualValue, StringComparison.Ordinal))
-            {
-                differences.Add($"{sheet}!{address}: value expected {expectedValue} but was {actualValue}");
-            }
+            CompareValue(expectedCell, actualCell, differences, location);
         }
 
         if (options.Formulas)
         {
-            var expectedFormula = DescribeFormula(expectedCell);
-            var actualFormula = DescribeFormula(actualCell);
-            if (!string.Equals(expectedFormula, actualFormula, StringComparison.Ordinal))
-            {
-                differences.Add(
-                    $"{sheet}!{address}: formula expected '{expectedFormula}' but was '{actualFormula}'");
-            }
+            CompareFormula(expectedCell, actualCell, differences, location);
         }
 
         if (options.Styles)
         {
-            var expectedStyle = expectedCell.Style.ToString();
-            var actualStyle = actualCell.Style.ToString();
-            if (!string.Equals(expectedStyle, actualStyle, StringComparison.Ordinal))
-            {
-                differences.Add($"{sheet}!{address}: style differs\n  expected: {expectedStyle}\n  actual:   {actualStyle}");
-            }
+            CompareStyle(expectedCell, actualCell, differences, location);
         }
 
         if (options.Comments)
         {
-            var expectedComment = DescribeComment(expectedCell);
-            var actualComment = DescribeComment(actualCell);
-            if (!string.Equals(expectedComment, actualComment, StringComparison.Ordinal))
-            {
-                differences.Add(
-                    $"{sheet}!{address}: comment expected '{expectedComment}' but was '{actualComment}'");
-            }
+            CompareComment(expectedCell, actualCell, differences, location);
         }
 
         if (options.Hyperlinks)
         {
-            var expectedLink = DescribeHyperlink(expectedCell);
-            var actualLink = DescribeHyperlink(actualCell);
-            if (!string.Equals(expectedLink, actualLink, StringComparison.Ordinal))
-            {
-                differences.Add(
-                    $"{sheet}!{address}: hyperlink expected '{expectedLink}' but was '{actualLink}'");
-            }
+            CompareHyperlink(expectedCell, actualCell, differences, location);
+        }
+    }
+
+    private static void CompareValue(IXLCell expectedCell, IXLCell actualCell, List<string> differences, string location)
+    {
+        var expectedValue = Describe(expectedCell.Value);
+        var actualValue = Describe(actualCell.Value);
+        if (!string.Equals(expectedValue, actualValue, StringComparison.Ordinal))
+        {
+            differences.Add($"{location}: value expected {expectedValue} but was {actualValue}");
+        }
+    }
+
+    private static void CompareFormula(IXLCell expectedCell, IXLCell actualCell, List<string> differences, string location)
+    {
+        var expectedFormula = DescribeFormula(expectedCell);
+        var actualFormula = DescribeFormula(actualCell);
+        if (!string.Equals(expectedFormula, actualFormula, StringComparison.Ordinal))
+        {
+            differences.Add($"{location}: formula expected '{expectedFormula}' but was '{actualFormula}'");
+        }
+    }
+
+    private static void CompareStyle(IXLCell expectedCell, IXLCell actualCell, List<string> differences, string location)
+    {
+        var expectedStyle = expectedCell.Style.ToString();
+        var actualStyle = actualCell.Style.ToString();
+        if (!string.Equals(expectedStyle, actualStyle, StringComparison.Ordinal))
+        {
+            differences.Add($"{location}: style differs\n  expected: {expectedStyle}\n  actual:   {actualStyle}");
+        }
+    }
+
+    private static void CompareComment(IXLCell expectedCell, IXLCell actualCell, List<string> differences, string location)
+    {
+        var expectedComment = DescribeComment(expectedCell);
+        var actualComment = DescribeComment(actualCell);
+        if (!string.Equals(expectedComment, actualComment, StringComparison.Ordinal))
+        {
+            differences.Add($"{location}: comment expected '{expectedComment}' but was '{actualComment}'");
+        }
+    }
+
+    private static void CompareHyperlink(IXLCell expectedCell, IXLCell actualCell, List<string> differences, string location)
+    {
+        var expectedLink = DescribeHyperlink(expectedCell);
+        var actualLink = DescribeHyperlink(actualCell);
+        if (!string.Equals(expectedLink, actualLink, StringComparison.Ordinal))
+        {
+            differences.Add($"{location}: hyperlink expected '{expectedLink}' but was '{actualLink}'");
         }
     }
 
@@ -205,43 +227,57 @@ public static class WorkbookComparer
 
         for (var row = 1; row <= lastRow; row++)
         {
-            var expectedRow = expected.Row(row);
-            var actualRow = actual.Row(row);
-
-            if (Math.Abs(expectedRow.Height - actualRow.Height) > 0.001)
-            {
-                differences.Add(
-                    $"{sheet}: row {row} height expected {Format(expectedRow.Height)} but was {Format(actualRow.Height)}");
-            }
-
-            if (expectedRow.OutlineLevel != actualRow.OutlineLevel)
-            {
-                differences.Add(
-                    $"{sheet}: row {row} outline level expected {expectedRow.OutlineLevel} but was {actualRow.OutlineLevel}");
-            }
-
-            if (expectedRow.IsHidden != actualRow.IsHidden)
-            {
-                differences.Add($"{sheet}: row {row} hidden expected {expectedRow.IsHidden} but was {actualRow.IsHidden}");
-            }
+            CompareRow(expected.Row(row), actual.Row(row), row, differences, sheet);
         }
 
         for (var column = 1; column <= lastColumn; column++)
         {
-            var expectedColumn = expected.Column(column);
-            var actualColumn = actual.Column(column);
+            CompareColumn(expected.Column(column), actual.Column(column), column, differences, sheet);
+        }
+    }
 
-            if (Math.Abs(expectedColumn.Width - actualColumn.Width) > 0.001)
-            {
-                differences.Add(
-                    $"{sheet}: column {column} width expected {Format(expectedColumn.Width)} but was {Format(actualColumn.Width)}");
-            }
+    private static void CompareRow(
+        IXLRow expectedRow,
+        IXLRow actualRow,
+        int row,
+        List<string> differences,
+        string sheet)
+    {
+        if (Math.Abs(expectedRow.Height - actualRow.Height) > 0.001)
+        {
+            differences.Add(
+                $"{sheet}: row {row} height expected {Format(expectedRow.Height)} but was {Format(actualRow.Height)}");
+        }
 
-            if (expectedColumn.OutlineLevel != actualColumn.OutlineLevel)
-            {
-                differences.Add(
-                    $"{sheet}: column {column} outline level expected {expectedColumn.OutlineLevel} but was {actualColumn.OutlineLevel}");
-            }
+        if (expectedRow.OutlineLevel != actualRow.OutlineLevel)
+        {
+            differences.Add(
+                $"{sheet}: row {row} outline level expected {expectedRow.OutlineLevel} but was {actualRow.OutlineLevel}");
+        }
+
+        if (expectedRow.IsHidden != actualRow.IsHidden)
+        {
+            differences.Add($"{sheet}: row {row} hidden expected {expectedRow.IsHidden} but was {actualRow.IsHidden}");
+        }
+    }
+
+    private static void CompareColumn(
+        IXLColumn expectedColumn,
+        IXLColumn actualColumn,
+        int column,
+        List<string> differences,
+        string sheet)
+    {
+        if (Math.Abs(expectedColumn.Width - actualColumn.Width) > 0.001)
+        {
+            differences.Add(
+                $"{sheet}: column {column} width expected {Format(expectedColumn.Width)} but was {Format(actualColumn.Width)}");
+        }
+
+        if (expectedColumn.OutlineLevel != actualColumn.OutlineLevel)
+        {
+            differences.Add(
+                $"{sheet}: column {column} outline level expected {expectedColumn.OutlineLevel} but was {actualColumn.OutlineLevel}");
         }
     }
 

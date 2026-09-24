@@ -117,13 +117,7 @@ internal sealed class RangeExpander
         }
 
         FillWithCopiesOfTemplate(sheet, axis, area, firstSlot, slotsPerItem, items.Count);
-
-        for (var i = 0; i < items.Count; i++)
-        {
-            var blockFirstSlot = firstSlot + (i * slotsPerItem);
-            var scope = ItemScopes.For(globalScope, items, i);
-            EvaluateBlock(sheet, axis.Slots(area, blockFirstSlot, blockFirstSlot + slotsPerItem - 1), scope);
-        }
+        EvaluateBlocks(sheet, axis, area, firstSlot, slotsPerItem, items, globalScope);
 
         var renderedLastSlot = firstSlot + (items.Count * slotsPerItem) - 1;
 
@@ -164,10 +158,7 @@ internal sealed class RangeExpander
                 sheet, axis, area, firstSlot, renderedLastSlot, optionsRange, items, globalScope, lineExpressions,
                 tags, groupOptions);
 
-            foreach (var tag in tags)
-            {
-                tag.Execute(executeContext);
-            }
+            ExecuteTags(tags, executeContext);
 
             if (!RemoveOptionsSlotIfEmpty(sheet, axis, area, optionsSlot))
             {
@@ -179,6 +170,32 @@ internal sealed class RangeExpander
         definedName.SetRefersTo(RangeAxis.Range(sheet, rendered));
 
         return new ExpansionRecord(sheet, area, rendered, axis, occupiedSlots - axis.SlotCount(area));
+    }
+
+    /// <summary>Evaluates each item's copy of the template block against that item's scope.</summary>
+    private void EvaluateBlocks(
+        IXLWorksheet sheet,
+        RangeAxis axis,
+        RangeArea area,
+        int firstSlot,
+        int slotsPerItem,
+        IReadOnlyList<object?> items,
+        ExpressionScope globalScope)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            var blockFirstSlot = firstSlot + (i * slotsPerItem);
+            var scope = ItemScopes.For(globalScope, items, i);
+            EvaluateBlock(sheet, axis.Slots(area, blockFirstSlot, blockFirstSlot + slotsPerItem - 1), scope);
+        }
+    }
+
+    private static void ExecuteTags(List<OptionTag> tags, ProcessingContext context)
+    {
+        foreach (var tag in tags)
+        {
+            tag.Execute(context);
+        }
     }
 
     /// <summary>
@@ -383,46 +400,58 @@ internal sealed class RangeExpander
     {
         for (var line = axis.FirstLine(area); line <= axis.LastLine(area); line++)
         {
-            var cell = axis.Cell(sheet, slot, line);
-            var value = _evaluator.ReadValue(cell);
-            if (!value.IsText)
-            {
-                continue;
-            }
+            ReadTagsFromCell(sheet, axis.Cell(sheet, slot, line), line, inRepeatedSlot, tags);
+        }
+    }
 
-            var text = value.GetText();
-            if (!TagParser.Contains(text))
-            {
-                continue;
-            }
+    /// <summary>
+    /// Reads the tags out of one cell, clearing their text so it does not reach the report.
+    /// </summary>
+    private void ReadTagsFromCell(
+        IXLWorksheet sheet,
+        IXLCell cell,
+        int line,
+        bool inRepeatedSlot,
+        List<OptionTag> tags)
+    {
+        var value = _evaluator.ReadValue(cell);
+        if (!value.IsText)
+        {
+            return;
+        }
 
-            foreach (var token in TagParser.Parse(text))
-            {
-                if (TagsRegister.TryCreate(token, cell.Address.RowNumber, cell.Address.ColumnNumber, line, out var tag))
-                {
-                    tag.InRepeatedRow = inRepeatedSlot;
-                    tags.Add(tag);
-                }
-                else
-                {
-                    _errors.Add(new TemplateError(
-                        $"<<{token.Name}>> is not a tag this library knows.",
-                        sheet.Name,
-                        cell.Address.ToString()));
-                }
-            }
+        var text = value.GetText();
+        if (!TagParser.Contains(text))
+        {
+            return;
+        }
 
-            var remaining = TagParser.Strip(text);
-            if (remaining.Length == 0)
+        foreach (var token in TagParser.Parse(text))
+        {
+            if (TagsRegister.TryCreate(token, cell.Address.RowNumber, cell.Address.ColumnNumber, line, out var tag))
             {
-                // Cleared rather than set to an empty string, so an options slot that held nothing
-                // but tags still counts as empty and is removed.
-                cell.Clear(XLClearOptions.Contents);
+                tag.InRepeatedRow = inRepeatedSlot;
+                tags.Add(tag);
             }
             else
             {
-                cell.Value = remaining;
+                _errors.Add(new TemplateError(
+                    $"<<{token.Name}>> is not a tag this library knows.",
+                    sheet.Name,
+                    cell.Address.ToString()));
             }
+        }
+
+        var remaining = TagParser.Strip(text);
+        if (remaining.Length == 0)
+        {
+            // Cleared rather than set to an empty string, so an options slot that held nothing
+            // but tags still counts as empty and is removed.
+            cell.Clear(XLClearOptions.Contents);
+        }
+        else
+        {
+            cell.Value = remaining;
         }
     }
 

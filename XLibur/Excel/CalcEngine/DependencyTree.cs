@@ -92,7 +92,6 @@ internal sealed class DependencyTree
 
     internal bool IsEmpty => _sheetTrees.All(sheetTree => sheetTree.Value.IsEmpty) && _dependencies.Count == 0;
 
-#pragma warning disable S3776 // One branch per formula kind, each documented; splitting would separate them from the walk
     internal static DependencyTree CreateFrom(XLWorkbook workbook)
     {
         var tree = new DependencyTree();
@@ -116,51 +115,7 @@ internal sealed class DependencyTree
         tree._sharedAsts = new Dictionary<string, Formula?>(StringComparer.Ordinal);
 
         foreach (var sheet in workbook.WorksheetsInternal)
-        {
-            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
-            while (enumerator.MoveNext())
-            {
-                var formula = enumerator.Current;
-                var point = enumerator.Point;
-                if (formula.IsDynamicArray)
-                {
-                    // A dynamic-array formula lives only in its anchor cell (spilled cells are
-                    // formula-less), so it appears exactly once. Register the whole spill
-                    // footprint so a change to the array's precedents invalidates dependents of
-                    // ANY spilled cell, not just the anchor. Before the first spill the footprint
-                    // is unknown (default) — register the 1x1 anchor; the spill re-registers the
-                    // formula once its size is known (see XLCalcEngine.SpillDynamicArray).
-                    var footprint = formula.Range == default ? new Area(point, point) : formula.Range;
-                    var bookArea = new SheetArea(sheet.Name, footprint);
-                    tree.AddFormula(bookArea, formula, workbook);
-                }
-                else if (formula.Type == FormulaType.Normal)
-                {
-                    var bookArea = new SheetArea(sheet.Name, new Area(point, point));
-                    tree.AddFormula(bookArea, formula, workbook);
-                }
-                else if (formula.Type == FormulaType.Array)
-                {
-                    // Ignore all non-master cells
-                    var isMasterCell = formula.Range.FirstPoint == point;
-                    if (isMasterCell)
-                    {
-                        var bookArea = new SheetArea(sheet.Name, formula.Range);
-                        tree.AddFormula(bookArea, formula, workbook);
-                    }
-                }
-                // Data-table formulas are skipped deliberately, and cannot simply be added to
-                // the chain above. AddFormula derives precedents by parsing the formula text,
-                // and a data table's text is the placeholder "{TABLE(A1,}" — not valid formula
-                // syntax, so the parser refuses it and it would be taken to depend on every cell,
-                // which is not what its inputs are. Registering them needs
-                // precedents built from Input1/Input2 and the table's header formulas instead of
-                // from an AST. XLibur does not evaluate data tables either (there is no TABLE
-                // function), so the only gain would be dropping the full-recalculation trigger in
-                // XLCalcEngine.TryEvaluateSingleCell.
-                // FormulaType.Shared is never produced, so it needs no handling here.
-            }
-        }
+            tree.AddSheetFormulas(sheet, workbook);
 
         foreach (var sheetTree in tree._sheetTrees.Values)
             sheetTree.EndBulkLoad();
@@ -168,7 +123,67 @@ internal sealed class DependencyTree
         tree._sharedAsts = null;
         return tree;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Adds every formula of the <paramref name="sheet"/> that the tree tracks, in the sheet's
+    /// forward cell order.
+    /// </summary>
+    private void AddSheetFormulas(XLWorksheet sheet, XLWorkbook workbook)
+    {
+        using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            var formula = enumerator.Current;
+            if (TryGetFormulaArea(formula, enumerator.Point, out var area))
+                AddFormula(new SheetArea(sheet.Name, area), formula, workbook);
+        }
+    }
+
+    /// <summary>
+    /// Gets the area a formula found at <paramref name="point"/> is registered under, or returns
+    /// <c>false</c> when the formula isn't registered from that cell.
+    /// </summary>
+    private static bool TryGetFormulaArea(XLCellFormula formula, Point point, out Area area)
+    {
+        if (formula.IsDynamicArray)
+        {
+            // A dynamic-array formula lives only in its anchor cell (spilled cells are
+            // formula-less), so it appears exactly once. Register the whole spill
+            // footprint so a change to the array's precedents invalidates dependents of
+            // ANY spilled cell, not just the anchor. Before the first spill the footprint
+            // is unknown (default) — register the 1x1 anchor; the spill re-registers the
+            // formula once its size is known (see XLCalcEngine.SpillDynamicArray).
+            area = formula.Range == default ? new Area(point, point) : formula.Range;
+            return true;
+        }
+
+        if (formula.Type == FormulaType.Normal)
+        {
+            area = new Area(point, point);
+            return true;
+        }
+
+        if (formula.Type == FormulaType.Array)
+        {
+            // Ignore all non-master cells
+            area = formula.Range;
+            var isMasterCell = formula.Range.FirstPoint == point;
+            return isMasterCell;
+        }
+
+        // Data-table formulas are skipped deliberately, and cannot simply be added to
+        // the chain above. AddFormula derives precedents by parsing the formula text,
+        // and a data table's text is the placeholder "{TABLE(A1,}" — not valid formula
+        // syntax, so the parser refuses it and it would be taken to depend on every cell,
+        // which is not what its inputs are. Registering them needs
+        // precedents built from Input1/Input2 and the table's header formulas instead of
+        // from an AST. XLibur does not evaluate data tables either (there is no TABLE
+        // function), so the only gain would be dropping the full-recalculation trigger in
+        // XLCalcEngine.TryEvaluateSingleCell.
+        // FormulaType.Shared is never produced, so it needs no handling here.
+        area = default;
+        return false;
+    }
 
     /// <summary>
     /// The number of cells that hold a formula. An array formula is counted once for each of its
@@ -385,21 +400,7 @@ internal sealed class DependencyTree
         try
         {
             queue.Enqueue(dirtyArea);
-
-            // A formula whose precedents are unknown may read the changed area, so it is taken to read
-            // every cell: any change marks it dirty, together with whatever depends on it. If an
-            // earlier walk did that and the formula has stayed dirty since, this walk has nothing to
-            // mark (see XLCellFormula.DependentsMarkedDirty). A refused formula never becomes clean,
-            // so without the skip every edit re-marked the same closure. It is visited either way, so
-            // a skipped formula is not reached again through a precedent it does know.
-            foreach (var (formula, formulaArea) in _unknownPrecedents)
-            {
-                if (!formula.TryVisit(walkId) || formula.DependentsMarkedDirty)
-                    continue;
-
-                formula.MarkDirtyWithDependents();
-                queue.Enqueue(formulaArea);
-            }
+            EnqueueUnknownPrecedents(walkId, queue);
 
             while (queue.Count > 0)
             {
@@ -408,20 +409,7 @@ internal sealed class DependencyTree
                 found.Clear();
                 sheetTree.FindDependents(affectedArea.Area, found);
                 foreach (var precedent in found)
-                {
-                    for (var i = 0; i < precedent.Count; ++i)
-                    {
-                        var dependent = precedent[i];
-
-                        // Ensure we don't end up in an infinite cycle: a formula already enqueued
-                        // by this walk is not enqueued again, regardless of its dirty state.
-                        if (!dependent.Formula.TryVisit(walkId))
-                            continue;
-
-                        dependent.MarkDirty();
-                        queue.Enqueue(dependent.FormulaArea);
-                    }
-                }
+                    EnqueueDependents(precedent, walkId, queue);
             }
         }
         finally
@@ -441,6 +429,46 @@ internal sealed class DependencyTree
                 found.TrimExcess();
 
             _walkInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// A formula whose precedents are unknown may read the changed area, so it is taken to read
+    /// every cell: any change marks it dirty, together with whatever depends on it. If an
+    /// earlier walk did that and the formula has stayed dirty since, this walk has nothing to
+    /// mark (see XLCellFormula.DependentsMarkedDirty). A refused formula never becomes clean,
+    /// so without the skip every edit re-marked the same closure. It is visited either way, so
+    /// a skipped formula is not reached again through a precedent it does know.
+    /// </summary>
+    private void EnqueueUnknownPrecedents(long walkId, Queue<SheetArea> queue)
+    {
+        foreach (var (formula, formulaArea) in _unknownPrecedents)
+        {
+            if (!formula.TryVisit(walkId) || formula.DependentsMarkedDirty)
+                continue;
+
+            formula.MarkDirtyWithDependents();
+            queue.Enqueue(formulaArea);
+        }
+    }
+
+    /// <summary>
+    /// Marks dirty and enqueues each formula of <paramref name="precedent"/> not yet enqueued by
+    /// this walk.
+    /// </summary>
+    private static void EnqueueDependents(Dependents precedent, long walkId, Queue<SheetArea> queue)
+    {
+        for (var i = 0; i < precedent.Count; ++i)
+        {
+            var dependent = precedent[i];
+
+            // Ensure we don't end up in an infinite cycle: a formula already enqueued
+            // by this walk is not enqueued again, regardless of its dirty state.
+            if (!dependent.Formula.TryVisit(walkId))
+                continue;
+
+            dependent.MarkDirty();
+            queue.Enqueue(dependent.FormulaArea);
         }
     }
 

@@ -203,7 +203,6 @@ internal sealed class GroupRenderer
     /// how the levels nest. Because the ordering is stable, whatever <c>&lt;&lt;Sort&gt;&gt;</c>
     /// already decided survives as the order within each group.
     /// </remarks>
-#pragma warning disable S3776 // Building one ordering across all levels; the first level seeds it and the rest chain
     private static (IReadOnlyList<object?> Items, object?[][] Keys) Order(
         List<GroupLevel> levels,
         IReadOnlyList<object?> items,
@@ -221,21 +220,7 @@ internal sealed class GroupRenderer
             }
 
             var lane = keys[level];
-            var descending = levels[level].Descending;
-            Func<int, object?> key = i => lane[i];
-
-            if (ordered is null)
-            {
-                ordered = descending
-                    ? Enumerable.Range(0, items.Count).OrderByDescending(key, comparer)
-                    : Enumerable.Range(0, items.Count).OrderBy(key, comparer);
-            }
-            else
-            {
-                ordered = descending
-                    ? ordered.ThenByDescending(key, comparer)
-                    : ordered.ThenBy(key, comparer);
-            }
+            ordered = ChainOrdering(ordered, items.Count, i => lane[i], levels[level].Descending, comparer);
         }
 
         if (ordered is null)
@@ -243,7 +228,37 @@ internal sealed class GroupRenderer
             return (items, keys);
         }
 
-        var order = ordered.ToArray();
+        return Permute(items, keys, ordered.ToArray());
+    }
+
+    /// <summary>
+    /// Adds one level to the ordering: the first level seeds it and the rest chain onto it.
+    /// </summary>
+    private static IOrderedEnumerable<int> ChainOrdering(
+        IOrderedEnumerable<int>? ordered,
+        int itemCount,
+        Func<int, object?> key,
+        bool descending,
+        SortKeyComparer comparer)
+    {
+        if (ordered is null)
+        {
+            return descending
+                ? Enumerable.Range(0, itemCount).OrderByDescending(key, comparer)
+                : Enumerable.Range(0, itemCount).OrderBy(key, comparer);
+        }
+
+        return descending
+            ? ordered.ThenByDescending(key, comparer)
+            : ordered.ThenBy(key, comparer);
+    }
+
+    /// <summary>Rearranges the items and every level's keys into <paramref name="order"/>.</summary>
+    private static (IReadOnlyList<object?> Items, object?[][] Keys) Permute(
+        IReadOnlyList<object?> items,
+        object?[][] keys,
+        int[] order)
+    {
         var orderedItems = new object?[items.Count];
         var orderedKeys = new object?[keys.Length][];
 
@@ -264,7 +279,6 @@ internal sealed class GroupRenderer
 
         return (orderedItems, orderedKeys);
     }
-#pragma warning restore S3776
 
     /// <summary>
     /// Finds each level's runs of consecutive items sharing a key — a run being one group.
@@ -381,15 +395,7 @@ internal sealed class GroupRenderer
 
         for (var i = 0; i < itemCount; i++)
         {
-            if (headers[i] is { } above)
-            {
-                foreach (var run in above)
-                {
-                    run.SubtotalRow = row;
-                    ExtendAncestors(runOfItem, run, i, row);
-                    row++;
-                }
-            }
+            PlaceSubtotals(headers[i], runOfItem, i, ref row);
 
             itemFirstRow[i] = row;
 
@@ -401,19 +407,29 @@ internal sealed class GroupRenderer
 
             row += dataRowCount;
 
-            if (footers[i] is { } below)
-            {
-                foreach (var run in below)
-                {
-                    run.SubtotalRow = row;
-                    ExtendAncestors(runOfItem, run, i, row);
-                    row++;
-                }
-            }
+            PlaceSubtotals(footers[i], runOfItem, i, ref row);
         }
 
         lastRow = row - 1;
         return itemFirstRow;
+    }
+
+    /// <summary>
+    /// Gives each of an item's subtotal rows the next row, starting at <paramref name="row"/>.
+    /// </summary>
+    private static void PlaceSubtotals(List<Run>? subtotals, Run[][] runOfItem, int item, ref int row)
+    {
+        if (subtotals is null)
+        {
+            return;
+        }
+
+        foreach (var run in subtotals)
+        {
+            run.SubtotalRow = row;
+            ExtendAncestors(runOfItem, run, item, row);
+            row++;
+        }
     }
 
     /// <summary>
@@ -515,10 +531,7 @@ internal sealed class GroupRenderer
         {
             if (optionsRowNumber is { } styleRow)
             {
-                for (var column = area.FirstColumn; column <= area.LastColumn; column++)
-                {
-                    sheet.Cell(run.SubtotalRow, column).Style = sheet.Cell(styleRow, column).Style;
-                }
+                CopyRowStyle(sheet, area, styleRow, run.SubtotalRow);
             }
 
             foreach (var tag in summaries)
@@ -539,11 +552,18 @@ internal sealed class GroupRenderer
         }
     }
 
+    private static void CopyRowStyle(IXLWorksheet sheet, RangeArea area, int sourceRow, int targetRow)
+    {
+        for (var column = area.FirstColumn; column <= area.LastColumn; column++)
+        {
+            sheet.Cell(targetRow, column).Style = sheet.Cell(sourceRow, column).Style;
+        }
+    }
+
     /// <summary>
     /// Gives the block its outline: data rows at the innermost level, each subtotal row one level
     /// out from the rows it covers, so that collapsing a level in Excel leaves its totals showing.
     /// </summary>
-#pragma warning disable S3776 // Outline levels, collapsing and summary position are three independent passes
     private void Outline(IXLWorksheet sheet, List<Run> runs, List<Run> subtotalled, int[] itemFirstRow, int dataRowCount)
     {
         // Excel allows eight outline levels. A template with more still generates; it just stops
@@ -565,22 +585,9 @@ internal sealed class GroupRenderer
 
         foreach (var run in runs)
         {
-            if (!_levels[run.Level].Collapse)
+            if (_levels[run.Level].Collapse)
             {
-                continue;
-            }
-
-            for (var row = run.ContentFirstRow; row <= run.ContentLastRow; row++)
-            {
-                if (sheet.Row(row).OutlineLevel > run.Level)
-                {
-                    sheet.Row(row).Hide();
-                }
-            }
-
-            if (run.SubtotalRow > 0)
-            {
-                sheet.Row(run.SubtotalRow).Group(Math.Min(run.Level, 8), collapse: true);
+                CollapseRun(sheet, run);
             }
         }
 
@@ -591,7 +598,23 @@ internal sealed class GroupRenderer
                 : XLOutlineSummaryVLocation.Bottom;
         }
     }
-#pragma warning restore S3776
+
+    /// <summary>Hides the rows a group covers and collapses its subtotal row onto them.</summary>
+    private static void CollapseRun(IXLWorksheet sheet, Run run)
+    {
+        for (var row = run.ContentFirstRow; row <= run.ContentLastRow; row++)
+        {
+            if (sheet.Row(row).OutlineLevel > run.Level)
+            {
+                sheet.Row(row).Hide();
+            }
+        }
+
+        if (run.SubtotalRow > 0)
+        {
+            sheet.Row(run.SubtotalRow).Group(Math.Min(run.Level, 8), collapse: true);
+        }
+    }
 
     /// <summary>
     /// Merges a group's repeated label cells into one, which is the point of grouping a column the

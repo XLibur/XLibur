@@ -78,26 +78,34 @@ internal static class SheetExtensionRefs
             return;
 
         foreach (var extension in extensionList.Elements<WorksheetExtension>().ToList())
-        {
-            var list = extension.GetFirstChild<TList>();
-            if (list is null)
-                continue;
-
-            foreach (var reference in list.ChildElements.ToList())
-            {
-                if (matches(reference))
-                    reference.Remove();
-            }
-
-            if (!list.HasChildren)
-                extension.Remove();
-        }
+            RemoveRefsFromExtension<TList>(extension, matches);
 
         if (!extensionList.HasChildren)
         {
             worksheet.RemoveChild(extensionList);
             cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
         }
+    }
+
+    /// <summary>
+    /// Drops the matching references from the extension's list of that type, and the extension itself
+    /// if that leaves the list empty.
+    /// </summary>
+    private static void RemoveRefsFromExtension<TList>(WorksheetExtension extension, Predicate<OpenXmlElement> matches)
+        where TList : OpenXmlCompositeElement
+    {
+        var list = extension.GetFirstChild<TList>();
+        if (list is null)
+            return;
+
+        foreach (var reference in list.ChildElements.ToList())
+        {
+            if (matches(reference))
+                reference.Remove();
+        }
+
+        if (!list.HasChildren)
+            extension.Remove();
     }
 
     private static WorksheetExtension? FindExtension(Worksheet worksheet, string uri) =>

@@ -53,6 +53,15 @@ public static partial class XLHelper
         var length = Math.Min(MaxWorksheetNameCharsCount, nameProposal.Length);
         var shortenedName = nameProposal[..length];
         var result = new StringBuilder(shortenedName);
+        ReplaceIllegalSheetNameChars(result, length, replaceChar);
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Replaces every illegal character, and an apostrophe at either end, of a sheet name.
+    /// </summary>
+    private static void ReplaceIllegalSheetNameChars(StringBuilder result, int length, char replaceChar)
+    {
         for (var i = 0; i < length; i++)
         {
             var ch = result[i];
@@ -62,7 +71,6 @@ public static partial class XLHelper
             if (ch == '\'' && (i == 0 || i == length - 1))
                 result[i] = replaceChar;
         }
-        return result.ToString();
     }
 
     /// <summary>

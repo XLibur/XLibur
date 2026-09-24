@@ -33,29 +33,30 @@ internal static class Bessel
             return J1(x);
 
         var ax = Math.Abs(x);
-        double result;
-        if (ax > order)
-        {
-            // Upward recurrence is stable once x exceeds the order.
-            var twoOverX = 2.0 / ax;
-            var previous = J0(ax);
-            var current = J1(ax);
-            for (var j = 1; j < order; j++)
-            {
-                var next = j * twoOverX * current - previous;
-                previous = current;
-                current = next;
-            }
-
-            result = current;
-        }
-        else
-        {
-            result = JByDownwardRecurrence(ax, order);
-        }
+        var result = ax > order
+            ? JByUpwardRecurrence(ax, order)
+            : JByDownwardRecurrence(ax, order);
 
         // J_n(-x) = (-1)^n J_n(x).
         return x < 0.0 && (order & 1) == 1 ? -result : result;
+    }
+
+    /// <summary>
+    /// Recur upward from J_0 and J_1; upward recurrence is stable once x exceeds the order.
+    /// </summary>
+    private static double JByUpwardRecurrence(double ax, int order)
+    {
+        var twoOverX = 2.0 / ax;
+        var previous = J0(ax);
+        var current = J1(ax);
+        for (var j = 1; j < order; j++)
+        {
+            var next = j * twoOverX * current - previous;
+            previous = current;
+            current = next;
+        }
+
+        return current;
     }
 
     /// <summary>
@@ -128,9 +129,21 @@ internal static class Bessel
         if (order == 1)
             return I1(x);
 
-        var twoOverX = 2.0 / Math.Abs(x);
+        var result = IByDownwardRecurrence(2.0 / Math.Abs(x), order, out var current);
+        result *= I0(x) / current;
+        return x < 0.0 && (order & 1) == 1 ? -result : result;
+    }
+
+    /// <summary>
+    /// Recur I downward from a high starting order with an arbitrary seed. Returns the unnormalised
+    /// I_order and gives the unnormalised I_0 in <paramref name="current"/>, whose ratio to the
+    /// true I_0 rescales the result.
+    /// </summary>
+    private static double IByDownwardRecurrence(double twoOverX, int order, out double current)
+    {
         double result = 0;
-        double higher = 0, current = 1.0;
+        double higher = 0;
+        current = 1.0;
 
         for (var j = 2 * (order + (int)Math.Sqrt(40.0 * order)); j > 0; j--)
         {
@@ -149,8 +162,7 @@ internal static class Bessel
                 result = higher;
         }
 
-        result *= I0(x) / current;
-        return x < 0.0 && (order & 1) == 1 ? -result : result;
+        return result;
     }
 
     /// <summary>Modified Bessel function of the second kind, K_n(x). Defined only for positive x.</summary>

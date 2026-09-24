@@ -330,8 +330,8 @@ internal sealed class XLMatrix
             for (var j = 0; j < size; j++) // cols
             {
                 c[i, j] = 0;
-                if (xa + j < a.Cols && ya + i < a._rows) c[i, j] += a[ya + i, xa + j];
-                if (xb + j < b.Cols && yb + i < b._rows) c[i, j] += b[yb + i, xb + j];
+                c[i, j] += SafeGet(a, ya + i, xa + j);
+                c[i, j] += SafeGet(b, yb + i, xb + j);
             }
     }
 
@@ -341,10 +341,14 @@ internal sealed class XLMatrix
             for (var j = 0; j < size; j++) // cols
             {
                 c[i, j] = 0;
-                if (xa + j < a.Cols && ya + i < a._rows) c[i, j] += a[ya + i, xa + j];
-                if (xb + j < b.Cols && yb + i < b._rows) c[i, j] -= b[yb + i, xb + j];
+                c[i, j] += SafeGet(a, ya + i, xa + j);
+                c[i, j] -= SafeGet(b, yb + i, xb + j);
             }
     }
+
+    /// <summary>The element at the position, or zero when the position is outside the matrix.</summary>
+    private static double SafeGet(XLMatrix m, int row, int col)
+        => col < m.Cols && row < m._rows ? m[row, col] : 0;
 
     private static void SafeACopytoC(XLMatrix a, int xa, int ya, XLMatrix c, int size)
     {
@@ -451,24 +455,44 @@ internal sealed class XLMatrix
     }
 
     private static void StrassenAssembleResult(XLMatrix r, int h, XLMatrix[,] mField)
+        => AssembleStrassenQuadrants(r, h, r._rows, r.Cols, 0, mField);
+
+    /// <summary>
+    /// Combine the seven Strassen products at level <paramref name="l"/> into the four quadrants of
+    /// <paramref name="c"/>, clipped to <paramref name="rows"/> × <paramref name="cols"/>.
+    /// </summary>
+    private static void AssembleStrassenQuadrants(XLMatrix c, int h, int rows, int cols, int l, XLMatrix[,] f)
     {
-        for (var i = 0; i < Math.Min(h, r._rows); i++)
-            for (var j = 0; j < Math.Min(h, r.Cols); j++)
-                r[i, j] = mField[0, 1 + 1][i, j] + mField[0, 1 + 4][i, j] - mField[0, 1 + 5][i, j] +
-                          mField[0, 1 + 7][i, j];
+        var topEnd = Math.Min(h, rows);
+        var bottomEnd = Math.Min(2 * h, rows);
+        var leftEnd = Math.Min(h, cols);
+        var rightEnd = Math.Min(2 * h, cols);
 
-        for (var i = 0; i < Math.Min(h, r._rows); i++)
-            for (var j = h; j < Math.Min(2 * h, r.Cols); j++)
-                r[i, j] = mField[0, 1 + 3][i, j - h] + mField[0, 1 + 5][i, j - h];
+        AssembleStrassenTopQuadrants(c, h, topEnd, leftEnd, rightEnd, l, f);
+        AssembleStrassenBottomQuadrants(c, h, bottomEnd, leftEnd, rightEnd, l, f);
+    }
 
-        for (var i = h; i < Math.Min(2 * h, r._rows); i++)
-            for (var j = 0; j < Math.Min(h, r.Cols); j++)
-                r[i, j] = mField[0, 1 + 2][i - h, j] + mField[0, 1 + 4][i - h, j];
+    private static void AssembleStrassenTopQuadrants(XLMatrix c, int h, int topEnd, int leftEnd, int rightEnd, int l, XLMatrix[,] f)
+    {
+        for (var i = 0; i < topEnd; i++)
+            for (var j = 0; j < leftEnd; j++)
+                c[i, j] = f[l, 1 + 1][i, j] + f[l, 1 + 4][i, j] - f[l, 1 + 5][i, j] + f[l, 1 + 7][i, j];
 
-        for (var i = h; i < Math.Min(2 * h, r._rows); i++)
-            for (var j = h; j < Math.Min(2 * h, r.Cols); j++)
-                r[i, j] = mField[0, 1 + 1][i - h, j - h] - mField[0, 1 + 2][i - h, j - h] +
-                          mField[0, 1 + 3][i - h, j - h] + mField[0, 1 + 6][i - h, j - h];
+        for (var i = 0; i < topEnd; i++)
+            for (var j = h; j < rightEnd; j++)
+                c[i, j] = f[l, 1 + 3][i, j - h] + f[l, 1 + 5][i, j - h];
+    }
+
+    private static void AssembleStrassenBottomQuadrants(XLMatrix c, int h, int bottomEnd, int leftEnd, int rightEnd, int l, XLMatrix[,] f)
+    {
+        for (var i = h; i < bottomEnd; i++)
+            for (var j = 0; j < leftEnd; j++)
+                c[i, j] = f[l, 1 + 2][i - h, j] + f[l, 1 + 4][i - h, j];
+
+        for (var i = h; i < bottomEnd; i++)
+            for (var j = h; j < rightEnd; j++)
+                c[i, j] = f[l, 1 + 1][i - h, j - h] - f[l, 1 + 2][i - h, j - h] + f[l, 1 + 3][i - h, j - h] +
+                          f[l, 1 + 6][i - h, j - h];
     }
 
     // function for square matrix 2^N x 2^N
@@ -529,25 +553,9 @@ internal sealed class XLMatrix
         StrassenMultiplyRun(f[l, 0], f[l, 1], f[l, 1 + 7], l + 1, f);
     }
 
+    // Size is a power of two, so h = size / 2 splits it exactly and nothing is clipped.
     private static void StrassenRunAssembleResult(XLMatrix c, int h, int size, int l, XLMatrix[,] f)
-    {
-        for (var i = 0; i < h; i++)
-            for (var j = 0; j < h; j++)
-                c[i, j] = f[l, 1 + 1][i, j] + f[l, 1 + 4][i, j] - f[l, 1 + 5][i, j] + f[l, 1 + 7][i, j];
-
-        for (var i = 0; i < h; i++)
-            for (var j = h; j < size; j++)
-                c[i, j] = f[l, 1 + 3][i, j - h] + f[l, 1 + 5][i, j - h];
-
-        for (var i = h; i < size; i++)
-            for (var j = 0; j < h; j++)
-                c[i, j] = f[l, 1 + 2][i - h, j] + f[l, 1 + 4][i - h, j];
-
-        for (var i = h; i < size; i++)
-            for (var j = h; j < size; j++)
-                c[i, j] = f[l, 1 + 1][i - h, j - h] - f[l, 1 + 2][i - h, j - h] + f[l, 1 + 3][i - h, j - h] +
-                          f[l, 1 + 6][i - h, j - h];
-    }
+        => AssembleStrassenQuadrants(c, h, size, size, l, f);
 
     public static XLMatrix StupidMultiply(XLMatrix m1, XLMatrix m2) // Stupid matrix multiplication
     {

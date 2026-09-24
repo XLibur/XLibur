@@ -55,17 +55,26 @@ public static class ShifterCorpusDump
 
         foreach (var foreign in new[] { false, true })
         {
-            foreach (var (first, last, shift) in RowShifts)
-            {
-                foreach (var formula in Formulas)
-                    Console.WriteLine("row\t" + Row(formula, first, last, shift, foreign));
-            }
+            WriteRowRows(foreign);
+            WriteColumnRows(foreign);
+        }
+    }
 
-            foreach (var (first, last, shift) in ColumnShifts)
-            {
-                foreach (var formula in Formulas)
-                    Console.WriteLine("col\t" + Column(formula, first, last, shift, foreign));
-            }
+    private static void WriteRowRows(bool foreign)
+    {
+        foreach (var (first, last, shift) in RowShifts)
+        {
+            foreach (var formula in Formulas)
+                Console.WriteLine("row\t" + Row(formula, first, last, shift, foreign));
+        }
+    }
+
+    private static void WriteColumnRows(bool foreign)
+    {
+        foreach (var (first, last, shift) in ColumnShifts)
+        {
+            foreach (var formula in Formulas)
+                Console.WriteLine("col\t" + Column(formula, first, last, shift, foreign));
         }
     }
 

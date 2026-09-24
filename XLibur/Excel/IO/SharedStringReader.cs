@@ -86,6 +86,20 @@ internal static class SharedStringReader
 
         reader.Read(); // Move into <sst> (first child or </sst>).
 
+        ReadItems(reader, ref entries, ref count);
+
+        if (count != entries.Length)
+            Array.Resize(ref entries, count);
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Reads every <c>&lt;si&gt;</c> child of <c>&lt;sst&gt;</c> into <paramref name="entries"/>. The reader
+    /// enters on the first child (or <c>&lt;/sst&gt;</c>) and returns on <c>&lt;/sst&gt;</c>.
+    /// </summary>
+    private static void ReadItems(XmlReader reader, ref SharedStringEntry[] entries, ref int count)
+    {
         while (true)
         {
             if (reader.NodeType == XmlNodeType.Element)
@@ -101,11 +115,6 @@ internal static class SharedStringReader
             if (reader.NodeType == XmlNodeType.EndElement || reader.EOF || !reader.Read())
                 break;
         }
-
-        if (count != entries.Length)
-            Array.Resize(ref entries, count);
-
-        return entries;
     }
 
     private static void Append(ref SharedStringEntry[] entries, ref int count, SharedStringEntry entry)

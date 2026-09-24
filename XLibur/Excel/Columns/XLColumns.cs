@@ -65,27 +65,31 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
             _worksheet.Internals.ColumnsCollection.Clear();
             _worksheet.Internals.CellsCollection.Clear();
             _worksheet.Workbook.CalcEngine.OnAllCellsCleared(_worksheet);
+            return;
         }
-        else
+
+        foreach (var kp in GroupColumnNumbersBySheet())
         {
-            var toDelete = new Dictionary<IXLWorksheet, List<int>>();
-            foreach (var c in Columns)
-            {
-                if (!toDelete.TryGetValue(c.Worksheet, out var list))
-                {
-                    list = [];
-                    toDelete.Add(c.Worksheet, list);
-                }
-
-                list.Add(c.ColumnNumber());
-            }
-
-            foreach (var kp in toDelete)
-            {
-                foreach (var c in kp.Value.OrderByDescending(c => c))
-                    kp.Key.Column(c).Delete();
-            }
+            foreach (var c in kp.Value.OrderByDescending(c => c))
+                kp.Key.Column(c).Delete();
         }
+    }
+
+    private Dictionary<IXLWorksheet, List<int>> GroupColumnNumbersBySheet()
+    {
+        var columnsBySheet = new Dictionary<IXLWorksheet, List<int>>();
+        foreach (var c in Columns)
+        {
+            if (!columnsBySheet.TryGetValue(c.Worksheet, out var list))
+            {
+                list = [];
+                columnsBySheet.Add(c.Worksheet, list);
+            }
+
+            list.Add(c.ColumnNumber());
+        }
+
+        return columnsBySheet;
     }
 
     public IXLColumns AdjustToContents()

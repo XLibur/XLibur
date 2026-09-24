@@ -297,30 +297,7 @@ internal static class Lookup
         // The final index might point to an element greater than the lookup
         // (e.g. { 1, 2 } with lookup 1.5). The data should be ascending,
         // so just go in the expected order.
-        for (var i = low; i >= 0; --i)
-        {
-            var compare = comparer.Compare(data[i, 0], target);
-            if (compare <= 0) // data[i] <= target
-                return i;
-        }
-
-        return -1;
-
-        static (int Middle, int Comparison) FindMiddleAbove(int low, int high, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
-        {
-            var initial = (low + high) / 2;
-            var middle = initial;
-            while (middle <= high)
-            {
-                if (data[middle, 0].HaveSameType(target))
-                    return (middle, comparer.Compare(target, data[middle, 0]));
-
-                middle++;
-            }
-
-            // There is nothing left in the higher half. Target must be in the lower half.
-            return (initial, -1);
-        }
+        return FindLastNotGreaterDownFrom(low, target, data, comparer);
     }
 
     private static int Bisection(Array range, ScalarValue lookupValue)
@@ -384,6 +361,34 @@ internal static class Lookup
             else
                 highRow = middleRow;
         }
+    }
+
+    private static (int Middle, int Comparison) FindMiddleAbove(int low, int high, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        var initial = (low + high) / 2;
+        var middle = initial;
+        while (middle <= high)
+        {
+            if (data[middle, 0].HaveSameType(target))
+                return (middle, comparer.Compare(target, data[middle, 0]));
+
+            middle++;
+        }
+
+        // There is nothing left in the higher half. Target must be in the lower half.
+        return (initial, -1);
+    }
+
+    private static int FindLastNotGreaterDownFrom(int start, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        for (var i = start; i >= 0; --i)
+        {
+            var compare = comparer.Compare(data[i, 0], target);
+            if (compare <= 0) // data[i] <= target
+                return i;
+        }
+
+        return -1;
     }
 
     private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)
@@ -494,28 +499,7 @@ internal static class Lookup
     /// </summary>
     private static int ExactSearchColumn(Array array, ScalarValue lookupValue)
     {
-        if (lookupValue.TryPickText(out var lookupText, out _) && ContainsWildcardChars(lookupText!))
-        {
-            var wildcard = new Wildcard(lookupText!);
-            for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
-            {
-                var currentValue = array[0, columnIndex];
-                if (currentValue.TryPickText(out var cellText, out _) && wildcard.Matches(cellText!.AsSpan()))
-                    return columnIndex;
-            }
-
-            return -1;
-        }
-
-        for (var columnIndex = 0; columnIndex < array.Width; columnIndex++)
-        {
-            var currentValue = array[0, columnIndex];
-            var comparison = ScalarValueComparer.SortIgnoreCase.Compare(currentValue, lookupValue);
-            if (comparison == 0)
-                return columnIndex;
-        }
-
-        return -1;
+        return ExactSearchFirstLine(array, lookupValue, horizontal: true);
     }
 
     /// <summary>
@@ -524,28 +508,45 @@ internal static class Lookup
     /// </summary>
     private static int ExactSearchRow(Array array, ScalarValue lookupValue)
     {
+        return ExactSearchFirstLine(array, lookupValue, horizontal: false);
+    }
+
+    /// <summary>
+    /// Linear exact search along the first row (<paramref name="horizontal"/>) or the first
+    /// column of an array. Returns the index of the first match or -1.
+    /// </summary>
+    private static int ExactSearchFirstLine(Array array, ScalarValue lookupValue, bool horizontal)
+    {
+        var length = horizontal ? array.Width : array.Height;
         if (lookupValue.TryPickText(out var lookupText, out _) && ContainsWildcardChars(lookupText!))
-        {
-            var wildcard = new Wildcard(lookupText!);
-            for (var rowIndex = 0; rowIndex < array.Height; rowIndex++)
-            {
-                var currentValue = array[rowIndex, 0];
-                if (currentValue.TryPickText(out var cellText, out _) && wildcard.Matches(cellText!.AsSpan()))
-                    return rowIndex;
-            }
+            return WildcardSearchFirstLine(array, new Wildcard(lookupText!), length, horizontal);
 
-            return -1;
-        }
-
-        for (var rowIndex = 0; rowIndex < array.Height; rowIndex++)
+        for (var index = 0; index < length; index++)
         {
-            var currentValue = array[rowIndex, 0];
+            var currentValue = FirstLineValue(array, index, horizontal);
             var comparison = ScalarValueComparer.SortIgnoreCase.Compare(currentValue, lookupValue);
             if (comparison == 0)
-                return rowIndex;
+                return index;
         }
 
         return -1;
+    }
+
+    private static int WildcardSearchFirstLine(Array array, in Wildcard wildcard, int length, bool horizontal)
+    {
+        for (var index = 0; index < length; index++)
+        {
+            var currentValue = FirstLineValue(array, index, horizontal);
+            if (currentValue.TryPickText(out var cellText, out _) && wildcard.Matches(cellText!.AsSpan()))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static ScalarValue FirstLineValue(Array array, int index, bool horizontal)
+    {
+        return horizontal ? array[0, index] : array[index, 0];
     }
 
     /// <summary>
@@ -754,21 +755,13 @@ internal static class Lookup
         if (parts.Length > 2)
             return XLError.CellReference;
 
-        var firstMatch = AbsoluteR1C1Regex.Match(parts[0]);
-        if (!firstMatch.Success)
-            return XLError.CellReference;
-
-        if (!int.TryParse(firstMatch.Groups[1].Value, out var firstRow)
-            || !int.TryParse(firstMatch.Groups[2].Value, out var firstCol))
+        if (!TryParseAbsoluteR1C1Cell(parts[0], out var firstRow, out var firstCol))
             return XLError.CellReference;
 
         int lastRow, lastCol;
         if (parts.Length == 2)
         {
-            var lastMatch = AbsoluteR1C1Regex.Match(parts[1]);
-            if (!lastMatch.Success
-                || !int.TryParse(lastMatch.Groups[1].Value, out lastRow)
-                || !int.TryParse(lastMatch.Groups[2].Value, out lastCol))
+            if (!TryParseAbsoluteR1C1Cell(parts[1], out lastRow, out lastCol))
                 return XLError.CellReference;
         }
         else
@@ -777,15 +770,33 @@ internal static class Lookup
             lastCol = firstCol;
         }
 
-        if (firstRow < 1 || firstCol < 1 || lastRow < 1 || lastCol < 1
-            || firstRow > XLHelper.MaxRowNumber || firstCol > XLHelper.MaxColumnNumber
-            || lastRow > XLHelper.MaxRowNumber || lastCol > XLHelper.MaxColumnNumber)
+        if (!IsWithinSheetBounds(firstRow, firstCol) || !IsWithinSheetBounds(lastRow, lastCol))
             return XLError.CellReference;
 
         var firstAddress = new XLAddress(worksheet, firstRow, firstCol, true, true);
         var lastAddress = new XLAddress(lastRow, lastCol, true, true);
         var rangeAddress = new XLRangeAddress(firstAddress, lastAddress);
         return new Reference(rangeAddress.Normalize());
+    }
+
+    private static bool TryParseAbsoluteR1C1Cell(string text, out int row, out int column)
+    {
+        column = 0;
+        var match = AbsoluteR1C1Regex.Match(text);
+        if (!match.Success)
+        {
+            row = 0;
+            return false;
+        }
+
+        return int.TryParse(match.Groups[1].Value, out row)
+            && int.TryParse(match.Groups[2].Value, out column);
+    }
+
+    private static bool IsWithinSheetBounds(int row, int column)
+    {
+        return row >= 1 && column >= 1
+            && row <= XLHelper.MaxRowNumber && column <= XLHelper.MaxColumnNumber;
     }
 
     private static AnyValue TryResolveDefinedName(CalcContext ctx, XLWorksheet? worksheet, string name)

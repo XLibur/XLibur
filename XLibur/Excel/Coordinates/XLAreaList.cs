@@ -79,27 +79,17 @@ internal sealed class XLAreaList : IEnumerable<Area>
     /// Appends the pieces one area breaks into when <paramref name="insertedArea"/> pushes it down.
     /// An area can survive whole, be extended, or be cut into an above/left/right/shifted set.
     /// </summary>
-#pragma warning disable S3776 // Splitting one area against an insertion; already reduced from 32
     private static void AddShiftedDown(Area originalArea, Area insertedArea, List<Area> result)
     {
-        if (originalArea.HasFullColumnHeight)
-        {
-            result.Add(originalArea);
-            return;
-        }
-
         // Skip all cases that don't shift or extend the area in some way.
-        if (insertedArea.RightColumn < originalArea.LeftColumn ||
-            insertedArea.LeftColumn > originalArea.RightColumn ||
-            insertedArea.TopRow > originalArea.BottomRow + 1)
+        if (originalArea.HasFullColumnHeight || IsUnaffectedByInsertDown(originalArea, insertedArea))
         {
             result.Add(originalArea);
             return;
         }
 
         if (originalArea.SplitAbove(insertedArea.TopRow, out var above, out var remaining) &&
-            above.Value.LeftColumn >= insertedArea.LeftColumn &&
-            above.Value.RightColumn <= insertedArea.RightColumn)
+            IsWithinColumns(above.Value, insertedArea))
         {
             // Special case: if inserted area covers the full width of the original area and
             // there is something above, the whole area is just extended downwards. The null
@@ -116,28 +106,66 @@ internal sealed class XLAreaList : IEnumerable<Area>
         if (remaining is not null)
             remaining.Value.SplitAfter(insertedArea.RightColumn, out right, out remaining);
 
-        if (above is not null)
-            result.Add(above.Value);
-
-        if (left is not null)
-            result.Add(left.Value);
-
-        if (right is not null)
-            result.Add(right.Value);
+        AddIfNotNull(result, above);
+        AddIfNotNull(result, left);
+        AddIfNotNull(result, right);
 
         if (above is null)
         {
             // There was nothing above the inserted area, so shift.
-            if (remaining is null)
-                throw new UnreachableException();
-
-            if (remaining.Value.ShiftRowsAndClip(insertedArea.Height) is { } shifted)
-                result.Add(shifted);
-
+            AddShiftedDownRemainder(remaining, insertedArea, result);
             return;
         }
 
         // There was something above the inserted area, so extend.
+        AddExtendedDownRemainder(originalArea, insertedArea, remaining, result);
+    }
+
+    /// <summary>
+    /// Is the <paramref name="insertedArea"/> fully on the left, right or below (not attached) the
+    /// <paramref name="originalArea"/>, so an insert with shift down doesn't change it?
+    /// </summary>
+    private static bool IsUnaffectedByInsertDown(Area originalArea, Area insertedArea)
+    {
+        return insertedArea.RightColumn < originalArea.LeftColumn ||
+               insertedArea.LeftColumn > originalArea.RightColumn ||
+               insertedArea.TopRow > originalArea.BottomRow + 1;
+    }
+
+    /// <summary>
+    /// Are all columns of the <paramref name="area"/> within columns of the <paramref name="bounds"/>?
+    /// </summary>
+    private static bool IsWithinColumns(Area area, Area bounds)
+    {
+        return area.LeftColumn >= bounds.LeftColumn &&
+               area.RightColumn <= bounds.RightColumn;
+    }
+
+    private static void AddIfNotNull(List<Area> result, Area? area)
+    {
+        if (area is not null)
+            result.Add(area.Value);
+    }
+
+    /// <summary>
+    /// Nothing of the original area is above the inserted area, so the part below the insertion shifts
+    /// down (and is clipped at the bottom of the sheet).
+    /// </summary>
+    private static void AddShiftedDownRemainder(Area? remaining, Area insertedArea, List<Area> result)
+    {
+        if (remaining is null)
+            throw new UnreachableException();
+
+        if (remaining.Value.ShiftRowsAndClip(insertedArea.Height) is { } shifted)
+            result.Add(shifted);
+    }
+
+    /// <summary>
+    /// Part of the original area is above the inserted area, so the part below the insertion
+    /// extends downwards.
+    /// </summary>
+    private static void AddExtendedDownRemainder(Area originalArea, Area insertedArea, Area? remaining, List<Area> result)
+    {
         if (remaining is not null)
         {
             result.Add(remaining.Value.ExtendBelow(insertedArea.Height));
@@ -154,7 +182,6 @@ internal sealed class XLAreaList : IEnumerable<Area>
             result.Add(cutToWidth);
         }
     }
-#pragma warning restore S3776
 
     internal XLAreaList InsertAndShiftRight(Area insertedArea)
     {
@@ -171,16 +198,8 @@ internal sealed class XLAreaList : IEnumerable<Area>
     /// </summary>
     private static void AddShiftedRight(Area originalArea, Area insertedArea, List<Area> result)
     {
-        if (originalArea.HasFullRowWidth)
-        {
-            result.Add(originalArea);
-            return;
-        }
-
         // Skip all cases that don't shift or extend the area in some way.
-        if (insertedArea.BottomRow < originalArea.TopRow ||
-            insertedArea.TopRow > originalArea.BottomRow ||
-            insertedArea.LeftColumn > originalArea.RightColumn + 1)
+        if (originalArea.HasFullRowWidth || IsUnaffectedByInsertRight(originalArea, insertedArea))
         {
             result.Add(originalArea);
             return;
@@ -207,24 +226,35 @@ internal sealed class XLAreaList : IEnumerable<Area>
         if (remaining is null)
             throw new UnreachableException();
 
-        if (above is not null)
-            result.Add(above.Value);
+        AddIfNotNull(result, above);
+        AddIfNotNull(result, below);
+        AddExtendedOrShiftedRight(left, remaining.Value, insertedArea, result);
+    }
 
-        if (below is not null)
-            result.Add(below.Value);
+    /// <summary>
+    /// Is the <paramref name="insertedArea"/> fully above, below or to the right (not attached) of the
+    /// <paramref name="originalArea"/>, so an insert with shift right doesn't change it?
+    /// </summary>
+    private static bool IsUnaffectedByInsertRight(Area originalArea, Area insertedArea)
+    {
+        return insertedArea.BottomRow < originalArea.TopRow ||
+               insertedArea.TopRow > originalArea.BottomRow ||
+               insertedArea.LeftColumn > originalArea.RightColumn + 1;
+    }
 
+    private static void AddExtendedOrShiftedRight(Area? left, Area remaining, Area insertedArea, List<Area> result)
+    {
         if (left is not null)
         {
             // There was something on the left of the inserted area, so extend.
-            var mergedAndExtended = left.Value.ExtendRight(insertedArea.Width + remaining.Value.Width);
+            var mergedAndExtended = left.Value.ExtendRight(insertedArea.Width + remaining.Width);
             result.Add(mergedAndExtended);
+            return;
         }
-        else
-        {
-            // There is nothing on the left side, so shift.
-            if (remaining.Value.ShiftColumnsAndClip(insertedArea.Width) is { } shifted)
-                result.Add(shifted);
-        }
+
+        // There is nothing on the left side, so shift.
+        if (remaining.ShiftColumnsAndClip(insertedArea.Width) is { } shifted)
+            result.Add(shifted);
     }
 
     /// <summary>

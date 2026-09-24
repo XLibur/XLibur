@@ -345,31 +345,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         switch (textRotationDeg)
         {
             case 0:
-                {
-                    var textHeight = 0d;
-                    var lineMaxHeight = 0d;
-                    foreach (var glyph in glyphs)
-                    {
-                        if (!glyph.IsLineBreak)
-                        {
-                            var cellHeightPx = glyph.LineHeight;
-                            lineMaxHeight = Math.Max(cellHeightPx, lineMaxHeight);
-                        }
-                        else
-                        {
-                            // At the end of each line, add height of the line to total height.
-                            // Use glyph.LineHeight as fallback for empty lines (consecutive/leading/trailing newlines).
-                            var effectiveLineHeight = lineMaxHeight > 0 ? lineMaxHeight : glyph.LineHeight;
-                            textHeight += effectiveLineHeight;
-                            lineMaxHeight = 0d;
-                        }
-                    }
-
-                    // If the last line ends without EOL, it must be also counted
-                    textHeight += lineMaxHeight;
-
-                    return textHeight;
-                }
+                return GetHorizontalTextHeight(glyphs);
             case 255:
                 {
                     // Glyphs are vertically aligned.
@@ -390,6 +366,33 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         var projectedWidth = Math.Sin(XLHelper.DegToRad(textRotationDeg)) * width;
         var projectedHeight = Math.Cos(XLHelper.DegToRad(textRotationDeg)) * height;
         return projectedWidth + projectedHeight;
+    }
+
+    private static double GetHorizontalTextHeight(List<GlyphBox> glyphs)
+    {
+        var textHeight = 0d;
+        var lineMaxHeight = 0d;
+        foreach (var glyph in glyphs)
+        {
+            if (!glyph.IsLineBreak)
+            {
+                var cellHeightPx = glyph.LineHeight;
+                lineMaxHeight = Math.Max(cellHeightPx, lineMaxHeight);
+            }
+            else
+            {
+                // At the end of each line, add height of the line to total height.
+                // Use glyph.LineHeight as fallback for empty lines (consecutive/leading/trailing newlines).
+                var effectiveLineHeight = lineMaxHeight > 0 ? lineMaxHeight : glyph.LineHeight;
+                textHeight += effectiveLineHeight;
+                lineMaxHeight = 0d;
+            }
+        }
+
+        // If the last line ends without EOL, it must be also counted
+        textHeight += lineMaxHeight;
+
+        return textHeight;
     }
 
     public IXLRow Hide()

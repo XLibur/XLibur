@@ -62,14 +62,13 @@ internal static class ArgumentsExtensions
                     return error;
 
                 hasElement = true;
+                continue;
             }
-            else
-            {
-                if (!TryAggregateCollection(collection, ctx, convert, aggregate, collectionFilter, ref result, out var collectionHadElement, out var error))
-                    return error;
 
-                hasElement |= collectionHadElement;
-            }
+            if (!TryAggregateCollection(collection, ctx, convert, aggregate, collectionFilter, ref result, out var collectionHadElement, out var collectionError))
+                return collectionError;
+
+            hasElement |= collectionHadElement;
         }
 
         return hasElement ? result : noElementsResult;

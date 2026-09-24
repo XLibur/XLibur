@@ -59,7 +59,6 @@ internal static class DynamicArray
     /// Append the arguments along one axis. The other axis grows to the widest (or tallest)
     /// argument, and the arguments that fall short are padded with <c>#N/A</c>.
     /// </summary>
-#pragma warning disable S3776 // Measure the arguments, then fill; both walks are flat and sequential
     private static AnyValue Stack(CalcContext ctx, Span<AnyValue> args, bool vertically)
     {
         var parts = new List<Array>(args.Length);
@@ -82,17 +81,27 @@ internal static class DynamicArray
         var data = new ScalarValue[height, width];
         var row = 0;
         foreach (var part in parts)
-        {
-            for (var y = 0; y < part.Height; y++, row++)
-            {
-                for (var x = 0; x < width; x++)
-                    data[row, x] = x < part.Width ? part[y, x] : XLError.NoValueAvailable;
-            }
-        }
+            row = CopyPaddedRows(part, data, row, width);
 
         return Orient(new ConstArray(data), !vertically);
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Copy the rows of <paramref name="part"/> into <paramref name="data"/> from
+    /// <paramref name="firstRow"/>, padding columns past its width with <c>#N/A</c>. Returns the row
+    /// after the last one written.
+    /// </summary>
+    private static int CopyPaddedRows(Array part, ScalarValue[,] data, int firstRow, int width)
+    {
+        var row = firstRow;
+        for (var y = 0; y < part.Height; y++, row++)
+        {
+            for (var x = 0; x < width; x++)
+                data[row, x] = x < part.Width ? part[y, x] : XLError.NoValueAvailable;
+        }
+
+        return row;
+    }
 
     #endregion
 
@@ -108,27 +117,55 @@ internal static class DynamicArray
     /// TOROW/TOCOL(array, [ignore], [scan_by_column]) — read every value in scan order, optionally
     /// skipping blanks (1), errors (2) or both (3), and lay the result out along a single axis.
     /// </summary>
-#pragma warning disable S3776 // Optional-argument guards ahead of one filtered walk; already reduced from 21
     private static AnyValue Flatten(CalcContext ctx, Span<AnyValue> args, bool intoRow)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
             return XLError.IncompatibleValue;
 
-        var ignore = 0;
-        if (args.Length > 1 && !TryIntArg(ctx, args[1], out ignore, out var ignoreError))
-            return ignoreError;
-        if (ignore is < 0 or > 3)
-            return XLError.IncompatibleValue;
-
-        var byColumn = false;
-        if (args.Length > 2 && !TryBoolArg(ctx, args[2], out byColumn, out var byColumnError))
-            return byColumnError;
+        if (!TryGetFlattenOptions(ctx, args, out var ignore, out var byColumn, out var optionError))
+            return optionError;
 
         var skipBlanks = (ignore & 1) != 0;
         var skipErrors = (ignore & 2) != 0;
 
         // Scanning by column is the same walk over the transpose.
         var source = byColumn ? new TransposedArray(array!) : array!;
+        var kept = KeepValues(source, skipBlanks, skipErrors);
+        if (kept.Count == 0)
+            return EmptyResult;
+
+        // Build the column and let TOROW read it sideways, rather than branching per value.
+        var data = new ScalarValue[kept.Count, 1];
+        for (var i = 0; i < kept.Count; i++)
+            data[i, 0] = kept[i];
+
+        return Orient(new ConstArray(data), intoRow);
+    }
+
+    /// <summary>
+    /// Read the optional <c>ignore</c> and <c>scan_by_column</c> arguments of TOROW/TOCOL, in that
+    /// order.
+    /// </summary>
+    private static bool TryGetFlattenOptions(CalcContext ctx, Span<AnyValue> args, out int ignore, out bool byColumn, out XLError error)
+    {
+        ignore = 0;
+        byColumn = false;
+        error = default;
+        if (args.Length > 1 && !TryIntArg(ctx, args[1], out ignore, out error))
+            return false;
+
+        if (ignore is < 0 or > 3)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return args.Length <= 2 || TryBoolArg(ctx, args[2], out byColumn, out error);
+    }
+
+    /// <summary>The values of <paramref name="source"/> in scan order, less the skipped kinds.</summary>
+    private static List<ScalarValue> KeepValues(Array source, bool skipBlanks, bool skipErrors)
+    {
         var kept = new List<ScalarValue>(source.Height * source.Width);
         foreach (var value in source)
         {
@@ -140,17 +177,8 @@ internal static class DynamicArray
             kept.Add(value);
         }
 
-        if (kept.Count == 0)
-            return EmptyResult;
-
-        // Build the column and let TOROW read it sideways, rather than branching per value.
-        var data = new ScalarValue[kept.Count, 1];
-        for (var i = 0; i < kept.Count; i++)
-            data[i, 0] = kept[i];
-
-        return Orient(new ConstArray(data), intoRow);
+        return kept;
     }
-#pragma warning restore S3776
 
     private static AnyValue WrapRows(CalcContext ctx, Span<AnyValue> args)
         => Wrap(ctx, args, intoRows: true);
@@ -184,6 +212,16 @@ internal static class DynamicArray
 
         // Lay the pieces out as rows and let WRAPCOLS read them as columns, rather than branching
         // on the orientation for every value.
+        var data = WrapIntoRows(values, wrapCount, padding);
+        return Orient(new ConstArray(data), !intoRows);
+    }
+
+    /// <summary>
+    /// Cut <paramref name="values"/> into rows of <paramref name="wrapCount"/>, padding the short
+    /// last row with <paramref name="padding"/>.
+    /// </summary>
+    private static ScalarValue[,] WrapIntoRows(List<ScalarValue> values, int wrapCount, ScalarValue padding)
+    {
         var pieces = (values.Count + wrapCount - 1) / wrapCount;
         var data = new ScalarValue[pieces, wrapCount];
         for (var piece = 0; piece < pieces; piece++)
@@ -195,7 +233,7 @@ internal static class DynamicArray
             }
         }
 
-        return Orient(new ConstArray(data), !intoRows);
+        return data;
     }
 
     #endregion
@@ -363,13 +401,34 @@ internal static class DynamicArray
 
         var height = rows ?? array!.Height;
         var width = columns ?? array!.Width;
-        if (height < array!.Height || width < array.Width)
+        var sizeError = CheckExpandSize(array!, height, width);
+        if (sizeError is not null)
+            return sizeError.Value;
+
+        var padding = args.Length > 3 ? ScalarOf(ctx, args[3]) : XLError.NoValueAvailable;
+        return new ConstArray(PadToSize(array!, height, width, padding));
+    }
+
+    /// <summary>
+    /// The error for an EXPAND size that would shrink <paramref name="array"/> or leave the sheet,
+    /// or <c>null</c> when the size is fine.
+    /// </summary>
+    private static XLError? CheckExpandSize(Array array, int height, int width)
+    {
+        if (height < array.Height || width < array.Width)
             return XLError.IncompatibleValue;
         if (height > XLHelper.MaxRowNumber || width > XLHelper.MaxColumnNumber)
             return XLError.NumberInvalid;
 
-        var padding = args.Length > 3 ? ScalarOf(ctx, args[3]) : XLError.NoValueAvailable;
+        return null;
+    }
 
+    /// <summary>
+    /// Copy <paramref name="array"/> into a grid of the given size, filling the new cells with
+    /// <paramref name="padding"/>.
+    /// </summary>
+    private static ScalarValue[,] PadToSize(Array array, int height, int width, ScalarValue padding)
+    {
         var data = new ScalarValue[height, width];
         for (var y = 0; y < height; y++)
         {
@@ -377,7 +436,7 @@ internal static class DynamicArray
                 data[y, x] = y < array.Height && x < array.Width ? array[y, x] : padding;
         }
 
-        return new ConstArray(data);
+        return data;
     }
 
     #endregion
@@ -426,6 +485,12 @@ internal static class DynamicArray
         if (rows < 1 || columns < 1 || rows > XLHelper.MaxRowNumber || columns > XLHelper.MaxColumnNumber)
             return XLError.NumberInvalid;
 
+        return new ConstArray(SequenceData(rows, columns, start, step));
+    }
+
+    /// <summary>Numbers from <paramref name="start"/> by <paramref name="step"/>, row by row.</summary>
+    private static ScalarValue[,] SequenceData(int rows, int columns, double start, double step)
+    {
         var data = new ScalarValue[rows, columns];
         var current = start;
         for (var r = 0; r < rows; r++)
@@ -437,7 +502,7 @@ internal static class DynamicArray
             }
         }
 
-        return new ConstArray(data);
+        return data;
     }
 
     private static AnyValue Unique(CalcContext ctx, Span<AnyValue> args)
@@ -513,20 +578,8 @@ internal static class DynamicArray
         if (!args[0].TryPickCollectionArray(out var array, ctx))
             return XLError.IncompatibleValue;
 
-        var sortIndex = 1;
-        if (args.Length > 1 && !TryIntArg(ctx, args[1], out sortIndex, out var sortIndexError))
-            return sortIndexError;
-
-        var sortOrder = 1;
-        if (args.Length > 2 && !TryIntArg(ctx, args[2], out sortOrder, out var sortOrderError))
-            return sortOrderError;
-
-        var byColumn = false;
-        if (args.Length > 3 && !TryBoolArg(ctx, args[3], out byColumn, out var byColumnError))
-            return byColumnError;
-
-        if (sortOrder != 1 && sortOrder != -1)
-            return XLError.IncompatibleValue;
+        if (!TryGetSortOptions(ctx, args, out var sortIndex, out var sortOrder, out var byColumn, out var optionError))
+            return optionError;
 
         var source = byColumn ? new TransposedArray(array!) : array!;
         var width = source.Width;
@@ -541,6 +594,32 @@ internal static class DynamicArray
             .ToList();
 
         return Orient(BuildRows(source, order), byColumn);
+    }
+
+    /// <summary>
+    /// Read the optional <c>sort_index</c>, <c>sort_order</c> and <c>by_col</c> arguments of SORT,
+    /// in that order, then check the sort order is 1 (ascending) or -1 (descending).
+    /// </summary>
+    private static bool TryGetSortOptions(CalcContext ctx, Span<AnyValue> args, out int sortIndex, out int sortOrder, out bool byColumn, out XLError error)
+    {
+        sortIndex = 1;
+        sortOrder = 1;
+        byColumn = false;
+        error = default;
+        if (args.Length > 1 && !TryIntArg(ctx, args[1], out sortIndex, out error))
+            return false;
+        if (args.Length > 2 && !TryIntArg(ctx, args[2], out sortOrder, out error))
+            return false;
+        if (args.Length > 3 && !TryBoolArg(ctx, args[3], out byColumn, out error))
+            return false;
+
+        if (sortOrder != 1 && sortOrder != -1)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return true;
     }
 
     private static AnyValue SortBy(CalcContext ctx, Span<AnyValue> args)
@@ -635,7 +714,6 @@ internal static class DynamicArray
     private static bool IsValidByArray(in AnyValue value, CalcContext ctx, int height)
         => value.TryPickCollectionArray(out var array, ctx) && array!.Width == 1 && array.Height == height;
 
-#pragma warning disable S3776 // Mask-shape detection then one mask walk; already reduced from 27
     private static AnyValue Filter(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -643,40 +721,51 @@ internal static class DynamicArray
         if (!args[1].TryPickCollectionArray(out var include, ctx))
             return XLError.IncompatibleValue;
 
-        var height = array!.Height;
-        var width = array.Width;
-
-        // The mask selects rows when it's a column vector matching the height, or columns when it's
-        // a row vector matching the width.
-        bool filterRows;
-        if (include!.Width == 1 && include.Height == height)
-            filterRows = true;
-        else if (include.Height == 1 && include.Width == width)
-            filterRows = false;
-        else
+        if (!TryGetFilterDirection(include!, array!.Height, array.Width, out var filterRows))
             return XLError.IncompatibleValue;
 
         // Keeping columns is keeping the rows of the transpose, so only the row case is written out.
         var source = filterRows ? array : new TransposedArray(array);
 
-        var kept = new List<int>();
-        for (var i = 0; i < source.Height; i++)
-        {
-            var mask = filterRows ? include[i, 0] : include[0, i];
-            if (!mask.TryCoerceLogicalOrBlankOrNumberOrText(out var flag, out var maskError))
-                return maskError;
-            if (flag)
-                kept.Add(i);
-        }
+        if (!TryGetIncludedRows(include!, filterRows, source.Height, out var kept, out var maskError))
+            return maskError;
 
         if (kept.Count == 0)
             return args.Length > 2 ? args[2] : XLError.CellReference;
 
         return Orient(BuildRows(source, kept), !filterRows);
     }
-#pragma warning restore S3776
 
-#pragma warning disable S3776 // Six optional arguments to validate before one lookup; already reduced from 23
+    /// <summary>
+    /// The mask selects rows when it's a column vector matching the height, or columns when it's
+    /// a row vector matching the width. Any other shape selects nothing and returns <c>false</c>.
+    /// </summary>
+    private static bool TryGetFilterDirection(Array include, int height, int width, out bool filterRows)
+    {
+        filterRows = include.Width == 1 && include.Height == height;
+        return filterRows || (include.Height == 1 && include.Width == width);
+    }
+
+    /// <summary>
+    /// Indices of the lines whose mask value is true. The first mask value that isn't a logical
+    /// stops the walk with its error.
+    /// </summary>
+    private static bool TryGetIncludedRows(Array include, bool filterRows, int count, out List<int> kept, out XLError error)
+    {
+        kept = new List<int>();
+        for (var i = 0; i < count; i++)
+        {
+            var mask = filterRows ? include[i, 0] : include[0, i];
+            if (!mask.TryCoerceLogicalOrBlankOrNumberOrText(out var flag, out error))
+                return false;
+            if (flag)
+                kept.Add(i);
+        }
+
+        error = default;
+        return true;
+    }
+
     private static AnyValue XLookup(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryScalarArg(ctx, args[0], out var lookupValue))
@@ -689,13 +778,8 @@ internal static class DynamicArray
         if (!args[2].TryPickCollectionArray(out var returnArray, ctx))
             return XLError.IncompatibleValue;
 
-        var matchMode = 0;
-        if (args.Length > 4 && !TryIntArg(ctx, args[4], out matchMode, out var matchModeError))
-            return matchModeError;
-
-        var searchMode = 1;
-        if (args.Length > 5 && !TryIntArg(ctx, args[5], out searchMode, out var searchModeError))
-            return searchModeError;
+        if (!TryGetMatchAndSearchMode(ctx, args, 4, out var matchMode, out var searchMode, out var modeError))
+            return modeError;
 
         var vertical = !(lookupArray!.Height == 1 && lookupArray.Width > 1);
         var length = vertical ? lookupArray.Height : lookupArray.Width;
@@ -704,10 +788,34 @@ internal static class DynamicArray
         if (index < 0)
             return args.Length > 3 ? args[3] : XLError.NoValueAvailable;
 
-        // Return the matching row (vertical lookup) or column (horizontal lookup) of return_array.
-        // A horizontal lookup returns the matching row of the transpose, so only one case is written
-        // out and the result is turned back the right way round at the end.
-        var source = vertical ? returnArray! : new TransposedArray(returnArray!);
+        return ReturnLine(returnArray!, vertical, length, index);
+    }
+
+    /// <summary>
+    /// Read the optional <c>match_mode</c> and <c>search_mode</c> arguments at
+    /// <paramref name="matchModeIndex"/> and the one after it, in that order.
+    /// </summary>
+    private static bool TryGetMatchAndSearchMode(CalcContext ctx, Span<AnyValue> args, int matchModeIndex, out int matchMode, out int searchMode, out XLError error)
+    {
+        matchMode = 0;
+        searchMode = 1;
+        error = default;
+        if (args.Length > matchModeIndex && !TryIntArg(ctx, args[matchModeIndex], out matchMode, out error))
+            return false;
+
+        var searchModeIndex = matchModeIndex + 1;
+        return args.Length <= searchModeIndex || TryIntArg(ctx, args[searchModeIndex], out searchMode, out error);
+    }
+
+    /// <summary>
+    /// Return the matching row (vertical lookup) or column (horizontal lookup) of
+    /// <paramref name="returnArray"/>. A horizontal lookup returns the matching row of the
+    /// transpose, so only one case is written out and the result is turned back the right way
+    /// round at the end.
+    /// </summary>
+    private static AnyValue ReturnLine(Array returnArray, bool vertical, int length, int index)
+    {
+        var source = vertical ? returnArray : new TransposedArray(returnArray);
         if (source.Height != length)
             return XLError.IncompatibleValue;
         if (source.Width == 1)
@@ -719,7 +827,6 @@ internal static class DynamicArray
 
         return Orient(new ConstArray(line), !vertical);
     }
-#pragma warning restore S3776
 
     private static AnyValue XMatch(CalcContext ctx, Span<AnyValue> args)
     {

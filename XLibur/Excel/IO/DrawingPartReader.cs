@@ -54,37 +54,40 @@ internal static class DrawingPartReader
 
     internal static void LoadDrawings(WorksheetPart wsPart, XLWorksheet ws)
     {
-        if (wsPart.DrawingsPart != null)
+        if (wsPart.DrawingsPart == null)
+            return;
+
+        var drawingsPart = wsPart.DrawingsPart;
+
+        foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
+            LoadDrawingAnchor(anchor, drawingsPart, ws);
+    }
+
+    private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws)
+    {
+        // Pictures nested inside a top-level group shape (xdr:grpSp) are laid out in the
+        // group's child coordinate space. Load each of them as an editable picture that
+        // remembers its group transform, so on save we can update the xdr:pic in place and
+        // leave the rest of the group (sibling pictures, connectors, shapes) intact.
+        var group = anchor.Elements<Xdr.GroupShape>().FirstOrDefault();
+        if (group != null)
         {
-            var drawingsPart = wsPart.DrawingsPart;
-
-            foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
-            {
-                // Pictures nested inside a top-level group shape (xdr:grpSp) are laid out in the
-                // group's child coordinate space. Load each of them as an editable picture that
-                // remembers its group transform, so on save we can update the xdr:pic in place and
-                // leave the rest of the group (sibling pictures, connectors, shapes) intact.
-                var group = anchor.Elements<Xdr.GroupShape>().FirstOrDefault();
-                if (group != null)
-                {
-                    LoadGroupedPictures(group, drawingsPart, ws);
-                    continue;
-                }
-
-                var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
-
-                //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
-                if (imgId == null) continue;
-
-                // Skip external image references (e.g. URLs) — they have no embedded part.
-                if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
-                    continue;
-
-                var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
-                LoadPictureTransform(picture, anchor, ws);
-                LoadPicturePlacement(picture, anchor, ws);
-            }
+            LoadGroupedPictures(group, drawingsPart, ws);
+            return;
         }
+
+        var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
+
+        //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
+        if (imgId == null) return;
+
+        // Skip external image references (e.g. URLs) — they have no embedded part.
+        if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
+            return;
+
+        var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
+        LoadPictureTransform(picture, anchor, ws);
+        LoadPicturePlacement(picture, anchor, ws);
     }
 
     internal static int ConvertFromEnglishMetricUnits(long emu, double resolution)
@@ -322,32 +325,35 @@ internal static class DrawingPartReader
         var style = attStyle.Value;
         var attributes = style.Split(';');
         foreach (var pair in attributes)
+            LoadTextBoxStyleProperty(xlDrawing, pair);
+    }
+
+    private static void LoadTextBoxStyleProperty<T>(IXLDrawing<T> xlDrawing, string pair)
+    {
+        var split = pair.Split(':');
+        if (split.Length != 2) return;
+
+        var attribute = split[0].Trim().ToLower();
+        var attrValue = split[1].Trim();
+        var isVertical = false;
+        switch (attribute)
         {
-            var split = pair.Split(':');
-            if (split.Length != 2) continue;
+            case "mso-fit-shape-to-text": xlDrawing.Style.Size.SetAutomaticSize(attrValue.Equals("t")); break;
+            case "mso-layout-flow-alt":
+                LoadLayoutFlowAlt(xlDrawing, attrValue);
+                break;
 
-            var attribute = split[0].Trim().ToLower();
-            var attrValue = split[1].Trim();
-            var isVertical = false;
-            switch (attribute)
-            {
-                case "mso-fit-shape-to-text": xlDrawing.Style.Size.SetAutomaticSize(attrValue.Equals("t")); break;
-                case "mso-layout-flow-alt":
-                    LoadLayoutFlowAlt(xlDrawing, attrValue);
-                    break;
-
-                case "layout-flow": isVertical = attrValue.Equals("vertical"); break;
-                case "mso-direction-alt":
-                    if (attrValue == "auto") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.Context;
-                    break;
-                case "direction":
-                    if (attrValue == "RTL") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.RightToLeft;
-                    break;
-            }
-
-            if (isVertical && xlDrawing.Style.Alignment.Orientation == XLDrawingTextOrientation.LeftToRight)
-                xlDrawing.Style.Alignment.Orientation = XLDrawingTextOrientation.TopToBottom;
+            case "layout-flow": isVertical = attrValue.Equals("vertical"); break;
+            case "mso-direction-alt":
+                if (attrValue == "auto") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.Context;
+                break;
+            case "direction":
+                if (attrValue == "RTL") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.RightToLeft;
+                break;
         }
+
+        if (isVertical && xlDrawing.Style.Alignment.Orientation == XLDrawingTextOrientation.LeftToRight)
+            xlDrawing.Style.Alignment.Orientation = XLDrawingTextOrientation.TopToBottom;
     }
 
     internal static void LoadClientData<T>(IXLDrawing<T> drawing, XElement clientData)
@@ -429,34 +435,39 @@ internal static class DrawingPartReader
             var attribute = split[0].Trim().ToLower();
             var attrValue = split[1].Trim();
 
-            switch (attribute)
-            {
-                case "visibility":
-                    xlDrawing.Visible = string.Equals("visible", attrValue, StringComparison.OrdinalIgnoreCase); break;
-                case "width":
-                    if (TryGetPtValue(attrValue, out var ptWidth))
-                    {
-                        xlDrawing.Style.Size.Width = ptWidth / 7.5;
-                    }
+            LoadShapeProperty(xlDrawing, attribute, attrValue);
+        }
+    }
 
-                    break;
+    private static void LoadShapeProperty<T>(IXLDrawing<T> xlDrawing, string attribute, string attrValue)
+    {
+        switch (attribute)
+        {
+            case "visibility":
+                xlDrawing.Visible = string.Equals("visible", attrValue, StringComparison.OrdinalIgnoreCase); break;
+            case "width":
+                if (TryGetPtValue(attrValue, out var ptWidth))
+                {
+                    xlDrawing.Style.Size.Width = ptWidth / 7.5;
+                }
 
-                case "height":
-                    if (TryGetPtValue(attrValue, out var ptHeight))
-                    {
-                        xlDrawing.Style.Size.Height = ptHeight;
-                    }
+                break;
 
-                    break;
+            case "height":
+                if (TryGetPtValue(attrValue, out var ptHeight))
+                {
+                    xlDrawing.Style.Size.Height = ptHeight;
+                }
 
-                case "z-index":
-                    if (int.TryParse(attrValue, out var zOrder))
-                    {
-                        xlDrawing.ZOrder = zOrder;
-                    }
+                break;
 
-                    break;
-            }
+            case "z-index":
+                if (int.TryParse(attrValue, out var zOrder))
+                {
+                    xlDrawing.ZOrder = zOrder;
+                }
+
+                break;
         }
     }
 

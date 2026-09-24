@@ -45,7 +45,39 @@ internal sealed class StandardEncryptionDescriptor
         if (headerSize < 32 || prologue + headerSize > encryptionInfo.Length)
             throw new XLEncryptionException($"The EncryptionInfo stream declares an unusable header size of {headerSize}.");
 
-        var header = encryptionInfo.Slice(prologue, headerSize);
+        var keyBytes = ParseKeyBytes(encryptionInfo.Slice(prologue, headerSize));
+
+        var verifier = encryptionInfo[(prologue + headerSize)..];
+        if (verifier.Length < 8)
+            throw new XLEncryptionException("The EncryptionInfo stream has no room for its verifier.");
+
+        var saltSize = BitConverter.ToInt32(verifier);
+        if (saltSize != VerifierLength || verifier.Length < 4 + saltSize + VerifierLength + 4)
+            throw new XLEncryptionException("The standard encryption verifier is malformed.");
+
+        var verifierHashSize = BitConverter.ToInt32(verifier[(4 + saltSize + VerifierLength)..]);
+        var encryptedHashOffset = 4 + saltSize + VerifierLength + 4;
+
+        // The stored hash is SHA-1, but it is written padded out to whole cipher blocks.
+        var encryptedHashLength = verifier.Length - encryptedHashOffset;
+        if (verifierHashSize <= 0 || encryptedHashLength < verifierHashSize)
+            throw new XLEncryptionException("The standard encryption verifier hash is malformed.");
+
+        return new StandardEncryptionDescriptor
+        {
+            KeyBytes = keyBytes,
+            Salt = verifier.Slice(4, saltSize).ToArray(),
+            EncryptedVerifier = verifier.Slice(4 + saltSize, VerifierLength).ToArray(),
+            EncryptedVerifierHash = verifier.Slice(encryptedHashOffset, encryptedHashLength - encryptedHashLength % 16).ToArray(),
+        };
+    }
+
+    /// <summary>
+    /// The key size, in bytes, the EncryptionHeader names, after checking it names a cipher and hash
+    /// XLibur reads.
+    /// </summary>
+    private static int ParseKeyBytes(ReadOnlySpan<byte> header)
+    {
         var algId = BitConverter.ToUInt32(header[8..]);
         var algIdHash = BitConverter.ToUInt32(header[12..]);
         var keyBits = BitConverter.ToInt32(header[16..]);
@@ -73,29 +105,7 @@ internal sealed class StandardEncryptionDescriptor
             keyBytes = keyBits / 8;
         }
 
-        var verifier = encryptionInfo[(prologue + headerSize)..];
-        if (verifier.Length < 8)
-            throw new XLEncryptionException("The EncryptionInfo stream has no room for its verifier.");
-
-        var saltSize = BitConverter.ToInt32(verifier);
-        if (saltSize != VerifierLength || verifier.Length < 4 + saltSize + VerifierLength + 4)
-            throw new XLEncryptionException("The standard encryption verifier is malformed.");
-
-        var verifierHashSize = BitConverter.ToInt32(verifier[(4 + saltSize + VerifierLength)..]);
-        var encryptedHashOffset = 4 + saltSize + VerifierLength + 4;
-
-        // The stored hash is SHA-1, but it is written padded out to whole cipher blocks.
-        var encryptedHashLength = verifier.Length - encryptedHashOffset;
-        if (verifierHashSize <= 0 || encryptedHashLength < verifierHashSize)
-            throw new XLEncryptionException("The standard encryption verifier hash is malformed.");
-
-        return new StandardEncryptionDescriptor
-        {
-            KeyBytes = keyBytes,
-            Salt = verifier.Slice(4, saltSize).ToArray(),
-            EncryptedVerifier = verifier.Slice(4 + saltSize, VerifierLength).ToArray(),
-            EncryptedVerifierHash = verifier.Slice(encryptedHashOffset, encryptedHashLength - encryptedHashLength % 16).ToArray(),
-        };
+        return keyBytes;
     }
 
     /// <summary>

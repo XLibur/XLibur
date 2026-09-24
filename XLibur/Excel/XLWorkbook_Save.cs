@@ -716,6 +716,27 @@ public partial class XLWorkbook
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)
     {
+        ClearExistingCacheFields(workbookPart);
+
+        var allPivotTables = new List<IXLPivotTable>();
+        foreach (var ws in WorksheetsInternal)
+        {
+            foreach (var pt in ws.PivotTables)
+                allPivotTables.Add(pt);
+        }
+
+        SynchronizePivotTableParts(workbookPart, allPivotTables, context);
+
+        if (allPivotTables.Count != 0)
+            GeneratePivotCaches(workbookPart, context);
+    }
+
+    /// <summary>
+    /// Empties the cache fields of every pivot cache definition part the caches already have, once
+    /// per part.
+    /// </summary>
+    private void ClearExistingCacheFields(WorkbookPart workbookPart)
+    {
         HashSet<string>? seenRelIds = null;
         foreach (var cache in PivotCachesInternal)
         {
@@ -732,18 +753,6 @@ public partial class XLWorkbook
                 part is PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
                 pivotTableCacheDefinitionPart.PivotCacheDefinition!.CacheFields!.RemoveAllChildren();
         }
-
-        var allPivotTables = new List<IXLPivotTable>();
-        foreach (var ws in WorksheetsInternal)
-        {
-            foreach (var pt in ws.PivotTables)
-                allPivotTables.Add(pt);
-        }
-
-        SynchronizePivotTableParts(workbookPart, allPivotTables, context);
-
-        if (allPivotTables.Count != 0)
-            GeneratePivotCaches(workbookPart, context);
     }
 
     private static (WorksheetPart worksheetPart, bool partIsEmpty) GetOrCreateWorksheetPart(WorkbookPart workbookPart,

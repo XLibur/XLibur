@@ -633,19 +633,40 @@ internal sealed class XLBorder : IXLBorder
 
         if (_style.IsWholeStyle)
         {
-            // The key is everything styled, so an edge it gives no style has nothing to draw with:
-            // the colour is held for the style this facade may be given next, and nothing is
-            // written - which also spares a pivot area a format that would change nothing.
-            pendingColor = edgeHasNoStyle ? value.Key : null;
-            if (edgeHasNoStyle || currentColor == value.Key) return;
-
-            if (_style.IsCellContainer)
-                SetKey(withColor(Key, value.Key));
-            else
-                Modify(k => withColor(k, value.Key));
+            ApplyEdgeColorToWholeStyle(value, edgeHasNoStyle, currentColor, ref pendingColor, withColor);
             return;
         }
 
+        ApplyEdgeColorThroughCells(value, edgeHasNoStyle, currentColor, ref pendingColor, styleOf, withColor);
+    }
+
+    private void ApplyEdgeColorToWholeStyle(
+        XLColor value,
+        bool edgeHasNoStyle,
+        XLColorKey currentColor,
+        ref XLColorKey? pendingColor,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
+    {
+        // The key is everything styled, so an edge it gives no style has nothing to draw with:
+        // the colour is held for the style this facade may be given next, and nothing is
+        // written - which also spares a pivot area a format that would change nothing.
+        pendingColor = edgeHasNoStyle ? value.Key : null;
+        if (edgeHasNoStyle || currentColor == value.Key) return;
+
+        if (_style.IsCellContainer)
+            SetKey(withColor(Key, value.Key));
+        else
+            Modify(k => withColor(k, value.Key));
+    }
+
+    private void ApplyEdgeColorThroughCells(
+        XLColor value,
+        bool edgeHasNoStyle,
+        XLColorKey currentColor,
+        ref XLColorKey? pendingColor,
+        Func<XLBorderKey, XLBorderStyleValues> styleOf,
+        Func<XLBorderKey, XLColorKey, XLBorderKey> withColor)
+    {
         // Which cells have no style on this edge is not something the container's record can say.
         // So the colour is written through now, to each cell whose edge has a style, and kept
         // pending for the style this facade may be given next only if something could not take

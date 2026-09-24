@@ -269,34 +269,49 @@ internal static class ChartSeriesFormatXml
         }
 
         if ((assigned & XLChartSeriesFormat.Marker) != 0)
-        {
-            var symbol = MapMarkerSymbol(series.MarkerStyle);
-            marker.Elements<C.Symbol>().ToList().ForEach(e => e.Remove());
-            if (symbol != null)
-                marker.InsertAt(new C.Symbol { Val = symbol }, 0);
-        }
+            SetMarkerSymbol(marker, series);
 
         if ((assigned & XLChartSeriesFormat.MarkerSize) != 0)
-        {
-            marker.Elements<C.Size>().ToList().ForEach(e => e.Remove());
-            if (series.MarkerSize != null)
-            {
-                var size = new C.Size { Val = (byte)Math.Round(series.MarkerSize.Value) };
-                InsertAfterLastOf(marker, size, typeof(C.Symbol));
-            }
-        }
+            SetMarkerSize(marker, series);
 
         if ((assigned & XLChartSeriesFormat.MarkerFill) != 0)
             SetMarkerFill(marker, series);
 
+        if (markerIsNew)
+            CompleteNewMarker(marker);
+    }
+
+    private static void SetMarkerSymbol(C.Marker marker, XLChartSeries series)
+    {
+        var symbol = MapMarkerSymbol(series.MarkerStyle);
+        marker.Elements<C.Symbol>().ToList().ForEach(e => e.Remove());
+        if (symbol != null)
+            marker.InsertAt(new C.Symbol { Val = symbol }, 0);
+    }
+
+    private static void SetMarkerSize(C.Marker marker, XLChartSeries series)
+    {
+        marker.Elements<C.Size>().ToList().ForEach(e => e.Remove());
+        if (series.MarkerSize != null)
+        {
+            var size = new C.Size { Val = (byte)Math.Round(series.MarkerSize.Value) };
+            InsertAfterLastOf(marker, size, typeof(C.Symbol));
+        }
+    }
+
+    /// <summary>
+    /// Tidies up a marker element created by <see cref="ApplyMarker"/>.
+    /// </summary>
+    private static void CompleteNewMarker(C.Marker marker)
+    {
         // A marker element built here says the series has markers, so it says which: an absent
         // c:symbol would leave the shape to the chart style rather than to the caller.
-        if (markerIsNew && marker.HasChildren && !marker.Elements<C.Symbol>().Any())
+        if (marker.HasChildren && !marker.Elements<C.Symbol>().Any())
             marker.InsertAt(new C.Symbol { Val = C.MarkerStyleValues.Auto }, 0);
 
         // A marker element that ended up empty would read back as "this series has markers", so an
         // element created here for nothing is taken away again.
-        if (markerIsNew && !marker.HasChildren)
+        if (!marker.HasChildren)
             marker.Remove();
     }
 
@@ -438,18 +453,32 @@ internal static class ChartSeriesFormatXml
             return XLMarkerStyle.Auto;
 
         var value = symbol.Value;
-        if (value == C.MarkerStyleValues.None) return XLMarkerStyle.None;
-        if (value == C.MarkerStyleValues.Circle) return XLMarkerStyle.Circle;
-        if (value == C.MarkerStyleValues.Dash) return XLMarkerStyle.Dash;
-        if (value == C.MarkerStyleValues.Diamond) return XLMarkerStyle.Diamond;
-        if (value == C.MarkerStyleValues.Dot) return XLMarkerStyle.Dot;
-        if (value == C.MarkerStyleValues.Plus) return XLMarkerStyle.Plus;
-        if (value == C.MarkerStyleValues.Square) return XLMarkerStyle.Square;
-        if (value == C.MarkerStyleValues.Star) return XLMarkerStyle.Star;
-        if (value == C.MarkerStyleValues.Triangle) return XLMarkerStyle.Triangle;
-        if (value == C.MarkerStyleValues.X) return XLMarkerStyle.X;
+        foreach (var (symbolValue, style) in MarkerStylesBySymbol)
+        {
+            if (value == symbolValue)
+                return style;
+        }
+
         return XLMarkerStyle.Auto;
     }
+
+    /// <summary>
+    /// The <c>c:symbol</c> values <see cref="ReadMarkerStyle"/> recognises. Anything else, <c>auto</c>
+    /// included, reads as <see cref="XLMarkerStyle.Auto"/>.
+    /// </summary>
+    private static readonly (C.MarkerStyleValues Symbol, XLMarkerStyle Style)[] MarkerStylesBySymbol =
+    [
+        (C.MarkerStyleValues.None, XLMarkerStyle.None),
+        (C.MarkerStyleValues.Circle, XLMarkerStyle.Circle),
+        (C.MarkerStyleValues.Dash, XLMarkerStyle.Dash),
+        (C.MarkerStyleValues.Diamond, XLMarkerStyle.Diamond),
+        (C.MarkerStyleValues.Dot, XLMarkerStyle.Dot),
+        (C.MarkerStyleValues.Plus, XLMarkerStyle.Plus),
+        (C.MarkerStyleValues.Square, XLMarkerStyle.Square),
+        (C.MarkerStyleValues.Star, XLMarkerStyle.Star),
+        (C.MarkerStyleValues.Triangle, XLMarkerStyle.Triangle),
+        (C.MarkerStyleValues.X, XLMarkerStyle.X),
+    ];
 
     private static C.MarkerStyleValues? MapMarkerSymbol(XLMarkerStyle style) => style switch
     {

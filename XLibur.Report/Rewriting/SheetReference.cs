@@ -102,7 +102,6 @@ internal readonly record struct SheetReference(
     /// Separates the sheet name from the area, understanding the quoting Excel uses for a name that
     /// contains a space or a punctuation mark.
     /// </summary>
-#pragma warning disable S3776 // Quoted and unquoted sheet names are two separate, flat parses
     private static bool TrySplitSheet(string text, out string? sheetName, out string area)
     {
         sheetName = null;
@@ -115,36 +114,7 @@ internal readonly record struct SheetReference(
 
         if (text[0] == '\'')
         {
-            var name = new StringBuilder();
-            var i = 1;
-
-            while (i < text.Length)
-            {
-                if (text[i] == '\'')
-                {
-                    // A doubled quote is a literal one inside the name.
-                    if (i + 1 < text.Length && text[i + 1] == '\'')
-                    {
-                        name.Append('\'');
-                        i += 2;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                name.Append(text[i]);
-                i++;
-            }
-
-            if (i >= text.Length - 1 || text[i] != '\'' || text[i + 1] != '!')
-            {
-                return false;
-            }
-
-            sheetName = name.ToString();
-            area = text[(i + 2)..];
-            return area.Length > 0;
+            return TrySplitQuotedSheet(text, ref sheetName, ref area);
         }
 
         var separator = text.IndexOf('!');
@@ -165,7 +135,56 @@ internal readonly record struct SheetReference(
         area = text[(separator + 1)..];
         return area.Length > 0;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Splits a sheet name written in quotes (<c>'My Sheet'!A1</c>) from its area. Leaves
+    /// <paramref name="sheetName"/> and <paramref name="area"/> untouched when the quoting is malformed.
+    /// </summary>
+    private static bool TrySplitQuotedSheet(string text, ref string? sheetName, ref string area)
+    {
+        var name = ReadQuotedName(text, out var i);
+
+        if (i >= text.Length - 1 || text[i] != '\'' || text[i + 1] != '!')
+        {
+            return false;
+        }
+
+        sheetName = name;
+        area = text[(i + 2)..];
+        return area.Length > 0;
+    }
+
+    /// <summary>
+    /// Reads a quoted sheet name starting after the opening quote, stopping at the closing quote
+    /// (whose index is returned in <paramref name="end"/>) or the end of the text.
+    /// </summary>
+    private static string ReadQuotedName(string text, out int end)
+    {
+        var name = new StringBuilder();
+        var i = 1;
+
+        while (i < text.Length)
+        {
+            if (text[i] == '\'')
+            {
+                // A doubled quote is a literal one inside the name.
+                if (i + 1 < text.Length && text[i + 1] == '\'')
+                {
+                    name.Append('\'');
+                    i += 2;
+                    continue;
+                }
+
+                break;
+            }
+
+            name.Append(text[i]);
+            i++;
+        }
+
+        end = i;
+        return name.ToString();
+    }
 
     /// <summary>Parses <c>$B$3</c>, <c>B3</c> and the mixed forms into row and column numbers.</summary>
     private static bool TryParseCell(string text, out int row, out int column)
@@ -173,11 +192,7 @@ internal readonly record struct SheetReference(
         row = 0;
         column = 0;
 
-        var i = 0;
-        if (i < text.Length && text[i] == '$')
-        {
-            i++;
-        }
+        var i = SkipDollar(text, 0);
 
         var letterStart = i;
         while (i < text.Length && char.IsAsciiLetter(text[i]))
@@ -194,16 +209,10 @@ internal readonly record struct SheetReference(
 
         var letters = text[letterStart..i];
 
-        if (i < text.Length && text[i] == '$')
-        {
-            i++;
-        }
+        i = SkipDollar(text, i);
 
         var digitStart = i;
-        while (i < text.Length && char.IsAsciiDigit(text[i]))
-        {
-            i++;
-        }
+        i = SkipDigits(text, i);
 
         if (i != text.Length || i == digitStart)
         {
@@ -225,6 +234,19 @@ internal readonly record struct SheetReference(
         }
 
         return column >= 1;
+    }
+
+    /// <summary>Steps past an absolute-reference marker at <paramref name="i"/>, if there is one.</summary>
+    private static int SkipDollar(string text, int i) => i < text.Length && text[i] == '$' ? i + 1 : i;
+
+    private static int SkipDigits(string text, int i)
+    {
+        while (i < text.Length && char.IsAsciiDigit(text[i]))
+        {
+            i++;
+        }
+
+        return i;
     }
 
     private static string QuoteSheetName(string name)

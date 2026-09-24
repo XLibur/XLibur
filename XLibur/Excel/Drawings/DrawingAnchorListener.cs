@@ -170,33 +170,48 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
                 continue;
 
-            // Did this cell move? Only if the edit covered its line on the cross axis — a partial
-            // insert shifts only the columns it spans — and only if it sits where a moved cell lands.
-            var cell = enumerator.Point;
-            var cellCross = axis.CrossOf(cell);
-            if (cellCross < editFirstCross || cellCross > editLastCross)
-                continue;
-            if (axis.IndexOf(cell) < movedFrom)
-                continue;
-
-            // 1-based, and moved by the cell's displacement, so the callout keeps its offset —
-            // floored at the first line, because a callout sits *above* its cell and so runs out of
-            // grid before the cell does. A note on A6 anchors its box on row 5; delete rows 1:5 and
-            // the cell lands on row 1 while the box would want row 0, which is not a cell.
-            //
-            // S125 reads the quotation below as commented-out code. It is a citation of the line
-            // this rule is deliberately matching, and it is load-bearing: drop it and the next
-            // reader has no way to check that the two concessions still agree.
-#pragma warning disable S125
-            // XLComment.Initialize already makes exactly this concession when a note is created on
-            // row 1 — "if (previousRowNumber > 1) previousRowNumber--" — so the box shares the
-            // note's own line at the top of the sheet rather than sitting off it.
-            if (axis.ShiftsRows)
-                note.Position.SetRow(Math.Max(1, note.Position.Row + edit.Shift));
-            else
-                note.Position.SetColumn(Math.Max(1, note.Position.Column + edit.Shift));
-#pragma warning restore S125
+            if (HasCellMoved(axis, enumerator.Point, editFirstCross, editLastCross, movedFrom))
+                MoveNote(axis, note, edit.Shift);
         }
+    }
+
+    /// <summary>
+    /// Did this cell move? Only if the edit covered its line on the cross axis — a partial insert
+    /// shifts only the columns it spans — and only if it sits where a moved cell lands.
+    /// </summary>
+    private static bool HasCellMoved<TAxis>(TAxis axis, Point cell, int editFirstCross, int editLastCross, int movedFrom)
+        where TAxis : struct, IGridAxis
+    {
+        var cellCross = axis.CrossOf(cell);
+        if (cellCross < editFirstCross || cellCross > editLastCross)
+            return false;
+
+        return axis.IndexOf(cell) >= movedFrom;
+    }
+
+    /// <summary>
+    /// Moves a note's anchor by its cell's displacement.
+    /// </summary>
+    private static void MoveNote<TAxis>(TAxis axis, XLComment note, int shift)
+        where TAxis : struct, IGridAxis
+    {
+        // 1-based, and moved by the cell's displacement, so the callout keeps its offset —
+        // floored at the first line, because a callout sits *above* its cell and so runs out of
+        // grid before the cell does. A note on A6 anchors its box on row 5; delete rows 1:5 and
+        // the cell lands on row 1 while the box would want row 0, which is not a cell.
+        //
+        // S125 reads the quotation below as commented-out code. It is a citation of the line
+        // this rule is deliberately matching, and it is load-bearing: drop it and the next
+        // reader has no way to check that the two concessions still agree.
+#pragma warning disable S125
+        // XLComment.Initialize already makes exactly this concession when a note is created on
+        // row 1 — "if (previousRowNumber > 1) previousRowNumber--" — so the box shares the
+        // note's own line at the top of the sheet rather than sitting off it.
+        if (axis.ShiftsRows)
+            note.Position.SetRow(Math.Max(1, note.Position.Row + shift));
+        else
+            note.Position.SetColumn(Math.Max(1, note.Position.Column + shift));
+#pragma warning restore S125
     }
 
     /// <summary>

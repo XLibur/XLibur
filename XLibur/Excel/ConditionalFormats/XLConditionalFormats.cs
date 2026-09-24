@@ -575,41 +575,50 @@ internal sealed class XLConditionalFormats : IXLConditionalFormats, ISheetListen
         Func<IXLConditionalFormat, bool> isSameFormat)
     {
         List<IXLConditionalFormat> similarFormats = [];
-        var i = 1;
-        bool stop;
-        do
+        for (var i = 1; i < formats.Count; i++)
         {
-            stop = i >= formats.Count;
-
-            if (!stop)
-            {
-                var nextFormat = formats[i];
-
-                var intersectsSkipped =
-                    skippedRanges.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any());
-
-                var isSame = isSameFormat(nextFormat);
-
-                if (isSame && !intersectsSkipped)
-                {
-                    similarFormats.Add(nextFormat);
-                    nextFormat.Ranges.ForEach(rangesToJoin.Add);
-                }
-                else if (rangesToJoin.Any(left => nextFormat.Ranges.GetIntersectedRanges(left.RangeAddress).Any()) ||
-                         intersectsSkipped)
-                {
-                    stop = true;
-                }
-
-                if (!isSame)
-                    nextFormat.Ranges.ForEach(skippedRanges.Add);
-            }
-
-            i++;
-        } while (!stop);
+            if (!TryJoinSimilarFormat(formats[i], similarFormats, rangesToJoin, skippedRanges, isSameFormat))
+                break;
+        }
 
         return similarFormats;
     }
+
+    /// <summary>
+    /// Joins <paramref name="nextFormat"/> to the similar formats when it is the same format and does not
+    /// overlap a skipped one; otherwise records it as skipped.
+    /// </summary>
+    /// <returns><c>false</c> when the search has to stop, because a format overlaps the ranges being joined
+    /// or skipped and so would change the outcome of the priority order.</returns>
+    private static bool TryJoinSimilarFormat(
+        IXLConditionalFormat nextFormat,
+        List<IXLConditionalFormat> similarFormats,
+        XLRanges rangesToJoin,
+        XLRanges skippedRanges,
+        Func<IXLConditionalFormat, bool> isSameFormat)
+    {
+        var intersectsSkipped = IntersectsAny(nextFormat, skippedRanges);
+        var isSame = isSameFormat(nextFormat);
+        var shouldContinue = true;
+
+        if (isSame && !intersectsSkipped)
+        {
+            similarFormats.Add(nextFormat);
+            nextFormat.Ranges.ForEach(rangesToJoin.Add);
+        }
+        else if (IntersectsAny(nextFormat, rangesToJoin) || intersectsSkipped)
+        {
+            shouldContinue = false;
+        }
+
+        if (!isSame)
+            nextFormat.Ranges.ForEach(skippedRanges.Add);
+
+        return shouldContinue;
+    }
+
+    private static bool IntersectsAny(IXLConditionalFormat format, XLRanges ranges)
+        => ranges.Any(left => format.Ranges.GetIntersectedRanges(left.RangeAddress).Any());
 
     public void RemoveAll()
     {

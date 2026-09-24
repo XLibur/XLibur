@@ -92,17 +92,7 @@ internal sealed class XLAutoFilter : IXLAutoFilter
             if (nextRow > XLHelper.MaxRowNumber)
                 break;
 
-            var hasData = false;
-            for (var col = firstCol; col <= lastCol; col++)
-            {
-                if (!ws.Cell(nextRow, col).IsEmpty())
-                {
-                    hasData = true;
-                    break;
-                }
-            }
-
-            if (!hasData)
+            if (!RowHasData(ws, nextRow, firstCol, lastCol))
                 break;
 
             newLastRow = nextRow;
@@ -114,6 +104,17 @@ internal sealed class XLAutoFilter : IXLAutoFilter
                 rangeAddress.FirstAddress.RowNumber, firstCol,
                 newLastRow, lastCol);
         }
+    }
+
+    private static bool RowHasData(IXLWorksheet ws, int row, int firstCol, int lastCol)
+    {
+        for (var col = firstCol; col <= lastCol; col++)
+        {
+            if (!ws.Cell(row, col).IsEmpty())
+                return true;
+        }
+
+        return false;
     }
 
     private bool MatchesAllFilters(IXLRangeRow row)

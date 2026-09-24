@@ -396,13 +396,28 @@ public class ConditionalFormatPriorityTests
         var worksheet = PivotConditionalFormatLinkTests.Sheet(document, sheetName).Worksheet!;
         var rules = new List<(int Priority, string Line)>();
 
+        AddStandardRules(worksheet, rules);
+        AddX14Rules(worksheet, rules);
+
+        package.Position = 0;
+        return rules
+            .OrderBy(r => r.Priority)
+            .Select(r => $"{r.Priority}: {r.Line}")
+            .ToList();
+    }
+
+    private static void AddStandardRules(S.Worksheet worksheet, List<(int Priority, string Line)> rules)
+    {
         foreach (var block in worksheet.Elements<S.ConditionalFormatting>())
         {
             var pivot = block.Pivot?.Value == true ? "pivot " : string.Empty;
             foreach (var rule in block.Elements<S.ConditionalFormattingRule>())
                 rules.Add((rule.Priority!.Value, $"{Sqref(block.SequenceOfReferences?.InnerText)} {pivot}standard"));
         }
+    }
 
+    private static void AddX14Rules(S.Worksheet worksheet, List<(int Priority, string Line)> rules)
+    {
         foreach (var block in worksheet.Descendants<X14.ConditionalFormatting>())
         {
             var pivot = block.Pivot?.Value == true ? "pivot " : string.Empty;
@@ -413,12 +428,6 @@ public class ConditionalFormatPriorityTests
                 rules.Add((rule.Priority?.Value ?? 0, $"{sqref} {pivot}x14{id}"));
             }
         }
-
-        package.Position = 0;
-        return rules
-            .OrderBy(r => r.Priority)
-            .Select(r => $"{r.Priority}: {r.Line}")
-            .ToList();
     }
 
     /// <summary>

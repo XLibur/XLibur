@@ -94,18 +94,28 @@ public sealed class XLTemplate : IXLTemplate
 
         if (value is IDictionary dictionary)
         {
-            foreach (DictionaryEntry entry in dictionary)
-            {
-                var key = entry.Key?.ToString();
-                if (!string.IsNullOrWhiteSpace(key))
-                {
-                    AddVariable(key, entry.Value);
-                }
-            }
-
+            AddDictionaryEntries(dictionary);
             return;
         }
 
+        AddMembers(value);
+    }
+
+    private void AddDictionaryEntries(IDictionary dictionary)
+    {
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            var key = entry.Key?.ToString();
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                AddVariable(key, entry.Value);
+            }
+        }
+    }
+
+    /// <summary>Binds each public readable property and public field of <paramref name="value"/>.</summary>
+    private void AddMembers(object value)
+    {
         var type = value.GetType();
 
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))

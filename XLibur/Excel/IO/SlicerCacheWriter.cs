@@ -264,22 +264,7 @@ internal static class SlicerCacheWriter
         var extension = FindExtension(extensionList, uri);
         if (extension is null)
         {
-            extension = new WorkbookExtension { Uri = uri };
-            extension.AddNamespaceDeclaration(
-                kind == XLSlicerSourceKind.Table ? "x15" : "x14",
-                kind == XLSlicerSourceKind.Table ? X15Main2010SsNs : X14Main2009SsNs);
-
-            if (kind == XLSlicerSourceKind.Table)
-            {
-                var caches = new X15.SlicerCaches();
-                caches.AddNamespaceDeclaration("x14", X14Main2009SsNs);
-                extension.AppendChild(caches);
-            }
-            else
-            {
-                extension.AppendChild(new X14.SlicerCaches());
-            }
-
+            extension = CreateRegistrationExtension(kind, uri);
             extensionList.AppendChild(extension);
         }
 
@@ -289,6 +274,30 @@ internal static class SlicerCacheWriter
 
         if (!container.Elements<X14.SlicerCache>().Any(c => c.Id?.Value == relId))
             container.AppendChild(new X14.SlicerCache { Id = relId });
+    }
+
+    /// <summary>
+    /// A new workbook extension holding an empty slicer cache registry of the given kind.
+    /// </summary>
+    private static WorkbookExtension CreateRegistrationExtension(XLSlicerSourceKind kind, string uri)
+    {
+        var extension = new WorkbookExtension { Uri = uri };
+        extension.AddNamespaceDeclaration(
+            kind == XLSlicerSourceKind.Table ? "x15" : "x14",
+            kind == XLSlicerSourceKind.Table ? X15Main2010SsNs : X14Main2009SsNs);
+
+        if (kind == XLSlicerSourceKind.Table)
+        {
+            var caches = new X15.SlicerCaches();
+            caches.AddNamespaceDeclaration("x14", X14Main2009SsNs);
+            extension.AppendChild(caches);
+        }
+        else
+        {
+            extension.AppendChild(new X14.SlicerCaches());
+        }
+
+        return extension;
     }
 
     private static void UnregisterCache(WorkbookPart workbookPart, XLSlicerSourceKind kind, string relId)

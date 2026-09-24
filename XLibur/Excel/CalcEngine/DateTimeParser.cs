@@ -105,6 +105,18 @@ internal static class DateTimeParser
         if (withoutTrailingDot.Length == 0)
             return null;
 
+        var designator = FindDesignatorExtending(token, withoutTrailingDot, c);
+        return designator is null
+            ? null
+            : string.Concat(s.AsSpan(0, start), designator, s.AsSpan(end));
+    }
+
+    /// <summary>
+    /// Finds the first AM/PM designator (culture, then invariant) that starts with
+    /// <paramref name="withoutTrailingDot"/> but isn't exactly <paramref name="token"/>.
+    /// </summary>
+    private static string? FindDesignatorExtending(string token, string withoutTrailingDot, CultureInfo c)
+    {
         ReadOnlySpan<string> designators =
         [
             c.DateTimeFormat.AMDesignator,
@@ -120,7 +132,7 @@ internal static class DateTimeParser
                 continue;
 
             if (designator.StartsWith(withoutTrailingDot, StringComparison.OrdinalIgnoreCase))
-                return string.Concat(s.AsSpan(0, start), designator, s.AsSpan(end));
+                return designator;
         }
 
         return null;
@@ -148,6 +160,18 @@ internal static class DateTimeParser
             return null;
 
         var format = c.DateTimeFormat;
+        var matchedMonth = FindUniqueMonthByPrefix(prefix, format);
+        return matchedMonth is null
+            ? null
+            : string.Concat(s.AsSpan(0, start), format.GetAbbreviatedMonthName(matchedMonth.Value), s.AsSpan(end));
+    }
+
+    /// <summary>
+    /// Returns the only month whose abbreviated or full name starts with <paramref name="prefix"/>,
+    /// or <c>null</c> when no month matches, more than one does, or a name equals the prefix exactly.
+    /// </summary>
+    private static int? FindUniqueMonthByPrefix(string prefix, DateTimeFormatInfo format)
+    {
         int? matchedMonth = null;
         for (var month = 1; month <= 12; month++)
         {
@@ -155,17 +179,11 @@ internal static class DateTimeParser
             var full = format.GetMonthName(month);
 
             // An exact name needs no expansion and must keep whatever meaning it already has.
-            if (string.Equals(abbreviated, prefix, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(full, prefix, StringComparison.OrdinalIgnoreCase))
-            {
+            if (EqualsIgnoreCase(abbreviated, prefix) || EqualsIgnoreCase(full, prefix))
                 return null;
-            }
 
-            if (!abbreviated.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-                !full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
+            if (!StartsWithIgnoreCase(abbreviated, prefix) && !StartsWithIgnoreCase(full, prefix))
                 continue;
-            }
 
             // Ambiguous between two months, so Excel couldn't have resolved it either.
             if (matchedMonth is not null)
@@ -174,8 +192,12 @@ internal static class DateTimeParser
             matchedMonth = month;
         }
 
-        return matchedMonth is null
-            ? null
-            : string.Concat(s.AsSpan(0, start), format.GetAbbreviatedMonthName(matchedMonth.Value), s.AsSpan(end));
+        return matchedMonth;
     }
+
+    private static bool EqualsIgnoreCase(string name, string prefix) =>
+        string.Equals(name, prefix, StringComparison.OrdinalIgnoreCase);
+
+    private static bool StartsWithIgnoreCase(string name, string prefix) =>
+        name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
 }

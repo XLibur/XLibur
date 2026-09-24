@@ -156,28 +156,31 @@ internal static class Statistical
             return XLError.NumberInvalid;
 
         if (cumulativeFlag)
-        {
-            var cdf = 0d;
-            for (var y = 0; y <= numberSuccesses; ++y)
-            {
-                var termResult = BinomDist(y, numberTrials, successProbability);
-                if (!termResult.TryPickT0(out var pf, out var termError))
-                    return termError;
-
-                cdf += pf;
-            }
-
-            if (double.IsNaN(cdf) || double.IsInfinity(cdf))
-                return XLError.NumberInvalid;
-
-            return cdf;
-        }
+            return BinomCumulativeDist(numberSuccesses, numberTrials, successProbability);
 
         var result = BinomDist(numberSuccesses, numberTrials, successProbability);
         if (!result.TryPickT0(out var binomDist, out var error))
             return error;
 
         return binomDist;
+    }
+
+    private static AnyValue BinomCumulativeDist(double numberSuccesses, double numberTrials, double successProbability)
+    {
+        var cdf = 0d;
+        for (var y = 0; y <= numberSuccesses; ++y)
+        {
+            var termResult = BinomDist(y, numberTrials, successProbability);
+            if (!termResult.TryPickT0(out var pf, out var termError))
+                return termError;
+
+            cdf += pf;
+        }
+
+        if (double.IsNaN(cdf) || double.IsInfinity(cdf))
+            return XLError.NumberInvalid;
+
+        return cdf;
     }
 
     private static OneOf<double, XLError> BinomDist(double x, double n, double p)
@@ -662,9 +665,7 @@ internal static class Statistical
     {
         // RANK(number, ref, [order]). number/order are scalars (implicitly intersected); ref is the
         // range/array (marked param 1). order = 0 or omitted ranks descending, non-zero ascending.
-        if (!args[0].TryPickScalar(out var numberScalar, out _))
-            return XLError.IncompatibleValue;
-        if (!numberScalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+        if (!TryPickScalarNumber(ctx, args[0], out var number, out var numberError))
             return numberError;
 
         if (!TryGetNumbers(ctx, args[1], out var numbers, out var refError))
@@ -673,9 +674,7 @@ internal static class Statistical
         var ascending = false;
         if (args.Length > 2)
         {
-            if (!args[2].TryPickScalar(out var orderScalar, out _))
-                return XLError.IncompatibleValue;
-            if (!orderScalar.ToNumber(ctx.Culture).TryPickT0(out var order, out var orderError))
+            if (!TryPickScalarNumber(ctx, args[2], out var order, out var orderError))
                 return orderError;
             ascending = order != 0;
         }
@@ -695,6 +694,21 @@ internal static class Statistical
         // for third takes ranks three and four, so both are reported as 3.5.
         var tied = numbers.Count(v => v == number);
         return rank + (tied - 1) / 2.0;
+    }
+
+    /// <summary>
+    /// Read a scalar argument as a number. Anything that is not a scalar is <c>#VALUE!</c>.
+    /// </summary>
+    private static bool TryPickScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
+    {
+        if (!value.TryPickScalar(out var scalar, out _))
+        {
+            number = 0;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
 
     private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
@@ -814,9 +828,7 @@ internal static class Statistical
         if (!TryGetNumbers(ctx, args[0], out var numbers, out var arrayError))
             return arrayError;
 
-        if (!args[1].TryPickScalar(out var xScalar, out _))
-            return XLError.IncompatibleValue;
-        if (!xScalar.ToNumber(ctx.Culture).TryPickT0(out var x, out var xError))
+        if (!TryPickScalarNumber(ctx, args[1], out var x, out var xError))
             return xError;
 
         if (!TryGetPercentRankSignificance(ctx, args, out var significance, out var significanceError))
@@ -830,18 +842,25 @@ internal static class Statistical
             return XLError.NoValueAvailable;
 
         var position = InterpolatedPosition(numbers, x);
-
-        // A single observation has no spread to place x within, so it ranks at the top.
-        var inclusiveRank = numbers.Count > 1 ? position / (numbers.Count - 1) : 1d;
-        var rank = exclusive
-            ? (position + 1) / (numbers.Count + 1)
-            : inclusiveRank;
+        var rank = PercentRankOfPosition(position, numbers.Count, exclusive);
 
         if (exclusive && (rank <= 0 || rank >= 1))
             return XLError.NoValueAvailable;
 
         var scale = Math.Pow(10, significance);
         return Math.Truncate(rank * scale) / scale;
+    }
+
+    /// <summary>
+    /// The rank of the interpolated <paramref name="position"/> among <paramref name="count"/> sorted values.
+    /// </summary>
+    private static double PercentRankOfPosition(double position, int count, bool exclusive)
+    {
+        // A single observation has no spread to place x within, so it ranks at the top.
+        var inclusiveRank = count > 1 ? position / (count - 1) : 1d;
+        return exclusive
+            ? (position + 1) / (count + 1)
+            : inclusiveRank;
     }
 
     /// <summary>

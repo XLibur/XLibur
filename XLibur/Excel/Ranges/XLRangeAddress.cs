@@ -298,21 +298,26 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     public string ToStringRelative(bool includeSheet)
     {
-        string address;
-        if (!IsValid)
-            address = RefError;
-        else
-        {
-            if (IsEntireSheet())
-                address = $"1:{XLHelper.MaxRowNumber}";
-            else if (IsEntireRow())
-                address = string.Concat(FirstAddress.RowNumber.ToString(), ":", LastAddress.RowNumber.ToString());
-            else if (IsEntireColumn())
-                address = string.Concat(FirstAddress.ColumnLetter, ":", LastAddress.ColumnLetter);
-            else
-                address = string.Concat(FirstAddress.ToStringRelative(), ":", LastAddress.ToStringRelative());
-        }
+        var address = IsValid ? RelativeAreaAddress() : RefError;
+        return PrependSheet(address, includeSheet);
+    }
 
+    private string RelativeAreaAddress()
+    {
+        if (IsEntireSheet())
+            return $"1:{XLHelper.MaxRowNumber}";
+
+        if (IsEntireRow())
+            return string.Concat(FirstAddress.RowNumber.ToString(), ":", LastAddress.RowNumber.ToString());
+
+        if (IsEntireColumn())
+            return string.Concat(FirstAddress.ColumnLetter, ":", LastAddress.ColumnLetter);
+
+        return string.Concat(FirstAddress.ToStringRelative(), ":", LastAddress.ToStringRelative());
+    }
+
+    private string PrependSheet(string address, bool includeSheet)
+    {
         if (includeSheet || WorksheetIsDeleted)
             return string.Concat(
                 WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
@@ -333,28 +338,23 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     public string ToStringFixed(XLReferenceStyle referenceStyle, bool includeSheet)
     {
-        string address;
-        if (!IsValid)
-            address = RefError;
-        else
-        {
-            if (IsEntireSheet())
-                address = $"$1:${XLHelper.MaxRowNumber}";
-            else if (IsEntireRow())
-                address = string.Concat("$", FirstAddress.RowNumber.ToString(), ":$", LastAddress.RowNumber.ToString());
-            else if (IsEntireColumn())
-                address = string.Concat("$", FirstAddress.ColumnLetter, ":$", LastAddress.ColumnLetter);
-            else
-                address = string.Concat(FirstAddress.ToStringFixed(referenceStyle), ":",
-                    LastAddress.ToStringFixed(referenceStyle));
-        }
+        var address = IsValid ? FixedAreaAddress(referenceStyle) : RefError;
+        return PrependSheet(address, includeSheet);
+    }
 
-        if (includeSheet || WorksheetIsDeleted)
-            return string.Concat(
-                WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
-                "!", address);
+    private string FixedAreaAddress(XLReferenceStyle referenceStyle)
+    {
+        if (IsEntireSheet())
+            return $"$1:${XLHelper.MaxRowNumber}";
 
-        return address;
+        if (IsEntireRow())
+            return string.Concat("$", FirstAddress.RowNumber.ToString(), ":$", LastAddress.RowNumber.ToString());
+
+        if (IsEntireColumn())
+            return string.Concat("$", FirstAddress.ColumnLetter, ":$", LastAddress.ColumnLetter);
+
+        return string.Concat(FirstAddress.ToStringFixed(referenceStyle), ":",
+            LastAddress.ToStringFixed(referenceStyle));
     }
 
     public override string ToString()

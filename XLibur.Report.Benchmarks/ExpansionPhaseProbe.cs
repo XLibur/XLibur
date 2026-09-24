@@ -110,41 +110,7 @@ public static class ExpansionPhaseProbe
 
             for (var row = from; row <= to; row++)
             {
-                switch (work)
-                {
-                    case Work.CopyTo:
-                        template.CopyTo(sheet.Cell(row, 1));
-                        break;
-
-                    case Work.CellsUsed:
-                        // Materialised, as the evaluator does: it writes to the cells it enumerates.
-                        _ = sheet.Range(row, 1, row, 10).CellsUsed(XLCellsUsedOptions.Contents).ToList();
-                        break;
-
-                    case Work.NewRange:
-                        _ = sheet.Range(row, 1, row, 10);
-                        break;
-
-                    case Work.SameRange:
-                        _ = sheet.Range(1, 1, 1, 10);
-                        break;
-
-                    case Work.Clear:
-                        sheet.Range(row, 1, row, 10).Clear();
-                        break;
-
-                    case Work.CopyCell:
-                        sheet.Cell(row, 1).CopyFrom(sheet.Cell(1, 1));
-                        break;
-
-                    case Work.ClearContents:
-                        sheet.Range(row, 1, row, 10).Clear(XLClearOptions.Contents);
-                        break;
-
-                    case Work.ClearDv:
-                        sheet.Range(row, 1, row, 10).Clear(XLClearOptions.DataValidation);
-                        break;
-                }
+                DoWork(sheet, template, row, work);
             }
 
             stopwatch.Stop();
@@ -165,6 +131,45 @@ public static class ExpansionPhaseProbe
         if (title is not null)
         {
             Console.WriteLine();
+        }
+    }
+
+    private static void DoWork(IXLWorksheet sheet, IXLRange template, int row, Work work)
+    {
+        switch (work)
+        {
+            case Work.CopyTo:
+                template.CopyTo(sheet.Cell(row, 1));
+                break;
+
+            case Work.CellsUsed:
+                // Materialised, as the evaluator does: it writes to the cells it enumerates.
+                _ = sheet.Range(row, 1, row, 10).CellsUsed(XLCellsUsedOptions.Contents).ToList();
+                break;
+
+            case Work.NewRange:
+                _ = sheet.Range(row, 1, row, 10);
+                break;
+
+            case Work.SameRange:
+                _ = sheet.Range(1, 1, 1, 10);
+                break;
+
+            case Work.Clear:
+                sheet.Range(row, 1, row, 10).Clear();
+                break;
+
+            case Work.CopyCell:
+                sheet.Cell(row, 1).CopyFrom(sheet.Cell(1, 1));
+                break;
+
+            case Work.ClearContents:
+                sheet.Range(row, 1, row, 10).Clear(XLClearOptions.Contents);
+                break;
+
+            case Work.ClearDv:
+                sheet.Range(row, 1, row, 10).Clear(XLClearOptions.DataValidation);
+                break;
         }
     }
 }

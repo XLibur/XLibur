@@ -76,23 +76,34 @@ internal class XLRepositoryBase<Tkey, Tvalue> : IXLRepository<Tkey, Tvalue>
 
         while (true)
         {
-            if (_storage.TryGetValue(key, out var cachedReference))
+            if (TryStoreOnce(ref key, value, out var stored))
+                return stored;
+        }
+    }
+
+    /// <summary>
+    /// One attempt of <see cref="Store"/>. Returns <c>false</c> when a concurrent writer changed the
+    /// entry under <paramref name="key"/> first, and the caller has to try again.
+    /// </summary>
+    private bool TryStoreOnce(ref Tkey key, Tvalue value, out Tvalue stored)
+    {
+        if (_storage.TryGetValue(key, out var cachedReference))
+        {
+            if (cachedReference.TryGetTarget(out var storedValue))
             {
-                if (cachedReference.TryGetTarget(out var storedValue))
-                    return storedValue;
-
-                // The entry is a collected shell. Swap it atomically so that a racing reviver or
-                // a concurrent prune cannot make two callers walk away with different instances
-                // for the same key: whoever loses the swap loops and picks up the winner's value.
-                if (_storage.TryUpdate(key, new WeakReference<Tvalue>(value), cachedReference))
-                    return value;
-
-                continue;
+                stored = storedValue;
+                return true;
             }
 
-            if (_storage.TryAdd(key, new WeakReference<Tvalue>(value)))
-                return value;
+            // The entry is a collected shell. Swap it atomically so that a racing reviver or
+            // a concurrent prune cannot make two callers walk away with different instances
+            // for the same key: whoever loses the swap loops and picks up the winner's value.
+            stored = value;
+            return _storage.TryUpdate(key, new WeakReference<Tvalue>(value), cachedReference);
         }
+
+        stored = value;
+        return _storage.TryAdd(key, new WeakReference<Tvalue>(value));
     }
 
     public Tvalue GetOrCreate(ref Tkey key)

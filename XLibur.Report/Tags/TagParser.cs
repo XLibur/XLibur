@@ -52,16 +52,10 @@ internal static class TagParser
 
         while (index < text.Length)
         {
-            while (index < text.Length && char.IsWhiteSpace(text[index]))
-            {
-                index++;
-            }
+            index = SkipWhiteSpace(text, index);
 
             var nameStart = index;
-            while (index < text.Length && !char.IsWhiteSpace(text[index]) && text[index] != '=')
-            {
-                index++;
-            }
+            index = SkipName(text, index);
 
             if (index == nameStart)
             {
@@ -84,6 +78,27 @@ internal static class TagParser
         }
 
         return parameters;
+    }
+
+    private static int SkipWhiteSpace(string text, int index)
+    {
+        while (index < text.Length && char.IsWhiteSpace(text[index]))
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    /// <summary>Steps past a parameter name, which ends at white space or an <c>=</c>.</summary>
+    private static int SkipName(string text, int index)
+    {
+        while (index < text.Length && !char.IsWhiteSpace(text[index]) && text[index] != '=')
+        {
+            index++;
+        }
+
+        return index;
     }
 
     private static string ReadValue(string text, ref int index)

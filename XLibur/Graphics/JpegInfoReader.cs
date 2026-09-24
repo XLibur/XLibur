@@ -31,11 +31,7 @@ internal sealed class JpegInfoReader : ImageInfoReader
                 case Marker.APP0:
                     return IsIdentifier(stream, APP0Identifer);
                 case Marker.APP1:
-                    var app1Pos = stream.Position;
-                    if (IsIdentifier(stream, APP1Identifer))
-                        return true;
-                    stream.Position = app1Pos;
-                    return IsIdentifier(stream, APP1XmpIdentifier);
+                    return IsApp1Identifier(stream);
                 case Marker.APP2:
                     return IsIdentifier(stream, APP2IccIdentifier);
                 case Marker.APP14:
@@ -49,18 +45,30 @@ internal sealed class JpegInfoReader : ImageInfoReader
         }
 
         return false;
+    }
 
-        static bool IsIdentifier(Stream stream, byte[] identifer)
-        {
-            foreach (var expected in identifer)
-            {
-                var b = stream.ReadByte();
-                if (b == -1 || (byte)b != expected)
-                    return false;
-            }
-
+    /// <summary>
+    /// APP1 carries either EXIF or XMP data.
+    /// </summary>
+    private static bool IsApp1Identifier(Stream stream)
+    {
+        var app1Pos = stream.Position;
+        if (IsIdentifier(stream, APP1Identifer))
             return true;
+        stream.Position = app1Pos;
+        return IsIdentifier(stream, APP1XmpIdentifier);
+    }
+
+    private static bool IsIdentifier(Stream stream, byte[] identifer)
+    {
+        foreach (var expected in identifer)
+        {
+            var b = stream.ReadByte();
+            if (b == -1 || (byte)b != expected)
+                return false;
         }
+
+        return true;
     }
 
     protected override XLPictureInfo ReadInfo(Stream stream)

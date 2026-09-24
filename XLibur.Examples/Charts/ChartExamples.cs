@@ -11,33 +11,6 @@ public class ChartExamples : IXLExample
     {
         var wb = new XLWorkbook();
 
-        // ── Helper: write shared sample data to a sheet ──
-        void WriteData2Col(IXLWorksheet ws, string[] cats, double[] vals)
-        {
-            ws.Cell("A1").Value = "Category";
-            ws.Cell("B1").Value = "Value";
-            for (var i = 0; i < cats.Length; i++)
-            {
-                ws.Cell(i + 2, 1).Value = cats[i];
-                ws.Cell(i + 2, 2).Value = vals[i];
-            }
-            ws.Columns("A", "B").AdjustToContents();
-        }
-
-        void WriteData3Col(IXLWorksheet ws, string[] cats, double[] v1, double[] v2)
-        {
-            ws.Cell("A1").Value = "Category";
-            ws.Cell("B1").Value = "Series 1";
-            ws.Cell("C1").Value = "Series 2";
-            for (var i = 0; i < cats.Length; i++)
-            {
-                ws.Cell(i + 2, 1).Value = cats[i];
-                ws.Cell(i + 2, 2).Value = v1[i];
-                ws.Cell(i + 2, 3).Value = v2[i];
-            }
-            ws.Columns("A", "C").AdjustToContents();
-        }
-
         IXLWorksheet ws;
 
         void AddChart(XLChartType type, string title, string valRef, string catRef, (int Row, int Col) pos)
@@ -373,5 +346,32 @@ public class ChartExamples : IXLExample
         bw.Position.SetColumn(0).SetRow(11); bw.SecondPosition.SetColumn(9).SetRow(26);
 
         wb.SaveAs(filePath);
+    }
+
+    // ── Helper: write shared sample data to a sheet ──
+    private static void WriteData2Col(IXLWorksheet ws, string[] cats, double[] vals)
+    {
+        ws.Cell("A1").Value = "Category";
+        ws.Cell("B1").Value = "Value";
+        for (var i = 0; i < cats.Length; i++)
+        {
+            ws.Cell(i + 2, 1).Value = cats[i];
+            ws.Cell(i + 2, 2).Value = vals[i];
+        }
+        ws.Columns("A", "B").AdjustToContents();
+    }
+
+    private static void WriteData3Col(IXLWorksheet ws, string[] cats, double[] v1, double[] v2)
+    {
+        ws.Cell("A1").Value = "Category";
+        ws.Cell("B1").Value = "Series 1";
+        ws.Cell("C1").Value = "Series 2";
+        for (var i = 0; i < cats.Length; i++)
+        {
+            ws.Cell(i + 2, 1).Value = cats[i];
+            ws.Cell(i + 2, 2).Value = v1[i];
+            ws.Cell(i + 2, 3).Value = v2[i];
+        }
+        ws.Columns("A", "C").AdjustToContents();
     }
 }

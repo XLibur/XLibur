@@ -591,10 +591,7 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
     /// </returns>
     internal bool TryDeleteAreaAndShiftLeft(Area deletedArea, out Area? result)
     {
-        // Deleted area is fully upwards, downwards or to the right of this area.
-        if (deletedArea.BottomRow < TopRow ||
-            deletedArea.TopRow > BottomRow ||
-            deletedArea.LeftColumn > RightColumn)
+        if (IsUnaffectedByShiftLeftDeletion(deletedArea))
         {
             result = this;
             return true;
@@ -615,11 +612,7 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
         if (deletesColumnsOfArea)
         {
             // Decrease width of repositioned area
-            var left = Math.Max(deletedArea.LeftColumn, repositioned.LeftColumn);
-            var right = Math.Min(deletedArea.RightColumn, repositioned.RightColumn);
-
-            var columnsToDelete = right - left + 1;
-            var newWidth = repositioned.Width - columnsToDelete;
+            var newWidth = repositioned.Width - repositioned.CountOverlappingColumns(deletedArea);
             if (newWidth == 0)
             {
                 result = null;
@@ -643,6 +636,27 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
     }
 
     /// <summary>
+    /// Is the <paramref name="deletedArea"/> fully upwards, downwards or to the right of this area,
+    /// so a delete with shift left doesn't move it?
+    /// </summary>
+    private bool IsUnaffectedByShiftLeftDeletion(Area deletedArea)
+    {
+        return deletedArea.BottomRow < TopRow ||
+               deletedArea.TopRow > BottomRow ||
+               deletedArea.LeftColumn > RightColumn;
+    }
+
+    /// <summary>
+    /// Number of columns of this area that are also columns of <paramref name="deletedArea"/>.
+    /// </summary>
+    private int CountOverlappingColumns(Area deletedArea)
+    {
+        var left = Math.Max(deletedArea.LeftColumn, LeftColumn);
+        var right = Math.Min(deletedArea.RightColumn, RightColumn);
+        return right - left + 1;
+    }
+
+    /// <summary>
     /// Take the area and reposition it as if the <paramref name="deletedArea"/> was removed
     /// from sheet. If cells upward of the area are deleted, the area shifts to the upward.
     /// If <paramref name="deletedArea"/> is within the area, the height of the area decreases.
@@ -657,10 +671,7 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
     /// </returns>
     internal bool TryDeleteAreaAndShiftUp(Area deletedArea, out Area? result)
     {
-        // Deleted area is fully on left, right or bottom side of this area.
-        if (deletedArea.RightColumn < LeftColumn ||
-            deletedArea.LeftColumn > RightColumn ||
-            deletedArea.TopRow > BottomRow)
+        if (IsUnaffectedByShiftUpDeletion(deletedArea))
         {
             result = this;
             return true;
@@ -681,11 +692,7 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
         if (deletesRowsOfArea)
         {
             // Decrease height of repositioned area
-            var top = Math.Max(deletedArea.TopRow, repositioned.TopRow);
-            var bottom = Math.Min(deletedArea.BottomRow, repositioned.BottomRow);
-
-            var rowsToDelete = bottom - top + 1;
-            var newHeight = repositioned.Height - rowsToDelete;
+            var newHeight = repositioned.Height - repositioned.CountOverlappingRows(deletedArea);
             if (newHeight == 0)
             {
                 result = null;
@@ -706,6 +713,27 @@ internal readonly struct Area : IEquatable<Area>, IEnumerable<Point>
 
         result = repositioned;
         return true;
+    }
+
+    /// <summary>
+    /// Is the <paramref name="deletedArea"/> fully on left, right or bottom side of this area,
+    /// so a delete with shift up doesn't move it?
+    /// </summary>
+    private bool IsUnaffectedByShiftUpDeletion(Area deletedArea)
+    {
+        return deletedArea.RightColumn < LeftColumn ||
+               deletedArea.LeftColumn > RightColumn ||
+               deletedArea.TopRow > BottomRow;
+    }
+
+    /// <summary>
+    /// Number of rows of this area that are also rows of <paramref name="deletedArea"/>.
+    /// </summary>
+    private int CountOverlappingRows(Area deletedArea)
+    {
+        var top = Math.Max(deletedArea.TopRow, TopRow);
+        var bottom = Math.Min(deletedArea.BottomRow, BottomRow);
+        return bottom - top + 1;
     }
 
     /// <summary>

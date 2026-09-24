@@ -254,28 +254,13 @@ internal readonly struct ScalarValue
         // percent sign, neither of which NumberStyles.AllowParentheses accepts.
         var bracketedValue = RemoveNegatingBraces(text, culture);
         if (bracketedValue is not null)
-        {
-            return TextToNumber(bracketedValue, culture)
-                .TryPickT0(out var bracketedNumber, out var bracketedError)
-                ? -bracketedNumber
-                : bracketedError;
-        }
+            return Negate(TextToNumber(bracketedValue, culture));
 
         // Percents. Percent sign can be at both sides.
         // Format 9 '0%'
         //       10 '0.00%'
-        var textSpan = text.AsSpan(); // Avoid extra allocations for trimming/substrings if not match
-        var textSpanTrimmedEnd = textSpan.TrimEnd();
-        var percentSymbol = culture.NumberFormat.PercentSymbol.AsSpan();
-        if (textSpanTrimmedEnd.EndsWith(percentSymbol))
-            return ParsePercent(text, 0, textSpanTrimmedEnd.Length - percentSymbol.Length, culture);
-
-        var textSpanTrimmedStart = textSpan.TrimStart();
-        if (textSpanTrimmedStart.StartsWith(percentSymbol))
-        {
-            var newStart = text.Length - textSpanTrimmedStart.Length + percentSymbol.Length;
-            return ParsePercent(text, newStart, text.Length - newStart, culture);
-        }
+        if (TryParsePercentSign(text, culture, out var percent))
+            return percent;
 
         // Fractions
         // Format 12 '# ?/?'
@@ -287,6 +272,36 @@ internal readonly struct ScalarValue
             return serialDateTime;
 
         return XLError.IncompatibleValue;
+    }
+
+    private static OneOf<double, XLError> Negate(OneOf<double, XLError> value)
+    {
+        return value.TryPickT0(out var number, out var error) ? -number : error;
+    }
+
+    // Whether the text has a percent sign at either end. When it does, the result is the parsed
+    // percentage, or an error when the rest isn't a number.
+    private static bool TryParsePercentSign(string text, CultureInfo culture, out OneOf<double, XLError> result)
+    {
+        var textSpan = text.AsSpan(); // Avoid extra allocations for trimming/substrings if not match
+        var textSpanTrimmedEnd = textSpan.TrimEnd();
+        var percentSymbol = culture.NumberFormat.PercentSymbol.AsSpan();
+        if (textSpanTrimmedEnd.EndsWith(percentSymbol))
+        {
+            result = ParsePercent(text, 0, textSpanTrimmedEnd.Length - percentSymbol.Length, culture);
+            return true;
+        }
+
+        var textSpanTrimmedStart = textSpan.TrimStart();
+        if (textSpanTrimmedStart.StartsWith(percentSymbol))
+        {
+            var newStart = text.Length - textSpanTrimmedStart.Length + percentSymbol.Length;
+            result = ParsePercent(text, newStart, text.Length - newStart, culture);
+            return true;
+        }
+
+        result = default;
+        return false;
     }
 
     private static OneOf<double, XLError> ParsePercent(string text, int start, int length, CultureInfo c)
@@ -449,14 +464,27 @@ internal readonly struct ScalarValue
             return true;
         }
 
+        if (!hasLeadingWhitespace && TryParseMonthFirstDate(text, culture, dateStyle, out date))
+        {
+            return true;
+        }
+
+        date = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Match the month-first patterns of format 17: a month followed by a day or by a year.
+    /// </summary>
+    private static bool TryParseMonthFirstDate(string text, CultureInfo culture, DateTimeStyles dateStyle, out DateTime date)
+    {
         // Excel has an extra 'mmm-dd' pattern ahead of 'mmm-yy' in cultures that write the month
         // before the day, so under en-US 'jan-02' is the second of January of the current year rather
         // than January 2002. Cultures that write the day first only have the year reading, which is
         // why cs-CZ reads 'led-5' as January 2005. Parsing happens in year 1 (NoCurrentDateDefault),
         // so a number that isn't a valid day falls through to the year reading below, and so does
         // 'feb-29', which no year 1 can hold.
-        if (!hasLeadingWhitespace &&
-            IsMonthBeforeDay(culture) &&
+        if (IsMonthBeforeDay(culture) &&
             DateTime.TryParseExact(text, ["MMM-d", "MMMM-d"], culture, dateStyle, out var dateFormat17AsDay))
         {
             date = dateFormat17AsDay.AddYears(DateTime.Now.Year - dateFormat17AsDay.Year);
@@ -466,17 +494,13 @@ internal readonly struct ScalarValue
         // Month and a number. In some cultures, the culture date parsing will interpret this pattern as MMM-dd, but
         // that depends on culture date patterns above. Use MMM and MMMM to encompass both abbreviation and full name.
         // Format 17 'mmm-yy'
-        if (!hasLeadingWhitespace &&
-            DateTime.TryParseExact(text, ["MMM-y", "MMMM-y"], culture, dateStyle, out date))
-        {
-            if (date.Year != DateTime.Now.Year && date.Year >= 2030)
-                date = date.AddYears(-100);
+        if (!DateTime.TryParseExact(text, ["MMM-y", "MMMM-y"], culture, dateStyle, out date))
+            return false;
 
-            return true;
-        }
+        if (date.Year != DateTime.Now.Year && date.Year >= 2030)
+            date = date.AddYears(-100);
 
-        date = default;
-        return false;
+        return true;
     }
 
     private static bool TryParseDateWithOverflowTime(string text, CultureInfo culture, out double serialDateTime)
@@ -488,18 +512,7 @@ internal readonly struct ScalarValue
         // where the time is far more likely to start.
         for (var i = text.Length - 1; i > 0; i--)
         {
-            if (text[i] != ' ')
-                continue;
-
-            var datePart = text.Substring(0, i);
-            var timePart = text.Substring(i + 1);
-            if (timePart.Length == 0)
-                continue;
-
-            if (!DateTimeParser.TryParseCultureDate(datePart, culture, out var date))
-                continue;
-
-            if (!TimeSpanParser.TryParseTime(timePart, culture, out var time))
+            if (!TrySplitDateAndTime(text, i, culture, out var date, out var time))
                 continue;
 
             if (!ToSerialDate(date, out var serialDate))
@@ -510,6 +523,24 @@ internal readonly struct ScalarValue
         }
 
         return false;
+    }
+
+    // Read the text as a culture date and a time, split at the space at the index. The time may
+    // overflow its normal range.
+    private static bool TrySplitDateAndTime(string text, int index, CultureInfo culture, out DateTime date, out TimeSpan time)
+    {
+        date = default;
+        time = default;
+        if (text[index] != ' ')
+            return false;
+
+        var datePart = text.Substring(0, index);
+        var timePart = text.Substring(index + 1);
+        if (timePart.Length == 0)
+            return false;
+
+        return DateTimeParser.TryParseCultureDate(datePart, culture, out date) &&
+               TimeSpanParser.TryParseTime(timePart, culture, out time);
     }
 
     // Whether the culture writes '3/1' as the first of March or the third of January.

@@ -335,6 +335,24 @@ internal static class SheetDataWriter
 
         WriteStartFormulaCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc, cmIndex);
 
+        WriteFormulaElement(xml, xlWorksheet, formula, point);
+
+        // Write cached value if present and the formula isn't dirty. Spilled (non-master)
+        // array-formula cells also fall through here so their cached values round-trip.
+        if (cachedValueType != XLDataType.Blank && formula.IsClean())
+        {
+            WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
+        }
+
+        xml.WriteEndElement(); // cell
+    }
+
+    /// <summary>
+    /// Write the <c>f</c> element of a formula cell, or nothing for a non-master cell of an array formula.
+    /// </summary>
+    private static void WriteFormulaElement(XmlWriter xml, XLWorksheet xlWorksheet, XLCellFormula formula,
+        Point point)
+    {
         if (formula.Type == FormulaType.DataTable)
         {
             WriteDataTableFormula(xml, formula);
@@ -373,15 +391,6 @@ internal static class SheetDataWriter
             xml.WriteString(formula.A1);
             xml.WriteEndElement(); // f
         }
-
-        // Write cached value if present and the formula isn't dirty. Spilled (non-master)
-        // array-formula cells also fall through here so their cached values round-trip.
-        if (cachedValueType != XLDataType.Blank && formula.IsClean())
-        {
-            WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
-        }
-
-        xml.WriteEndElement(); // cell
     }
 
     /// <summary>
@@ -460,42 +469,45 @@ internal static class SheetDataWriter
         var cellsCollection = ctx.CellsCollection;
         var xlWorksheet = cellsCollection.Worksheet;
 
-        XLTable? containingTable = null;
+        var field = FindTableFieldAt(xlWorksheet, point);
+        if (field is null || string.IsNullOrWhiteSpace(field.TotalsRowLabel))
+            return;
+
+        var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
+        var sharedStringId = ctx.SaveContext.GetSharedStringId(memorySstId, point);
+
+        Span<char> cellRefSpan = ctx.CellRef;
+        var cellRefLen = point.Format(cellRefSpan);
+        ref readonly var misc = ref cellsCollection.MiscSlice[point];
+
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, "s", cellStyleId, in misc);
+        CellXmlWriter.WriteSharedStringValue(xml, sharedStringId);
+        xml.WriteEndElement(); // cell
+    }
+
+    /// <summary>
+    /// The field, in the first table containing <paramref name="point"/>, whose column holds it.
+    /// </summary>
+    private static XLTableField? FindTableFieldAt(XLWorksheet xlWorksheet, Point point)
+    {
         foreach (var table in xlWorksheet.Tables)
         {
             if (table.Area.Contains(point))
-            {
-                containingTable = table;
-                break;
-            }
+                return FindTableFieldInColumn(table, point.Column);
         }
 
-        XLTableField? field = null;
-        if (containingTable is not null)
+        return null;
+    }
+
+    private static XLTableField? FindTableFieldInColumn(XLTable table, int column)
+    {
+        foreach (var f in table.Fields)
         {
-            foreach (var f in containingTable.Fields)
-            {
-                if (f.Column.ColumnNumber() == point.Column)
-                {
-                    field = (XLTableField)f;
-                    break;
-                }
-            }
+            if (f.Column.ColumnNumber() == column)
+                return (XLTableField)f;
         }
 
-        if (field is not null && !string.IsNullOrWhiteSpace(field.TotalsRowLabel))
-        {
-            var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
-            var sharedStringId = ctx.SaveContext.GetSharedStringId(memorySstId, point);
-
-            Span<char> cellRefSpan = ctx.CellRef;
-            var cellRefLen = point.Format(cellRefSpan);
-            ref readonly var misc = ref cellsCollection.MiscSlice[point];
-
-            WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, "s", cellStyleId, in misc);
-            CellXmlWriter.WriteSharedStringValue(xml, sharedStringId);
-            xml.WriteEndElement(); // cell
-        }
+        return null;
     }
 
     /// <summary>

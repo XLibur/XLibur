@@ -1110,9 +1110,31 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp ? -numberOfRows : -numberOfColumns);
         }
 
+        ShiftCellsAndSparklines(shiftDeleteCells, moveCells, numberOfRows, numberOfColumns,
+            out var columnModifier, out var rowModifier);
+
+        var mergesToRemove = Worksheet.Internals.MergedRanges.Where(Contains).ToList();
+        mergesToRemove.ForEach(r => Worksheet.Internals.MergedRanges.Remove(r));
+
+        var shiftedRange = AsRange();
+        if (shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp)
+            Worksheet.NotifyRangeShiftedRows(shiftedRange, rowModifier * -1);
+        else
+            Worksheet.NotifyRangeShiftedColumns(shiftedRange, columnModifier * -1);
+
+        Worksheet.DeleteRange(RangeAddress);
+    }
+
+    /// <summary>
+    /// Closes the gap left by the deleted range: moves the cells (unless <paramref name="moveCells"/>
+    /// is <c>false</c>) and the sparklines, and reports how far the surviving range shifted.
+    /// </summary>
+    private void ShiftCellsAndSparklines(XLShiftDeletedCells shiftDeleteCells, bool moveCells,
+        int numberOfRows, int numberOfColumns, out int columnModifier, out int rowModifier)
+    {
         // Range to shift...
-        var columnModifier = 0;
-        var rowModifier = 0;
+        columnModifier = 0;
+        rowModifier = 0;
         var range = Area.FromRangeAddress(RangeAddress);
         switch (shiftDeleteCells)
         {
@@ -1132,17 +1154,6 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
                 rowModifier = RowCount();
                 break;
         }
-
-        var mergesToRemove = Worksheet.Internals.MergedRanges.Where(Contains).ToList();
-        mergesToRemove.ForEach(r => Worksheet.Internals.MergedRanges.Remove(r));
-
-        var shiftedRange = AsRange();
-        if (shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp)
-            Worksheet.NotifyRangeShiftedRows(shiftedRange, rowModifier * -1);
-        else
-            Worksheet.NotifyRangeShiftedColumns(shiftedRange, columnModifier * -1);
-
-        Worksheet.DeleteRange(RangeAddress);
     }
 
     public override string ToString()

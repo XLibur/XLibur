@@ -556,14 +556,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         while (true)
         {
             var current = chain.Current;
-            var sheetId = current.SheetId;
-
-            if (recalculateSheetId is not null && sheetId != recalculateSheetId.Value)
+            if (IsOutsideRecalculatedSheet(current.SheetId, recalculateSheetId))
                 break;
 
-            if (!sheetIdMap.TryGetValue(sheetId, out var sheetInfo))
-                throw new InvalidOperationException($"Unable to find sheet with sheetId {sheetId} for a point ${current.Point}.");
-
+            var sheetInfo = GetChainSheet(sheetIdMap, current);
             if (chain.IsCurrentInCycle)
             {
                 // The chain has found the cycle at this cell, which is left dirty. The rest of the
@@ -573,10 +569,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 break;
             }
 
-            var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
-            if (cellFormula is null)
-                throw new InvalidOperationException($"Calculation chain contains a '${sheetInfo.Sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
-
+            var cellFormula = GetChainFormula(sheetInfo.Sheet, sheetInfo.FormulaSlice, current);
             if (cellFormula.IsClean())
                 break;
 
@@ -584,6 +577,31 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     recalculateSheetId, entry, ref leftDirty))
                 break;
         }
+    }
+
+    /// <summary>
+    /// Whether the recalculation is limited to one sheet and the cell lies on another.
+    /// </summary>
+    private static bool IsOutsideRecalculatedSheet(uint sheetId, uint? recalculateSheetId)
+        => recalculateSheetId is not null && sheetId != recalculateSheetId.Value;
+
+    private static (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice) GetChainSheet(
+        Dictionary<uint, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)> sheetIdMap,
+        SheetPoint current)
+    {
+        if (!sheetIdMap.TryGetValue(current.SheetId, out var sheetInfo))
+            throw new InvalidOperationException($"Unable to find sheet with sheetId {current.SheetId} for a point ${current.Point}.");
+
+        return sheetInfo;
+    }
+
+    private static XLCellFormula GetChainFormula(XLWorksheet sheet, FormulaSlice formulaSlice, SheetPoint current)
+    {
+        var cellFormula = formulaSlice.Get(current.Point);
+        if (cellFormula is null)
+            throw new InvalidOperationException($"Calculation chain contains a '${sheet.Name}'!${current.Point}, but the cell doesn't contain formula.");
+
+        return cellFormula;
     }
 
     /// <summary>
@@ -831,18 +849,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             // Erase any cell of the previous footprint that the new one no longer covers
             // (the array shrank or moved) before writing the fresh result.
             ClearSpillFootprint(previousRange, newFootprint, valueSlice);
-
-            for (var rowOffset = 0; rowOffset < array.Height; ++rowOffset)
-            {
-                for (var colOffset = 0; colOffset < array.Width; ++colOffset)
-                {
-                    var point = new Point(anchor.Row + rowOffset, anchor.Column + colOffset);
-
-                    // inline: a spilled cell holds a formula result, so its text belongs in the
-                    // cell's own <v>, not in the shared string table.
-                    valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue(), inline: true);
-                }
-            }
+            WriteSpilledValues(array, anchor, valueSlice);
         }
 
         formula.Range = newFootprint;
@@ -858,6 +865,24 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             var formulaArea = new SheetArea(sheet.Name, newFootprint);
             _dependencyTree.UpdateSpillFootprint(formulaArea, formula, sheet.Workbook);
+        }
+    }
+
+    /// <summary>
+    /// Writes every element of the array into the cell at the same offset from the anchor.
+    /// </summary>
+    private static void WriteSpilledValues(Array array, Point anchor, ValueSlice valueSlice)
+    {
+        for (var rowOffset = 0; rowOffset < array.Height; ++rowOffset)
+        {
+            for (var colOffset = 0; colOffset < array.Width; ++colOffset)
+            {
+                var point = new Point(anchor.Row + rowOffset, anchor.Column + colOffset);
+
+                // inline: a spilled cell holds a formula result, so its text belongs in the
+                // cell's own <v>, not in the shared string table.
+                valueSlice.SetCellValue(point, array[rowOffset, colOffset].ToCellValue(), inline: true);
+            }
         }
     }
 
@@ -931,19 +956,23 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         {
             for (var column = anchor.Column; column <= lastColumn; ++column)
             {
-                var point = new Point(row, column);
-                if (point == anchor || ownedRange.Contains(point))
-                    continue;
-
-                if (formulaSlice.Get(point) is not null)
-                    return true;
-
-                if (!valueSlice.GetCellValue(point).IsBlank)
+                if (BlocksSpill(new Point(row, column), anchor, ownedRange, valueSlice, formulaSlice))
                     return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Whether a cell of the prospective footprint blocks the spill. See <see cref="HasSpillCollision"/>.
+    /// </summary>
+    private static bool BlocksSpill(Point point, Point anchor, Area ownedRange, ValueSlice valueSlice, FormulaSlice formulaSlice)
+    {
+        if (point == anchor || ownedRange.Contains(point))
+            return false;
+
+        return formulaSlice.Get(point) is not null || !valueSlice.GetCellValue(point).IsBlank;
     }
 
     /// <summary>

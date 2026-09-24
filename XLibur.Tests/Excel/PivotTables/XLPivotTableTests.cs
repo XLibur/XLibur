@@ -1054,17 +1054,7 @@ public class XLPivotTableTests
                 // Create the pivot table, using the data from the "PastrySalesData" table
                 var pt = ptSheet.PivotTables.Add("pvt" + i, ptSheet.Cell(1, 1), table);
 
-                if (i == 1 || i == 4 || i == 5)
-                    pt.ColumnLabels.Add("Name");
-                else if (i == 2 || i == 3)
-                    pt.RowLabels.Add("Name");
-
-                if (i == 1 || i == 3)
-                    pt.RowLabels.Add("Month");
-                else if (i == 2 || i == 4)
-                    pt.ColumnLabels.Add("Month");
-                else if (i == 5)
-                    pt.RowLabels.Add("BakeDate");
+                AddBlankPivotTableFieldLabels(pt, i);
 
                 // The values in our table will come from the "NumberOfOrders" field
                 // The default calculation setting is a total of each row/column
@@ -1077,6 +1067,22 @@ public class XLPivotTableTests
 
             return wb;
         }, @"Other\PivotTableReferenceFiles\BlankPivotTableField\BlankPivotTableField.xlsx");
+    }
+
+    /// <summary>Places the Name and Month (or BakeDate) fields of the <paramref name="i"/>-th pivot table.</summary>
+    private static void AddBlankPivotTableFieldLabels(IXLPivotTable pt, int i)
+    {
+        if (i == 1 || i == 4 || i == 5)
+            pt.ColumnLabels.Add("Name");
+        else if (i == 2 || i == 3)
+            pt.RowLabels.Add("Name");
+
+        if (i == 1 || i == 3)
+            pt.RowLabels.Add("Month");
+        else if (i == 2 || i == 4)
+            pt.ColumnLabels.Add("Month");
+        else if (i == 5)
+            pt.RowLabels.Add("BakeDate");
     }
 
     [Test]

@@ -791,25 +791,36 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (!IsContentEmpty())
             return false;
 
+        return !IsFormattedOrMerged(options) && !IsAnnotated(options);
+    }
+
+    /// <summary>
+    /// Is the cell used through its format or a merged range (only for aspects requested by <paramref name="options"/>)?
+    /// </summary>
+    private bool IsFormattedOrMerged(XLCellsUsedOptions options)
+    {
         if (options.HasFlag(XLCellsUsedOptions.NormalFormats) && !IsFormatEmpty())
-            return false;
+            return true;
 
-        if (options.HasFlag(XLCellsUsedOptions.MergedRanges) && IsMerged())
-            return false;
+        return options.HasFlag(XLCellsUsedOptions.MergedRanges) && IsMerged();
+    }
 
+    /// <summary>
+    /// Is the cell used through a comment, data validation, conditional format or sparkline (only for
+    /// aspects requested by <paramref name="options"/>)?
+    /// </summary>
+    private bool IsAnnotated(XLCellsUsedOptions options)
+    {
         if (options.HasFlag(XLCellsUsedOptions.Comments) && (HasComment || HasThreadedComment))
-            return false;
+            return true;
 
         if (options.HasFlag(XLCellsUsedOptions.DataValidation) && HasDataValidation)
-            return false;
+            return true;
 
         if (options.HasFlag(XLCellsUsedOptions.ConditionalFormats) && IsInsideConditionalFormat())
-            return false;
+            return true;
 
-        if (options.HasFlag(XLCellsUsedOptions.Sparklines) && HasSparkline)
-            return false;
-
-        return true;
+        return options.HasFlag(XLCellsUsedOptions.Sparklines) && HasSparkline;
     }
 
     private bool IsInsideConditionalFormat()
@@ -1160,32 +1171,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         if (formula.Type == FormulaType.Normal)
         {
-            // A formula whose furthest reference stops above the shifted region cannot be rewritten
-            // by this shift, so skip the parse the shifter would otherwise pay to discover that.
-            // Dynamic arrays are excluded: their spill footprint is relocated below even when the
-            // formula text is untouched, and so is an array's stored Range further down.
-            if (!formula.IsDynamicArray &&
-                formula.MaxShiftableRow < shiftedRange.RangeAddress.FirstAddress.RowNumber)
-            {
-                return;
-            }
-
-            var shiftedNormal = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
-
-            if (formula.IsDynamicArray)
-            {
-                ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
-                    () => ShiftArrayRangeRows(formula.Range, shiftedRange, rowsShifted));
-                return;
-            }
-
-            if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-            {
-                FormulaA1 = shiftedNormal;
-                Formula?.SeedShiftedExtentFrom(
-                    formula, shiftedRange.RangeAddress.FirstAddress.RowNumber, rowsShifted, shiftRows: true);
-            }
-
+            ShiftNormalFormulaRows(formula, shiftedRange, rowsShifted);
             return;
         }
 
@@ -1197,6 +1183,40 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (!processedArrayFormulas.Add(formula))
             return;
 
+        ShiftArrayFormulaRows(formula, shiftedRange, rowsShifted);
+    }
+
+    private void ShiftNormalFormulaRows(XLCellFormula formula, XLRange shiftedRange, int rowsShifted)
+    {
+        // A formula whose furthest reference stops above the shifted region cannot be rewritten
+        // by this shift, so skip the parse the shifter would otherwise pay to discover that.
+        // Dynamic arrays are excluded: their spill footprint is relocated below even when the
+        // formula text is untouched, and so is an array's stored Range further down.
+        if (!formula.IsDynamicArray &&
+            formula.MaxShiftableRow < shiftedRange.RangeAddress.FirstAddress.RowNumber)
+        {
+            return;
+        }
+
+        var shiftedNormal = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
+
+        if (formula.IsDynamicArray)
+        {
+            ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
+                () => ShiftArrayRangeRows(formula.Range, shiftedRange, rowsShifted));
+            return;
+        }
+
+        if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
+        {
+            FormulaA1 = shiftedNormal;
+            Formula?.SeedShiftedExtentFrom(
+                formula, shiftedRange.RangeAddress.FirstAddress.RowNumber, rowsShifted, shiftRows: true);
+        }
+    }
+
+    private void ShiftArrayFormulaRows(XLCellFormula formula, XLRange shiftedRange, int rowsShifted)
+    {
         var shifted = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
         formula.UpdateShiftedA1(shifted);
 
@@ -1219,35 +1239,44 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         if (formula.Type == FormulaType.Normal)
         {
-            // See ShiftFormulaRows for why this filter is sound and why dynamic arrays opt out.
-            if (!formula.IsDynamicArray &&
-                formula.MaxShiftableColumn < shiftedRange.RangeAddress.FirstAddress.ColumnNumber)
-            {
-                return;
-            }
-
-            var shiftedNormal = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
-
-            if (formula.IsDynamicArray)
-            {
-                ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
-                    () => ShiftArrayRangeColumns(formula.Range, shiftedRange, columnsShifted));
-                return;
-            }
-
-            if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
-            {
-                FormulaA1 = shiftedNormal;
-                Formula?.SeedShiftedExtentFrom(
-                    formula, shiftedRange.RangeAddress.FirstAddress.ColumnNumber, columnsShifted, shiftRows: false);
-            }
-
+            ShiftNormalFormulaColumns(formula, shiftedRange, columnsShifted);
             return;
         }
 
         if (!processedArrayFormulas.Add(formula))
             return;
 
+        ShiftArrayFormulaColumns(formula, shiftedRange, columnsShifted);
+    }
+
+    private void ShiftNormalFormulaColumns(XLCellFormula formula, XLRange shiftedRange, int columnsShifted)
+    {
+        // See ShiftNormalFormulaRows for why this filter is sound and why dynamic arrays opt out.
+        if (!formula.IsDynamicArray &&
+            formula.MaxShiftableColumn < shiftedRange.RangeAddress.FirstAddress.ColumnNumber)
+        {
+            return;
+        }
+
+        var shiftedNormal = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
+
+        if (formula.IsDynamicArray)
+        {
+            ShiftDynamicArrayFormula(formula, shiftedNormal, ReferenceEquals(Worksheet, shiftedRange.Worksheet),
+                () => ShiftArrayRangeColumns(formula.Range, shiftedRange, columnsShifted));
+            return;
+        }
+
+        if (!string.Equals(shiftedNormal, formula.A1, StringComparison.Ordinal))
+        {
+            FormulaA1 = shiftedNormal;
+            Formula?.SeedShiftedExtentFrom(
+                formula, shiftedRange.RangeAddress.FirstAddress.ColumnNumber, columnsShifted, shiftRows: false);
+        }
+    }
+
+    private void ShiftArrayFormulaColumns(XLCellFormula formula, XLRange shiftedRange, int columnsShifted)
+    {
         var shifted = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
         formula.UpdateShiftedA1(shifted);
 
