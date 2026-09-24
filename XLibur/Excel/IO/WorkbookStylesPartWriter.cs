@@ -1187,7 +1187,6 @@ internal static class WorkbookStylesPartWriter
     {
         return (differsFromDefault || ignoreMod) && expressible;
     }
-#pragma warning restore S3776    
 
     private static bool FontsAreEqual(Font font, XLFontValue xlFont)
     {
