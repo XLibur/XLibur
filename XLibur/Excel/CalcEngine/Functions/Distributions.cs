@@ -205,7 +205,6 @@ internal static class Distributions
     /// the shape of the ranges: a two-dimensional table has (rows−1)(columns−1), a single row or
     /// column has one less than its length.
     /// </summary>
-#pragma warning disable S3776 // A double loop over paired cells; the guards inside it are the function's error contract
     private static AnyValue ChiSqTest(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var actual, ctx) ||
@@ -217,22 +216,8 @@ internal static class Distributions
         if (actual!.Height != expected!.Height || actual.Width != expected.Width)
             return XLError.NoValueAvailable;
 
-        var statistic = 0d;
-        var count = 0;
-        for (var row = 0; row < actual.Height; row++)
-        {
-            for (var column = 0; column < actual.Width; column++)
-            {
-                if (!TryPairOfNumbers(ctx, actual[row, column], expected[row, column], out var a, out var e, out var error))
-                    return error;
-
-                if (e == 0)
-                    return XLError.DivisionByZero;
-
-                statistic += (a - e) * (a - e) / e;
-                count++;
-            }
-        }
+        if (!TryChiSqStatistic(ctx, actual, expected, out var statistic, out var count, out var error))
+            return error;
 
         var degreesOfFreedom = actual.Height > 1 && actual.Width > 1
             ? (actual.Height - 1) * (actual.Width - 1)
@@ -243,7 +228,36 @@ internal static class Distributions
 
         return XLMath.GammaQ(degreesOfFreedom / 2.0, statistic / 2);
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Σ(a−e)²/e over paired cells of two same-sized arrays, row by row. The first non-numeric
+    /// pair or zero expected value stops the sum with its error.
+    /// </summary>
+    private static bool TryChiSqStatistic(CalcContext ctx, Array actual, Array expected, out double statistic, out int count, out XLError error)
+    {
+        statistic = 0d;
+        count = 0;
+        for (var row = 0; row < actual.Height; row++)
+        {
+            for (var column = 0; column < actual.Width; column++)
+            {
+                if (!TryPairOfNumbers(ctx, actual[row, column], expected[row, column], out var a, out var e, out error))
+                    return false;
+
+                if (e == 0)
+                {
+                    error = XLError.DivisionByZero;
+                    return false;
+                }
+
+                statistic += (a - e) * (a - e) / e;
+                count++;
+            }
+        }
+
+        error = default;
+        return true;
+    }
 
     private static bool IsValidDegreesOfFreedom(double degreesOfFreedom)
         => degreesOfFreedom >= 1 && degreesOfFreedom < 1e10;
@@ -529,26 +543,44 @@ internal static class Distributions
         if (sample.Count < 1)
             return XLError.NoValueAvailable;
 
-        var sigma = 0d;
-        if (args.Length > 2)
-        {
-            if (!TryGetScalarNumber(ctx, args[2], out sigma, out var sigmaError))
-                return sigmaError;
-            if (sigma <= 0)
-                return XLError.NumberInvalid;
-        }
-        else
-        {
-            if (sample.Count < 2)
-                return XLError.DivisionByZero;
-
-            sigma = Math.Sqrt(SampleVariance(sample));
-            if (sigma == 0)
-                return XLError.DivisionByZero;
-        }
+        var sigmaFound = args.Length > 2
+            ? TryGetGivenSigma(ctx, args[2], out var sigma, out var sigmaError)
+            : TryGetSampleSigma(sample, out sigma, out sigmaError);
+        if (!sigmaFound)
+            return sigmaError;
 
         var z = (Mean(sample) - hypothesizedMean) / (sigma / Math.Sqrt(sample.Count));
         return 1 - XLMath.NormalSDist(z);
+    }
+
+    private static bool TryGetGivenSigma(CalcContext ctx, in AnyValue value, out double sigma, out XLError error)
+    {
+        if (!TryGetScalarNumber(ctx, value, out sigma, out error))
+            return false;
+
+        if (sigma <= 0)
+        {
+            error = XLError.NumberInvalid;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>The sample standard deviation, which stands in for sigma when none is given.</summary>
+    private static bool TryGetSampleSigma(List<double> sample, out double sigma, out XLError error)
+    {
+        sigma = 0d;
+        error = XLError.DivisionByZero;
+        if (sample.Count < 2)
+            return false;
+
+        sigma = Math.Sqrt(SampleVariance(sample));
+        if (sigma == 0)
+            return false;
+
+        error = default;
+        return true;
     }
 
     #endregion

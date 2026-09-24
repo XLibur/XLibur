@@ -249,25 +249,31 @@ internal static class DateAndTime
         var (endYear, endMonth, endDay) = DateParts.From(ctx, endSerialDate);
 
         if (isEuropean)
-        {
-            if (startDay == 31)
-                startDay = 30;
-
-            if (endDay == 31)
-                endDay = 30;
-        }
+            AdjustEuropeanDays360(ref startDay, ref endDay);
         else
-        {
-            // There are several descriptions of the US algorithm: spec, wikipedia, function help,
-            // ODF. Out of these, only ODF is correct (rest is incomplete/has different results).
-            if (startDate.IsLastDayOfMonth())
-                startDay = 30;
-
-            if (endDay == 31 && startDay == 30)
-                endDay = 30;
-        }
+            AdjustUsDays360(startDate, ref startDay, ref endDay);
 
         return 360 * (endYear - startYear) + 30 * (endMonth - startMonth) + (endDay - startDay);
+    }
+
+    private static void AdjustEuropeanDays360(ref int startDay, ref int endDay)
+    {
+        if (startDay == 31)
+            startDay = 30;
+
+        if (endDay == 31)
+            endDay = 30;
+    }
+
+    private static void AdjustUsDays360(DateParts startDate, ref int startDay, ref int endDay)
+    {
+        // There are several descriptions of the US algorithm: spec, wikipedia, function help,
+        // ODF. Out of these, only ODF is correct (rest is incomplete/has different results).
+        if (startDate.IsLastDayOfMonth())
+            startDay = 30;
+
+        if (endDay == 31 && startDay == 30)
+            endDay = 30;
     }
 
     private static ScalarValue EDate(CalcContext ctx, double startSerialDate, double monthOffset)
@@ -421,7 +427,6 @@ internal static class DateAndTime
     /// Read the <c>weekend</c> argument of the .INTL functions: either one of the numbered codes, or
     /// a seven-character string of 0s and 1s running Monday to Sunday where 1 marks a weekend day.
     /// </summary>
-#pragma warning disable S3776 // The weekend argument has two spellings -- a numbered code or a seven-character mask
     private static bool TryGetWeekendMask(CalcContext ctx, in AnyValue value, out int mask, out XLError error)
     {
         mask = 0;
@@ -442,36 +447,8 @@ internal static class DateAndTime
             return true;
         }
 
-        if (scalar.TryPickText(out var pattern, out _))
-        {
-            if (pattern!.Length != 7)
-                return false;
-
-            for (var day = 0; day < 7; day++)
-            {
-                switch (pattern[day])
-                {
-                    case '1':
-                        mask |= 1 << day;
-                        break;
-                    case '0':
-                        break;
-                    default:
-                        return false;
-                }
-            }
-        }
-        else
-        {
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
-            {
-                error = numberError;
-                return false;
-            }
-
-            if (!TryGetWeekendMaskFromCode((int)Math.Truncate(number), out mask))
-                return false;
-        }
+        if (!TryGetWeekendMaskFromValue(ctx, scalar, out mask, ref error))
+            return false;
 
         // A week with no working day in it has no answer.
         if (mask == AllDaysWeekend)
@@ -480,7 +457,51 @@ internal static class DateAndTime
         error = default;
         return true;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Read a non-blank weekend argument, spelled either as a seven-character mask or as a
+    /// numbered code. <paramref name="error"/> is changed only when the value is not a number.
+    /// </summary>
+    private static bool TryGetWeekendMaskFromValue(CalcContext ctx, ScalarValue scalar, out int mask, ref XLError error)
+    {
+        if (scalar.TryPickText(out var pattern, out _))
+            return TryGetWeekendMaskFromPattern(pattern!, out mask);
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+        {
+            mask = 0;
+            error = numberError;
+            return false;
+        }
+
+        return TryGetWeekendMaskFromCode((int)Math.Truncate(number), out mask);
+    }
+
+    /// <summary>
+    /// Read a seven-character string of 0s and 1s running Monday to Sunday where 1 marks a weekend day.
+    /// </summary>
+    private static bool TryGetWeekendMaskFromPattern(string pattern, out int mask)
+    {
+        mask = 0;
+        if (pattern.Length != 7)
+            return false;
+
+        for (var day = 0; day < 7; day++)
+        {
+            switch (pattern[day])
+            {
+                case '1':
+                    mask |= 1 << day;
+                    break;
+                case '0':
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Day of the week of a serial date as a bit index, 0 = Monday … 6 = Sunday.</summary>
     private static int WeekdayBit(int serialDate) => (WeekdayCalc(serialDate) + 5) % 7;
@@ -516,25 +537,43 @@ internal static class DateAndTime
         if (!TryGetDate(ctx, ToScalar(ctx, args[1]), out var endDate, out var endError))
             return endError;
 
-        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out var mask, out var maskError))
-            return maskError;
-
-        if (!TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out var holidays, out var holidayError))
-            return holidayError;
+        if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
+            return weekendError;
 
         // Counting backwards gives the same magnitude with the opposite sign.
         var reversed = startDate > endDate;
         if (reversed)
             (startDate, endDate) = (endDate, startDate);
 
-        var total = CountWorkdays(startDate, endDate, mask);
+        var total = CountWorkdays(startDate, endDate, mask) - CountHolidaysBetween(holidays, startDate, endDate);
+        return reversed ? -total : total;
+    }
+
+    /// <summary>
+    /// Read the optional <c>weekend</c> (third) and <c>holidays</c> (fourth) arguments of the
+    /// .INTL functions, in that order.
+    /// </summary>
+    private static bool TryGetWeekendAndHolidays(CalcContext ctx, Span<AnyValue> args, out int mask, out HashSet<int> holidays, out XLError error)
+    {
+        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out mask, out error))
+        {
+            holidays = [];
+            return false;
+        }
+
+        return TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out holidays, out error);
+    }
+
+    private static int CountHolidaysBetween(HashSet<int> holidays, int startDate, int endDate)
+    {
+        var count = 0;
         foreach (var holiday in holidays)
         {
             if (holiday >= startDate && holiday <= endDate)
-                total--;
+                count++;
         }
 
-        return reversed ? -total : total;
+        return count;
     }
 
     /// <summary>
@@ -557,7 +596,6 @@ internal static class DateAndTime
         return total;
     }
 
-#pragma warning disable S3776 // Four optional-argument guards ahead of one day-stepping loop
     private static AnyValue WorkdayIntl(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
@@ -566,11 +604,8 @@ internal static class DateAndTime
         if (!ToScalar(ctx, args[1]).ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
             return offsetError;
 
-        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out var mask, out var maskError))
-            return maskError;
-
-        if (!TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out var holidays, out var holidayError))
-            return holidayError;
+        if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
+            return weekendError;
 
         var offset = (int)Math.Truncate(offsetNumber);
 
@@ -578,6 +613,15 @@ internal static class DateAndTime
         if (offset == 0)
             return startDate;
 
+        return StepWorkdays(startDate, offset, mask, holidays);
+    }
+
+    /// <summary>
+    /// Step day by day from <paramref name="startDate"/> until <paramref name="offset"/> working
+    /// days have passed, or the date leaves the supported range.
+    /// </summary>
+    private static AnyValue StepWorkdays(int startDate, int offset, int mask, HashSet<int> holidays)
+    {
         var step = offset > 0 ? 1 : -1;
         var remaining = Math.Abs(offset);
         var date = startDate;
@@ -593,7 +637,6 @@ internal static class DateAndTime
 
         return date;
     }
-#pragma warning restore S3776
 
     /// <summary>
     /// Reduce an argument of the .INTL functions to the single value it expects. Only the holidays

@@ -466,31 +466,37 @@ internal static class FormulaText
         ref char[]? rentedArray, ref Span<char> buffer, ref char placeholder, IInjectsText? injected)
     {
         var next = i + 1;
-        if (next < input.Length && input[next] != '[' && input[next] != '#')
+        if (next >= input.Length || input[next] == '[' || input[next] == '#')
+            return i + 1;
+
+        var j = next;
+        while (j < input.Length && input[j] != ']')
         {
-            var j = next;
-            while (j < input.Length && input[j] != ']')
+            if (input[j] == ':')
             {
-                if (input[j] == ':')
-                {
-                    if (rentedArray is null)
-                    {
-                        placeholder = PickPlaceholder(sourceFormula, injected);
-                        rentedArray = ArrayPool<char>.Shared.Rent(input.Length);
-                        buffer = rentedArray.AsSpan(0, input.Length);
-                        sourceFormula.AsSpan().CopyTo(buffer);
-                    }
-
-                    buffer[j] = placeholder;
-                }
-
-                j++;
+                EnsureBuffer(sourceFormula, input.Length, ref rentedArray, ref buffer, ref placeholder, injected);
+                buffer[j] = placeholder;
             }
 
-            return j + 1;
+            j++;
         }
 
-        return i + 1;
+        return j + 1;
+    }
+
+    /// <summary>
+    /// Rent the copy of the formula that hidden colons are written into, on the first colon found.
+    /// </summary>
+    private static void EnsureBuffer(string sourceFormula, int length, ref char[]? rentedArray,
+        ref Span<char> buffer, ref char placeholder, IInjectsText? injected)
+    {
+        if (rentedArray is not null)
+            return;
+
+        placeholder = PickPlaceholder(sourceFormula, injected);
+        rentedArray = ArrayPool<char>.Shared.Rent(length);
+        buffer = rentedArray.AsSpan(0, length);
+        sourceFormula.AsSpan().CopyTo(buffer);
     }
 
     /// <summary>
@@ -529,33 +535,36 @@ internal static class FormulaText
     {
         // Almost every formula takes this branch: it costs one scan and keeps the character the
         // parser has always been given.
-        if (!Holds(ColonPlaceholder))
+        if (!Holds(formula, injected, ColonPlaceholder))
             return ColonPlaceholder;
 
         for (var candidate = FirstPrivateUse; candidate <= LastPrivateUse; ++candidate)
         {
-            if (!Holds((char)candidate))
+            if (!Holds(formula, injected, (char)candidate))
                 return (char)candidate;
         }
 
         return ColonPlaceholder;
+    }
 
-        bool Holds(char candidate)
-        {
-            if (formula.Contains(candidate))
-                return true;
+    /// <summary>
+    /// Whether <paramref name="candidate"/> appears in the formula or in any text a rewrite injects.
+    /// </summary>
+    private static bool Holds(string formula, IInjectsText? injected, char candidate)
+    {
+        if (formula.Contains(candidate))
+            return true;
 
-            if (injected is null)
-                return false;
-
-            foreach (var text in injected.InjectedText)
-            {
-                if (text.Contains(candidate))
-                    return true;
-            }
-
+        if (injected is null)
             return false;
+
+        foreach (var text in injected.InjectedText)
+        {
+            if (text.Contains(candidate))
+                return true;
         }
+
+        return false;
     }
 
     /// <summary>
