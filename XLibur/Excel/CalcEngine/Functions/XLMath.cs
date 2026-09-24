@@ -304,7 +304,6 @@ public static class XLMath
     /// on the CDF, with the bracket it has narrowed so far as a fallback whenever a step would jump
     /// outside it — the density vanishes in both tails, where Newton alone would run away.
     /// </summary>
-#pragma warning disable S3776 // Newton on the gamma CDF with bracket fallbacks; the guards are the numerics
     internal static double InverseGammaP(double p, double a)
     {
         if (p <= 0)
@@ -320,21 +319,13 @@ public static class XLMath
         for (var i = 0; i < 200; i++)
         {
             var error = GammaP(a, x) - p;
-            if (error < 0)
-                lo = x;
-            else
-                hi = x;
+            NarrowBracket(x, error, ref lo, ref hi);
 
             if (Math.Abs(error) < 1e-15)
                 break;
 
             var pdf = Math.Exp((a - 1) * Math.Log(x) - x - lnGammaA);
-            var next = pdf > 0 ? x - error / pdf : double.NaN;
-
-            // Outside the bracket the step is not trusted: bisect, or double when there is still no
-            // upper bound to bisect against.
-            if (double.IsNaN(next) || next <= lo || next >= hi)
-                next = double.IsPositiveInfinity(hi) ? x * 2 : (lo + hi) / 2;
+            var next = InverseGammaNewtonStep(x, error, pdf, lo, hi);
 
             if (Math.Abs(next - x) < 1e-15 * Math.Abs(x))
                 return next;
@@ -344,7 +335,31 @@ public static class XLMath
 
         return x;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Move the side of the bracket [<paramref name="lo"/>, <paramref name="hi"/>] that
+    /// <paramref name="x"/> is known to be beyond, given the sign of the CDF error at it.
+    /// </summary>
+    private static void NarrowBracket(double x, double error, ref double lo, ref double hi)
+    {
+        if (error < 0)
+            lo = x;
+        else
+            hi = x;
+    }
+
+    /// <summary>
+    /// A Newton step on the gamma CDF. Outside the bracket the step is not trusted: bisect, or
+    /// double when there is still no upper bound to bisect against.
+    /// </summary>
+    private static double InverseGammaNewtonStep(double x, double error, double pdf, double lo, double hi)
+    {
+        var next = pdf > 0 ? x - error / pdf : double.NaN;
+        if (double.IsNaN(next) || next <= lo || next >= hi)
+            next = double.IsPositiveInfinity(hi) ? x * 2 : (lo + hi) / 2;
+
+        return next;
+    }
 
     private static double InverseGammaInitialGuess(double p, double a)
     {
@@ -513,9 +528,7 @@ public static class XLMath
         const double tiny = 1e-30;
 
         var c = 1.0;
-        var d = 1.0 - (a + b) * x / (a + 1.0);
-        if (Math.Abs(d) < tiny) d = tiny;
-        d = 1.0 / d;
+        var d = 1.0 / AvoidTiny(1.0 - (a + b) * x / (a + 1.0), tiny);
         var f = d;
 
         for (var m = 1; m <= maxIterations; m++)
@@ -523,27 +536,11 @@ public static class XLMath
             // Even step: d_{2m}
             var m2 = 2 * m;
             var numerator = m * (b - m) * x / ((a + m2 - 1.0) * (a + m2));
-
-            d = 1.0 + numerator * d;
-            if (Math.Abs(d) < tiny) d = tiny;
-            d = 1.0 / d;
-
-            c = 1.0 + numerator / c;
-            if (Math.Abs(c) < tiny) c = tiny;
-
-            f *= c * d;
+            f *= LentzStep(numerator, ref c, ref d, tiny);
 
             // Odd step: d_{2m+1}
             numerator = -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1.0));
-
-            d = 1.0 + numerator * d;
-            if (Math.Abs(d) < tiny) d = tiny;
-            d = 1.0 / d;
-
-            c = 1.0 + numerator / c;
-            if (Math.Abs(c) < tiny) c = tiny;
-
-            var delta = c * d;
+            var delta = LentzStep(numerator, ref c, ref d, tiny);
             f *= delta;
 
             if (Math.Abs(delta - 1.0) < epsilon)
@@ -552,6 +549,21 @@ public static class XLMath
 
         return f;
     }
+
+    /// <summary>
+    /// One step of the modified Lentz method: update the <paramref name="c"/> and
+    /// <paramref name="d"/> terms for the next partial numerator and return the factor they
+    /// contribute to the continued fraction.
+    /// </summary>
+    private static double LentzStep(double numerator, ref double c, ref double d, double tiny)
+    {
+        d = 1.0 / AvoidTiny(1.0 + numerator * d, tiny);
+        c = AvoidTiny(1.0 + numerator / c, tiny);
+        return c * d;
+    }
+
+    /// <summary>Replace a value too close to zero by <paramref name="tiny"/>, so it can be divided by.</summary>
+    private static double AvoidTiny(double value, double tiny) => Math.Abs(value) < tiny ? tiny : value;
 
     /// <summary>
     /// Inverse of the regularized incomplete beta function.
@@ -606,33 +618,32 @@ public static class XLMath
         for (var i = 0; i < 100; i++)
         {
             var err = BetaRegularized(x, a, b) - p;
-
-            if (err < 0)
-                lo = x;
-            else
-                hi = x;
+            NarrowBracket(x, err, ref lo, ref hi);
 
             if (Math.Abs(err) < 1e-15)
                 break;
 
             var logPdf = (a - 1.0) * Math.Log(x) + (b - 1.0) * Math.Log(1.0 - x) + lnBeta;
             var pdf = Math.Exp(logPdf);
-
-            if (pdf > 0)
-            {
-                var newX = x - err / pdf;
-                x = newX > lo && newX < hi ? newX : (lo + hi) / 2.0;
-            }
-            else
-            {
-                x = (lo + hi) / 2.0;
-            }
+            x = InverseBetaNewtonStep(x, err, pdf, lo, hi);
 
             if (hi - lo < 1e-15 * x)
                 break;
         }
 
         return x;
+    }
+
+    /// <summary>A Newton step on the beta CDF, falling back to bisection when it leaves the bracket.</summary>
+    private static double InverseBetaNewtonStep(double x, double err, double pdf, double lo, double hi)
+    {
+        if (pdf > 0)
+        {
+            var newX = x - err / pdf;
+            return newX > lo && newX < hi ? newX : (lo + hi) / 2.0;
+        }
+
+        return (lo + hi) / 2.0;
     }
 
     /// <summary>

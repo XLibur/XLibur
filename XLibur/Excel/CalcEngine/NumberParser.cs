@@ -36,7 +36,6 @@ internal static class NumberParser
     /// leftmost group may be shorter than its group size, which is why the groups can't be validated
     /// until they have all been seen.
     /// </summary>
-#pragma warning disable S3776 // Group sizes are validated right-to-left with the leftmost group exempt
     private static bool HasValidGroupSeparators(string text, CultureInfo culture)
     {
         var format = culture.NumberFormat;
@@ -46,6 +45,20 @@ internal static class NumberParser
         if (separator.Length == 0 || start < 0)
             return true;
 
+        var end = EndOfGroupedDigits(text, start, separator);
+        var groups = text.Substring(start, end - start).Split(separator);
+        if (groups.Length == 1)
+            return true;
+
+        var sizes = hasCurrency ? format.CurrencyGroupSizes : format.NumberGroupSizes;
+        return HaveValidGroupSizes(groups, sizes);
+    }
+
+    /// <summary>
+    /// The index just past the run of digits and group separators that starts at <paramref name="start"/>.
+    /// </summary>
+    private static int EndOfGroupedDigits(string text, int start, string separator)
+    {
         var end = start;
         while (end < text.Length)
         {
@@ -57,27 +70,32 @@ internal static class NumberParser
                 break;
         }
 
-        var groups = text.Substring(start, end - start).Split(separator);
-        if (groups.Length == 1)
-            return true;
+        return end;
+    }
 
-        var sizes = hasCurrency ? format.CurrencyGroupSizes : format.NumberGroupSizes;
+    /// <summary>
+    /// Checks each group, listed left to right, against the culture's group size for its position.
+    /// </summary>
+    private static bool HaveValidGroupSizes(string[] groups, int[] sizes)
+    {
         for (var i = 0; i < groups.Length; i++)
         {
             // A size of zero means the culture stops grouping past this point, so anything to the
             // left of it is one unbounded group.
             var size = GroupSizeFromRight(sizes, groups.Length - 1 - i);
-            var valid = i == 0
-                ? groups[i].Length >= 1 && (size == 0 || groups[i].Length <= size)
-                : size != 0 && groups[i].Length == size;
-
-            if (!valid)
+            if (!IsValidGroup(groups[i].Length, size, isLeftmost: i == 0))
                 return false;
         }
 
         return true;
     }
-#pragma warning restore S3776
+
+    private static bool IsValidGroup(int length, int size, bool isLeftmost)
+    {
+        return isLeftmost
+            ? length >= 1 && (size == 0 || length <= size)
+            : size != 0 && length == size;
+    }
 
     /// <summary>
     /// Group sizes are listed from the right, and the last one repeats for everything further left.
