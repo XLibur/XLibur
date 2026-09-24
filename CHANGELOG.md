@@ -18,6 +18,10 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **`AdjustToContents` no longer skips the character after a Windows line break (`\r\n`).** Text measurement counted the break as two characters, but .NET treats `\r\n` as one, so the character after every `\r\n` was not measured (#618). Column `AdjustToContents` could make a column too narrow. Row `AdjustToContents` lost a whole line when the line after the break was a single character, and did not count blank lines between `\r\n` breaks: `"A\r\nB"` got the height of one line. Text with `\n` line breaks was not affected.
+
 ## v0.610.0 - 2026-09-16
 
 ### Changed

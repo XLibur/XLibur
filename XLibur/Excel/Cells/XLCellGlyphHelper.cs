@@ -56,9 +56,11 @@ internal static class XLCellGlyphHelper
         {
             var startIdx = graphemeStarts[i];
             var slice = textSpan.Slice(startIdx);
-            if (slice.TrySliceNewLine(out var eolLen))
+            if (slice.TrySliceNewLine(out _))
             {
-                i += eolLen;
+                // i counts graphemes, not chars. A \r\n is a single grapheme, so advance by one
+                // even though the line break is two chars long.
+                i++;
                 if (prevWasNewLine)
                 {
                     // If there are consecutive new lines, we need height of new the lines between them

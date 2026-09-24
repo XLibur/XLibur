@@ -500,4 +500,22 @@ public class RowTests
 
         await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon).Because("LF and CRLF newlines should produce the same row height");
     }
+
+    // The grapheme after a \r\n was skipped (#618). A one-character line after the break, or a
+    // second \r\n, is the whole of a line, so losing it changes the height.
+    [Test]
+    [Arguments("A\nB", "A\r\nB")]
+    [Arguments("A\n\nB", "A\r\n\r\nB")]
+    [Arguments("A\n\n\nB", "A\r\n\r\n\r\nB")]
+    public async Task AdjustToContents_CrLfNewlines_KeepTheLineAfterThem(string lf, string crLf)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = lf;
+        ws.Cell("A2").Value = crLf;
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(2).Height).IsEqualTo(ws.Row(1).Height).Within(XLHelper.Epsilon);
+    }
 }

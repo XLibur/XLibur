@@ -319,4 +319,22 @@ public class ColumnTests
         await Assert.That(ws.Column(1).CellCount()).IsEqualTo(XLHelper.MaxRowNumber);
         await Assert.That(ws.Row(1).CellCount()).IsEqualTo(XLHelper.MaxColumnNumber);
     }
+
+    /// <summary>
+    /// The glyph after a <c>\r\n</c> was skipped, because the loop advanced by the length of the
+    /// line break in chars, but <c>\r\n</c> is a single grapheme (#618). The widest line comes after
+    /// the break and starts with its widest glyph, so a lost glyph narrows the column.
+    /// </summary>
+    [Test]
+    public async Task AdjustToContents_CrLfNewline_MeasuresTheGlyphAfterIt()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "ab\nMWWWWWWWWWW";
+        ws.Cell("B1").Value = "ab\r\nMWWWWWWWWWW";
+
+        ws.Columns(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Column(2).Width).IsEqualTo(ws.Column(1).Width).Within(XLHelper.Epsilon);
+    }
 }
