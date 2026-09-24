@@ -1522,8 +1522,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return IsMerged() && Address.Equals(MergedRange()!.RangeAddress.FirstAddress);
     }
 
-    internal void GetGlyphBoxes(IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
-        => XLCellGlyphHelper.GetGlyphBoxes(this, engine, dpi, output);
+    internal void GetGlyphBoxes(IXLFontEngine engine, Dpi dpi, List<GlyphBox> output, List<GlyphBreak>? breaks = null)
+        => XLCellGlyphHelper.GetGlyphBoxes(this, engine, dpi, output, breaks);
 
     public override int GetHashCode()
     {
