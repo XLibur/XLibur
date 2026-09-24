@@ -427,24 +427,11 @@ internal static class PictureWriter
 
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
 
-        Xdr.GroupShape? groupElement = null;
-        foreach (var candidate in worksheetDrawing.Descendants<Xdr.GroupShape>())
-        {
-            if (candidate.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value == group.GroupId.Value)
-            {
-                groupElement = candidate;
-                break;
-            }
-        }
-
+        var groupElement = FindGroupShapeById(worksheetDrawing, group.GroupId.Value);
         if (groupElement is null)
             return;
 
-        // A drawing id must be unique across the whole drawing (pictures, connectors, shapes, groups).
-        uint maxId = 0;
-        foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
-            maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
-        var newId = maxId + 1;
+        var newId = NextDrawingId(worksheetDrawing);
 
         var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
         var imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);
@@ -500,6 +487,29 @@ internal static class PictureWriter
         };
     }
 
+    private static Xdr.GroupShape? FindGroupShapeById(Xdr.WorksheetDrawing worksheetDrawing, uint groupId)
+    {
+        foreach (var candidate in worksheetDrawing.Descendants<Xdr.GroupShape>())
+        {
+            if (candidate.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value == groupId)
+                return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The next free drawing id. A drawing id must be unique across the whole drawing (pictures,
+    /// connectors, shapes, groups).
+    /// </summary>
+    private static uint NextDrawingId(Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        uint maxId = 0;
+        foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
+            maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
+        return maxId + 1;
+    }
+
     private static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
@@ -513,15 +523,26 @@ internal static class PictureWriter
         if (picElement is null)
             return;
 
-        // Re-feed the image bytes into the existing part. If the image was not replaced these are
-        // the same bytes that were read, so the part is unchanged.
-        if (!string.IsNullOrEmpty(pic.RelId) && drawingsPart.HasPartWithId(pic.RelId))
-        {
-            var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
-            pic.ImageStream.Position = 0;
-            imagePart.FeedData(pic.ImageStream);
-        }
+        RefeedGroupedPictureImage(drawingsPart, pic);
+        UpdateGroupedPictureGeometry(picElement, pic, group);
+    }
 
+    /// <summary>
+    /// Re-feed the image bytes into the existing part. If the image was not replaced these are
+    /// the same bytes that were read, so the part is unchanged.
+    /// </summary>
+    private static void RefeedGroupedPictureImage(DrawingsPart drawingsPart, XLPicture pic)
+    {
+        if (string.IsNullOrEmpty(pic.RelId) || !drawingsPart.HasPartWithId(pic.RelId))
+            return;
+
+        var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
+        pic.ImageStream.Position = 0;
+        imagePart.FeedData(pic.ImageStream);
+    }
+
+    private static void UpdateGroupedPictureGeometry(Xdr.Picture picElement, XLPicture pic, XLPictureGroup group)
+    {
         var sizeChanged = pic.Width != group.LoadedWidthPx || pic.Height != group.LoadedHeightPx;
         var positionChanged = pic.Left != group.LoadedLeftPx || pic.Top != group.LoadedTopPx;
 
@@ -602,28 +623,21 @@ internal static class PictureWriter
 
         foreach (var (id, relId) in removed)
         {
-            Xdr.Picture? picElement = null;
-            foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
-            {
-                var candidateId = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
-                if (candidateId == (uint)id && candidate.Ancestors<Xdr.GroupShape>().Any())
-                {
-                    picElement = candidate;
-                    break;
-                }
-            }
-
-            picElement?.Remove();
+            FindGroupedPictureById(worksheetDrawing, id)?.Remove();
 
             // Drop the image part only if nothing else references it any more.
             if (!string.IsNullOrEmpty(relId) && drawingsPart.HasPartWithId(relId))
-            {
-                var stillReferenced = worksheetDrawing.Descendants<Blip>()
-                    .Any(b => b.Embed?.Value == relId);
-                if (!stillReferenced)
-                    drawingsPart.DeletePart(relId);
-            }
+                DeleteImagePartIfUnreferenced(drawingsPart, worksheetDrawing, relId);
         }
+    }
+
+    private static void DeleteImagePartIfUnreferenced(DrawingsPart drawingsPart,
+        Xdr.WorksheetDrawing worksheetDrawing, string relId)
+    {
+        var stillReferenced = worksheetDrawing.Descendants<Blip>()
+            .Any(b => b.Embed?.Value == relId);
+        if (!stillReferenced)
+            drawingsPart.DeletePart(relId);
     }
 
     private static void RebaseNonVisualDrawingPropertiesIds(WorksheetPart worksheetPart)

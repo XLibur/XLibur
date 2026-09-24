@@ -43,6 +43,30 @@ internal static class RichDataReader
         var imageRelIds = ParseRichValueRel(richValueRelPart);
 
         // 3. Load image bytes from relationship targets into the workbook store
+        var relIndexToImageStoreIndex = LoadImages(richValueRelPart, imageRelIds, workbook);
+
+        // 4. Parse rdrichvalue.xml to build rv index -> (imageStoreIndex, altText)
+        var rvEntries = ParseRichValues(richValuePart, localImageStructureIndex, relIndexToImageStoreIndex);
+        if (rvEntries.Count == 0)
+            return;
+
+        // 5. Parse metadata.xml to map vm (1-based) -> rv index (0-based)
+        var vmToRvIndex = ParseValueMetadata(workbookPart);
+        if (vmToRvIndex.Count == 0)
+            return;
+
+        // 6. Build final vm -> CellImage map
+        var richValueImages = MapValueMetadataToImages(vmToRvIndex, rvEntries);
+        if (richValueImages.Count > 0)
+            context.RichValueImages = richValueImages;
+    }
+
+    /// <summary>
+    /// Load the image of each relationship into the workbook store. Returns a map of rel index -> image store index.
+    /// </summary>
+    private static Dictionary<int, int> LoadImages(OpenXmlPart richValueRelPart, List<string> imageRelIds,
+        XLWorkbook workbook)
+    {
         var relIndexToImageStoreIndex = new Dictionary<int, int>();
         for (var i = 0; i < imageRelIds.Count; i++)
         {
@@ -62,17 +86,12 @@ internal static class RichDataReader
             relIndexToImageStoreIndex[i] = storeIndex;
         }
 
-        // 4. Parse rdrichvalue.xml to build rv index -> (imageStoreIndex, altText)
-        var rvEntries = ParseRichValues(richValuePart, localImageStructureIndex, relIndexToImageStoreIndex);
-        if (rvEntries.Count == 0)
-            return;
+        return relIndexToImageStoreIndex;
+    }
 
-        // 5. Parse metadata.xml to map vm (1-based) -> rv index (0-based)
-        var vmToRvIndex = ParseValueMetadata(workbookPart);
-        if (vmToRvIndex.Count == 0)
-            return;
-
-        // 6. Build final vm -> CellImage map
+    private static Dictionary<uint, XLCellImage> MapValueMetadataToImages(Dictionary<uint, int> vmToRvIndex,
+        List<XLCellImage?> rvEntries)
+    {
         var richValueImages = new Dictionary<uint, XLCellImage>();
         foreach (var (vm, rvIndex) in vmToRvIndex)
         {
@@ -82,8 +101,7 @@ internal static class RichDataReader
             }
         }
 
-        if (richValueImages.Count > 0)
-            context.RichValueImages = richValueImages;
+        return richValueImages;
     }
 
     private static OpenXmlPart? FindPartByRelType(WorkbookPart workbookPart, string relType)
@@ -295,22 +313,22 @@ internal static class RichDataReader
 
     private static int ExtractRvIndexFromBlock(FutureMetadataBlock block, int blockIndex)
     {
+        // If no explicit rvb element found, the blockIndex itself is the rv index
         var extList = block.GetFirstChild<ExtensionList>();
-        if (extList is not null)
+        if (extList is null)
+            return blockIndex;
+
+        foreach (var ext in extList.Elements<Extension>())
         {
-            foreach (var ext in extList.Elements<Extension>())
+            foreach (var child in ext.ChildElements)
             {
-                foreach (var child in ext.ChildElements)
-                {
-                    var iAttr = child.GetAttributes()
-                        .FirstOrDefault(a => a.LocalName == "i");
-                    if (iAttr.Value is not null && int.TryParse(iAttr.Value, out var rvIndex))
-                        return rvIndex;
-                }
+                var iAttr = child.GetAttributes()
+                    .FirstOrDefault(a => a.LocalName == "i");
+                if (iAttr.Value is not null && int.TryParse(iAttr.Value, out var rvIndex))
+                    return rvIndex;
             }
         }
 
-        // If no explicit rvb element found, the blockIndex itself is the rv index
         return blockIndex;
     }
 

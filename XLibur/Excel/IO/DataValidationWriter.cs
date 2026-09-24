@@ -205,6 +205,23 @@ internal static class DataValidationWriter
         List<(IXLDataValidation DataValidation, string MinValue, string MaxValue)> dataValidationsExtension,
         string dataValidationsExtensionUri)
     {
+        var extensionDataValidations = GetOrAddEmptyExtensionDataValidations(worksheet, cm, dataValidationsExtensionUri);
+
+        foreach (var (dv, minValue, maxValue) in dataValidationsExtension)
+            extensionDataValidations.AppendChild(CreateExtensionDataValidation(dv, minValue, maxValue));
+
+        extensionDataValidations.Count = (uint)dataValidationsExtension.Count;
+    }
+
+    /// <summary>
+    /// The sheet's <c>x14:dataValidations</c>, emptied, or added in a new extension (and the extension
+    /// list, if the sheet has none) when the sheet has none or only an empty one.
+    /// </summary>
+    private static X14.DataValidations GetOrAddEmptyExtensionDataValidations(
+        Worksheet worksheet,
+        XLWorksheetContentManager cm,
+        string dataValidationsExtensionUri)
+    {
         if (!worksheet.Elements<WorksheetExtensionList>().Any())
         {
             var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
@@ -231,34 +248,34 @@ internal static class DataValidationWriter
             extensionDataValidations.RemoveAllChildren();
         }
 
-        foreach (var (dv, minValue, maxValue) in dataValidationsExtension)
-        {
-            var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
-            var dataValidation = new X14.DataValidation
-            {
-                AllowBlank = dv.IgnoreBlanks,
-                DataValidationForumla1 = !string.IsNullOrWhiteSpace(minValue)
-                    ? new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue))
-                    : null,
-                DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue)
-                    ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue))
-                    : null,
-                Type = dv.AllowedValues.ToOpenXml(),
-                ShowErrorMessage = dv.ShowErrorMessage,
-                Prompt = dv.InputMessage,
-                PromptTitle = dv.InputTitle,
-                ErrorTitle = dv.ErrorTitle,
-                Error = dv.ErrorMessage,
-                ShowDropDown = !dv.InCellDropdown,
-                ShowInputMessage = dv.ShowInputMessage,
-                ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-                Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
-                ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sequence }
-            };
-            extensionDataValidations.AppendChild(dataValidation);
-        }
+        return extensionDataValidations;
+    }
 
-        extensionDataValidations.Count = (uint)dataValidationsExtension.Count;
+    private static X14.DataValidation CreateExtensionDataValidation(IXLDataValidation dv, string minValue,
+        string maxValue)
+    {
+        var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+        return new X14.DataValidation
+        {
+            AllowBlank = dv.IgnoreBlanks,
+            DataValidationForumla1 = !string.IsNullOrWhiteSpace(minValue)
+                ? new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue))
+                : null,
+            DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue)
+                ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue))
+                : null,
+            Type = dv.AllowedValues.ToOpenXml(),
+            ShowErrorMessage = dv.ShowErrorMessage,
+            Prompt = dv.InputMessage,
+            PromptTitle = dv.InputTitle,
+            ErrorTitle = dv.ErrorTitle,
+            Error = dv.ErrorMessage,
+            ShowDropDown = !dv.InCellDropdown,
+            ShowInputMessage = dv.ShowInputMessage,
+            ErrorStyle = dv.ErrorStyle.ToOpenXml(),
+            Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
+            ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sequence }
+        };
     }
 
     /// <summary>

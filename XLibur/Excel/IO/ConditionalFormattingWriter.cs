@@ -41,14 +41,11 @@ internal static class ConditionalFormattingWriter
         // A pivot table only contributes here if it carries conditional formats, so testing for
         // the formats rather than for the table keeps the fast path open to the common sheet that
         // has pivots but no pivot CF.
-        // The explicit type argument disambiguates XLPivotTables' two IEnumerable<T> implementations.
-        if (!xlWorksheet.ConditionalFormats.Any() &&
-            !xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Any()))
+        if (!HasAnyConditionalFormats(xlWorksheet))
         {
             // A sheet may still keep rules in x14, which a pivot table names by the priority this gives.
             NumberRules(worksheet, xlWorksheet, []);
-            worksheet.RemoveAllChildren<ConditionalFormatting>();
-            cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
+            RemoveConditionalFormatting(worksheet, cm);
             return;
         }
 
@@ -67,47 +64,72 @@ internal static class ConditionalFormattingWriter
         NumberRules(worksheet, xlWorksheet, xlConditionalFormats);
 
         if (xlConditionalFormats.Count == 0)
-        {
-            worksheet.RemoveAllChildren<ConditionalFormatting>();
-            cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
-        }
+            RemoveConditionalFormatting(worksheet, cm);
         else
-        {
-            worksheet.RemoveAllChildren<ConditionalFormatting>();
-            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.ConditionalFormatting);
-
-            foreach (var cfGroup in xlConditionalFormats
-                         .GroupBy(
-                             c => new
-                             {
-                                 SeqRefs = string.Join(" ",
-                                     c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
-                                 IsPivot = xlSheetPivotCfs.Contains(c),
-                             },
-                             c => c,
-                             (key, g) => new { key.SeqRefs, key.IsPivot, CfList = g.ToList() }
-                         )
-                    )
-            {
-                var conditionalFormatting = new ConditionalFormatting
-                {
-                    SequenceOfReferences =
-                        new ListValue<StringValue> { InnerText = cfGroup.SeqRefs },
-                    Pivot = cfGroup.IsPivot ? true : null,
-                };
-                foreach (var cf in cfGroup.CfList)
-                {
-                    var xlCf = XLCFConverters.Convert(cf, cf.Priority, context);
-                    conditionalFormatting.Append(xlCf);
-                }
-
-                worksheet.InsertAfter(conditionalFormatting, previousElement);
-                previousElement = conditionalFormatting;
-                cm.SetElement(XLWorksheetContents.ConditionalFormatting, conditionalFormatting);
-            }
-        }
+            WriteConditionalFormattingBlocks(worksheet, cm, xlConditionalFormats, xlSheetPivotCfs, context);
 
         WriteExtensionDataBars(worksheet, cm, xlWorksheet, context);
+    }
+
+    /// <summary>
+    /// Does the sheet or one of its pivot tables carry any conditional format?
+    /// </summary>
+    private static bool HasAnyConditionalFormats(XLWorksheet xlWorksheet)
+    {
+        // The explicit type argument disambiguates XLPivotTables' two IEnumerable<T> implementations.
+        return xlWorksheet.ConditionalFormats.Any() ||
+               xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Any());
+    }
+
+    private static void RemoveConditionalFormatting(Worksheet worksheet, XLWorksheetContentManager cm)
+    {
+        worksheet.RemoveAllChildren<ConditionalFormatting>();
+        cm.SetElement(XLWorksheetContents.ConditionalFormatting, null);
+    }
+
+    /// <summary>
+    /// Replaces the sheet's <c>conditionalFormatting</c> elements with one per group of rules that share
+    /// a range and pivot flag.
+    /// </summary>
+    private static void WriteConditionalFormattingBlocks(
+        Worksheet worksheet,
+        XLWorksheetContentManager cm,
+        List<XLConditionalFormat> xlConditionalFormats,
+        HashSet<XLConditionalFormat> xlSheetPivotCfs,
+        SaveContext context)
+    {
+        worksheet.RemoveAllChildren<ConditionalFormatting>();
+        var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.ConditionalFormatting);
+
+        foreach (var cfGroup in xlConditionalFormats
+                     .GroupBy(
+                         c => new
+                         {
+                             SeqRefs = string.Join(" ",
+                                 c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
+                             IsPivot = xlSheetPivotCfs.Contains(c),
+                         },
+                         c => c,
+                         (key, g) => new { key.SeqRefs, key.IsPivot, CfList = g.ToList() }
+                     )
+                )
+        {
+            var conditionalFormatting = new ConditionalFormatting
+            {
+                SequenceOfReferences =
+                    new ListValue<StringValue> { InnerText = cfGroup.SeqRefs },
+                Pivot = cfGroup.IsPivot ? true : null,
+            };
+            foreach (var cf in cfGroup.CfList)
+            {
+                var xlCf = XLCFConverters.Convert(cf, cf.Priority, context);
+                conditionalFormatting.Append(xlCf);
+            }
+
+            worksheet.InsertAfter(conditionalFormatting, previousElement);
+            previousElement = conditionalFormatting;
+            cm.SetElement(XLWorksheetContents.ConditionalFormatting, conditionalFormatting);
+        }
     }
 
     /// <summary>
@@ -193,12 +215,20 @@ internal static class ConditionalFormattingWriter
                 continue;
             }
 
-            var rule = kept[index];
-            if (rule.Priority?.Value != priority)
-                rule.Priority = priority;
-            if (rule.Id?.Value is { Length: > 0 } id)
-                xlWorksheet.ConditionalFormats.SetExtensionRulePriority(id, priority);
+            SetKeptPriority(kept[index], priority, xlWorksheet.ConditionalFormats);
         }
+    }
+
+    /// <summary>
+    /// Gives a kept <c>x14</c> rule its new priority, in the part and in the model's record of it.
+    /// </summary>
+    private static void SetKeptPriority(X14.ConditionalFormattingRule rule, int priority,
+        XLConditionalFormats conditionalFormats)
+    {
+        if (rule.Priority?.Value != priority)
+            rule.Priority = priority;
+        if (rule.Id?.Value is { Length: > 0 } id)
+            conditionalFormats.SetExtensionRulePriority(id, priority);
     }
 
     /// <summary>
@@ -293,21 +323,25 @@ internal static class ConditionalFormattingWriter
             return;
 
         foreach (var rule in extensionList.Descendants<X14.ConditionalFormattingRule>())
+            WriteExtensionRuleFormulas(rule, xlWorksheet.ConditionalFormats);
+    }
+
+    private static void WriteExtensionRuleFormulas(X14.ConditionalFormattingRule rule,
+        XLConditionalFormats conditionalFormats)
+    {
+        var id = rule.Id?.Value;
+        if (id is null || !conditionalFormats.TryGetExtensionRuleFormulas(id, out var formulas))
+            return;
+
+        // A rule with another count of formulas is not the rule that was loaded under this id.
+        var elements = rule.Descendants<OfficeExcel.Formula>().ToList();
+        if (elements.Count != formulas.Length)
+            return;
+
+        for (var i = 0; i < formulas.Length; i++)
         {
-            var id = rule.Id?.Value;
-            if (id is null || !xlWorksheet.ConditionalFormats.TryGetExtensionRuleFormulas(id, out var formulas))
-                continue;
-
-            // A rule with another count of formulas is not the rule that was loaded under this id.
-            var elements = rule.Descendants<OfficeExcel.Formula>().ToList();
-            if (elements.Count != formulas.Length)
-                continue;
-
-            for (var i = 0; i < formulas.Length; i++)
-            {
-                if (elements[i].Text != formulas[i])
-                    elements[i].Text = formulas[i];
-            }
+            if (elements[i].Text != formulas[i])
+                elements[i].Text = formulas[i];
         }
     }
 
@@ -326,29 +360,33 @@ internal static class ConditionalFormattingWriter
             return;
 
         foreach (var conditionalFormatting in extensionList.Descendants<X14.ConditionalFormatting>().ToList())
-        {
-            var referenceSequence = conditionalFormatting.GetFirstChild<OfficeExcel.ReferenceSequence>();
-            if (referenceSequence is null || !TryGetKeptAreas(conditionalFormatting, xlWorksheet, out var areas))
-                continue;
-
-            if (areas.Count > 0)
-            {
-                if (!ReadsAs(referenceSequence.Text, areas))
-                    referenceSequence.Text = string.Join(" ", areas);
-                continue;
-            }
-
-            // The rules of the element share its range, so none of them applies to anything now.
-            var conditionalFormattings = conditionalFormatting.Parent;
-            conditionalFormatting.Remove();
-            RemoveIfEmpty(conditionalFormattings);
-        }
+            WriteExtensionRuleRange(conditionalFormatting, xlWorksheet);
 
         if (!extensionList.HasChildren)
         {
             extensionList.Remove();
             cm.SetElement(XLWorksheetContents.WorksheetExtensionList, null);
         }
+    }
+
+    private static void WriteExtensionRuleRange(X14.ConditionalFormatting conditionalFormatting,
+        XLWorksheet xlWorksheet)
+    {
+        var referenceSequence = conditionalFormatting.GetFirstChild<OfficeExcel.ReferenceSequence>();
+        if (referenceSequence is null || !TryGetKeptAreas(conditionalFormatting, xlWorksheet, out var areas))
+            return;
+
+        if (areas.Count > 0)
+        {
+            if (!ReadsAs(referenceSequence.Text, areas))
+                referenceSequence.Text = string.Join(" ", areas);
+            return;
+        }
+
+        // The rules of the element share its range, so none of them applies to anything now.
+        var conditionalFormattings = conditionalFormatting.Parent;
+        conditionalFormatting.Remove();
+        RemoveIfEmpty(conditionalFormattings);
     }
 
     /// <summary>
@@ -409,61 +447,80 @@ internal static class ConditionalFormattingWriter
     {
         var exlst = xlWorksheet.ConditionalFormats
             .Where(c => c.ConditionalFormatType == XLConditionalFormatType.DataBar).ToArray();
-        if (exlst.Length > 0)
+        if (exlst.Length == 0)
+            return;
+
+        var conditionalFormattings = GetOrAddDataBarConditionalFormattings(worksheet, cm);
+
+        foreach (var cfGroup in exlst
+                     .GroupBy(
+                         c => string.Join(" ", c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
+                         c => c,
+                         (key, g) => new { RangeId = key, CfList = g.ToList() }
+                     )
+                )
         {
-            if (!worksheet.Elements<WorksheetExtensionList>().Any())
-            {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
-                worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
-            }
-
-            var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
-            cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
-
-            var conditionalFormattings = worksheetExtensionList
-                .Descendants<X14.ConditionalFormattings>().SingleOrDefault();
-            if (conditionalFormattings == null || !conditionalFormattings.Any())
-            {
-                var worksheetExtension1 = new WorksheetExtension { Uri = ConditionalFormattingsExtensionUri };
-                worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
-                worksheetExtensionList.Append(worksheetExtension1);
-
-                conditionalFormattings = new X14.ConditionalFormattings();
-                worksheetExtension1.Append(conditionalFormattings);
-            }
-
-            foreach (var cfGroup in exlst
-                         .GroupBy(
-                             c => string.Join(" ", c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
-                             c => c,
-                             (key, g) => new { RangeId = key, CfList = g.ToList() }
-                         )
-                    )
-            {
-                foreach (var xlConditionalFormat in cfGroup.CfList.Cast<XLConditionalFormat>())
-                {
-                    var conditionalFormattingRule = conditionalFormattings
-                        .Descendants<X14.ConditionalFormattingRule>()
-                        .SingleOrDefault(r => r.Id == xlConditionalFormat.Id.WrapInBraces());
-                    if (conditionalFormattingRule != null)
-                    {
-                        var conditionalFormat = conditionalFormattingRule
-                            .Ancestors<X14.ConditionalFormatting>()
-                            .SingleOrDefault();
-                        conditionalFormattings.RemoveChild(conditionalFormat);
-                    }
-
-                    var conditionalFormatting = new X14.ConditionalFormatting();
-                    conditionalFormatting.AddNamespaceDeclaration("xm", XmMain2006);
-                    conditionalFormatting.Append(XLCFConvertersExtension.Convert(xlConditionalFormat, context));
-                    var referenceSequence = new OfficeExcel.ReferenceSequence
-                    { Text = cfGroup.RangeId };
-                    conditionalFormatting.Append(referenceSequence);
-
-                    conditionalFormattings.Append(conditionalFormatting);
-                }
-            }
+            foreach (var xlConditionalFormat in cfGroup.CfList.Cast<XLConditionalFormat>())
+                WriteExtensionDataBar(conditionalFormattings, xlConditionalFormat, cfGroup.RangeId, context);
         }
+    }
+
+    /// <summary>
+    /// The sheet's <c>x14:conditionalFormattings</c> for data bars, added in a new extension, and the
+    /// extension list, when the sheet has none or only an empty one.
+    /// </summary>
+    private static X14.ConditionalFormattings GetOrAddDataBarConditionalFormattings(Worksheet worksheet,
+        XLWorksheetContentManager cm)
+    {
+        if (!worksheet.Elements<WorksheetExtensionList>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.WorksheetExtensionList);
+            worksheet.InsertAfter(new WorksheetExtensionList(), previousElement);
+        }
+
+        var worksheetExtensionList = worksheet.Elements<WorksheetExtensionList>().First();
+        cm.SetElement(XLWorksheetContents.WorksheetExtensionList, worksheetExtensionList);
+
+        var conditionalFormattings = worksheetExtensionList
+            .Descendants<X14.ConditionalFormattings>().SingleOrDefault();
+        if (conditionalFormattings == null || !conditionalFormattings.Any())
+        {
+            var worksheetExtension1 = new WorksheetExtension { Uri = ConditionalFormattingsExtensionUri };
+            worksheetExtension1.AddNamespaceDeclaration("x14", X14Main2009SsNs);
+            worksheetExtensionList.Append(worksheetExtension1);
+
+            conditionalFormattings = new X14.ConditionalFormattings();
+            worksheetExtension1.Append(conditionalFormattings);
+        }
+
+        return conditionalFormattings;
+    }
+
+    /// <summary>
+    /// Writes the <c>x14</c> half of a data bar, replacing the element that held the one loaded under its id.
+    /// </summary>
+    private static void WriteExtensionDataBar(X14.ConditionalFormattings conditionalFormattings,
+        XLConditionalFormat xlConditionalFormat, string rangeId, SaveContext context)
+    {
+        var conditionalFormattingRule = conditionalFormattings
+            .Descendants<X14.ConditionalFormattingRule>()
+            .SingleOrDefault(r => r.Id == xlConditionalFormat.Id.WrapInBraces());
+        if (conditionalFormattingRule != null)
+        {
+            var conditionalFormat = conditionalFormattingRule
+                .Ancestors<X14.ConditionalFormatting>()
+                .SingleOrDefault();
+            conditionalFormattings.RemoveChild(conditionalFormat);
+        }
+
+        var conditionalFormatting = new X14.ConditionalFormatting();
+        conditionalFormatting.AddNamespaceDeclaration("xm", XmMain2006);
+        conditionalFormatting.Append(XLCFConvertersExtension.Convert(xlConditionalFormat, context));
+        var referenceSequence = new OfficeExcel.ReferenceSequence
+        { Text = rangeId };
+        conditionalFormatting.Append(referenceSequence);
+
+        conditionalFormattings.Append(conditionalFormatting);
     }
 
     internal static void WriteSparklines(
