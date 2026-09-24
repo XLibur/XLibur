@@ -518,4 +518,145 @@ public class RowTests
 
         await Assert.That(ws.Row(2).Height).IsEqualTo(ws.Row(1).Height).Within(XLHelper.Epsilon);
     }
+
+    // Wrapped text is compared with the same text split by hard line breaks, so the tests don't
+    // depend on the metrics of a particular font engine. Column A is 6 characters wide: one
+    // 3-letter word fits on a line, two don't.
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_HeightMatchesHardLineBreaks()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 6;
+        ws.Cell("A1").Value = "abc def ghi";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "abc\ndef\nghi";
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrapTextOff_TextStaysOnOneLine()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 6;
+        ws.Cell("A1").Value = "abc def ghi";
+        ws.Cell("A2").Value = "abc";
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_BreaksAfterHyphen()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 6;
+        ws.Cell("A1").Value = "abc-def";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "abc-\ndef";
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_TrailingSpacesDoNotAddLine()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 6;
+        ws.Cell("A1").Value = "abc                    ";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "abc";
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_OverlongWordIsSplit()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 6;
+        ws.Cell("A1").Value = "abcdefghijklmnopqrstuvwxyz";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "a\nb\nc";
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsGreaterThanOrEqualTo(ws.Row(2).Height)
+            .Because("26 letters in a 6-character column need at least 3 lines");
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_IndentNarrowsLine()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Column(1).Width = 10;
+        ws.Cell("A1").Value = "abc def";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "abc def";
+        ws.Cell("A2").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Style.Alignment.Indent = 5;
+        ws.Cell("A3").Value = "abc\ndef";
+
+        ws.Rows(1, 3).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsLessThan(ws.Row(2).Height).Because("without an indent, both words fit on one line");
+        await Assert.That(ws.Row(2).Height).IsEqualTo(ws.Row(3).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_WrappedText_ColumnWiderAfterAutofitKeepsOneLine()
+    {
+        // A column autofitted to a text keeps that text on one line when it is wrapped.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "The quick brown fox jumps over the lazy dog";
+        ws.Cell("A1").Style.Alignment.WrapText = true;
+        ws.Cell("A2").Value = "The";
+        ws.Column(1).AdjustToContents();
+
+        ws.Rows(1, 2).AdjustToContents();
+
+        await Assert.That(ws.Row(1).Height).IsEqualTo(ws.Row(2).Height).Within(XLHelper.Epsilon);
+    }
+
+    [Test]
+    public async Task AdjustToContents_Issue2867_WrappedFirstColumnGrowsRow()
+    {
+        // ClosedXML/ClosedXML#2867: a wrapped cell in a fixed-width column must make the row taller.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var range = ws.Cell("A1").InsertData(new[]
+        {
+            new object[] { "Cheesecake sablfdsa daskjfhdsakjdsa and what more tging we have...!", 14 },
+            new object[] { "Medovik", 6 },
+            new object[] { "Muffin", 10 },
+        })!;
+        var firstColumn = range.FirstColumn()!;
+        firstColumn.Style.Alignment.SetWrapText(true);
+        firstColumn.WorksheetColumn().Width = 20;
+        foreach (var column in ws.ColumnsUsed().Skip(1))
+            column.AdjustToContents();
+        ws.Cell("D5").Value = "a\nb\nc";
+
+        ws.RowsUsed().AdjustToContents();
+
+        await Assert.That(ws.Column(1).Width).IsEqualTo(20);
+        await Assert.That(ws.Row(1).Height).IsGreaterThanOrEqualTo(ws.Row(5).Height)
+            .Because("the text needs at least 3 lines in a 20-character column");
+        await Assert.That(ws.Row(2).Height).IsLessThan(ws.Row(1).Height);
+    }
 }
