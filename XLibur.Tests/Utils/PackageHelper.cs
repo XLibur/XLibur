@@ -274,6 +274,31 @@ public static class PackageHelper
         #endregion Check
 
         excludeMethod ??= (_ => false);
+        var pairs = PairParts(left, right, excludeMethod);
+
+        var stopBeforeContent = compareToFirstDifference && pairs.Any(pair => pair.Value.Status != CompareStatus.Equal);
+        if (!stopBeforeContent)
+        {
+            CompareSharedParts(left, right, pairs.Values, compareToFirstDifference);
+        }
+
+        var sortedPairs = pairs.Values.ToList();
+        sortedPairs.Sort((one, other) => string.Compare(one.Uri.OriginalString, other.Uri.OriginalString, StringComparison.Ordinal));
+        var sbuilder = new StringBuilder();
+        foreach (var pair in sortedPairs.Where(pair => pair.Status != CompareStatus.Equal))
+        {
+            sbuilder.Append($"{pair.Uri} :{pair.Status}");
+            sbuilder.AppendLine();
+        }
+        message = sbuilder.ToString();
+        return message.Length == 0;
+    }
+
+    /// <summary>
+    ///     Pairs the parts of both packages by URI, marking each as present on one side or on both.
+    /// </summary>
+    private static Dictionary<Uri, PartPair> PairParts(Package left, Package right, Func<Uri, bool> excludeMethod)
+    {
         var leftParts = left.GetParts();
         var rightParts = right.GetParts();
 
@@ -302,57 +327,55 @@ public static class PackageHelper
             }
         }
 
-        if (compareToFirstDifference && pairs.Any(pair => pair.Value.Status != CompareStatus.Equal))
-        {
-            goto EXIT;
-        }
+        return pairs;
+    }
 
-        foreach (var pair in pairs.Values)
+    /// <summary>
+    ///     Compares the content of every part present in both packages, marking the ones that differ.
+    /// </summary>
+    private static void CompareSharedParts(Package left, Package right, IEnumerable<PartPair> pairs,
+        bool compareToFirstDifference)
+    {
+        foreach (var pair in pairs)
         {
             if (pair.Status != CompareStatus.Equal)
             {
                 continue;
             }
-            var leftPart = left.GetPart(pair.Uri);
-            var rightPart = right.GetPart(pair.Uri);
-            using var leftPackagePartStream = leftPart.GetStream(FileMode.Open, FileAccess.Read);
-            using var rightPackagePartStream = rightPart.GetStream(FileMode.Open, FileAccess.Read);
-            using var leftMemoryStream = new MemoryStream();
-            using var rightMemoryStream = new MemoryStream();
-            leftPackagePartStream.CopyTo(leftMemoryStream);
-            rightPackagePartStream.CopyTo(rightMemoryStream);
 
-            leftMemoryStream.Seek(0, SeekOrigin.Begin);
-            rightMemoryStream.Seek(0, SeekOrigin.Begin);
-
-            var stripColumnWidthsFromSheet = TestHelper.StripColumnWidths &&
-                                             leftPart.ContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" &&
-                                             rightPart.ContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
-
-            var tuple1 = (leftPart.ContentType, Stream: leftMemoryStream);
-            var tuple2 = (rightPart.ContentType, Stream: rightMemoryStream);
-
-            if (!StreamHelper.Compare(tuple1, tuple2, pair.Uri, stripColumnWidthsFromSheet))
+            if (!ComparePartContent(left, right, pair.Uri))
             {
                 pair.Status = CompareStatus.NonEqual;
                 if (compareToFirstDifference)
                 {
-                    goto EXIT;
+                    return;
                 }
             }
         }
+    }
 
-    EXIT:
-        var sortedPairs = pairs.Values.ToList();
-        sortedPairs.Sort((one, other) => string.Compare(one.Uri.OriginalString, other.Uri.OriginalString, StringComparison.Ordinal));
-        var sbuilder = new StringBuilder();
-        foreach (var pair in sortedPairs.Where(pair => pair.Status != CompareStatus.Equal))
-        {
-            sbuilder.Append($"{pair.Uri} :{pair.Status}");
-            sbuilder.AppendLine();
-        }
-        message = sbuilder.ToString();
-        return message.Length == 0;
+    private static bool ComparePartContent(Package left, Package right, Uri uri)
+    {
+        var leftPart = left.GetPart(uri);
+        var rightPart = right.GetPart(uri);
+        using var leftPackagePartStream = leftPart.GetStream(FileMode.Open, FileAccess.Read);
+        using var rightPackagePartStream = rightPart.GetStream(FileMode.Open, FileAccess.Read);
+        using var leftMemoryStream = new MemoryStream();
+        using var rightMemoryStream = new MemoryStream();
+        leftPackagePartStream.CopyTo(leftMemoryStream);
+        rightPackagePartStream.CopyTo(rightMemoryStream);
+
+        leftMemoryStream.Seek(0, SeekOrigin.Begin);
+        rightMemoryStream.Seek(0, SeekOrigin.Begin);
+
+        var stripColumnWidthsFromSheet = TestHelper.StripColumnWidths &&
+                                         leftPart.ContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" &&
+                                         rightPart.ContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
+
+        var tuple1 = (leftPart.ContentType, Stream: leftMemoryStream);
+        var tuple2 = (rightPart.ContentType, Stream: rightMemoryStream);
+
+        return StreamHelper.Compare(tuple1, tuple2, uri, stripColumnWidthsFromSheet);
     }
 
     #region Nested type: PackagePartDescriptor

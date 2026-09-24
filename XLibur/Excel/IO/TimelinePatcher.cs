@@ -57,14 +57,6 @@ internal static class TimelinePatcher
     /// <summary>
     /// Writes back only the attributes the caller actually assigned, one flat guard per attribute.
     /// </summary>
-    /// <remarks>
-    /// Sonar scores this at 21 against a threshold of 15, but the count is measuring the wrong
-    /// thing: the guards are independent, unnested and in schema order, and each carries the note
-    /// explaining what Excel does with that attribute's default. Any split here would be an
-    /// arbitrary cut through an attribute table — the shape spec 39 settled on for pivot
-    /// definitions — and would separate each guard from the comment that justifies it.
-    /// </remarks>
-#pragma warning disable S3776
     private static void Apply(X15.Timeline timeline, XLTimeline xlTimeline)
     {
         var assigned = xlTimeline.AssignedFormat;
@@ -82,6 +74,21 @@ internal static class TimelinePatcher
                 : xlTimeline.Caption;
         }
 
+        ApplyDisplayToggles(timeline, xlTimeline, assigned);
+
+        if (assigned.HasFlag(XLTimelineFormat.Style))
+            timeline.Style = xlTimeline.Style is { } style ? style : (StringValue?)null;
+
+        // level defaults to 0, so a timeline set back to Years drops the attribute.
+        if (assigned.HasFlag(XLTimelineFormat.Level))
+            timeline.Level = xlTimeline.LevelRaw == 0 ? (UInt32Value?)null : xlTimeline.LevelRaw;
+    }
+
+    /// <summary>
+    /// Writes back the four show/hide booleans that the caller assigned.
+    /// </summary>
+    private static void ApplyDisplayToggles(X15.Timeline timeline, XLTimeline xlTimeline, XLTimelineFormat assigned)
+    {
         // The four booleans default to true; writing a value that is already the default is legal
         // but noisy, and it is not what Excel does.
         //
@@ -105,15 +112,7 @@ internal static class TimelinePatcher
                 xlTimeline.ShowHorizontalScrollbar ? (BooleanValue?)null : false;
         }
 #pragma warning restore S1125
-
-        if (assigned.HasFlag(XLTimelineFormat.Style))
-            timeline.Style = xlTimeline.Style is { } style ? style : (StringValue?)null;
-
-        // level defaults to 0, so a timeline set back to Years drops the attribute.
-        if (assigned.HasFlag(XLTimelineFormat.Level))
-            timeline.Level = xlTimeline.LevelRaw == 0 ? (UInt32Value?)null : xlTimeline.LevelRaw;
     }
-#pragma warning restore S3776
 
     /// <summary>
     /// The timelines part a loaded timeline was read from.

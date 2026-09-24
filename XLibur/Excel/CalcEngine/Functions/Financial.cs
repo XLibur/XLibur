@@ -759,7 +759,6 @@ internal static class Financial
         return XNpvOf(rate, schedule);
     }
 
-#pragma warning disable S3776 // Newton with a documented bisection fallback; the convergence tests are the algorithm
     private static AnyValue XIrr(CalcContext ctx, Span<AnyValue> args)
     {
         // XIRR(values, dates, [guess]) — the rate at which XNPV of the schedule is zero.
@@ -772,6 +771,19 @@ internal static class Financial
         if (guess <= -1)
             return XLError.NumberInvalid;
 
+        if (!HasPositiveAndNegativeAmounts(schedule))
+            return XLError.NumberInvalid;
+
+        if (TryXIrrByNewton(schedule, guess, out var rate))
+            return rate;
+
+        // Newton wandered off; fall back to bisecting a bracket found by scanning outwards.
+        return XIrrByBisection(schedule);
+    }
+
+    /// <summary>A rate of return only exists when the schedule has both an inflow and an outflow.</summary>
+    private static bool HasPositiveAndNegativeAmounts(List<(double Amount, double Days)> schedule)
+    {
         var hasPositive = false;
         var hasNegative = false;
         foreach (var (amount, _) in schedule)
@@ -780,9 +792,15 @@ internal static class Financial
             hasNegative |= amount < 0;
         }
 
-        if (!hasPositive || !hasNegative)
-            return XLError.NumberInvalid;
+        return hasPositive && hasNegative;
+    }
 
+    /// <summary>
+    /// Newton's method on XNPV from the <paramref name="guess"/>. Fails when the iteration hits a
+    /// non-finite value, a flat derivative, or doesn't converge within the iteration limit.
+    /// </summary>
+    private static bool TryXIrrByNewton(List<(double Amount, double Days)> schedule, double guess, out double result)
+    {
         const int maxIterations = 100;
         const double tolerance = 1e-9;
         const double delta = 1e-7;
@@ -793,7 +811,10 @@ internal static class Financial
             if (double.IsNaN(value) || double.IsInfinity(value))
                 break;
             if (Math.Abs(value) < tolerance)
-                return rate;
+            {
+                result = rate;
+                return true;
+            }
 
             var derivative = (XNpvOf(rate + delta, schedule) - value) / delta;
             if (derivative == 0.0 || double.IsNaN(derivative))
@@ -804,15 +825,17 @@ internal static class Financial
                 nextRate = (rate - 1) / 2;
 
             if (Math.Abs(nextRate - rate) < tolerance)
-                return nextRate;
+            {
+                result = nextRate;
+                return true;
+            }
 
             rate = nextRate;
         }
 
-        // Newton wandered off; fall back to bisecting a bracket found by scanning outwards.
-        return XIrrByBisection(schedule);
+        result = default;
+        return false;
     }
-#pragma warning restore S3776
 
     private static AnyValue XIrrByBisection(List<(double Amount, double Days)> schedule)
     {

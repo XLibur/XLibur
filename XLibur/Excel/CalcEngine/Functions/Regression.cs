@@ -833,29 +833,13 @@ internal static class Regression
     /// degrees of freedom, then the regression and residual sums of squares. The cells to the right
     /// of the short rows are <c>#N/A</c>, as Excel leaves them.
     /// </summary>
-#pragma warning disable S3776 // The five-row LINEST statistics block; the arithmetic is flat and sequential
     private static AnyValue BuildStatistics(in Design design, bool constant, double[] coefficients, double[] reportedRow)
     {
         var width = design.Predictors + 1;
         var n = design.Observations;
         var degreesOfFreedom = n - design.Predictors - (constant ? 1 : 0);
 
-        var meanY = 0d;
-        foreach (var value in design.Y)
-            meanY += value;
-        meanY /= n;
-
-        double residualSumOfSquares = 0, totalSumOfSquares = 0;
-        for (var i = 0; i < n; i++)
-        {
-            var fitted = constant ? coefficients[0] : 0;
-            for (var p = 1; p <= design.Predictors; p++)
-                fitted += coefficients[p] * design.X[i, p - 1];
-
-            var residual = design.Y[i] - fitted;
-            residualSumOfSquares += residual * residual;
-            totalSumOfSquares += constant ? (design.Y[i] - meanY) * (design.Y[i] - meanY) : design.Y[i] * design.Y[i];
-        }
+        SumsOfSquares(design, constant, coefficients, out var residualSumOfSquares, out var totalSumOfSquares);
 
         var regressionSumOfSquares = totalSumOfSquares - residualSumOfSquares;
         var standardErrorOfY = degreesOfFreedom > 0 ? Math.Sqrt(residualSumOfSquares / degreesOfFreedom) : 0;
@@ -878,7 +862,38 @@ internal static class Regression
 
         return new ConstArray(data);
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// The residual sum of squares of the fit and the total sum of squares of y, the latter about
+    /// the mean of y when the fit has an intercept and about zero when it doesn't.
+    /// </summary>
+    private static void SumsOfSquares(in Design design, bool constant, double[] coefficients, out double residualSumOfSquares, out double totalSumOfSquares)
+    {
+        var n = design.Observations;
+        var meanY = 0d;
+        foreach (var value in design.Y)
+            meanY += value;
+        meanY /= n;
+
+        residualSumOfSquares = 0;
+        totalSumOfSquares = 0;
+        for (var i = 0; i < n; i++)
+        {
+            var residual = design.Y[i] - FittedValue(design, constant, coefficients, i);
+            residualSumOfSquares += residual * residual;
+            totalSumOfSquares += constant ? (design.Y[i] - meanY) * (design.Y[i] - meanY) : design.Y[i] * design.Y[i];
+        }
+    }
+
+    /// <summary>The value the fitted coefficients predict for <paramref name="observation"/>.</summary>
+    private static double FittedValue(in Design design, bool constant, double[] coefficients, int observation)
+    {
+        var fitted = constant ? coefficients[0] : 0;
+        for (var p = 1; p <= design.Predictors; p++)
+            fitted += coefficients[p] * design.X[observation, p - 1];
+
+        return fitted;
+    }
 
     /// <summary>
     /// Standard errors of the coefficients, in the same reversed order as the coefficients: the

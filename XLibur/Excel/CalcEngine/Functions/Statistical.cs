@@ -809,7 +809,6 @@ internal static class Statistical
     /// and exclusive flavours: inclusive spreads the n values over 0…1, exclusive over
     /// 1/(n+1)…n/(n+1). The result is truncated, not rounded, to <c>significance</c> decimals.
     /// </summary>
-#pragma warning disable S3776 // Argument guards, then the inclusive/exclusive rank rules PERCENTRANK is defined by
     private static AnyValue PercentRank(CalcContext ctx, Span<AnyValue> args, bool exclusive)
     {
         if (!TryGetNumbers(ctx, args[0], out var numbers, out var arrayError))
@@ -820,18 +819,8 @@ internal static class Statistical
         if (!xScalar.ToNumber(ctx.Culture).TryPickT0(out var x, out var xError))
             return xError;
 
-        var significance = 3d;
-        if (args.Length > 2)
-        {
-            if (!args[2].TryPickScalar(out var significanceScalar, out _))
-                return XLError.IncompatibleValue;
-            if (!significanceScalar.ToNumber(ctx.Culture).TryPickT0(out significance, out var significanceError))
-                return significanceError;
-
-            significance = Math.Truncate(significance);
-            if (significance < 1)
-                return XLError.NumberInvalid;
-        }
+        if (!TryGetPercentRankSignificance(ctx, args, out var significance, out var significanceError))
+            return significanceError;
 
         if (numbers.Count == 0)
             return XLError.NumberInvalid;
@@ -840,14 +829,7 @@ internal static class Statistical
         if (x < numbers[0] || x > numbers[^1])
             return XLError.NoValueAvailable;
 
-        // Position within the sorted values, interpolating between the two that straddle x.
-        var below = 0;
-        while (below + 1 < numbers.Count && numbers[below + 1] <= x)
-            below++;
-
-        var position = (double)below;
-        if (numbers[below] < x && below + 1 < numbers.Count)
-            position += (x - numbers[below]) / (numbers[below + 1] - numbers[below]);
+        var position = InterpolatedPosition(numbers, x);
 
         // A single observation has no spread to place x within, so it ranks at the top.
         var inclusiveRank = numbers.Count > 1 ? position / (numbers.Count - 1) : 1d;
@@ -861,7 +843,53 @@ internal static class Statistical
         var scale = Math.Pow(10, significance);
         return Math.Truncate(rank * scale) / scale;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Read the optional significance argument of PERCENTRANK: the number of decimals to keep,
+    /// truncated to a whole number and at least 1. Defaults to 3.
+    /// </summary>
+    private static bool TryGetPercentRankSignificance(CalcContext ctx, Span<AnyValue> args, out double significance, out XLError error)
+    {
+        significance = 3d;
+        error = default;
+        if (args.Length <= 2)
+            return true;
+
+        if (!args[2].TryPickScalar(out var significanceScalar, out _))
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        if (!significanceScalar.ToNumber(ctx.Culture).TryPickT0(out significance, out error))
+            return false;
+
+        significance = Math.Truncate(significance);
+        if (significance < 1)
+        {
+            error = XLError.NumberInvalid;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Position of <paramref name="x"/> within the sorted values, interpolating between the two
+    /// that straddle it. The caller guarantees x lies within the range of the values.
+    /// </summary>
+    private static double InterpolatedPosition(List<double> sortedNumbers, double x)
+    {
+        var below = 0;
+        while (below + 1 < sortedNumbers.Count && sortedNumbers[below + 1] <= x)
+            below++;
+
+        var position = (double)below;
+        if (sortedNumbers[below] < x && below + 1 < sortedNumbers.Count)
+            position += (x - sortedNumbers[below]) / (sortedNumbers[below + 1] - sortedNumbers[below]);
+
+        return position;
+    }
 
     private static AnyValue Quartile(CalcContext ctx, AnyValue arrayParam, double quartParam)
     {

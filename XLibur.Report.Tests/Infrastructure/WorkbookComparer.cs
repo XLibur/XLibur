@@ -105,65 +105,77 @@ public static class WorkbookComparer
                     return;
                 }
 
-                var expectedCell = expected.Cell(row, column);
-                var actualCell = actual.Cell(row, column);
-                var address = expectedCell.Address.ToStringRelative();
-
-                if (options.Values)
-                {
-                    var expectedValue = Describe(expectedCell.Value);
-                    var actualValue = Describe(actualCell.Value);
-                    if (!string.Equals(expectedValue, actualValue, StringComparison.Ordinal))
-                    {
-                        differences.Add($"{sheet}!{address}: value expected {expectedValue} but was {actualValue}");
-                    }
-                }
-
-                if (options.Formulas)
-                {
-                    var expectedFormula = expectedCell.HasFormula ? expectedCell.FormulaA1 : string.Empty;
-                    var actualFormula = actualCell.HasFormula ? actualCell.FormulaA1 : string.Empty;
-                    if (!string.Equals(expectedFormula, actualFormula, StringComparison.Ordinal))
-                    {
-                        differences.Add(
-                            $"{sheet}!{address}: formula expected '{expectedFormula}' but was '{actualFormula}'");
-                    }
-                }
-
-                if (options.Styles)
-                {
-                    var expectedStyle = expectedCell.Style.ToString();
-                    var actualStyle = actualCell.Style.ToString();
-                    if (!string.Equals(expectedStyle, actualStyle, StringComparison.Ordinal))
-                    {
-                        differences.Add($"{sheet}!{address}: style differs\n  expected: {expectedStyle}\n  actual:   {actualStyle}");
-                    }
-                }
-
-                if (options.Comments)
-                {
-                    var expectedComment = expectedCell.HasComment ? expectedCell.GetComment().Text : string.Empty;
-                    var actualComment = actualCell.HasComment ? actualCell.GetComment().Text : string.Empty;
-                    if (!string.Equals(expectedComment, actualComment, StringComparison.Ordinal))
-                    {
-                        differences.Add(
-                            $"{sheet}!{address}: comment expected '{expectedComment}' but was '{actualComment}'");
-                    }
-                }
-
-                if (options.Hyperlinks)
-                {
-                    var expectedLink = DescribeHyperlink(expectedCell);
-                    var actualLink = DescribeHyperlink(actualCell);
-                    if (!string.Equals(expectedLink, actualLink, StringComparison.Ordinal))
-                    {
-                        differences.Add(
-                            $"{sheet}!{address}: hyperlink expected '{expectedLink}' but was '{actualLink}'");
-                    }
-                }
+                CompareCell(expected.Cell(row, column), actual.Cell(row, column), options, differences, sheet);
             }
         }
     }
+
+    private static void CompareCell(
+        IXLCell expectedCell,
+        IXLCell actualCell,
+        WorkbookComparisonOptions options,
+        List<string> differences,
+        string sheet)
+    {
+        var address = expectedCell.Address.ToStringRelative();
+
+        if (options.Values)
+        {
+            var expectedValue = Describe(expectedCell.Value);
+            var actualValue = Describe(actualCell.Value);
+            if (!string.Equals(expectedValue, actualValue, StringComparison.Ordinal))
+            {
+                differences.Add($"{sheet}!{address}: value expected {expectedValue} but was {actualValue}");
+            }
+        }
+
+        if (options.Formulas)
+        {
+            var expectedFormula = DescribeFormula(expectedCell);
+            var actualFormula = DescribeFormula(actualCell);
+            if (!string.Equals(expectedFormula, actualFormula, StringComparison.Ordinal))
+            {
+                differences.Add(
+                    $"{sheet}!{address}: formula expected '{expectedFormula}' but was '{actualFormula}'");
+            }
+        }
+
+        if (options.Styles)
+        {
+            var expectedStyle = expectedCell.Style.ToString();
+            var actualStyle = actualCell.Style.ToString();
+            if (!string.Equals(expectedStyle, actualStyle, StringComparison.Ordinal))
+            {
+                differences.Add($"{sheet}!{address}: style differs\n  expected: {expectedStyle}\n  actual:   {actualStyle}");
+            }
+        }
+
+        if (options.Comments)
+        {
+            var expectedComment = DescribeComment(expectedCell);
+            var actualComment = DescribeComment(actualCell);
+            if (!string.Equals(expectedComment, actualComment, StringComparison.Ordinal))
+            {
+                differences.Add(
+                    $"{sheet}!{address}: comment expected '{expectedComment}' but was '{actualComment}'");
+            }
+        }
+
+        if (options.Hyperlinks)
+        {
+            var expectedLink = DescribeHyperlink(expectedCell);
+            var actualLink = DescribeHyperlink(actualCell);
+            if (!string.Equals(expectedLink, actualLink, StringComparison.Ordinal))
+            {
+                differences.Add(
+                    $"{sheet}!{address}: hyperlink expected '{expectedLink}' but was '{actualLink}'");
+            }
+        }
+    }
+
+    private static string DescribeFormula(IXLCell cell) => cell.HasFormula ? cell.FormulaA1 : string.Empty;
+
+    private static string DescribeComment(IXLCell cell) => cell.HasComment ? cell.GetComment().Text : string.Empty;
 
     private static void CompareConditionalFormats(
         IXLWorksheet expected,

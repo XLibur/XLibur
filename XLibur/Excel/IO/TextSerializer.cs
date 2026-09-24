@@ -9,68 +9,81 @@ namespace XLibur.Excel.IO;
 
 internal static class TextSerializer
 {
-#pragma warning disable S3776 // Runs, phonetic runs and phonetic properties are three independent optional sections
     internal static void WriteRichTextElements(XmlWriter w, XLImmutableRichText richText, SaveContext context)
     {
         if (richText.Runs.Count == 0)
-        {
-            // Plain text carrying only a phonetic guide - it never had runs, so write it back as a
-            // bare <t> rather than wrapping it in a run with invented formatting. This text was
-            // decoded on the way in (unlike run text, which is not), so it has to be re-encoded:
-            // a decoded _xHHHH_ escape is a raw control character that is not valid XML content.
-            if (richText.Text.Length > 0)
-                WriteText(w, XmlEncoder.EncodeString(richText.Text));
-        }
+            WritePlainText(w, richText);
         else
-        {
-            foreach (var textRun in richText.Runs)
-            {
-                var text = richText.GetRunText(textRun);
-                if (text.Length > 0)
-                {
-                    WriteRun(w, text, textRun.Font, textRun.InheritsCellFont, textRun.StatedProperties);
-                }
-            }
-        }
+            WriteRuns(w, richText);
 
         if (richText.PhoneticsProperties is not null)
         {
-            var phoneticsProps = richText.PhoneticsProperties.Value;
-            foreach (var p in richText.PhoneticRuns)
-            {
-                w.WriteStartElement("rPh", Main2006SsNs);
-                w.WriteAttribute("sb", p.StartIndex);
-                w.WriteAttribute("eb", p.EndIndex);
-
-                w.WriteStartElement("t", Main2006SsNs);
-                if (p.Text.PreserveSpaces())
-                    w.WritePreserveSpaceAttr();
-
-                w.WriteString(p.Text);
-                w.WriteEndElement(); // t
-                w.WriteEndElement(); // rPh
-            }
-
-            var font = phoneticsProps.Font;
-            if (!context.SharedFonts.TryGetValue(font, out FontInfo fi))
-            {
-                fi = new FontInfo { Font = font };
-                context.SharedFonts.Add(font, fi);
-            }
-
-            w.WriteStartElement("phoneticPr", Main2006SsNs);
-            w.WriteAttribute("fontId", fi.FontId);
-
-            if (phoneticsProps.Alignment != XLPhoneticAlignment.Left)
-                w.WriteAttributeString("alignment", phoneticsProps.Alignment.ToOpenXmlString());
-
-            if (phoneticsProps.Type != XLPhoneticType.FullWidthKatakana)
-                w.WriteAttributeString("type", phoneticsProps.Type.ToOpenXmlString());
-
-            w.WriteEndElement(); // phoneticPr
+            WritePhoneticRuns(w, richText);
+            WritePhoneticProperties(w, richText.PhoneticsProperties.Value, context);
         }
     }
-#pragma warning restore S3776
+
+    private static void WritePlainText(XmlWriter w, XLImmutableRichText richText)
+    {
+        // Plain text carrying only a phonetic guide - it never had runs, so write it back as a
+        // bare <t> rather than wrapping it in a run with invented formatting. This text was
+        // decoded on the way in (unlike run text, which is not), so it has to be re-encoded:
+        // a decoded _xHHHH_ escape is a raw control character that is not valid XML content.
+        if (richText.Text.Length > 0)
+            WriteText(w, XmlEncoder.EncodeString(richText.Text));
+    }
+
+    private static void WriteRuns(XmlWriter w, XLImmutableRichText richText)
+    {
+        foreach (var textRun in richText.Runs)
+        {
+            var text = richText.GetRunText(textRun);
+            if (text.Length > 0)
+            {
+                WriteRun(w, text, textRun.Font, textRun.InheritsCellFont, textRun.StatedProperties);
+            }
+        }
+    }
+
+    private static void WritePhoneticRuns(XmlWriter w, XLImmutableRichText richText)
+    {
+        foreach (var p in richText.PhoneticRuns)
+        {
+            w.WriteStartElement("rPh", Main2006SsNs);
+            w.WriteAttribute("sb", p.StartIndex);
+            w.WriteAttribute("eb", p.EndIndex);
+
+            w.WriteStartElement("t", Main2006SsNs);
+            if (p.Text.PreserveSpaces())
+                w.WritePreserveSpaceAttr();
+
+            w.WriteString(p.Text);
+            w.WriteEndElement(); // t
+            w.WriteEndElement(); // rPh
+        }
+    }
+
+    private static void WritePhoneticProperties(XmlWriter w, XLImmutableRichText.PhoneticProperties phoneticsProps,
+        SaveContext context)
+    {
+        var font = phoneticsProps.Font;
+        if (!context.SharedFonts.TryGetValue(font, out FontInfo fi))
+        {
+            fi = new FontInfo { Font = font };
+            context.SharedFonts.Add(font, fi);
+        }
+
+        w.WriteStartElement("phoneticPr", Main2006SsNs);
+        w.WriteAttribute("fontId", fi.FontId);
+
+        if (phoneticsProps.Alignment != XLPhoneticAlignment.Left)
+            w.WriteAttributeString("alignment", phoneticsProps.Alignment.ToOpenXmlString());
+
+        if (phoneticsProps.Type != XLPhoneticType.FullWidthKatakana)
+            w.WriteAttributeString("type", phoneticsProps.Type.ToOpenXmlString());
+
+        w.WriteEndElement(); // phoneticPr
+    }
 
     internal static void WriteRun(XmlWriter w, XLImmutableRichText richText, XLImmutableRichText.RichTextRun run)
     {

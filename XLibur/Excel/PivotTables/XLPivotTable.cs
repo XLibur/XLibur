@@ -1931,21 +1931,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         // A value whose source column is gone from the cache is not put back below, so it is
         // really removed and the style formats naming it have to go with it (#577).
         var droppedValuePositions = new List<int>();
-        var valuePosition = 0;
-        foreach (var dataField in DataFields)
-        {
-            var oldSourceName = oldFieldNames[dataField.Field];
-            if (newNames.Contains(oldSourceName))
-            {
-                keptDataFields.Add((oldSourceName, dataField.DataFieldName, dataField));
-            }
-            else
-            {
-                droppedValuePositions.Add(valuePosition);
-            }
-
-            valuePosition++;
-        }
+        SplitDataFieldsByKeptSource(oldFieldNames, newNames, keptDataFields, droppedValuePositions);
 
         var includeValuesField = keptDataFields.Count > 1;
         var keptFilterSourceNames = GetKeptNames(Filters.Fields.Select(x => (FieldIndex)x.Field).ToList(),
@@ -1961,12 +1947,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         // one is numbered against the positions still there. The kept values go back below in the
         // order they are in now, so once these are out the positions the formats name are exactly
         // the positions the kept values will land on (#577).
-        var valuesLeft = keptDataFields.Count + droppedValuePositions.Count;
-        for (var i = droppedValuePositions.Count - 1; i >= 0; i--)
-        {
-            valuesLeft--;
-            RemoveValueFromFormats(droppedValuePositions[i], valuesLeft);
-        }
+        PruneDroppedValueFormats(droppedValuePositions, keptDataFields.Count + droppedValuePositions.Count);
 
         // The values that are coming back are emptied only to be re-added a few lines below, so
         // their formats are left exactly as they are rather than pruned as a real Clear would.
@@ -1997,36 +1978,74 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             var dataField = DataFields.AddField(keptDataField.SourceName, keptDataField.CustomName);
             dataField.Subtotal = keptDataField.Field.Subtotal;
         }
+    }
 
-        return;
-
-        static List<string> GetKeptNames(
-            IReadOnlyList<FieldIndex> fieldIndexes,
-            IReadOnlyList<string> oldNames,
-            HashSet<string> newNames,
-            bool includeDataField)
+    /// <summary>
+    /// Sorts the current values into those whose source field survives the cache change and the
+    /// positions of those that do not.
+    /// </summary>
+    private void SplitDataFieldsByKeptSource(
+        IReadOnlyList<string> oldFieldNames,
+        HashSet<string> newNames,
+        List<(string SourceName, string? CustomName, XLPivotDataField Field)> keptDataFields,
+        List<int> droppedValuePositions)
+    {
+        var valuePosition = 0;
+        foreach (var dataField in DataFields)
         {
-            var result = new List<string>();
-            foreach (var fieldIndex in fieldIndexes)
+            var oldSourceName = oldFieldNames[dataField.Field];
+            if (newNames.Contains(oldSourceName))
             {
-                if (fieldIndex.IsDataField)
-                {
-                    // The 'data' field has no entry in oldNames (it isn't a cache field), so it
-                    // can't be looked up like the others below. Whether it stays depends on
-                    // includeDataField, but recognizing it does not.
-                    if (includeDataField)
-                        result.Add(XLConstants.PivotTable.ValuesSentinalLabel);
-
-                    continue;
-                }
-
-                var oldName = oldNames[fieldIndex];
-                if (newNames.Contains(oldName))
-                    result.Add(oldName);
+                keptDataFields.Add((oldSourceName, dataField.DataFieldName, dataField));
+            }
+            else
+            {
+                droppedValuePositions.Add(valuePosition);
             }
 
-            return result;
+            valuePosition++;
         }
+    }
+
+    /// <summary>
+    /// Removes the dropped values from the style formats, highest position first.
+    /// </summary>
+    private void PruneDroppedValueFormats(List<int> droppedValuePositions, int valueCount)
+    {
+        var valuesLeft = valueCount;
+        for (var i = droppedValuePositions.Count - 1; i >= 0; i--)
+        {
+            valuesLeft--;
+            RemoveValueFromFormats(droppedValuePositions[i], valuesLeft);
+        }
+    }
+
+    private static List<string> GetKeptNames(
+        IReadOnlyList<FieldIndex> fieldIndexes,
+        IReadOnlyList<string> oldNames,
+        HashSet<string> newNames,
+        bool includeDataField)
+    {
+        var result = new List<string>();
+        foreach (var fieldIndex in fieldIndexes)
+        {
+            if (fieldIndex.IsDataField)
+            {
+                // The 'data' field has no entry in oldNames (it isn't a cache field), so it
+                // can't be looked up like the others below. Whether it stays depends on
+                // includeDataField, but recognizing it does not.
+                if (includeDataField)
+                    result.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+
+                continue;
+            }
+
+            var oldName = oldNames[fieldIndex];
+            if (newNames.Contains(oldName))
+                result.Add(oldName);
+        }
+
+        return result;
     }
 
     /// <summary>
