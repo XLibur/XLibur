@@ -157,22 +157,38 @@ internal static class Financial
         var period = 1;
         for (var i = 1; i < args.Length; i++)
         {
-            foreach (var scalar in EnumerateScalars(ctx, args[i]))
-            {
-                if (scalar.IsError)
-                    return scalar.GetError();
-
-                // NPV ignores blanks, text and logicals in references; each number is discounted by
-                // its sequential position.
-                if (!scalar.IsNumber)
-                    continue;
-
-                npv += scalar.GetNumber() / Math.Pow(1 + rate, period);
-                period++;
-            }
+            if (!TryAddDiscountedValues(ctx, args[i], rate, ref npv, ref period, out var valueError))
+                return valueError;
         }
 
         return npv;
+    }
+
+    /// <summary>
+    /// Add the numbers of one NPV value argument to <paramref name="npv"/>, each discounted by its
+    /// sequential <paramref name="period"/>. The first error stops the walk.
+    /// </summary>
+    private static bool TryAddDiscountedValues(CalcContext ctx, in AnyValue arg, double rate, ref double npv, ref int period, out XLError error)
+    {
+        foreach (var scalar in EnumerateScalars(ctx, arg))
+        {
+            if (scalar.IsError)
+            {
+                error = scalar.GetError();
+                return false;
+            }
+
+            // NPV ignores blanks, text and logicals in references; each number is discounted by
+            // its sequential position.
+            if (!scalar.IsNumber)
+                continue;
+
+            npv += scalar.GetNumber() / Math.Pow(1 + rate, period);
+            period++;
+        }
+
+        error = default;
+        return true;
     }
 
     private static AnyValue Irr(CalcContext ctx, Span<AnyValue> args)
@@ -187,6 +203,14 @@ internal static class Financial
         if (args.Length > 1 && !TryScalarNumber(ctx, args[1], out guess, out var guessError))
             return guessError;
 
+        return SolveIrr(cashflows, guess);
+    }
+
+    /// <summary>
+    /// Newton's method on the NPV of <paramref name="cashflows"/> from the <paramref name="guess"/>.
+    /// </summary>
+    private static AnyValue SolveIrr(List<double> cashflows, double guess)
+    {
         const int maxIterations = 50;
         const double tolerance = 1e-7;
         var rate = guess;
@@ -215,7 +239,6 @@ internal static class Financial
         return XLError.NumberInvalid;
     }
 
-#pragma warning disable S3776 // Six scalar arguments to read before one Newton iteration
     private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
     {
         // RATE(nper, pmt, pv, [fv], [type], [guess]) - solved iteratively. All arguments are scalars.
@@ -226,14 +249,33 @@ internal static class Financial
         if (!TryScalarNumber(ctx, args[2], out var pv, out var pvError))
             return pvError;
 
-        double fv = 0, type = 0, guess = 0.1;
-        if (args.Length > 3 && !TryScalarNumber(ctx, args[3], out fv, out var fvError))
+        if (!TryOptionalScalarNumber(ctx, args, 3, 0, out var fv, out var fvError))
             return fvError;
-        if (args.Length > 4 && !TryScalarNumber(ctx, args[4], out type, out var typeError))
+        if (!TryOptionalScalarNumber(ctx, args, 4, 0, out var type, out var typeError))
             return typeError;
-        if (args.Length > 5 && !TryScalarNumber(ctx, args[5], out guess, out var guessError))
+        if (!TryOptionalScalarNumber(ctx, args, 5, 0.1, out var guess, out var guessError))
             return guessError;
 
+        return SolveRate(nper, pmt, pv, fv, type, guess);
+    }
+
+    /// <summary>
+    /// Read the optional scalar number at <paramref name="index"/>, or <paramref name="defaultValue"/>
+    /// when the argument is left out.
+    /// </summary>
+    private static bool TryOptionalScalarNumber(CalcContext ctx, Span<AnyValue> args, int index, double defaultValue, out double value, out XLError error)
+    {
+        value = defaultValue;
+        error = default;
+        return args.Length <= index || TryScalarNumber(ctx, args[index], out value, out error);
+    }
+
+    /// <summary>
+    /// Newton's method on the time-value-of-money residual from the <paramref name="guess"/>, with
+    /// a numeric derivative.
+    /// </summary>
+    private static AnyValue SolveRate(double nper, double pmt, double pv, double fv, double type, double guess)
+    {
         const int maxIterations = 100;
         const double tolerance = 1e-8;
         const double delta = 1e-6;
@@ -257,7 +299,6 @@ internal static class Financial
 
         return XLError.NumberInvalid;
     }
-#pragma warning restore S3776
 
     /// <summary>
     /// The time-value-of-money residual: <c>pv·(1+rate)^nper + pmt·(1+rate·type)·((1+rate)^nper−1)/rate + fv</c>,
@@ -400,24 +441,13 @@ internal static class Financial
 
         for (var period = 1d; period <= lastPeriod; period++)
         {
-            double charge;
-            if (switched)
-            {
-                charge = straightLine;
-            }
-            else
+            var charge = straightLine;
+            if (!switched)
             {
                 var declining = DdbPeriod(cost, salvage, life, period, factor);
-                straightLine = noSwitch ? 0 : remaining / (life - (period - 1));
-                if (straightLine > declining)
-                {
-                    charge = straightLine;
-                    switched = true;
-                }
-                else
-                {
-                    charge = declining;
-                }
+                straightLine = StraightLineCharge(remaining, life, period, noSwitch);
+                switched = straightLine > declining;
+                charge = switched ? straightLine : declining;
             }
 
             remaining -= charge;
@@ -431,6 +461,13 @@ internal static class Financial
 
         return total;
     }
+
+    /// <summary>
+    /// Straight-line charge that spreads the <paramref name="remaining"/> basis over the life left
+    /// from <paramref name="period"/>, or zero when <paramref name="noSwitch"/> rules it out.
+    /// </summary>
+    private static double StraightLineCharge(double remaining, double life, double period, bool noSwitch)
+        => noSwitch ? 0 : remaining / (life - (period - 1));
 
     #endregion
 
@@ -716,10 +753,29 @@ internal static class Financial
         if (count < 2)
             return XLError.DivisionByZero;
 
-        double positiveNpv = 0, negativeNpv = 0;
+        if (!TrySplitDiscountedFlows(cashflows, financeRate, reinvestRate, out var positiveNpv, out var negativeNpv))
+            return XLError.DivisionByZero;
+
+        var numerator = -positiveNpv * Math.Pow(1 + reinvestRate, count);
+        var denominator = negativeNpv * (1 + financeRate);
+        if (denominator == 0.0)
+            return XLError.DivisionByZero;
+
+        return Math.Pow(numerator / denominator, 1.0 / (count - 1)) - 1;
+    }
+
+    /// <summary>
+    /// Discount the positive flows at <paramref name="reinvestRate"/> and the negative ones at
+    /// <paramref name="financeRate"/>, each by its period. Returns <c>false</c> unless there is at
+    /// least one flow of each sign.
+    /// </summary>
+    private static bool TrySplitDiscountedFlows(List<double> cashflows, double financeRate, double reinvestRate, out double positiveNpv, out double negativeNpv)
+    {
+        positiveNpv = 0;
+        negativeNpv = 0;
         var hasPositive = false;
         var hasNegative = false;
-        for (var t = 0; t < count; t++)
+        for (var t = 0; t < cashflows.Count; t++)
         {
             var flow = cashflows[t];
             if (flow > 0)
@@ -734,15 +790,7 @@ internal static class Financial
             }
         }
 
-        if (!hasPositive || !hasNegative)
-            return XLError.DivisionByZero;
-
-        var numerator = -positiveNpv * Math.Pow(1 + reinvestRate, count);
-        var denominator = negativeNpv * (1 + financeRate);
-        if (denominator == 0.0)
-            return XLError.DivisionByZero;
-
-        return Math.Pow(numerator / denominator, 1.0 / (count - 1)) - 1;
+        return hasPositive && hasNegative;
     }
 
     private static AnyValue XNpv(CalcContext ctx, Span<AnyValue> args)
@@ -808,7 +856,7 @@ internal static class Financial
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             var value = XNpvOf(rate, schedule);
-            if (double.IsNaN(value) || double.IsInfinity(value))
+            if (!double.IsFinite(value))
                 break;
             if (Math.Abs(value) < tolerance)
             {
@@ -820,10 +868,7 @@ internal static class Financial
             if (derivative == 0.0 || double.IsNaN(derivative))
                 break;
 
-            var nextRate = rate - value / derivative;
-            if (nextRate <= -1)
-                nextRate = (rate - 1) / 2;
-
+            var nextRate = XIrrNewtonStep(rate, value, derivative);
             if (Math.Abs(nextRate - rate) < tolerance)
             {
                 result = nextRate;
@@ -835,6 +880,16 @@ internal static class Financial
 
         result = default;
         return false;
+    }
+
+    /// <summary>
+    /// One Newton step, pulled back halfway towards -1 when it would reach a rate of -100% or less,
+    /// where XNPV is undefined.
+    /// </summary>
+    private static double XIrrNewtonStep(double rate, double value, double derivative)
+    {
+        var nextRate = rate - value / derivative;
+        return nextRate <= -1 ? (rate - 1) / 2 : nextRate;
     }
 
     private static AnyValue XIrrByBisection(List<(double Amount, double Days)> schedule)
@@ -889,71 +944,60 @@ internal static class Financial
     /// first date. The two arguments must hold the same number of cells and no date may fall before
     /// the first one.
     /// </summary>
-#pragma warning disable S3776 // Two symmetric collection walks with error propagation, then one pairing check
     private static bool TryCollectSchedule(CalcContext ctx, in AnyValue valuesArg, in AnyValue datesArg, out List<(double Amount, double Days)> schedule, out XLError error)
     {
         schedule = null!;
-        error = default;
 
-        var amounts = new List<double>();
-        foreach (var scalar in EnumerateScalars(ctx, valuesArg))
-        {
-            if (scalar.IsError)
-            {
-                error = scalar.GetError();
-                return false;
-            }
-
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var amount, out var amountError))
-            {
-                error = amountError;
-                return false;
-            }
-
-            amounts.Add(amount);
-        }
-
-        var dates = new List<double>();
-        foreach (var scalar in EnumerateScalars(ctx, datesArg))
-        {
-            if (scalar.IsError)
-            {
-                error = scalar.GetError();
-                return false;
-            }
-
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var date, out var dateError))
-            {
-                error = dateError;
-                return false;
-            }
-
-            dates.Add(Math.Truncate(date));
-        }
-
-        if (amounts.Count != dates.Count || amounts.Count < 2)
-        {
-            error = XLError.NumberInvalid;
+        if (!TryReadAllNumbers(ctx, valuesArg, truncate: false, out var amounts, out error))
             return false;
-        }
+
+        if (!TryReadAllNumbers(ctx, datesArg, truncate: true, out var dates, out error))
+            return false;
+
+        error = XLError.NumberInvalid;
+        if (amounts.Count != dates.Count || amounts.Count < 2)
+            return false;
 
         var start = dates[0];
         var result = new List<(double Amount, double Days)>(amounts.Count);
         for (var i = 0; i < amounts.Count; i++)
         {
             if (dates[i] < start || dates[i] < 0)
-            {
-                error = XLError.NumberInvalid;
                 return false;
-            }
 
             result.Add((amounts[i], dates[i] - start));
         }
 
+        error = default;
         schedule = result;
         return true;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Read every cell of <paramref name="arg"/> as a number, whole numbers only when
+    /// <paramref name="truncate"/> is set. An error, or a value that isn't a number, stops the walk
+    /// with its error.
+    /// </summary>
+    private static bool TryReadAllNumbers(CalcContext ctx, in AnyValue arg, bool truncate, out List<double> numbers, out XLError error)
+    {
+        numbers = new List<double>();
+        foreach (var scalar in EnumerateScalars(ctx, arg))
+        {
+            if (scalar.IsError)
+            {
+                error = scalar.GetError();
+                return false;
+            }
+
+            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+                return false;
+
+            numbers.Add(truncate ? Math.Truncate(number) : number);
+        }
+
+        error = default;
+        return true;
+    }
 
     #endregion
 
