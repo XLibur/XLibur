@@ -21,24 +21,9 @@ public class EvaluateExprConcurrencyTests
         var failures = new ConcurrentQueue<string>();
         using var barrier = new Barrier(threadCount);
 
-        var threads = Enumerable.Range(0, threadCount).Select(_ => new Thread(() =>
-        {
-            for (var i = 0; i < rounds; i++)
-            {
-                barrier.SignalAndWait();
-                try
-                {
-                    var value = XLWorkbook.EvaluateExpr(expressions[i]);
-                    if (!value.IsNumber || value.GetNumber() != i * 2)
-                        failures.Enqueue($"{expressions[i]} = {value}");
-                }
-                catch (Exception ex)
-                {
-                    failures.Enqueue($"{expressions[i]}: {ex.GetType().Name}: {ex.Message}");
-                }
-            }
-        })
-        { IsBackground = true }).ToArray();
+        var threads = Enumerable.Range(0, threadCount)
+            .Select(_ => new Thread(() => EvaluateRounds(expressions, barrier, failures)) { IsBackground = true })
+            .ToArray();
 
         foreach (var thread in threads)
             thread.Start();
@@ -46,5 +31,29 @@ public class EvaluateExprConcurrencyTests
 
         await Assert.That(finished).IsTrue();
         await Assert.That(failures).IsEmpty();
+    }
+
+    /// <summary>Evaluates each round's expression in step with the other threads, recording any wrong answer.</summary>
+    private static void EvaluateRounds(string[] expressions, Barrier barrier, ConcurrentQueue<string> failures)
+    {
+        for (var i = 0; i < expressions.Length; i++)
+        {
+            barrier.SignalAndWait();
+            EvaluateOne(expressions[i], i * 2, failures);
+        }
+    }
+
+    private static void EvaluateOne(string expression, int expected, ConcurrentQueue<string> failures)
+    {
+        try
+        {
+            var value = XLWorkbook.EvaluateExpr(expression);
+            if (!value.IsNumber || value.GetNumber() != expected)
+                failures.Enqueue($"{expression} = {value}");
+        }
+        catch (Exception ex)
+        {
+            failures.Enqueue($"{expression}: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 }

@@ -69,11 +69,7 @@ internal static class TemplateFixture
         using var workbook = new XLWorkbook();
 
         var data = workbook.AddWorksheet(DataSheet);
-        for (var c = 1; c <= GridColumns; c++)
-        {
-            data.Cell(HeaderRow, c).Value = $"Column{c}";
-            data.Cell(HeaderRow, c).Style.Font.Bold = true;
-        }
+        WriteHeader(data);
 
         if (dataRows > 0)
             WriteGrid(data, dataRows, GridColumns, perCellNumberFormat: true);
@@ -81,6 +77,29 @@ internal static class TemplateFixture
         // The data sheet is one of the requested sheets, so the rest are lookups. sheetCount: 1 is
         // the data sheet alone; anything else made the workbook one sheet wider than asked for,
         // which mattered because the per-sheet cost is read off the slope between these counts.
+        AddLookupSheets(workbook, lookupSheets, lookupRows);
+
+        if (lookupSheets > 0 && lookupRows > 0)
+            AddDefinedNames(workbook, lookupSheets, lookupRows, definedNames);
+
+        AddValidations(data, validations);
+
+        using var buffer = new MemoryStream();
+        workbook.SaveAs(buffer);
+        return buffer.ToArray();
+    }
+
+    private static void WriteHeader(IXLWorksheet data)
+    {
+        for (var c = 1; c <= GridColumns; c++)
+        {
+            data.Cell(HeaderRow, c).Value = $"Column{c}";
+            data.Cell(HeaderRow, c).Style.Font.Bold = true;
+        }
+    }
+
+    private static void AddLookupSheets(XLWorkbook workbook, int lookupSheets, int lookupRows)
+    {
         for (var s = 1; s <= lookupSheets; s++)
         {
             var lookup = workbook.AddWorksheet($"{LookupSheetPrefix}{s}");
@@ -89,30 +108,29 @@ internal static class TemplateFixture
             for (var r = 1; r <= lookupRows; r++)
                 lookup.Cell(HeaderRow + r, 1).Value = $"Sheet {s} value {r}";
         }
+    }
 
-        if (lookupSheets > 0 && lookupRows > 0)
+    private static void AddDefinedNames(XLWorkbook workbook, int lookupSheets, int lookupRows, int definedNames)
+    {
+        // The first defined name is the one the refresh probe repoints.
+        var firstLookup = workbook.Worksheet(FirstLookupSheet);
+        workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
+
+        for (var n = 1; n < definedNames; n++)
         {
-            // The first defined name is the one the refresh probe repoints.
-            var firstLookup = workbook.Worksheet(FirstLookupSheet);
-            workbook.DefinedNames.Add(LookupRangeName, firstLookup.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
-
-            for (var n = 1; n < definedNames; n++)
-            {
-                var sheet = workbook.Worksheet($"{LookupSheetPrefix}{(n % lookupSheets) + 1}");
-                workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
-            }
+            var sheet = workbook.Worksheet($"{LookupSheetPrefix}{(n % lookupSheets) + 1}");
+            workbook.DefinedNames.Add($"Name{n}", sheet.Range(HeaderRow + 1, 1, HeaderRow + lookupRows, 1));
         }
+    }
 
+    private static void AddValidations(IXLWorksheet data, int validations)
+    {
         for (var v = 0; v < validations; v++)
         {
             var column = (v % GridColumns) + 1;
             var validation = data.Range(FirstDataRow, column, 1_000, column).CreateDataValidation();
             validation.List($"={LookupRangeName}", true);
         }
-
-        using var buffer = new MemoryStream();
-        workbook.SaveAs(buffer);
-        return buffer.ToArray();
     }
 
     /// <summary>Writes a wide grid of mixed cell types, the shape of a data export.</summary>
@@ -125,27 +143,28 @@ internal static class TemplateFixture
             var rowIndex = FirstDataRow + r;
 
             for (var c = 1; c <= columns; c++)
-            {
-                var cell = sheet.Cell(rowIndex, c);
+                WriteGridCell(sheet.Cell(rowIndex, c), date, r, c, perCellNumberFormat);
+        }
+    }
 
-                switch (c % 4)
-                {
-                    case 0:
-                        cell.Value = date.AddMonths(r % 24);
-                        if (perCellNumberFormat)
-                            cell.Style.NumberFormat.Format = DateFormat;
-                        break;
-                    case 1:
-                        cell.Value = $"Row {r} column {c} descriptive text";
-                        break;
-                    case 2:
-                        cell.Value = (r * c) % 100_000;
-                        break;
-                    default:
-                        cell.Value = r % 2 == 0 ? "Yes" : "No";
-                        break;
-                }
-            }
+    private static void WriteGridCell(IXLCell cell, DateTime date, int r, int c, bool perCellNumberFormat)
+    {
+        switch (c % 4)
+        {
+            case 0:
+                cell.Value = date.AddMonths(r % 24);
+                if (perCellNumberFormat)
+                    cell.Style.NumberFormat.Format = DateFormat;
+                break;
+            case 1:
+                cell.Value = $"Row {r} column {c} descriptive text";
+                break;
+            case 2:
+                cell.Value = (r * c) % 100_000;
+                break;
+            default:
+                cell.Value = r % 2 == 0 ? "Yes" : "No";
+                break;
         }
     }
 

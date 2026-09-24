@@ -291,26 +291,12 @@ internal sealed class A1Template
                     continue;
                 }
 
-                string prefix;
-                switch (rewrite.Prefix)
-                {
-                    case SlotPrefix.None:
-                        prefix = string.Empty;
-                        break;
-                    case SlotPrefix.Bang:
-                        prefix = "!";
-                        break;
-                    default:
-                        if (!TryWritePrefix(rewrite.Range, out prefix))
-                            return null;
-
-                        break;
-                }
+                if (!TryGetPrefix(in rewrite, out var prefix))
+                    return null;
 
                 literals.Add(literal.ToString());
                 literal.Clear();
-                var error = rewrite.Prefix == SlotPrefix.Bang ? BangRefError : RefError;
-                slots.Add(new Slot(rewrite.Area, RestoreColons(prefix, placeholder), error));
+                slots.Add(MakeSlot(in rewrite, prefix, placeholder));
             }
 
             literal.Append(original, position, root.End - position);
@@ -318,10 +304,32 @@ internal sealed class A1Template
             literal.Append(original, trimmedLength, original.Length - trimmedLength);
             literals.Add(literal.ToString());
             return new A1Template(literals.ToArray(), slots.ToArray());
-
-            static string RestoreColons(string value, char placeholder)
-                => placeholder == FormulaText.NoPlaceholder ? value : value.Replace(placeholder, ':');
         }
+
+        /// <summary>The text a slot writes before its reference, or <c>false</c> when the template does not take it.</summary>
+        private bool TryGetPrefix(in Rewrite rewrite, out string prefix)
+        {
+            switch (rewrite.Prefix)
+            {
+                case SlotPrefix.None:
+                    prefix = string.Empty;
+                    return true;
+                case SlotPrefix.Bang:
+                    prefix = "!";
+                    return true;
+                default:
+                    return TryWritePrefix(rewrite.Range, out prefix);
+            }
+        }
+
+        private static Slot MakeSlot(in Rewrite rewrite, string prefix, char placeholder)
+        {
+            var error = rewrite.Prefix == SlotPrefix.Bang ? BangRefError : RefError;
+            return new Slot(rewrite.Area, RestoreColons(prefix, placeholder), error);
+        }
+
+        private static string RestoreColons(string value, char placeholder)
+            => placeholder == FormulaText.NoPlaceholder ? value : value.Replace(placeholder, ':');
 
         internal void AddReference(SymbolRange range, ReferenceArea reference, SlotPrefix prefix)
         {

@@ -1009,15 +1009,9 @@ public class EvaluationOutcomeTests
             case Entry.WorkbookEvaluate:
                 return InCell(kind, cell => Show(cell.Worksheet.Workbook.Evaluate(Expression(kind, qualified: true))));
             case Entry.EvaluateExpr:
-                return kind is Kind.Unsupported or Kind.Refused or Kind.NoContext
-                    ? Observe(() => Show(XLWorkbook.EvaluateExpr(Expression(kind, qualified: false))))
-                    : "n/a";
+                return ObserveEvaluateExpr(kind);
             case Entry.TryInvoke:
-                return kind is Kind.NoContext
-                    ? Observe(() => new XLFunctionLibrary().TryInvoke("ROW", ReadOnlySpan<XLCellValue>.Empty, out var result)
-                        ? Show(result)
-                        : "no such function")
-                    : "n/a";
+                return ObserveTryInvoke(kind);
             case Entry.RecalculateAllFormulas:
                 return InCell(kind, cell =>
                 {
@@ -1025,20 +1019,7 @@ public class EvaluationOutcomeTests
                     return "completes, " + Describe(cell);
                 });
             case Entry.RecalculateOnLoad:
-                if (kind == Kind.Defect)
-                    return "n/a";
-
-                using (var wb = WorkbookWith(kind))
-                {
-                    using var stream = new MemoryStream();
-                    wb.SaveAs(stream);
-                    stream.Position = 0;
-                    return Observe(() =>
-                    {
-                        using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
-                        return "opens, " + Describe(loaded.Worksheet(SheetName).Cell(At));
-                    });
-                }
+                return ObserveRecalculateOnLoad(kind);
             case Entry.Save:
                 return InCell(kind, cell =>
                 {
@@ -1049,6 +1030,38 @@ public class EvaluationOutcomeTests
             default:
                 throw new ArgumentOutOfRangeException(nameof(entry));
         }
+    }
+
+    private static string ObserveEvaluateExpr(Kind kind)
+    {
+        return kind is Kind.Unsupported or Kind.Refused or Kind.NoContext
+            ? Observe(() => Show(XLWorkbook.EvaluateExpr(Expression(kind, qualified: false))))
+            : "n/a";
+    }
+
+    private static string ObserveTryInvoke(Kind kind)
+    {
+        return kind is Kind.NoContext
+            ? Observe(() => new XLFunctionLibrary().TryInvoke("ROW", ReadOnlySpan<XLCellValue>.Empty, out var result)
+                ? Show(result)
+                : "no such function")
+            : "n/a";
+    }
+
+    private static string ObserveRecalculateOnLoad(Kind kind)
+    {
+        if (kind == Kind.Defect)
+            return "n/a";
+
+        using var wb = WorkbookWith(kind);
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream);
+        stream.Position = 0;
+        return Observe(() =>
+        {
+            using var loaded = new XLWorkbook(stream, new LoadOptions { RecalculateAllFormulas = true });
+            return "opens, " + Describe(loaded.Worksheet(SheetName).Cell(At));
+        });
     }
 
     /// <summary>

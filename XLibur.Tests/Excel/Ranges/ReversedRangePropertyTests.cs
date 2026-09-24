@@ -81,26 +81,8 @@ public class ReversedRangePropertyTests
             // range; TablePartWriter separately wrote the table's own ref unnormalised). A fresh
             // workbook per corner order, since a table changes what the sheet's used range looks
             // like for the other checks in this loop.
-            {
-                var tableWb = new XLWorkbook();
-                var tableWs = tableWb.Worksheets.Add("Sheet1");
-                var tableRange = tableWs.Range($"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}");
-                var table = tableRange.CreateTable();
-                await Assert.That(table.Fields.Count()).IsEqualTo(expectedWidth);
-
-                using var tableMs = new MemoryStream();
-                await Assert.That(() => tableWb.SaveAs(tableMs)).ThrowsNothing();
-
-                // A 1x1 table is a degenerate case XLibur auto-expands with a data row
-                // regardless of corner order (not corner-order-sensitive, so not interesting to
-                // pin here) - skip the exact-ref comparison for it.
-                if (expectedCellCount > 1)
-                {
-                    using var tableWb2 = new XLWorkbook(tableMs);
-                    var reloadedTable = tableWb2.Worksheet("Sheet1").Table(0);
-                    await Assert.That(reloadedTable.RangeAddress.ToString()).IsEqualTo(forwardAddress);
-                }
-            }
+            await AssertTableSavesAtForwardAddress(
+                $"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}", expectedWidth, expectedCellCount, forwardAddress);
 
             // A data validation on the range survives a save/reload at its forward address
             // (defect 2), in its own workbook so an unrelated table (above) cannot affect it.
@@ -126,20 +108,9 @@ public class ReversedRangePropertyTests
             // skipped here rather than asserted on.
             if (expectedCellCount > 1)
             {
-                var mergeWb = new XLWorkbook();
-                var mergeWs = mergeWb.Worksheets.Add("Sheet1");
-                var mergeRange = mergeWs.Range($"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}");
-                mergeRange.Merge();
-
-                foreach (var address in expectedCellAddresses)
-                {
-                    var cell = mergeWs.Cell(address);
-                    await Assert.That(cell.IsMerged()).IsTrue();
-                    var merged = cell.MergedRange();
-                    await Assert.That(merged).IsNotNull();
-                    await Assert.That(merged!.RowCount()).IsEqualTo(expectedHeight);
-                    await Assert.That(merged.ColumnCount()).IsEqualTo(expectedWidth);
-                }
+                await AssertMergeCoversEveryCell(
+                    $"{ColumnLetter(c1)}{r1}:{ColumnLetter(c2)}{r2}", expectedCellAddresses, expectedHeight,
+                    expectedWidth);
             }
 
             // Index intersection (spec user story 10 and its flat-list/point-containment
@@ -168,6 +139,48 @@ public class ReversedRangePropertyTests
                 var foundAfterPromotion = indexWs.DataValidations.GetAllInRange(probeAddress).ToList();
                 await Assert.That(foundAfterPromotion.Count).IsEqualTo(1);
             }
+        }
+    }
+
+    private static async Task AssertTableSavesAtForwardAddress(string reference, int expectedWidth,
+        int expectedCellCount, string forwardAddress)
+    {
+        var tableWb = new XLWorkbook();
+        var tableWs = tableWb.Worksheets.Add("Sheet1");
+        var tableRange = tableWs.Range(reference);
+        var table = tableRange.CreateTable();
+        await Assert.That(table.Fields.Count()).IsEqualTo(expectedWidth);
+
+        using var tableMs = new MemoryStream();
+        await Assert.That(() => tableWb.SaveAs(tableMs)).ThrowsNothing();
+
+        // A 1x1 table is a degenerate case XLibur auto-expands with a data row
+        // regardless of corner order (not corner-order-sensitive, so not interesting to
+        // pin here) - skip the exact-ref comparison for it.
+        if (expectedCellCount > 1)
+        {
+            using var tableWb2 = new XLWorkbook(tableMs);
+            var reloadedTable = tableWb2.Worksheet("Sheet1").Table(0);
+            await Assert.That(reloadedTable.RangeAddress.ToString()).IsEqualTo(forwardAddress);
+        }
+    }
+
+    private static async Task AssertMergeCoversEveryCell(string reference, string[] expectedCellAddresses,
+        int expectedHeight, int expectedWidth)
+    {
+        var mergeWb = new XLWorkbook();
+        var mergeWs = mergeWb.Worksheets.Add("Sheet1");
+        var mergeRange = mergeWs.Range(reference);
+        mergeRange.Merge();
+
+        foreach (var address in expectedCellAddresses)
+        {
+            var cell = mergeWs.Cell(address);
+            await Assert.That(cell.IsMerged()).IsTrue();
+            var merged = cell.MergedRange();
+            await Assert.That(merged).IsNotNull();
+            await Assert.That(merged!.RowCount()).IsEqualTo(expectedHeight);
+            await Assert.That(merged.ColumnCount()).IsEqualTo(expectedWidth);
         }
     }
 

@@ -206,23 +206,34 @@ public class SheetCopyConditionalFormatFixtureTests
             var sheetName = sheet.Name!.Value!;
             var worksheet = ((WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!)).Worksheet!;
 
-            foreach (var block in worksheet.Elements<S.ConditionalFormatting>())
-            {
-                foreach (var rule in block.Elements<S.ConditionalFormattingRule>())
-                {
-                    action(sheetName, block.SequenceOfReferences?.InnerText, rule.Priority?.Value, "standard",
-                        rule.Type?.InnerText, rule.Elements<S.Formula>().Select(f => f.Text));
-                }
-            }
+            ForEachStandardRule(sheetName, worksheet, action);
+            ForEachX14Rule(sheetName, worksheet, action);
+        }
+    }
 
-            foreach (var block in worksheet.Descendants<X14.ConditionalFormatting>())
+    private static void ForEachStandardRule(string sheetName, S.Worksheet worksheet,
+        Action<string, string?, int?, string, string?, IEnumerable<string>> action)
+    {
+        foreach (var block in worksheet.Elements<S.ConditionalFormatting>())
+        {
+            foreach (var rule in block.Elements<S.ConditionalFormattingRule>())
             {
-                foreach (var rule in block.Elements<X14.ConditionalFormattingRule>())
-                {
-                    action(sheetName, block.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text,
-                        rule.Priority?.Value, "x14", rule.Type?.InnerText,
-                        rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text));
-                }
+                action(sheetName, block.SequenceOfReferences?.InnerText, rule.Priority?.Value, "standard",
+                    rule.Type?.InnerText, rule.Elements<S.Formula>().Select(f => f.Text));
+            }
+        }
+    }
+
+    private static void ForEachX14Rule(string sheetName, S.Worksheet worksheet,
+        Action<string, string?, int?, string, string?, IEnumerable<string>> action)
+    {
+        foreach (var block in worksheet.Descendants<X14.ConditionalFormatting>())
+        {
+            foreach (var rule in block.Elements<X14.ConditionalFormattingRule>())
+            {
+                action(sheetName, block.GetFirstChild<OfficeExcel.ReferenceSequence>()?.Text,
+                    rule.Priority?.Value, "x14", rule.Type?.InnerText,
+                    rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text));
             }
         }
     }
