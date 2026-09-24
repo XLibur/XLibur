@@ -202,7 +202,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
         CancellationToken.ThrowIfCancellationRequested();
     }
 
-#pragma warning disable S3776 // One cell-read contract: spill anchors, clean cells, single-sheet recalc, recursive eval
     internal ScalarValue GetCellValue(XLWorksheet? sheet, int rowNumber, int columnNumber)
     {
         sheet ??= Worksheet;
@@ -211,55 +210,65 @@ internal sealed class CalcContext : IStructuredReferenceScope
         var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
 
         if (formula is null)
-        {
-            // A formula-less cell may still be a spilled cell of a dynamic array. If its owning
-            // anchor is dirty, the stored value is stale — force the anchor to evaluate first.
-            if (CalcEngine.HasSpillOwners &&
-                CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, out var spillAnchor))
-            {
-                if (RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value)
-                    return valueSlice.GetCellValue(point);
-
-                if (_recursive)
-                {
-                    // Evaluate the anchor recursively so it spills current values into this cell.
-                    _ = GetCellValue(sheet, spillAnchor.Row, spillAnchor.Column);
-                    return valueSlice.GetCellValue(point);
-                }
-
-                throw new GettingDataException(new SheetPoint(sheet.SheetId, spillAnchor));
-            }
-
-            return valueSlice.GetCellValue(point);
-        }
-
-        if (formula.IsClean())
-            return valueSlice.GetCellValue(point);
+            return GetFormulaLessCellValue(sheet, valueSlice, point);
 
         // Used when only one sheet should be recalculated, leaving other sheets with their data.
-        if (RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value)
+        if (formula.IsClean() || IsOutsideRecalculatedSheet(sheet))
             return valueSlice.GetCellValue(point);
 
         // A special branch for functions out of cells (e.g. worksheet.Evaluate("A1+A1*B1")).
         // These are not part of the calculation chain, so reordering a chain for them doesn't
-        // make sense — instead the dirty formula is evaluated recursively. Caching here saves
-        // a downstream formula recompute when the same cell appears more than once in the
-        // expression, not just a slice read.
+        // make sense — instead the dirty formula is evaluated recursively.
         if (_recursive)
-        {
-            var bookPoint = new SheetPoint(sheet.SheetId, point);
-            if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
-                return cached;
-
-            var cell = sheet.GetCell(point);
-            var value = cell?.Value ?? Blank.Value;
-            (_recursiveCellValueCache ??= new Dictionary<SheetPoint, ScalarValue>()).Add(bookPoint, value);
-            return value;
-        }
+            return GetRecursiveCellValue(sheet, point);
 
         throw new GettingDataException(new SheetPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Whether <paramref name="sheet"/> is left with its data because only another sheet is being recalculated.
+    /// </summary>
+    private bool IsOutsideRecalculatedSheet(XLWorksheet sheet)
+        => RecalculateSheetId is not null && sheet.SheetId != RecalculateSheetId.Value;
+
+    /// <summary>
+    /// A formula-less cell may still be a spilled cell of a dynamic array. If its owning anchor is
+    /// dirty, the stored value is stale — force the anchor to evaluate first.
+    /// </summary>
+    private ScalarValue GetFormulaLessCellValue(XLWorksheet sheet, ValueSlice valueSlice, Point point)
+    {
+        if (!CalcEngine.HasSpillOwners ||
+            !CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, out var spillAnchor))
+            return valueSlice.GetCellValue(point);
+
+        if (IsOutsideRecalculatedSheet(sheet))
+            return valueSlice.GetCellValue(point);
+
+        if (_recursive)
+        {
+            // Evaluate the anchor recursively so it spills current values into this cell.
+            _ = GetCellValue(sheet, spillAnchor.Row, spillAnchor.Column);
+            return valueSlice.GetCellValue(point);
+        }
+
+        throw new GettingDataException(new SheetPoint(sheet.SheetId, spillAnchor));
+    }
+
+    /// <summary>
+    /// Evaluates a dirty formula recursively. Caching here saves a downstream formula recompute when
+    /// the same cell appears more than once in the expression, not just a slice read.
+    /// </summary>
+    private ScalarValue GetRecursiveCellValue(XLWorksheet sheet, Point point)
+    {
+        var bookPoint = new SheetPoint(sheet.SheetId, point);
+        if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
+            return cached;
+
+        var cell = sheet.GetCell(point);
+        var value = cell?.Value ?? Blank.Value;
+        (_recursiveCellValueCache ??= new Dictionary<SheetPoint, ScalarValue>()).Add(bookPoint, value);
+        return value;
+    }
 
     /// <summary>
     /// This method goes over slices and returns a value for each non-blank cell. Because it is using
@@ -310,34 +319,46 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     internal IEnumerable<Point> GetCriteriaPoints(XLRangeAddress areaReference, Criteria criteria)
     {
+        // This is a performance optimization when a user specifies a whole column
+        // in the tally function (e.g. SUMIF(A:B, "5", C:D)).
+        return criteria.CanBlankValueMatch
+            ? GetCriteriaPointsOfEveryCell(areaReference, criteria)
+            : GetCriteriaPointsOfUsedCells(areaReference, criteria);
+    }
+
+    /// <summary>
+    /// Criteria can match blank cells, thus it's not possible to use optimized
+    /// used enumerators, and we have to check value of each cell.
+    /// </summary>
+    private IEnumerable<Point> GetCriteriaPointsOfEveryCell(XLRangeAddress areaReference, Criteria criteria)
+    {
         var sheet = areaReference.Worksheet ?? Worksheet;
         var area = Area.FromRangeAddress(areaReference);
 
-        // This is a performance optimization when a user specifies a whole column
-        // in the tally function (e.g. SUMIF(A:B, "5", C:D)).
-        if (criteria.CanBlankValueMatch)
+        foreach (var point in area)
         {
-            // Criteria can match blank cells, thus it's not possible to use optimized
-            // used enumerators, and we have to check value of each cell.
-            foreach (var point in area)
-            {
-                var scalarValue = GetCellValue(sheet, point.Row, point.Column);
-                if (criteria.Match(scalarValue))
-                    yield return point;
-            }
+            var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+            if (criteria.Match(scalarValue))
+                yield return point;
         }
-        else
+    }
+
+    /// <summary>
+    /// The criteria can never match blank cells. That means we can skip all blank
+    /// cells entirely and use optimized used enumerators.
+    /// </summary>
+    private IEnumerable<Point> GetCriteriaPointsOfUsedCells(XLRangeAddress areaReference, Criteria criteria)
+    {
+        var sheet = areaReference.Worksheet ?? Worksheet;
+        var area = Area.FromRangeAddress(areaReference);
+
+        var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(area);
+        while (enumerator.MoveNext())
         {
-            // The criteria can never match blank cells. That means we can skip all blank
-            // cells entirely and use optimized used enumerators.
-            var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(area);
-            while (enumerator.MoveNext())
-            {
-                var point = enumerator.Current;
-                var scalarValue = GetCellValue(sheet, point.Row, point.Column);
-                if (criteria.Match(scalarValue))
-                    yield return point;
-            }
+            var point = enumerator.Current;
+            var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+            if (criteria.Match(scalarValue))
+                yield return point;
         }
     }
 
@@ -363,10 +384,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
             {
                 var point = enumerator.Current;
 
-                if (skipHiddenRows && hiddenRowTracker.IsHidden(point.Row))
-                    continue;
-
-                if (CallsFunction(sheet.Internals.CellsCollection.FormulaSlice.Get(point), visitor))
+                if (IsFilteredOut(sheet, point, skipHiddenRows, ref hiddenRowTracker, visitor))
                     continue;
 
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
@@ -385,6 +403,19 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     internal static bool IsSkippedByNestingCheck(string formulaA1, string[] functions)
         => CallsFunction(XLCellFormula.NormalA1(formulaA1), new FunctionVisitor(functions));
+
+    /// <summary>
+    /// Whether a cell is left out of <see cref="GetFilteredNonBlankValues"/>: its row is hidden and hidden
+    /// rows are skipped, or its own formula calls one of the filtered functions.
+    /// </summary>
+    private static bool IsFilteredOut(XLWorksheet sheet, Point point, bool skipHiddenRows,
+        ref HiddenRowTracker hiddenRowTracker, FunctionVisitor visitor)
+    {
+        if (skipHiddenRows && hiddenRowTracker.IsHidden(point.Row))
+            return true;
+
+        return CallsFunction(sheet.Internals.CellsCollection.FormulaSlice.Get(point), visitor);
+    }
 
     private static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)
     {

@@ -30,60 +30,15 @@ public class StyleKeyHashCodeBenchmarks
 
         _colorKeys = new XLColorKey[Iterations];
         for (var i = 0; i < Iterations; i++)
-        {
-            _colorKeys[i] = (i % 3) switch
-            {
-                0 => XLColorKey.FromColor(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256))),
-                1 => XLColorKey.FromTheme((XLThemeColor)random.Next(12), random.NextDouble()),
-                _ => XLColorKey.FromIndex(random.Next(64))
-            };
-        }
+            _colorKeys[i] = NewColorKey(random, i);
 
         _fontKeys = new XLFontKey[Iterations];
         for (var i = 0; i < Iterations; i++)
-        {
-            _fontKeys[i] = new XLFontKey
-            {
-                Bold = random.Next(2) == 1,
-                Italic = random.Next(2) == 1,
-                Underline = (XLFontUnderlineValues)(random.Next(5)),
-                Strikethrough = random.Next(2) == 1,
-                VerticalAlignment = (XLFontVerticalTextAlignmentValues)(random.Next(3)),
-                Shadow = random.Next(2) == 1,
-                FontSize = 8 + random.Next(20),
-                FontColor = _colorKeys[i],
-                FontName = random.Next(4) switch
-                {
-                    0 => "Calibri",
-                    1 => "Arial",
-                    2 => "Consolas",
-                    _ => "Georgia"
-                },
-                FontFamilyNumbering = (XLFontFamilyNumberingValues)(random.Next(6)),
-                FontCharSet = XLFontCharSet.Ansi,
-                FontScheme = (XLFontScheme)(random.Next(3))
-            };
-        }
+            _fontKeys[i] = NewFontKey(random, _colorKeys[i]);
 
         _borderKeys = new XLBorderKey[Iterations];
         for (var i = 0; i < Iterations; i++)
-        {
-            _borderKeys[i] = new XLBorderKey
-            {
-                LeftBorder = (XLBorderStyleValues)(random.Next(14)),
-                LeftBorderColor = _colorKeys[i],
-                RightBorder = (XLBorderStyleValues)(random.Next(14)),
-                RightBorderColor = _colorKeys[(i + 1) % Iterations],
-                TopBorder = (XLBorderStyleValues)(random.Next(14)),
-                TopBorderColor = _colorKeys[(i + 2) % Iterations],
-                BottomBorder = (XLBorderStyleValues)(random.Next(14)),
-                BottomBorderColor = _colorKeys[(i + 3) % Iterations],
-                DiagonalBorder = (XLBorderStyleValues)(random.Next(14)),
-                DiagonalBorderColor = _colorKeys[(i + 4) % Iterations],
-                DiagonalUp = random.Next(2) == 1,
-                DiagonalDown = random.Next(2) == 1
-            };
-        }
+            _borderKeys[i] = NewBorderKey(random, _colorKeys, i);
 
         _fillKeys = new XLFillKey[Iterations];
         for (var i = 0; i < Iterations; i++)
@@ -98,42 +53,99 @@ public class StyleKeyHashCodeBenchmarks
 
         _styleKeys = new XLStyleKey[Iterations];
         for (var i = 0; i < Iterations; i++)
+            _styleKeys[i] = NewStyleKey(random, _borderKeys[i], _fillKeys[i], _fontKeys[i]);
+    }
+
+    private static XLColorKey NewColorKey(Random random, int i)
+    {
+        return (i % 3) switch
         {
-            _styleKeys[i] = new XLStyleKey
+            0 => XLColorKey.FromColor(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256))),
+            1 => XLColorKey.FromTheme((XLThemeColor)random.Next(12), random.NextDouble()),
+            _ => XLColorKey.FromIndex(random.Next(64))
+        };
+    }
+
+    private static XLFontKey NewFontKey(Random random, XLColorKey fontColor)
+    {
+        return new XLFontKey
+        {
+            Bold = random.Next(2) == 1,
+            Italic = random.Next(2) == 1,
+            Underline = (XLFontUnderlineValues)(random.Next(5)),
+            Strikethrough = random.Next(2) == 1,
+            VerticalAlignment = (XLFontVerticalTextAlignmentValues)(random.Next(3)),
+            Shadow = random.Next(2) == 1,
+            FontSize = 8 + random.Next(20),
+            FontColor = fontColor,
+            FontName = random.Next(4) switch
             {
-                Alignment = new XLAlignmentKey
+                0 => "Calibri",
+                1 => "Arial",
+                2 => "Consolas",
+                _ => "Georgia"
+            },
+            FontFamilyNumbering = (XLFontFamilyNumberingValues)(random.Next(6)),
+            FontCharSet = XLFontCharSet.Ansi,
+            FontScheme = (XLFontScheme)(random.Next(3))
+        };
+    }
+
+    private static XLBorderKey NewBorderKey(Random random, XLColorKey[] colorKeys, int i)
+    {
+        return new XLBorderKey
+        {
+            LeftBorder = (XLBorderStyleValues)(random.Next(14)),
+            LeftBorderColor = colorKeys[i],
+            RightBorder = (XLBorderStyleValues)(random.Next(14)),
+            RightBorderColor = colorKeys[(i + 1) % Iterations],
+            TopBorder = (XLBorderStyleValues)(random.Next(14)),
+            TopBorderColor = colorKeys[(i + 2) % Iterations],
+            BottomBorder = (XLBorderStyleValues)(random.Next(14)),
+            BottomBorderColor = colorKeys[(i + 3) % Iterations],
+            DiagonalBorder = (XLBorderStyleValues)(random.Next(14)),
+            DiagonalBorderColor = colorKeys[(i + 4) % Iterations],
+            DiagonalUp = random.Next(2) == 1,
+            DiagonalDown = random.Next(2) == 1
+        };
+    }
+
+    private static XLStyleKey NewStyleKey(Random random, XLBorderKey border, XLFillKey fill, XLFontKey font)
+    {
+        return new XLStyleKey
+        {
+            Alignment = new XLAlignmentKey
+            {
+                Horizontal = (XLAlignmentHorizontalValues)(random.Next(8)),
+                Vertical = (XLAlignmentVerticalValues)(random.Next(5)),
+                Indent = random.Next(5),
+                JustifyLastLine = random.Next(2) == 1,
+                ReadingOrder = (XLAlignmentReadingOrderValues)(random.Next(3)),
+                RelativeIndent = random.Next(5),
+                ShrinkToFit = random.Next(2) == 1,
+                TextRotation = random.Next(180),
+                WrapText = random.Next(2) == 1
+            },
+            Border = border,
+            Fill = fill,
+            Font = font,
+            IncludeQuotePrefix = random.Next(2) == 1,
+            NumberFormat = new XLNumberFormatKey
+            {
+                NumberFormatId = random.Next(50),
+                Format = random.Next(3) switch
                 {
-                    Horizontal = (XLAlignmentHorizontalValues)(random.Next(8)),
-                    Vertical = (XLAlignmentVerticalValues)(random.Next(5)),
-                    Indent = random.Next(5),
-                    JustifyLastLine = random.Next(2) == 1,
-                    ReadingOrder = (XLAlignmentReadingOrderValues)(random.Next(3)),
-                    RelativeIndent = random.Next(5),
-                    ShrinkToFit = random.Next(2) == 1,
-                    TextRotation = random.Next(180),
-                    WrapText = random.Next(2) == 1
-                },
-                Border = _borderKeys[i],
-                Fill = _fillKeys[i],
-                Font = _fontKeys[i],
-                IncludeQuotePrefix = random.Next(2) == 1,
-                NumberFormat = new XLNumberFormatKey
-                {
-                    NumberFormatId = random.Next(50),
-                    Format = random.Next(3) switch
-                    {
-                        0 => "",
-                        1 => "#,##0.00",
-                        _ => "yyyy-mm-dd"
-                    }
-                },
-                Protection = new XLProtectionKey
-                {
-                    Locked = random.Next(2) == 1,
-                    Hidden = random.Next(2) == 1
+                    0 => "",
+                    1 => "#,##0.00",
+                    _ => "yyyy-mm-dd"
                 }
-            };
-        }
+            },
+            Protection = new XLProtectionKey
+            {
+                Locked = random.Next(2) == 1,
+                Hidden = random.Next(2) == 1
+            }
+        };
     }
 
     [Benchmark]

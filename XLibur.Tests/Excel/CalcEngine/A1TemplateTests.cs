@@ -406,24 +406,14 @@ public class A1TemplateTests
         Point? cell = null;
         while (!reader.EOF)
         {
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "c")
+            if (IsElement(reader, "c"))
             {
-                var reference = reader.GetAttribute("r");
-                cell = reference is not null && Point.TryParse(reference, out var point) ? point : null;
+                cell = ReadCellReference(reader);
                 reader.Read();
             }
-            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "f" &&
-                     reader.GetAttribute("t") == "shared" && cell is { } at)
+            else if (IsElement(reader, "f") && reader.GetAttribute("t") == "shared" && cell is { } at)
             {
-                var index = reader.GetAttribute("si");
-                var text = reader.ReadElementContentAsString();
-                if (index is null)
-                    continue;
-
-                if (byIndex.TryGetValue(index, out var formula))
-                    formula.Cells.Add(at);
-                else
-                    byIndex.Add(index, (text, [at]));
+                AddSharedFormula(reader, byIndex, at);
             }
             else
             {
@@ -432,6 +422,32 @@ public class A1TemplateTests
         }
 
         return byIndex.Values;
+    }
+
+    private static bool IsElement(XmlReader reader, string localName) =>
+        reader.NodeType == XmlNodeType.Element && reader.LocalName == localName;
+
+    private static Point? ReadCellReference(XmlReader reader)
+    {
+        var reference = reader.GetAttribute("r");
+        return reference is not null && Point.TryParse(reference, out var point) ? point : null;
+    }
+
+    /// <summary>Consumes a shared formula element and records <paramref name="at"/> under its index.</summary>
+    private static void AddSharedFormula(
+        XmlReader reader,
+        Dictionary<string, (string Text, List<Point> Cells)> byIndex,
+        Point at)
+    {
+        var index = reader.GetAttribute("si");
+        var text = reader.ReadElementContentAsString();
+        if (index is null)
+            return;
+
+        if (byIndex.TryGetValue(index, out var formula))
+            formula.Cells.Add(at);
+        else
+            byIndex.Add(index, (text, [at]));
     }
 
     /// <summary>Replace the formula element that holds <paramref name="text"/> with <paramref name="shared"/>.</summary>

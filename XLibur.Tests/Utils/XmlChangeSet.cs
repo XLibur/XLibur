@@ -141,43 +141,51 @@ internal sealed class XmlChangeSet
         var grafted = new HashSet<string>(StringComparer.Ordinal);
         foreach (var node in after)
         {
-            if (!beforeByPath.TryGetValue(node.Path, out var earlier))
+            if (beforeByPath.TryGetValue(node.Path, out var earlier))
             {
-                // Every path in the grafted region joins the set, whether or not it is reported, so
-                // that the descendants of a reported root recognise themselves as already covered.
-                // Document order guarantees a parent is seen before its children.
-                var alreadyCovered = HasReportedAncestor(node.Path, grafted);
-                grafted.Add(node.Path);
-
-                if (!alreadyCovered)
-                    changes.Add(new XmlChange(XmlChangeKind.Added, node.Path, SubtreeSuffix(node)));
-
+                AddModifications(earlier, node, changes);
                 continue;
             }
 
-            var difference = DescribeDifference(earlier, node);
-            if (difference.Length > 0)
-                changes.Add(new XmlChange(XmlChangeKind.Modified, node.Path, difference));
-
-            var reorder = DescribeReorder(earlier, node);
-            if (reorder != null)
-                changes.Add(new XmlChange(XmlChangeKind.Reordered, node.Path, reorder));
+            // Every path in the grafted region joins the set, whether or not it is reported, so
+            // that the descendants of a reported root recognise themselves as already covered.
+            // Document order guarantees a parent is seen before its children.
+            AddUnlessCovered(XmlChangeKind.Added, node, grafted, changes);
         }
 
         var pruned = new HashSet<string>(StringComparer.Ordinal);
         foreach (var node in before)
         {
-            if (afterByPath.ContainsKey(node.Path))
-                continue;
-
-            var alreadyCovered = HasReportedAncestor(node.Path, pruned);
-            pruned.Add(node.Path);
-
-            if (!alreadyCovered)
-                changes.Add(new XmlChange(XmlChangeKind.Removed, node.Path, SubtreeSuffix(node)));
+            if (!afterByPath.ContainsKey(node.Path))
+                AddUnlessCovered(XmlChangeKind.Removed, node, pruned, changes);
         }
 
         return new XmlChangeSet(changes);
+    }
+
+    /// <summary>
+    /// Records <paramref name="node"/> in <paramref name="region"/>, and reports it as a change only when
+    /// no ancestor of it has already been reported for the same region.
+    /// </summary>
+    private static void AddUnlessCovered(XmlChangeKind kind, Node node, HashSet<string> region, List<XmlChange> changes)
+    {
+        var alreadyCovered = HasReportedAncestor(node.Path, region);
+        region.Add(node.Path);
+
+        if (!alreadyCovered)
+            changes.Add(new XmlChange(kind, node.Path, SubtreeSuffix(node)));
+    }
+
+    /// <summary>Reports how an element present on both sides differs, and whether its children moved.</summary>
+    private static void AddModifications(Node earlier, Node node, List<XmlChange> changes)
+    {
+        var difference = DescribeDifference(earlier, node);
+        if (difference.Length > 0)
+            changes.Add(new XmlChange(XmlChangeKind.Modified, node.Path, difference));
+
+        var reorder = DescribeReorder(earlier, node);
+        if (reorder != null)
+            changes.Add(new XmlChange(XmlChangeKind.Reordered, node.Path, reorder));
     }
 
     // ── Canonicalization ────────────────────────────────────────────────
