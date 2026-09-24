@@ -139,18 +139,7 @@ internal sealed class LoadContext
         if (metadata?.MetadataTypes is not { } metadataTypes)
             return;
 
-        uint typeIndex = 0;
-        uint xldaprTypeIndex = 0;
-        foreach (var metadataType in metadataTypes.Elements<MetadataType>())
-        {
-            typeIndex++;
-            if (metadataType.Name?.Value == "XLDAPR")
-            {
-                xldaprTypeIndex = typeIndex;
-                break;
-            }
-        }
-
+        var xldaprTypeIndex = FindMetadataTypeIndex(metadataTypes, "XLDAPR");
         if (xldaprTypeIndex == 0 || metadata.GetFirstChild<CellMetadata>() is not { } cellMetadata)
             return;
 
@@ -161,15 +150,36 @@ internal sealed class LoadContext
 
             // A block may hold several records; it is a dynamic-array cell if any of them
             // references the XLDAPR type (add the block index at most once).
-            foreach (var record in block.Elements<MetadataRecord>())
-            {
-                if (record.TypeIndex?.Value == xldaprTypeIndex)
-                {
-                    (DynamicArrayCmIndexes ??= new HashSet<uint>()).Add(cmIndex);
-                    break;
-                }
-            }
+            if (BlockReferencesType(block, xldaprTypeIndex))
+                (DynamicArrayCmIndexes ??= new HashSet<uint>()).Add(cmIndex);
         }
+    }
+
+    /// <summary>
+    /// The 1-based index of the first metadata type with the given name, or 0 when there is none.
+    /// </summary>
+    private static uint FindMetadataTypeIndex(MetadataTypes metadataTypes, string name)
+    {
+        uint typeIndex = 0;
+        foreach (var metadataType in metadataTypes.Elements<MetadataType>())
+        {
+            typeIndex++;
+            if (metadataType.Name?.Value == name)
+                return typeIndex;
+        }
+
+        return 0;
+    }
+
+    private static bool BlockReferencesType(MetadataBlock block, uint typeIndex)
+    {
+        foreach (var record in block.Elements<MetadataRecord>())
+        {
+            if (record.TypeIndex?.Value == typeIndex)
+                return true;
+        }
+
+        return false;
     }
 
     private static Exception PivotCfNotFoundException(string sheetName, int priority)

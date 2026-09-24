@@ -16,49 +16,53 @@ internal static class PivotTableCacheDefinitionPartReader
     internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook)
     {
         foreach (var pivotTableCacheDefinitionPart in workbookPart.GetPartsOfType<PivotTableCacheDefinitionPart>())
+            LoadCache(workbookPart, workbook, pivotTableCacheDefinitionPart);
+    }
+
+    private static void LoadCache(WorkbookPart workbookPart, XLWorkbook workbook,
+        PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
+    {
+        var cacheDefinition = pivotTableCacheDefinitionPart.PivotCacheDefinition;
+        if (cacheDefinition?.CacheSource is not { } cacheSource)
+            throw PartStructureException.RequiredElementIsMissing();
+
+        var pivotSourceReference = ParsePivotSourceReference(cacheSource);
+
+        // One cache per part, even where several parts name the same source. Excel writes a
+        // part per cache and the save path reads the relationship back off each cache to find
+        // it again, so folding them together here would write out fewer parts than came in.
+        var pivotCache = workbook.PivotCachesInternal.Add(pivotSourceReference);
+        pivotCache.WorkbookCacheRelId = workbookPart.GetIdOfPart(pivotTableCacheDefinitionPart);
+
+        if (cacheDefinition.MissingItemsLimit?.Value is { } missingItemsLimit)
         {
-            var cacheDefinition = pivotTableCacheDefinitionPart.PivotCacheDefinition;
-            if (cacheDefinition?.CacheSource is not { } cacheSource)
-                throw PartStructureException.RequiredElementIsMissing();
-
-            var pivotSourceReference = ParsePivotSourceReference(cacheSource);
-
-            // One cache per part, even where several parts name the same source. Excel writes a
-            // part per cache and the save path reads the relationship back off each cache to find
-            // it again, so folding them together here would write out fewer parts than came in.
-            var pivotCache = workbook.PivotCachesInternal.Add(pivotSourceReference);
-            pivotCache.WorkbookCacheRelId = workbookPart.GetIdOfPart(pivotTableCacheDefinitionPart);
-
-            if (cacheDefinition.MissingItemsLimit?.Value is { } missingItemsLimit)
+            pivotCache.ItemsToRetainPerField = missingItemsLimit switch
             {
-                pivotCache.ItemsToRetainPerField = missingItemsLimit switch
-                {
-                    0 => XLItemsToRetain.None,
-                    XLHelper.MaxRowNumber => XLItemsToRetain.Max,
-                    _ => XLItemsToRetain.Automatic,
-                };
-            }
-
-            if (cacheDefinition.CacheFields is { } cacheFields)
-            {
-                ReadCacheFields(cacheFields, pivotCache);
-                if (pivotTableCacheDefinitionPart.PivotTableCacheRecordsPart?.PivotCacheRecords is { } recordsPart)
-                {
-                    ReadRecords(recordsPart, pivotCache);
-                }
-            }
-
-            pivotCache.SaveSourceData = cacheDefinition.SaveData?.Value ?? true;
-            pivotCache.RefreshDataOnOpen = cacheDefinition.RefreshOnLoad?.Value ?? false;
-
-            // A slicer cache binds to a pivot cache through this identifier, which lives in an
-            // extension rather than on the element itself and is unrelated to the renumbered
-            // pivotCache/@cacheId in workbook.xml. Read so that a slicer added to a loaded pivot
-            // table quotes the id the file already uses instead of inventing a second one.
-            pivotCache.PivotCacheId = cacheDefinition
-                .Descendants<X14.PivotCacheDefinition>()
-                .FirstOrDefault()?.PivotCacheId?.Value;
+                0 => XLItemsToRetain.None,
+                XLHelper.MaxRowNumber => XLItemsToRetain.Max,
+                _ => XLItemsToRetain.Automatic,
+            };
         }
+
+        if (cacheDefinition.CacheFields is { } cacheFields)
+        {
+            ReadCacheFields(cacheFields, pivotCache);
+            if (pivotTableCacheDefinitionPart.PivotTableCacheRecordsPart?.PivotCacheRecords is { } recordsPart)
+            {
+                ReadRecords(recordsPart, pivotCache);
+            }
+        }
+
+        pivotCache.SaveSourceData = cacheDefinition.SaveData?.Value ?? true;
+        pivotCache.RefreshDataOnOpen = cacheDefinition.RefreshOnLoad?.Value ?? false;
+
+        // A slicer cache binds to a pivot cache through this identifier, which lives in an
+        // extension rather than on the element itself and is unrelated to the renumbered
+        // pivotCache/@cacheId in workbook.xml. Read so that a slicer added to a loaded pivot
+        // table quotes the id the file already uses instead of inventing a second one.
+        pivotCache.PivotCacheId = cacheDefinition
+            .Descendants<X14.PivotCacheDefinition>()
+            .FirstOrDefault()?.PivotCacheId?.Value;
     }
 
     internal static IXLPivotSource ParsePivotSourceReference(CacheSource cacheSource)

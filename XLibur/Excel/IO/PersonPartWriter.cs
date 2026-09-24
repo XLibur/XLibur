@@ -41,18 +41,24 @@ internal static class PersonPartWriter
         foreach (var worksheet in workbook.WorksheetsInternal)
         {
             foreach (var (_, root) in worksheet.Internals.CellsCollection.GetThreadedComments())
-            {
-                AddIfNew(persons, seen, root.AuthorInternal);
-
-                if (root.RepliesInternal is { } replies)
-                {
-                    foreach (var reply in replies)
-                        AddIfNew(persons, seen, reply.AuthorInternal);
-                }
-            }
+                AddThreadAuthors(persons, seen, root);
         }
 
         return persons;
+    }
+
+    /// <summary>
+    /// Adds the author of a thread and of each of its replies, the first time each is seen.
+    /// </summary>
+    private static void AddThreadAuthors(List<XLPerson> persons, HashSet<Guid> seen, XLThreadedComment root)
+    {
+        AddIfNew(persons, seen, root.AuthorInternal);
+
+        if (root.RepliesInternal is not { } replies)
+            return;
+
+        foreach (var reply in replies)
+            AddIfNew(persons, seen, reply.AuthorInternal);
     }
 
     private static void AddIfNew(List<XLPerson> persons, HashSet<Guid> seen, XLPerson person)

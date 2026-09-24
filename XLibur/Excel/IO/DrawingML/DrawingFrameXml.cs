@@ -70,18 +70,27 @@ internal static class DrawingFrameXml
             if (anchor is not (Xdr.TwoCellAnchor or Xdr.OneCellAnchor or Xdr.AbsoluteAnchor))
                 continue;
 
-            // The frame may be a direct child or, as Excel writes it, inside mc:AlternateContent.
-            foreach (var graphicData in anchor.Descendants<A.GraphicData>())
-            {
-                if (graphicData.Uri?.Value != graphicUri)
-                    continue;
-
-                if (NameOfControl(graphicData, localName) == name)
-                    return anchor;
-            }
+            if (AnchorHoldsControl(anchor, graphicUri, localName, name))
+                return anchor;
         }
 
         return null;
+    }
+
+    private static bool AnchorHoldsControl(
+        OpenXmlCompositeElement anchor, string graphicUri, string localName, string name)
+    {
+        // The frame may be a direct child or, as Excel writes it, inside mc:AlternateContent.
+        foreach (var graphicData in anchor.Descendants<A.GraphicData>())
+        {
+            if (graphicData.Uri?.Value != graphicUri)
+                continue;
+
+            if (NameOfControl(graphicData, localName) == name)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

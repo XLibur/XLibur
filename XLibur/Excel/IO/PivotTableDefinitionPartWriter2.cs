@@ -542,15 +542,7 @@ internal static class PivotTableDefinitionPartWriter2
                 xml.WriteAttribute("t", ToAttr(axisItem.ItemType.ToOpenXml()));
 
             // 'r' attribute means repeat data from previous axis item.
-            var r = 0;
-            var maxPrefixLen = Math.Min(previous.Count, axisItem.FieldItem.Count);
-            while (r < maxPrefixLen && previous[r] == axisItem.FieldItem[r])
-                r++;
-
-            // It seems that Excel always has at least one <x> element, not sure if necessary,
-            // but it makes xml comparisons far easier. This is common for non-data type items.
-            if (r > 0 && r == axisItem.FieldItem.Count)
-                r--;
+            var r = RepeatedFieldItemCount(previous, axisItem.FieldItem);
 
             xml.WriteAttributeDefault("r", r, 0);
             xml.WriteAttributeDefault("i", axisItem.DataItem, 0); // Data field index
@@ -567,6 +559,25 @@ internal static class PivotTableDefinitionPartWriter2
         }
 
         xml.WriteEndElement();
+    }
+
+    /// <summary>
+    /// The number of leading field items <paramref name="fieldItem"/> repeats from the previous axis item,
+    /// always leaving at least one to write.
+    /// </summary>
+    private static int RepeatedFieldItemCount(IReadOnlyList<int> previous, List<int> fieldItem)
+    {
+        var r = 0;
+        var maxPrefixLen = Math.Min(previous.Count, fieldItem.Count);
+        while (r < maxPrefixLen && previous[r] == fieldItem[r])
+            r++;
+
+        // It seems that Excel always has at least one <x> element, not sure if necessary,
+        // but it makes xml comparisons far easier. This is common for non-data type items.
+        if (r > 0 && r == fieldItem.Count)
+            r--;
+
+        return r;
     }
 
     private static void WritePivotArea(XmlWriter xml, XLPivotArea pivotArea)

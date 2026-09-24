@@ -24,42 +24,44 @@ internal static class PageSetupWriter
         {
             worksheet.RemoveAllChildren<Hyperlinks>();
             cm.SetElement(XLWorksheetContents.Hyperlinks, null);
+            return;
+        }
+
+        if (!worksheet.Elements<Hyperlinks>().Any())
+        {
+            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.Hyperlinks);
+            worksheet.InsertAfter(new Hyperlinks(), previousElement);
+        }
+
+        var hyperlinks = worksheet.Elements<Hyperlinks>().First();
+        cm.SetElement(XLWorksheetContents.Hyperlinks, hyperlinks);
+        hyperlinks.RemoveAllChildren<Hyperlink>();
+        foreach (var hl in xlWorksheet.Hyperlinks)
+            hyperlinks.AppendChild(CreateHyperlink(hl, worksheetPart, context));
+    }
+
+    private static Hyperlink CreateHyperlink(XLHyperlink hl, WorksheetPart worksheetPart, SaveContext context)
+    {
+        Hyperlink hyperlink;
+        if (hl.IsExternal)
+        {
+            var rId = context.RelIdGenerator.GetNext(RelType.Workbook);
+            hyperlink = new Hyperlink { Reference = hl.Cell!.Address.ToString(), Id = rId };
+            worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress!, true, rId);
         }
         else
         {
-            if (!worksheet.Elements<Hyperlinks>().Any())
+            hyperlink = new Hyperlink
             {
-                var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.Hyperlinks);
-                worksheet.InsertAfter(new Hyperlinks(), previousElement);
-            }
-
-            var hyperlinks = worksheet.Elements<Hyperlinks>().First();
-            cm.SetElement(XLWorksheetContents.Hyperlinks, hyperlinks);
-            hyperlinks.RemoveAllChildren<Hyperlink>();
-            foreach (var hl in xlWorksheet.Hyperlinks)
-            {
-                Hyperlink hyperlink;
-                if (hl.IsExternal)
-                {
-                    var rId = context.RelIdGenerator.GetNext(RelType.Workbook);
-                    hyperlink = new Hyperlink { Reference = hl.Cell!.Address.ToString(), Id = rId };
-                    worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress!, true, rId);
-                }
-                else
-                {
-                    hyperlink = new Hyperlink
-                    {
-                        Reference = hl.Cell!.Address.ToString(),
-                        Location = hl.InternalAddress,
-                        Display = hl.Cell.GetFormattedString()
-                    };
-                }
-
-                if (!string.IsNullOrWhiteSpace(hl.Tooltip))
-                    hyperlink.Tooltip = hl.Tooltip;
-                hyperlinks.AppendChild(hyperlink);
-            }
+                Reference = hl.Cell!.Address.ToString(),
+                Location = hl.InternalAddress,
+                Display = hl.Cell.GetFormattedString()
+            };
         }
+
+        if (!string.IsNullOrWhiteSpace(hl.Tooltip))
+            hyperlink.Tooltip = hl.Tooltip;
+        return hyperlink;
     }
 
     internal static void WritePrintOptions(
