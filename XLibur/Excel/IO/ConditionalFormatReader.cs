@@ -51,12 +51,21 @@ internal static class ConditionalFormatReader
             LoadTop10OrTimePeriod(fr, conditionalFormat);
             LoadScaleBarOrIconSet(fr, conditionalFormat);
 
-            var isPivotTableFormatting = conditionalFormatting.Pivot?.Value ?? false;
-            if (isPivotTableFormatting)
-                context.AddPivotTableCf(ws.Name, conditionalFormat);
-            else
-                ws.ConditionalFormats.Add(conditionalFormat);
+            AddLoadedConditionalFormat(conditionalFormatting, ws, context, conditionalFormat);
         }
+    }
+
+    /// <summary>
+    /// A pivot table's conditional format is kept aside for the pivot table; any other goes to the sheet.
+    /// </summary>
+    private static void AddLoadedConditionalFormat(ConditionalFormatting conditionalFormatting, XLWorksheet ws,
+        LoadContext context, XLConditionalFormat conditionalFormat)
+    {
+        var isPivotTableFormatting = conditionalFormatting.Pivot?.Value ?? false;
+        if (isPivotTableFormatting)
+            context.AddPivotTableCf(ws.Name, conditionalFormat);
+        else
+            ws.ConditionalFormats.Add(conditionalFormat);
     }
 
     private static void LoadConditionalFormatStyle(ConditionalFormattingRule fr,
@@ -242,16 +251,24 @@ internal static class ConditionalFormatReader
             if (string.IsNullOrEmpty(id))
                 continue;
 
-            var formulas = rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text).ToArray();
-            if (formulas.Length > 0)
-                ws.ConditionalFormats.SeedExtensionRuleFormulas(id, formulas);
-
-            if (TryReadRuleAreas(rule.Parent as X14.ConditionalFormatting, out var areas))
-                ws.ConditionalFormats.SeedExtensionRuleAreas(id, areas);
-
-            if (rule.Priority?.Value is { } priority)
-                ws.ConditionalFormats.SetExtensionRulePriority(id, priority);
+            SeedExtensionRule(rule, id, ws);
         }
+    }
+
+    /// <summary>
+    /// Keeps the formula text, range and priority of one kept <c>x14</c> rule under its <paramref name="id"/>.
+    /// </summary>
+    private static void SeedExtensionRule(X14.ConditionalFormattingRule rule, string id, XLWorksheet ws)
+    {
+        var formulas = rule.Descendants<OfficeExcel.Formula>().Select(f => f.Text).ToArray();
+        if (formulas.Length > 0)
+            ws.ConditionalFormats.SeedExtensionRuleFormulas(id, formulas);
+
+        if (TryReadRuleAreas(rule.Parent as X14.ConditionalFormatting, out var areas))
+            ws.ConditionalFormats.SeedExtensionRuleAreas(id, areas);
+
+        if (rule.Priority?.Value is { } priority)
+            ws.ConditionalFormats.SetExtensionRulePriority(id, priority);
     }
 
     /// <summary>
@@ -304,6 +321,15 @@ internal static class ConditionalFormatReader
 
     private static void ApplyX14DataValidationProperties(X14.DataValidation dvs, XLDataValidation dvt)
     {
+        ApplyX14DataValidationDisplay(dvs, dvt);
+        ApplyX14DataValidationCriteria(dvs, dvt);
+    }
+
+    /// <summary>
+    /// The flags and messages of a data validation: how it shows itself to the user.
+    /// </summary>
+    private static void ApplyX14DataValidationDisplay(X14.DataValidation dvs, XLDataValidation dvt)
+    {
         if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
         if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
         if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
@@ -312,6 +338,13 @@ internal static class ConditionalFormatReader
         if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
         if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
         if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
+    }
+
+    /// <summary>
+    /// The error style and the rule itself: what values the data validation accepts.
+    /// </summary>
+    private static void ApplyX14DataValidationCriteria(X14.DataValidation dvs, XLDataValidation dvt)
+    {
         if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
         if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
         if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
@@ -438,22 +471,30 @@ internal static class ConditionalFormatReader
         OpenXmlElement element)
     {
         foreach (var c in element.Elements<ConditionalFormatValueObject>())
-        {
-            if (c.Type != null)
-                conditionalFormat.ContentTypes.Add(c.Type.Value.ToXLibur());
-            conditionalFormat.Values.Add(c.Val != null ? new XLFormula { Value = c.Val.Value! } : null!);
-
-            if (c.GreaterThanOrEqual != null)
-                conditionalFormat.IconSetOperators.Add(c.GreaterThanOrEqual.Value
-                    ? XLCFIconSetOperator.EqualOrGreaterThan
-                    : XLCFIconSetOperator.GreaterThan);
-            else
-                conditionalFormat.IconSetOperators.Add(XLCFIconSetOperator.EqualOrGreaterThan);
-        }
+            AddValueObject(conditionalFormat, c);
 
         foreach (var c in element.Elements<Color>())
         {
             conditionalFormat.Colors.Add(c.ToXLiburColor());
         }
+    }
+
+    private static void AddValueObject(XLConditionalFormat conditionalFormat, ConditionalFormatValueObject c)
+    {
+        if (c.Type != null)
+            conditionalFormat.ContentTypes.Add(c.Type.Value.ToXLibur());
+        conditionalFormat.Values.Add(c.Val != null ? new XLFormula { Value = c.Val.Value! } : null!);
+        conditionalFormat.IconSetOperators.Add(GetIconSetOperator(c));
+    }
+
+    /// <summary>
+    /// The icon set operator of a value object; <c>gte</c> defaults to <c>true</c> when absent.
+    /// </summary>
+    private static XLCFIconSetOperator GetIconSetOperator(ConditionalFormatValueObject c)
+    {
+        if (c.GreaterThanOrEqual == null || c.GreaterThanOrEqual.Value)
+            return XLCFIconSetOperator.EqualOrGreaterThan;
+
+        return XLCFIconSetOperator.GreaterThan;
     }
 }

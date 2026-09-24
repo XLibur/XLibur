@@ -38,15 +38,7 @@ internal static partial class XLCellValueConverter
         if (TryGetStringValue(out value, currentValue)) return true;
 
         if (underlyingType == typeof(XLError))
-        {
-            if (currentValue.IsError)
-            {
-                value = (T)(object)currentValue.GetError();
-                return true;
-            }
-
-            return false;
-        }
+            return TryConvertError(currentValue, out value);
 
         var culture = CultureInfo.CurrentCulture;
         if (underlyingType.IsEnum)
@@ -81,6 +73,18 @@ internal static partial class XLCellValueConverter
         if (underlyingType == typeof(bool) && currentValue.TryConvert(out bool boolean))
         {
             value = (T)(object)boolean;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
+
+    private static bool TryConvertError<T>(XLCellValue currentValue, out T value)
+    {
+        if (currentValue.IsError)
+        {
+            value = (T)(object)currentValue.GetError();
             return true;
         }
 

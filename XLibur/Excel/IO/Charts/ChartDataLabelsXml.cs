@@ -126,7 +126,6 @@ internal static class ChartDataLabelsXml
         return dataLabels;
     }
 
-#pragma warning disable S3776 // One independent, flat block per assigned data-label property
     private static void Patch(
         C.DataLabels dataLabels, XLChartDataLabels labels, XLChartType chartType)
     {
@@ -137,28 +136,10 @@ internal static class ChartDataLabelsXml
             deleted.Remove();
 
         if ((assigned & XLDataLabelsFormat.NumberFormat) != 0)
-        {
-            foreach (var existing in dataLabels.Elements<C.NumberingFormat>().ToList())
-                existing.Remove();
-
-            if (labels.NumberFormat != null)
-            {
-                ChartElementOrder.InsertOrdered(dataLabels,
-                    new C.NumberingFormat { FormatCode = labels.NumberFormat, SourceLinked = false },
-                    ChartElementOrder.DataLabelsChildOrder);
-            }
-        }
+            PatchNumberFormat(dataLabels, labels);
 
         if ((assigned & XLDataLabelsFormat.Position) != 0)
-        {
-            foreach (var existing in dataLabels.Elements<C.DataLabelPosition>().ToList())
-                existing.Remove();
-
-            var position = MapPosition(labels.EffectivePosition(chartType));
-            if (position != null)
-                ChartElementOrder.InsertOrdered(dataLabels, new C.DataLabelPosition { Val = position },
-                    ChartElementOrder.DataLabelsChildOrder);
-        }
+            PatchPosition(dataLabels, labels, chartType);
 
         if ((assigned & XLDataLabelsFormat.ShowValue) != 0)
             SetFlag<C.ShowValue>(dataLabels, labels.ShowValue);
@@ -169,7 +150,30 @@ internal static class ChartDataLabelsXml
         if ((assigned & XLDataLabelsFormat.ShowPercentage) != 0)
             SetFlag<C.ShowPercent>(dataLabels, labels.ShowPercentage);
     }
-#pragma warning restore S3776
+
+    private static void PatchNumberFormat(C.DataLabels dataLabels, XLChartDataLabels labels)
+    {
+        foreach (var existing in dataLabels.Elements<C.NumberingFormat>().ToList())
+            existing.Remove();
+
+        if (labels.NumberFormat != null)
+        {
+            ChartElementOrder.InsertOrdered(dataLabels,
+                new C.NumberingFormat { FormatCode = labels.NumberFormat, SourceLinked = false },
+                ChartElementOrder.DataLabelsChildOrder);
+        }
+    }
+
+    private static void PatchPosition(C.DataLabels dataLabels, XLChartDataLabels labels, XLChartType chartType)
+    {
+        foreach (var existing in dataLabels.Elements<C.DataLabelPosition>().ToList())
+            existing.Remove();
+
+        var position = MapPosition(labels.EffectivePosition(chartType));
+        if (position != null)
+            ChartElementOrder.InsertOrdered(dataLabels, new C.DataLabelPosition { Val = position },
+                ChartElementOrder.DataLabelsChildOrder);
+    }
 
     private static void SetFlag<TFlag>(C.DataLabels dataLabels, bool value)
         where TFlag : OpenXmlLeafElement, new()

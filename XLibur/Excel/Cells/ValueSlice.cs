@@ -124,44 +124,45 @@ internal sealed class ValueSlice : ISlice
         ref readonly var original = ref _values[point];
         var isInline = inline ?? original.Inline;
 
+        var originalIsText = original.Type == XLDataType.Text;
+        var originalStringId = originalIsText ? (int)original.Value : 0;
+
         double value;
         if (cellValue.Type == XLDataType.Text)
         {
-            if (original.Type == XLDataType.Text)
-            {
-                // Change references. Increase first and then decrease to have fewer shuffles assigning same value to a cell.
-                var originalStringId = (int)original.Value;
-                value = _sst.IncreaseRef(cellValue.GetText(), isInline);
+            // Change references. Increase first and then decrease to have fewer shuffles assigning same value to a cell.
+            value = _sst.IncreaseRef(cellValue.GetText(), isInline);
+            if (originalIsText)
                 _sst.DecreaseRef(originalStringId);
-            }
-            else
-            {
-                // The original value wasn't a text -> just increase ref count to a new text
-                value = _sst.IncreaseRef(cellValue.GetText(), isInline);
-            }
         }
         else
         {
-            // New value isn't a text
-            if (original.Type == XLDataType.Text)
-            {
-                // Dereference original text
-                var originalStringId = (int)original.Value;
+            // New value isn't a text -> dereference original text, if there was one.
+            if (originalIsText)
                 _sst.DecreaseRef(originalStringId);
-            }
 
-            if (cellValue.IsUnifiedNumber)
-                value = cellValue.GetUnifiedNumber();
-            else if (cellValue.IsBoolean)
-                value = cellValue.GetBoolean() ? 1 : 0;
-            else if (cellValue.IsError)
-                value = (int)cellValue.GetError();
-            else
-                value = 0; // blank
+            value = GetNonTextSliceValue(cellValue);
         }
 
         var modified = new XLValueSliceContent(value, cellValue.Type, isInline);
         _values.Set(point, in modified);
+    }
+
+    /// <summary>
+    /// Get the numeric representation of a non-text value, as it is stored in the slice.
+    /// </summary>
+    private static double GetNonTextSliceValue(XLCellValue cellValue)
+    {
+        if (cellValue.IsUnifiedNumber)
+            return cellValue.GetUnifiedNumber();
+
+        if (cellValue.IsBoolean)
+            return cellValue.GetBoolean() ? 1 : 0;
+
+        if (cellValue.IsError)
+            return (int)cellValue.GetError();
+
+        return 0; // blank
     }
 
     /// <summary>

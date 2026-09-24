@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
@@ -37,15 +38,10 @@ internal static partial class XLCellFormulaShifter
         {
             var matchString = match.Value;
             var matchIndex = match.Index;
-            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
+            if (IsOutsideStringLiteral(value, matchIndex))
             {
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
-                var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
-
-                if (sheetName is not null && string.Equals(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase))
-                    AppendShiftedRowMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, rowsShifted);
-                else
-                    sb.Append(matchString);
+                AppendRowShiftedReference(sb, matchString, shiftedWsName, worksheetInAction, shiftedRange, rowsShifted);
             }
             else
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
@@ -57,6 +53,30 @@ internal static partial class XLCellFormulaShifter
             sb.Append(value.AsSpan(lastIndex));
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// A match is a reference only when an even number of double quotes precedes it, i.e. it does not
+    /// sit inside a string literal of the formula.
+    /// </summary>
+    private static bool IsOutsideStringLiteral(string formula, int matchIndex)
+        => formula.AsSpan(0, matchIndex).Count('"') % 2 == 0;
+
+    /// <summary>
+    /// Whether the sheet a matched reference names is the sheet being shifted.
+    /// </summary>
+    private static bool NamesShiftedSheet([NotNullWhen(true)] string? sheetName, string shiftedWsName)
+        => sheetName is not null && string.Equals(sheetName, shiftedWsName, StringComparison.OrdinalIgnoreCase);
+
+    private static void AppendRowShiftedReference(StringBuilder sb, string matchString, string shiftedWsName,
+        XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)
+    {
+        var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
+
+        if (NamesShiftedSheet(sheetName, shiftedWsName))
+            AppendShiftedRowMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, rowsShifted);
+        else
+            sb.Append(matchString);
     }
 
     /// <summary>
@@ -126,6 +146,23 @@ internal static partial class XLCellFormulaShifter
         if (matchString.Length == 0 || matchString[0] != '\'')
             return matchString.IndexOf('!');
 
+        // The closing apostrophe of the quoted name; the separator is the '!' that must follow it
+        // directly. If it does not, the name never really closed and the caller falls back to the first
+        // '!' in the match, same as an unquoted, unterminated name.
+        var closingIndex = FindClosingApostropheIndex(matchString);
+        var separatorFollows = closingIndex >= 0
+            && closingIndex + 1 < matchString.Length
+            && matchString[closingIndex + 1] == '!';
+
+        return separatorFollows ? closingIndex + 1 : matchString.IndexOf('!');
+    }
+
+    /// <summary>
+    /// The index of the apostrophe that closes a quoted sheet name opened at index 0, skipping doubled
+    /// (escaped) apostrophes inside the name, or <c>-1</c> when the name never closes.
+    /// </summary>
+    private static int FindClosingApostropheIndex(string matchString)
+    {
         var i = 1;
         while (i < matchString.Length)
         {
@@ -141,13 +178,10 @@ internal static partial class XLCellFormulaShifter
                 continue;
             }
 
-            // matchString[i] is the closing apostrophe of the quoted name; the separator is the '!' that
-            // must follow it directly. If it does not, the name never really closed and the caller falls
-            // back to the first '!' in the match, same as an unquoted, unterminated name.
-            return i + 1 < matchString.Length && matchString[i + 1] == '!' ? i + 1 : matchString.IndexOf('!');
+            return i;
         }
 
-        return matchString.IndexOf('!');
+        return -1;
     }
 
     /// <summary>
@@ -343,15 +377,10 @@ internal static partial class XLCellFormulaShifter
         {
             var matchString = match.Value;
             var matchIndex = match.Index;
-            if (value.AsSpan(0, matchIndex).Count('"') % 2 == 0)
+            if (IsOutsideStringLiteral(value, matchIndex))
             {
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex));
-                var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
-
-                if (sheetName is not null && string.Equals(sheetName, shiftedRange.Worksheet.Name, StringComparison.OrdinalIgnoreCase))
-                    AppendShiftedColumnMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, columnsShifted);
-                else
-                    sb.Append(matchString);
+                AppendColumnShiftedReference(sb, matchString, worksheetInAction, shiftedRange, columnsShifted);
             }
             else
                 sb.Append(value.AsSpan(lastIndex, matchIndex - lastIndex + matchString.Length));
@@ -363,6 +392,17 @@ internal static partial class XLCellFormulaShifter
             sb.Append(value.AsSpan(lastIndex));
 
         return sb.ToString();
+    }
+
+    private static void AppendColumnShiftedReference(StringBuilder sb, string matchString,
+        XLWorksheet worksheetInAction, XLRange shiftedRange, int columnsShifted)
+    {
+        var (sheetName, useSheetName) = ExtractSheetName(matchString, worksheetInAction);
+
+        if (sheetName is not null && NamesShiftedSheet(sheetName, shiftedRange.Worksheet.Name))
+            AppendShiftedColumnMatch(sb, matchString, sheetName, useSheetName, worksheetInAction, shiftedRange, columnsShifted);
+        else
+            sb.Append(matchString);
     }
 
     private static void AppendShiftedColumnMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,

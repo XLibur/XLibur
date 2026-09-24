@@ -64,6 +64,27 @@ internal static class ChartAxisXml
         if (axis == null || assigned == XLChartAxisFormat.None)
             return;
 
+        ApplyAppearance(axis, model, assigned);
+
+        if (IsAssigned(assigned, XLChartAxisFormat.Min | XLChartAxisFormat.Max
+                                 | XLChartAxisFormat.Orientation | XLChartAxisFormat.LogScale
+                                 | XLChartAxisFormat.LogBase))
+        {
+            ApplyScaling(axis, model, assigned);
+        }
+
+        // CT_CatAx has no unit elements, so a bubble chart's horizontal axis — which the model calls
+        // a value axis, because it plots numbers — still cannot carry them.
+        if (model.IsValueAxis && axis is C.ValueAxis)
+            ApplyUnits(axis, model, assigned);
+    }
+
+    /// <summary>
+    /// Writes the visibility, gridlines, title and number format of the axis.
+    /// </summary>
+    private static void ApplyAppearance(
+        OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
+    {
         if (IsAssigned(assigned, XLChartAxisFormat.Visible))
             ReplaceAxisChild<C.Delete>(axis, new C.Delete { Val = !model.Visible });
 
@@ -79,22 +100,17 @@ internal static class ChartAxisXml
                 ? new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false }
                 : null);
         }
-
-        if (IsAssigned(assigned, XLChartAxisFormat.Min | XLChartAxisFormat.Max
-                                 | XLChartAxisFormat.Orientation | XLChartAxisFormat.LogScale
-                                 | XLChartAxisFormat.LogBase))
-        {
-            ApplyScaling(axis, model, assigned);
-        }
-
-        // CT_CatAx has no unit elements, so a bubble chart's horizontal axis — which the model calls
-        // a value axis, because it plots numbers — still cannot carry them.
-        if (model.IsValueAxis && axis is C.ValueAxis)
-            ApplyUnits(axis, model, assigned);
     }
 
     private static void ApplyScaling(
         OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
+    {
+        var scaling = GetOrAddScaling(axis);
+        ApplyLogBaseAndOrientation(scaling, model, assigned);
+        ApplyBounds(scaling, model, assigned);
+    }
+
+    private static C.Scaling GetOrAddScaling(OpenXmlCompositeElement axis)
     {
         var scaling = axis.Elements<C.Scaling>().FirstOrDefault();
         if (scaling == null)
@@ -103,6 +119,12 @@ internal static class ChartAxisXml
             ChartElementOrder.InsertOrdered(axis, scaling, ChartElementOrder.AxisChildOrder);
         }
 
+        return scaling;
+    }
+
+    private static void ApplyLogBaseAndOrientation(
+        C.Scaling scaling, XLChartAxis model, XLChartAxisFormat assigned)
+    {
         if (IsAssigned(assigned, XLChartAxisFormat.LogScale | XLChartAxisFormat.LogBase))
         {
             // c:logBase belongs to a value axis; Excel rejects it on a category axis.
@@ -120,7 +142,11 @@ internal static class ChartAxisXml
                     : C.OrientationValues.MinMax
             });
         }
+    }
 
+    private static void ApplyBounds(
+        C.Scaling scaling, XLChartAxis model, XLChartAxisFormat assigned)
+    {
         if (IsAssigned(assigned, XLChartAxisFormat.Max))
         {
             ReplaceScalingChild<C.MaxAxisValue>(scaling,

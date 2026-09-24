@@ -168,8 +168,24 @@ internal sealed partial class Slice<TElement> : ISlice
         while (rowsEnumerator.MoveNext())
             used.Add((rowsEnumerator.Index + 1, rowsEnumerator.Current));
 
-        // Destinations claimed by a surviving row, ascending — sources ascend and the mapping is
-        // strictly increasing across survivors, so this list comes out sorted for free.
+        var claimed = MoveSurvivingRows(map, used);
+        ClearUnclaimedSlots(used, claimed);
+
+        if (map.Count > 0)
+            _version++;
+
+        RefreshMaxColumnAfterRowDeletion();
+    }
+
+    /// <summary>
+    /// Moves every surviving row to its new index and releases the column usage of deleted rows.
+    /// </summary>
+    /// <returns>
+    /// Destinations claimed by a surviving row, ascending — sources ascend and the mapping is
+    /// strictly increasing across survivors, so this list comes out sorted for free.
+    /// </returns>
+    private List<int> MoveSurvivingRows(XLRowDeletionMap map, List<(int Row, RowData Data)> used)
+    {
         var claimed = new List<int>(used.Count);
 
         foreach (var (row, data) in used)
@@ -188,11 +204,20 @@ internal sealed partial class Slice<TElement> : ISlice
             claimed.Add(target);
         }
 
-        // Clear every slot that held something and did not receive a row. Two cases look the same from
-        // here: a row that moved up and left its old slot behind, and a slot whose new occupant is an
-        // *unused* row, which writes nothing and would otherwise leave the previous contents in place.
-        // The second is the one that bites — a row with no explicit style or value is invisible to the
-        // walk above, so its destination has to be cleared on its behalf.
+        return claimed;
+    }
+
+    /// <summary>
+    /// Clears every slot that held something and did not receive a row.
+    /// </summary>
+    /// <remarks>
+    /// Two cases look the same from here: a row that moved up and left its old slot behind, and a slot
+    /// whose new occupant is an *unused* row, which writes nothing and would otherwise leave the previous
+    /// contents in place. The second is the one that bites — a row with no explicit style or value is
+    /// invisible to the move walk, so its destination has to be cleared on its behalf.
+    /// </remarks>
+    private void ClearUnclaimedSlots(List<(int Row, RowData Data)> used, List<int> claimed)
+    {
         var next = 0;
         foreach (var (row, _) in used)
         {
@@ -204,10 +229,10 @@ internal sealed partial class Slice<TElement> : ISlice
 
             _data.Set(row - 1, default);
         }
+    }
 
-        if (map.Count > 0)
-            _version++;
-
+    private void RefreshMaxColumnAfterRowDeletion()
+    {
         if (_columnUsage.Count == 0)
             MaxColumn = 0;
         else if (MaxColumn > 0 && !_columnUsage.ContainsKey(MaxColumn))
@@ -316,16 +341,7 @@ internal sealed partial class Slice<TElement> : ISlice
         ref readonly var existing = ref _data.Get(row - 1);
         if (existing.IsEmpty)
         {
-            // Don't allocate a row just to store the default value.
-            if (EqualityComparer<TElement>.Default.Equals(value, _defaultValue))
-                return;
-
-            var rowData = RowData.CreateForSet(column - 1, value);
-            _data.Set(row - 1, rowData);
-            IncrementColumnUsage(column);
-            if (column > MaxColumn)
-                MaxColumn = column;
-            _version++;
+            SetInEmptyRow(row, column, in value);
             return;
         }
 
@@ -339,22 +355,47 @@ internal sealed partial class Slice<TElement> : ISlice
         _data.Set(row - 1, rd);
 
         if (wasUsed && !isUsed)
-        {
-            var newCount = DecrementColumnUsage(column);
-            if (newCount == 0 && MaxColumn == column)
-            {
-                MaxColumn = CalculateMaxColumn();
-            }
-        }
+            ReleaseColumn(column);
 
         if (!wasUsed && isUsed)
-        {
-            IncrementColumnUsage(column);
-            if (column > MaxColumn)
-                MaxColumn = column;
-        }
+            ClaimColumn(column);
 
         _version++;
+    }
+
+    private void SetInEmptyRow(int row, int column, in TElement value)
+    {
+        // Don't allocate a row just to store the default value.
+        if (EqualityComparer<TElement>.Default.Equals(value, _defaultValue))
+            return;
+
+        var rowData = RowData.CreateForSet(column - 1, value);
+        _data.Set(row - 1, rowData);
+        ClaimColumn(column);
+        _version++;
+    }
+
+    /// <summary>
+    /// Counts a newly used cell toward its column and extends <see cref="MaxColumn"/> if needed.
+    /// </summary>
+    private void ClaimColumn(int column)
+    {
+        IncrementColumnUsage(column);
+        if (column > MaxColumn)
+            MaxColumn = column;
+    }
+
+    /// <summary>
+    /// Drops a no-longer-used cell from its column count and recalculates <see cref="MaxColumn"/> if
+    /// the last column became empty.
+    /// </summary>
+    private void ReleaseColumn(int column)
+    {
+        var newCount = DecrementColumnUsage(column);
+        if (newCount == 0 && MaxColumn == column)
+        {
+            MaxColumn = CalculateMaxColumn();
+        }
     }
 
     /// <summary>

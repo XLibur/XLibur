@@ -178,14 +178,12 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
 
         foreach (var sheetPoint in usedCellsCandidates)
         {
-            if (sheetPoint.Row.Between(minRow, maxRow) &&
-                sheetPoint.Column.Between(minColumn, maxColumn))
-            {
-                var cell = worksheet.Cell(sheetPoint.Row, sheetPoint.Column);
+            if (!area.Contains(sheetPoint))
+                continue;
 
-                if (_predicate(cell))
-                    yield return cell;
-            }
+            var cell = worksheet.Cell(sheetPoint.Row, sheetPoint.Column);
+            if (_predicate(cell))
+                yield return cell;
         }
     }
 
