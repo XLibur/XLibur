@@ -251,17 +251,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             cell.GetGlyphBoxes(engine, dpi, glyphs);
             var textWidthPx = (int)Math.Ceiling(GetContentWidth(cellStyle.Alignment.TextRotation, glyphs));
 
-            var scaledMdw = engine.GetMaxDigitWidth(cellStyle.Font, dpi.X);
-            scaledMdw = Math.Round(scaledMdw, MidpointRounding.AwayFromZero);
-
-            // Not sure about rounding, but larger is probably better, so use ceiling.
-            // Due to mismatched rendering, add 3% instead of 1.75%, to have additional space.
-            var oneSidePadding = (int)Math.Ceiling(textWidthPx * 0.03 + scaledMdw / 4);
-
-            // Cell width if calculated as content width + padding on each side of a content.
-            // The one side padding is roughly 1.75% of content + MDW/4.
-            // The additional pixel is there for lines between cells.
-            var cellWidthPx = textWidthPx + 2 * oneSidePadding + 1;
+            var scaledMdw = GetScaledMdw(engine, cellStyle.Font, dpi);
+            var cellWidthPx = GetCellWidthPx(textWidthPx, scaledMdw);
 
             if (autoFilterRows.Contains(cell.Address.RowNumber))
             {
@@ -273,6 +264,33 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         }
 
         return columnWidthPx;
+    }
+
+    /// <summary>
+    /// Maximum digit width of the font, rounded to whole pixels.
+    /// </summary>
+    internal static double GetScaledMdw(IXLFontEngine engine, IXLFontBase font, Dpi dpi)
+    {
+        var scaledMdw = engine.GetMaxDigitWidth(font, dpi.X);
+        return Math.Round(scaledMdw, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Width in pixels of a cell that holds content of the given width, including padding on
+    /// each side and the grid line.
+    /// </summary>
+    /// <param name="textWidthPx">Width of the content in pixels.</param>
+    /// <param name="scaledMdw">Maximum digit width of the cell font, see <see cref="GetScaledMdw"/>.</param>
+    internal static int GetCellWidthPx(int textWidthPx, double scaledMdw)
+    {
+        // Not sure about rounding, but larger is probably better, so use ceiling.
+        // Due to mismatched rendering, add 3% instead of 1.75%, to have additional space.
+        var oneSidePadding = (int)Math.Ceiling(textWidthPx * 0.03 + scaledMdw / 4);
+
+        // Cell width if calculated as content width + padding on each side of a content.
+        // The one side padding is roughly 1.75% of content + MDW/4.
+        // The additional pixel is there for lines between cells.
+        return textWidthPx + 2 * oneSidePadding + 1;
     }
 
     private static double GetContentWidth(int textRotationDeg, List<GlyphBox> glyphs)

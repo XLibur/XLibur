@@ -317,12 +317,14 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     private int CalculateMinRowHeight(int startColumn, int endColumn, IXLFontEngine engine, Dpi dpi)
     {
         var glyphs = new List<GlyphBox>();
+        var breaks = new List<GlyphBreak>();
         XLStyle? cellStyle = null;
         var rowHeightPx = 0;
         foreach (var cell in Row(startColumn, endColumn).CellsUsed().Cast<XLCell>())
         {
             // Clear maintains capacity -> reduce need for GC
             glyphs.Clear();
+            breaks.Clear();
 
             if (cell.IsMerged())
                 continue;
@@ -331,13 +333,48 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             if (cellStyle is null || cellStyle.Value != cell.StyleValue)
                 cellStyle = (XLStyle)cell.Style;
 
-            cell.GetGlyphBoxes(engine, dpi, glyphs);
-            var cellHeightPx = (int)Math.Ceiling(GetContentHeight(cellStyle.Alignment.TextRotation, glyphs));
+            var alignment = cellStyle.Alignment;
+            var wrapWidthPx = alignment is { WrapText: true, TextRotation: 0 }
+                ? GetWrapWidthPx(cell.Address.ColumnNumber, alignment.Indent, engine, dpi)
+                : 0;
 
+            double contentHeightPx;
+            if (wrapWidthPx > 0)
+            {
+                cell.GetGlyphBoxes(engine, dpi, glyphs, breaks);
+                var scaledMdw = XLColumn.GetScaledMdw(engine, cellStyle.Font, dpi);
+                contentHeightPx = XLWrappedText.GetHeight(glyphs, breaks, wrapWidthPx, scaledMdw);
+            }
+            else
+            {
+                cell.GetGlyphBoxes(engine, dpi, glyphs);
+                contentHeightPx = GetContentHeight(alignment.TextRotation, glyphs);
+            }
+
+            var cellHeightPx = (int)Math.Ceiling(contentHeightPx);
             rowHeightPx = Math.Max(cellHeightPx, rowHeightPx);
         }
 
         return rowHeightPx;
+    }
+
+    /// <summary>
+    /// Width in pixels available to wrapped text in a column, including the cell padding and
+    /// the grid line, so it compares directly with <see cref="XLColumn.GetCellWidthPx"/>.
+    /// Returns 0 or less when the text can't be wrapped.
+    /// </summary>
+    private int GetWrapWidthPx(int columnNumber, int indent, IXLFontEngine engine, Dpi dpi)
+    {
+        var columnWidth = Worksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var column)
+            ? column.Width
+            : Worksheet.ColumnWidth;
+
+        // Column widths are in characters of the workbook font, the same as XLColumn.AdjustToContents.
+        var mdw = (int)Math.Round(engine.GetMaxDigitWidth(Worksheet.Workbook.Style.Font, dpi.X));
+        var columnWidthPx = (int)Math.Round(XLHelper.NoCToPixels(columnWidth, mdw));
+
+        // Each indent level is one character wide.
+        return columnWidthPx - indent * mdw;
     }
 
     private static double GetContentHeight(int textRotationDeg, List<GlyphBox> glyphs)

@@ -18,7 +18,11 @@ internal static class XLCellGlyphHelper
     /// <param name="engine">Engine used to determine box size.</param>
     /// <param name="dpi">DPI used to determine the size of glyphs.</param>
     /// <param name="output">List where items are added.</param>
-    internal static void GetGlyphBoxes(XLCell cell, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
+    /// <param name="breaks">
+    /// If not <c>null</c>, receives one item for each item added to <paramref name="output"/>,
+    /// describing where a soft line break can go.
+    /// </param>
+    internal static void GetGlyphBoxes(XLCell cell, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output, List<GlyphBreak>? breaks = null)
     {
         var richText = cell.RichText;
 
@@ -30,17 +34,30 @@ internal static class XLCellGlyphHelper
             {
                 var text = richText.GetRunText(richTextRun);
                 var font = new XLFont(richTextRun.Font.Key);
-                AddGlyphs(text, font, engine, dpi, output);
+                AddGlyphs(text, font, engine, dpi, output, breaks);
             }
         }
         else
         {
             var text = cell.GetFormattedString();
-            AddGlyphs(text, cell.Style.Font, engine, dpi, output);
+            AddGlyphs(text, cell.Style.Font, engine, dpi, output, breaks);
         }
     }
 
-    private static void AddGlyphs(string text, IXLFontBase font, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output)
+    private static GlyphBreak GetBreak(ReadOnlySpan<int> grapheme)
+    {
+        if (grapheme.Length != 1)
+            return GlyphBreak.None;
+
+        return grapheme[0] switch
+        {
+            ' ' or '\t' => GlyphBreak.Space,
+            '-' or '‐' => GlyphBreak.BreakAfter,
+            _ => GlyphBreak.None,
+        };
+    }
+
+    private static void AddGlyphs(string text, IXLFontBase font, IXLFontEngine engine, Dpi dpi, List<GlyphBox> output, List<GlyphBreak>? breaks)
     {
         Span<int> zeroWidthJoiner = [0x200D];
         var prevWasNewLine = false;
@@ -64,9 +81,11 @@ internal static class XLCellGlyphHelper
                     // If there are consecutive new lines, we need height of new the lines between them
                     var box = engine.GetGlyphBox(zeroWidthJoiner, font, dpi);
                     output.Add(box);
+                    breaks?.Add(GlyphBreak.None);
                 }
 
                 output.Add(GlyphBox.LineBreak);
+                breaks?.Add(GlyphBreak.None);
                 prevWasNewLine = true;
             }
             else
@@ -78,6 +97,7 @@ internal static class XLCellGlyphHelper
                 ReadOnlySpan<int> grapheme = codePointsBuffer.Slice(0, count);
                 var box = engine.GetGlyphBox(grapheme, font, dpi);
                 output.Add(box);
+                breaks?.Add(GetBreak(grapheme));
                 prevWasNewLine = false;
                 i++;
             }

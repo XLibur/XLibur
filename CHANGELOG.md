@@ -18,6 +18,10 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **Row `AdjustToContents` now makes a row tall enough for a cell with wrap text.** It counted only hard line breaks, so a long wrapped text got the height of one line, and the row could even shrink below the default height (#615, reported as ClosedXML/ClosedXML#2867). A cell with `Alignment.WrapText` set and no text rotation is now wrapped to its column width, less the cell padding and the indent. A line breaks after a space or a hyphen, and a word too long for the column is split between characters. Merged cells are still skipped, rotated text is measured as before, and column `AdjustToContents` is unchanged.
+
 ## v0.610.0 - 2026-09-16
 
 ### Changed
