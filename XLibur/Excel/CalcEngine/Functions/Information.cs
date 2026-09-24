@@ -117,26 +117,26 @@ internal static class Information
     private static AnyValue N(CalcContext ctx, AnyValue value)
     {
         if (value.TryPickScalar(out var scalar, out var collection))
-            return ToNumber(scalar).ToAnyValue();
+            return NToNumber(scalar).ToAnyValue();
 
         if (collection.TryPickT0(out var array, out var reference))
-            return array.Apply(static v => ToNumber(v));
+            return array.Apply(static v => NToNumber(v));
 
         var area = reference[0];
         var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
-        return ToNumber(referenceValue).ToAnyValue();
+        return NToNumber(referenceValue).ToAnyValue();
+    }
 
-        static ScalarValue ToNumber(ScalarValue scalar)
-        {
-            if (scalar.TryPickNumber(out var number))
-                return number;
-            if (scalar.TryPickLogical(out var logical))
-                return logical ? 1 : 0;
-            if (scalar.TryPickError(out var error))
-                return error;
+    private static ScalarValue NToNumber(ScalarValue scalar)
+    {
+        if (scalar.TryPickNumber(out var number))
+            return number;
+        if (scalar.TryPickLogical(out var logical))
+            return logical ? 1 : 0;
+        if (scalar.TryPickError(out var error))
+            return error;
 
-            return 0; // Blank, text
-        }
+        return 0; // Blank, text
     }
 
     private static AnyValue NA(CalcContext ctx, Span<AnyValue> value)
@@ -157,6 +157,11 @@ internal static class Information
                 return 64;
         }
 
+        return ScalarTypeCode(scalar);
+    }
+
+    private static AnyValue ScalarTypeCode(ScalarValue scalar)
+    {
         if (scalar.IsBlank || scalar.IsNumber)
             return 1;
         if (scalar.IsText)

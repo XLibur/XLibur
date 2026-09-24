@@ -211,26 +211,38 @@ internal static class MathTrig
         if (minusSign)
             text = text[1..];
 
-        var total = 0;
-        for (var i = text.Length - 1; i >= 0; --i)
-        {
-            var addSymbol = char.ToUpperInvariant(text[i]);
-            if (!RomanSymbolValues.TryGetValue(addSymbol, out var addValue))
-                return XLError.IncompatibleValue;
-
-            total += addValue;
-
-            var subtractResult = AccumulateSubtractSymbols(text, ref i, addValue);
-            if (!subtractResult.TryPickT0(out var subtracted, out var error))
-                return error;
-
-            total -= subtracted;
-        }
+        if (!TrySumRomanSymbols(text, out var total, out var error))
+            return error;
 
         if (minusSign && total == 0)
             return XLError.NumberInvalid;
 
         return minusSign ? -total : total;
+    }
+
+    private static bool TrySumRomanSymbols(ReadOnlySpan<char> text, out int total, out XLError error)
+    {
+        total = 0;
+        error = default;
+        for (var i = text.Length - 1; i >= 0; --i)
+        {
+            var addSymbol = char.ToUpperInvariant(text[i]);
+            if (!RomanSymbolValues.TryGetValue(addSymbol, out var addValue))
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            total += addValue;
+
+            var subtractResult = AccumulateSubtractSymbols(text, ref i, addValue);
+            if (!subtractResult.TryPickT0(out var subtracted, out error))
+                return false;
+
+            total -= subtracted;
+        }
+
+        return true;
     }
 
     private static OneOf<int, XLError> AccumulateSubtractSymbols(ReadOnlySpan<char> text, ref int i, int addValue)
@@ -542,20 +554,38 @@ internal static class MathTrig
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
-                if (scalar.IsLogical)
-                    return XLError.IncompatibleValue;
-
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!TryGetGcdLcmOperand(ctx, scalar, out var number, out var error))
                     return error;
-
-                if (number is < 0 or > MaxDoubleInt)
-                    return XLError.NumberInvalid;
 
                 result = Gcd(number, Math.Truncate(result));
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Read one operand of GCD/LCM: a non-logical value convertible to a number between 0 and <see cref="MaxDoubleInt"/>.
+    /// </summary>
+    private static bool TryGetGcdLcmOperand(CalcContext ctx, ScalarValue scalar, out double number, out XLError error)
+    {
+        if (scalar.IsLogical)
+        {
+            number = 0;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error))
+            return false;
+
+        if (number is < 0 or > MaxDoubleInt)
+        {
+            error = XLError.NumberInvalid;
+            return false;
+        }
+
+        return true;
     }
 
     private static double Gcd(double a, double b)
@@ -604,14 +634,8 @@ internal static class MathTrig
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
-                if (scalar.IsLogical)
-                    return XLError.IncompatibleValue;
-
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!TryGetGcdLcmOperand(ctx, scalar, out var number, out var error))
                     return error;
-
-                if (number is < 0 or > MaxDoubleInt)
-                    return XLError.NumberInvalid;
 
                 result = Lcm(result, Math.Truncate(number));
             }
@@ -1039,7 +1063,6 @@ internal static class MathTrig
     /// Functions 1..13 take any number of ranges; 14..19 take one array and a k, because they pick
     /// a position within a single ordered set.
     /// </summary>
-#pragma warning disable S3776 // AGGREGATE dispatches nineteen functions; the switch arms are the specification
     private static AnyValue Aggregate(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetAggregateArgument(ctx, args[0], out var functionArgument, out var functionError))
@@ -1059,27 +1082,36 @@ internal static class MathTrig
         var ignoreErrors = options is 2 or 3 or 6 or 7;
         var tally = TallyNumbers.Aggregate(skipHiddenRows, ignoreErrors);
 
-        var values = args[2..];
         if (functionNumber <= 13)
-        {
-            return functionNumber switch
-            {
-                1 => Statistical.Average(ctx, values, tally),
-                2 => Statistical.Count(ctx, values, tally),
-                3 => Statistical.Count(ctx, values, skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA),
-                4 => Statistical.Max(ctx, values, tally),
-                5 => Statistical.Min(ctx, values, tally),
-                6 => Product(ctx, values, tally),
-                7 => Statistical.StDev(ctx, values, tally),
-                8 => Statistical.StDevP(ctx, values, tally),
-                9 => Sum(ctx, values, tally),
-                10 => Statistical.Var(ctx, values, tally),
-                11 => Statistical.VarP(ctx, values, tally),
-                12 => Statistical.Median(ctx, values, tally),
-                _ => Statistical.Mode(ctx, values, tally),
-            };
-        }
+            return AggregateOverRanges(ctx, functionNumber, args[2..], tally, skipHiddenRows);
 
+        return AggregateOrderStatistic(ctx, functionNumber, args, tally);
+    }
+
+    /// <summary>AGGREGATE functions 1..13, which take any number of ranges.</summary>
+    private static AnyValue AggregateOverRanges(CalcContext ctx, double functionNumber, Span<AnyValue> values, TallyNumbers tally, bool skipHiddenRows)
+    {
+        return functionNumber switch
+        {
+            1 => Statistical.Average(ctx, values, tally),
+            2 => Statistical.Count(ctx, values, tally),
+            3 => Statistical.Count(ctx, values, skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA),
+            4 => Statistical.Max(ctx, values, tally),
+            5 => Statistical.Min(ctx, values, tally),
+            6 => Product(ctx, values, tally),
+            7 => Statistical.StDev(ctx, values, tally),
+            8 => Statistical.StDevP(ctx, values, tally),
+            9 => Sum(ctx, values, tally),
+            10 => Statistical.Var(ctx, values, tally),
+            11 => Statistical.VarP(ctx, values, tally),
+            12 => Statistical.Median(ctx, values, tally),
+            _ => Statistical.Mode(ctx, values, tally),
+        };
+    }
+
+    /// <summary>AGGREGATE functions 14..19, which take one array and a k.</summary>
+    private static AnyValue AggregateOrderStatistic(CalcContext ctx, double functionNumber, Span<AnyValue> args, TallyNumbers tally)
+    {
         // The order statistics need the whole data set materialized, and a k to index it with.
         if (args.Length < 4)
             return XLError.IncompatibleValue;
@@ -1100,7 +1132,6 @@ internal static class MathTrig
             _ => Statistical.QuartileExclusive(numbers, k),
         };
     }
-#pragma warning restore S3776
 
     /// <summary>Read one of AGGREGATE's scalar arguments — the function number, the options or the k.</summary>
     private static bool TryGetAggregateArgument(CalcContext ctx, in AnyValue value, out double number, out XLError error)
@@ -1195,17 +1226,30 @@ internal static class MathTrig
             var areaWidth = area.Width;
             var areaHeight = area.Height;
 
-            if (areaWidth == 1 && areaHeight == 1 && area[0, 0].IsBlank)
+            if (IsSingleBlankCell(area, areaWidth, areaHeight))
                 return false;
 
-            if (width == 0) width = areaWidth;
-            if (height == 0) height = areaHeight;
-
-            if (width != areaWidth || height != areaHeight)
+            if (!MatchesSumProductDimensions(areaWidth, areaHeight, ref width, ref height))
                 return false;
         }
 
         return true;
+    }
+
+    private static bool IsSingleBlankCell(Array area, int areaWidth, int areaHeight)
+    {
+        return areaWidth == 1 && areaHeight == 1 && area[0, 0].IsBlank;
+    }
+
+    /// <summary>
+    /// Adopt the dimensions of the first area, then check every other area has the same ones.
+    /// </summary>
+    private static bool MatchesSumProductDimensions(int areaWidth, int areaHeight, ref int width, ref int height)
+    {
+        if (width == 0) width = areaWidth;
+        if (height == 0) height = areaHeight;
+
+        return width == areaWidth && height == areaHeight;
     }
 
     private static AnyValue CalculateSumProduct(Array[] areas, int width, int height)
@@ -1215,25 +1259,37 @@ internal static class MathTrig
         {
             for (var colIdx = 0; colIdx < width; ++colIdx)
             {
-                var product = 1.0;
-                foreach (var area in areas)
-                {
-                    var scalar = area[rowIdx, colIdx];
-
-                    if (scalar.TryPickError(out var error))
-                        return error;
-
-                    if (!scalar.TryPickNumber(out var number))
-                        number = 0;
-
-                    product *= number;
-                }
+                if (!TryMultiplyCells(areas, rowIdx, colIdx, out var product, out var error))
+                    return error;
 
                 sum += product;
             }
         }
 
         return sum;
+    }
+
+    /// <summary>
+    /// Multiply the cells at the same position of all areas. Non-numbers count as 0, errors stop the product.
+    /// </summary>
+    private static bool TryMultiplyCells(Array[] areas, int rowIdx, int colIdx, out double product, out XLError error)
+    {
+        product = 1.0;
+        foreach (var area in areas)
+        {
+            var scalar = area[rowIdx, colIdx];
+
+            if (scalar.TryPickError(out error))
+                return false;
+
+            if (!scalar.TryPickNumber(out var number))
+                number = 0;
+
+            product *= number;
+        }
+
+        error = default;
+        return true;
     }
 
     private static AnyValue SumSq(CalcContext ctx, Span<AnyValue> args)

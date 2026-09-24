@@ -384,18 +384,8 @@ internal static class Regression
         if (args.Length > 3 && !TryGetScalarNumber(ctx, args[3], out upperLimit, out var upperError))
             return upperError;
 
-        var total = 0d;
-        var matched = 0d;
-        for (var i = 0; i < values.Count; i++)
-        {
-            var probability = probabilities[i];
-            if (probability <= 0 || probability > 1)
-                return XLError.NumberInvalid;
-
-            total += probability;
-            if (values[i] >= lowerLimit && values[i] <= upperLimit)
-                matched += probability;
-        }
+        if (!TrySumProbabilities(values, probabilities, lowerLimit, upperLimit, out var total, out var matched))
+            return XLError.NumberInvalid;
 
         // The probabilities have to describe a whole distribution, up to the rounding that summing
         // them introduces.
@@ -403,6 +393,28 @@ internal static class Regression
             return XLError.NumberInvalid;
 
         return matched;
+    }
+
+    /// <summary>
+    /// Sum all <paramref name="probabilities"/> into <paramref name="total"/> and those of the values
+    /// within the limits into <paramref name="matched"/>. Fails on a probability outside (0, 1].
+    /// </summary>
+    private static bool TrySumProbabilities(List<double> values, List<double> probabilities, double lowerLimit, double upperLimit, out double total, out double matched)
+    {
+        total = 0d;
+        matched = 0d;
+        for (var i = 0; i < values.Count; i++)
+        {
+            var probability = probabilities[i];
+            if (probability <= 0 || probability > 1)
+                return false;
+
+            total += probability;
+            if (values[i] >= lowerLimit && values[i] <= upperLimit)
+                matched += probability;
+        }
+
+        return true;
     }
 
     #endregion
@@ -430,20 +442,27 @@ internal static class Regression
         // With no bins at all every value lands in the single overflow bucket.
         var counts = new ScalarValue[bins.Count + 1, 1];
         for (var i = 0; i <= bins.Count; i++)
-        {
-            var count = 0;
-            foreach (var value in data)
-            {
-                var aboveLower = i == 0 || value > bins[i - 1];
-                var atOrBelowUpper = i == bins.Count || value <= bins[i];
-                if (aboveLower && atOrBelowUpper)
-                    count++;
-            }
-
-            counts[i, 0] = count;
-        }
+            counts[i, 0] = CountInBin(data, bins, i);
 
         return new ConstArray(counts);
+    }
+
+    /// <summary>
+    /// How many values fall into bin <paramref name="i"/>: above the previous bin and at or below
+    /// its own. The bin one past the last has no upper limit.
+    /// </summary>
+    private static int CountInBin(List<double> data, List<double> bins, int i)
+    {
+        var count = 0;
+        foreach (var value in data)
+        {
+            var aboveLower = i == 0 || value > bins[i - 1];
+            var atOrBelowUpper = i == bins.Count || value <= bins[i];
+            if (aboveLower && atOrBelowUpper)
+                count++;
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -525,13 +544,24 @@ internal static class Regression
         if (!TrySolve(design, constant, out var coefficients))
             return XLError.NumberInvalid;
 
-        // Excel reports the coefficients from the last predictor back to the first, then the
-        // intercept, which is the reverse of how the fit produces them.
-        var width = design.Predictors + 1;
+        var row = ReportedCoefficients(design.Predictors, coefficients, exponential);
+        if (!wantsStatistics)
+            return SingleRow(row);
+
+        return BuildStatistics(design, constant, coefficients, row);
+    }
+
+    /// <summary>
+    /// Excel reports the coefficients from the last predictor back to the first, then the
+    /// intercept, which is the reverse of how the fit produces them.
+    /// </summary>
+    private static double[] ReportedCoefficients(int predictors, double[] coefficients, bool exponential)
+    {
+        var width = predictors + 1;
         var row = new double[width];
-        for (var i = 0; i < design.Predictors; i++)
-            row[i] = coefficients[design.Predictors - i];
-        row[design.Predictors] = coefficients[0];
+        for (var i = 0; i < predictors; i++)
+            row[i] = coefficients[predictors - i];
+        row[predictors] = coefficients[0];
 
         if (exponential)
         {
@@ -540,19 +570,18 @@ internal static class Regression
                 row[i] = Math.Exp(row[i]);
         }
 
-        if (!wantsStatistics)
-        {
-            var simple = new ScalarValue[1, width];
-            for (var i = 0; i < width; i++)
-                simple[0, i] = row[i];
-
-            return new ConstArray(simple);
-        }
-
-        return BuildStatistics(design, constant, coefficients, row);
+        return row;
     }
 
-#pragma warning disable S3776 // Optional new_x handling ahead of one prediction loop
+    private static ConstArray SingleRow(double[] row)
+    {
+        var simple = new ScalarValue[1, row.Length];
+        for (var i = 0; i < row.Length; i++)
+            simple[0, i] = row[i];
+
+        return new ConstArray(simple);
+    }
+
     private static AnyValue Predict(CalcContext ctx, Span<AnyValue> args, bool exponential)
     {
         // TREND(known_y, [known_x], [new_x], [const]) — the flag sits one place later than in LINEST.
@@ -562,45 +591,65 @@ internal static class Regression
         if (!TrySolve(design, constant, out var coefficients))
             return XLError.NumberInvalid;
 
-        // The points to predict at default to the ones the fit was made from.
-        double[,] newX;
-        int newCount;
-        if (args.Length > 2 && !IsOmitted(args, 2))
-        {
-            if (!args[2].TryPickCollectionArray(out var newArray, ctx))
-                return XLError.IncompatibleValue;
-
-            if (!TryReadPredictors(ctx, newArray!, design.Predictors, design.Vertical, out newX, out newCount, out var newError))
-                return newError;
-        }
-        else
-        {
-            newX = design.X;
-            newCount = design.Observations;
-        }
+        if (!TryReadNewPredictors(ctx, args, design, out var newX, out var newCount, out var newError))
+            return newError;
 
         var predictions = new double[newCount];
         for (var i = 0; i < newCount; i++)
-        {
-            var value = coefficients[0];
-            for (var p = 1; p <= design.Predictors; p++)
-                value += coefficients[p] * newX[i, p - 1];
+            predictions[i] = PredictAt(coefficients, design.Predictors, newX, i, exponential);
 
-            predictions[i] = exponential ? Math.Exp(value) : value;
+        return OrientedArray(predictions, design.Vertical);
+    }
+
+    /// <summary>
+    /// Read new_x, the points to predict at. They default to the ones the fit was made from.
+    /// </summary>
+    private static bool TryReadNewPredictors(CalcContext ctx, Span<AnyValue> args, in Design design, out double[,] newX, out int newCount, out XLError error)
+    {
+        if (args.Length <= 2 || IsOmitted(args, 2))
+        {
+            newX = design.X;
+            newCount = design.Observations;
+            error = default;
+            return true;
         }
 
-        var data = design.Vertical ? new ScalarValue[newCount, 1] : new ScalarValue[1, newCount];
-        for (var i = 0; i < newCount; i++)
+        if (!args[2].TryPickCollectionArray(out var newArray, ctx))
         {
-            if (design.Vertical)
-                data[i, 0] = predictions[i];
+            newX = new double[0, 0];
+            newCount = 0;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return TryReadPredictors(ctx, newArray!, design.Predictors, design.Vertical, out newX, out newCount, out error);
+    }
+
+    /// <summary>The value the fit predicts for row <paramref name="i"/> of <paramref name="newX"/>.</summary>
+    private static double PredictAt(double[] coefficients, int predictors, double[,] newX, int i, bool exponential)
+    {
+        var value = coefficients[0];
+        for (var p = 1; p <= predictors; p++)
+            value += coefficients[p] * newX[i, p - 1];
+
+        return exponential ? Math.Exp(value) : value;
+    }
+
+    /// <summary>Lay the values out as a column when <paramref name="vertical"/>, otherwise as a row.</summary>
+    private static ConstArray OrientedArray(double[] values, bool vertical)
+    {
+        var count = values.Length;
+        var data = vertical ? new ScalarValue[count, 1] : new ScalarValue[1, count];
+        for (var i = 0; i < count; i++)
+        {
+            if (vertical)
+                data[i, 0] = values[i];
             else
-                data[0, i] = predictions[i];
+                data[0, i] = values[i];
         }
 
         return new ConstArray(data);
     }
-#pragma warning restore S3776
 
     /// <summary>
     /// Read known_y and known_x into a design matrix. When known_x is left out the predictor is the
@@ -650,11 +699,7 @@ internal static class Regression
 
         for (var i = 0; i < observations; i++)
         {
-            var scalar = vertical ? yArray[i, 0] : yArray[0, i];
-            if (scalar.TryPickError(out error))
-                return false;
-
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var value, out error))
+            if (!TryReadNumber(ctx, OrientedCell(yArray, i, 0, vertical), out var value, out error))
                 return false;
 
             if (exponential)
@@ -718,7 +763,6 @@ internal static class Regression
     /// Read a block of predictor values. <paramref name="expected"/> is the number of predictors to
     /// insist on, or zero to take whatever the block holds.
     /// </summary>
-#pragma warning disable S3776 // Orientation fixup and shape validation ahead of one read loop
     private static bool TryReadPredictors(CalcContext ctx, Array array, int expected, bool vertical, out double[,] x, out int observations, out XLError error)
     {
         error = default;
@@ -740,15 +784,22 @@ internal static class Regression
         }
 
         x = new double[observations, predictors];
+        return TryFillPredictors(ctx, array, vertical, x, out error);
+    }
+
+    /// <summary>
+    /// Read the block into <paramref name="x"/>, one row per observation and one column per predictor.
+    /// </summary>
+    private static bool TryFillPredictors(CalcContext ctx, Array array, bool vertical, double[,] x, out XLError error)
+    {
+        error = default;
+        var observations = x.GetLength(0);
+        var predictors = x.GetLength(1);
         for (var i = 0; i < observations; i++)
         {
             for (var p = 0; p < predictors; p++)
             {
-                var scalar = vertical ? array[i, p] : array[p, i];
-                if (scalar.TryPickError(out error))
-                    return false;
-
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var value, out error))
+                if (!TryReadNumber(ctx, OrientedCell(array, i, p, vertical), out var value, out error))
                     return false;
 
                 x[i, p] = value;
@@ -757,7 +808,25 @@ internal static class Regression
 
         return true;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Cell of an observation/predictor block: <paramref name="observation"/> runs down the rows when
+    /// <paramref name="vertical"/>, otherwise across the columns.
+    /// </summary>
+    private static ScalarValue OrientedCell(Array array, int observation, int predictor, bool vertical)
+    {
+        return vertical ? array[observation, predictor] : array[predictor, observation];
+    }
+
+    /// <summary>A value of the fit's data: an error stops the read, anything else is converted to a number.</summary>
+    private static bool TryReadNumber(CalcContext ctx, in ScalarValue scalar, out double value, out XLError error)
+    {
+        value = 0;
+        if (scalar.TryPickError(out error))
+            return false;
+
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out value, out error);
+    }
 
     /// <summary>
     /// Solve the normal equations XᵀX·β = Xᵀy. <paramref name="constant"/> false pins the intercept
@@ -769,30 +838,15 @@ internal static class Regression
         coefficients = new double[terms];
 
         var columns = constant ? terms : design.Predictors;
-        var normal = new XLMatrix(columns, columns);
+        var normal = NormalMatrix(design, constant, columns);
         var rhs = new XLMatrix(columns, 1);
-
         for (var a = 0; a < columns; a++)
-        {
-            for (var b = 0; b < columns; b++)
-                normal[a, b] = DotProduct(design, constant, a, b);
-
             rhs[a, 0] = DotProductWithY(design, constant, a);
-        }
 
         try
         {
             var solution = normal.SolveWith(rhs);
-            if (constant)
-            {
-                for (var i = 0; i < terms; i++)
-                    coefficients[i] = solution[i, 0];
-            }
-            else
-            {
-                for (var i = 0; i < design.Predictors; i++)
-                    coefficients[i + 1] = solution[i, 0];
-            }
+            CopySolution(solution, constant, design.Predictors, coefficients);
         }
         catch (InvalidOperationException)
         {
@@ -800,6 +854,37 @@ internal static class Regression
         }
 
         return true;
+    }
+
+    /// <summary>XᵀX over the <paramref name="columns"/> columns of the design matrix taking part in the fit.</summary>
+    private static XLMatrix NormalMatrix(in Design design, bool constant, int columns)
+    {
+        var normal = new XLMatrix(columns, columns);
+        for (var a = 0; a < columns; a++)
+        {
+            for (var b = 0; b < columns; b++)
+                normal[a, b] = DotProduct(design, constant, a, b);
+        }
+
+        return normal;
+    }
+
+    /// <summary>
+    /// Copy the solved β into <paramref name="coefficients"/>. Without a constant the solution has no
+    /// intercept, which stays zero.
+    /// </summary>
+    private static void CopySolution(XLMatrix solution, bool constant, int predictors, double[] coefficients)
+    {
+        if (constant)
+        {
+            for (var i = 0; i < coefficients.Length; i++)
+                coefficients[i] = solution[i, 0];
+        }
+        else
+        {
+            for (var i = 0; i < predictors; i++)
+                coefficients[i + 1] = solution[i, 0];
+        }
     }
 
     /// <summary>Column <paramref name="index"/> of the design matrix, where column zero is the intercept's constant one.</summary>
@@ -855,12 +940,18 @@ internal static class Regression
         {
             data[0, column] = reportedRow[column];
             data[1, column] = standardErrors[column];
-            data[2, column] = column switch { 0 => rSquared, 1 => standardErrorOfY, _ => XLError.NoValueAvailable };
-            data[3, column] = column switch { 0 => fStatistic, 1 => degreesOfFreedom, _ => XLError.NoValueAvailable };
-            data[4, column] = column switch { 0 => regressionSumOfSquares, 1 => residualSumOfSquares, _ => XLError.NoValueAvailable };
+            data[2, column] = PairCell(column, rSquared, standardErrorOfY);
+            data[3, column] = PairCell(column, fStatistic, degreesOfFreedom);
+            data[4, column] = PairCell(column, regressionSumOfSquares, residualSumOfSquares);
         }
 
         return new ConstArray(data);
+    }
+
+    /// <summary>A cell of the statistics rows that hold only two values; the rest of such a row is <c>#N/A</c>.</summary>
+    private static ScalarValue PairCell(int column, double first, double second)
+    {
+        return column switch { 0 => first, 1 => second, _ => XLError.NoValueAvailable };
     }
 
     /// <summary>
@@ -908,28 +999,9 @@ internal static class Regression
             errors[i] = XLError.NoValueAvailable;
 
         var columns = constant ? width : design.Predictors;
-        var normal = new XLMatrix(columns, columns);
-        for (var a = 0; a < columns; a++)
-        {
-            for (var b = 0; b < columns; b++)
-                normal[a, b] = DotProduct(design, constant, a, b);
-        }
-
-        double[,] inverse;
-        try
-        {
-            var inverted = normal.Invert();
-            inverse = new double[columns, columns];
-            for (var a = 0; a < columns; a++)
-            {
-                for (var b = 0; b < columns; b++)
-                    inverse[a, b] = inverted[a, b];
-            }
-        }
-        catch (InvalidOperationException)
-        {
+        var normal = NormalMatrix(design, constant, columns);
+        if (!TryInvert(normal, columns, out var inverse))
             return errors;
-        }
 
         for (var p = 0; p < design.Predictors; p++)
         {
@@ -941,6 +1013,28 @@ internal static class Regression
             errors[design.Predictors] = standardErrorOfY * Math.Sqrt(Math.Abs(inverse[0, 0]));
 
         return errors;
+    }
+
+    /// <summary>Invert a square matrix into a plain array; false when it is singular.</summary>
+    private static bool TryInvert(XLMatrix matrix, int columns, out double[,] inverse)
+    {
+        try
+        {
+            var inverted = matrix.Invert();
+            inverse = new double[columns, columns];
+            for (var a = 0; a < columns; a++)
+            {
+                for (var b = 0; b < columns; b++)
+                    inverse[a, b] = inverted[a, b];
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            inverse = new double[0, 0];
+            return false;
+        }
+
+        return true;
     }
 
     #endregion
