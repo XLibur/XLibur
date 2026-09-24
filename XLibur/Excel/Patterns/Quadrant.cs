@@ -143,17 +143,17 @@ internal class Quadrant
                 yield return range;
         }
 
-        if (Children != null)
-        {
-            foreach (var childQuadrant in Children)
-            {
-                if (childQuadrant._subtreeCount == 0)
-                    continue;
+        if (Children == null)
+            yield break;
 
-                var childRanges = childQuadrant.GetAll();
-                foreach (var range in childRanges)
-                    yield return range;
-            }
+        foreach (var childQuadrant in Children)
+        {
+            if (childQuadrant._subtreeCount == 0)
+                continue;
+
+            var childRanges = childQuadrant.GetAll();
+            foreach (var range in childRanges)
+                yield return range;
         }
     }
 
@@ -227,14 +227,8 @@ internal class Quadrant
         if (_subtreeCount == 0)
             return false;
 
-        if (_ranges is not null)
-        {
-            foreach (var range in _ranges.Values)
-            {
-                if (XLAddressableHelper.Contains(range, in address))
-                    return true;
-            }
-        }
+        if (OwnRangeCovers(in address))
+            return true;
 
         var children = Children;
         if (children is null)
@@ -247,6 +241,23 @@ internal class Quadrant
         {
             var childQuadrant = children[i];
             if (childQuadrant.Covers(in address) && childQuadrant.CoversAnyRange(in address))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether a range held by this quadrant itself, not by its children, covers the address.
+    /// </summary>
+    private bool OwnRangeCovers(in XLAddress address)
+    {
+        if (_ranges is null)
+            return false;
+
+        foreach (var range in _ranges.Values)
+        {
+            if (XLAddressableHelper.Contains(range, in address))
                 return true;
         }
 

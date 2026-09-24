@@ -111,24 +111,20 @@ internal static class TextSerializer
         }
 
         w.WriteStartElement("rPr", Main2006SsNs);
+        WriteRunProperties(w, font, statedProperties);
+        w.WriteEndElement(); // rPr
 
-        if (font.Bold)
-            w.WriteEmptyElement("b");
+        WriteText(w, text);
 
-        if (font.Italic)
-            w.WriteEmptyElement("i");
+        w.WriteEndElement(); // r
+    }
 
-        if (font.Strikethrough)
-            w.WriteEmptyElement("strike");
-
-        // Three attributes are not stored/written:
-        // * outline - doesn't do anything and likely only works in Word.
-        // * condense - legacy compatibility setting for macs
-        // * extend - legacy compatibility setting for pre-xlsx Excels
-        // None have sensible descriptions.
-
-        if (font.Shadow)
-            w.WriteEmptyElement("shadow");
+    /// <summary>
+    /// Writes the children of a run's <c>&lt;rPr&gt;</c>, in schema order.
+    /// </summary>
+    private static void WriteRunProperties(XmlWriter w, XLFontValue font, XLStatedRunProperties statedProperties)
+    {
+        WriteRunFlags(w, font);
 
         if (font.Underline != XLFontUnderlineValues.None)
             WriteRunProperty(w, "u", font.Underline.ToOpenXmlString());
@@ -160,12 +156,30 @@ internal static class TextSerializer
 
         if (font.FontScheme != XLFontScheme.None)
             WriteRunProperty(w, "scheme", font.FontScheme.ToOpenXml());
+    }
 
-        w.WriteEndElement(); // rPr
+    /// <summary>
+    /// Writes the empty on/off elements that lead a run's <c>&lt;rPr&gt;</c>.
+    /// </summary>
+    private static void WriteRunFlags(XmlWriter w, XLFontValue font)
+    {
+        if (font.Bold)
+            w.WriteEmptyElement("b");
 
-        WriteText(w, text);
+        if (font.Italic)
+            w.WriteEmptyElement("i");
 
-        w.WriteEndElement(); // r
+        if (font.Strikethrough)
+            w.WriteEmptyElement("strike");
+
+        // Three attributes are not stored/written:
+        // * outline - doesn't do anything and likely only works in Word.
+        // * condense - legacy compatibility setting for macs
+        // * extend - legacy compatibility setting for pre-xlsx Excels
+        // None have sensible descriptions.
+
+        if (font.Shadow)
+            w.WriteEmptyElement("shadow");
     }
 
     private static void WriteText(XmlWriter w, string text)

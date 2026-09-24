@@ -145,21 +145,28 @@ internal static class TimelineReader
         foreach (var (worksheetPart, worksheet) in WorksheetParts(workbookPart, sheets, worksheets))
         {
             foreach (var timelinePart in worksheetPart.TimeLineParts)
-            {
-                var timelines = ReadDetached<X15.Timelines>(timelinePart);
-                if (timelines is null)
-                    continue;
-
-                var relId = worksheetPart.GetIdOfPart(timelinePart);
-                foreach (var timeline in timelines.Elements<X15.Timeline>())
-                    AddTimeline(timeline, relId, worksheet, caches);
-            }
+                ReadTimelinePart(worksheetPart, timelinePart, worksheet, caches);
 
             // Where each timeline sits is in the drawing part, not the timeline part. Read after the
             // timelines exist, because the frames are matched to them by name.
             if (worksheet.TimelinesInternal.Count > 0)
                 TimelineAnchorXml.ReadPositions(worksheetPart.DrawingsPart, worksheet.TimelinesInternal);
         }
+    }
+
+    private static void ReadTimelinePart(
+        WorksheetPart worksheetPart,
+        TimeLinePart timelinePart,
+        XLWorksheet worksheet,
+        Dictionary<string, XLTimelineCache> caches)
+    {
+        var timelines = ReadDetached<X15.Timelines>(timelinePart);
+        if (timelines is null)
+            return;
+
+        var relId = worksheetPart.GetIdOfPart(timelinePart);
+        foreach (var timeline in timelines.Elements<X15.Timeline>())
+            AddTimeline(timeline, relId, worksheet, caches);
     }
 
     private static void AddTimeline(

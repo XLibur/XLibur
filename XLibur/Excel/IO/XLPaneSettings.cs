@@ -123,22 +123,24 @@ internal readonly struct XLPaneSettings
     /// </summary>
     private static XLPaneCorner ResolveCorner(int splitColumn, int splitRow, Point? activeCell)
     {
+        // Without an active cell, the default is the pane furthest from the top-left in each
+        // direction that is split at all.
         if (activeCell is not { } active)
-        {
-            if (splitRow == 0 && splitColumn == 0)
-                return XLPaneCorner.TopLeft;
-            if (splitRow == 0)
-                return XLPaneCorner.TopRight;
-            return splitColumn == 0 ? XLPaneCorner.BottomLeft : XLPaneCorner.BottomRight;
-        }
+            return CornerOf(bottom: splitRow != 0, right: splitColumn != 0);
 
         var bottom = splitRow > 0 && active.Row > splitRow;
         var right = splitColumn > 0 && active.Column > splitColumn;
+        return CornerOf(bottom, right);
+    }
 
-        if (bottom && right)
-            return XLPaneCorner.BottomRight;
-        if (bottom)
-            return XLPaneCorner.BottomLeft;
-        return right ? XLPaneCorner.TopRight : XLPaneCorner.TopLeft;
+    private static XLPaneCorner CornerOf(bool bottom, bool right)
+    {
+        return (bottom, right) switch
+        {
+            (true, true) => XLPaneCorner.BottomRight,
+            (true, false) => XLPaneCorner.BottomLeft,
+            (false, true) => XLPaneCorner.TopRight,
+            _ => XLPaneCorner.TopLeft,
+        };
     }
 }

@@ -68,7 +68,12 @@ internal static class SlicerPatcher
     private static void Apply(X14.Slicer slicer, XLSlicer xlSlicer)
     {
         var assigned = xlSlicer.AssignedFormat;
+        ApplyCaption(slicer, xlSlicer, assigned);
+        ApplyLayout(slicer, xlSlicer, assigned);
+    }
 
+    private static void ApplyCaption(X14.Slicer slicer, XLSlicer xlSlicer, XLSlicerFormat assigned)
+    {
         // Each optional attribute is cleared with a typed null rather than a bare one. Assigning
         // `null` to one of these properties goes through the implicit conversion from string or
         // bool, which produces a value wrapping null — serialised as `caption=""`, not as an absent
@@ -92,7 +97,10 @@ internal static class SlicerPatcher
         if (assigned.HasFlag(XLSlicerFormat.ShowCaption))
             slicer.ShowCaption = xlSlicer.ShowCaption ? (BooleanValue?)null : false;
 #pragma warning restore S1125
+    }
 
+    private static void ApplyLayout(X14.Slicer slicer, XLSlicer xlSlicer, XLSlicerFormat assigned)
+    {
         if (assigned.HasFlag(XLSlicerFormat.Style))
             slicer.Style = xlSlicer.Style is { } style ? style : (StringValue?)null;
 

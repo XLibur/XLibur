@@ -479,6 +479,16 @@ internal static class StyleDecoder
             Strikethrough = OpenXmlHelper.GetBoolean(runProperties.Elements<Strike>().FirstOrDefault()),
         };
 
+        nf = RunFontScalars(runProperties, nf);
+        return RunFontEnums(runProperties, nf);
+    }
+
+    /// <summary>
+    /// The <see cref="RunFontKey"/> children that carry a plain value: color, family, name, charset
+    /// and size. Each is applied only when present.
+    /// </summary>
+    private static XLFontKey RunFontScalars(RunProperties runProperties, XLFontKey nf)
+    {
         var fontColor = runProperties.Elements<Color>().FirstOrDefault();
         if (fontColor is not null)
             nf = nf with { FontColor = fontColor.ToXLiburColor().Key };
@@ -499,6 +509,15 @@ internal static class StyleDecoder
         if (fontSize?.Val is not null)
             nf = nf with { FontSize = fontSize.Val.Value };
 
+        return nf;
+    }
+
+    /// <summary>
+    /// The <see cref="RunFontKey"/> children that carry an enumeration. A present element without
+    /// <c>val</c> falls back to a fixed value.
+    /// </summary>
+    private static XLFontKey RunFontEnums(RunProperties runProperties, XLFontKey nf)
+    {
         var underline = runProperties.Elements<Underline>().FirstOrDefault();
         if (underline is not null)
         {

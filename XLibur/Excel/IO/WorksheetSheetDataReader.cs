@@ -11,6 +11,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.RichText;
+using XLibur.Excel.Rows;
 using XLibur.Extensions;
 using XLibur.Utils;
 using static XLibur.Excel.XLPredefinedFormat.DateTime;
@@ -210,17 +211,11 @@ internal static class WorksheetSheetDataReader
             var ns = reader.NamespaceURI;
             var localName = reader.LocalName;
 
-            var isKnown = ns.Length == 0
-                ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
-                    or "ph" or "customFormat" or "s"
-                : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
-
-            if (!isKnown)
+            if (!IsKnownRowAttribute(ns, localName))
                 continue;
 
             // Read as characters — none of these attributes is retained as a string.
-            var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-            var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+            var value = ReadValueSpan(reader, buffer);
 
             switch (localName)
             {
@@ -258,6 +253,18 @@ internal static class WorksheetSheetDataReader
 
         reader.MoveToElement();
         return new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+    }
+
+    /// <summary>
+    /// Whether a <c>&lt;row&gt;</c> attribute is one <see cref="ReadRowAttributes"/> reads: the
+    /// unqualified ones it models, plus <c>x14ac:dyDescent</c>.
+    /// </summary>
+    private static bool IsKnownRowAttribute(string ns, string localName)
+    {
+        return ns.Length == 0
+            ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
+                or "ph" or "customFormat" or "s"
+            : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
     }
 
     private static void LoadRowXml(XmlReader reader, in SheetDataReadContext context,
@@ -385,8 +392,7 @@ internal static class WorksheetSheetDataReader
             if (localName is not ("r" or "s" or "t" or "ph" or "cm" or "vm"))
                 continue;
 
-            var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-            var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+            var value = ReadValueSpan(reader, buffer);
 
             switch (localName)
             {
@@ -403,7 +409,7 @@ internal static class WorksheetSheetDataReader
                     break;
                 case "ph":
                     showPhonetic = ParseXmlBool(value);
-                    if (showPhonetic) hasMisc = true;
+                    hasMisc |= showPhonetic;
                     break;
                 case "cm":
                     cellMetaIndex = uint.Parse(value, CultureInfo.InvariantCulture);
@@ -439,27 +445,11 @@ internal static class WorksheetSheetDataReader
         // content blocking the spill.
         var formulaInline = formula is not null || dataType == CellValues.String;
 
-        var cellHasValue = IsMainElement(reader, "v");
-        var cellWasSetWithEmptyValue = false;
-        if (cellHasValue)
-        {
-            // Reads <v> content and moves past </v>, without a string for the numeric and
-            // shared-string cases that dominate a sheet.
-            var buffer = context.ValueBuffer;
-            var length = ReadElementContentIntoBuffer(reader, buffer, out var overflow);
-            var text = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
-
-            SetCellValue(dataType, text, cellsCollection, cellAddress, cellStyleValue, ws,
-                context.SharedStrings, formulaInline, context.NumberDataTypeCache);
-        }
-        else if (dataType == CellValues.SharedString || dataType == CellValues.String)
-        {
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
-            cellWasSetWithEmptyValue = true;
-        }
+        var cellValueWasSet = LoadCellValueXml(reader, in context, dataType, cellAddress, cellStyleValue,
+            cellsCollection, formulaInline);
 
         // The calc engine learns that the load left formulas clean when the load ends (#504).
-        if (formula is not null && (cellHasValue || cellWasSetWithEmptyValue))
+        if (formula is not null && cellValueWasSet)
             formula.MarkClean();
 
         if (IsMainElement(reader, "is"))
@@ -471,6 +461,35 @@ internal static class WorksheetSheetDataReader
         // Ensure we land on </c>: skip any unrecognized trailing child elements.
         while (reader.NodeType == XmlNodeType.Element)
             reader.Skip();
+    }
+
+    /// <summary>
+    /// Reads the cell's <c>&lt;v&gt;</c>, if the reader is on one, or gives a string-typed cell
+    /// without one its empty value.
+    /// </summary>
+    /// <returns>Whether the cell's value was set.</returns>
+    private static bool LoadCellValueXml(XmlReader reader, in SheetDataReadContext context,
+        CellValues dataType, Point cellAddress, XLStyleValue cellStyleValue,
+        XLCellsCollection cellsCollection, bool formulaInline)
+    {
+        if (IsMainElement(reader, "v"))
+        {
+            // Reads <v> content and moves past </v>, without a string for the numeric and
+            // shared-string cases that dominate a sheet.
+            var text = ReadElementContentSpan(reader, context.ValueBuffer);
+
+            SetCellValue(dataType, text, cellsCollection, cellAddress, cellStyleValue, context.Worksheet,
+                context.SharedStrings, formulaInline, context.NumberDataTypeCache);
+            return true;
+        }
+
+        if (dataType == CellValues.SharedString || dataType == CellValues.String)
+        {
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, formulaInline);
+            return true;
+        }
+
+        return false;
     }
 
     private static XLCellFormula? SetCellFormulaXml(XmlReader reader, char[] buffer, XLWorksheet ws, Point cellAddress,
@@ -566,8 +585,7 @@ internal static class WorksheetSheetDataReader
         // formula, and neither is retained as a string -- the type becomes an enum and the
         // index a number, so materializing them allocated two strings per cell that were
         // thrown away immediately (#558).
-        var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-        var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+        var value = ReadValueSpan(reader, buffer);
 
         switch (localName)
         {
@@ -662,6 +680,26 @@ internal static class WorksheetSheetDataReader
 
     private static bool ParseXmlBool(ReadOnlySpan<char> value)
         => value.SequenceEqual("1") || value.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// <see cref="ReadValueIntoBuffer"/> as a span: over <paramref name="buffer"/> when the value
+    /// fit, over the overflow string when it did not.
+    /// </summary>
+    private static ReadOnlySpan<char> ReadValueSpan(XmlReader reader, char[] buffer)
+    {
+        var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+        return length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+    }
+
+    /// <summary>
+    /// <see cref="ReadElementContentIntoBuffer"/> as a span, on the same terms as
+    /// <see cref="ReadValueSpan"/>.
+    /// </summary>
+    private static ReadOnlySpan<char> ReadElementContentSpan(XmlReader reader, char[] buffer)
+    {
+        var length = ReadElementContentIntoBuffer(reader, buffer, out var overflow);
+        return length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+    }
 
     /// <summary>
     /// Copies the value of the node the reader is positioned on (an attribute or a text node) into
@@ -981,37 +1019,33 @@ internal static class WorksheetSheetDataReader
         while (i < length)
         {
             var c = char.ToLowerInvariant(format[i]);
-            switch (c)
+            if (c is '"' or '[')
             {
-                case '"':
-                    {
-                        var closeIndex = format.IndexOf('"', i + 1);
-                        if (closeIndex == -1)
-                            return null;
-                        i = closeIndex + 1;
-                        break;
-                    }
-                case '[':
-                    {
-                        // #1742 We need to skip locale prefixes in DateTime formats [...]
-                        var closeIndex = format.IndexOf(']', i + 1);
-                        if (closeIndex == -1)
-                            return null;
-                        i = closeIndex + 1;
-                        break;
-                    }
-                default:
-                    {
-                        var result = ClassifyFormatChar(c, format, i, length);
-                        if (result.HasValue)
-                            return result.Value;
-                        i++;
-                        break;
-                    }
+                i = IndexPastSection(format, i, c);
+                if (i == -1)
+                    return null;
+                continue;
             }
+
+            var result = ClassifyFormatChar(c, format, i, length);
+            if (result.HasValue)
+                return result.Value;
+            i++;
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The index just past the end of a quoted literal or a bracketed section that opens at
+    /// <paramref name="openIndex"/>, or -1 when the section is never closed.
+    /// </summary>
+    private static int IndexPastSection(string format, int openIndex, char open)
+    {
+        // #1742 We need to skip locale prefixes in DateTime formats [...]
+        var close = open == '[' ? ']' : '"';
+        var closeIndex = format.IndexOf(close, openIndex + 1);
+        return closeIndex == -1 ? -1 : closeIndex + 1;
     }
 
     private static XLDataType? ClassifyFormatChar(char c, string format, int i, int length)
@@ -1061,15 +1095,18 @@ internal static class WorksheetSheetDataReader
             xlRow.ShowPhonetic = true;
 
         if (props.CustomFormat)
+            ApplyRowCustomFormat(xlRow, props.StyleIndex, ws, styles);
+    }
+
+    private static void ApplyRowCustomFormat(XLRow xlRow, int? styleIndex, XLWorksheet ws, StylesheetData styles)
+    {
+        if (styleIndex is not null)
         {
-            if (props.StyleIndex is not null)
-            {
-                StyleDecoder.ApplyStyle(xlRow, props.StyleIndex.Value, styles);
-            }
-            else
-            {
-                xlRow.Style = ws.Style;
-            }
+            StyleDecoder.ApplyStyle(xlRow, styleIndex.Value, styles);
+        }
+        else
+        {
+            xlRow.Style = ws.Style;
         }
     }
 
@@ -1320,16 +1357,7 @@ internal static class WorksheetSheetDataReader
         // Integer part — accumulate in long for exact precision.
         long mantissa = 0;
         var integerDigits = ScanDigits(s, ref i, ref mantissa);
-
-        var fractionDigits = 0;
-
-        // Fractional part.
-        if (i < len && s[i] == '.')
-        {
-            i++;
-            fractionDigits = ScanDigits(s, ref i, ref mantissa);
-        }
-
+        var fractionDigits = ScanFractionDigits(s, ref i, ref mantissa);
         var totalDigits = integerDigits + fractionDigits;
 
         // Must have consumed at least one digit and ALL characters.
@@ -1337,13 +1365,34 @@ internal static class WorksheetSheetDataReader
         if (totalDigits == 0 || i != len || totalDigits > 18)
             return double.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
 
-        // Assemble the double using exact division.
+        result = AssembleDouble(mantissa, fractionDigits, negative);
+        return true;
+    }
+
+    /// <summary>
+    /// Consume an optional fractional part - a '.' and the digits after it - starting at
+    /// <paramref name="i"/>, folding the digits into <paramref name="mantissa"/>. Returns the number
+    /// of fraction digits consumed, zero when there is no '.'.
+    /// </summary>
+    private static int ScanFractionDigits(ReadOnlySpan<char> s, ref int i, ref long mantissa)
+    {
+        if (i >= s.Length || s[i] != '.')
+            return 0;
+
+        i++;
+        return ScanDigits(s, ref i, ref mantissa);
+    }
+
+    /// <summary>
+    /// Assemble the double using exact division by a power of ten.
+    /// </summary>
+    private static double AssembleDouble(long mantissa, int fractionDigits, bool negative)
+    {
         double d = fractionDigits == 0
             ? mantissa
             : mantissa / Pow10[fractionDigits];
 
-        result = negative ? -d : d;
-        return true;
+        return negative ? -d : d;
     }
 
     /// <summary>
