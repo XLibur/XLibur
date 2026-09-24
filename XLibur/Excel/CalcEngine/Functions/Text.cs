@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -167,53 +168,65 @@ internal static class Text
     /// forms. Like ASC, real Excel only does this when the authoring language is East Asian; the
     /// mapping is applied unconditionally here, which is what makes DBCS(ASC(x)) an identity.
     /// </summary>
-#pragma warning disable S3776 // Half-width katakana recombination then a flat per-character mapping
 #pragma warning disable S127 // The extra i++ consumes the second half of a combining pair
     private static ScalarValue Dbcs(CalcContext ctx, string text)
     {
-        const char dakuten = 'ﾞ';
-        const char handakuten = 'ﾟ';
         var inverse = HalfToFullKatakana.Value;
 
         var sb = new StringBuilder(text.Length);
         for (var i = 0; i < text.Length; i++)
         {
-            var c = text[i];
-
             // A voiced katakana is written half-width as a base plus a combining mark, so the two
             // have to be recombined into one full-width character before the base is translated.
-            if (i + 1 < text.Length)
+            if (TryGetComposedKatakana(text, i, inverse, out var composed))
             {
-                var marked = text[i + 1] switch
-                {
-                    dakuten => inverse.Voiced,
-                    handakuten => inverse.SemiVoiced,
-                    _ => null,
-                };
-
-                if (marked is not null && marked.TryGetValue(c, out var composed))
-                {
-                    sb.Append(composed);
-                    i++;
-                    continue;
-                }
+                sb.Append(composed);
+                i++;
+                continue;
             }
 
-            if (c is >= '!' and <= '~')
-                sb.Append((char)(c - 0x0021 + 0xFF01));
-            else if (c == ' ')
-                sb.Append('　');
-            else if (inverse.Plain.TryGetValue(c, out var katakana))
-                sb.Append(katakana);
-            else
-                sb.Append(c);
+            AppendFullForm(sb, text[i], inverse);
         }
 
         return sb.ToString();
     }
-#pragma warning restore S3776
 
 #pragma warning restore S127
+
+    /// <summary>
+    /// The full-width voiced katakana written half-width as <c>text[i]</c> plus a combining mark at
+    /// <c>text[i + 1]</c>, if there is one.
+    /// </summary>
+    private static bool TryGetComposedKatakana(string text, int i, KatakanaInverse inverse, [NotNullWhen(true)] out string? composed)
+    {
+        const char dakuten = 'ﾞ';
+        const char handakuten = 'ﾟ';
+
+        composed = null;
+        if (i + 1 >= text.Length)
+            return false;
+
+        var marked = text[i + 1] switch
+        {
+            dakuten => inverse.Voiced,
+            handakuten => inverse.SemiVoiced,
+            _ => null,
+        };
+
+        return marked is not null && marked.TryGetValue(text[i], out composed);
+    }
+
+    private static void AppendFullForm(StringBuilder sb, char c, KatakanaInverse inverse)
+    {
+        if (c is >= '!' and <= '~')
+            sb.Append((char)(c - 0x0021 + 0xFF01));
+        else if (c == ' ')
+            sb.Append('　');
+        else if (inverse.Plain.TryGetValue(c, out var katakana))
+            sb.Append(katakana);
+        else
+            sb.Append(c);
+    }
 
     /// <summary>
     /// The half-width to full-width katakana mapping, derived by running every full-width katakana
@@ -273,19 +286,8 @@ internal static class Text
         if (!TryGetDelimiters(ctx, args[1], out var delimiters, out var delimiterError))
             return delimiterError;
 
-        var instance = 1;
-        if (args.Length > 2 && !TryOptionalInt(ctx, args[2], 1, out instance, out var instanceError))
-            return instanceError;
-        if (instance == 0)
-            return XLError.IncompatibleValue;
-
-        var ignoreCase = false;
-        if (args.Length > 3 && !TryOptionalFlag(ctx, args[3], out ignoreCase, out var matchModeError))
-            return matchModeError;
-
-        var endCounts = false;
-        if (args.Length > 4 && !TryOptionalFlag(ctx, args[4], out endCounts, out var matchEndError))
-            return matchEndError;
+        if (!TryGetTextAroundOptions(ctx, args, out var instance, out var ignoreCase, out var endCounts, out var optionError))
+            return optionError;
 
         var notFound = args.Length > 5 ? args[5] : AnyValue.From(XLError.NoValueAvailable);
 
@@ -302,6 +304,29 @@ internal static class Text
 
         var (start, length) = matches[index];
         return before ? text[..start] : text[(start + length)..];
+    }
+
+    /// <summary>
+    /// Read the instance_num, match_mode and match_end arguments of TEXTBEFORE/TEXTAFTER, in that
+    /// order. An instance of zero is an error.
+    /// </summary>
+    private static bool TryGetTextAroundOptions(CalcContext ctx, Span<AnyValue> args, out int instance, out bool ignoreCase, out bool endCounts, out XLError error)
+    {
+        ignoreCase = false;
+        endCounts = false;
+        instance = 1;
+        error = default;
+        if (args.Length > 2 && !TryOptionalInt(ctx, args[2], 1, out instance, out error))
+            return false;
+
+        if (instance == 0)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return TryOptionalFlagArg(ctx, args, 3, out ignoreCase, out error)
+               && TryOptionalFlagArg(ctx, args, 4, out endCounts, out error);
     }
 
     /// <summary>
@@ -332,6 +357,16 @@ internal static class Text
             ? ToScalar(ctx, args[5])
             : ScalarValue.From(XLError.NoValueAvailable);
 
+        var rows = SplitToRows(text, rowDelimiters, columnDelimiters, ignoreCase, ignoreEmpty);
+        if (rows.Count == 0)
+            return XLError.IncompatibleValue;
+
+        return PadToGrid(rows, padding);
+    }
+
+    /// <summary>Split into rows first and then each row into columns, dropping empty rows when asked.</summary>
+    private static List<List<string>> SplitToRows(string text, List<string> rowDelimiters, List<string> columnDelimiters, bool ignoreCase, bool ignoreEmpty)
+    {
         var rows = new List<List<string>>();
         foreach (var line in Split(text, rowDelimiters, ignoreCase, ignoreEmpty))
             rows.Add(Split(line, columnDelimiters, ignoreCase, ignoreEmpty));
@@ -339,10 +374,7 @@ internal static class Text
         if (ignoreEmpty)
             rows.RemoveAll(static row => row.Count == 0);
 
-        if (rows.Count == 0)
-            return XLError.IncompatibleValue;
-
-        return PadToGrid(rows, padding);
+        return rows;
     }
 
     /// <summary>Read a delimiter argument that may be omitted; an omitted one means no delimiters.</summary>
@@ -418,7 +450,6 @@ internal static class Text
     /// match at the same place the longer one wins, so splitting on both "&lt;br&gt;" and "&lt;b&gt;"
     /// does not leave a stray "r&gt;".
     /// </summary>
-#pragma warning disable S3776 // Longest-match-wins delimiter scan; the tie-breaking is the point of the method
     private static List<(int Start, int Length)> FindDelimiters(string text, List<string> delimiters, bool ignoreCase)
     {
         var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -427,24 +458,7 @@ internal static class Text
         var position = 0;
         while (position <= text.Length)
         {
-            var bestStart = -1;
-            var bestLength = 0;
-            foreach (var delimiter in delimiters)
-            {
-                if (delimiter.Length == 0)
-                    continue;
-
-                var found = text.IndexOf(delimiter, position, comparison);
-                if (found < 0)
-                    continue;
-
-                if (bestStart < 0 || found < bestStart || (found == bestStart && delimiter.Length > bestLength))
-                {
-                    bestStart = found;
-                    bestLength = delimiter.Length;
-                }
-            }
-
+            FindNextDelimiter(text, delimiters, position, comparison, out var bestStart, out var bestLength);
             if (bestStart < 0)
                 break;
 
@@ -454,7 +468,34 @@ internal static class Text
 
         return matches;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// The earliest occurrence of any delimiter at or after <paramref name="position"/>, the longest
+    /// one when several start at the same place. <paramref name="bestStart"/> is -1 when none is found.
+    /// </summary>
+    private static void FindNextDelimiter(string text, List<string> delimiters, int position, StringComparison comparison, out int bestStart, out int bestLength)
+    {
+        bestStart = -1;
+        bestLength = 0;
+        foreach (var delimiter in delimiters)
+        {
+            if (delimiter.Length == 0)
+                continue;
+
+            var found = text.IndexOf(delimiter, position, comparison);
+            if (found < 0)
+                continue;
+
+            if (IsBetterMatch(found, delimiter.Length, bestStart, bestLength))
+            {
+                bestStart = found;
+                bestLength = delimiter.Length;
+            }
+        }
+    }
+
+    private static bool IsBetterMatch(int found, int length, int bestStart, int bestLength)
+        => bestStart < 0 || found < bestStart || (found == bestStart && length > bestLength);
 
     /// <summary>Read a delimiter argument, which Excel lets you write as an array of alternatives.</summary>
     private static bool TryGetDelimiters(CalcContext ctx, in AnyValue value, out List<string> delimiters, out XLError error)
@@ -556,7 +597,6 @@ internal static class Text
         return Render(ctx, ToScalar(ctx, args[0]), strict);
     }
 
-#pragma warning disable S3776 // Concise and strict rendering differ only in separators, chosen inline per position
     private static AnyValue ArrayToText(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetFormat(ctx, args, 1, out var strict, out var formatError))
@@ -565,24 +605,28 @@ internal static class Text
         if (!args[0].TryPickCollectionArray(out var array, ctx))
             return Render(ctx, ToScalar(ctx, args[0]), strict);
 
-        // Concise form is a flat comma-separated list; strict form reproduces the array literal,
-        // with commas between columns and semicolons between rows.
+        return RenderArray(ctx, array!, strict);
+    }
+
+    /// <summary>
+    /// Concise form is a flat comma-separated list; strict form reproduces the array literal,
+    /// with commas between columns and semicolons between rows.
+    /// </summary>
+    private static string RenderArray(CalcContext ctx, Array array, bool strict)
+    {
+        var rowSeparator = strict ? ";" : ", ";
+        var columnSeparator = strict ? "," : ", ";
+
         var sb = new StringBuilder();
         if (strict)
             sb.Append('{');
 
-        for (var y = 0; y < array!.Height; y++)
+        for (var y = 0; y < array.Height; y++)
         {
             if (y > 0)
-                sb.Append(strict ? ";" : ", ");
+                sb.Append(rowSeparator);
 
-            for (var x = 0; x < array.Width; x++)
-            {
-                if (x > 0)
-                    sb.Append(strict ? "," : ", ");
-
-                sb.Append(Render(ctx, array[y, x], strict));
-            }
+            AppendRenderedRow(sb, ctx, array, y, strict, columnSeparator);
         }
 
         if (strict)
@@ -590,7 +634,17 @@ internal static class Text
 
         return sb.ToString();
     }
-#pragma warning restore S3776
+
+    private static void AppendRenderedRow(StringBuilder sb, CalcContext ctx, Array array, int y, bool strict, string columnSeparator)
+    {
+        for (var x = 0; x < array.Width; x++)
+        {
+            if (x > 0)
+                sb.Append(columnSeparator);
+
+            sb.Append(Render(ctx, array[y, x], strict));
+        }
+    }
 
     /// <summary>
     /// Read the shared <c>format</c> argument of VALUETOTEXT and ARRAYTOTEXT: 0 is the concise form
@@ -657,138 +711,138 @@ internal static class Text
             AppendHalfForm(sb, c);
 
         return sb.ToString();
-
-        // Per ODS specification https://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part2.html#ASC
-        static void AppendHalfForm(StringBuilder sb, int c)
-        {
-            if (c is >= 0x30A1 and <= 0x30F4)
-                AppendKatakanaHalfWidth(sb, c);
-            else if (c is >= 0xFF01 and <= 0xFF5E)
-                sb.Append((char)(c - 0xFF01 + 0x0021)); // Fullwidth ASCII to ASCII
-            else
-                sb.Append((char)PunctuationToHalfWidth(c));
-        }
-
-        static void AppendKatakanaHalfWidth(StringBuilder sb, int c)
-        {
-            const char dakuten = '\uFF9E';
-            const char handakuten = '\uFF9F';
-
-            switch (c)
-            {
-                // a-o vowels (ア-オ) and their small forms (ァ-ォ)
-                case >= 0x30A1 and <= 0x30AA when c % 2 == 0:
-                    sb.Append((char)((c - 0x30A2) / 2 + 0xFF71));
-                    break;
-                case >= 0x30A1 and <= 0x30AA when c % 2 == 1:
-                    sb.Append((char)((c - 0x30A1) / 2 + 0xFF67));
-                    break;
-
-                // ka-chi (カ-チ) unvoiced
-                case >= 0x30AB and <= 0x30C2 when c % 2 == 1:
-                    sb.Append((char)((c - 0x30AB) / 2 + 0xFF76));
-                    break;
-                // ga-dhi (ガ-ヂ) voiced = base + dakuten
-                case >= 0x30AB and <= 0x30C2 when c % 2 == 0:
-                    sb.Append((char)((c - 0x30AC) / 2 + 0xFF76));
-                    sb.Append(dakuten);
-                    break;
-
-                // small tsu (ッ)
-                case 0x30C3:
-                    sb.Append('\uFF6F');
-                    break;
-
-                // tsu-to (ツ-ト) unvoiced
-                case >= 0x30C4 and <= 0x30C9 when c % 2 == 0:
-                    sb.Append((char)((c - 0x30C4) / 2 + 0xFF82));
-                    break;
-                // du-do (ヅ-ド) voiced = base + dakuten
-                case >= 0x30C4 and <= 0x30C9 when c % 2 == 1:
-                    sb.Append((char)((c - 0x30C5) / 2 + 0xFF82));
-                    sb.Append(dakuten);
-                    break;
-
-                // na-no (ナ-ノ)
-                case >= 0x30CA and <= 0x30CE:
-                    sb.Append((char)(c - 0x30CA + 0xFF85));
-                    break;
-
-                // ha-ho (ハ-ホ) group: unvoiced, voiced (dakuten), semi-voiced (handakuten)
-                case >= 0x30CF and <= 0x30DD:
-                    AppendHaHoGroup(sb, c, dakuten, handakuten);
-                    break;
-
-                // ma-mo (マ-モ)
-                case >= 0x30DE and <= 0x30E2:
-                    sb.Append((char)(c - 0x30DE + 0xFF8F));
-                    break;
-
-                // ya-yo (ヤ-ヨ) and small forms (ャ-ョ)
-                case >= 0x30E3 and <= 0x30E8 when c % 2 == 0:
-                    sb.Append((char)((c - 0x30E4) / 2 + 0xFF94));
-                    break;
-                case >= 0x30E3 and <= 0x30E8 when c % 2 == 1:
-                    sb.Append((char)((c - 0x30E3) / 2 + 0xFF6C));
-                    break;
-
-                // ra-ro (ラ-ロ)
-                case >= 0x30E9 and <= 0x30ED:
-                    sb.Append((char)(c - 0x30E9 + 0xFF97));
-                    break;
-
-                case 0x30EF: sb.Append('\uFF9C'); break; // wa (ワ)
-                case 0x30F2: sb.Append('\uFF66'); break; // wo (ヲ)
-                case 0x30F3: sb.Append('\uFF9D'); break; // n (ン)
-
-                // vu (ヴ) voiced = ｳ + dakuten
-                case 0x30F4:
-                    sb.Append('\uFF73');
-                    sb.Append(dakuten);
-                    break;
-
-                default:
-                    sb.Append((char)c);
-                    break;
-            }
-        }
-
-        static void AppendHaHoGroup(StringBuilder sb, int c, char dakuten, char handakuten)
-        {
-            if (c % 3 == 0)
-            {
-                sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
-            }
-            else if (c % 3 == 1)
-            {
-                sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
-                sb.Append(dakuten);
-            }
-            else
-            {
-                sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
-                sb.Append(handakuten);
-            }
-        }
-
-        static int PunctuationToHalfWidth(int c) => c switch
-        {
-            0x2015 => 0xFF70, // HORIZONTAL BAR => HALFWIDTH PROLONGED SOUND MARK
-            0x2018 => 0x0060, // LEFT SINGLE QUOTATION MARK => GRAVE ACCENT
-            0x2019 => 0x0027, // RIGHT SINGLE QUOTATION MARK => APOSTROPHE
-            0x201D => 0x0022, // RIGHT DOUBLE QUOTATION MARK => QUOTATION MARK
-            0x3001 => 0xFF64, // IDEOGRAPHIC COMMA
-            0x3002 => 0xFF61, // IDEOGRAPHIC FULL STOP
-            0x300C => 0xFF62, // LEFT CORNER BRACKET
-            0x300D => 0xFF63, // RIGHT CORNER BRACKET
-            0x309B => 0xFF9E, // KATAKANA-HIRAGANA VOICED SOUND MARK
-            0x309C => 0xFF9F, // KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
-            0x30FB => 0xFF65, // KATAKANA MIDDLE DOT
-            0x30FC => 0xFF70, // KATAKANA-HIRAGANA PROLONGED SOUND MARK
-            0xFFE5 => 0x005C, // FULLWIDTH YEN SIGN => REVERSE SOLIDUS
-            _ => c
-        };
     }
+
+    // Per ODS specification https://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part2.html#ASC
+    private static void AppendHalfForm(StringBuilder sb, int c)
+    {
+        if (c is >= 0x30A1 and <= 0x30F4)
+            AppendKatakanaHalfWidth(sb, c);
+        else if (c is >= 0xFF01 and <= 0xFF5E)
+            sb.Append((char)(c - 0xFF01 + 0x0021)); // Fullwidth ASCII to ASCII
+        else
+            sb.Append((char)PunctuationToHalfWidth(c));
+    }
+
+    private static void AppendKatakanaHalfWidth(StringBuilder sb, int c)
+    {
+        const char dakuten = '\uFF9E';
+        const char handakuten = '\uFF9F';
+
+        switch (c)
+        {
+            // a-o vowels (ア-オ) and their small forms (ァ-ォ)
+            case >= 0x30A1 and <= 0x30AA when c % 2 == 0:
+                sb.Append((char)((c - 0x30A2) / 2 + 0xFF71));
+                break;
+            case >= 0x30A1 and <= 0x30AA when c % 2 == 1:
+                sb.Append((char)((c - 0x30A1) / 2 + 0xFF67));
+                break;
+
+            // ka-chi (カ-チ) unvoiced
+            case >= 0x30AB and <= 0x30C2 when c % 2 == 1:
+                sb.Append((char)((c - 0x30AB) / 2 + 0xFF76));
+                break;
+            // ga-dhi (ガ-ヂ) voiced = base + dakuten
+            case >= 0x30AB and <= 0x30C2 when c % 2 == 0:
+                sb.Append((char)((c - 0x30AC) / 2 + 0xFF76));
+                sb.Append(dakuten);
+                break;
+
+            // small tsu (ッ)
+            case 0x30C3:
+                sb.Append('\uFF6F');
+                break;
+
+            // tsu-to (ツ-ト) unvoiced
+            case >= 0x30C4 and <= 0x30C9 when c % 2 == 0:
+                sb.Append((char)((c - 0x30C4) / 2 + 0xFF82));
+                break;
+            // du-do (ヅ-ド) voiced = base + dakuten
+            case >= 0x30C4 and <= 0x30C9 when c % 2 == 1:
+                sb.Append((char)((c - 0x30C5) / 2 + 0xFF82));
+                sb.Append(dakuten);
+                break;
+
+            // na-no (ナ-ノ)
+            case >= 0x30CA and <= 0x30CE:
+                sb.Append((char)(c - 0x30CA + 0xFF85));
+                break;
+
+            // ha-ho (ハ-ホ) group: unvoiced, voiced (dakuten), semi-voiced (handakuten)
+            case >= 0x30CF and <= 0x30DD:
+                AppendHaHoGroup(sb, c, dakuten, handakuten);
+                break;
+
+            // ma-mo (マ-モ)
+            case >= 0x30DE and <= 0x30E2:
+                sb.Append((char)(c - 0x30DE + 0xFF8F));
+                break;
+
+            // ya-yo (ヤ-ヨ) and small forms (ャ-ョ)
+            case >= 0x30E3 and <= 0x30E8 when c % 2 == 0:
+                sb.Append((char)((c - 0x30E4) / 2 + 0xFF94));
+                break;
+            case >= 0x30E3 and <= 0x30E8 when c % 2 == 1:
+                sb.Append((char)((c - 0x30E3) / 2 + 0xFF6C));
+                break;
+
+            // ra-ro (ラ-ロ)
+            case >= 0x30E9 and <= 0x30ED:
+                sb.Append((char)(c - 0x30E9 + 0xFF97));
+                break;
+
+            case 0x30EF: sb.Append('\uFF9C'); break; // wa (ワ)
+            case 0x30F2: sb.Append('\uFF66'); break; // wo (ヲ)
+            case 0x30F3: sb.Append('\uFF9D'); break; // n (ン)
+
+            // vu (ヴ) voiced = ｳ + dakuten
+            case 0x30F4:
+                sb.Append('\uFF73');
+                sb.Append(dakuten);
+                break;
+
+            default:
+                sb.Append((char)c);
+                break;
+        }
+    }
+
+    private static void AppendHaHoGroup(StringBuilder sb, int c, char dakuten, char handakuten)
+    {
+        if (c % 3 == 0)
+        {
+            sb.Append((char)((c - 0x30CF) / 3 + 0xFF8A));
+        }
+        else if (c % 3 == 1)
+        {
+            sb.Append((char)((c - 0x30D0) / 3 + 0xFF8A));
+            sb.Append(dakuten);
+        }
+        else
+        {
+            sb.Append((char)((c - 0x30D1) / 3 + 0xFF8A));
+            sb.Append(handakuten);
+        }
+    }
+
+    private static int PunctuationToHalfWidth(int c) => c switch
+    {
+        0x2015 => 0xFF70, // HORIZONTAL BAR => HALFWIDTH PROLONGED SOUND MARK
+        0x2018 => 0x0060, // LEFT SINGLE QUOTATION MARK => GRAVE ACCENT
+        0x2019 => 0x0027, // RIGHT SINGLE QUOTATION MARK => APOSTROPHE
+        0x201D => 0x0022, // RIGHT DOUBLE QUOTATION MARK => QUOTATION MARK
+        0x3001 => 0xFF64, // IDEOGRAPHIC COMMA
+        0x3002 => 0xFF61, // IDEOGRAPHIC FULL STOP
+        0x300C => 0xFF62, // LEFT CORNER BRACKET
+        0x300D => 0xFF63, // RIGHT CORNER BRACKET
+        0x309B => 0xFF9E, // KATAKANA-HIRAGANA VOICED SOUND MARK
+        0x309C => 0xFF9F, // KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
+        0x30FB => 0xFF65, // KATAKANA MIDDLE DOT
+        0x30FC => 0xFF70, // KATAKANA-HIRAGANA PROLONGED SOUND MARK
+        0xFFE5 => 0x005C, // FULLWIDTH YEN SIGN => REVERSE SOLIDUS
+        _ => c
+    };
 
     private static ScalarValue Char(double number)
     {
@@ -1227,21 +1281,22 @@ internal static class Text
             if (ignoreEmpty && text.Length == 0)
                 continue;
 
-            if (first)
-            {
-                sb.Append(text);
-                first = false;
-            }
-            else
-            {
-                sb.Append(delimiter).Append(text);
-            }
-
+            AppendJoined(sb, delimiter, text, ref first);
             if (sb.Length > XLHelper.CellTextLimit)
                 return XLError.IncompatibleValue;
         }
 
         return ScalarValue.Blank;
+    }
+
+    /// <summary>Append the text, preceded by the delimiter unless it is the first one joined.</summary>
+    private static void AppendJoined(StringBuilder sb, string delimiter, string text, ref bool first)
+    {
+        if (!first)
+            sb.Append(delimiter);
+
+        sb.Append(text);
+        first = false;
     }
 
     private static ScalarValue Trim(CalcContext ctx, string text)

@@ -150,22 +150,30 @@ internal static class UnitConversion
             if (!Units.TryGetValue(rest, out var candidate))
                 continue;
 
-            if (candidate.Prefixes.HasFlag(PrefixKind.Binary) && BinaryPrefixes.TryGetValue(prefix, out var binary))
+            if (TryGetPrefixFactor(candidate, prefix, out var factor))
             {
                 unit = candidate;
-                prefixFactor = binary;
-                return true;
-            }
-
-            if (candidate.Prefixes.HasFlag(PrefixKind.Metric) && MetricPrefixes.TryGetValue(prefix, out var metric))
-            {
-                unit = candidate;
-                prefixFactor = metric;
+                prefixFactor = factor;
                 return true;
             }
         }
 
         unit = default;
+        return false;
+    }
+
+    /// <summary>
+    /// The factor of a prefix the unit accepts. Binary prefixes are tried before metric ones.
+    /// </summary>
+    private static bool TryGetPrefixFactor(Unit candidate, string prefix, out double factor)
+    {
+        if (candidate.Prefixes.HasFlag(PrefixKind.Binary) && BinaryPrefixes.TryGetValue(prefix, out factor))
+            return true;
+
+        if (candidate.Prefixes.HasFlag(PrefixKind.Metric) && MetricPrefixes.TryGetValue(prefix, out factor))
+            return true;
+
+        factor = default;
         return false;
     }
 

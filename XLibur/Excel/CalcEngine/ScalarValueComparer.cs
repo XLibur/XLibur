@@ -48,14 +48,14 @@ internal sealed class ScalarValueComparer : IComparer<ScalarValue>
 
         // Blank and errors are always treated as equal
         return 0;
+    }
 
-        static int GetTypeOrder(in ScalarValue value)
-        {
-            if (value.IsNumber) return 0;
-            if (value.IsText) return 1;
-            if (value.IsLogical) return 2;
-            if (value.IsError) return 3;
-            return 4; /* Blank */
-        }
+    private static int GetTypeOrder(in ScalarValue value)
+    {
+        if (value.IsNumber) return 0;
+        if (value.IsText) return 1;
+        if (value.IsLogical) return 2;
+        if (value.IsError) return 3;
+        return 4; /* Blank */
     }
 }

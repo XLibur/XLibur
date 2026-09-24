@@ -113,45 +113,35 @@ internal sealed partial class Slice<TElement>
 
         private void SetValue(T value, int topIdx, int bottomIdx)
         {
-            var topSize = _buckets.Length;
-            if (topIdx >= topSize)
-            {
-                do
-                {
-                    topSize *= 2;
-                } while (topIdx >= topSize);
+            if (topIdx >= _buckets.Length)
+                Array.Resize(ref _buckets, DoubleToFit(_buckets.Length, topIdx));
 
-                Array.Resize(ref _buckets, topSize);
-            }
+            var nodes = EnsureBottomNodes(topIdx, bottomIdx);
+            nodes[bottomIdx] = value;
+        }
 
+        /// <summary>
+        /// Get the nodes of the bottom bucket at <paramref name="topIdx"/>, creating or enlarging
+        /// them so that <paramref name="bottomIdx"/> is in range.
+        /// </summary>
+        private T[] EnsureBottomNodes(int topIdx, int bottomIdx)
+        {
             var bucket = _buckets[topIdx];
-            var bottomBucketExists = bucket.Nodes is not null;
-            if (!bottomBucketExists)
+            if (bucket.Nodes is null)
             {
-                var initialSize = 4;
-                while (bottomIdx >= initialSize)
-                    initialSize *= 2;
-
-                _buckets[topIdx] = bucket = new LutBucket(new T[initialSize], 0);
-            }
-            else
-            {
-                // Bottom exists, but might not be large enough
-                var bottomSize = bucket.Nodes!.Length;
-                if (bottomIdx >= bottomSize)
-                {
-                    do
-                    {
-                        bottomSize *= 2;
-                    } while (bottomIdx >= bottomSize);
-
-                    var bucketNodes = bucket.Nodes;
-                    Array.Resize(ref bucketNodes, bottomSize);
-                    _buckets[topIdx] = bucket = new LutBucket(bucketNodes, bucket.Bitmap);
-                }
+                var newNodes = new T[DoubleToFit(4, bottomIdx)];
+                _buckets[topIdx] = new LutBucket(newNodes, 0);
+                return newNodes;
             }
 
-            bucket.Nodes![bottomIdx] = value;
+            // Bottom exists, but might not be large enough
+            var bucketNodes = bucket.Nodes;
+            if (bottomIdx < bucketNodes.Length)
+                return bucketNodes;
+
+            Array.Resize(ref bucketNodes, DoubleToFit(bucketNodes.Length, bottomIdx));
+            _buckets[topIdx] = new LutBucket(bucketNodes, bucket.Bitmap);
+            return bucketNodes;
         }
 
         private static (int TopLevelIndex, int BottomLevelIndex) SplitIndex(int index)
@@ -352,6 +342,17 @@ internal sealed partial class Slice<TElement>
     }
 
     /// <summary>
+    /// Double <paramref name="size"/> until <paramref name="index"/> fits in an array of that size.
+    /// </summary>
+    private static int DoubleToFit(int size, int index)
+    {
+        while (index >= size)
+            size *= 2;
+
+        return size;
+    }
+
+    /// <summary>
     /// Compact per-row storage. For narrow rows (all columns &lt; 32), stores a flat
     /// array indexed by column with a 32-bit bitmap. For wide rows, delegates to
     /// a full <see cref="Lut{T}"/>. Default struct represents an empty row, allowing
@@ -427,25 +428,7 @@ internal sealed partial class Slice<TElement>
             }
 
             // Narrow mode
-            if (_storage is not TElement[] nodes)
-            {
-                var size = 4;
-                while (columnIndex >= size)
-                    size *= 2;
-
-                nodes = new TElement[size];
-                _storage = nodes;
-            }
-            else if (columnIndex >= nodes.Length)
-            {
-                var size = nodes.Length;
-                while (columnIndex >= size)
-                    size *= 2;
-
-                Array.Resize(ref nodes, size);
-                _storage = nodes;
-            }
-
+            var nodes = EnsureNarrowNodes(columnIndex);
             nodes[columnIndex] = value;
 
             var valueIsDefault = EqualityComparer<TElement>.Default.Equals(value, ElementDefault);
@@ -477,27 +460,29 @@ internal sealed partial class Slice<TElement>
             }
 
             // Narrow mode
+            var nodes = EnsureNarrowNodes(columnIndex);
+            nodes[columnIndex] = value;
+            _bitmap |= 1u << columnIndex;
+        }
+
+        /// <summary>
+        /// Get the flat array of a narrow row, creating or enlarging it so that
+        /// <paramref name="columnIndex"/> is in range.
+        /// </summary>
+        private TElement[] EnsureNarrowNodes(int columnIndex)
+        {
             if (_storage is not TElement[] nodes)
             {
-                var size = 4;
-                while (columnIndex >= size)
-                    size *= 2;
-
-                nodes = new TElement[size];
+                nodes = new TElement[DoubleToFit(4, columnIndex)];
                 _storage = nodes;
             }
             else if (columnIndex >= nodes.Length)
             {
-                var size = nodes.Length;
-                while (columnIndex >= size)
-                    size *= 2;
-
-                Array.Resize(ref nodes, size);
+                Array.Resize(ref nodes, DoubleToFit(nodes.Length, columnIndex));
                 _storage = nodes;
             }
 
-            nodes[columnIndex] = value;
-            _bitmap |= 1u << columnIndex;
+            return nodes;
         }
 
         private void UpgradeToWideAndSet(int columnIndex, TElement value)

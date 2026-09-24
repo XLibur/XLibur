@@ -92,35 +92,11 @@ internal readonly struct Wildcard
     private static bool TryMatchPatternChar(ReadOnlySpan<char> pattern, ReadOnlySpan<char> input,
         ref int patternIndex, ref int inputIndex, ref int starIndex, ref int matchIndex)
     {
-        if (patternIndex < pattern.Length)
-        {
-            if (pattern[patternIndex] == '?')
-            {
-                inputIndex++;
-                patternIndex++;
-                return true;
-            }
+        if (patternIndex < pattern.Length &&
+            TryAdvanceOnPatternChar(pattern, input, ref patternIndex, ref inputIndex, ref starIndex, ref matchIndex))
+            return true;
 
-            if (pattern[patternIndex] == '*')
-            {
-                starIndex = patternIndex;
-                matchIndex = inputIndex;
-                patternIndex++;
-                return true;
-            }
-
-            var pi = patternIndex;
-            if (pattern[pi] == '~' && pi + 1 < pattern.Length)
-                pi++;
-
-            if (char.ToUpperInvariant(pattern[pi]) == char.ToUpperInvariant(input[inputIndex]))
-            {
-                inputIndex++;
-                patternIndex = pi + 1;
-                return true;
-            }
-        }
-
+        // Backtrack: let the last star swallow one more input character.
         if (starIndex != -1)
         {
             matchIndex++;
@@ -130,5 +106,39 @@ internal readonly struct Wildcard
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Consume the pattern character at <paramref name="patternIndex"/>, which must be in range:
+    /// a <c>?</c>, a <c>*</c> or a (possibly <c>~</c>-escaped) literal that matches the input.
+    /// </summary>
+    private static bool TryAdvanceOnPatternChar(ReadOnlySpan<char> pattern, ReadOnlySpan<char> input,
+        ref int patternIndex, ref int inputIndex, ref int starIndex, ref int matchIndex)
+    {
+        if (pattern[patternIndex] == '?')
+        {
+            inputIndex++;
+            patternIndex++;
+            return true;
+        }
+
+        if (pattern[patternIndex] == '*')
+        {
+            starIndex = patternIndex;
+            matchIndex = inputIndex;
+            patternIndex++;
+            return true;
+        }
+
+        var pi = patternIndex;
+        if (pattern[pi] == '~' && pi + 1 < pattern.Length)
+            pi++;
+
+        if (char.ToUpperInvariant(pattern[pi]) != char.ToUpperInvariant(input[inputIndex]))
+            return false;
+
+        inputIndex++;
+        patternIndex = pi + 1;
+        return true;
     }
 }

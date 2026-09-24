@@ -175,16 +175,16 @@ namespace XLibur.Excel.CalcEngine
             return new Reference(new XLRangeAddress(
                 new XLAddress(sheet, minRow, minCol, false, false),
                 new XLAddress(sheet, maxRow, maxCol, false, false)));
+        }
 
-            static void ExpandBoundingBox(in XLRangeAddress area,
-                ref int minRow, ref int maxRow, ref int minCol, ref int maxCol)
-            {
-                // Areas are normalized by the constructors, so opposite corners can't be extremes.
-                if (area.FirstAddress.RowNumber < minRow) minRow = area.FirstAddress.RowNumber;
-                if (area.LastAddress.RowNumber > maxRow) maxRow = area.LastAddress.RowNumber;
-                if (area.FirstAddress.ColumnNumber < minCol) minCol = area.FirstAddress.ColumnNumber;
-                if (area.LastAddress.ColumnNumber > maxCol) maxCol = area.LastAddress.ColumnNumber;
-            }
+        private static void ExpandBoundingBox(in XLRangeAddress area,
+            ref int minRow, ref int maxRow, ref int minCol, ref int maxCol)
+        {
+            // Areas are normalized by the constructors, so opposite corners can't be extremes.
+            minRow = Math.Min(minRow, area.FirstAddress.RowNumber);
+            maxRow = Math.Max(maxRow, area.LastAddress.RowNumber);
+            minCol = Math.Min(minCol, area.FirstAddress.ColumnNumber);
+            maxCol = Math.Max(maxCol, area.LastAddress.ColumnNumber);
         }
 
         public static Reference UnionOp(Reference lhs, Reference rhs)

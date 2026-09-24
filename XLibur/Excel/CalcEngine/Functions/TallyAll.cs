@@ -72,29 +72,30 @@ internal sealed class TallyAll : ITally
         var state = initialState;
         foreach (var arg in args)
         {
-            if (arg.TryPickScalar(out var scalar, out var collection))
-            {
-                // Scalars are converted to number.
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
-                {
-                    if (!_includeErrors)
-                        return error;
-
-                    number = 0;
-                }
-
-                // All scalars are counted
-                state = state.Tally(number);
-            }
-            else
-            {
-                var result = TallyCollection(collection, ctx, state);
-                if (!result.TryPickT0(out state, out var error))
-                    return error;
-            }
+            var result = arg.TryPickScalar(out var scalar, out var collection)
+                ? TallyScalar(scalar, ctx, state)
+                : TallyCollection(collection, ctx, state);
+            if (!result.TryPickT0(out state, out var error))
+                return error;
         }
 
         return state;
+    }
+
+    private OneOf<T, XLError> TallyScalar<T>(ScalarValue scalar, CalcContext ctx, T state)
+        where T : ITallyState<T>
+    {
+        // Scalars are converted to number.
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+        {
+            if (!_includeErrors)
+                return error;
+
+            number = 0;
+        }
+
+        // All scalars are counted
+        return state.Tally(number);
     }
 
     private OneOf<T, XLError> TallyCollection<T>(OneOf<Array, Reference> collection, CalcContext ctx, T state)
@@ -140,12 +141,19 @@ internal sealed class TallyAll : ITally
         }
         else if (value.TryPickError(out var error))
         {
-            if (!_includeErrors)
-                return error;
-
-            state = state.Tally(0);
+            return TallyError(error, ref state);
         }
 
+        return true;
+    }
+
+    private OneOf<bool, XLError> TallyError<T>(XLError error, ref T state)
+        where T : ITallyState<T>
+    {
+        if (!_includeErrors)
+            return error;
+
+        state = state.Tally(0);
         return true;
     }
 }
