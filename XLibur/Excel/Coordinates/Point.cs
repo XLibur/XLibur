@@ -130,26 +130,51 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
             return false;
 
         var i = 0;
-        var c = input[i++];
-        if (!IsLetter(c))
-            return false;
-
-        var columnIndex = c - 'A' + 1;
-        while (i < input.Length && IsLetter(input[i]))
-        {
-            c = input[i];
-            columnIndex = columnIndex * 26 + c - 'A' + 1;
-            i++;
-        }
-
-        if (i > 3)
+        if (!TryParseColumnLetters(input, ref i, out var columnIndex))
             return false;
 
         if (i == input.Length)
             return false;
 
         // Everything else must be digits
-        c = input[i++];
+        if (!TryParseRowDigits(input, i, out var rowIndex))
+            return false;
+
+        if (rowIndex > XLHelper.MaxRowNumber || columnIndex > XLHelper.MaxColumnNumber)
+            return false;
+
+        point = new Point(rowIndex, columnIndex);
+        return true;
+    }
+
+    /// <summary>
+    /// Read the column letters at the start of the <paramref name="input"/>. There must be one to three.
+    /// </summary>
+    /// <param name="input">Input text.</param>
+    /// <param name="i">Index after the last letter.</param>
+    /// <param name="columnIndex">Column number the letters represent, unchecked against the sheet limit.</param>
+    private static bool TryParseColumnLetters(ReadOnlySpan<char> input, ref int i, out int columnIndex)
+    {
+        columnIndex = 0;
+        while (i < input.Length && IsLetter(input[i]))
+        {
+            columnIndex = columnIndex * 26 + input[i] - 'A' + 1;
+            i++;
+        }
+
+        return i is >= 1 and <= 3;
+    }
+
+    /// <summary>
+    /// Read the row digits from index <paramref name="i"/> to the end of the <paramref name="input"/>.
+    /// </summary>
+    /// <param name="input">Input text.</param>
+    /// <param name="i">Index of the first digit, must be within the input.</param>
+    /// <param name="rowIndex">Row number the digits represent, unchecked against the sheet limit.</param>
+    private static bool TryParseRowDigits(ReadOnlySpan<char> input, int i, out int rowIndex)
+    {
+        rowIndex = 0;
+        var c = input[i++];
 
         // First letter can't be 0
         if (c is < '1' or > '9')
@@ -158,7 +183,7 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
         // Digits are capped before they are accumulated. Checking only the result against
         // MaxRowNumber let a row long enough to overflow wrap to a small in-range value, so
         // 'A4294967297' parsed as A1 (ClosedXML#2885).
-        var rowIndex = c - '0';
+        rowIndex = c - '0';
         var rowDigits = 1;
         while (i < input.Length && IsDigit(input[i]))
         {
@@ -170,18 +195,12 @@ internal readonly struct Point : IEquatable<Point>, IComparable<Point>
             i++;
         }
 
-        if (i != input.Length)
-            return false;
-
-        if (rowIndex > XLHelper.MaxRowNumber || columnIndex > XLHelper.MaxColumnNumber)
-            return false;
-
-        point = new Point(rowIndex, columnIndex);
-        return true;
-
-        static bool IsLetter(char c) => c is >= 'A' and <= 'Z';
-        static bool IsDigit(char c) => c is >= '0' and <= '9';
+        return i == input.Length;
     }
+
+    private static bool IsLetter(char c) => c is >= 'A' and <= 'Z';
+
+    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 
     /// <summary>
     /// Write the sheet point as a reference to the span (e.g. <c>A1</c>).

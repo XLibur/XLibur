@@ -264,6 +264,25 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
         if (sheet is null)
             return;
 
+        var candidates = FindNamesNotHeldByWorkbook();
+        if (candidates.Count == 0)
+            return;
+
+        foreach (var other in Workbook.WorksheetsInternal)
+        {
+            if (other != sheet)
+                CollectReferencesFromSheet(other, sheet.Name, candidates, found);
+        }
+
+        foreach (var definedName in Workbook.DefinedNamesInternal)
+            definedName.CollectReferencesToNames(sheet.Name, candidates, found);
+    }
+
+    /// <summary>
+    /// Names of this collection that no workbook-scoped name holds, i.e. the names that can outlive the sheet.
+    /// </summary>
+    private HashSet<string> FindNamesNotHeldByWorkbook()
+    {
         var candidates = new HashSet<string>(XLHelper.NameComparer);
         foreach (var name in _namedRanges.Keys)
         {
@@ -271,21 +290,18 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
                 candidates.Add(name);
         }
 
-        if (candidates.Count == 0)
-            return;
+        return candidates;
+    }
 
-        foreach (var other in Workbook.WorksheetsInternal)
-        {
-            if (other == sheet)
-                continue;
-
-            other.Internals.CellsCollection.CollectReferencesToNames(sheet.Name, candidates, found);
-            foreach (var definedName in other.DefinedNames)
-                definedName.CollectReferencesToNames(sheet.Name, candidates, found);
-        }
-
-        foreach (var definedName in Workbook.DefinedNamesInternal)
-            definedName.CollectReferencesToNames(sheet.Name, candidates, found);
+    /// <summary>
+    /// Collects the <paramref name="candidates"/> that cell formulas or defined names of the
+    /// <paramref name="other"/> sheet refer to.
+    /// </summary>
+    private static void CollectReferencesFromSheet(XLWorksheet other, string sheetName, HashSet<string> candidates, HashSet<string> found)
+    {
+        other.Internals.CellsCollection.CollectReferencesToNames(sheetName, candidates, found);
+        foreach (var definedName in other.DefinedNames)
+            definedName.CollectReferencesToNames(sheetName, candidates, found);
     }
 
     /// <summary>
