@@ -226,11 +226,14 @@ Text measurement is only used for layout that depends on glyph size:
 |---|---|
 | `Columns().AdjustToContents()` | Yes |
 | `Rows().AdjustToContents()` | Yes |
-| Automatic row height for wrapped text | Yes |
 | Reading and writing cell values | No |
 | Formulas and evaluation | No |
 | Styles, tables, pivot tables | No |
 | Explicit `Column.Width` / `Row.Height` | No |
+
+`Rows().AdjustToContents()` counts only hard line breaks (`\n`). It does not yet wrap
+text in cells that have `WrapText` set, so such a row gets the height of a single line
+([#615](https://github.com/XLibur/XLibur/issues/615)).
 
 If your generated files always set explicit widths, the font engine never runs — but the
 package must still be present, because a workbook cannot be constructed without one.
