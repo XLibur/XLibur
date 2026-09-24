@@ -162,64 +162,11 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
 
         var targetSheet = targetCell.Worksheet;
 
-        var pivotTableName = Name;
-
-        int i = 0;
-        var pivotTableNames = targetSheet.PivotTables.Select(pvt => pvt.Name).ToList();
-        while (!XLHelper.ValidateName("pivot table", pivotTableName, "", pivotTableNames, out _))
-        {
-            i++;
-            pivotTableName = Name + i.ToInvariantString();
-        }
+        var pivotTableName = UniqueCopyName(targetSheet);
 
         var newPivotTable = (XLPivotTable)targetSheet.PivotTables.Add(pivotTableName, targetCell, PivotCache);
 
         newPivotTable.RelId = null;
-
-        static void CopyPivotField(IXLPivotField originalPivotField, IXLPivotField newPivotField)
-        {
-            // The 'Values' sentinel field (field index -2, XLConstants.PivotTable.ValuesSentinalLabel)
-            // is not a field of the cache: it only marks a position on the axis. The Add call that
-            // produced newPivotField already put it there, and none of the properties below apply to
-            // it - asking XLPivotTableAxisField.GetField() for any of them throws on purpose (#593).
-            if (originalPivotField.Offset == FieldIndex.DataField.Value)
-                return;
-
-            newPivotField
-                .SetSort(originalPivotField.SortType)
-                .SetSubtotalCaption(originalPivotField.SubtotalCaption)
-                .SetIncludeNewItemsInFilter(originalPivotField.IncludeNewItemsInFilter)
-                .SetRepeatItemLabels(originalPivotField.RepeatItemLabels)
-                .SetInsertBlankLines(originalPivotField.InsertBlankLines)
-                .SetShowBlankItems(originalPivotField.ShowBlankItems)
-                .SetInsertPageBreaks(originalPivotField.InsertPageBreaks)
-                .SetCollapsed(originalPivotField.Collapsed);
-
-            if (originalPivotField.SubtotalsAtTop.HasValue)
-                newPivotField.SetSubtotalsAtTop(originalPivotField.SubtotalsAtTop.Value);
-
-            // The copy's field already holds the subtotals its axis gave it: the automatic one on the
-            // rows and the columns, and none in the report filters. The source's subtotals replace
-            // that set rather than join it, or the copy of a field whose automatic subtotal was
-            // removed would keep a stray one. The field exposes no RemoveSubtotal, so a subtotal comes
-            // off through SetSubtotal. Subtotals is the field's own live set, so it is taken as a list
-            // before it is changed. A data field on an axis has no subtotals either side, so neither
-            // loop touches it.
-            foreach (var subtotal in newPivotField.Subtotals.ToList())
-                newPivotField.SetSubtotal(subtotal, false);
-
-            foreach (var subtotal in originalPivotField.Subtotals)
-                newPivotField.AddSubtotal(subtotal);
-
-            newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
-        }
-
-        // A field that was never renamed has no name of its own, and its CustomName is its source name.
-        // Another producer can save name="" instead. Passed on, an empty name made the copy find a
-        // second such field already using it, and throw. The copy's field is named after its source,
-        // as a field added in code is.
-        static string NameOf(IXLPivotField field)
-            => field.CustomName.Length == 0 ? field.SourceName : field.CustomName;
 
         foreach (var rf in ReportFilters)
             CopyPivotField(rf, newPivotTable.ReportFilters.Add(rf.SourceName, NameOf(rf)));
@@ -230,6 +177,93 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         foreach (var rl in RowLabels)
             CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, NameOf(rl)));
 
+        CopyValuesTo(newPivotTable);
+
+        // Everything the reader and writer carry between them is copied from the same table they
+        // are driven from, so a setting can't be present in the round trip and dropped by copy.
+        foreach (var attribute in PivotTableAttributes.All)
+            attribute.Copy?.Invoke(this, newPivotTable);
+
+        CopyFieldLayoutTo(newPivotTable);
+
+        // Not in PivotTableAttributes.All: the x14 extension flags and the pivotTableStyleInfo
+        // group, both handled next to where they are written/read rather than folded into the
+        // flat attribute table (see the reader/writer for why).
+        newPivotTable.Title = Title;
+        newPivotTable.Description = Description;
+        newPivotTable.ShowValuesRow = ShowValuesRow;
+        newPivotTable.EnableCellEditing = EnableCellEditing;
+        newPivotTable.ShowRowHeaders = ShowRowHeaders;
+        newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
+        newPivotTable.ShowRowStripes = ShowRowStripes;
+        newPivotTable.ShowColumnStripes = ShowColumnStripes;
+        newPivotTable.ShowLastColumn = ShowLastColumn;
+        newPivotTable.Theme = Theme;
+        return newPivotTable;
+    }
+
+    private string UniqueCopyName(IXLWorksheet targetSheet)
+    {
+        var pivotTableName = Name;
+
+        int i = 0;
+        var pivotTableNames = targetSheet.PivotTables.Select(pvt => pvt.Name).ToList();
+        while (!XLHelper.ValidateName("pivot table", pivotTableName, "", pivotTableNames, out _))
+        {
+            i++;
+            pivotTableName = Name + i.ToInvariantString();
+        }
+
+        return pivotTableName;
+    }
+
+    private static void CopyPivotField(IXLPivotField originalPivotField, IXLPivotField newPivotField)
+    {
+        // The 'Values' sentinel field (field index -2, XLConstants.PivotTable.ValuesSentinalLabel)
+        // is not a field of the cache: it only marks a position on the axis. The Add call that
+        // produced newPivotField already put it there, and none of the properties below apply to
+        // it - asking XLPivotTableAxisField.GetField() for any of them throws on purpose (#593).
+        if (originalPivotField.Offset == FieldIndex.DataField.Value)
+            return;
+
+        newPivotField
+            .SetSort(originalPivotField.SortType)
+            .SetSubtotalCaption(originalPivotField.SubtotalCaption)
+            .SetIncludeNewItemsInFilter(originalPivotField.IncludeNewItemsInFilter)
+            .SetRepeatItemLabels(originalPivotField.RepeatItemLabels)
+            .SetInsertBlankLines(originalPivotField.InsertBlankLines)
+            .SetShowBlankItems(originalPivotField.ShowBlankItems)
+            .SetInsertPageBreaks(originalPivotField.InsertPageBreaks)
+            .SetCollapsed(originalPivotField.Collapsed);
+
+        if (originalPivotField.SubtotalsAtTop.HasValue)
+            newPivotField.SetSubtotalsAtTop(originalPivotField.SubtotalsAtTop.Value);
+
+        // The copy's field already holds the subtotals its axis gave it: the automatic one on the
+        // rows and the columns, and none in the report filters. The source's subtotals replace
+        // that set rather than join it, or the copy of a field whose automatic subtotal was
+        // removed would keep a stray one. The field exposes no RemoveSubtotal, so a subtotal comes
+        // off through SetSubtotal. Subtotals is the field's own live set, so it is taken as a list
+        // before it is changed. A data field on an axis has no subtotals either side, so neither
+        // loop touches it.
+        foreach (var subtotal in newPivotField.Subtotals.ToList())
+            newPivotField.SetSubtotal(subtotal, false);
+
+        foreach (var subtotal in originalPivotField.Subtotals)
+            newPivotField.AddSubtotal(subtotal);
+
+        newPivotField.AddSelectedValues(originalPivotField.SelectedValues);
+    }
+
+    // A field that was never renamed has no name of its own, and its CustomName is its source name.
+    // Another producer can save name="" instead. Passed on, an empty name made the copy find a
+    // second such field already using it, and throw. The copy's field is named after its source,
+    // as a field added in code is.
+    private static string NameOf(IXLPivotField field)
+        => field.CustomName.Length == 0 ? field.SourceName : field.CustomName;
+
+    private void CopyValuesTo(XLPivotTable newPivotTable)
+    {
         foreach (var v in Values)
         {
             var pivotValue = newPivotTable.Values.Add(v.SourceName, v.CustomName)
@@ -246,39 +280,24 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;
             pivotValue.NumberFormat.Format = v.NumberFormat.Format;
         }
+    }
 
-        // Everything the reader and writer carry between them is copied from the same table they
-        // are driven from, so a setting can't be present in the round trip and dropped by copy.
-        foreach (var attribute in PivotTableAttributes.All)
-            attribute.Copy?.Invoke(this, newPivotTable);
-
-        // The table's own compact/outline pair is only the default for fields added later; each
-        // pivotField carries its own pair, which is what Excel actually lays the table out from and
-        // what the Layout setter keeps in step with the table's. Copy them too, or a copy of a
-        // tabular table says tabular at the table level and compact on every field, and Excel
-        // renders the copy compact. Both tables are built over the same pivot cache, so the two
-        // field lists are index-aligned.
+    /// <summary>
+    /// The table's own compact/outline pair is only the default for fields added later; each
+    /// pivotField carries its own pair, which is what Excel actually lays the table out from and
+    /// what the Layout setter keeps in step with the table's. Copy them too, or a copy of a
+    /// tabular table says tabular at the table level and compact on every field, and Excel
+    /// renders the copy compact. Both tables are built over the same pivot cache, so the two
+    /// field lists are index-aligned.
+    /// </summary>
+    private void CopyFieldLayoutTo(XLPivotTable newPivotTable)
+    {
         var fieldCount = Math.Min(PivotFields.Count, newPivotTable.PivotFields.Count);
         for (var fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++)
         {
             newPivotTable.PivotFields[fieldIndex].Compact = PivotFields[fieldIndex].Compact;
             newPivotTable.PivotFields[fieldIndex].Outline = PivotFields[fieldIndex].Outline;
         }
-
-        // Not in PivotTableAttributes.All: the x14 extension flags and the pivotTableStyleInfo
-        // group, both handled next to where they are written/read rather than folded into the
-        // flat attribute table (see the reader/writer for why).
-        newPivotTable.Title = Title;
-        newPivotTable.Description = Description;
-        newPivotTable.ShowValuesRow = ShowValuesRow;
-        newPivotTable.EnableCellEditing = EnableCellEditing;
-        newPivotTable.ShowRowHeaders = ShowRowHeaders;
-        newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
-        newPivotTable.ShowRowStripes = ShowRowStripes;
-        newPivotTable.ShowColumnStripes = ShowColumnStripes;
-        newPivotTable.ShowLastColumn = ShowLastColumn;
-        newPivotTable.Theme = Theme;
-        return newPivotTable;
     }
 
     public string Name
@@ -989,29 +1008,38 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
             if (positions.Count == 0)
                 continue;
 
-            for (var i = positions.Count - 1; i >= 0; i--)
-            {
-                var position = positions[i];
-                if (position == removedPosition)
-                {
-                    positions.RemoveAt(i);
-                    continue;
-                }
-
-                if (position > removedPosition)
-                    position--;
-
-                if (position >= remainingValueCount)
-                    positions.RemoveAt(i);
-                else
-                    positions[i] = position;
-            }
+            RenumberPositions(positions, removedPosition, remainingValueCount);
 
             if (positions.Count == 0)
                 emptiedReference = true;
         }
 
         return emptiedReference;
+    }
+
+    /// <summary>
+    /// Drop <paramref name="removedPosition"/> from <paramref name="positions"/>, shift the ones after
+    /// it down by one and drop any that end up past the last remaining value.
+    /// </summary>
+    private static void RenumberPositions(List<uint> positions, uint removedPosition, uint remainingValueCount)
+    {
+        for (var i = positions.Count - 1; i >= 0; i--)
+        {
+            var position = positions[i];
+            if (position == removedPosition)
+            {
+                positions.RemoveAt(i);
+                continue;
+            }
+
+            if (position > removedPosition)
+                position--;
+
+            if (position >= remainingValueCount)
+                positions.RemoveAt(i);
+            else
+                positions[i] = position;
+        }
     }
 
     internal void AddConditionalFormat(XLPivotConditionalFormat conditionalFormat)

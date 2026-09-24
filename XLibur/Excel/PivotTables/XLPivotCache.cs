@@ -108,18 +108,18 @@ internal sealed class XLPivotCache : IXLPivotCache
             AddField(AdjustedFieldName(header), fieldRecords);
         }
 
-        UpdatePivotTables();
+        UpdatePivotTables(oldFieldNames);
         return this;
+    }
 
-        void UpdatePivotTables()
+    private void UpdatePivotTables(List<string> oldFieldNames)
+    {
+        foreach (var worksheet in _workbook.WorksheetsInternal)
         {
-            foreach (var worksheet in _workbook.WorksheetsInternal)
+            foreach (var pivotTable in worksheet.PivotTables)
             {
-                foreach (var pivotTable in worksheet.PivotTables)
-                {
-                    if (pivotTable.PivotCache == this)
-                        pivotTable.UpdateCacheFields(oldFieldNames);
-                }
+                if (pivotTable.PivotCache == this)
+                    pivotTable.UpdateCacheFields(oldFieldNames);
             }
         }
     }

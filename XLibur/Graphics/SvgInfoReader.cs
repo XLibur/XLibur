@@ -23,6 +23,11 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
     /// </summary>
     private const int MaxHeaderBytes = 4096;
 
+    /// <summary>
+    /// Unit suffixes <see cref="TryParseSvgLength"/> converts to pixels.
+    /// </summary>
+    private static readonly string[] LengthUnits = ["px", "pt", "in", "cm", "mm", "em"];
+
     protected override bool CheckHeader(Stream stream)
     {
         // SVG files are XML. They may start with an XML declaration, BOM, or whitespace.
@@ -104,42 +109,12 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
             return false;
 
         ReadOnlySpan<char> span = value;
-        string? unit = null;
-        ReadOnlySpan<char> numberPart = default;
-
-        if (span.EndsWith("px", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "px";
-            numberPart = span[..^2];
-        }
-        else if (span.EndsWith("pt", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "pt";
-            numberPart = span[..^2];
-        }
-        else if (span.EndsWith("in", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "in";
-            numberPart = span[..^2];
-        }
-        else if (span.EndsWith("cm", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "cm";
-            numberPart = span[..^2];
-        }
-        else if (span.EndsWith("mm", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "mm";
-            numberPart = span[..^2];
-        }
-        else if (span.EndsWith("em", StringComparison.OrdinalIgnoreCase))
-        {
-            unit = "em";
-            numberPart = span[..^2];
-        }
-
+        var unit = GetLengthUnit(span);
         if (unit is null)
             return false;
+
+        // Every supported unit is two characters long.
+        var numberPart = span[..^2];
 
         if (!double.TryParse(numberPart.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var numValue) || numValue <= 0)
             return false;
@@ -156,6 +131,21 @@ internal sealed partial class SvgInfoReader : ImageInfoReader
         };
 
         return true;
+    }
+
+    /// <summary>
+    /// The unit suffix of an SVG length, lower case, or <c>null</c> for a unit this reader does not
+    /// support.
+    /// </summary>
+    private static string? GetLengthUnit(ReadOnlySpan<char> span)
+    {
+        foreach (var unit in LengthUnits)
+        {
+            if (span.EndsWith(unit, StringComparison.OrdinalIgnoreCase))
+                return unit;
+        }
+
+        return null;
     }
 
     [GeneratedRegex(@"<svg\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]

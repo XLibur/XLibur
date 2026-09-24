@@ -262,29 +262,34 @@ public partial class XLWorkbook
 
     private void LoadCustomFileProperties(SpreadsheetDocument dSpreadsheet)
     {
-        if (dSpreadsheet.CustomFilePropertiesPart != null)
+        if (dSpreadsheet.CustomFilePropertiesPart == null)
+            return;
+
+        foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<Op.CustomDocumentProperty>())
         {
-            foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties!.Elements<Op.CustomDocumentProperty>())
-            {
-                var name = m.Name?.Value;
+            var name = m.Name?.Value;
 
-                if (string.IsNullOrWhiteSpace(name))
-                    continue;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
 
-                if (m.VTLPWSTR != null)
-                    CustomProperties.Add(name, m.VTLPWSTR.Text);
-                else if (m.VTFileTime != null)
-                {
-                    CustomProperties.Add(name,
-                        DateTime.ParseExact(m.VTFileTime.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK",
-                            CultureInfo.InvariantCulture));
-                }
-                else if (m.VTDouble != null)
-                    CustomProperties.Add(name, double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
-                else if (m.VTBool != null)
-                    CustomProperties.Add(name, m.VTBool.Text == "true");
-            }
+            AddCustomProperty(name, m);
         }
+    }
+
+    private void AddCustomProperty(string name, Op.CustomDocumentProperty m)
+    {
+        if (m.VTLPWSTR != null)
+            CustomProperties.Add(name, m.VTLPWSTR.Text);
+        else if (m.VTFileTime != null)
+        {
+            CustomProperties.Add(name,
+                DateTime.ParseExact(m.VTFileTime.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK",
+                    CultureInfo.InvariantCulture));
+        }
+        else if (m.VTDouble != null)
+            CustomProperties.Add(name, double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
+        else if (m.VTBool != null)
+            CustomProperties.Add(name, m.VTBool.Text == "true");
     }
 
     private void LoadCalculationProperties(CalculationProperties? calculationProperties)
@@ -660,25 +665,28 @@ public partial class XLWorkbook
         }
 
         foreach (var tableColumn in dTable.TableColumns!.Cast<TableColumn>())
-        {
-            var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
-            var field = xlTable.Field(tableColumnName);
-
-            if (tableColumn.TotalsRowFunction is not null)
-                field.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToXLibur();
-
-            if (tableColumn.TotalsRowFormula is not null)
-                field.TotalsRowFormulaA1 = tableColumn.TotalsRowFormula.Text;
-
-            if (tableColumn.TotalsRowLabel is not null)
-                field.TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
-        }
+            LoadTotalsRowField(tableColumn, xlTable);
 
         if (xlTable.AutoFilter is not null)
             xlTable.AutoFilter.Range = xlTable.Worksheet.Range(
                 xlTable.RangeAddress.FirstAddress.RowNumber, xlTable.RangeAddress.FirstAddress.ColumnNumber,
                 xlTable.RangeAddress.LastAddress.RowNumber - 1,
                 xlTable.RangeAddress.LastAddress.ColumnNumber);
+    }
+
+    private static void LoadTotalsRowField(TableColumn tableColumn, XLTable xlTable)
+    {
+        var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
+        var field = xlTable.Field(tableColumnName);
+
+        if (tableColumn.TotalsRowFunction is not null)
+            field.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToXLibur();
+
+        if (tableColumn.TotalsRowFormula is not null)
+            field.TotalsRowFormulaA1 = tableColumn.TotalsRowFormula.Text;
+
+        if (tableColumn.TotalsRowLabel is not null)
+            field.TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
     }
 
     private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)
@@ -991,18 +999,27 @@ public partial class XLWorkbook
             if (workbookPart.TryGetPartById(dSheet.Id.Value!, out var sheetPart) &&
                 sheetPart is WorksheetPart worksheetPart)
             {
-                // By raw name, for the reason given on TryGetWorksheetByRawName: unescaping a name
-                // that came from the file threw ArgumentException out of the constructor for any
-                // workbook holding a sheet whose legal name contains '' (D40).
-                if (!WorksheetsInternal.TryGetWorksheetByRawName(dSheet.Name!.Value!, out var ws))
-                    continue;
-
-                foreach (var pivotTablePart in worksheetPart.PivotTableParts)
-                {
-                    PivotTableDefinitionPartReader.Load(workbookPart, context.Styles.DifferentialFormats, pivotTablePart,
-                        worksheetPart, ws, context);
-                }
+                LoadSheetPivotTables(workbookPart, dSheet, worksheetPart, context);
             }
+        }
+    }
+
+    private void LoadSheetPivotTables(
+        WorkbookPart workbookPart,
+        Sheet dSheet,
+        WorksheetPart worksheetPart,
+        LoadContext context)
+    {
+        // By raw name, for the reason given on TryGetWorksheetByRawName: unescaping a name
+        // that came from the file threw ArgumentException out of the constructor for any
+        // workbook holding a sheet whose legal name contains '' (D40).
+        if (!WorksheetsInternal.TryGetWorksheetByRawName(dSheet.Name!.Value!, out var ws))
+            return;
+
+        foreach (var pivotTablePart in worksheetPart.PivotTableParts)
+        {
+            PivotTableDefinitionPartReader.Load(workbookPart, context.Styles.DifferentialFormats, pivotTablePart,
+                worksheetPart, ws, context);
         }
     }
 
@@ -1070,27 +1087,35 @@ public partial class XLWorkbook
                 reader.NamespaceURI != OpenXmlConst.DrawingMain2006Ns)
                 continue;
 
-            // ReadSlotColor consumes the slot's subtree, so the next Read lands on the next slot.
-            var slot = reader.LocalName;
-            var hex = ReadSlotColor(reader);
-            if (string.IsNullOrEmpty(hex))
-                continue;
-
-            // A theme is decoration, so a malformed slot should cost that one colour rather than
-            // the whole workbook. FromHexRgb throws FormatException both for a value that is not
-            // six characters and for one containing a non-hex character.
-            XLColor color;
-            try
-            {
-                color = XLColor.FromHexRgb(hex);
-            }
-            catch (FormatException)
-            {
-                continue;
-            }
-
-            ApplyThemeSlot(theme, slot, color);
+            LoadThemeSlot(reader, theme);
         }
+    }
+
+    /// <summary>
+    /// Reads the <c>clrScheme</c> slot the reader is positioned on into <paramref name="theme"/>.
+    /// </summary>
+    private static void LoadThemeSlot(XmlReader reader, IXLTheme theme)
+    {
+        // ReadSlotColor consumes the slot's subtree, so the next Read lands on the next slot.
+        var slot = reader.LocalName;
+        var hex = ReadSlotColor(reader);
+        if (string.IsNullOrEmpty(hex))
+            return;
+
+        // A theme is decoration, so a malformed slot should cost that one colour rather than
+        // the whole workbook. FromHexRgb throws FormatException both for a value that is not
+        // six characters and for one containing a non-hex character.
+        XLColor color;
+        try
+        {
+            color = XLColor.FromHexRgb(hex);
+        }
+        catch (FormatException)
+        {
+            return;
+        }
+
+        ApplyThemeSlot(theme, slot, color);
     }
 
     /// <summary>

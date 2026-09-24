@@ -43,30 +43,21 @@ internal static class XLRangeShiftHelper
 
         // The shifted range must span this one completely on the cross axis, or this range does not
         // move at all: a column shift only repositions ranges whose rows it wholly covers.
-        var spannedOnCrossAxis =
-            axis.CrossOf(thisFirst) >= axis.CrossOf(shiftedFirst) &&
-            axis.CrossOf(thisLast) <= axis.CrossOf(shiftedRange.RangeAddress.LastAddress);
-
-        if (!spannedOnCrossAxis)
+        if (!IsSpannedOnCrossAxis(axis, thisFirst, thisLast, shiftedFirst, shiftedRange.RangeAddress.LastAddress))
             return thisRangeAddress;
 
         var shiftedFirstIndex = axis.IndexOf(shiftedFirst);
+        var thisFirstIndex = axis.IndexOf(thisFirst);
+        var thisLastIndex = axis.IndexOf(thisLast);
 
-        // The leading edge moves when an insert starts at or before it, or a delete starts strictly
-        // before it — a delete that starts exactly on the leading edge eats into the range instead.
-        var leadingEdgeMoves =
-            (shift > 0 && axis.IndexOf(thisFirst) >= shiftedFirstIndex) ||
-            (shift < 0 && axis.IndexOf(thisFirst) > shiftedFirstIndex);
+        var leadingEdgeMoves = LeadingEdgeMoves(shift, thisFirstIndex, shiftedFirstIndex);
+        var trailingEdgeMoves = thisLastIndex >= shiftedFirstIndex;
 
-        var trailingEdgeMoves = axis.IndexOf(thisLast) >= shiftedFirstIndex;
+        var newLeadingEdge = leadingEdgeMoves
+            ? ShiftLeadingEdge(thisFirstIndex, shift, shiftedFirstIndex)
+            : thisFirstIndex;
 
-        var newLeadingEdge = axis.IndexOf(thisFirst);
-        if (leadingEdgeMoves)
-            newLeadingEdge = newLeadingEdge + shift > shiftedFirstIndex ? newLeadingEdge + shift : shiftedFirstIndex;
-
-        var newTrailingEdge = axis.IndexOf(thisLast);
-        if (trailingEdgeMoves)
-            newTrailingEdge += shift;
+        var newTrailingEdge = trailingEdgeMoves ? thisLastIndex + shift : thisLastIndex;
 
         var destroyedByShift = newTrailingEdge < newLeadingEdge;
 
@@ -90,4 +81,24 @@ internal static class XLRangeShiftHelper
 
         return new XLRangeAddress(firstAddress, lastAddress);
     }
+
+    private static bool IsSpannedOnCrossAxis<TAxis>(
+        TAxis axis,
+        IXLAddress thisFirst,
+        IXLAddress thisLast,
+        in XLAddress shiftedFirst,
+        in XLAddress shiftedLast)
+        where TAxis : struct, IGridAxis
+        => axis.CrossOf(thisFirst) >= axis.CrossOf(shiftedFirst) &&
+           axis.CrossOf(thisLast) <= axis.CrossOf(shiftedLast);
+
+    /// <summary>The leading edge moves when an insert starts at or before it, or a delete starts strictly
+    /// before it — a delete that starts exactly on the leading edge eats into the range instead.</summary>
+    private static bool LeadingEdgeMoves(int shift, int thisFirstIndex, int shiftedFirstIndex)
+        => (shift > 0 && thisFirstIndex >= shiftedFirstIndex) ||
+           (shift < 0 && thisFirstIndex > shiftedFirstIndex);
+
+    /// <summary>A delete cannot pull the leading edge back past the start of the deleted span.</summary>
+    private static int ShiftLeadingEdge(int thisFirstIndex, int shift, int shiftedFirstIndex)
+        => thisFirstIndex + shift > shiftedFirstIndex ? thisFirstIndex + shift : shiftedFirstIndex;
 }

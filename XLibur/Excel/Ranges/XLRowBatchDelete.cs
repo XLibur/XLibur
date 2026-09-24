@@ -86,33 +86,37 @@ internal static class XLRowBatchDelete
         var firstDeletedRow = map.FirstDeletedRow;
 
         foreach (var sheet in workbook.WorksheetsInternal)
+            ShiftSheetFormulas(sheet, shiftedSheetName, map, firstDeletedRow);
+    }
+
+    private static void ShiftSheetFormulas(XLWorksheet sheet, string shiftedSheetName, XLRowDeletionMap map,
+        int firstDeletedRow)
+    {
+        var cellsCollection = sheet.Internals.CellsCollection;
+
+        // Materialise the points first: rewriting a formula replaces the entry at its own point,
+        // and mutating a slice while its enumerator is live is not a contract the slice offers.
+        var points = new List<Point>();
+        var enumerator = cellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+            points.Add(enumerator.Point);
+
+        foreach (var point in points)
         {
-            var cellsCollection = sheet.Internals.CellsCollection;
+            var cell = cellsCollection.GetCell(point);
+            var formula = cell.Formula;
 
-            // Materialise the points first: rewriting a formula replaces the entry at its own point,
-            // and mutating a slice while its enumerator is live is not a contract the slice offers.
-            var points = new List<Point>();
-            var enumerator = cellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
-            while (enumerator.MoveNext())
-                points.Add(enumerator.Point);
+            // Same pre-filter the per-run pass uses: a formula whose furthest reference stops above
+            // every deleted row cannot be rewritten by any of them.
+            if (formula is null || formula.MaxShiftableRow < firstDeletedRow)
+                continue;
 
-            foreach (var point in points)
-            {
-                var cell = cellsCollection.GetCell(point);
-                var formula = cell.Formula;
+            var shifted = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, sheet, shiftedSheetName, map);
+            if (string.Equals(shifted, formula.A1, System.StringComparison.Ordinal))
+                continue;
 
-                // Same pre-filter the per-run pass uses: a formula whose furthest reference stops above
-                // every deleted row cannot be rewritten by any of them.
-                if (formula is null || formula.MaxShiftableRow < firstDeletedRow)
-                    continue;
-
-                var shifted = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, sheet, shiftedSheetName, map);
-                if (string.Equals(shifted, formula.A1, System.StringComparison.Ordinal))
-                    continue;
-
-                cell.FormulaA1 = shifted;
-                cell.Formula?.SeedShiftedExtentFrom(formula, map);
-            }
+            cell.FormulaA1 = shifted;
+            cell.Formula?.SeedShiftedExtentFrom(formula, map);
         }
     }
 
