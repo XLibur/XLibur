@@ -587,7 +587,7 @@ internal sealed class GroupRenderer
         {
             if (_levels[run.Level].Collapse)
             {
-                Collapse(sheet, run);
+                CollapseRun(sheet, run);
             }
         }
 
@@ -600,7 +600,7 @@ internal sealed class GroupRenderer
     }
 
     /// <summary>Hides the rows a group covers and collapses its subtotal row onto them.</summary>
-    private static void Collapse(IXLWorksheet sheet, Run run)
+    private static void CollapseRun(IXLWorksheet sheet, Run run)
     {
         for (var row = run.ContentFirstRow; row <= run.ContentLastRow; row++)
         {

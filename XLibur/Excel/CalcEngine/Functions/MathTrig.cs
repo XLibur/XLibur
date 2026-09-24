@@ -564,6 +564,16 @@ internal static class MathTrig
         return result;
     }
 
+    private static double Gcd(double a, double b)
+    {
+        a = Math.Truncate(a);
+        b = Math.Truncate(b);
+        while (b != 0)
+            (a, b) = (b, a % b);
+
+        return a;
+    }
+
     /// <summary>
     /// Read one operand of GCD/LCM: a non-logical value convertible to a number between 0 and <see cref="MaxDoubleInt"/>.
     /// </summary>
@@ -586,16 +596,6 @@ internal static class MathTrig
         }
 
         return true;
-    }
-
-    private static double Gcd(double a, double b)
-    {
-        a = Math.Truncate(a);
-        b = Math.Truncate(b);
-        while (b != 0)
-            (a, b) = (b, a % b);
-
-        return a;
     }
 
     private static OneOf<double[,], XLError> GetArray(AnyValue value, CalcContext ctx)

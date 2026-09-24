@@ -112,8 +112,7 @@ internal static class WorkbookStylesPartWriter
         var sharedFonts = new Dictionary<XLFontValue, FontInfo>();
 
         var defaultStyle = DefaultStyleValue;
-        if (!sharedFonts.ContainsKey(defaultStyle.Font))
-            sharedFonts.Add(defaultStyle.Font, new FontInfo { FontId = 0, Font = defaultStyle.Font });
+        sharedFonts.Add(defaultStyle.Font, new FontInfo { FontId = 0, Font = defaultStyle.Font });
 
         uint fontCount = 1;
 

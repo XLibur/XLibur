@@ -300,34 +300,6 @@ internal static class Lookup
         return FindLastNotGreaterDownFrom(low, target, data, comparer);
     }
 
-    private static (int Middle, int Comparison) FindMiddleAbove(int low, int high, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
-    {
-        var initial = (low + high) / 2;
-        var middle = initial;
-        while (middle <= high)
-        {
-            if (data[middle, 0].HaveSameType(target))
-                return (middle, comparer.Compare(target, data[middle, 0]));
-
-            middle++;
-        }
-
-        // There is nothing left in the higher half. Target must be in the lower half.
-        return (initial, -1);
-    }
-
-    private static int FindLastNotGreaterDownFrom(int start, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
-    {
-        for (var i = start; i >= 0; --i)
-        {
-            var compare = comparer.Compare(data[i, 0], target);
-            if (compare <= 0) // data[i] <= target
-                return i;
-        }
-
-        return -1;
-    }
-
     private static int Bisection(Array range, ScalarValue lookupValue)
     {
         // Bisection is predicated on the fact that values of the same type are sorted.
@@ -389,6 +361,34 @@ internal static class Lookup
             else
                 highRow = middleRow;
         }
+    }
+
+    private static (int Middle, int Comparison) FindMiddleAbove(int low, int high, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        var initial = (low + high) / 2;
+        var middle = initial;
+        while (middle <= high)
+        {
+            if (data[middle, 0].HaveSameType(target))
+                return (middle, comparer.Compare(target, data[middle, 0]));
+
+            middle++;
+        }
+
+        // There is nothing left in the higher half. Target must be in the lower half.
+        return (initial, -1);
+    }
+
+    private static int FindLastNotGreaterDownFrom(int start, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        for (var i = start; i >= 0; --i)
+        {
+            var compare = comparer.Compare(data[i, 0], target);
+            if (compare <= 0) // data[i] <= target
+                return i;
+        }
+
+        return -1;
     }
 
     private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)

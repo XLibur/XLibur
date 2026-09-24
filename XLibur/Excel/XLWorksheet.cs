@@ -405,6 +405,21 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return retVal;
     }
 
+    public IXLColumns Columns(string firstColumn, string lastColumn)
+    {
+        return Columns(XLHelper.GetColumnNumberFromLetter(firstColumn),
+            XLHelper.GetColumnNumberFromLetter(lastColumn));
+    }
+
+    public IXLColumns Columns(int firstColumn, int lastColumn)
+    {
+        var retVal = new XLColumns(null, StyleValue);
+
+        for (var co = firstColumn; co <= lastColumn; co++)
+            retVal.Add(Column(co));
+        return retVal;
+    }
+
     /// <summary>
     /// Split one entry of a column list ("A", "A:C", "1-3") into its first and last column.
     /// </summary>
@@ -432,21 +447,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             return Columns(int.Parse(firstColumn), int.Parse(lastColumn));
 
         return Columns(firstColumn, lastColumn);
-    }
-
-    public IXLColumns Columns(string firstColumn, string lastColumn)
-    {
-        return Columns(XLHelper.GetColumnNumberFromLetter(firstColumn),
-            XLHelper.GetColumnNumberFromLetter(lastColumn));
-    }
-
-    public IXLColumns Columns(int firstColumn, int lastColumn)
-    {
-        var retVal = new XLColumns(null, StyleValue);
-
-        for (var co = firstColumn; co <= lastColumn; co++)
-            retVal.Add(Column(co));
-        return retVal;
     }
 
     public IXLRows Rows()

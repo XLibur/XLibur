@@ -16,8 +16,6 @@ internal static class XLCellRegionHelper
 
         do
         {
-            hasRegionExpanded = false;
-
             var borderMinRow = Math.Max(minRow - 1, XLHelper.MinRowNumber);
             var borderMaxRow = Math.Min(maxRow + 1, XLHelper.MaxRowNumber);
             var borderMinColumn = Math.Max(minCol - 1, XLHelper.MinColumnNumber);
