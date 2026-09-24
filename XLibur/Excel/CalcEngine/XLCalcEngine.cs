@@ -569,8 +569,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 // The chain has found the cycle at this cell, which is left dirty. The rest of the
                 // cycle, and whatever depends on it, ask for a cell already left dirty and are
                 // skipped in turn, each recorded against this cell.
-                leftDirty ??= new Dictionary<SheetPoint, StoppedBy>();
-                leftDirty[current] = new StoppedBy(current, Failure: null);
+                LeaveDirty(ref leftDirty, current, failure: null);
                 break;
             }
 
@@ -581,33 +580,59 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             if (cellFormula.IsClean())
                 break;
 
-            try
-            {
-                ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice, recalculateSheetId);
-                cellFormula.MarkClean();
+            if (TryCalculateCurrentFormula(chain, cellFormula, current, sheetInfo.Sheet, sheetInfo.ValueSlice,
+                    recalculateSheetId, entry, ref leftDirty))
                 break;
-            }
-            catch (GettingDataException ex)
-            {
-                // A precedent this pass has given up on cannot be calculated, so neither can this.
-                // Never moved to the front again, which is what keeps the pass finite.
-                if (leftDirty is not null && leftDirty.TryGetValue(ex.Point, out var stoppedBy))
-                {
-                    leftDirty[current] = stoppedBy;
-                    break;
-                }
-
-                chain.MoveToCurrent(ex.Point);
-            }
-            catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
-            {
-                // Kept with its failure, so a read of this cell, or of one behind it, raises it
-                // (RecalculateForCell).
-                leftDirty ??= new Dictionary<SheetPoint, StoppedBy>();
-                leftDirty[current] = new StoppedBy(current, ex);
-                break;
-            }
         }
+    }
+
+    /// <summary>
+    /// Calculates the chain's current cell, or leaves it dirty.
+    /// </summary>
+    /// <returns><c>true</c> when the cell is done with, calculated or left dirty. <c>false</c> when
+    /// the chain has moved a precedent to the front, which has to be calculated first.</returns>
+    private bool TryCalculateCurrentFormula(
+        XLCalculationChain chain,
+        XLCellFormula cellFormula,
+        SheetPoint current,
+        XLWorksheet sheet,
+        ValueSlice valueSlice,
+        uint? recalculateSheetId,
+        EvaluationEntryPoint entry,
+        ref Dictionary<SheetPoint, StoppedBy>? leftDirty)
+    {
+        try
+        {
+            ApplyFormula(cellFormula, current.Point, sheet, valueSlice, recalculateSheetId);
+            cellFormula.MarkClean();
+            return true;
+        }
+        catch (GettingDataException ex)
+        {
+            // A precedent this pass has given up on cannot be calculated, so neither can this.
+            // Never moved to the front again, which is what keeps the pass finite.
+            if (leftDirty is not null && leftDirty.TryGetValue(ex.Point, out var stoppedBy))
+            {
+                leftDirty[current] = stoppedBy;
+                return true;
+            }
+
+            chain.MoveToCurrent(ex.Point);
+            return false;
+        }
+        catch (Exception ex) when (EvaluationPolicy.For(entry, ex) == EvaluationOutcome.LeaveDirty)
+        {
+            // Kept with its failure, so a read of this cell, or of one behind it, raises it
+            // (RecalculateForCell).
+            LeaveDirty(ref leftDirty, current, ex);
+            return true;
+        }
+    }
+
+    private static void LeaveDirty(ref Dictionary<SheetPoint, StoppedBy>? leftDirty, SheetPoint cell, Exception? failure)
+    {
+        leftDirty ??= new Dictionary<SheetPoint, StoppedBy>();
+        leftDirty[cell] = new StoppedBy(cell, failure);
     }
 
     private void ApplyFormula(XLCellFormula formula, Point appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)

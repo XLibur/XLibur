@@ -473,88 +473,113 @@ internal static class WorksheetSheetDataReader
             reader.Skip();
     }
 
-#pragma warning disable S3776 // Shared, array and dynamic-array formulas are decided by flat, documented tests
     private static XLCellFormula? SetCellFormulaXml(XmlReader reader, char[] buffer, XLWorksheet ws, Point cellAddress,
         Dictionary<uint, SharedFormula> sharedFormulas, uint? cellMetaIndex, HashSet<uint>? dynamicArrayCmIndexes)
     {
-        var formulaType = CellFormulaValues.Normal; // Matches an absent t attribute.
-        string? refAttr = null;
-        string? r1Attr = null;
-        string? r2Attr = null;
-        bool aca = false, dt2D = false, del1 = false, del2 = false, dtr = false;
-        uint? sharedIndex = null;
-
-        if (reader.HasAttributes)
-        {
-            while (reader.MoveToNextAttribute())
-            {
-                if (reader.NamespaceURI.Length != 0)
-                    continue;
-
-                // LocalName comes from the reader's name table, so it costs nothing.
-                var localName = reader.LocalName;
-
-                // ref, r1 and r2 are the only values kept as text, for the reference parsers. Only
-                // the master cell of an array, a data table or a shared group carries one, so a
-                // string for them is paid once per formula rather than once per cell.
-                switch (localName)
-                {
-                    case "ref": refAttr = reader.Value; continue;
-                    case "r1": r1Attr = reader.Value; continue;
-                    case "r2": r2Attr = reader.Value; continue;
-                }
-
-                // bx attribute of cell formula is never used, per MS-OI29500 2.1.620.
-                if (localName is not ("t" or "si" or "aca" or "dt2D" or "del1" or "del2" or "dtr"))
-                    continue;
-
-                // Read as characters: Excel writes t="shared" and an si on every cell of a shared
-                // formula, and neither is retained as a string -- the type becomes an enum and the
-                // index a number, so materializing them allocated two strings per cell that were
-                // thrown away immediately (#558).
-                var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
-                var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
-
-                switch (localName)
-                {
-                    case "t": formulaType = ParseFormulaType(value); break;
-                    case "si": sharedIndex = uint.Parse(value, CultureInfo.InvariantCulture); break;
-                    case "aca": aca = ParseXmlBool(value); break;
-                    case "dt2D": dt2D = ParseXmlBool(value); break;
-                    case "del1": del1 = ParseXmlBool(value); break;
-                    case "del2": del2 = ParseXmlBool(value); break;
-                    case "dtr": dtr = ParseXmlBool(value); break;
-                }
-            }
-
-            reader.MoveToElement();
-        }
+        var attrs = ReadFormulaAttributes(reader, buffer);
 
         var formulaText = reader.ReadElementContentAsString(); // Reads <f> text and moves past </f>.
 
         var formulaSlice = ws.Internals.CellsCollection.FormulaSlice;
         XLCellFormula? formula = null;
-        if (formulaType == CellFormulaValues.Normal)
+        if (attrs.Type == CellFormulaValues.Normal)
         {
             formula = XLCellFormula.NormalA1(formulaText);
             formulaSlice.SetDuringLoad(cellAddress, formula);
         }
-        else if (formulaType == CellFormulaValues.Array && refAttr is not null)
+        else if (attrs.Type == CellFormulaValues.Array && attrs.Ref is not null)
         {
-            formula = LoadArrayFormulaXml(formulaText, refAttr, aca, cellAddress, cellMetaIndex, dynamicArrayCmIndexes, formulaSlice);
+            formula = LoadArrayFormulaXml(formulaText, attrs.Ref, attrs.Aca, cellAddress, cellMetaIndex, dynamicArrayCmIndexes, formulaSlice);
         }
-        else if (formulaType == CellFormulaValues.Shared && sharedIndex is { } si)
+        else if (attrs.Type == CellFormulaValues.Shared && attrs.SharedIndex is { } si)
         {
             formula = LoadSharedFormula(formulaText, cellAddress, si, sharedFormulas, formulaSlice);
         }
-        else if (formulaType == CellFormulaValues.DataTable && refAttr is not null)
+        else if (attrs.Type == CellFormulaValues.DataTable && attrs.Ref is not null)
         {
-            formula = LoadDataTableFormulaXml(refAttr, r1Attr, r2Attr, dt2D, del1, del2, dtr, cellAddress, formulaSlice);
+            formula = LoadDataTableFormulaXml(attrs.Ref, attrs.R1, attrs.R2, attrs.Dt2D, attrs.Del1, attrs.Del2, attrs.Dtr,
+                cellAddress, formulaSlice);
         }
 
         return formula;
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Attributes of an <c>&lt;f&gt;</c> element. A mutable struct filled in place while the reader walks
+    /// the attributes, so a formula cell costs no heap allocation beyond the retained strings.
+    /// </summary>
+    private struct FormulaAttributes
+    {
+        public CellFormulaValues Type;
+        public string? Ref;
+        public string? R1;
+        public string? R2;
+        public bool Aca;
+        public bool Dt2D;
+        public bool Del1;
+        public bool Del2;
+        public bool Dtr;
+        public uint? SharedIndex;
+    }
+
+    /// <summary>
+    /// Reads the attributes of an <c>&lt;f&gt;</c> element and returns the reader to the element.
+    /// </summary>
+    private static FormulaAttributes ReadFormulaAttributes(XmlReader reader, char[] buffer)
+    {
+        var attrs = new FormulaAttributes { Type = CellFormulaValues.Normal }; // Matches an absent t attribute.
+        if (!reader.HasAttributes)
+            return attrs;
+
+        while (reader.MoveToNextAttribute())
+        {
+            if (reader.NamespaceURI.Length != 0)
+                continue;
+
+            ReadFormulaAttribute(reader, buffer, ref attrs);
+        }
+
+        reader.MoveToElement();
+        return attrs;
+    }
+
+    private static void ReadFormulaAttribute(XmlReader reader, char[] buffer, ref FormulaAttributes attrs)
+    {
+        // LocalName comes from the reader's name table, so it costs nothing.
+        var localName = reader.LocalName;
+
+        // ref, r1 and r2 are the only values kept as text, for the reference parsers. Only
+        // the master cell of an array, a data table or a shared group carries one, so a
+        // string for them is paid once per formula rather than once per cell.
+        switch (localName)
+        {
+            case "ref": attrs.Ref = reader.Value; return;
+            case "r1": attrs.R1 = reader.Value; return;
+            case "r2": attrs.R2 = reader.Value; return;
+        }
+
+        // bx attribute of cell formula is never used, per MS-OI29500 2.1.620.
+        if (localName is not ("t" or "si" or "aca" or "dt2D" or "del1" or "del2" or "dtr"))
+            return;
+
+        // Read as characters: Excel writes t="shared" and an si on every cell of a shared
+        // formula, and neither is retained as a string -- the type becomes an enum and the
+        // index a number, so materializing them allocated two strings per cell that were
+        // thrown away immediately (#558).
+        var length = ReadValueIntoBuffer(reader, buffer, out var overflow);
+        var value = length >= 0 ? buffer.AsSpan(0, length) : overflow.AsSpan();
+
+        switch (localName)
+        {
+            case "t": attrs.Type = ParseFormulaType(value); break;
+            case "si": attrs.SharedIndex = uint.Parse(value, CultureInfo.InvariantCulture); break;
+            case "aca": attrs.Aca = ParseXmlBool(value); break;
+            case "dt2D": attrs.Dt2D = ParseXmlBool(value); break;
+            case "del1": attrs.Del1 = ParseXmlBool(value); break;
+            case "del2": attrs.Del2 = ParseXmlBool(value); break;
+            case "dtr": attrs.Dtr = ParseXmlBool(value); break;
+        }
+    }
 
     /// <summary>
     /// Loads a classic or dynamic array formula from a master <c>&lt;f t="array"&gt;</c> cell.

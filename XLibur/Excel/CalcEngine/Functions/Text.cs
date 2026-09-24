@@ -308,31 +308,24 @@ internal static class Text
     /// TEXTSPLIT(text, col_delimiter, [row_delimiter], [ignore_empty], [match_mode], [pad_with]) —
     /// split into a grid, rows first and then columns within each row, and pad the short rows.
     /// </summary>
-#pragma warning disable S3776 // Six optional arguments to read before splitting; each guard is independent
     private static AnyValue TextSplit(CalcContext ctx, Span<AnyValue> args)
     {
         if (!TryGetText(ctx, args[0], out var text, out var textError))
             return textError;
 
-        var hasColumnDelimiters = !IsOmitted(args, 1);
-        List<string> columnDelimiters = [];
-        if (hasColumnDelimiters && !TryGetDelimiters(ctx, args[1], out columnDelimiters, out var columnError))
+        if (!TryGetOptionalDelimiters(ctx, args, 1, out var columnDelimiters, out var columnError))
             return columnError;
 
-        var hasRowDelimiters = !IsOmitted(args, 2);
-        List<string> rowDelimiters = [];
-        if (hasRowDelimiters && !TryGetDelimiters(ctx, args[2], out rowDelimiters, out var rowError))
+        if (!TryGetOptionalDelimiters(ctx, args, 2, out var rowDelimiters, out var rowError))
             return rowError;
 
-        if (!hasColumnDelimiters && !hasRowDelimiters)
+        if (IsOmitted(args, 1) && IsOmitted(args, 2))
             return XLError.IncompatibleValue;
 
-        var ignoreEmpty = false;
-        if (args.Length > 3 && !TryOptionalFlag(ctx, args[3], out ignoreEmpty, out var ignoreError))
+        if (!TryOptionalFlagArg(ctx, args, 3, out var ignoreEmpty, out var ignoreError))
             return ignoreError;
 
-        var ignoreCase = false;
-        if (args.Length > 4 && !TryOptionalFlag(ctx, args[4], out ignoreCase, out var matchModeError))
+        if (!TryOptionalFlagArg(ctx, args, 4, out var ignoreCase, out var matchModeError))
             return matchModeError;
 
         var padding = args.Length > 5 && !IsOmitted(args, 5)
@@ -349,6 +342,38 @@ internal static class Text
         if (rows.Count == 0)
             return XLError.IncompatibleValue;
 
+        return PadToGrid(rows, padding);
+    }
+
+    /// <summary>Read a delimiter argument that may be omitted; an omitted one means no delimiters.</summary>
+    private static bool TryGetOptionalDelimiters(CalcContext ctx, Span<AnyValue> args, int index, out List<string> delimiters, out XLError error)
+    {
+        if (IsOmitted(args, index))
+        {
+            delimiters = [];
+            error = default;
+            return true;
+        }
+
+        return TryGetDelimiters(ctx, args[index], out delimiters, out error);
+    }
+
+    /// <summary>Read a 0/1 mode argument that may be missing from the argument list entirely.</summary>
+    private static bool TryOptionalFlagArg(CalcContext ctx, Span<AnyValue> args, int index, out bool flag, out XLError error)
+    {
+        if (args.Length <= index)
+        {
+            flag = false;
+            error = default;
+            return true;
+        }
+
+        return TryOptionalFlag(ctx, args[index], out flag, out error);
+    }
+
+    /// <summary>Lay the rows out in a grid as wide as the longest row, padding the short ones.</summary>
+    private static ConstArray PadToGrid(List<List<string>> rows, ScalarValue padding)
+    {
         var width = 0;
         foreach (var row in rows)
             width = Math.Max(width, row.Count);
@@ -362,7 +387,6 @@ internal static class Text
 
         return new ConstArray(data);
     }
-#pragma warning restore S3776
 
     /// <summary>Split on any of the delimiters; no delimiters at all leaves the text in one piece.</summary>
     private static List<string> Split(string text, List<string> delimiters, bool ignoreCase, bool ignoreEmpty)

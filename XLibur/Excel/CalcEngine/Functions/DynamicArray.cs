@@ -212,7 +212,6 @@ internal static class DynamicArray
     /// CHOOSEROWS/CHOOSECOLS(array, num1, …) — pick lines out of the array in the order asked for,
     /// repeats included. A negative index counts back from the end.
     /// </summary>
-#pragma warning disable S3776 // One index-validation rule applied over two argument shapes
     private static AnyValue Choose(CalcContext ctx, Span<AnyValue> args, bool byRow)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -224,32 +223,8 @@ internal static class DynamicArray
         var selected = new List<int>();
         for (var i = 1; i < args.Length; i++)
         {
-            // An argument is usually a single index, but Excel also accepts a whole array of them,
-            // as in CHOOSEROWS(A1:C5, {1,3}).
-            IEnumerable<ScalarValue> indices;
-            if (args[i].TryPickScalar(out var scalar, out _))
-                indices = [scalar];
-            else if (args[i].TryPickCollectionArray(out var indexArray, ctx))
-                indices = indexArray!;
-            else
-                return XLError.IncompatibleValue;
-
-            foreach (var index in indices)
-            {
-                if (!index.ToNumber(ctx.Culture).TryPickT0(out var number, out var indexError))
-                    return indexError;
-
-                var line = (int)Math.Truncate(number);
-
-                // A negative index counts back from the end: -1 is the last line.
-                if (line < 0)
-                    line = count + line + 1;
-
-                if (line < 1 || line > count)
-                    return XLError.IncompatibleValue;
-
-                selected.Add(line - 1);
-            }
+            if (!TryAddChosenLines(ctx, args[i], count, selected, out var error))
+                return error;
         }
 
         if (selected.Count == 0)
@@ -257,7 +232,60 @@ internal static class DynamicArray
 
         return Orient(BuildRows(source, selected), !byRow);
     }
-#pragma warning restore S3776
+
+    /// <summary>
+    /// Resolve one CHOOSEROWS/CHOOSECOLS index argument into zero-based line numbers and append them
+    /// to <paramref name="selected"/>, stopping at the first index that is not valid.
+    /// </summary>
+    private static bool TryAddChosenLines(CalcContext ctx, in AnyValue arg, int count, List<int> selected, out XLError error)
+    {
+        // An argument is usually a single index, but Excel also accepts a whole array of them,
+        // as in CHOOSEROWS(A1:C5, {1,3}).
+        IEnumerable<ScalarValue> indices;
+        if (arg.TryPickScalar(out var scalar, out _))
+            indices = [scalar];
+        else if (arg.TryPickCollectionArray(out var indexArray, ctx))
+            indices = indexArray!;
+        else
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        foreach (var index in indices)
+        {
+            if (!TryResolveChosenLine(ctx, index, count, out var line, out error))
+                return false;
+
+            selected.Add(line);
+        }
+
+        error = default;
+        return true;
+    }
+
+    /// <summary>Turn one CHOOSEROWS/CHOOSECOLS index into a zero-based line within <paramref name="count"/>.</summary>
+    private static bool TryResolveChosenLine(CalcContext ctx, ScalarValue index, int count, out int line, out XLError error)
+    {
+        line = 0;
+        if (!index.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+            return false;
+
+        var oneBased = (int)Math.Truncate(number);
+
+        // A negative index counts back from the end: -1 is the last line.
+        if (oneBased < 0)
+            oneBased = count + oneBased + 1;
+
+        if (oneBased < 1 || oneBased > count)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        line = oneBased - 1;
+        return true;
+    }
 
     #endregion
 
@@ -412,7 +440,6 @@ internal static class DynamicArray
         return new ConstArray(data);
     }
 
-#pragma warning disable S3776 // Argument guards, then a linear group-by over rows; each stage is flat
     private static AnyValue Unique(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
@@ -428,22 +455,26 @@ internal static class DynamicArray
 
         // Work row-wise; when comparing columns, operate on the transpose and transpose back.
         var source = byColumn ? new TransposedArray(array!) : array!;
-        var width = source.Width;
 
+        var kept = FindUniqueRows(source, exactlyOnce);
+        if (kept.Count == 0)
+            return XLError.NoValueAvailable;
+
+        return Orient(BuildRows(source, kept), byColumn);
+    }
+
+    /// <summary>
+    /// Group equal rows and return the index of the first row of each group, in order of first
+    /// appearance. With <paramref name="exactlyOnce"/>, only groups of a single row are returned.
+    /// </summary>
+    private static List<int> FindUniqueRows(Array source, bool exactlyOnce)
+    {
+        var width = source.Width;
         var representatives = new List<int>();
         var counts = new List<int>();
         for (var r = 0; r < source.Height; r++)
         {
-            var matched = -1;
-            for (var k = 0; k < representatives.Count; k++)
-            {
-                if (RowsEqual(source, r, representatives[k], width))
-                {
-                    matched = k;
-                    break;
-                }
-            }
-
+            var matched = IndexOfEqualRow(source, r, representatives, width);
             if (matched == -1)
             {
                 representatives.Add(r);
@@ -462,19 +493,20 @@ internal static class DynamicArray
                 kept.Add(representatives[k]);
         }
 
-        if (kept.Count == 0)
-            return XLError.NoValueAvailable;
+        return kept;
+    }
 
-        var result = new ScalarValue[kept.Count, width];
-        for (var i = 0; i < kept.Count; i++)
+    /// <summary>Position within <paramref name="representatives"/> of the row equal to <paramref name="row"/>, or -1.</summary>
+    private static int IndexOfEqualRow(Array source, int row, List<int> representatives, int width)
+    {
+        for (var k = 0; k < representatives.Count; k++)
         {
-            for (var c = 0; c < width; c++)
-                result[i, c] = source[kept[i], c];
+            if (RowsEqual(source, row, representatives[k], width))
+                return k;
         }
 
-        return Orient(new ConstArray(result), byColumn);
+        return -1;
     }
-#pragma warning restore S3776
 
     private static AnyValue Sort(CalcContext ctx, Span<AnyValue> args)
     {
@@ -511,24 +543,40 @@ internal static class DynamicArray
         return Orient(BuildRows(source, order), byColumn);
     }
 
-#pragma warning disable S3776 // Parsing the (by_array, [order]) pairs is one loop with one comparator
     private static AnyValue SortBy(CalcContext ctx, Span<AnyValue> args)
     {
         if (!args[0].TryPickCollectionArray(out var array, ctx))
             return XLError.IncompatibleValue;
 
         var height = array!.Height;
+        if (!TryParseSortKeys(ctx, args, height, out var keys, out var keysError))
+            return keysError;
 
-        // Parse (by_array, [order]) groups. A range/array argument starts a new key; a following
-        // scalar argument is that key's sort order (1 ascending, -1 descending).
-        var keys = new List<(Array By, int Order)>();
+        var comparer = ScalarValueComparer.SortIgnoreCase;
+        var indices = Enumerable.Range(0, height)
+            .OrderBy(r => r, Comparer<int>.Create((a, b) => CompareBySortKeys(keys, comparer, a, b)))
+            .ToList();
+
+        return BuildRows(array, indices);
+    }
+
+    /// <summary>
+    /// Parse the SORTBY (by_array, [order]) groups. A range/array argument starts a new key; a
+    /// following scalar argument is that key's sort order (1 ascending, -1 descending).
+    /// </summary>
+    private static bool TryParseSortKeys(CalcContext ctx, Span<AnyValue> args, int height, out List<(Array By, int Order)> keys, out XLError error)
+    {
+        keys = new List<(Array By, int Order)>();
+        error = default;
         var i = 1;
         while (i < args.Length)
         {
-            if (!args[i].TryPickCollectionArray(out var by, ctx))
-                return XLError.IncompatibleValue;
-            if (by!.Width != 1 || by.Height != height)
-                return XLError.IncompatibleValue;
+            if (!args[i].TryPickCollectionArray(out var by, ctx) || by!.Width != 1 || by.Height != height)
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
             i++;
 
             var order = 1;
@@ -544,34 +592,44 @@ internal static class DynamicArray
             // else in the library; SortBy_OrderRangeIsIntersectedAgainstTheCallingFormula pins it.
             if (i < args.Length && !IsValidByArray(args[i], ctx, height))
             {
-                if (!TryIntArg(ctx, args[i], out order, out var orderError))
-                    return orderError;
-                if (order != 1 && order != -1)
-                    return XLError.IncompatibleValue;
+                if (!TrySortOrderArg(ctx, args[i], out order, out error))
+                    return false;
                 i++;
             }
 
             keys.Add((by, order));
         }
 
-        var comparer = ScalarValueComparer.SortIgnoreCase;
-        var indices = Enumerable.Range(0, height)
-            .OrderBy(r => r, Comparer<int>.Create((a, b) =>
-            {
-                foreach (var (by, order) in keys)
-                {
-                    var cmp = order * comparer.Compare(by[a, 0], by[b, 0]);
-                    if (cmp != 0)
-                        return cmp;
-                }
-
-                return 0;
-            }))
-            .ToList();
-
-        return BuildRows(array, indices);
+        return true;
     }
-#pragma warning restore S3776
+
+    /// <summary>Read a SORTBY sort order, which must be 1 (ascending) or -1 (descending).</summary>
+    private static bool TrySortOrderArg(CalcContext ctx, in AnyValue arg, out int order, out XLError error)
+    {
+        if (!TryIntArg(ctx, arg, out order, out error))
+            return false;
+
+        if (order != 1 && order != -1)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Compare two rows by each SORTBY key in turn; the first key that differs decides.</summary>
+    private static int CompareBySortKeys(List<(Array By, int Order)> keys, IComparer<ScalarValue> comparer, int a, int b)
+    {
+        foreach (var (by, order) in keys)
+        {
+            var cmp = order * comparer.Compare(by[a, 0], by[b, 0]);
+            if (cmp != 0)
+                return cmp;
+        }
+
+        return 0;
+    }
 
     /// <summary>Does <paramref name="value"/> have the (Height x 1) shape a SORTBY by_array needs?</summary>
     private static bool IsValidByArray(in AnyValue value, CalcContext ctx, int height)
@@ -692,23 +750,13 @@ internal static class DynamicArray
     /// 2 wildcard) and search modes (1 first-to-last, -1 last-to-first; binary modes fall back to a
     /// linear scan, which is correct if slower).
     /// </summary>
-#pragma warning disable S3776 // Four match modes over one scan; the modes are the specification
     private static int FindMatch(Array array, bool vertical, ScalarValue target, int matchMode, int searchMode)
     {
         var length = vertical ? array.Height : array.Width;
         var comparer = ScalarValueComparer.SortIgnoreCase;
 
         if (matchMode == 2 && target.TryPickText(out var pattern, out _))
-        {
-            var wildcard = new Wildcard(pattern!);
-            foreach (var i in SearchOrder(length, searchMode))
-            {
-                if (Element(array, vertical, i).TryPickText(out var text, out _) && wildcard.Matches(text!.AsSpan()))
-                    return i;
-            }
-
-            return -1;
-        }
+            return FindWildcardMatch(array, vertical, pattern!, length, searchMode);
 
         var best = -1;
         var bestValue = ScalarValue.Blank;
@@ -722,23 +770,44 @@ internal static class DynamicArray
             if (compare == 0)
                 return i;
 
-#pragma warning disable S1871 // The two arms are the two match modes; one condition would hide that
-            if (matchMode == -1 && compare < 0 && (best == -1 || comparer.Compare(value, bestValue) > 0))
+            if (IsBetterApproximateMatch(comparer, matchMode, compare, best == -1, value, bestValue))
             {
                 best = i;
                 bestValue = value;
             }
-            else if (matchMode == 1 && compare > 0 && (best == -1 || comparer.Compare(value, bestValue) < 0))
-            {
-                best = i;
-                bestValue = value;
-            }
-#pragma warning restore S1871
         }
 
         return best;
     }
-#pragma warning restore S3776
+
+    /// <summary>XLOOKUP/XMATCH match mode 2: the first text element, in search order, that matches the wildcard pattern.</summary>
+    private static int FindWildcardMatch(Array array, bool vertical, string pattern, int length, int searchMode)
+    {
+        var wildcard = new Wildcard(pattern);
+        foreach (var i in SearchOrder(length, searchMode))
+        {
+            if (Element(array, vertical, i).TryPickText(out var text, out _) && wildcard.Matches(text!.AsSpan()))
+                return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Is <paramref name="value"/> (which compared to the target as <paramref name="compare"/>) a
+    /// closer approximate match than the best so far? Match mode -1 wants the largest value below
+    /// the target, match mode 1 the smallest value above it; other modes take no approximate match.
+    /// </summary>
+    private static bool IsBetterApproximateMatch(IComparer<ScalarValue> comparer, int matchMode, int compare, bool noneYet, ScalarValue value, ScalarValue bestValue)
+    {
+        if (matchMode == -1 && compare < 0)
+            return noneYet || comparer.Compare(value, bestValue) > 0;
+
+        if (matchMode == 1 && compare > 0)
+            return noneYet || comparer.Compare(value, bestValue) < 0;
+
+        return false;
+    }
 
     private static ScalarValue Element(Array array, bool vertical, int index)
         => vertical ? array[index, 0] : array[0, index];

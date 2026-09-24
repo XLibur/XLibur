@@ -124,52 +124,59 @@ internal static class Lookup
         return data.TryPickT0(out var area, out var array)
             ? IndexArea(area, rowNumber, colNumber)
             : IndexArray(array, rowNumber, colNumber);
+    }
 
-        static Reference IndexArea(XLRangeAddress area, int rowNumber, int colNumber)
+    /// <summary>
+    /// INDEX over a reference: return the whole area, one column, one row or a single cell, as a
+    /// reference so that implicit intersection still applies to the result.
+    /// </summary>
+    private static Reference IndexArea(XLRangeAddress area, int rowNumber, int colNumber)
+    {
+        // Return the whole area
+        if (rowNumber == 0 && colNumber == 0)
+            return new Reference(area);
+
+        // Return one column at colNumber
+        if (rowNumber == 0)
         {
-            // Return the whole area
-            if (rowNumber == 0 && colNumber == 0)
-                return new Reference(area);
-
-            // Return one column at colNumber
-            if (rowNumber == 0)
-            {
-                var topCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
-                var bottomCell = new XLAddress(area.Worksheet, area.LastAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
-                return new Reference(new XLRangeAddress(topCell, bottomCell));
-            }
-
-            // Return one row at rowNumber
-            if (colNumber == 0)
-            {
-                var leftCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.FirstAddress.ColumnNumber, true, true);
-                var rightCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.LastAddress.ColumnNumber, true, true);
-                return new Reference(new XLRangeAddress(leftCell, rightCell));
-            }
-
-            // Return a single cell reference.
-            var areaCorner = area.FirstAddress;
-            var cellAddress = new XLAddress(area.Worksheet, areaCorner.RowNumber + rowNumber - 1, areaCorner.ColumnNumber + colNumber - 1, true, true);
-            return new Reference(new XLRangeAddress(cellAddress, cellAddress));
+            var topCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
+            var bottomCell = new XLAddress(area.Worksheet, area.LastAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
+            return new Reference(new XLRangeAddress(topCell, bottomCell));
         }
 
-        static AnyValue IndexArray(Array array, int rowNumber, int colNumber)
+        // Return one row at rowNumber
+        if (colNumber == 0)
         {
-            // Return whole array
-            if (rowNumber == 0 && colNumber == 0)
-                return array;
-
-            // Return one column at colNumber
-            if (rowNumber == 0)
-                return new SlicedArray(array, 0, array.Height, colNumber - 1, 1);
-
-            // Return one row at rowNumber
-            if (colNumber == 0)
-                return new SlicedArray(array, rowNumber - 1, 1, 0, array.Width);
-
-            // Return a single value
-            return array[rowNumber - 1, colNumber - 1].ToAnyValue();
+            var leftCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.FirstAddress.ColumnNumber, true, true);
+            var rightCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.LastAddress.ColumnNumber, true, true);
+            return new Reference(new XLRangeAddress(leftCell, rightCell));
         }
+
+        // Return a single cell reference.
+        var areaCorner = area.FirstAddress;
+        var cellAddress = new XLAddress(area.Worksheet, areaCorner.RowNumber + rowNumber - 1, areaCorner.ColumnNumber + colNumber - 1, true, true);
+        return new Reference(new XLRangeAddress(cellAddress, cellAddress));
+    }
+
+    /// <summary>
+    /// INDEX over an array: return the whole array, one column, one row or a single value.
+    /// </summary>
+    private static AnyValue IndexArray(Array array, int rowNumber, int colNumber)
+    {
+        // Return whole array
+        if (rowNumber == 0 && colNumber == 0)
+            return array;
+
+        // Return one column at colNumber
+        if (rowNumber == 0)
+            return new SlicedArray(array, 0, array.Height, colNumber - 1, 1);
+
+        // Return one row at rowNumber
+        if (colNumber == 0)
+            return new SlicedArray(array, rowNumber - 1, 1, 0, array.Width);
+
+        // Return a single value
+        return array[rowNumber - 1, colNumber - 1].ToAnyValue();
     }
 
     private static ScalarValue Match(CalcContext ctx, ScalarValue target, AnyValue lookupArray, int matchType)
@@ -202,56 +209,59 @@ internal static class Lookup
             return XLError.NoValueAvailable;
 
         return index + 1;
+    }
 
-        static int MatchAscending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
-        {
-            var index = Bisection(target, data, comparer);
-            if (index == -1)
-                return index;
-
-            // When there are multiple same elements, return the position of the last one
-            while (index < data.Height - 1 && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
-                index++;
-
+    /// <summary>MATCH with a positive match type: data in ascending order, found by bisection.</summary>
+    private static int MatchAscending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        var index = Bisection(target, data, comparer);
+        if (index == -1)
             return index;
-        }
 
-        static int MatchUnsorted(ScalarValue target, Array data, CalcContext ctx)
+        // When there are multiple same elements, return the position of the last one
+        while (index < data.Height - 1 && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
+            index++;
+
+        return index;
+    }
+
+    /// <summary>MATCH with match type 0: the first element that satisfies the target as a criteria.</summary>
+    private static int MatchUnsorted(ScalarValue target, Array data, CalcContext ctx)
+    {
+        var criteria = Criteria.Create(target, ctx.Culture);
+        for (var i = 0; i < data.Height; ++i)
         {
-            var criteria = Criteria.Create(target, ctx.Culture);
-            for (var i = 0; i < data.Height; ++i)
-            {
-                var value = data[i, 0];
-                if (target.HaveSameType(value) && criteria.Match(value))
-                    return i;
-            }
-
-            return -1;
+            var value = data[i, 0];
+            if (target.HaveSameType(value) && criteria.Match(value))
+                return i;
         }
 
-        static int MatchDescending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+        return -1;
+    }
+
+    /// <summary>MATCH with a negative match type: data in descending order, scanned linearly.</summary>
+    private static int MatchDescending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    {
+        // Data should be in descending order, but Excel doesn't use bisection.
+        var found = -1;
+        for (var i = 0; i < data.Height; i++)
         {
-            // Data should be in descending order, but Excel doesn't use bisection.
-            var found = -1;
-            for (var i = 0; i < data.Height; i++)
-            {
-                var value = data[i, 0];
-                if (!value.HaveSameType(target))
-                    continue;
+            var value = data[i, 0];
+            if (!value.HaveSameType(target))
+                continue;
 
-                var compare = comparer.Compare(target, value);
-                if (compare == 0)
-                    return i;
+            var compare = comparer.Compare(target, value);
+            if (compare == 0)
+                return i;
 
-                if (compare > 0) // target > value
-                    return found;
+            if (compare > 0) // target > value
+                return found;
 
-                // value > target, so there might be an exact match later
-                found = i;
-            }
-
-            return found;
+            // value > target, so there might be an exact match later
+            found = i;
         }
+
+        return found;
     }
 
     /// <summary>

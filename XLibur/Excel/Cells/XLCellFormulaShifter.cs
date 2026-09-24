@@ -281,7 +281,6 @@ internal static partial class XLCellFormulaShifter
         /// </summary>
         /// <returns><c>false</c> when the shift leaves the reference untouched, in which case the
         /// original text is kept verbatim rather than re-rendered.</returns>
-#pragma warning disable S3776 // Insert and delete each have their own clamping rules, documented inline
         private bool TryShiftReference(ReferenceArea reference, out ReferenceArea shifted, out bool destroyed)
         {
             shifted = reference;
@@ -310,43 +309,10 @@ internal static partial class XLCellFormulaShifter
             if (refLast < shiftStart)
                 return false;
 
-            int newFirst, newLast;
-            if (_rowMap is not null)
+            if (!TryMoveExtent(refFirst, refLast, shiftStart, out var newFirst, out var newLast))
             {
-                // The top slides up by the rows deleted above it; the bottom also loses the rows
-                // deleted inside the reference. An inverted result means the deletion swallowed it.
-                newFirst = _rowMap.MapFirst(refFirst);
-                newLast = _rowMap.MapLast(refLast);
-
-                if (newLast < newFirst)
-                {
-                    destroyed = true;
-                    return true;
-                }
-            }
-            else if (_shift > 0)
-            {
-                newFirst = refFirst >= shiftStart ? refFirst + _shift : refFirst;
-                newLast = refLast + _shift;
-            }
-            else
-            {
-                var deleted = -_shift;
-                var shiftEnd = shiftStart + deleted - 1;
-
-                // Rows above the deletion keep their number, rows below move up by the deleted count,
-                // and rows inside it are gone. A boundary that lands inside the deleted block collapses
-                // onto the edge of the block rather than being moved by the full count — clamping the
-                // bottom is what stops a deletion that swallows a reference's tail from producing an
-                // inverted range such as A2:A8 -> A2:A3 (row 4 survives, so the answer is A2:A4).
-                newFirst = refFirst < shiftStart ? refFirst : Math.Max(shiftStart, refFirst - deleted);
-                newLast = refLast <= shiftEnd ? Math.Min(refLast, shiftStart - 1) : refLast - deleted;
-
-                if (newLast < newFirst)
-                {
-                    destroyed = true;
-                    return true;
-                }
+                destroyed = true;
+                return true;
             }
 
             var max = _axis == ShiftAxis.Row ? XLHelper.MaxRowNumber : XLHelper.MaxColumnNumber;
@@ -361,7 +327,41 @@ internal static partial class XLCellFormulaShifter
                 WithExtent(second, newLast, _axis));
             return true;
         }
-#pragma warning restore S3776
+
+        /// <summary>
+        /// Moves the reference's extent on the shift axis, before clamping to the sheet.
+        /// </summary>
+        /// <returns><c>false</c> when a deletion swallows the reference whole.</returns>
+        private bool TryMoveExtent(int refFirst, int refLast, int shiftStart, out int newFirst, out int newLast)
+        {
+            if (_rowMap is not null)
+            {
+                // The top slides up by the rows deleted above it; the bottom also loses the rows
+                // deleted inside the reference. An inverted result means the deletion swallowed it.
+                newFirst = _rowMap.MapFirst(refFirst);
+                newLast = _rowMap.MapLast(refLast);
+                return newLast >= newFirst;
+            }
+
+            if (_shift > 0)
+            {
+                newFirst = refFirst >= shiftStart ? refFirst + _shift : refFirst;
+                newLast = refLast + _shift;
+                return true;
+            }
+
+            var deleted = -_shift;
+            var shiftEnd = shiftStart + deleted - 1;
+
+            // Rows above the deletion keep their number, rows below move up by the deleted count,
+            // and rows inside it are gone. A boundary that lands inside the deleted block collapses
+            // onto the edge of the block rather than being moved by the full count — clamping the
+            // bottom is what stops a deletion that swallows a reference's tail from producing an
+            // inverted range such as A2:A8 -> A2:A3 (row 4 survives, so the answer is A2:A4).
+            newFirst = refFirst < shiftStart ? refFirst : Math.Max(shiftStart, refFirst - deleted);
+            newLast = refLast <= shiftEnd ? Math.Min(refLast, shiftStart - 1) : refLast - deleted;
+            return newLast >= newFirst;
+        }
 
         /// <summary>
         /// A reference that names only the axis we are not shifting: <c>3:5</c> during a column shift,

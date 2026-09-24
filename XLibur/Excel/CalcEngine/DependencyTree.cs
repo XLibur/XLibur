@@ -785,23 +785,35 @@ internal sealed class DependencyTree
             // A small range looks up each of its cells. A large one, such as a whole column, tests
             // each precedent cell instead. Either way, the cost is the smaller of the two counts.
             if ((long)dirtyRange.Width * dirtyRange.Height <= _precedentCells.Count)
-            {
-                for (var row = dirtyRange.TopRow; row <= dirtyRange.BottomRow; ++row)
-                {
-                    for (var column = dirtyRange.LeftColumn; column <= dirtyRange.RightColumn; ++column)
-                    {
-                        if (_precedentCells.TryGetValue(new Point(row, column), out var precedentCell))
-                            found.Add(precedentCell);
-                    }
-                }
-            }
+                FindCellDependentsByLookup(in dirtyRange, found);
             else
+                FindCellDependentsByScan(in dirtyRange, found);
+        }
+
+        /// <summary>
+        /// Look up each cell of <paramref name="dirtyRange"/> among the precedent cells.
+        /// </summary>
+        private void FindCellDependentsByLookup(in Area dirtyRange, List<Dependents> found)
+        {
+            for (var row = dirtyRange.TopRow; row <= dirtyRange.BottomRow; ++row)
             {
-                foreach (var (cell, precedentCell) in _precedentCells)
+                for (var column = dirtyRange.LeftColumn; column <= dirtyRange.RightColumn; ++column)
                 {
-                    if (dirtyRange.Contains(cell))
+                    if (_precedentCells.TryGetValue(new Point(row, column), out var precedentCell))
                         found.Add(precedentCell);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Test each precedent cell against <paramref name="dirtyRange"/>.
+        /// </summary>
+        private void FindCellDependentsByScan(in Area dirtyRange, List<Dependents> found)
+        {
+            foreach (var (cell, precedentCell) in _precedentCells)
+            {
+                if (dirtyRange.Contains(cell))
+                    found.Add(precedentCell);
             }
         }
 

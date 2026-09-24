@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -57,54 +58,31 @@ internal static class ChartAxisXml
     /// Writes the assigned axis properties into <paramref name="axis"/>, adding, editing or removing
     /// each child as the model requires. An axis nobody edited is not modified at all.
     /// </summary>
-#pragma warning disable S3776 // One independent, flat block per assigned axis property
     internal static void Apply(OpenXmlCompositeElement? axis, XLChartAxis model)
     {
         var assigned = model.AssignedFormat;
         if (axis == null || assigned == XLChartAxisFormat.None)
             return;
 
-        if ((assigned & XLChartAxisFormat.Visible) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.Visible))
+            ReplaceAxisChild<C.Delete>(axis, new C.Delete { Val = !model.Visible });
+
+        if (IsAssigned(assigned, XLChartAxisFormat.MajorGridlines))
+            ReplaceAxisChild<C.MajorGridlines>(axis, model.MajorGridlines ? new C.MajorGridlines() : null);
+
+        if (IsAssigned(assigned, XLChartAxisFormat.Title))
+            ReplaceAxisChild<C.Title>(axis, model.Title != null ? TitleElement(model.Title) : null);
+
+        if (IsAssigned(assigned, XLChartAxisFormat.NumberFormat))
         {
-            foreach (var existing in axis.Elements<C.Delete>().ToList())
-                existing.Remove();
-            ChartElementOrder.InsertOrdered(axis, new C.Delete { Val = !model.Visible },
-                ChartElementOrder.AxisChildOrder);
+            ReplaceAxisChild<C.NumberingFormat>(axis, model.NumberFormat != null
+                ? new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false }
+                : null);
         }
 
-        if ((assigned & XLChartAxisFormat.MajorGridlines) != 0)
-        {
-            foreach (var existing in axis.Elements<C.MajorGridlines>().ToList())
-                existing.Remove();
-            if (model.MajorGridlines)
-                ChartElementOrder.InsertOrdered(axis, new C.MajorGridlines(),
-                    ChartElementOrder.AxisChildOrder);
-        }
-
-        if ((assigned & XLChartAxisFormat.Title) != 0)
-        {
-            foreach (var existing in axis.Elements<C.Title>().ToList())
-                existing.Remove();
-            if (model.Title != null)
-                ChartElementOrder.InsertOrdered(axis, TitleElement(model.Title),
-                    ChartElementOrder.AxisChildOrder);
-        }
-
-        if ((assigned & XLChartAxisFormat.NumberFormat) != 0)
-        {
-            foreach (var existing in axis.Elements<C.NumberingFormat>().ToList())
-                existing.Remove();
-            if (model.NumberFormat != null)
-            {
-                ChartElementOrder.InsertOrdered(axis,
-                    new C.NumberingFormat { FormatCode = model.NumberFormat, SourceLinked = false },
-                    ChartElementOrder.AxisChildOrder);
-            }
-        }
-
-        if ((assigned & (XLChartAxisFormat.Min | XLChartAxisFormat.Max
-                         | XLChartAxisFormat.Orientation | XLChartAxisFormat.LogScale
-                         | XLChartAxisFormat.LogBase)) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.Min | XLChartAxisFormat.Max
+                                 | XLChartAxisFormat.Orientation | XLChartAxisFormat.LogScale
+                                 | XLChartAxisFormat.LogBase))
         {
             ApplyScaling(axis, model, assigned);
         }
@@ -114,9 +92,7 @@ internal static class ChartAxisXml
         if (model.IsValueAxis && axis is C.ValueAxis)
             ApplyUnits(axis, model, assigned);
     }
-#pragma warning restore S3776
 
-#pragma warning disable S3776 // One independent, flat block per assigned scaling property
     private static void ApplyScaling(
         OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
     {
@@ -127,68 +103,76 @@ internal static class ChartAxisXml
             ChartElementOrder.InsertOrdered(axis, scaling, ChartElementOrder.AxisChildOrder);
         }
 
-        if ((assigned & (XLChartAxisFormat.LogScale | XLChartAxisFormat.LogBase)) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.LogScale | XLChartAxisFormat.LogBase))
         {
-            foreach (var existing in scaling.Elements<C.LogBase>().ToList())
-                existing.Remove();
             // c:logBase belongs to a value axis; Excel rejects it on a category axis.
-            if (model.LogScale && model.IsValueAxis)
-                ChartElementOrder.InsertOrdered(scaling, new C.LogBase { Val = model.LogBase },
-                    ChartElementOrder.ScalingChildOrder);
+            ReplaceScalingChild<C.LogBase>(scaling, model.LogScale && model.IsValueAxis
+                ? new C.LogBase { Val = model.LogBase }
+                : null);
         }
 
-        if ((assigned & XLChartAxisFormat.Orientation) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.Orientation))
         {
-            foreach (var existing in scaling.Elements<C.Orientation>().ToList())
-                existing.Remove();
-            ChartElementOrder.InsertOrdered(scaling, new C.Orientation
+            ReplaceScalingChild<C.Orientation>(scaling, new C.Orientation
             {
                 Val = model.Orientation == XLAxisOrientation.MaxMin
                     ? C.OrientationValues.MaxMin
                     : C.OrientationValues.MinMax
-            }, ChartElementOrder.ScalingChildOrder);
+            });
         }
 
-        if ((assigned & XLChartAxisFormat.Max) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.Max))
         {
-            foreach (var existing in scaling.Elements<C.MaxAxisValue>().ToList())
-                existing.Remove();
-            if (model.Max != null)
-                ChartElementOrder.InsertOrdered(scaling, new C.MaxAxisValue { Val = model.Max.Value },
-                    ChartElementOrder.ScalingChildOrder);
+            ReplaceScalingChild<C.MaxAxisValue>(scaling,
+                model.Max is { } max ? new C.MaxAxisValue { Val = max } : null);
         }
 
-        if ((assigned & XLChartAxisFormat.Min) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.Min))
         {
-            foreach (var existing in scaling.Elements<C.MinAxisValue>().ToList())
-                existing.Remove();
-            if (model.Min != null)
-                ChartElementOrder.InsertOrdered(scaling, new C.MinAxisValue { Val = model.Min.Value },
-                    ChartElementOrder.ScalingChildOrder);
+            ReplaceScalingChild<C.MinAxisValue>(scaling,
+                model.Min is { } min ? new C.MinAxisValue { Val = min } : null);
         }
     }
-#pragma warning restore S3776
 
     private static void ApplyUnits(
         OpenXmlCompositeElement axis, XLChartAxis model, XLChartAxisFormat assigned)
     {
-        if ((assigned & XLChartAxisFormat.MajorUnit) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.MajorUnit))
         {
-            foreach (var existing in axis.Elements<C.MajorUnit>().ToList())
-                existing.Remove();
-            if (model.MajorUnit != null)
-                ChartElementOrder.InsertOrdered(axis, new C.MajorUnit { Val = model.MajorUnit.Value },
-                    ChartElementOrder.AxisChildOrder);
+            ReplaceAxisChild<C.MajorUnit>(axis,
+                model.MajorUnit is { } majorUnit ? new C.MajorUnit { Val = majorUnit } : null);
         }
 
-        if ((assigned & XLChartAxisFormat.MinorUnit) != 0)
+        if (IsAssigned(assigned, XLChartAxisFormat.MinorUnit))
         {
-            foreach (var existing in axis.Elements<C.MinorUnit>().ToList())
-                existing.Remove();
-            if (model.MinorUnit != null)
-                ChartElementOrder.InsertOrdered(axis, new C.MinorUnit { Val = model.MinorUnit.Value },
-                    ChartElementOrder.AxisChildOrder);
+            ReplaceAxisChild<C.MinorUnit>(axis,
+                model.MinorUnit is { } minorUnit ? new C.MinorUnit { Val = minorUnit } : null);
         }
+    }
+
+    private static bool IsAssigned(XLChartAxisFormat assigned, XLChartAxisFormat properties) =>
+        (assigned & properties) != 0;
+
+    private static void ReplaceAxisChild<T>(OpenXmlCompositeElement axis, OpenXmlElement? replacement)
+        where T : OpenXmlElement =>
+        ReplaceChild<T>(axis, replacement, ChartElementOrder.AxisChildOrder);
+
+    private static void ReplaceScalingChild<T>(C.Scaling scaling, OpenXmlElement? replacement)
+        where T : OpenXmlElement =>
+        ReplaceChild<T>(scaling, replacement, ChartElementOrder.ScalingChildOrder);
+
+    /// <summary>
+    /// Removes every <typeparamref name="T"/> child of <paramref name="parent"/>, then inserts
+    /// <paramref name="replacement"/> at its schema position, or leaves the child absent when it is
+    /// <c>null</c>.
+    /// </summary>
+    private static void ReplaceChild<T>(OpenXmlCompositeElement parent, OpenXmlElement? replacement, Type[] order)
+        where T : OpenXmlElement
+    {
+        foreach (var existing in parent.Elements<T>().ToList())
+            existing.Remove();
+        if (replacement != null)
+            ChartElementOrder.InsertOrdered(parent, replacement, order);
     }
 
     /// <summary>

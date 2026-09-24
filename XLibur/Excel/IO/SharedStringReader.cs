@@ -71,7 +71,6 @@ internal static class SharedStringReader
         return [];
     }
 
-#pragma warning disable S3776 // A hand-rolled XmlReader walk; the node-type tests are the parser
     private static SharedStringEntry[] ReadSst(XmlReader reader)
     {
         // Pre-allocate from the sst's uniqueCount attribute to avoid resize+copy for large tables.
@@ -91,28 +90,15 @@ internal static class SharedStringReader
         {
             if (reader.NodeType == XmlNodeType.Element)
             {
-                if (reader.LocalName == "si" && reader.NamespaceURI == OpenXmlConst.Main2006SsNs)
-                {
-                    var entry = ReadSharedStringItem(reader); // Leaves reader after </si>.
+                if (IsMainElement(reader, "si"))
+                    Append(ref entries, ref count, ReadSharedStringItem(reader)); // Leaves reader after </si>.
+                else
+                    reader.Skip(); // Unknown element (e.g. <extLst>).
 
-                    if (count == entries.Length)
-                    {
-                        // uniqueCount was absent or understated — grow geometrically.
-                        Array.Resize(ref entries, entries.Length == 0 ? 16 : entries.Length * 2);
-                    }
-
-                    entries[count++] = entry;
-                    continue;
-                }
-
-                reader.Skip(); // Unknown element (e.g. <extLst>).
                 continue;
             }
 
-            if (reader.NodeType == XmlNodeType.EndElement || reader.EOF)
-                break;
-
-            if (!reader.Read())
+            if (reader.NodeType == XmlNodeType.EndElement || reader.EOF || !reader.Read())
                 break;
         }
 
@@ -121,7 +107,17 @@ internal static class SharedStringReader
 
         return entries;
     }
-#pragma warning restore S3776
+
+    private static void Append(ref SharedStringEntry[] entries, ref int count, SharedStringEntry entry)
+    {
+        if (count == entries.Length)
+        {
+            // uniqueCount was absent or understated — grow geometrically.
+            Array.Resize(ref entries, entries.Length == 0 ? 16 : entries.Length * 2);
+        }
+
+        entries[count++] = entry;
+    }
 
     private static int ReadUniqueCount(XmlReader reader)
     {
