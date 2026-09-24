@@ -553,32 +553,37 @@ public sealed class XLStreamingWorksheet
                 column.Style is null ? null : _workbook.Styles.GetOrAdd(column.Style),
                 column.Width, column.Hidden, column.Collapsed, column.OutlineLevel);
 
-            xml.WriteStartElement("col", Main2006SsNs);
-            xml.WriteAttribute("min", settings.Min);
-            xml.WriteAttribute("max", settings.Max);
-
-            if (settings.Width is { } width)
-            {
-                xml.WriteAttribute("width", width);
-                xml.WriteAttributeString("customWidth", TrueValue);
-            }
-
-            if (settings.StyleId is { } styleId)
-                xml.WriteAttribute("style", styleId);
-
-            if (settings.Hidden)
-                xml.WriteAttributeString("hidden", TrueValue);
-
-            if (settings.OutlineLevel > 0)
-                xml.WriteAttribute("outlineLevel", settings.OutlineLevel);
-
-            if (settings.Collapsed)
-                xml.WriteAttributeString("collapsed", TrueValue);
-
-            xml.WriteEndElement(); // col
+            WriteColumn(xml, in settings);
         }
 
         xml.WriteEndElement(); // cols
+    }
+
+    private static void WriteColumn(XmlWriter xml, in XLColumnSettings settings)
+    {
+        xml.WriteStartElement("col", Main2006SsNs);
+        xml.WriteAttribute("min", settings.Min);
+        xml.WriteAttribute("max", settings.Max);
+
+        if (settings.Width is { } width)
+        {
+            xml.WriteAttribute("width", width);
+            xml.WriteAttributeString("customWidth", TrueValue);
+        }
+
+        if (settings.StyleId is { } styleId)
+            xml.WriteAttribute("style", styleId);
+
+        if (settings.Hidden)
+            xml.WriteAttributeString("hidden", TrueValue);
+
+        if (settings.OutlineLevel > 0)
+            xml.WriteAttribute("outlineLevel", settings.OutlineLevel);
+
+        if (settings.Collapsed)
+            xml.WriteAttributeString("collapsed", TrueValue);
+
+        xml.WriteEndElement(); // col
     }
 
     private void ThrowIfStarted(string member)

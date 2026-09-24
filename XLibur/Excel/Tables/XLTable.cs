@@ -557,19 +557,7 @@ internal sealed class XLTable : XLRange, IXLTable
         var toSortBy = new StringBuilder();
         foreach (var coPairTrimmed in columnsToSortBy.Split(',').Select(coPair => coPair.Trim()))
         {
-            string coString;
-            string order;
-            if (coPairTrimmed.Contains(' '))
-            {
-                var pair = coPairTrimmed.Split(' ');
-                coString = pair[0];
-                order = pair[1];
-            }
-            else
-            {
-                coString = coPairTrimmed;
-                order = sortOrder == XLSortOrder.Ascending ? "ASC" : "DESC";
-            }
+            SplitSortPair(coPairTrimmed, sortOrder, out var coString, out var order);
 
             if (!int.TryParse(coString, out var co))
                 co = Field(coString).Index + 1;
@@ -583,6 +571,26 @@ internal sealed class XLTable : XLRange, IXLTable
         }
 
         return DataRange!.Sort(toSortBy.ToString(), sortOrder, matchCase, ignoreBlanks);
+    }
+
+    /// <summary>
+    /// Split one "column order" entry of a sort specification; an entry without an order takes
+    /// <paramref name="sortOrder"/>.
+    /// </summary>
+    private static void SplitSortPair(string coPairTrimmed, XLSortOrder sortOrder, out string coString,
+        out string order)
+    {
+        if (coPairTrimmed.Contains(' '))
+        {
+            var pair = coPairTrimmed.Split(' ');
+            coString = pair[0];
+            order = pair[1];
+        }
+        else
+        {
+            coString = coPairTrimmed;
+            order = sortOrder == XLSortOrder.Ascending ? "ASC" : "DESC";
+        }
     }
 
     public new IXLTable Clear(XLClearOptions clearOptions = XLClearOptions.All)
@@ -869,24 +877,7 @@ internal sealed class XLTable : XLRange, IXLTable
         var table = new DataTable(Name);
 
         foreach (var f in Fields.Cast<XLTableField>())
-        {
-            var type = typeof(object);
-            if (f.IsConsistentDataType())
-            {
-                var c = f.Column.Cells().Skip(ShowHeaderRow ? 1 : 0).First();
-                type = c.DataType switch
-                {
-                    XLDataType.Text => typeof(string),
-                    XLDataType.Boolean => typeof(bool),
-                    XLDataType.DateTime => typeof(DateTime),
-                    XLDataType.TimeSpan => typeof(TimeSpan),
-                    XLDataType.Number => typeof(double),
-                    _ => type
-                };
-            }
-
-            table.Columns.Add(f.Name, type);
-        }
+            table.Columns.Add(f.Name, NativeColumnType(f));
 
         foreach (var row in DataRange!.Rows())
         {
@@ -901,6 +892,28 @@ internal sealed class XLTable : XLRange, IXLTable
         }
 
         return table;
+    }
+
+    /// <summary>
+    /// The <see cref="DataTable"/> column type for <paramref name="f"/>: the type of its first data
+    /// cell when every cell has the same type, otherwise <see cref="object"/>.
+    /// </summary>
+    private Type NativeColumnType(XLTableField f)
+    {
+        var type = typeof(object);
+        if (!f.IsConsistentDataType())
+            return type;
+
+        var c = f.Column.Cells().Skip(ShowHeaderRow ? 1 : 0).First();
+        return c.DataType switch
+        {
+            XLDataType.Text => typeof(string),
+            XLDataType.Boolean => typeof(bool),
+            XLDataType.DateTime => typeof(DateTime),
+            XLDataType.TimeSpan => typeof(TimeSpan),
+            XLDataType.Number => typeof(double),
+            _ => type
+        };
     }
 
     public IXLTable CopyTo(IXLWorksheet targetSheet)

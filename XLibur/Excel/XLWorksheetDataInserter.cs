@@ -99,19 +99,26 @@ internal sealed class XLWorksheetDataInserter(XLWorksheet worksheet)
             var modifiedStyle = worksheet.GetStyleForValue(value, point);
             if (modifiedStyle is not null)
             {
-                if (value.IsText)
-                {
-                    var text = value.GetText();
-                    if (text.Length > 0 && text[0] == '\'')
-                        value = text.Substring(1);
-                }
-
+                StripQuotePrefix(ref value);
                 styleSlice.Set(point, modifiedStyle);
             }
 
             valueSlice.SetCellValue(point, value);
             column++;
         }
+    }
+
+    /// <summary>
+    /// Drops the leading apostrophe of a text value whose style was modified for it.
+    /// </summary>
+    private static void StripQuotePrefix(ref XLCellValue value)
+    {
+        if (!value.IsText)
+            return;
+
+        var text = value.GetText();
+        if (text.Length > 0 && text[0] == '\'')
+            value = text.Substring(1);
     }
 
     // Rather memory inefficient, but the original code also materialized

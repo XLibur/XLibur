@@ -128,24 +128,32 @@ internal sealed class XLAlignment : IXLAlignment
             }
 
             if (Indent != value)
-            {
-                if (Horizontal == XLAlignmentHorizontalValues.General)
-                    Horizontal = XLAlignmentHorizontalValues.Left;
+                PrepareHorizontalForIndent(value);
 
-                if (value > 0 && !(
-                        Horizontal == XLAlignmentHorizontalValues.Left
-                        || Horizontal == XLAlignmentHorizontalValues.Right
-                        || Horizontal == XLAlignmentHorizontalValues.Distributed
-                    ))
-                {
-                    throw new ArgumentException(
-                        "For indents, only left, right, and distributed horizontal alignments are supported.");
-                }
-            }
             if (_style.IsCellContainer)
                 SetKey(Key with { Indent = value });
             else
                 Modify(k => k with { Indent = value });
+        }
+    }
+
+    /// <summary>
+    /// Before the indent of a whole style changes: a general alignment becomes left, and an
+    /// alignment that cannot take a positive indent is refused.
+    /// </summary>
+    private void PrepareHorizontalForIndent(int value)
+    {
+        if (Horizontal == XLAlignmentHorizontalValues.General)
+            Horizontal = XLAlignmentHorizontalValues.Left;
+
+        if (value > 0 && !(
+                Horizontal == XLAlignmentHorizontalValues.Left
+                || Horizontal == XLAlignmentHorizontalValues.Right
+                || Horizontal == XLAlignmentHorizontalValues.Distributed
+            ))
+        {
+            throw new ArgumentException(
+                "For indents, only left, right, and distributed horizontal alignments are supported.");
         }
     }
 

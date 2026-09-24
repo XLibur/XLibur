@@ -221,26 +221,35 @@ public static partial class XLHelper
 
         var theColumn = column.ToUpper();
 
-        var isValid = theColumn[0] >= 'A' && theColumn[0] <= 'Z';
+        var isValid = IsUpperLetter(theColumn[0]);
         if (length == 1)
             return isValid;
 
         if (length == 2)
-            return isValid && theColumn[1] >= 'A' && theColumn[1] <= 'Z';
+            return isValid && IsUpperLetter(theColumn[1]);
 
+        return IsValidThreeLetterColumn(theColumn);
+    }
+
+    /// <summary>
+    /// Whether an upper-case, three-character column name is at most XFD, the last column.
+    /// </summary>
+    private static bool IsValidThreeLetterColumn(string theColumn)
+    {
         if (theColumn[0] >= 'A' && theColumn[0] < 'X')
-            return theColumn[1] >= 'A' && theColumn[1] <= 'Z'
-                                       && theColumn[2] >= 'A' && theColumn[2] <= 'Z';
+            return IsUpperLetter(theColumn[1]) && IsUpperLetter(theColumn[2]);
 
         if (theColumn[0] != 'X') return false;
 
         if (theColumn[1] < 'F')
-            return theColumn[2] >= 'A' && theColumn[2] <= 'Z';
+            return IsUpperLetter(theColumn[2]);
 
         if (theColumn[1] != 'F') return false;
 
         return theColumn[2] >= 'A' && theColumn[2] <= 'D';
     }
+
+    private static bool IsUpperLetter(char c) => c >= 'A' && c <= 'Z';
 
     public static bool IsValidRow(string rowString)
     {
