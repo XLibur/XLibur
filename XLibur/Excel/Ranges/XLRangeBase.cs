@@ -1196,6 +1196,17 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         target.CopyFrom(this);
     }
 
+    /// <summary>
+    /// The range a copy of this range occupies when it is pasted with its top-left cell at
+    /// (<paramref name="startRow"/>, <paramref name="startColumn"/>), clamped to the sheet bounds.
+    /// </summary>
+    protected IXLRange BuildCopyResult(IXLWorksheet worksheet, int startRow, int startColumn)
+    {
+        var lastRowNumber = Math.Min(startRow + RowCount() - 1, XLHelper.MaxRowNumber);
+        var lastColumnNumber = Math.Min(startColumn + ColumnCount() - 1, XLHelper.MaxColumnNumber);
+        return worksheet.Range(startRow, startColumn, lastRowNumber, lastColumnNumber);
+    }
+
     IXLPivotTable IXLRangeBase.CreatePivotTable(IXLCell targetCell, string name)
     {
         return CreatePivotTable(targetCell, name);

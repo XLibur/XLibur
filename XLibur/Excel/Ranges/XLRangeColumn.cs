@@ -99,20 +99,13 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
     public IXLRangeColumn CopyTo(IXLCell target)
     {
         CopyToCell((XLCell)target);
-        return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber);
+        return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber).Column(1);
     }
 
     public new IXLRangeColumn CopyTo(IXLRangeBase target)
     {
         base.CopyTo(target);
-        return BuildCopyResult(target.Worksheet, target.RangeAddress.FirstAddress.RowNumber, target.RangeAddress.FirstAddress.ColumnNumber);
-    }
-
-    private IXLRangeColumn BuildCopyResult(IXLWorksheet worksheet, int startRow, int startColumn)
-    {
-        var lastRowNumber = Math.Min(startRow + RowCount() - 1, XLHelper.MaxRowNumber);
-        var lastColumnNumber = Math.Min(startColumn + ColumnCount() - 1, XLHelper.MaxColumnNumber);
-        return worksheet.Range(startRow, startColumn, lastRowNumber, lastColumnNumber).Column(1);
+        return BuildCopyResult(target.Worksheet, target.RangeAddress.FirstAddress.RowNumber, target.RangeAddress.FirstAddress.ColumnNumber).Column(1);
     }
 
     public IXLRangeColumn Column(int start, int end)

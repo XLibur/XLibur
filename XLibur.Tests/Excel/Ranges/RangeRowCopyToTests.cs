@@ -96,6 +96,25 @@ public class RangeRowCopyToTests
     }
 
     [Test]
+    [Arguments("E5:G5")]
+    [Arguments("E5")]
+    [Arguments("E5:H6")]
+    public async Task CopyTo_RangeBase_ReturnsRowAtTargetFirstCell(string targetAddress)
+    {
+        // Regression #624: the returned row started at the target's last column.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").Value = "First";
+        ws.Cell("C1").Value = "Third";
+
+        var result = ws.Range("A1:C1").Row(1).CopyTo(ws.Range(targetAddress));
+
+        await Assert.That(result.RangeAddress.ToString()).IsEqualTo("E5:G5");
+        await Assert.That(result.Cell(1).Value).IsEqualTo((XLCellValue)"First");
+        await Assert.That(result.Cell(3).Value).IsEqualTo((XLCellValue)"Third");
+    }
+
+    [Test]
     public async Task CopyTo_Cell_ReturnsCorrectRangeRow()
     {
         using var wb = new XLWorkbook();
