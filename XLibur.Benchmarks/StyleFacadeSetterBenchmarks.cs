@@ -1,7 +1,6 @@
 using System;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
 
 namespace XLibur.Benchmarks;
 
@@ -18,6 +17,10 @@ namespace XLibur.Benchmarks;
 /// columns and worksheets take. <see cref="BulkStyleBenchmarks"/> styles one large range, so its
 /// cost is the per-cell write and the setter itself is lost in it. Here each write touches a few
 /// cells, so what is left is mostly the setter.
+/// <para>
+/// No font engine is registered here: <c>Program</c> registers one before any benchmark runs, and
+/// nothing in these writes measures text.
+/// </para>
 /// </remarks>
 [MemoryDiagnoser]
 public class StyleFacadeSetterBenchmarks
@@ -26,9 +29,6 @@ public class StyleFacadeSetterBenchmarks
 
     private XLWorkbook _workbook = null!;
     private IXLWorksheet _worksheet = null!;
-
-    [GlobalSetup]
-    public void GlobalSetup() => SixLaborsV1FontBootstrap.Register();
 
     [IterationSetup]
     public void IterationSetup()
