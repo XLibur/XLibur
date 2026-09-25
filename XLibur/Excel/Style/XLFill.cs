@@ -94,24 +94,34 @@ internal sealed class XLFill : IXLFill
     /// the cell's own style. On any other container the key is only that container's record of its
     /// style, which its cells need not share: a range is held weakly by its worksheet, and one
     /// rebuilt after a collection starts from its parent's style rather than its cells' (#505). So
-    /// the non-cell path hands the decision to <paramref name="modification"/>, which runs once per
+    /// the non-cell path hands the decision to <paramref name="with"/>, which runs once per
     /// distinct cell style.
     /// <para>
     /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
     /// <see cref="XLFont"/>'s <c>Modify</c>.
     /// </para>
     /// </remarks>
-    private void Modify(Func<XLFillKey, XLFillKey> modification)
+    private void Modify<T>(T value, Func<XLFillKey, T, XLFillKey> with)
     {
         if (!ReferenceEquals(_value, _style.Value.Fill))
         {
-            Key = modification(Key);
-            _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+            Key = with(Key, value);
+            _style.Modify(styleKey => styleKey with { Fill = with(styleKey.Fill, value) });
             return;
         }
 
-        _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+        _style.Modify(styleKey => styleKey with { Fill = with(styleKey.Fill, value) });
         _value = _style.Value.Fill;
+    }
+
+    /// <inheritdoc cref="XLFont.Apply{T}"/>
+    private void Apply<T>(bool unchanged, T value, Func<XLFillKey, T, XLFillKey> with)
+    {
+        if (unchanged && _style.SkipsUnchangedValues) return;
+        if (_style.IsCellContainer)
+            SetKey(with(Key, value));
+        else
+            Modify(value, with);
     }
 
     /// <summary>
@@ -169,10 +179,7 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            if (_style.IsCellContainer)
-                SetKey(WithBackgroundColor(Key, value));
-            else
-                Modify(k => WithBackgroundColor(k, value));
+            Apply(false, value, static (k, v) => WithBackgroundColor(k, v));
         }
     }
 
@@ -188,27 +195,14 @@ internal sealed class XLFill : IXLFill
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
 
-            var key = Key;
-            if (key.PatternColor == value.Key && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { PatternColor = value.Key });
-            else
-                Modify(k => k with { PatternColor = value.Key });
+            Apply(Key.PatternColor == value.Key, value.Key, static (k, v) => k with { PatternColor = v });
         }
     }
 
     public XLFillPatternValues PatternType
     {
         get => Key.PatternType;
-        set
-        {
-            var key = Key;
-            if (key.PatternType == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(WithPatternType(key, value));
-            else
-                Modify(k => WithPatternType(k, value));
-        }
+        set => Apply(Key.PatternType == value, value, static (k, v) => WithPatternType(k, v));
     }
 
     public IXLStyle SetBackgroundColor(XLColor value)

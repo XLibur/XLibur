@@ -123,7 +123,7 @@ internal sealed class XLFont : IXLFont
     /// </summary>
     /// <remarks>
     /// The cell-container fast path, so it takes the key directly rather than a
-    /// <see cref="Func{T,TResult}"/> delta and allocates no closure. Contrast <see cref="Modify"/>,
+    /// <see cref="Func{T,TResult}"/> delta and allocates no closure. Contrast <see cref="Modify{T}"/>,
     /// which ranges and worksheets need.
     /// <para>
     /// The new key is deliberately <em>not</em> interned before being applied. Assigning it to
@@ -142,8 +142,32 @@ internal sealed class XLFont : IXLFont
     }
 
     /// <summary>
-    /// Non-cell path (ranges, worksheets, conditional formats): must apply per-property
-    /// delta to each cell's individual font key via a modification function.
+    /// The body every setter shares: skip an unchanged value where
+    /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it, then take the cell fast path or the
+    /// <see cref="Modify{T}"/> path.
+    /// </summary>
+    /// <param name="unchanged">Whether <paramref name="value"/> equals the one in <see cref="Key"/>.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="with">Rewrites a font key with the value. Pass a static lambda, which is
+    /// cached, so the cell fast path allocates nothing.</param>
+    /// <remarks>
+    /// The value travels as state beside a static lambda rather than captured by a closure. C#
+    /// allocates a closure over captured parameters on entry to the method that declares the
+    /// lambda, whichever branch then runs, so a setter written as
+    /// <c>Modify(k =&gt; k with { Bold = value })</c> paid for it on the cell path as well.
+    /// </remarks>
+    private void Apply<T>(bool unchanged, T value, Func<XLFontKey, T, XLFontKey> with)
+    {
+        if (unchanged && _style.SkipsUnchangedValues) return;
+        if (_style.IsCellContainer)
+            SetKey(with(Key, value));
+        else
+            Modify(value, with);
+    }
+
+    /// <summary>
+    /// Non-cell path (ranges, worksheets, conditional formats): apply the delta to each cell's own
+    /// font key.
     /// </summary>
     /// <remarks>
     /// A setter skips a value equal to <see cref="Key"/> only where
@@ -155,9 +179,9 @@ internal sealed class XLFont : IXLFont
     /// <para>
     /// Where the facade holds the very value its style does, it does not assign <c>Key</c>, which
     /// would intern the new font in its repository only for the result to be discarded - the same
-    /// wasted lookup <see cref="SetKey"/> documents - and would run <paramref name="modification"/>
-    /// an extra time. The style interns the font again when it resolves its key, so the facade takes
-    /// the interned value back off the resulting style instead.
+    /// wasted lookup <see cref="SetKey"/> documents - and would run <paramref name="with"/> an extra
+    /// time. The style interns the font again when it resolves its key, so the facade takes the
+    /// interned value back off the resulting style instead.
     /// </para>
     /// <para>
     /// Anywhere else the facade's own key stays the source of truth, as it always was. That is a
@@ -167,17 +191,21 @@ internal sealed class XLFont : IXLFont
     /// reference test tells the two apart at the cost of one field read and no state of its own: the
     /// facade is allocated per cell, and a flag would grow every one of them.
     /// </para>
+    /// <para>
+    /// Both lambdas capture the same two parameters, so they share one closure, and only the branch
+    /// taken allocates its delegate.
+    /// </para>
     /// </remarks>
-    private void Modify(Func<XLFontKey, XLFontKey> modification)
+    private void Modify<T>(T value, Func<XLFontKey, T, XLFontKey> with)
     {
         if (!ReferenceEquals(_value, _style.Value.Font))
         {
-            Key = modification(Key);
-            _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+            Key = with(Key, value);
+            _style.Modify(styleKey => styleKey with { Font = with(styleKey.Font, value) });
             return;
         }
 
-        _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+        _style.Modify(styleKey => styleKey with { Font = with(styleKey.Font, value) });
         _value = _style.Value.Font;
     }
 
@@ -186,99 +214,43 @@ internal sealed class XLFont : IXLFont
     public bool Bold
     {
         get => Key.Bold;
-        set
-        {
-            var key = Key;
-            if (key.Bold == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Bold = value });
-            else
-                Modify(k => k with { Bold = value });
-        }
+        set => Apply(Key.Bold == value, value, static (k, v) => k with { Bold = v });
     }
 
     public bool Italic
     {
         get => Key.Italic;
-        set
-        {
-            var key = Key;
-            if (key.Italic == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Italic = value });
-            else
-                Modify(k => k with { Italic = value });
-        }
+        set => Apply(Key.Italic == value, value, static (k, v) => k with { Italic = v });
     }
 
     public XLFontUnderlineValues Underline
     {
         get => Key.Underline;
-        set
-        {
-            var key = Key;
-            if (key.Underline == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Underline = value });
-            else
-                Modify(k => k with { Underline = value });
-        }
+        set => Apply(Key.Underline == value, value, static (k, v) => k with { Underline = v });
     }
 
     public bool Strikethrough
     {
         get => Key.Strikethrough;
-        set
-        {
-            var key = Key;
-            if (key.Strikethrough == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Strikethrough = value });
-            else
-                Modify(k => k with { Strikethrough = value });
-        }
+        set => Apply(Key.Strikethrough == value, value, static (k, v) => k with { Strikethrough = v });
     }
 
     public XLFontVerticalTextAlignmentValues VerticalAlignment
     {
         get => Key.VerticalAlignment;
-        set
-        {
-            var key = Key;
-            if (key.VerticalAlignment == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { VerticalAlignment = value });
-            else
-                Modify(k => k with { VerticalAlignment = value });
-        }
+        set => Apply(Key.VerticalAlignment == value, value, static (k, v) => k with { VerticalAlignment = v });
     }
 
     public bool Shadow
     {
         get => Key.Shadow;
-        set
-        {
-            var key = Key;
-            if (key.Shadow == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Shadow = value });
-            else
-                Modify(k => k with { Shadow = value });
-        }
+        set => Apply(Key.Shadow == value, value, static (k, v) => k with { Shadow = v });
     }
 
     public double FontSize
     {
         get => Key.FontSize;
-        set
-        {
-            var key = Key;
-            if (XLHelper.AreEqual(key.FontSize, value) && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontSize = value });
-            else
-                Modify(k => k with { FontSize = value });
-        }
+        set => Apply(XLHelper.AreEqual(Key.FontSize, value), value, static (k, v) => k with { FontSize = v });
     }
 
     public XLColor FontColor
@@ -292,69 +264,32 @@ internal sealed class XLFont : IXLFont
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value), "Color cannot be null");
-            var key = Key;
-            if (key.FontColor == value.Key && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontColor = value.Key });
-            else
-                Modify(k => k with { FontColor = value.Key });
+            Apply(Key.FontColor == value.Key, value.Key, static (k, v) => k with { FontColor = v });
         }
     }
 
     public string FontName
     {
         get => Key.FontName;
-        set
-        {
-            var key = Key;
-            if (key.FontName == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontName = value });
-            else
-                Modify(k => k with { FontName = value });
-        }
+        set => Apply(Key.FontName == value, value, static (k, v) => k with { FontName = v });
     }
 
     public XLFontFamilyNumberingValues FontFamilyNumbering
     {
         get => Key.FontFamilyNumbering;
-        set
-        {
-            var key = Key;
-            if (key.FontFamilyNumbering == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontFamilyNumbering = value });
-            else
-                Modify(k => k with { FontFamilyNumbering = value });
-        }
+        set => Apply(Key.FontFamilyNumbering == value, value, static (k, v) => k with { FontFamilyNumbering = v });
     }
 
     public XLFontCharSet FontCharSet
     {
         get => Key.FontCharSet;
-        set
-        {
-            var key = Key;
-            if (key.FontCharSet == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontCharSet = value });
-            else
-                Modify(k => k with { FontCharSet = value });
-        }
+        set => Apply(Key.FontCharSet == value, value, static (k, v) => k with { FontCharSet = v });
     }
 
     public XLFontScheme FontScheme
     {
         get => Key.FontScheme;
-        set
-        {
-            var key = Key;
-            if (key.FontScheme == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { FontScheme = value });
-            else
-                Modify(k => k with { FontScheme = value });
-        }
+        set => Apply(Key.FontScheme == value, value, static (k, v) => k with { FontScheme = v });
     }
 
     public IXLStyle SetBold()
