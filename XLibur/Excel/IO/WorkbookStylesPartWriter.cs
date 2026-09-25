@@ -523,42 +523,35 @@ internal static class WorkbookStylesPartWriter
         return differentialFormat;
     }
 
+    /// <summary>
+    /// A conditional format's style as a dxf. It differs from <see cref="AddStyleAsDifferentialFormat"/>
+    /// only in leaving out alignment: a conditional format cannot change alignment in Excel, and
+    /// XLibur has never written it for one.
+    /// </summary>
     private static void AddConditionalDifferentialFormat(DifferentialFormats differentialFormats,
         IXLConditionalFormat cf,
         SaveContext context)
     {
-        var differentialFormat = new DifferentialFormat();
         var styleValue = ((XLStyle)cf.Style).Value;
-
-        var diffFont = GetNewFont(new FontInfo { Font = styleValue.Font }, false);
-        if (diffFont?.HasChildren ?? false)
-            differentialFormat.Append(diffFont);
-
-        if (!string.IsNullOrWhiteSpace(cf.Style.NumberFormat.Format))
-        {
-            var numberFormat = new NumberingFormat
-            {
-                NumberFormatId = (uint)(XLConstants.NumberOfBuiltInStyles + differentialFormats.ChildElements.Count),
-                FormatCode = cf.Style.NumberFormat.Format
-            };
-            differentialFormat.Append(numberFormat);
-        }
-
-        var diffFill = GetNewFill(new FillInfo { Fill = styleValue.Fill }, differentialFillFormat: true);
-        if (diffFill?.HasChildren ?? false)
-            differentialFormat.Append(diffFill);
-
-        var diffBorder = GetNewBorder(new BorderInfo { Border = styleValue.Border }, false);
-        if (diffBorder?.HasChildren ?? false)
-            differentialFormat.Append(diffBorder);
-
-        differentialFormats.Append(differentialFormat);
-
+        differentialFormats.Append(BuildDifferentialFormat(differentialFormats, styleValue, includeAlignment: false));
         context.DifferentialFormats.Add(styleValue, differentialFormats.ChildElements.Count - 1);
     }
 
     private static void AddStyleAsDifferentialFormat(DifferentialFormats differentialFormats, XLStyleValue style,
         SaveContext context)
+    {
+        differentialFormats.Append(BuildDifferentialFormat(differentialFormats, style, includeAlignment: true));
+        context.DifferentialFormats.Add(style, differentialFormats.ChildElements.Count - 1);
+    }
+
+    /// <summary>
+    /// The one builder for a style written as a dxf, in <c>CT_Dxf</c> order: font, numFmt, fill,
+    /// border, then alignment when <paramref name="includeAlignment"/> is set. Every dxf goes through
+    /// <see cref="GetNewDifferentialNumberFormat"/>, so custom <c>numFmtId</c>s share one numbering
+    /// scheme and built-in ids are kept.
+    /// </summary>
+    private static DifferentialFormat BuildDifferentialFormat(DifferentialFormats differentialFormats,
+        XLStyleValue style, bool includeAlignment)
     {
         var differentialFormat = new DifferentialFormat();
 
@@ -578,13 +571,14 @@ internal static class WorkbookStylesPartWriter
         if (diffBorder?.HasChildren ?? false)
             differentialFormat.Append(diffBorder);
 
-        var diffAlignment = GetNewDifferentialAlignment(style.Alignment);
-        if (diffAlignment is not null)
-            differentialFormat.Append(diffAlignment);
+        if (includeAlignment)
+        {
+            var diffAlignment = GetNewDifferentialAlignment(style.Alignment);
+            if (diffAlignment is not null)
+                differentialFormat.Append(diffAlignment);
+        }
 
-        differentialFormats.Append(differentialFormat);
-
-        context.DifferentialFormats.Add(style, differentialFormats.ChildElements.Count - 1);
+        return differentialFormat;
     }
 
     /// <summary>
