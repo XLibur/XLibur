@@ -21,14 +21,11 @@ internal sealed class XLCFDatesOccurringConverter : IXLCFConverter
 
     public ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
     {
-        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
-        var cfStyle = ((XLStyle)cf.Style).Value;
-        if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
-            conditionalFormattingRule.FormatId = (uint)context.DifferentialFormats[cfStyle];
+        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority, context);
 
         conditionalFormattingRule.TimePeriod = cf.TimePeriod.ToOpenXml();
 
-        var address = cf.Range.RangeAddress.FirstAddress.ToStringRelative(false);
+        var address = XLCFBaseConverter.AnchorAddress(cf);
         var formula = new Formula { Text = string.Format(formulaTemplates[cf.TimePeriod], address) };
 
         conditionalFormattingRule.Append(formula);
