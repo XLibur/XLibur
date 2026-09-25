@@ -77,12 +77,8 @@ internal static class Financial
         if (period < 1 || period > numberOfPayments)
             return XLError.NumberInvalid;
 
-        double ipmt = FvInternal(rate, period - 1, PmtInternal(rate, numberOfPayments, presentValue, futureValue, type), presentValue, type) * rate;
-
-        if (type != 0.0)
-            ipmt /= (1 + rate);
-
-        return ipmt;
+        // InterestOfPeriod ignores the future value; the payment passed in carries it.
+        return InterestOfPeriod(rate, period, presentValue, type, PmtInternal(rate, numberOfPayments, presentValue, futureValue, type));
     }
 
     private static AnyValue Pmt(double rate, double numberOfPayments, double presentValue, double futureValue, double type)
@@ -582,7 +578,8 @@ internal static class Financial
         return total;
     }
 
-    /// <summary>Interest portion of a single annuity payment; the IPMT calculation without the argument checks.</summary>
+    /// <summary>Interest portion of a single annuity payment; the IPMT calculation without the argument checks.
+    /// Shared by IPMT, PPMT, CUMIPMT and CUMPRINC so they agree on every period.</summary>
     private static double InterestOfPeriod(double rate, double period, double presentValue, double type, double pmt)
     {
         // Payment one of an annuity-due carries no interest — the payment is made before any accrues.
