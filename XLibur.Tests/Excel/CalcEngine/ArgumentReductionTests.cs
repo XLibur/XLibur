@@ -61,6 +61,15 @@ public class ArgumentReductionTests
         await Assert.That(ws.Evaluate("ROWS(UNIQUE({1;1;2}, , 1))")).IsEqualTo(1);
         await Assert.That(ws.Evaluate("UNIQUE({1;1;2}, \"maybe\")")).IsEqualTo(XLError.IncompatibleValue);
 
+        // An argument that cannot be reduced to one cell is #VALUE!: a multi-area reference, and a
+        // range the formula's own cell doesn't intersect.
+        ws.Cell("D4").FormulaA1 = "ROWS(SEQUENCE((A1,A2)))";
+        await Assert.That(ws.Cell("D4").Value).IsEqualTo(XLError.IncompatibleValue);
+        ws.Cell("D5").FormulaA1 = "ROWS(SEQUENCE(A1:B2))";
+        await Assert.That(ws.Cell("D5").Value).IsEqualTo(XLError.IncompatibleValue);
+        ws.Cell("D6").FormulaA1 = "ROWS(UNIQUE({1;1;2}, A1:B2))";
+        await Assert.That(ws.Cell("D6").Value).IsEqualTo(XLError.IncompatibleValue);
+
         // An empty placeholder leaves TAKE's row count alone.
         await Assert.That(ws.Evaluate("COLUMNS(TAKE({1,2,3;4,5,6}, , 2))")).IsEqualTo(2);
         await Assert.That(ws.Evaluate("ROWS(TAKE({1,2,3;4,5,6}, , 2))")).IsEqualTo(2);
