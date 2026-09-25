@@ -52,12 +52,6 @@ internal sealed class XLFont : IXLFont
 
     private readonly XLStyle _style;
 
-    /// <summary>
-    /// True when this font was built without a style, over a key the empty style it made for itself
-    /// does not hold - a rich text run's font, say. See <see cref="Modify"/>.
-    /// </summary>
-    private readonly bool _detached;
-
     private XLFontValue _value;
 
     /// <remarks>
@@ -86,7 +80,6 @@ internal sealed class XLFont : IXLFont
     /// <param name="value">Style value to use.</param>
     public XLFont(XLStyle? style, XLFontValue value)
     {
-        _detached = style is null;
         _style = style ?? XLStyle.CreateEmptyStyle();
         _value = value;
     }
@@ -160,12 +153,19 @@ internal sealed class XLFont : IXLFont
     /// from its parent's style rather than its cells' (#505). A value equal to that record can still
     /// change a cell, so there the setter always writes.
     /// <para>
-    /// An attached font does not assign <c>Key</c>, which would intern the new font in its repository
-    /// only for the result to be discarded - the same wasted lookup <see cref="SetKey"/> documents -
-    /// and would run <paramref name="modification"/> an extra time. The style interns the font again
-    /// when it resolves its key, so the facade takes the interned value back off the resulting style.
-    /// A detached font cannot: its empty style holds the default font, not this one's key, so the
-    /// facade's own key stays the source of truth there.
+    /// Where the facade holds the very value its style does, it does not assign <c>Key</c>, which
+    /// would intern the new font in its repository only for the result to be discarded - the same
+    /// wasted lookup <see cref="SetKey"/> documents - and would run <paramref name="modification"/>
+    /// an extra time. The style interns the font again when it resolves its key, so the facade takes
+    /// the interned value back off the resulting style instead.
+    /// </para>
+    /// <para>
+    /// Anywhere else the facade's own key stays the source of truth, as it always was. That is a
+    /// font built without a style - a rich text run's, which gets an empty style holding the default
+    /// font rather than its own - and, rarely, a facade whose style was reset under it, or whose value
+    /// the repository handed back as a second instance after a collection. Values are interned, so a
+    /// reference test tells the two apart at the cost of one field read and no state of its own: the
+    /// facade is allocated per cell, and a flag would grow every one of them.
     /// </para>
     /// </remarks>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
@@ -176,7 +176,7 @@ internal sealed class XLFont : IXLFont
             return;
         }
 
-        if (_detached)
+        if (!ReferenceEquals(_value, _style.Value.Font))
         {
             Key = modification(Key);
             _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });

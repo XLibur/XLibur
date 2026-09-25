@@ -40,6 +40,7 @@ internal sealed class XLAlignment : IXLAlignment
             var pending = _style.Pending;
             return pending is null ? _value.Key : pending.Alignment;
         }
+        set => _value = XLAlignmentValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -388,7 +389,8 @@ internal sealed class XLAlignment : IXLAlignment
     /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
     /// not share (#505), so there the setter always writes.
     /// <para>
-    /// Neither branch assigns <c>Key</c>. See <see cref="XLBorder"/>'s <c>Modify</c>.
+    /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
+    /// <see cref="XLFont"/>'s <c>Modify</c>.
     /// </para>
     /// </remarks>
     private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
@@ -396,6 +398,13 @@ internal sealed class XLAlignment : IXLAlignment
         if (_style.IsCellContainer)
         {
             SetKey(modification(Key));
+            return;
+        }
+
+        if (!ReferenceEquals(_value, _style.Value.Alignment))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
             return;
         }
 
