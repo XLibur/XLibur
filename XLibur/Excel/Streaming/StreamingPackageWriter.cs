@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Xml;
+using XLibur.Excel.IO;
 
 namespace XLibur.Excel.Streaming;
 
@@ -55,13 +56,7 @@ internal sealed class StreamingPackageWriter : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var entry = _archive.CreateEntry(entryName, _compressionLevel);
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8
-        };
-
-        return XmlWriter.Create(entry.Open(), settings);
+        return PartXmlWriter.Create(entry.Open(), closeOutput: true);
     }
 
     public void Dispose()

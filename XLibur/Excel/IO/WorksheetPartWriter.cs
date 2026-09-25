@@ -88,11 +88,7 @@ internal static class WorksheetPartWriter
 
         using (var partStream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read))
         using (var reader = PartXmlReader.CreateVerbatim(partStream))
-        using (var writer = XmlWriter.Create(buffer, new XmlWriterSettings
-        {
-            CloseOutput = false,
-            Encoding = XLHelper.NoBomUTF8,
-        }))
+        using (var writer = PartXmlWriter.Create(buffer, closeOutput: false))
         {
             if (reader.MoveToContent() != XmlNodeType.Element)
                 throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
@@ -298,14 +294,9 @@ internal static class WorksheetPartWriter
     private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
         SaveContext context, SaveOptions options)
     {
-        // The worksheet part might have stale content; opening with FileMode.Create truncates it.
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8,
-        };
-        var partStream = worksheetPart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        // The worksheet part might have stale content; PartXmlWriter opens it with
+        // FileMode.Create, which truncates it.
+        using var xml = PartXmlWriter.Create(worksheetPart);
 
         xml.WriteStartDocument(true);
 

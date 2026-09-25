@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.RichText;
@@ -13,13 +12,7 @@ internal static class CommentPartWriter
     internal static void GenerateWorksheetCommentsPartContent(WorksheetCommentsPart worksheetCommentsPart,
         XLWorksheet xlWorksheet)
     {
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8
-        };
-        var partStream = worksheetCommentsPart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(worksheetCommentsPart);
 
         var entries = CommentWriteSource.Collect(xlWorksheet);
         var authorsDict = new Dictionary<string, int>();

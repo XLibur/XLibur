@@ -1,4 +1,3 @@
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Tables;
@@ -17,13 +16,7 @@ internal static class SharedStringTableWriter
         // Call all table headers to make sure their names are filled
         workbook.Worksheets.ForEach(w => w.Tables.ForEach(t => _ = ((XLTable)t).FieldNames.Count));
 
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8
-        };
-        var partStream = sharedStringTablePart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(sharedStringTablePart);
 
         xml.WriteStartDocument();
 

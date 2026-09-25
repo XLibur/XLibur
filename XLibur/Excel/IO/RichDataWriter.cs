@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -146,8 +145,7 @@ internal static class RichDataWriter
     /// </summary>
     private static void WriteRichValueRelXml(OpenXmlPart part, string[] imageRelIds)
     {
-        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
-        using var w = XmlWriter.Create(stream, XmlSettings());
+        using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
         w.WriteStartElement("richValueRels", RvrNs);
@@ -181,8 +179,7 @@ internal static class RichDataWriter
         IReadOnlyList<RichValueEntry> entries,
         Dictionary<int, int> imageIndexToRelIndex)
     {
-        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
-        using var w = XmlWriter.Create(stream, XmlSettings());
+        using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
         w.WriteStartElement("rvData", OpenXmlConst.RichDataNs);
@@ -214,8 +211,7 @@ internal static class RichDataWriter
     /// </summary>
     private static void WriteRichValueStructureXml(OpenXmlPart part)
     {
-        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
-        using var w = XmlWriter.Create(stream, XmlSettings());
+        using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
         w.WriteStartElement("rvStructures", OpenXmlConst.RichData2Ns);
@@ -252,8 +248,7 @@ internal static class RichDataWriter
     /// </summary>
     private static void WriteRichValueTypesXml(OpenXmlPart part)
     {
-        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
-        using var w = XmlWriter.Create(stream, XmlSettings());
+        using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
         w.WriteStartElement("rvTypesInfo", OpenXmlConst.RichData2Ns);
@@ -284,10 +279,4 @@ internal static class RichDataWriter
 
         w.WriteEndElement(); // rvTypesInfo
     }
-
-    private static XmlWriterSettings XmlSettings() => new()
-    {
-        Encoding = XLHelper.NoBomUTF8,
-        CloseOutput = true,
-    };
 }

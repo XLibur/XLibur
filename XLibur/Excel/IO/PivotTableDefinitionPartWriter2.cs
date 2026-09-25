@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Xml;
 using DocumentFormat.OpenXml;
@@ -34,13 +33,7 @@ internal static class PivotTableDefinitionPartWriter2
 
     internal static void WriteContent(PivotTablePart pivotTablePart, XLPivotTable pt, SaveContext context)
     {
-        var settings = new XmlWriterSettings
-        {
-            Encoding = XLHelper.NoBomUTF8
-        };
-
-        using var partStream = pivotTablePart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(pivotTablePart);
 
         xml.WriteStartDocument();
         xml.WriteStartElement("pivotTableDefinition", Main2006SsNs);

@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -19,14 +18,7 @@ internal static class ThreadedCommentPartWriter
 
     internal static void GenerateContent(WorksheetThreadedCommentsPart part, XLWorksheet worksheet)
     {
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8
-        };
-
-        var partStream = part.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(part);
 
         xml.WriteStartElement("ThreadedComments", PersonPartWriter.ThreadedCommentsNs);
         xml.WriteAttributeString("xmlns", "x", null, OpenXmlConst.Main2006SsNs);
