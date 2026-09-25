@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
+using XLibur.Graphics;
 
 namespace XLibur.Excel;
 
@@ -364,9 +365,21 @@ public static partial class XLHelper
         return GetColumnNumberFromLetter(cellAddressString.AsSpan(0, rowPos));
     }
 
-    internal static string[] SplitRange(string range)
+    /// <summary>
+    /// Split one entry of a row or column list, such as "A", "A:C", "3" or "1-3", into its first
+    /// and last part. An entry without a ':' or '-' separator is both its first and its last part.
+    /// </summary>
+    /// <remarks>
+    /// Neither part is validated or converted; callers decide whether the parts are letters,
+    /// numbers or cell addresses. Anything after a second separator is ignored.
+    /// </remarks>
+    internal static (string First, string Last) SplitRangePair(string pair)
     {
-        return range.Contains('-') ? range.Replace('-', ':').Split(':') : range.Split(':');
+        if (!pair.Contains(':') && !pair.Contains('-'))
+            return (pair, pair);
+
+        var parts = pair.Split(':', '-');
+        return (parts[0], parts[1]);
     }
 
     internal static IXLTableRows InsertRowsWithoutEvents(Func<int, bool, IXLRangeRows> insertFunc,
@@ -559,6 +572,23 @@ public static partial class XLHelper
     }
 
     /// <summary>
+    /// Maximum digit width (MDW) of a font in whole pixels. MDW is the unit of OOXML column widths
+    /// (ECMA-376 Part 1, 18.3.1.13), so Calibri 11pt at 96 DPI is 7 pixels.
+    /// </summary>
+    /// <remarks>
+    /// This is the one place that rounds the engine's fractional width. It rounds half away from
+    /// zero, the same as every other pixel snap of a font metric here (<c>GlyphBox.EmSize</c>,
+    /// <c>GlyphBox.Descent</c>), and as a renderer snaps a positive width to the pixel grid.
+    /// Banker's rounding would make a width of 8.5 px 8 but 7.5 px 8 too.
+    /// </remarks>
+    internal static int GetMdw(IXLFontEngine engine, IXLFontBase font, double dpiX)
+        => engine.GetMaxDigitWidth(font, dpiX).RoundToInt();
+
+    /// <inheritdoc cref="GetMdw(IXLFontEngine, IXLFontBase, double)"/>
+    internal static int GetMdw(IXLFontBase font, XLWorkbook workbook)
+        => GetMdw(workbook.FontEngine, font, workbook.DpiX);
+
+    /// <summary>
     /// Convert size in number of characters to pixels.
     /// </summary>
     /// <param name="noc">Width</param>
@@ -567,7 +597,7 @@ public static partial class XLHelper
     /// <returns>Width in pixels.</returns>
     internal static int NoCToPixels(double noc, IXLFont font, XLWorkbook workbook)
     {
-        var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
+        var mdw = GetMdw(font, workbook);
         return NoCToPixels(noc, mdw).RoundToInt();
     }
 
@@ -596,7 +626,7 @@ public static partial class XLHelper
     /// <returns>Width as a number of NoC.</returns>
     internal static double ConvertWidthToNoC(double width, IXLFont font, XLWorkbook workbook)
     {
-        var mdw = workbook.FontEngine.GetMaxDigitWidth(font, workbook.DpiX).RoundToInt();
+        var mdw = GetMdw(font, workbook);
         var pixelsWidth = WidthToPixels(width, mdw);
         var columnWidth = PixelToNoC(pixelsWidth, mdw);
         return columnWidth;

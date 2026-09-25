@@ -873,6 +873,31 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         return retVal;
     }
 
+    /// <summary>
+    /// <c>Range(string)</c> for a range that is one row or one column wide. A bare number in the
+    /// address counts along the line: in a row it names a column of that row, in a column it names
+    /// a row of that column. So "2:4" (or "2-4") on a row is its 2nd to 4th cell. A1 parts pass
+    /// through unchanged.
+    /// </summary>
+    /// <param name="rangeAddress">One part ("2", "B3") or a pair of parts ("2:4", "2-4", "B3:D3").</param>
+    /// <param name="isRow"><c>true</c> when this range is a row, <c>false</c> when it is a column.</param>
+    private protected XLRange RangeFromLineAddress(string rangeAddress, bool isRow)
+    {
+        string addressToUse;
+        if (rangeAddress.Contains(':') || rangeAddress.Contains('-'))
+        {
+            var (first, last) = XLHelper.SplitRangePair(rangeAddress);
+            addressToUse = FixLineAddress(first, isRow) + ":" + FixLineAddress(last, isRow);
+        }
+        else
+            addressToUse = FixLineAddress(rangeAddress, isRow);
+
+        return Range(new XLRangeAddress(Worksheet, addressToUse));
+    }
+
+    private string FixLineAddress(string address, bool isRow)
+        => isRow ? FixRowAddress(address) : FixColumnAddress(address);
+
     protected string FixColumnAddress(string address)
     {
         if (int.TryParse(address, out var rowNumber))

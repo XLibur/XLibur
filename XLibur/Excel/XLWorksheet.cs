@@ -396,7 +396,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         var columnPairs = columns.Split(',');
         foreach (var tPair in columnPairs.Select(pair => pair.Trim()))
         {
-            SplitColumnPair(tPair, out var firstColumn, out var lastColumn);
+            var (firstColumn, lastColumn) = XLHelper.SplitRangePair(tPair);
 
             foreach (var col in ColumnsOfPair(firstColumn, lastColumn))
                 retVal.Add((XLColumn)col);
@@ -418,24 +418,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         for (var co = firstColumn; co <= lastColumn; co++)
             retVal.Add(Column(co));
         return retVal;
-    }
-
-    /// <summary>
-    /// Split one entry of a column list ("A", "A:C", "1-3") into its first and last column.
-    /// </summary>
-    private static void SplitColumnPair(string tPair, out string firstColumn, out string lastColumn)
-    {
-        if (tPair.Contains(':') || tPair.Contains('-'))
-        {
-            var columnRange = XLHelper.SplitRange(tPair);
-            firstColumn = columnRange[0];
-            lastColumn = columnRange[1];
-        }
-        else
-        {
-            firstColumn = tPair;
-            lastColumn = tPair;
-        }
     }
 
     /// <summary>
@@ -467,20 +449,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         var rowPairs = rows.Split(',');
         foreach (var tPair in rowPairs.Select(pair => pair.Trim()))
         {
-            string firstRow;
-            string lastRow;
-            if (tPair.Contains(':') || tPair.Contains('-'))
-            {
-                var rowRange = XLHelper.SplitRange(tPair);
-                firstRow = rowRange[0];
-                lastRow = rowRange[1];
-            }
-            else
-            {
-                firstRow = tPair;
-                lastRow = tPair;
-            }
-
+            var (firstRow, lastRow) = XLHelper.SplitRangePair(tPair);
             Rows(int.Parse(firstRow), int.Parse(lastRow))
                 .ForEach(row => retVal.Add((XLRow)row));
         }

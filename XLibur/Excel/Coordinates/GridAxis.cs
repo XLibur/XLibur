@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using XLibur.Excel.Rows;
 
 // S4136 wants every IndexOf together and then every CrossOf. The members here are grouped by the
 // parameter they project instead — the `in XLAddress` pair, the `IXLAddress` pair, the `Point`
@@ -97,6 +98,13 @@ internal interface IGridAxis
     /// <summary>Copies a line's height (row axis) or width (column axis) onto another line.</summary>
     void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex);
 
+    /// <summary>
+    /// Renumbers a materialised line: <c>XLRow.SetRowNumber</c> on the row axis,
+    /// <c>XLColumn.SetColumnNumber</c> on the column axis. <paramref name="line"/> must be a line
+    /// of this axis; <see cref="XLLineCollection{TLine, TAxis}"/> is the caller.
+    /// </summary>
+    void SetLineNumber(XLRangeBase line, int index);
+
     void ShiftSparklines(XLSparklineGroups groups, Area area, int shift);
     void InsertAreaAndShift(XLCellsCollection cells, Area area);
     void NotifyRangeShifted(XLWorksheet worksheet, XLRange range, int shift);
@@ -176,6 +184,7 @@ internal readonly struct RowAxis : IGridAxis
     public int CrossCount(XLRangeBase range) => range.ColumnCount();
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Row(toIndex).Height = worksheet.Row(fromIndex).Height;
+    public void SetLineNumber(XLRangeBase line, int index) => ((XLRow)line).SetRowNumber(index);
     public void ShiftSparklines(XLSparklineGroups groups, Area area, int shift)
         => groups.ShiftRows(area, shift);
     public void InsertAreaAndShift(XLCellsCollection cells, Area area)
@@ -234,6 +243,7 @@ internal readonly struct ColumnAxis : IGridAxis
     public int CrossCount(XLRangeBase range) => range.RowCount();
     public void CopyLineSize(XLWorksheet worksheet, int fromIndex, int toIndex)
         => worksheet.Column(toIndex).Width = worksheet.Column(fromIndex).Width;
+    public void SetLineNumber(XLRangeBase line, int index) => ((XLColumn)line).SetColumnNumber(index);
     public void ShiftSparklines(XLSparklineGroups groups, Area area, int shift)
         => groups.ShiftColumns(area, shift);
     public void InsertAreaAndShift(XLCellsCollection cells, Area area)
