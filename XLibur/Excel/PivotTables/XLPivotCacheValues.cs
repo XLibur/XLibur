@@ -12,7 +12,7 @@ namespace XLibur.Excel;
 /// <summary>
 /// All values of a cache field for a pivot table.
 /// </summary>
-internal sealed class XLPivotCacheValues
+internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
 {
     private readonly XLPivotCacheSharedItems _sharedItems;
 
@@ -102,19 +102,19 @@ internal sealed class XLPivotCacheValues
 
     internal XLPivotCacheSharedItems SharedItems => _sharedItems;
 
-    internal void AddMissing()
+    public void AddMissing()
     {
         _values.Add(XLPivotCacheValue.ForMissing());
         _containsBlank = true;
     }
 
-    internal void AddNumber(double number)
+    public void AddNumber(double number)
     {
         _values.Add(XLPivotCacheValue.ForNumber(number));
         AdjustStats(number);
     }
 
-    internal void AddBoolean(bool boolean)
+    public void AddBoolean(bool boolean)
     {
         _values.Add(XLPivotCacheValue.ForBoolean(boolean));
 
@@ -122,7 +122,7 @@ internal sealed class XLPivotCacheValues
         _containsString = true;
     }
 
-    internal void AddError(XLError error)
+    public void AddError(XLError error)
     {
         _values.Add(XLPivotCacheValue.ForError(error));
 
@@ -130,13 +130,13 @@ internal sealed class XLPivotCacheValues
         _containsString = true;
     }
 
-    internal void AddString(string text)
+    public void AddString(string text)
     {
         _values.Add(XLPivotCacheValue.ForText(text, _stringStorage));
         AdjustStats(text);
     }
 
-    internal void AddDateTime(DateTime dateTime)
+    public void AddDateTime(DateTime dateTime)
     {
         _values.Add(XLPivotCacheValue.ForDateTime(dateTime));
         AdjustStats(dateTime);
@@ -212,7 +212,7 @@ internal sealed class XLPivotCacheValues
         if (sharedItemsIndex >= 0)
             return sharedItemsIndex;
 
-        _sharedItems.Add(value);
+        _sharedItems.AddCellValue(value);
 
         return _sharedItems.Count - 1;
     }
@@ -227,34 +227,9 @@ internal sealed class XLPivotCacheValues
 
             // Add to shared items first, because value can be an index to shared items.
             if (uniqueItems.Add(value))
-                _sharedItems.Add(value);
+                _sharedItems.AddCellValue(value);
 
-            switch (value.Type)
-            {
-                case XLDataType.Blank:
-                    AddMissing();
-                    break;
-                case XLDataType.Boolean:
-                    AddBoolean(value.GetBoolean());
-                    break;
-                case XLDataType.Number:
-                    AddNumber(value.GetNumber());
-                    break;
-                case XLDataType.Text:
-                    AddString(value.GetText());
-                    break;
-                case XLDataType.Error:
-                    AddError(value.GetError());
-                    break;
-                case XLDataType.DateTime:
-                    AddDateTime(value.GetDateTime());
-                    break;
-                case XLDataType.TimeSpan:
-                    AddDateTime(XLPivotCacheValue.ToCacheDateTime(value.GetTimeSpan()));
-                    break;
-                default:
-                    throw new UnreachableException();
-            }
+            this.AddCellValue(value);
         }
     }
 

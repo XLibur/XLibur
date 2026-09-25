@@ -2,8 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Text;
+using System.Linq;
 using XLibur.Excel.Drawings;
 using XLibur.Excel.Tables;
 
@@ -86,8 +85,8 @@ internal sealed class XLSlicers : IXLSlicers
             slicerCache.Items.Add(new XLSlicerCacheItem((uint)i, Selected: true));
 
         var area = pivotTable.Area;
-        return AddNew(slicerCache, fieldName,
-            DefaultPositionBeside(area.FirstPoint.Row, area.LastPoint.Column));
+        return AddNew(slicerCache, fieldName, XLSheetControlNames.DefaultPositionBeside(
+            _worksheet, area.FirstPoint.Row, area.LastPoint.Column));
     }
 
     /// <summary>
@@ -123,14 +122,15 @@ internal sealed class XLSlicers : IXLSlicers
             TableColumnPosition = found,
         };
 
-        return AddNew(slicerCache, columnName, DefaultPositionBeside(
+        return AddNew(slicerCache, columnName, XLSheetControlNames.DefaultPositionBeside(
+            _worksheet,
             table.RangeAddress.FirstAddress.RowNumber,
             table.RangeAddress.LastAddress.ColumnNumber));
     }
 
     private XLSlicer AddNew(XLSlicerCache cache, string sourceName, IXLCell position)
     {
-        var name = NextSlicerName(sourceName);
+        var name = XLSheetControlNames.NextControlName(_worksheet.Workbook, sourceName);
         var slicer = new XLSlicer(_worksheet, cache, name) { IsNew = true, FromMarker = new XLMarker(position) };
 
         // Seeded rather than assigned, so a slicer created and left alone carries no pending edits.
@@ -143,115 +143,16 @@ internal sealed class XLSlicers : IXLSlicers
     }
 
     /// <summary>
-    /// Where a new slicer goes when the caller has not said: two columns to the right of whatever it
-    /// filters, at that thing's top row.
+    /// A slicer cache name not already taken: <c>Slicer_Region</c>, then <c>Slicer_Region1</c>.
+    /// Only slicer caches and defined names count as taken — see
+    /// <see cref="XLSheetControlNames.NextCacheName"/>.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A default is not optional here, and it is worth saying why rather than leaving it to the
-    /// layer below. <c>DrawingAnchorFactory</c> documents that a drawing handed no marker gets one
-    /// at A1 — silently, with no exception and no missing element. For a picture that is a
-    /// reasonable default. For a slicer it would drop the panel over the top-left of the sheet,
-    /// covering the very data it filters, and the caller would have no idea why.
-    /// </para>
-    /// <para>
-    /// So every slicer XLibur creates is given a marker before the factory sees it, and that
-    /// fallback stays unreachable from here. Two columns of clearance keeps the panel off the
-    /// source without guessing at column widths.
-    /// </para>
-    /// </remarks>
-    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
-        _worksheet.Cell(
-            Math.Max(1, topRow),
-            Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));
-
-    /// <summary>
-    /// A cache name not already taken, in the shape Excel uses: <c>Slicer_Region</c>, then
-    /// <c>Slicer_Region1</c>.
-    /// </summary>
-    /// <remarks>
-    /// The name is not decoration. A slicer refers to its cache by it, and Excel writes a
-    /// <c>#N/A</c> defined name under the same name, so it has to be a legal defined name: no
-    /// spaces, and nothing that would parse as a cell reference.
-    /// </remarks>
-    private string NextCacheName(string sourceName)
-    {
-        var stem = "Slicer_" + Sanitise(sourceName);
-        var taken = WorkbookCacheNames();
-
-        if (!taken.Contains(stem))
-            return stem;
-
-        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
-        // and the loop returns within `taken.Count + 1` iterations.
-#pragma warning disable S1994
-        for (var suffix = 1; ; suffix++)
-        {
-            var candidate = stem + suffix.ToString(CultureInfo.InvariantCulture);
-            if (!taken.Contains(candidate))
-                return candidate;
-        }
-#pragma warning restore S1994
-    }
-
-    /// <summary>
-    /// A slicer name not already taken, in the shape Excel uses: <c>Region</c>, then
-    /// <c>Region 1</c>. Slicer names are unique across the workbook, not just the sheet.
-    /// </summary>
-    /// <remarks>
-    /// Slicers and timelines share one name namespace in Excel's selection pane, so this also has to
-    /// scan timeline names — otherwise a slicer could take a name a timeline already has.
-    /// </remarks>
-    private string NextSlicerName(string sourceName)
-    {
-        var taken = new HashSet<string>(XLHelper.NameComparer);
-        foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var slicer in worksheet.SlicersInternal.Items)
-                taken.Add(slicer.Name);
-            foreach (var timeline in worksheet.TimelinesInternal.Items)
-                taken.Add(timeline.Name);
-        }
-
-        if (!taken.Contains(sourceName))
-            return sourceName;
-
-        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
-        // and the loop returns within `taken.Count + 1` iterations.
-#pragma warning disable S1994
-        for (var suffix = 1; ; suffix++)
-        {
-            var candidate = sourceName + " " + suffix.ToString(CultureInfo.InvariantCulture);
-            if (!taken.Contains(candidate))
-                return candidate;
-        }
-#pragma warning restore S1994
-    }
-
-    private HashSet<string> WorkbookCacheNames()
-    {
-        var taken = new HashSet<string>(XLHelper.NameComparer);
-        foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var slicer in worksheet.SlicersInternal.Items)
-                taken.Add(slicer.Cache.Name);
-        }
-
-        // A defined name already using the stem would collide with the one written for the cache.
-        foreach (var definedName in _worksheet.Workbook.DefinedNamesInternal)
-            taken.Add(definedName.Name);
-
-        return taken;
-    }
-
-    private static string Sanitise(string sourceName)
-    {
-        var builder = new StringBuilder(sourceName.Length);
-        foreach (var c in sourceName)
-            builder.Append(char.IsLetterOrDigit(c) || c == '_' ? c : '_');
-
-        return builder.Length > 0 ? builder.ToString() : "Field";
-    }
+    private string NextCacheName(string sourceName) =>
+        XLSheetControlNames.NextCacheName(
+            _worksheet.Workbook,
+            "Slicer_",
+            sourceName,
+            static worksheet => worksheet.SlicersInternal.Items.Select(slicer => slicer.Cache.Name));
 
     /// <summary>
     /// Drops a slicer from the worksheet and records what the save path has to unpick.

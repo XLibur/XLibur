@@ -432,7 +432,7 @@ internal static class DateAndTime
         mask = 0;
         error = XLError.NumberInvalid;
 
-        var scalar = ToScalar(ctx, value);
+        var scalar = value.ReduceToScalar(ctx);
         if (scalar.TryPickError(out var scalarError))
         {
             error = scalarError;
@@ -531,10 +531,10 @@ internal static class DateAndTime
 
     private static AnyValue NetWorkDaysIntl(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
+        if (!TryGetDate(ctx, args[0].ReduceToScalar(ctx), out var startDate, out var startError))
             return startError;
 
-        if (!TryGetDate(ctx, ToScalar(ctx, args[1]), out var endDate, out var endError))
+        if (!TryGetDate(ctx, args[1].ReduceToScalar(ctx), out var endDate, out var endError))
             return endError;
 
         if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
@@ -598,10 +598,10 @@ internal static class DateAndTime
 
     private static AnyValue WorkdayIntl(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetDate(ctx, ToScalar(ctx, args[0]), out var startDate, out var startError))
+        if (!TryGetDate(ctx, args[0].ReduceToScalar(ctx), out var startDate, out var startError))
             return startError;
 
-        if (!ToScalar(ctx, args[1]).ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
+        if (!args[1].ReduceToScalar(ctx).ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
             return offsetError;
 
         if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
@@ -637,14 +637,6 @@ internal static class DateAndTime
 
         return date;
     }
-
-    /// <summary>
-    /// Reduce an argument of the .INTL functions to the single value it expects. Only the holidays
-    /// parameter is marked as taking a range, so the others arrive unreduced and a reference to one
-    /// cell has to be unwrapped here.
-    /// </summary>
-    private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
-        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
 
     #endregion
 

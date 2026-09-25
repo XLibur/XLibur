@@ -271,6 +271,72 @@ internal readonly struct AnyValue
     }
 
     /// <summary>
+    /// <see cref="TryReduceToScalar"/>, with a failed reduction returned as its error value.
+    /// </summary>
+    public ScalarValue ReduceToScalar(CalcContext ctx)
+        => TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
+
+    /// <summary>
+    /// Reduce this value to a scalar (see <see cref="TryReduceToScalar"/>) and convert it to a
+    /// number. A blank is <c>0</c>; text is parsed in the context's culture.
+    /// </summary>
+    public bool TryReduceToNumber(CalcContext ctx, out double number, out XLError error)
+    {
+        if (!TryReduceToScalar(ctx, out var scalar, out error))
+        {
+            number = 0;
+            return false;
+        }
+
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
+    }
+
+    /// <summary>
+    /// Reduce this value to a number (see <see cref="TryReduceToNumber"/>) and truncate it toward
+    /// zero. A blank becomes <paramref name="blankValue"/>, which lets an optional argument written
+    /// as an empty placeholder mean "use the default".
+    /// </summary>
+    public bool TryReduceToInt(CalcContext ctx, int blankValue, out int number, out XLError error)
+    {
+        if (!TryReduceToScalar(ctx, out var scalar, out error))
+        {
+            number = 0;
+            return false;
+        }
+
+        if (scalar.IsBlank)
+        {
+            number = blankValue;
+            return true;
+        }
+
+        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var value, out error))
+        {
+            number = 0;
+            return false;
+        }
+
+        number = (int)Math.Truncate(value);
+        return true;
+    }
+
+    /// <summary>
+    /// Reduce this value to a scalar (see <see cref="TryReduceToScalar"/>) and coerce it to a
+    /// logical: a blank is <c>FALSE</c>, a number is <c>TRUE</c> unless zero, and text must read
+    /// <c>TRUE</c> or <c>FALSE</c>.
+    /// </summary>
+    public bool TryReduceToLogical(CalcContext ctx, out bool logical, out XLError error)
+    {
+        if (!TryReduceToScalar(ctx, out var scalar, out error))
+        {
+            logical = false;
+            return false;
+        }
+
+        return scalar.TryCoerceLogicalOrBlankOrNumberOrText(out logical, out error);
+    }
+
+    /// <summary>
     /// <para>
     /// Try to get a value more in line with an array formula semantic. The output is always
     /// either single value or an array.

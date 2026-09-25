@@ -1018,41 +1018,38 @@ internal static class MathTrig
 
     private static AnyValue Subtotal(CalcContext ctx, double number, AnyValue[] fnArgs)
     {
-        var funcNumber = number switch
-        {
-            >= 1 and < 12 => (int)number,
-            >= 101 and < 112 => (int)number,
-            _ => -1,
-        };
+        // 1..11 include manually hidden rows, 101..111 skip them. Both ignore nested SUBTOTALs.
+        if (number is >= 1 and < 12)
+            return ApplySubtotalFunction(ctx, (int)number, fnArgs, TallyNumbers.Subtotal10, TallyAll.Subtotal10);
 
-        if (funcNumber < 0)
-            return XLError.IncompatibleValue;
+        if (number is >= 101 and < 112)
+            return ApplySubtotalFunction(ctx, (int)number - 100, fnArgs, TallyNumbers.Subtotal100, TallyAll.Subtotal100);
 
-        var args = fnArgs.AsSpan();
-        return funcNumber switch
+        return XLError.IncompatibleValue;
+    }
+
+    /// <summary>
+    /// The function table SUBTOTAL (1..11) and AGGREGATE (1..13) share. The caller chooses the
+    /// tallies, so it decides which cells are left out: <paramref name="numbers"/> reads the data for
+    /// every function but COUNTA, and <paramref name="countA"/> reads it for COUNTA (function 3).
+    /// </summary>
+    private static AnyValue ApplySubtotalFunction(CalcContext ctx, int functionNumber, Span<AnyValue> args, TallyNumbers numbers, ITally countA)
+    {
+        return functionNumber switch
         {
-            1 => Statistical.Average(ctx, args, TallyNumbers.Subtotal10),
-            2 => Statistical.Count(ctx, args, TallyNumbers.Subtotal10),
-            3 => Statistical.Count(ctx, args, TallyAll.Subtotal10),
-            4 => Statistical.Max(ctx, args, TallyNumbers.Subtotal10),
-            5 => Statistical.Min(ctx, args, TallyNumbers.Subtotal10),
-            6 => Product(ctx, args, TallyNumbers.Subtotal10),
-            7 => Statistical.StDev(ctx, args, TallyNumbers.Subtotal10),
-            8 => Statistical.StDevP(ctx, args, TallyNumbers.Subtotal10),
-            9 => Sum(ctx, args, TallyNumbers.Subtotal10),
-            10 => Statistical.Var(ctx, args, TallyNumbers.Subtotal10),
-            11 => Statistical.VarP(ctx, args, TallyNumbers.Subtotal10),
-            101 => Statistical.Average(ctx, args, TallyNumbers.Subtotal100),
-            102 => Statistical.Count(ctx, args, TallyNumbers.Subtotal100),
-            103 => Statistical.Count(ctx, args, TallyAll.Subtotal100),
-            104 => Statistical.Max(ctx, args, TallyNumbers.Subtotal100),
-            105 => Statistical.Min(ctx, args, TallyNumbers.Subtotal100),
-            106 => Product(ctx, args, TallyNumbers.Subtotal100),
-            107 => Statistical.StDev(ctx, args, TallyNumbers.Subtotal100),
-            108 => Statistical.StDevP(ctx, args, TallyNumbers.Subtotal100),
-            109 => Sum(ctx, args, TallyNumbers.Subtotal100),
-            110 => Statistical.Var(ctx, args, TallyNumbers.Subtotal100),
-            111 => Statistical.VarP(ctx, args, TallyNumbers.Subtotal100),
+            1 => Statistical.Average(ctx, args, numbers),
+            2 => Statistical.Count(ctx, args, numbers),
+            3 => Statistical.Count(ctx, args, countA),
+            4 => Statistical.Max(ctx, args, numbers),
+            5 => Statistical.Min(ctx, args, numbers),
+            6 => Product(ctx, args, numbers),
+            7 => Statistical.StDev(ctx, args, numbers),
+            8 => Statistical.StDevP(ctx, args, numbers),
+            9 => Sum(ctx, args, numbers),
+            10 => Statistical.Var(ctx, args, numbers),
+            11 => Statistical.VarP(ctx, args, numbers),
+            12 => Statistical.Median(ctx, args, numbers),
+            13 => Statistical.Mode(ctx, args, numbers),
             _ => throw new UnreachableException(),
         };
     }
@@ -1065,9 +1062,11 @@ internal static class MathTrig
     /// </summary>
     private static AnyValue Aggregate(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetAggregateArgument(ctx, args[0], out var functionArgument, out var functionError))
+        // Only the data parameters are marked as taking a range, so the function number, the
+        // options and the k arrive unreduced and have to be reduced to a number here.
+        if (!args[0].TryReduceToNumber(ctx, out var functionArgument, out var functionError))
             return functionError;
-        if (!TryGetAggregateArgument(ctx, args[1], out var optionsArgument, out var optionsError))
+        if (!args[1].TryReduceToNumber(ctx, out var optionsArgument, out var optionsError))
             return optionsError;
 
         var functionNumber = Math.Truncate(functionArgument);
@@ -1082,31 +1081,14 @@ internal static class MathTrig
         var ignoreErrors = options is 2 or 3 or 6 or 7;
         var tally = TallyNumbers.Aggregate(skipHiddenRows, ignoreErrors);
 
+        // Functions 1..13 take any number of ranges.
         if (functionNumber <= 13)
-            return AggregateOverRanges(ctx, functionNumber, args[2..], tally, skipHiddenRows);
+        {
+            var countA = skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA;
+            return ApplySubtotalFunction(ctx, (int)functionNumber, args[2..], tally, countA);
+        }
 
         return AggregateOrderStatistic(ctx, functionNumber, args, tally);
-    }
-
-    /// <summary>AGGREGATE functions 1..13, which take any number of ranges.</summary>
-    private static AnyValue AggregateOverRanges(CalcContext ctx, double functionNumber, Span<AnyValue> values, TallyNumbers tally, bool skipHiddenRows)
-    {
-        return functionNumber switch
-        {
-            1 => Statistical.Average(ctx, values, tally),
-            2 => Statistical.Count(ctx, values, tally),
-            3 => Statistical.Count(ctx, values, skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA),
-            4 => Statistical.Max(ctx, values, tally),
-            5 => Statistical.Min(ctx, values, tally),
-            6 => Product(ctx, values, tally),
-            7 => Statistical.StDev(ctx, values, tally),
-            8 => Statistical.StDevP(ctx, values, tally),
-            9 => Sum(ctx, values, tally),
-            10 => Statistical.Var(ctx, values, tally),
-            11 => Statistical.VarP(ctx, values, tally),
-            12 => Statistical.Median(ctx, values, tally),
-            _ => Statistical.Mode(ctx, values, tally),
-        };
     }
 
     /// <summary>AGGREGATE functions 14..19, which take one array and a k.</summary>
@@ -1116,7 +1098,7 @@ internal static class MathTrig
         if (args.Length < 4)
             return XLError.IncompatibleValue;
 
-        if (!TryGetAggregateArgument(ctx, args[3], out var k, out var kError))
+        if (!args[3].TryReduceToNumber(ctx, out var k, out var kError))
             return kError;
 
         if (!Statistical.CollectNumbers(ctx, args[2..3], tally).TryPickT0(out var numbers, out var valuesError))
@@ -1131,19 +1113,6 @@ internal static class MathTrig
             18 => Statistical.PercentileExclusive(numbers, k),
             _ => Statistical.QuartileExclusive(numbers, k),
         };
-    }
-
-    /// <summary>Read one of AGGREGATE's scalar arguments — the function number, the options or the k.</summary>
-    private static bool TryGetAggregateArgument(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-
-        // Only the data parameters are marked as taking a range, so these arrive unreduced and a
-        // reference to a single cell has to be unwrapped here.
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
 
     private static AnyValue Sum(CalcContext ctx, Span<AnyValue> args)
@@ -1166,41 +1135,16 @@ internal static class MathTrig
         if (sumRange.IsBlank)
             sumRange = range;
 
-        var tally = new TallyCriteria();
-        var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
-
-        // Excel doesn't support anything but area in the syntax, but we need to deal with it somehow.
-        if (!range.TryPickArea(out var area, out var areaError))
-            return areaError;
-
-        if (!sumRange.TryPickArea(out _, out var sumAreaError))
-            return sumAreaError;
-
-        tally.Add(area, criteria);
+        if (!TallyCriteria.TryCreateSingle(ctx, range, selectionCriteria, sumRange, null, out var tally, out var error))
+            return error;
 
         return Sum(ctx, new[] { sumRange }, tally);
     }
 
     private static AnyValue SumIfs(CalcContext ctx, AnyValue sumRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
     {
-        if (!sumRange.TryPickArea(out var sumArea, out var sumAreaError))
-            return sumAreaError;
-
-        var tally = new TallyCriteria();
-        foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
-        {
-            var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
-            if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
-                return selectionAreaError;
-
-            // All areas must have same size, that is different
-            // from SUMIF where areas can have different size.
-            if (sumArea.RowSpan != selectionArea.RowSpan ||
-                sumArea.ColumnSpan != selectionArea.ColumnSpan)
-                return XLError.IncompatibleValue;
-
-            tally.Add(selectionArea, criteria);
-        }
+        if (!TallyCriteria.TryCreate(ctx, sumRange, criteriaRanges, null, out var tally, out var error))
+            return error;
 
         return Sum(ctx, new[] { sumRange }, tally);
     }

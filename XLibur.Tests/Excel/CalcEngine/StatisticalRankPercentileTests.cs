@@ -46,6 +46,27 @@ public class StatisticalRankPercentileTests
     }
 
     [Test]
+    public async Task Small_ReadsOnlyTheNumbersOfAReference_AndStopsAtTheFirstError()
+    {
+        var ws = SampleSheet(out var wb);
+        using (wb)
+        {
+            // Text, logicals and blanks in a reference are left out of the data set.
+            ws.Cell(1, 2).Value = "text";
+            ws.Cell(2, 2).Value = true;
+            ws.Cell(4, 2).Value = 0.5;
+            await Assert.That((double)ws.Evaluate("SMALL(A1:B7, 1)")).IsEqualTo(0.5d).Within(Tolerance);
+            await Assert.That(ws.Evaluate("RANK(0.5, A1:B7)")).IsEqualTo(8);
+
+            // The first error in row-major order is the one returned.
+            ws.Cell(3, 2).Value = XLError.DivisionByZero; // B3
+            ws.Cell(5, 1).Value = XLError.NoValueAvailable; // A5
+            await Assert.That(ws.Evaluate("SMALL(A1:B7, 1)")).IsEqualTo(XLError.DivisionByZero);
+            await Assert.That(ws.Evaluate("LARGE(A1:B7, 1)")).IsEqualTo(XLError.DivisionByZero);
+        }
+    }
+
+    [Test]
     public async Task Rank_DescendingByDefault_AscendingWhenOrderNonZero()
     {
         var ws = SampleSheet(out var wb);

@@ -441,9 +441,9 @@ internal static class Distributions
             return firstError;
         if (!TryGetSample(ctx, args[1], out var second, out var secondError))
             return secondError;
-        if (!TryGetScalarNumber(ctx, args[2], out var tailsValue, out var tailsError))
+        if (!args[2].TryReduceToNumber(ctx, out var tailsValue, out var tailsError))
             return tailsError;
-        if (!TryGetScalarNumber(ctx, args[3], out var typeValue, out var typeError))
+        if (!args[3].TryReduceToNumber(ctx, out var typeValue, out var typeError))
             return typeError;
 
         var tails = Math.Truncate(tailsValue);
@@ -537,7 +537,7 @@ internal static class Distributions
     {
         if (!TryGetSample(ctx, args[0], out var sample, out var sampleError))
             return sampleError;
-        if (!TryGetScalarNumber(ctx, args[1], out var hypothesizedMean, out var meanError))
+        if (!args[1].TryReduceToNumber(ctx, out var hypothesizedMean, out var meanError))
             return meanError;
 
         if (sample.Count < 1)
@@ -555,7 +555,7 @@ internal static class Distributions
 
     private static bool TryGetGivenSigma(CalcContext ctx, in AnyValue value, out double sigma, out XLError error)
     {
-        if (!TryGetScalarNumber(ctx, value, out sigma, out error))
+        if (!value.TryReduceToNumber(ctx, out sigma, out error))
             return false;
 
         if (sigma <= 0)

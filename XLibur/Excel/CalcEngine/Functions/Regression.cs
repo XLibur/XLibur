@@ -137,7 +137,7 @@ internal static class Regression
 
     private static AnyValue Forecast(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetScalarNumber(ctx, args[0], out var x, out var xError))
+        if (!args[0].TryReduceToNumber(ctx, out var x, out var xError))
             return xError;
         if (!TryGetPairedSums(ctx, args[2], args[1], out var sums, out var error))
             return error;
@@ -377,11 +377,11 @@ internal static class Regression
     {
         if (!TryGetPairs(ctx, args[0], args[1], out var values, out var probabilities, out var error))
             return error;
-        if (!TryGetScalarNumber(ctx, args[2], out var lowerLimit, out var lowerError))
+        if (!args[2].TryReduceToNumber(ctx, out var lowerLimit, out var lowerError))
             return lowerError;
 
         var upperLimit = lowerLimit;
-        if (args.Length > 3 && !TryGetScalarNumber(ctx, args[3], out upperLimit, out var upperError))
+        if (args.Length > 3 && !args[3].TryReduceToNumber(ctx, out upperLimit, out var upperError))
             return upperError;
 
         if (!TrySumProbabilities(values, probabilities, lowerLimit, upperLimit, out var total, out var matched))
@@ -538,7 +538,7 @@ internal static class Regression
             return error;
 
         var wantsStatistics = false;
-        if (args.Length > 3 && !TryGetBoolean(ctx, args[3], out wantsStatistics, out var statsError))
+        if (args.Length > 3 && !args[3].TryReduceToLogical(ctx, out wantsStatistics, out var statsError))
             return statsError;
 
         if (!TrySolve(design, constant, out var coefficients))
@@ -606,7 +606,7 @@ internal static class Regression
     /// </summary>
     private static bool TryReadNewPredictors(CalcContext ctx, Span<AnyValue> args, in Design design, out double[,] newX, out int newCount, out XLError error)
     {
-        if (args.Length <= 2 || IsOmitted(args, 2))
+        if (args.Length <= 2 || args.IsOmitted(2))
         {
             newX = design.X;
             newCount = design.Observations;
@@ -661,8 +661,8 @@ internal static class Regression
         constant = true;
         error = default;
 
-        if (constIndex < args.Length && !IsOmitted(args, constIndex)
-            && !TryGetBoolean(ctx, args[constIndex], out constant, out error))
+        if (constIndex < args.Length && !args.IsOmitted(constIndex)
+            && !args[constIndex].TryReduceToLogical(ctx, out constant, out error))
         {
             return false;
         }
@@ -728,7 +728,7 @@ internal static class Regression
     {
         error = default;
 
-        if (args.Length <= 1 || IsOmitted(args, 1))
+        if (args.Length <= 1 || args.IsOmitted(1))
         {
             predictors = 1;
             x = new double[observations, 1];
@@ -1048,21 +1048,6 @@ internal static class Regression
             values.Add(value);
 
         return values;
-    }
-
-    private static bool IsOmitted(Span<AnyValue> args, int index)
-        => args.Length <= index || (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank);
-
-    private static bool TryGetBoolean(CalcContext ctx, in AnyValue value, out bool flag, out XLError error)
-    {
-        flag = false;
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        if (scalar.IsBlank)
-            return true;
-
-        return scalar.TryCoerceLogicalOrBlankOrNumberOrText(out flag, out error);
     }
 
     #endregion

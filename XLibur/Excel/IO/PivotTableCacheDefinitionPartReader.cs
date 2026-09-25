@@ -318,35 +318,37 @@ internal static class PivotTableCacheDefinitionPartReader
         foreach (var item in fieldSharedItems.Elements())
         {
             // Shared items can't contain element of type index (`x`),
-            // because index references shared items. That is main reason
-            // for rather significant duplication with reading records.
-            AddSharedItem(sharedItems, item);
+            // because index references shared items.
+            AddValueItem(sharedItems, item);
         }
 
         return sharedItems;
     }
 
-    private static void AddSharedItem(XLPivotCacheSharedItems sharedItems, OpenXmlElement item)
+    /// <summary>
+    /// Add a cache item that holds a value (not an index) to the shared items or the records of a field.
+    /// </summary>
+    private static void AddValueItem(IXLPivotCacheValueSink sink, OpenXmlElement item)
     {
         switch (item)
         {
             case MissingItem:
-                sharedItems.AddMissing();
+                sink.AddMissing();
                 break;
             case NumberItem numberItem:
-                sharedItems.AddNumber(GetNumberValue(numberItem));
+                sink.AddNumber(GetNumberValue(numberItem));
                 break;
             case BooleanItem booleanItem:
-                sharedItems.AddBoolean(GetBooleanValue(booleanItem));
+                sink.AddBoolean(GetBooleanValue(booleanItem));
                 break;
             case ErrorItem errorItem:
-                sharedItems.AddError(GetErrorValue(errorItem));
+                sink.AddError(GetErrorValue(errorItem));
                 break;
             case StringItem stringItem:
-                sharedItems.AddString(GetStringValue(stringItem));
+                sink.AddString(GetStringValue(stringItem));
                 break;
             case DateTimeItem dateTimeItem:
-                sharedItems.AddDateTime(GetDateTimeValue(dateTimeItem));
+                sink.AddDateTime(GetDateTimeValue(dateTimeItem));
                 break;
             default:
                 throw PartStructureException.ExpectedElementNotFound();
@@ -390,32 +392,11 @@ internal static class PivotTableCacheDefinitionPartReader
 
     private static void AddRecordItem(XLPivotCacheValues fieldValues, OpenXmlElement recordItem)
     {
-        switch (recordItem)
-        {
-            case MissingItem:
-                fieldValues.AddMissing();
-                break;
-            case NumberItem numberItem:
-                fieldValues.AddNumber(GetNumberValue(numberItem));
-                break;
-            case BooleanItem booleanItem:
-                fieldValues.AddBoolean(GetBooleanValue(booleanItem));
-                break;
-            case ErrorItem errorItem:
-                fieldValues.AddError(GetErrorValue(errorItem));
-                break;
-            case StringItem stringItem:
-                fieldValues.AddString(GetStringValue(stringItem));
-                break;
-            case DateTimeItem dateTimeItem:
-                fieldValues.AddDateTime(GetDateTimeValue(dateTimeItem));
-                break;
-            case FieldItem indexItem:
-                fieldValues.AddIndex(GetFieldIndex(indexItem, fieldValues.SharedCount));
-                break;
-            default:
-                throw PartStructureException.ExpectedElementNotFound();
-        }
+        // Only a record can hold an index (`x`) into the shared items; every other item is a value.
+        if (recordItem is FieldItem indexItem)
+            fieldValues.AddIndex(GetFieldIndex(indexItem, fieldValues.SharedCount));
+        else
+            AddValueItem(fieldValues, recordItem);
     }
 
     private static double GetNumberValue(NumberItem numberItem)

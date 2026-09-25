@@ -316,7 +316,7 @@ internal static class Text
         endCounts = false;
         instance = 1;
         error = default;
-        if (args.Length > 2 && !TryOptionalInt(ctx, args[2], 1, out instance, out error))
+        if (args.Length > 2 && !args[2].TryReduceToInt(ctx, 1, out instance, out error))
             return false;
 
         if (instance == 0)
@@ -344,7 +344,7 @@ internal static class Text
         if (!TryGetOptionalDelimiters(ctx, args, 2, out var rowDelimiters, out var rowError))
             return rowError;
 
-        if (IsOmitted(args, 1) && IsOmitted(args, 2))
+        if (args.IsOmitted(1) && args.IsOmitted(2))
             return XLError.IncompatibleValue;
 
         if (!TryOptionalFlagArg(ctx, args, 3, out var ignoreEmpty, out var ignoreError))
@@ -353,8 +353,8 @@ internal static class Text
         if (!TryOptionalFlagArg(ctx, args, 4, out var ignoreCase, out var matchModeError))
             return matchModeError;
 
-        var padding = args.Length > 5 && !IsOmitted(args, 5)
-            ? ToScalar(ctx, args[5])
+        var padding = args.Length > 5 && !args.IsOmitted(5)
+            ? args[5].ReduceToScalar(ctx)
             : ScalarValue.From(XLError.NoValueAvailable);
 
         var rows = SplitToRows(text, rowDelimiters, columnDelimiters, ignoreCase, ignoreEmpty);
@@ -380,7 +380,7 @@ internal static class Text
     /// <summary>Read a delimiter argument that may be omitted; an omitted one means no delimiters.</summary>
     private static bool TryGetOptionalDelimiters(CalcContext ctx, Span<AnyValue> args, int index, out List<string> delimiters, out XLError error)
     {
-        if (IsOmitted(args, index))
+        if (args.IsOmitted(index))
         {
             delimiters = [];
             error = default;
@@ -532,29 +532,10 @@ internal static class Text
         return true;
     }
 
-    private static bool IsOmitted(Span<AnyValue> args, int index)
-        => args.Length <= index || (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank);
-
-    private static bool TryOptionalInt(CalcContext ctx, in AnyValue value, int fallback, out int result, out XLError error)
-    {
-        result = fallback;
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        if (scalar.IsBlank)
-            return true;
-
-        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
-            return false;
-
-        result = (int)Math.Truncate(number);
-        return true;
-    }
-
     /// <summary>Read one of the 0/1 mode arguments the modern text functions use as booleans.</summary>
     private static bool TryOptionalFlag(CalcContext ctx, in AnyValue value, out bool flag, out XLError error)
     {
-        if (!TryOptionalInt(ctx, value, 0, out var mode, out error))
+        if (!value.TryReduceToInt(ctx, 0, out var mode, out error))
         {
             flag = false;
             return false;
@@ -572,17 +553,14 @@ internal static class Text
     }
 
     /// <summary>
-    /// Reduce an argument to the single value a scalar parameter wants. Registering a function with
-    /// <see cref="AllowRange.All"/> stops the engine from doing this, which these functions need so
-    /// that the array-formula path hands them their arguments whole rather than one element at a
-    /// time — so they have to do the reduction themselves.
+    /// Read an argument as text. Registering a function with <see cref="AllowRange.All"/> stops the
+    /// engine from reducing its arguments, which these functions need so that the array-formula path
+    /// hands them their arguments whole rather than one element at a time — so they have to do the
+    /// reduction themselves.
     /// </summary>
-    private static ScalarValue ToScalar(CalcContext ctx, in AnyValue value)
-        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
-
     private static bool TryGetText(CalcContext ctx, in AnyValue value, out string text, out XLError error)
     {
-        return ToScalar(ctx, value).ToText(ctx.Culture).TryPickT0(out text!, out error);
+        return value.ReduceToScalar(ctx).ToText(ctx.Culture).TryPickT0(out text!, out error);
     }
 
     #endregion
@@ -594,7 +572,7 @@ internal static class Text
         if (!TryGetFormat(ctx, args, 1, out var strict, out var formatError))
             return formatError;
 
-        return Render(ctx, ToScalar(ctx, args[0]), strict);
+        return Render(ctx, args[0].ReduceToScalar(ctx), strict);
     }
 
     private static AnyValue ArrayToText(CalcContext ctx, Span<AnyValue> args)
@@ -603,7 +581,7 @@ internal static class Text
             return formatError;
 
         if (!args[0].TryPickCollectionArray(out var array, ctx))
-            return Render(ctx, ToScalar(ctx, args[0]), strict);
+            return Render(ctx, args[0].ReduceToScalar(ctx), strict);
 
         return RenderArray(ctx, array!, strict);
     }
