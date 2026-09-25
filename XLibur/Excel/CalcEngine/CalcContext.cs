@@ -275,6 +275,12 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// slice iterators, it scales with number of cells, not a size of area in reference (i.e., it works
     /// fine even if reference is <c>A1:XFD1048576</c>). It also works for 3D references.
     /// </summary>
+    /// <remarks>
+    /// This is the one way the calc engine reads the values of a reference. Areas are read in
+    /// their order in the reference and each area in row-major order (left to right, then top to
+    /// bottom), the order functions such as NPV, IRR and MIRR depend on. A cell covered by two
+    /// overlapping areas is read once for each.
+    /// </remarks>
     internal IEnumerable<ScalarValue> GetNonBlankValues(Reference reference)
     {
         foreach (var area in reference)

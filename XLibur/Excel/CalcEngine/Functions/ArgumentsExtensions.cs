@@ -96,7 +96,7 @@ internal static class ArgumentsExtensions
         hadElement = false;
         var valuesIterator = collection.TryPickT0(out var array, out var reference)
             ? array
-            : reference.GetCellsValues(ctx);
+            : ctx.GetNonBlankValues(reference);
 
         foreach (var value in valuesIterator)
         {

@@ -792,7 +792,7 @@ internal static class SignatureAdapter
             // and doesn't change denominator due to 0! = 1
             var scalarCollections = new List<IEnumerable<ScalarValue>>(args.Length);
             foreach (var arg in args)
-                scalarCollections.Add(GetNonBlankScalars(arg, ctx));
+                scalarCollections.Add(ctx.GetNonBlankValues(arg));
 
             return f(ctx, scalarCollections).ToAnyValue();
         };
@@ -1308,27 +1308,6 @@ internal static class SignatureAdapter
             return ToNumber(args[index], ctx);
 
         return defaultValue;
-    }
-
-    private static IEnumerable<ScalarValue> GetNonBlankScalars(AnyValue value, CalcContext ctx)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (!scalar.IsBlank)
-                yield return scalar;
-
-            yield break;
-        }
-
-        IEnumerable<ScalarValue> source = collection.TryPickT0(out var array, out var reference)
-            ? array
-            : ctx.GetNonBlankValues(reference);
-
-        foreach (var element in source)
-        {
-            if (!element.IsBlank)
-                yield return element;
-        }
     }
 
     private static OneOf<List<(AnyValue Range, ScalarValue Criteria)>, XLError> ToCriteria(CalcContext ctx, ReadOnlySpan<AnyValue> args)
