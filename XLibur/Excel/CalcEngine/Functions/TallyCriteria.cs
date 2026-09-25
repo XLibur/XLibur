@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using XLibur.Excel.Coordinates;
 
@@ -31,6 +32,84 @@ internal sealed class TallyCriteria : ITally
     internal TallyCriteria(Func<ScalarValue, double?> toNumber)
     {
         _toNumber = toNumber;
+    }
+
+    /// <summary>
+    /// Build the tally for a single-criterion <c>*IF</c> function (<c>SUMIF</c>, <c>AVERAGEIF</c>,
+    /// <c>COUNTIF</c>). Both arguments must be areas, but unlike the <c>*IFS</c> forms their sizes
+    /// don't have to agree.
+    /// </summary>
+    /// <param name="ctx">Calculation context, for the culture the criterion is parsed in.</param>
+    /// <param name="criteriaRange">The area tested against <paramref name="criterion"/>.</param>
+    /// <param name="criterion">The criterion value, e.g. <c>"&gt;5"</c>.</param>
+    /// <param name="valueRange">The area whose values are tallied.</param>
+    /// <param name="toNumber">Converts a tallied value to a number, <c>null</c> for the default.</param>
+    /// <param name="tally">The built tally.</param>
+    /// <param name="error">The error when an argument isn't an area.</param>
+    internal static bool TryCreateSingle(
+        CalcContext ctx,
+        AnyValue criteriaRange,
+        ScalarValue criterion,
+        AnyValue valueRange,
+        Func<ScalarValue, double?>? toNumber,
+        [NotNullWhen(true)] out TallyCriteria? tally,
+        out XLError error)
+    {
+        tally = null;
+
+        // Excel doesn't support anything but area in the syntax, but we need to deal with it somehow.
+        if (!criteriaRange.TryPickArea(out var criteriaArea, out error))
+            return false;
+
+        if (!valueRange.TryPickArea(out _, out error))
+            return false;
+
+        tally = toNumber is null ? new TallyCriteria() : new TallyCriteria(toNumber);
+        tally.Add(criteriaArea, Criteria.Create(criterion, ctx.Culture));
+        return true;
+    }
+
+    /// <summary>
+    /// Build the tally for a multi-criteria <c>*IFS</c> function (<c>SUMIFS</c>, <c>COUNTIFS</c>,
+    /// <c>AVERAGEIFS</c>, <c>MAXIFS</c>, <c>MINIFS</c>). Every criteria area must have the size of
+    /// <paramref name="valueRange"/>, an Excel invariant the single-criterion <c>*IF</c> forms lack.
+    /// </summary>
+    /// <param name="ctx">Calculation context, for the culture the criteria are parsed in.</param>
+    /// <param name="valueRange">The area whose values are tallied.</param>
+    /// <param name="criteriaRanges">The pairs of tested area and criterion.</param>
+    /// <param name="toNumber">Converts a tallied value to a number, <c>null</c> for the default.</param>
+    /// <param name="tally">The built tally.</param>
+    /// <param name="error">The error when an argument isn't an area or the sizes disagree.</param>
+    internal static bool TryCreate(
+        CalcContext ctx,
+        AnyValue valueRange,
+        List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges,
+        Func<ScalarValue, double?>? toNumber,
+        [NotNullWhen(true)] out TallyCriteria? tally,
+        out XLError error)
+    {
+        tally = null;
+        if (!valueRange.TryPickArea(out var valueArea, out error))
+            return false;
+
+        var criteriaTally = toNumber is null ? new TallyCriteria() : new TallyCriteria(toNumber);
+        foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
+        {
+            if (!selectionRange.TryPickArea(out var selectionArea, out error))
+                return false;
+
+            if (valueArea.RowSpan != selectionArea.RowSpan ||
+                valueArea.ColumnSpan != selectionArea.ColumnSpan)
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            criteriaTally.Add(selectionArea, Criteria.Create(selectionCriteria, ctx.Culture));
+        }
+
+        tally = criteriaTally;
+        return true;
     }
 
     /// <summary>

@@ -165,6 +165,28 @@ public class AggregateTests
     }
 
     [Test]
+    public async Task Aggregate_CountAIgnoresHiddenRowsOnlyWhenAskedTo()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = "text";
+            ws.Cell("A3").Value = true;
+            ws.Cell("A4").Value = 4;
+            ws.Row(2).Hide();
+
+            ws.Cell("C1").FormulaA1 = "AGGREGATE(3, 0, A1:A4)"; // COUNTA sees text and logicals.
+            ws.Cell("C2").FormulaA1 = "AGGREGATE(3, 5, A1:A4)"; // Option 5 skips the hidden text.
+            ws.Cell("C3").FormulaA1 = "AGGREGATE(2, 5, A1:A4)"; // COUNT sees the numbers only.
+
+            await Assert.That((double)ws.Cell("C1").Value).IsEqualTo(4d);
+            await Assert.That((double)ws.Cell("C2").Value).IsEqualTo(3d);
+            await Assert.That((double)ws.Cell("C3").Value).IsEqualTo(2d);
+        }
+    }
+
+    [Test]
     public async Task Aggregate_IgnoresHiddenRowsAndErrorsTogether()
     {
         var ws = NewSheet(out var wb);
