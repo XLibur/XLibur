@@ -178,21 +178,9 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
         Columns.ForEach(c => c.Expand());
     }
 
-    public IXLCells Cells()
-    {
-        var cells = new XLCells(false, XLCellsUsedOptions.All);
-        foreach (var container in Columns)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells Cells() => XLCells.FromRanges(Columns, false, XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed()
-    {
-        var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (var container in Columns)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed() => CellsUsed(XLCellsUsedOptions.AllContents);
 
     public IXLCells CellsUsed(bool includeFormats)
     {
@@ -201,13 +189,7 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
             : XLCellsUsedOptions.AllContents);
     }
 
-    public IXLCells CellsUsed(XLCellsUsedOptions options)
-    {
-        var cells = new XLCells(true, options);
-        foreach (var container in Columns)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed(XLCellsUsedOptions options) => XLCells.FromRanges(Columns, true, options);
 
     /// <summary>
     ///   Adds a vertical page break after this column.
