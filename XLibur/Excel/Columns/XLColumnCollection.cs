@@ -1,93 +1,10 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using XLibur.Extensions;
+using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
 
-internal sealed class XLColumnsCollection : IDictionary<int, XLColumn>
+/// <summary>The materialised columns of a worksheet, keyed by column number.</summary>
+internal sealed class XLColumnsCollection : XLLineCollection<XLColumn, ColumnAxis>
 {
-    private readonly Dictionary<int, XLColumn> _dictionary = new();
-
-    public void ShiftColumnsRight(int startingColumn, int columnsToShift)
-    {
-        foreach (var co in _dictionary.Keys.Where(k => k >= startingColumn).OrderByDescending(k => k))
-        {
-            var columnToMove = _dictionary[co];
-            _dictionary.Remove(co);
-            var newColumnNum = co + columnsToShift;
-            if (newColumnNum <= XLHelper.MaxColumnNumber)
-            {
-                columnToMove.SetColumnNumber(newColumnNum);
-                _dictionary.Add(newColumnNum, columnToMove);
-            }
-        }
-    }
-
-    public void Add(int key, XLColumn value)
-    {
-        _dictionary.Add(key, value);
-    }
-
-    public bool ContainsKey(int key) => _dictionary.ContainsKey(key);
-
-    public ICollection<int> Keys => _dictionary.Keys;
-
-    public bool Remove(int key)
-    {
-        return _dictionary.Remove(key);
-    }
-
-    public bool TryGetValue(int key, [MaybeNullWhen(false)] out XLColumn value)
-    {
-        return _dictionary.TryGetValue(key, out value);
-    }
-
-    public ICollection<XLColumn> Values => _dictionary.Values;
-
-    public XLColumn this[int key]
-    {
-        get => _dictionary[key];
-        set => _dictionary[key] = value;
-    }
-
-    public void Add(KeyValuePair<int, XLColumn> item)
-    {
-        _dictionary.Add(item.Key, item.Value);
-    }
-
-    public void Clear()
-    {
-        _dictionary.Clear();
-    }
-
-    public bool Contains(KeyValuePair<int, XLColumn> item)
-    {
-        return _dictionary.Contains(item);
-    }
-
-    public void CopyTo(KeyValuePair<int, XLColumn>[] array, int arrayIndex)
-    {
-        throw new NotImplementedException();
-    }
-
-    public int Count => _dictionary.Count;
-
-    public bool IsReadOnly => false;
-
-    public bool Remove(KeyValuePair<int, XLColumn> item)
-    {
-        return _dictionary.Remove(item.Key);
-    }
-
-    public IEnumerator<KeyValuePair<int, XLColumn>> GetEnumerator() => _dictionary.GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
-
-    public void RemoveAll(Func<XLColumn, bool> predicate)
-    {
-        _dictionary.RemoveAll(predicate);
-    }
+    /// <inheritdoc cref="XLLineCollection{TLine, TAxis}.ShiftLines"/>
+    public void ShiftColumnsRight(int startingColumn, int columnsToShift) => ShiftLines(startingColumn, columnsToShift);
 }
