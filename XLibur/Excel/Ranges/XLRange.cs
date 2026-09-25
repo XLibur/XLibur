@@ -694,19 +694,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
             throw new ArgumentOutOfRangeException(nameof(columnNumber),
                 $"Column number must be between 1 and {XLHelper.MaxColumnNumber + sheetRange.LeftColumn - 1}");
 
-        var absColumn = sheetRange.LeftColumn + columnNumber - 1;
-
-        var firstCellAddress = new XLAddress(Worksheet,
-            sheetRange.TopRow,
-            absColumn,
-            false,
-            false);
-        var lastCellAddress = new XLAddress(Worksheet,
-            sheetRange.BottomRow,
-            absColumn,
-            false,
-            false);
-        return Worksheet.RangeColumn(new XLRangeAddress(firstCellAddress, lastCellAddress));
+        return ColumnQuick(columnNumber);
     }
 
     public virtual XLRangeColumn Column(string columnLetter)
