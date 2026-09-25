@@ -530,25 +530,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
-            rangeAddressToUse = FixColumnAddress(firstPart) + ":" + FixColumnAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixColumnAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: false);
 
     public IXLRangeColumn Range(int firstRow, int lastRow)
     {

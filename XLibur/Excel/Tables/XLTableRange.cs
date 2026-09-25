@@ -177,20 +177,7 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
         var rowPairs = rows.Split(',');
         foreach (var tPair in rowPairs.Select(pair => pair.Trim()))
         {
-            string firstRow;
-            string lastRow;
-            if (tPair.Contains(':') || tPair.Contains('-'))
-            {
-                var rowRange = XLHelper.SplitRange(tPair);
-
-                firstRow = rowRange[0];
-                lastRow = rowRange[1];
-            }
-            else
-            {
-                firstRow = tPair;
-                lastRow = tPair;
-            }
+            var (firstRow, lastRow) = XLHelper.SplitRangePair(tPair);
             foreach (var row in Rows(int.Parse(firstRow), int.Parse(lastRow)))
                 retVal.Add(row);
         }

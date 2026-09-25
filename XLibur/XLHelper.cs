@@ -364,9 +364,21 @@ public static partial class XLHelper
         return GetColumnNumberFromLetter(cellAddressString.AsSpan(0, rowPos));
     }
 
-    internal static string[] SplitRange(string range)
+    /// <summary>
+    /// Split one entry of a row or column list, such as "A", "A:C", "3" or "1-3", into its first
+    /// and last part. An entry without a ':' or '-' separator is both its first and its last part.
+    /// </summary>
+    /// <remarks>
+    /// Neither part is validated or converted; callers decide whether the parts are letters,
+    /// numbers or cell addresses. Anything after a second separator is ignored.
+    /// </remarks>
+    internal static (string First, string Last) SplitRangePair(string pair)
     {
-        return range.Contains('-') ? range.Replace('-', ':').Split(':') : range.Split(':');
+        if (!pair.Contains(':') && !pair.Contains('-'))
+            return (pair, pair);
+
+        var parts = pair.Split(':', '-');
+        return (parts[0], parts[1]);
     }
 
     internal static IXLTableRows InsertRowsWithoutEvents(Func<int, bool, IXLRangeRows> insertFunc,

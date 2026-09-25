@@ -635,25 +635,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            var firstPart = arrRange[0];
-            var secondPart = arrRange[1];
-            rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixRowAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: true);
 
     internal void SetStyleNoColumns(IXLStyle value)
     {
