@@ -1118,6 +1118,19 @@ public class LookupTests
     }
 
     [Test]
+    public async Task Indirect_unescapes_apostrophe_inside_quoted_sheet_name()
+    {
+        // #625: the sheet name is unquoted and its doubled apostrophe collapsed exactly once.
+        using var wb = new XLWorkbook();
+        var main = wb.AddWorksheet("Main");
+        wb.AddWorksheet("O'Brien").Cell("A1").Value = 42;
+        wb.AddWorksheet("O''Kelly").Cell("A1").Value = 7;
+
+        await Assert.That(main.Evaluate("INDIRECT(\"'O''Brien'!A1\")")).IsEqualTo(42);
+        await Assert.That(main.Evaluate("INDIRECT(\"'O''''Kelly'!A1\")")).IsEqualTo(7);
+    }
+
+    [Test]
     public async Task Indirect_R1C1Range()
     {
         using var wb = new XLWorkbook();

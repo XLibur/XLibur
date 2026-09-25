@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace XLibur.Excel.CalcEngine.Functions;
@@ -713,9 +714,11 @@ internal static class Lookup
         var bangIndex = refText.LastIndexOf('!');
         if (bangIndex >= 0)
         {
-            var sheetName = refText[..bangIndex].Trim('\'');
+            // Unescape once, then look the sheet up by the name it has: TryGetWorksheet would
+            // unescape again and turn a sheet named O''Kelly into O'Kelly.
+            var sheetName = refText[..bangIndex].UnescapeSheetName();
             addressText = refText[(bangIndex + 1)..];
-            if (!ctx.Workbook.TryGetWorksheet(sheetName, out worksheet))
+            if (!ctx.Workbook.WorksheetsInternal.TryGetWorksheetByRawName(sheetName, out worksheet))
                 return XLError.CellReference;
         }
 
