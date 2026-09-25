@@ -99,6 +99,39 @@ public class ReferenceValueOrderTests
         }
     }
 
+    /// <summary>
+    /// The anchor is outside the reference: a spilled cell inside it is read, which evaluates the
+    /// dirty anchor, whose new, larger spill writes cells further down the reference.
+    /// </summary>
+    [Test]
+    [Arguments("NPV(1, A2:A5)", 2.25, false)] // 2/2 + 3/4 + 4/8
+    [Arguments("NPV(1, A2:A5)", 2.25, true)]
+    [Arguments("SUM(A2:A5)", 9d, false)]
+    [Arguments("SUM(A2:A5)", 9d, true)]
+    public async Task SpillGrownByAnAnchorOutsideTheReferenceIsRead(string formula, double expected, bool inCell)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("B1").Value = 2;
+        ws.Cell("A1").SetDynamicFormulaA1("SEQUENCE(B1)");
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(1); // Evaluates and spills into A1:A2.
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(2);
+
+        ws.Cell("B1").Value = 4; // A1 is dirty, keeps its A1:A2 footprint; A3:A4 are still empty.
+        XLCellValue actual;
+        if (inCell)
+        {
+            ws.Cell("Z1").FormulaA1 = formula;
+            actual = ws.Cell("Z1").Value;
+        }
+        else
+        {
+            actual = ws.Evaluate(formula);
+        }
+
+        await Assert.That((double)actual).IsEqualTo(expected);
+    }
+
     private static IXLWorksheet NewSpillSheet(out XLWorkbook wb, string spill)
     {
         wb = new XLWorkbook();

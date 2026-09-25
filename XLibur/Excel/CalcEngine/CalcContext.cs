@@ -29,6 +29,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     private Dictionary<SheetPoint, ScalarValue>? _recursiveCellValueCache;
 
+    /// <summary>
+    /// How many dirty formulas this context has evaluated recursively. An evaluation can spill a
+    /// dynamic array into cells that were empty, so a sparse walk that sees it change knows its
+    /// view of the used cells may be stale.
+    /// </summary>
+    private int _recursiveEvaluations;
+
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
         : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.Address)
     {
@@ -264,6 +271,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
             return cached;
 
+        _recursiveEvaluations++;
         var cell = sheet.GetCell(point);
         var value = cell?.Value ?? Blank.Value;
         (_recursiveCellValueCache ??= new Dictionary<SheetPoint, ScalarValue>()).Add(bookPoint, value);
@@ -296,13 +304,14 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     /// <remarks>
     /// The slice enumerator only sees the cells that were used when it was built. When dirty
-    /// formulas are evaluated recursively (<c>worksheet.Evaluate</c>), reading a dirty
-    /// dynamic-array anchor evaluates it on the spot, and its spill may write cells after it in
-    /// the area that were empty a moment ago. So after such an anchor the walk starts again over
-    /// the rest of the area — the remainder of the anchor's row, then the rows below — which
-    /// sees the new cells and still visits each cell once, in order. On the calculation chain a
-    /// dirty anchor is never evaluated mid-walk: reading it throws, the chain evaluates it first
-    /// and the whole formula is read again.
+    /// formulas are evaluated recursively (<c>worksheet.Evaluate</c>), reading a cell can evaluate
+    /// a dirty formula on the spot: the cell's own, or the dynamic-array anchor that owns a spilled
+    /// cell, wherever that anchor is. A spill may then write cells later in the area that were
+    /// empty a moment ago. So after any read that evaluated something, the walk starts again over
+    /// the rest of the area — the remainder of the row, then the rows below — which sees the new
+    /// cells and still visits each cell once, in order. On the calculation chain nothing is
+    /// evaluated mid-walk: reading a dirty cell throws, the chain evaluates it first and the
+    /// whole formula is read again.
     /// </remarks>
     private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
     {
@@ -318,12 +327,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
             while (enumerator.MoveNext())
             {
                 var point = enumerator.Current;
-                var mayWriteSpill = _recursive && cells.FormulaSlice.Get(point) is { IsDynamicArray: true } formula && formula.IsDirty();
+                var evaluationsBefore = _recursiveEvaluations;
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+                var evaluated = _recursiveEvaluations != evaluationsBefore;
                 if (!scalarValue.IsBlank)
                     yield return scalarValue;
 
-                if (mayWriteSpill)
+                if (evaluated)
                 {
                     pending ??= new Stack<Area>();
                     if (point.Row < current.BottomRow)
