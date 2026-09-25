@@ -287,9 +287,7 @@ internal static class PivotTableCacheDefinitionPartWriter
     private static void WriteRegularCacheField(XLPivotCache pivotCache, CacheFields cacheFields, int fieldIdx, string cacheFieldName)
     {
         var fieldValues = pivotCache.GetFieldValues(fieldIdx);
-        var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx)
-            .GetCellValues()
-            .ToArray();
+        var xlSharedItems = pivotCache.GetFieldSharedItems(fieldIdx);
 
         // .CacheFields is cleared when workbook is begin saved
         // So if there are any entries, it would be from previous pivot tables
@@ -312,21 +310,23 @@ internal static class PivotTableCacheDefinitionPartWriter
         var sharedItems = cacheField.SharedItems;
         sharedItems.RemoveAllChildren();
 
-        sharedItems.Count = fieldValues.SharedCount != 0 ? checked((uint)xlSharedItems.Length) : null;
+        sharedItems.Count = fieldValues.SharedCount != 0 ? checked((uint)xlSharedItems.Count) : null;
 
         WriteSharedItemStats(sharedItems, fieldValues.Stats);
 
-        foreach (var value in xlSharedItems)
+        // Write the cache values as they are. Going through XLCellValue would send a date through the
+        // cell serial conversion, which refuses a date on 1900-02-28 with a time part.
+        for (uint index = 0; index < xlSharedItems.Count; ++index)
         {
+            var value = xlSharedItems.GetValue(index);
             OpenXmlElement toAdd = value.Type switch
             {
-                XLDataType.Blank => new MissingItem(),
-                XLDataType.Boolean => new BooleanItem { Val = value.GetBoolean() },
-                XLDataType.Number => new NumberItem { Val = value.GetNumber() },
-                XLDataType.Text => new StringItem { Val = value.GetText() },
-                XLDataType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
-                XLDataType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
-                XLDataType.TimeSpan => new DateTimeItem { Val = DateTime.FromOADate(value.GetUnifiedNumber()) },
+                XLPivotCacheValueType.Missing => new MissingItem(),
+                XLPivotCacheValueType.Boolean => new BooleanItem { Val = value.GetBoolean() },
+                XLPivotCacheValueType.Number => new NumberItem { Val = value.GetNumber() },
+                XLPivotCacheValueType.String => new StringItem { Val = xlSharedItems.GetStringValue(index) },
+                XLPivotCacheValueType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
+                XLPivotCacheValueType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
                 _ => throw new InvalidOperationException()
             };
             sharedItems.AppendChild(toAdd);

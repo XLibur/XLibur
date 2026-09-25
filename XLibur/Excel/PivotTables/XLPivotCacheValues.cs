@@ -250,9 +250,7 @@ internal sealed class XLPivotCacheValues
                     AddDateTime(value.GetDateTime());
                     break;
                 case XLDataType.TimeSpan:
-                    // TimeSpan is represented as datetime in pivot cache, e.g. 14:30 into 1899-12-30T14:30:00
-                    var adjustedTimeSpan = DateTime.FromOADate(0).Add(value.GetTimeSpan());
-                    AddDateTime(adjustedTimeSpan);
+                    AddDateTime(XLPivotCacheValue.ToCacheDateTime(value.GetTimeSpan()));
                     break;
                 default:
                     throw new UnreachableException();

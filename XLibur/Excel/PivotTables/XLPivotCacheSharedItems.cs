@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using XLibur.Excel.Cells;
-using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -60,8 +59,7 @@ internal sealed class XLPivotCacheSharedItems
                 AddDateTime(value.GetDateTime());
                 break;
             case XLDataType.TimeSpan:
-                var timeSpan = value.GetTimeSpan().ToSerialDateTime().ToSerialDateTime();
-                AddDateTime(timeSpan);
+                AddDateTime(XLPivotCacheValue.ToCacheDateTime(value.GetTimeSpan()));
                 break;
             default:
                 throw new UnreachableException();

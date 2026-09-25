@@ -33,7 +33,7 @@ internal readonly struct XLPivotCacheValuesStats
     internal bool LongText { get; init; }
 
     /// <summary>
-    /// Is any value <c>DateTime</c> or <c>TimeSpan</c>? TimeSpan is converted to <em>1899-12-31TXX:XX:XX</em> date.
+    /// Is any value <c>DateTime</c> or <c>TimeSpan</c>? TimeSpan is converted to a date counted from <em>1899-12-30</em>, see <see cref="XLPivotCacheValue.ToCacheDateTime"/>.
     /// </summary>
     internal bool ContainsDate { get; init; }
 

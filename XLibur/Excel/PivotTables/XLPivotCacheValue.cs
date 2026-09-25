@@ -74,6 +74,22 @@ internal readonly struct XLPivotCacheValue
         return new XLPivotCacheValue(XLPivotCacheValueType.DateTime, BitConverter.Int64BitsToDouble(dateTime.Ticks));
     }
 
+    /// <summary>
+    /// Convert a <see cref="TimeSpan"/> to the date a pivot cache stores for it.
+    /// </summary>
+    /// <remarks>
+    /// Excel writes the serial as a plain OLE Automation date, counted from 1899-12-30 and without the
+    /// 1900 leap-year shift that cell dates use: 14:30 is <c>1899-12-30T14:30:00</c>, 25:00 is
+    /// <c>1899-12-31T01:00:00</c> and serial 59.5 is <c>1900-02-27T12:00:00</c>. Shared items and
+    /// records both go through this method, so a record and its shared item hold the same date.
+    /// </remarks>
+    internal static DateTime ToCacheDateTime(TimeSpan timeSpan)
+    {
+        return OADateEpoch.Add(timeSpan);
+    }
+
+    private static readonly DateTime OADateEpoch = new(1899, 12, 30, 0, 0, 0, DateTimeKind.Unspecified);
+
     internal static XLPivotCacheValue ForIndex(uint index)
     {
         return new XLPivotCacheValue(XLPivotCacheValueType.Index, BitConverter.Int64BitsToDouble(index));
