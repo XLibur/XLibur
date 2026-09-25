@@ -286,17 +286,60 @@ internal sealed class CalcContext : IStructuredReferenceScope
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
-            var range = Area.FromRangeAddress(area);
+            foreach (var scalarValue in GetNonBlankValues(sheet, Area.FromRangeAddress(area)))
+                yield return scalarValue;
+        }
+    }
 
+    /// <summary>
+    /// The non-blank values of one area of <paramref name="sheet"/>, in row-major order.
+    /// </summary>
+    /// <remarks>
+    /// The slice enumerator only sees the cells that were used when it was built. When dirty
+    /// formulas are evaluated recursively (<c>worksheet.Evaluate</c>), reading a dirty
+    /// dynamic-array anchor evaluates it on the spot, and its spill may write cells after it in
+    /// the area that were empty a moment ago. So after such an anchor the walk starts again over
+    /// the rest of the area — the remainder of the anchor's row, then the rows below — which
+    /// sees the new cells and still visits each cell once, in order. On the calculation chain a
+    /// dirty anchor is never evaluated mid-walk: reading it throws, the chain evaluates it first
+    /// and the whole formula is read again.
+    /// </remarks>
+    private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
+    {
+        var cells = sheet.Internals.CellsCollection;
+
+        // What is left to read after a restart, the next piece on top. Only a restart allocates it.
+        Stack<Area>? pending = null;
+        var current = area;
+        while (true)
+        {
             // A value can be either in a non-empty value slice or an empty cell with a formula.
-            var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
+            var enumerator = cells.ForValuesAndFormulas(current);
             while (enumerator.MoveNext())
             {
                 var point = enumerator.Current;
+                var mayWriteSpill = _recursive && cells.FormulaSlice.Get(point) is { IsDynamicArray: true } formula && formula.IsDirty();
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
                 if (!scalarValue.IsBlank)
                     yield return scalarValue;
+
+                if (mayWriteSpill)
+                {
+                    pending ??= new Stack<Area>();
+                    if (point.Row < current.BottomRow)
+                        pending.Push(new Area(new Point(point.Row + 1, current.LeftColumn), current.LastPoint));
+
+                    if (point.Column < current.RightColumn)
+                        pending.Push(new Area(new Point(point.Row, point.Column + 1), new Point(point.Row, current.RightColumn)));
+
+                    break;
+                }
             }
+
+            if (pending is null || pending.Count == 0)
+                yield break;
+
+            current = pending.Pop();
         }
     }
 

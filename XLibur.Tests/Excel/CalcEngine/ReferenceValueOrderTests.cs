@@ -58,6 +58,55 @@ public class ReferenceValueOrderTests
         }
     }
 
+    /// <summary>
+    /// A dynamic-array anchor inside the reference that has not been evaluated yet: the cells it
+    /// spills into are empty until it runs. Reading the anchor evaluates it, and the cells it then
+    /// spills into, later in row-major order, must still be read.
+    /// </summary>
+    [Test]
+    [Arguments("SEQUENCE(3)", "NPV(1, A1:A3)", 1.375, false)] // 1/2 + 2/4 + 3/8
+    [Arguments("SEQUENCE(3)", "NPV(1, A1:A3)", 1.375, true)]
+    [Arguments("SEQUENCE(3)", "NPV(1, A:A)", 1.375, false)]
+    [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B2)", 1.625, false)] // 1/2 + 2/4 + 3/8 + 4/16, row by row
+    [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B2)", 1.625, true)]
+    [Arguments("SEQUENCE(3)", "SUM(A1:A3)", 6d, false)]
+    [Arguments("SEQUENCE(3)", "SUM(A:A)", 6d, false)]
+    [Arguments("SEQUENCE(3)", "SUM(A:A)", 6d, true)]
+    [Arguments("SEQUENCE(3)", "COUNT(A1:A3)", 3d, false)]
+    [Arguments("SEQUENCE(3, 1, 0)", "OR(A1:A3)", true, false)] // {0;1;2}: only the spilled cells are TRUE.
+    [Arguments("SEQUENCE(3, 1, 0)", "OR(A1:A3)", true, true)]
+    [Arguments("SEQUENCE(3, 1, 1, -1)", "AND(A1:A3)", false, false)] // {1;0;-1}: only a spilled cell is FALSE.
+    [Arguments("SEQUENCE(3, 1, 1, -1)", "AND(A1:A3)", false, true)]
+    public async Task UnevaluatedSpillInsideTheReferenceIsRead(string spill, string formula, object expected, bool inCell)
+    {
+        var ws = NewSpillSheet(out var wb, spill);
+        using (wb)
+        {
+            XLCellValue actual;
+            if (inCell)
+            {
+                // A cell formula, recalculated through the calculation chain.
+                ws.Cell("Z1").FormulaA1 = formula;
+                actual = ws.Cell("Z1").Value;
+            }
+            else
+            {
+                // Evaluated outside any cell, which evaluates dirty formulas recursively.
+                actual = ws.Evaluate(formula);
+            }
+
+            await Assert.That(actual).IsEqualTo(XLCellValue.FromObject(expected));
+        }
+    }
+
+    private static IXLWorksheet NewSpillSheet(out XLWorkbook wb, string spill)
+    {
+        wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell("A1").SetDynamicFormulaA1(spill);
+        return ws;
+    }
+
     [Test]
     public async Task WholeColumnReferenceToASparseSheet()
     {
