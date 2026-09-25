@@ -142,11 +142,22 @@ internal sealed class XLProtection : IXLProtection
     /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
     /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
     /// not share (#505), so there the setter always writes.
+    /// <para>
+    /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
+    /// <see cref="XLFont"/>'s <c>Modify</c>.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
-        Key = modification(Key);
+        if (!ReferenceEquals(_value, _style.Value.Protection))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+        _value = _style.Value.Protection;
     }
 
     #region Overridden

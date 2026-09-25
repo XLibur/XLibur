@@ -96,11 +96,22 @@ internal sealed class XLFill : IXLFill
     /// rebuilt after a collection starts from its parent's style rather than its cells' (#505). So
     /// the non-cell path hands the decision to <paramref name="modification"/>, which runs once per
     /// distinct cell style.
+    /// <para>
+    /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
+    /// <see cref="XLFont"/>'s <c>Modify</c>.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
-        Key = modification(Key);
+        if (!ReferenceEquals(_value, _style.Value.Fill))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+        _value = _style.Value.Fill;
     }
 
     /// <summary>

@@ -149,10 +149,21 @@ internal sealed class XLNumberFormat : IXLNumberFormat
         _value = _style.Value.NumberFormat;
     }
 
+    /// <remarks>
+    /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
+    /// <see cref="XLFont"/>'s <c>Modify</c>.
+    /// </remarks>
     private void Modify(Func<XLNumberFormatKey, XLNumberFormatKey> modification)
     {
-        Key = modification(Key);
+        if (!ReferenceEquals(_value, _style.Value.NumberFormat))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
+        _value = _style.Value.NumberFormat;
     }
 
     #region Overridden

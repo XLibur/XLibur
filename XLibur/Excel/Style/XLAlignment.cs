@@ -388,11 +388,22 @@ internal sealed class XLAlignment : IXLAlignment
     /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
     /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
     /// not share (#505), so there the setter always writes.
+    /// <para>
+    /// <c>Key</c> is assigned only where the facade does not hold the very value its style does - see
+    /// <see cref="XLFont"/>'s <c>Modify</c>.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
     {
-        Key = modification(Key);
+        if (!ReferenceEquals(_value, _style.Value.Alignment))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
+        _value = _style.Value.Alignment;
     }
 
     #region Overridden

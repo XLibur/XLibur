@@ -152,11 +152,33 @@ internal sealed class XLFont : IXLFont
     /// not share: a range is held weakly by its worksheet, and one rebuilt after a collection starts
     /// from its parent's style rather than its cells' (#505). A value equal to that record can still
     /// change a cell, so there the setter always writes.
+    /// <para>
+    /// Where the facade holds the very value its style does, it does not assign <c>Key</c>, which
+    /// would intern the new font in its repository only for the result to be discarded - the same
+    /// wasted lookup <see cref="SetKey"/> documents - and would run <paramref name="modification"/>
+    /// an extra time. The style interns the font again when it resolves its key, so the facade takes
+    /// the interned value back off the resulting style instead.
+    /// </para>
+    /// <para>
+    /// Anywhere else the facade's own key stays the source of truth, as it always was. That is a
+    /// font built without a style - a rich text run's, which gets an empty style holding the default
+    /// font rather than its own - and, rarely, a facade whose style was reset under it, or whose value
+    /// the repository handed back as a second instance after a collection. Values are interned, so a
+    /// reference test tells the two apart at the cost of one field read and no state of its own: the
+    /// facade is allocated per cell, and a flag would grow every one of them.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
-        Key = modification(Key);
+        if (!ReferenceEquals(_value, _style.Value.Font))
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+        _value = _style.Value.Font;
     }
 
     #region IXLFont Members
