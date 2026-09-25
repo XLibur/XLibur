@@ -124,9 +124,59 @@ public class ArrayFormulaCalculationTests
         var ws = wb.AddWorksheet();
         ws.Range("B1:B3").FormulaArrayA1 = "SIGN({-1,2,0})";
 
-        // Uses only -1 for all values
+        // The result is the row {-1,1,0}; a one-row result is cloned down a one-column cell group,
+        // so every cell shows its first value.
         await Assert.That(ws.Cell("B1").Value).IsEqualTo(-1);
         await Assert.That(ws.Cell("B2").Value).IsEqualTo(-1);
         await Assert.That(ws.Cell("B3").Value).IsEqualTo(-1);
+    }
+
+    [Test]
+    public async Task Scalar_function_is_evaluated_for_each_element_of_an_array_argument()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:C1").FormulaArrayA1 = "SIGN({-1,2,0})";
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(-1);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Scalar_function_is_evaluated_for_each_cell_of_a_range_argument()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = -1;
+        ws.Cell("A2").Value = -2;
+        ws.Range("B1:B2").FormulaArrayA1 = "ABS(A1:A2)";
+
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Text_function_is_evaluated_for_each_element_of_an_array_argument()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:B1").FormulaArrayA1 = "LEN({\"ab\",\"c\"})";
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Scalar_arguments_of_different_shapes_are_broadcast_per_element()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:B2").FormulaArrayA1 = "POWER({2,3},{1;2})";
+
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B1").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("A2").Value).IsEqualTo(4);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(9);
     }
 }
