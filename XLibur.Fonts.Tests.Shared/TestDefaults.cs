@@ -1,7 +1,6 @@
 using System.Globalization;
-using System.Threading.Tasks;
 
-namespace XLibur.Fonts.SkiaSharp.Tests;
+namespace XLibur.Fonts.Tests;
 
 /// <summary>
 /// Assembly-wide test defaults.

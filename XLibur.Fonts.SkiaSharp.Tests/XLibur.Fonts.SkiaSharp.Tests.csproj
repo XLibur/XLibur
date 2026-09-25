@@ -8,8 +8,12 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
+  <!-- The contract tests, helpers and test fonts are shared with XLibur.Fonts.SixLabors.Tests. The
+       fonts are XLibur.Tests' copies, linked back under Resource\Fonts so the resource names stay
+       XLibur.Fonts.SkiaSharp.Tests.Resource.Fonts.*. -->
   <ItemGroup>
-    <EmbeddedResource Include="Resource\Fonts\*.*" />
+    <Compile Include="..\XLibur.Fonts.Tests.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\XLibur.Tests\Resource\Fonts\TestFont*.ttf" Link="Resource\Fonts\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
