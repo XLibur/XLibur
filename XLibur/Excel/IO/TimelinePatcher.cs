@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using XLibur.Extensions;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
 
 namespace XLibur.Excel.IO;
@@ -129,14 +130,8 @@ internal static class TimelinePatcher
     /// </remarks>
     private static TimeLinePart? ResolvePart(WorksheetPart worksheetPart, XLTimeline xlTimeline)
     {
-        if (xlTimeline.PartRelId is null)
-            return null;
-
-        // GetPartById throws for an unknown id, which is reachable when the timeline came from a
-        // package this one was not saved from.
-        if (!worksheetPart.Parts.Any(p => p.RelationshipId == xlTimeline.PartRelId))
-            return null;
-
-        return worksheetPart.GetPartById(xlTimeline.PartRelId) as TimeLinePart;
+        // An unknown id is reachable when the timeline came from a package this one was not saved
+        // from.
+        return worksheetPart.GetPartOrNull<TimeLinePart>(xlTimeline.PartRelId);
     }
 }

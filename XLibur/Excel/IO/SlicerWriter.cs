@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
 using XLibur.Excel.IO.DrawingML;
+using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -209,9 +210,7 @@ internal static class SlicerWriter
             // slicer whose part has already gone still has a frame to take out.
             SlicerAnchorXml.Remove(worksheetPart.DrawingsPart, removed);
 
-            if (removed.PartRelId is not { } relId
-                || !worksheetPart.Parts.Any(p => p.RelationshipId == relId)
-                || worksheetPart.GetPartById(relId) is not SlicersPart part)
+            if (worksheetPart.GetPartOrNull<SlicersPart>(removed.PartRelId) is not { } part)
             {
                 continue;
             }

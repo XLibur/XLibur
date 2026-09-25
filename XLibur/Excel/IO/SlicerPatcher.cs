@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.IO.DrawingML;
+using XLibur.Extensions;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Excel.IO;
@@ -127,14 +128,8 @@ internal static class SlicerPatcher
     /// </remarks>
     private static SlicersPart? ResolvePart(WorksheetPart worksheetPart, XLSlicer xlSlicer)
     {
-        if (xlSlicer.PartRelId is null)
-            return null;
-
-        // GetPartById throws for an unknown id, which is reachable when the slicer came from a
-        // package this one was not saved from.
-        if (!worksheetPart.Parts.Any(p => p.RelationshipId == xlSlicer.PartRelId))
-            return null;
-
-        return worksheetPart.GetPartById(xlSlicer.PartRelId) as SlicersPart;
+        // An unknown id is reachable when the slicer came from a package this one was not saved
+        // from.
+        return worksheetPart.GetPartOrNull<SlicersPart>(xlSlicer.PartRelId);
     }
 }
