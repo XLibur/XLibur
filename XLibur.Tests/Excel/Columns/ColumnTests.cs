@@ -337,4 +337,25 @@ public class ColumnTests
 
         await Assert.That(ws.Column(2).Width).IsEqualTo(ws.Column(1).Width).Within(XLHelper.Epsilon);
     }
+
+    /// <summary>
+    /// <c>IXLColumns.CellsUsed()</c> counted cells that only carry formatting, because it used
+    /// <see cref="XLCellsUsedOptions.All"/> instead of <see cref="XLCellsUsedOptions.AllContents"/>
+    /// like its siblings (#622). It must agree with <c>IXLRows.CellsUsed()</c> over the same cells.
+    /// </summary>
+    [Test]
+    public async Task Columns_CellsUsed_ExcludesFormatOnlyCells()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "a";
+        ws.Cell("B2").Style.Fill.BackgroundColor = XLColor.Yellow;
+        ws.Cell("C3").Value = "c";
+
+        var fromColumns = ws.Columns("A:C").CellsUsed().Select(c => c.Address.ToString()!).ToList();
+        var fromRows = ws.Rows("1:3").CellsUsed().Select(c => c.Address.ToString()!).ToList();
+
+        await Assert.That(fromColumns).IsEquivalentTo(new[] { "A1", "C3" });
+        await Assert.That(fromRows).IsEquivalentTo(new[] { "A1", "C3" });
+    }
 }
