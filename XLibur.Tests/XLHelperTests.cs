@@ -165,6 +165,10 @@ public class XLHelperTests
     [Arguments("A1B", "'A1B'")]
     [Arguments("TRUE", "'TRUE'")]
     [Arguments("false", "'false'")]
+    [Arguments("R", "'R'")]
+    [Arguments("c", "'c'")]
+    [Arguments("RC", "'RC'")]
+    [Arguments("RCX", "RCX")]
     [Arguments("", "")]
     public async Task QuoteSheetName_quotes_only_names_that_need_it(string sheetName, string expected)
     {

@@ -108,8 +108,8 @@ public static partial class XLHelper
     /// <para>
     /// A name is quoted when it does not start with a letter or an underscore, when it contains a
     /// character that is not allowed in an unquoted name (a space or punctuation, for example), or
-    /// when it could be read as a cell reference: <c>AB12</c>, <c>R1C1</c>, <c>TRUE</c> or a name
-    /// that starts with a cell reference, such as <c>A1B</c>.
+    /// when it could be read as a cell reference or a value: <c>AB12</c>, <c>R1C1</c>, <c>RC</c>,
+    /// <c>TRUE</c>, or a name that starts with a cell reference, such as <c>A1B</c>.
     /// </para>
     /// <para>
     /// An apostrophe in a quoted name is doubled, so <c>O'Brien</c> becomes <c>'O''Brien'</c>.
