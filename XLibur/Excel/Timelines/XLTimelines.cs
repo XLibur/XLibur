@@ -2,8 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Text;
+using System.Linq;
 using XLibur.Excel.Drawings;
 
 namespace XLibur.Excel;
@@ -102,12 +101,13 @@ internal sealed class XLTimelines : IXLTimelines
         cache.PivotTableNames.Add(pivotTable.Name);
 
         var area = pivotTable.Area;
-        return AddNew(cache, dateFieldName, DefaultPositionBeside(area.FirstPoint.Row, area.LastPoint.Column));
+        return AddNew(cache, dateFieldName, XLSheetControlNames.DefaultPositionBeside(
+            _worksheet, area.FirstPoint.Row, area.LastPoint.Column));
     }
 
     private XLTimeline AddNew(XLTimelineCache cache, string sourceName, IXLCell position)
     {
-        var name = NextTimelineName(sourceName);
+        var name = XLSheetControlNames.NextControlName(_worksheet.Workbook, sourceName);
         var timeline = new XLTimeline(_worksheet, cache, name)
         {
             IsNew = true,
@@ -130,109 +130,16 @@ internal sealed class XLTimelines : IXLTimelines
     }
 
     /// <summary>
-    /// Where a new timeline goes when the caller has not said: two columns to the right of the pivot
-    /// table it filters, at that table's top row.
+    /// A timeline cache name not already taken: <c>NativeTimeline_Date</c>, then
+    /// <c>NativeTimeline_Date1</c>. Only timeline caches and defined names count as taken — see
+    /// <see cref="XLSheetControlNames.NextCacheName"/>.
     /// </summary>
-    /// <remarks>
-    /// A default is not optional here. <c>DrawingAnchorFactory</c> documents that a drawing handed no
-    /// marker gets one at A1 — silently, with no exception and no missing element. For a picture
-    /// that is reasonable. For a timeline it would drop the band over the top-left of the sheet,
-    /// covering the very data it filters, and the caller would have no idea why. So every timeline
-    /// XLibur creates is given a marker before the factory sees it, and that fallback stays
-    /// unreachable from here.
-    /// </remarks>
-    private XLCell DefaultPositionBeside(int topRow, int rightmostColumn) =>
-        _worksheet.Cell(
-            Math.Max(1, topRow),
-            Math.Min(XLHelper.MaxColumnNumber, rightmostColumn + 2));
-
-    /// <summary>
-    /// A cache name not already taken, in the shape Excel uses: <c>NativeTimeline_Date</c>, then
-    /// <c>NativeTimeline_Date1</c>.
-    /// </summary>
-    /// <remarks>
-    /// The name is not decoration. A timeline refers to its cache by it, and a <c>#N/A</c> defined
-    /// name is written under the same name, so it has to be a legal defined name: no spaces, and
-    /// nothing that would parse as a cell reference.
-    /// </remarks>
-    private string NextCacheName(string sourceName)
-    {
-        var stem = "NativeTimeline_" + Sanitise(sourceName);
-        var taken = WorkbookCacheNames();
-
-        if (!taken.Contains(stem))
-            return stem;
-
-        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
-        // and the loop returns within `taken.Count + 1` iterations.
-#pragma warning disable S1994
-        for (var suffix = 1; ; suffix++)
-        {
-            var candidate = stem + suffix.ToString(CultureInfo.InvariantCulture);
-            if (!taken.Contains(candidate))
-                return candidate;
-        }
-#pragma warning restore S1994
-    }
-
-    /// <summary>
-    /// A timeline name not already taken, in the shape Excel uses: <c>Date</c>, then <c>Date 1</c>.
-    /// Timeline names are unique across the workbook, not just the sheet.
-    /// </summary>
-    /// <remarks>
-    /// Slicers and timelines share one name namespace in Excel's selection pane, so this also has to
-    /// scan slicer names — otherwise a timeline could take a name a slicer already has.
-    /// </remarks>
-    private string NextTimelineName(string sourceName)
-    {
-        var taken = new HashSet<string>(XLHelper.NameComparer);
-        foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var timeline in worksheet.TimelinesInternal.Items)
-                taken.Add(timeline.Name);
-            foreach (var slicer in worksheet.SlicersInternal.Items)
-                taken.Add(slicer.Name);
-        }
-
-        if (!taken.Contains(sourceName))
-            return sourceName;
-
-        // Bounded by `taken`, not by the counter: the set is finite, so some suffix is always free
-        // and the loop returns within `taken.Count + 1` iterations.
-#pragma warning disable S1994
-        for (var suffix = 1; ; suffix++)
-        {
-            var candidate = sourceName + " " + suffix.ToString(CultureInfo.InvariantCulture);
-            if (!taken.Contains(candidate))
-                return candidate;
-        }
-#pragma warning restore S1994
-    }
-
-    private HashSet<string> WorkbookCacheNames()
-    {
-        var taken = new HashSet<string>(XLHelper.NameComparer);
-        foreach (var worksheet in _worksheet.Workbook.WorksheetsInternal)
-        {
-            foreach (var timeline in worksheet.TimelinesInternal.Items)
-                taken.Add(timeline.Cache.Name);
-        }
-
-        // A defined name already using the stem would collide with the one written for the cache.
-        foreach (var definedName in _worksheet.Workbook.DefinedNamesInternal)
-            taken.Add(definedName.Name);
-
-        return taken;
-    }
-
-    private static string Sanitise(string sourceName)
-    {
-        var builder = new StringBuilder(sourceName.Length);
-        foreach (var c in sourceName)
-            builder.Append(char.IsLetterOrDigit(c) || c == '_' ? c : '_');
-
-        return builder.Length > 0 ? builder.ToString() : "Field";
-    }
+    private string NextCacheName(string sourceName) =>
+        XLSheetControlNames.NextCacheName(
+            _worksheet.Workbook,
+            "NativeTimeline_",
+            sourceName,
+            static worksheet => worksheet.TimelinesInternal.Items.Select(timeline => timeline.Cache.Name));
 
     /// <summary>
     /// Drops a timeline from the worksheet and records what the save path has to unpick.
