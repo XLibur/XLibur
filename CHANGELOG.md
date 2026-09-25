@@ -18,11 +18,31 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **`XLHelper.QuoteSheetName(string)` quotes a sheet name for use in a formula reference.** It uses the same rule XLibur uses when it writes formulas, so a name that reads as a cell, an R1C1 reference or a value (`AB12`, `R1C1`, `TRUE`) is quoted, and an apostrophe in the name is doubled (#626).
+
 ### 🐛 Bug Fixes
 
 - **Row `AdjustToContents` now makes a row tall enough for a cell with wrap text.** It counted only hard line breaks, so a long wrapped text got the height of one line, and the row could even shrink below the default height (#615, reported as ClosedXML/ClosedXML#2867). A cell with `Alignment.WrapText` set and no text rotation is now wrapped to its column width, less the cell padding and the indent. A line breaks after a space or a hyphen, and a word too long for the column is split between characters. Merged cells are still skipped, rotated text is measured as before, and column `AdjustToContents` is unchanged.
 
 - **`AdjustToContents` no longer skips the character after a Windows line break (`\r\n`).** Text measurement counted the break as two characters, but .NET treats `\r\n` as one, so the character after every `\r\n` was not measured (#618). Column `AdjustToContents` could make a column too narrow. Row `AdjustToContents` lost a whole line when the line after the break was a single character, and did not count blank lines between `\r\n` breaks: `"A\r\nB"` got the height of one line. Text with `\n` line breaks was not affected.
+
+- **`IXLColumns.CellsUsed()` and `IXLTableRows.CellsUsed(options)` now return only used cells.** `Columns(...).CellsUsed()` included cells that had only formatting, unlike `Rows(...).CellsUsed()` (#622). `CellsUsed(options)` on table rows returned every cell in the rows, blank ones included (#623).
+
+- **`IXLRangeRow.CopyTo(IXLRangeBase)` now returns the row where the data was pasted.** When the target was wider than one column, the returned row started at the target's last column instead of its first: `ws.Range("A1:C1").Row(1).CopyTo(ws.Range("E5:G5"))` returned G5:I5 instead of E5:G5 (#624). All range, row and column `CopyTo` overloads now use one shared helper to build the returned range.
+
+- **INDIRECT unescapes a quoted sheet name once.** It now reads `'O''Brien'!A1` with the shared `UnescapeSheetName` helper and looks the sheet up by its exact name, so a sheet whose name contains `''` resolves correctly (#625).
+
+- **XLibur.Report quotes cell-like sheet names when it rewrites chart references.** Sheets named like a cell or a value, such as `AB12`, `R1C1` or `TRUE`, are now written as `'AB12'!$A$1` instead of `AB12!$A$1` (#626). Report now uses the core quoting rule, so non-ASCII names such as `Übersicht` are no longer quoted.
+
+- **Sheet names `TRUE`, `FALSE`, `R`, `C` and `RC` are quoted in formulas.** These names read as values or R1C1 references, so XLibur now quotes them, in any letter case (#626).
+
+- **Conditional-format number formats no longer collide with other dxf number formats or drop built-in ids.** Conditional-format dxfs now use the same builder as table and pivot dxfs, so each custom `numFmtId` stands for one format code and built-in ids such as 10 (`0.00%`) are saved (#627). A dxf number format is never written without the `formatCode` Excel requires. Built-in currency and accounting ids (5, 6, 8, 41–44) get their en-US codes, and a locale-specific id with no known code is left out rather than producing a file Excel will not open.
+
+- **A pivot cache built from a TimeSpan column stores the same date in its shared items and its records.** Shared items were one day later than their records: 14:30 was saved as 1899-12-31T14:30 (#628). Both now match what Excel writes, a plain date from 1899-12-30 with no 1900 leap-year shift. Saving a pivot cache that holds a date on 1900-02-28 with a time part no longer throws.
+
+- **IPMT and PPMT now return the right values for period 1 of an annuity-due (type 1).** IPMT returned about `-90.91` for `IPMT(0.1,1,3,1000,0,1)`, where Excel and CUMIPMT return `0`, and PPMT was wrong by the same amount (#629). IPMT, PPMT, CUMIPMT and CUMPRINC now use the same interest calculation.
 
 ## v0.610.0 - 2026-09-16
 
