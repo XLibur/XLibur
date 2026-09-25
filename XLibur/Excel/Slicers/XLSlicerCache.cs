@@ -109,7 +109,7 @@ internal sealed class XLSlicerCache : IXLPivotDependentCache
     /// <summary>
     /// The pivot cache the item indices point into, resolved from the bound pivot tables.
     /// </summary>
-    internal XLPivotCache? PivotCache { get; set; }
+    public XLPivotCache? PivotCache { get; set; }
 
     /// <summary>
     /// The table resolved from <see cref="TableId"/>.

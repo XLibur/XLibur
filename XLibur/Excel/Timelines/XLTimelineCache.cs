@@ -63,7 +63,7 @@ internal sealed class XLTimelineCache : IXLPivotDependentCache
     public List<XLPivotTable> PivotTables { get; } = [];
 
     /// <summary>The pivot cache behind those pivot tables.</summary>
-    internal XLPivotCache? PivotCache { get; set; }
+    public XLPivotCache? PivotCache { get; set; }
 
     /// <summary>
     /// The extent of the scrubber. Nullable because <c>x15:bounds</c> is an optional child of

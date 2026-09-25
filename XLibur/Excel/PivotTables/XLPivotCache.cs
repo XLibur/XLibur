@@ -160,7 +160,8 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     /// <remarks>
     /// Not the <c>pivotCache/@cacheId</c> of <c>workbook.xml</c>, which XLibur renumbers on every
-    /// save. Null until a slicer needs one, at which point the writer allocates and records it.
+    /// save. Null until a slicer or a timeline needs one, at which point the writer allocates it
+    /// through <see cref="XLPivotCaches.EnsurePivotCacheId"/>.
     /// </remarks>
     internal uint? PivotCacheId { get; set; }
 

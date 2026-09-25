@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Excel.Tables;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
@@ -126,7 +127,7 @@ internal static class SlicerCacheWriter
         // the pivot cache definition. A cache read from a file already has one; a cache XLibur
         // created has none until now, and the pivot cache writer emits it once this is set.
         if (cache.SourceKind == XLSlicerSourceKind.PivotTable && cache.PivotCache is { } pivotCache)
-            pivotCache.PivotCacheId ??= NextPivotCacheId(workbook);
+            workbook.PivotCachesInternal.EnsurePivotCacheId(pivotCache);
     }
 
     private static void RemoveCache(WorkbookPart workbookPart, XLWorkbook workbook, XLSlicerCache cache)
@@ -148,26 +149,6 @@ internal static class SlicerCacheWriter
             workbook.DefinedNamesInternal.Delete(definedName.Name);
 
         cache.WorkbookRelId = null;
-    }
-
-    /// <summary>
-    /// An identifier no pivot cache in the workbook is already using.
-    /// </summary>
-    /// <remarks>
-    /// Excel writes a large arbitrary number here; the value carries no meaning beyond matching the
-    /// <c>pivotCacheId</c> a slicer cache quotes. Counting up from the highest in use keeps it
-    /// deterministic, which matters because a save has to be reproducible.
-    /// </remarks>
-    private static uint NextPivotCacheId(XLWorkbook workbook)
-    {
-        uint highest = 0;
-        foreach (var cache in workbook.PivotCachesInternal)
-        {
-            if (cache.PivotCacheId is { } id && id > highest)
-                highest = id;
-        }
-
-        return highest + 1;
     }
 
     private static X14.SlicerCacheDefinition BuildDefinition(XLSlicerCache cache, SaveContext context)
@@ -252,23 +233,12 @@ internal static class SlicerCacheWriter
 
     private static void RegisterCache(WorkbookPart workbookPart, XLSlicerSourceKind kind, string relId)
     {
-        var workbook = workbookPart.Workbook!;
-        var extensionList = workbook.GetFirstChild<WorkbookExtensionList>();
-        if (extensionList is null)
-        {
-            extensionList = new WorkbookExtensionList();
-            workbook.AppendChild(extensionList);
-        }
-
         var uri = RegistrationUri(kind);
-        var extension = FindExtension(extensionList, uri);
-        if (extension is null)
-        {
-            extension = CreateRegistrationExtension(kind, uri);
-            extensionList.AppendChild(extension);
-        }
-
-        var container = CacheContainer(extension, kind);
+        var container = WorkbookExtensionRefs.EnsureRegistry(
+            workbookPart.Workbook!,
+            uri,
+            () => CreateRegistrationExtension(kind, uri),
+            extension => CacheContainer(extension, kind));
         if (container is null)
             return;
 
@@ -300,25 +270,12 @@ internal static class SlicerCacheWriter
         return extension;
     }
 
-    private static void UnregisterCache(WorkbookPart workbookPart, XLSlicerSourceKind kind, string relId)
-    {
-        var extensionList = workbookPart.Workbook?.GetFirstChild<WorkbookExtensionList>();
-        var extension = extensionList is null ? null : FindExtension(extensionList, RegistrationUri(kind));
-        var container = extension is null ? null : CacheContainer(extension, kind);
-        if (container is null)
-            return;
-
-        foreach (var registration in container.Elements<X14.SlicerCache>().Where(c => c.Id?.Value == relId).ToList())
-            registration.Remove();
-
-        // An empty registry is a schema violation rather than merely untidy, so the extension goes
-        // once its last cache does.
-        if (!container.Elements<X14.SlicerCache>().Any())
-            extension!.Remove();
-
-        if (extensionList is { HasChildren: false })
-            extensionList.Remove();
-    }
+    private static void UnregisterCache(WorkbookPart workbookPart, XLSlicerSourceKind kind, string relId) =>
+        WorkbookExtensionRefs.RemoveRefs<X14.SlicerCache>(
+            workbookPart.Workbook,
+            RegistrationUri(kind),
+            extension => CacheContainer(extension, kind),
+            registration => registration.Id?.Value == relId);
 
     /// <summary>
     /// The element holding the registrations, which is <c>x14:slicerCaches</c> for a pivot cache
@@ -328,10 +285,6 @@ internal static class SlicerCacheWriter
         kind == XLSlicerSourceKind.Table
             ? extension.GetFirstChild<X15.SlicerCaches>()
             : extension.GetFirstChild<X14.SlicerCaches>();
-
-    private static WorkbookExtension? FindExtension(WorkbookExtensionList extensionList, string uri) =>
-        extensionList.Elements<WorkbookExtension>()
-            .FirstOrDefault(e => string.Equals(e.Uri?.Value, uri, System.StringComparison.OrdinalIgnoreCase));
 
     private static string RegistrationUri(XLSlicerSourceKind kind) =>
         kind == XLSlicerSourceKind.Table ? TableSlicerCachesExtensionUri : PivotSlicerCachesExtensionUri;

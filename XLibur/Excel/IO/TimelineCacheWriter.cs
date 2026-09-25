@@ -2,6 +2,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.IO.DrawingML;
 using static XLibur.Excel.XLWorkbook;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
 
@@ -111,7 +112,7 @@ internal static class TimelineCacheWriter
         // already has one; a cache XLibur created has none until now, and the pivot cache writer
         // emits it once this is set.
         if (cache.PivotCache is { } pivotCache)
-            pivotCache.PivotCacheId ??= NextPivotCacheId(workbook);
+            workbook.PivotCachesInternal.EnsurePivotCacheId(pivotCache);
     }
 
     private static void RemoveCache(WorkbookPart workbookPart, XLWorkbook workbook, XLTimelineCache cache)
@@ -133,27 +134,6 @@ internal static class TimelineCacheWriter
             workbook.DefinedNamesInternal.Delete(definedName.Name);
 
         cache.WorkbookRelId = null;
-    }
-
-    /// <summary>
-    /// An identifier no pivot cache in the workbook is already using.
-    /// </summary>
-    /// <remarks>
-    /// Counting up from the highest in use keeps it deterministic, which matters because a save has
-    /// to be reproducible. Shared with the slicer path by convention rather than by code: both read
-    /// and write the same <c>XLPivotCache.PivotCacheId</c>, so a workbook holding both never
-    /// allocates a collision.
-    /// </remarks>
-    private static uint NextPivotCacheId(XLWorkbook workbook)
-    {
-        uint highest = 0;
-        foreach (var cache in workbook.PivotCachesInternal)
-        {
-            if (cache.PivotCacheId is { } id && id > highest)
-                highest = id;
-        }
-
-        return highest + 1;
     }
 
     private static X15.TimelineCacheDefinition BuildDefinition(XLTimelineCache cache)
@@ -208,24 +188,11 @@ internal static class TimelineCacheWriter
 
     private static void RegisterCache(WorkbookPart workbookPart, string relId)
     {
-        var workbook = workbookPart.Workbook!;
-        var extensionList = workbook.GetFirstChild<WorkbookExtensionList>();
-        if (extensionList is null)
-        {
-            extensionList = new WorkbookExtensionList();
-            workbook.AppendChild(extensionList);
-        }
-
-        var extension = FindExtension(extensionList);
-        if (extension is null)
-        {
-            extension = new WorkbookExtension { Uri = TimelineCachesExtensionUri };
-            extension.AddNamespaceDeclaration("x15", X15Main2010SsNs);
-            extension.AppendChild(new X15.TimelineCacheReferences());
-            extensionList.AppendChild(extension);
-        }
-
-        var container = extension.GetFirstChild<X15.TimelineCacheReferences>();
+        var container = WorkbookExtensionRefs.EnsureRegistry(
+            workbookPart.Workbook!,
+            TimelineCachesExtensionUri,
+            CreateRegistrationExtension,
+            CacheContainer);
         if (container is null)
             return;
 
@@ -233,33 +200,22 @@ internal static class TimelineCacheWriter
             container.AppendChild(new X15.TimelineCacheReference { Id = relId });
     }
 
-    private static void UnregisterCache(WorkbookPart workbookPart, string relId)
+    /// <summary>A new workbook extension holding an empty timeline cache registry.</summary>
+    private static WorkbookExtension CreateRegistrationExtension()
     {
-        var extensionList = workbookPart.Workbook?.GetFirstChild<WorkbookExtensionList>();
-        var extension = extensionList is null ? null : FindExtension(extensionList);
-        var container = extension?.GetFirstChild<X15.TimelineCacheReferences>();
-        if (container is null)
-            return;
-
-        foreach (var registration in container
-                     .Elements<X15.TimelineCacheReference>()
-                     .Where(c => c.Id?.Value == relId)
-                     .ToList())
-        {
-            registration.Remove();
-        }
-
-        // An empty registry is a schema violation rather than merely untidy, so the extension goes
-        // once its last cache does.
-        if (!container.Elements<X15.TimelineCacheReference>().Any())
-            extension!.Remove();
-
-        if (extensionList is { HasChildren: false })
-            extensionList.Remove();
+        var extension = new WorkbookExtension { Uri = TimelineCachesExtensionUri };
+        extension.AddNamespaceDeclaration("x15", X15Main2010SsNs);
+        extension.AppendChild(new X15.TimelineCacheReferences());
+        return extension;
     }
 
-    private static WorkbookExtension? FindExtension(WorkbookExtensionList extensionList) =>
-        extensionList.Elements<WorkbookExtension>()
-            .FirstOrDefault(e => string.Equals(
-                e.Uri?.Value, TimelineCachesExtensionUri, System.StringComparison.OrdinalIgnoreCase));
+    private static void UnregisterCache(WorkbookPart workbookPart, string relId) =>
+        WorkbookExtensionRefs.RemoveRefs<X15.TimelineCacheReference>(
+            workbookPart.Workbook,
+            TimelineCachesExtensionUri,
+            CacheContainer,
+            registration => registration.Id?.Value == relId);
+
+    private static OpenXmlCompositeElement? CacheContainer(WorkbookExtension extension) =>
+        extension.GetFirstChild<X15.TimelineCacheReferences>();
 }
