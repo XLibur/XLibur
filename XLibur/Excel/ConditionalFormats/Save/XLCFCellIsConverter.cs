@@ -8,10 +8,7 @@ internal sealed class XLCFCellIsConverter : IXLCFConverter
     {
         string val = GetQuoted(cf.Values[1]);
 
-        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
-        var cfStyle = ((XLStyle)cf.Style).Value;
-        if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
-            conditionalFormattingRule.FormatId = (uint)context.DifferentialFormats[cfStyle];
+        var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority, context);
 
         conditionalFormattingRule.Operator = cf.Operator.ToOpenXml();
 

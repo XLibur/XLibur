@@ -179,18 +179,34 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     /// <param name="rewrite">What the rename or the delete does to formula text.</param>
     internal void RewriteSheet(string formulaSheetName, SheetRewrite rewrite)
     {
+        TransformFormulaValues(TryRewrite);
+
+        // The rewrite does not move a reference, so any origin reads the formula the same way.
+        bool TryRewrite(string text, out string rewritten)
+            => rewrite.TryRewrite(text, formulaSheetName, new Point(1, 1), out rewritten)
+               && rewritten != text;
+    }
+
+    /// <summary>
+    /// One formula's new text, or <c>false</c> when the formula keeps the text it has.
+    /// </summary>
+    private delegate bool FormulaTransform(string text, out string transformed);
+
+    /// <summary>
+    /// Replaces the text of each formula of the format (<see cref="IsFormulaValue"/>) that
+    /// <paramref name="transform"/> changes, keeping whether the value is written with an <c>=</c>.
+    /// The one loop behind <see cref="RewriteSheet"/>, <see cref="ShiftFormulas{TAxis}"/> and
+    /// <see cref="RebaseFormulas"/>.
+    /// </summary>
+    private void TransformFormulaValues(FormulaTransform transform)
+    {
         foreach (var key in Values.Keys.ToList())
         {
             var formula = Values[key];
-            if (!IsFormulaValue(key, formula))
+            if (!IsFormulaValue(key, formula) || !transform(formula.Value, out var transformed))
                 continue;
 
-            // The rewrite does not move a reference, so any origin reads the formula the same way.
-            if (!rewrite.TryRewrite(formula.Value, formulaSheetName, new Point(1, 1), out var rewritten)
-                || rewritten == formula.Value)
-                continue;
-
-            Values[key] = new XLFormula { _value = rewritten, IsFormula = formula.IsFormula };
+            Values[key] = new XLFormula { _value = transformed, IsFormula = formula.IsFormula };
         }
     }
 
@@ -209,15 +225,12 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     internal void ShiftFormulas<TAxis>(in SheetEdit edit)
         where TAxis : struct, IGridAxis
     {
-        foreach (var key in Values.Keys.ToList())
-        {
-            var formula = Values[key];
-            if (!IsFormulaValue(key, formula)
-                || !TryShiftFormula<TAxis>(formula.Value, _worksheet, in edit, out var shifted))
-                continue;
+        // A lambda or local function cannot capture an `in` parameter, so it reads a copy.
+        var sheetEdit = edit;
+        TransformFormulaValues(TryShift);
 
-            Values[key] = new XLFormula { _value = shifted, IsFormula = formula.IsFormula };
-        }
+        bool TryShift(string text, out string shifted)
+            => TryShiftFormula<TAxis>(text, _worksheet, in sheetEdit, out shifted);
     }
 
     /// <summary>
@@ -301,14 +314,9 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         if (from == to)
             return;
 
-        foreach (var key in Values.Keys.ToList())
-        {
-            var formula = Values[key];
-            if (!IsFormulaValue(key, formula) || !TryRebaseFormula(formula.Value, from, to, out var rebased))
-                continue;
+        TransformFormulaValues(TryRebase);
 
-            Values[key] = new XLFormula { _value = rebased, IsFormula = formula.IsFormula };
-        }
+        bool TryRebase(string text, out string rebased) => TryRebaseFormula(text, from, to, out rebased);
     }
 
     /// <summary>
@@ -608,212 +616,109 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         source.ForEach(kp => target.Add(kp.Key, kp.Value));
     }
 
-    public IXLStyle WhenIsBlank()
-    {
-        ConditionalFormatType = XLConditionalFormatType.IsBlank;
-        return Style;
-    }
+    public IXLStyle WhenIsBlank() => Rule(XLConditionalFormatType.IsBlank);
 
-    public IXLStyle WhenNotBlank()
-    {
-        ConditionalFormatType = XLConditionalFormatType.NotBlank;
-        return Style;
-    }
+    public IXLStyle WhenNotBlank() => Rule(XLConditionalFormatType.NotBlank);
 
-    public IXLStyle WhenIsError()
-    {
-        ConditionalFormatType = XLConditionalFormatType.IsError;
-        return Style;
-    }
+    public IXLStyle WhenIsError() => Rule(XLConditionalFormatType.IsError);
 
-    public IXLStyle WhenNotError()
-    {
-        ConditionalFormatType = XLConditionalFormatType.NotError;
-        return Style;
-    }
+    public IXLStyle WhenNotError() => Rule(XLConditionalFormatType.NotError);
 
     public IXLStyle WhenDateIs(XLTimePeriod timePeriod)
     {
         TimePeriod = timePeriod;
-        ConditionalFormatType = XLConditionalFormatType.TimePeriod;
-        return Style;
+        return Rule(XLConditionalFormatType.TimePeriod);
     }
 
     public IXLStyle WhenContains(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        ConditionalFormatType = XLConditionalFormatType.ContainsText;
-        Operator = XLCFOperator.Contains;
-        return Style;
-    }
+        => TextRule(XLConditionalFormatType.ContainsText, XLCFOperator.Contains, value);
 
     public IXLStyle WhenNotContains(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        ConditionalFormatType = XLConditionalFormatType.NotContainsText;
-        Operator = XLCFOperator.NotContains;
-        return Style;
-    }
+        => TextRule(XLConditionalFormatType.NotContainsText, XLCFOperator.NotContains, value);
 
     public IXLStyle WhenStartsWith(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        ConditionalFormatType = XLConditionalFormatType.StartsWith;
-        Operator = XLCFOperator.StartsWith;
-        return Style;
-    }
+        => TextRule(XLConditionalFormatType.StartsWith, XLCFOperator.StartsWith, value);
 
     public IXLStyle WhenEndsWith(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        ConditionalFormatType = XLConditionalFormatType.EndsWith;
-        Operator = XLCFOperator.EndsWith;
-        return Style;
-    }
+        => TextRule(XLConditionalFormatType.EndsWith, XLCFOperator.EndsWith, value);
 
-    public IXLStyle WhenEquals(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.Equal;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenEquals(string value) => CellIs(XLCFOperator.Equal, Operand(value));
 
-    public IXLStyle WhenEquals(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.Equal;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenEquals(double value) => CellIs(XLCFOperator.Equal, new XLFormula(value));
 
-    public IXLStyle WhenNotEquals(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.NotEqual;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenNotEquals(string value) => CellIs(XLCFOperator.NotEqual, Operand(value));
 
-    public IXLStyle WhenNotEquals(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.NotEqual;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenNotEquals(double value) => CellIs(XLCFOperator.NotEqual, new XLFormula(value));
 
-    public IXLStyle WhenGreaterThan(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.GreaterThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenGreaterThan(string value) => CellIs(XLCFOperator.GreaterThan, Operand(value));
 
-    public IXLStyle WhenGreaterThan(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.GreaterThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenGreaterThan(double value) => CellIs(XLCFOperator.GreaterThan, new XLFormula(value));
 
-    public IXLStyle WhenLessThan(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.LessThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenLessThan(string value) => CellIs(XLCFOperator.LessThan, Operand(value));
 
-    public IXLStyle WhenLessThan(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.LessThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenLessThan(double value) => CellIs(XLCFOperator.LessThan, new XLFormula(value));
 
     public IXLStyle WhenEqualOrGreaterThan(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.EqualOrGreaterThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.EqualOrGreaterThan, Operand(value));
 
     public IXLStyle WhenEqualOrGreaterThan(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.EqualOrGreaterThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.EqualOrGreaterThan, new XLFormula(value));
 
-    public IXLStyle WhenEqualOrLessThan(string value)
-    {
-        Values.Initialize(new XLFormula { Value = value });
-        Operator = XLCFOperator.EqualOrLessThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+    public IXLStyle WhenEqualOrLessThan(string value) => CellIs(XLCFOperator.EqualOrLessThan, Operand(value));
 
     public IXLStyle WhenEqualOrLessThan(double value)
-    {
-        Values.Initialize(new XLFormula(value));
-        Operator = XLCFOperator.EqualOrLessThan;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.EqualOrLessThan, new XLFormula(value));
 
     public IXLStyle WhenBetween(string minValue, string maxValue)
-    {
-        Values.Initialize(new XLFormula { Value = minValue });
-        Values.Add(new XLFormula { Value = maxValue });
-        Operator = XLCFOperator.Between;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.Between, Operand(minValue), Operand(maxValue));
 
     public IXLStyle WhenBetween(double minValue, double maxValue)
-    {
-        Values.Initialize(new XLFormula(minValue));
-        Values.Add(new XLFormula(maxValue));
-        Operator = XLCFOperator.Between;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.Between, new XLFormula(minValue), new XLFormula(maxValue));
 
     public IXLStyle WhenNotBetween(string minValue, string maxValue)
-    {
-        Values.Initialize(new XLFormula { Value = minValue });
-        Values.Add(new XLFormula { Value = maxValue });
-        Operator = XLCFOperator.NotBetween;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
-        return Style;
-    }
+        => CellIs(XLCFOperator.NotBetween, Operand(minValue), Operand(maxValue));
 
     public IXLStyle WhenNotBetween(double minValue, double maxValue)
+        => CellIs(XLCFOperator.NotBetween, new XLFormula(minValue), new XLFormula(maxValue));
+
+    public IXLStyle WhenIsDuplicate() => Rule(XLConditionalFormatType.IsDuplicate);
+
+    public IXLStyle WhenIsUnique() => Rule(XLConditionalFormatType.IsUnique);
+
+    /// <summary>A rule of <paramref name="type"/> that takes no value; returns its style to set.</summary>
+    private IXLStyle Rule(XLConditionalFormatType type)
     {
-        Values.Initialize(new XLFormula(minValue));
-        Values.Add(new XLFormula(maxValue));
-        Operator = XLCFOperator.NotBetween;
-        ConditionalFormatType = XLConditionalFormatType.CellIs;
+        ConditionalFormatType = type;
         return Style;
     }
 
-    public IXLStyle WhenIsDuplicate()
+    /// <summary>A text rule: <paramref name="value"/> is the text it looks for.</summary>
+    private IXLStyle TextRule(XLConditionalFormatType type, XLCFOperator op, string value)
     {
-        ConditionalFormatType = XLConditionalFormatType.IsDuplicate;
-        return Style;
+        Values.Initialize(Operand(value));
+        Operator = op;
+        return Rule(type);
     }
 
-    public IXLStyle WhenIsUnique()
+    /// <summary>A cell-value rule that compares each cell with <paramref name="value"/>.</summary>
+    private IXLStyle CellIs(XLCFOperator op, XLFormula value)
     {
-        ConditionalFormatType = XLConditionalFormatType.IsUnique;
-        return Style;
+        Values.Initialize(value);
+        Operator = op;
+        return Rule(XLConditionalFormatType.CellIs);
     }
+
+    /// <summary>A cell-value rule that compares each cell with two bounds (between, not between).</summary>
+    private IXLStyle CellIs(XLCFOperator op, XLFormula minValue, XLFormula maxValue)
+    {
+        Values.Initialize(minValue);
+        Values.Add(maxValue);
+        Operator = op;
+        return Rule(XLConditionalFormatType.CellIs);
+    }
+
+    /// <summary>A rule's operand as the user wrote it: a formula when it starts with <c>=</c>.</summary>
+    private static XLFormula Operand(string value) => new() { Value = value };
 
     public IXLStyle WhenIsTrue(string formula)
     {
