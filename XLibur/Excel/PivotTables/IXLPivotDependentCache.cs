@@ -24,4 +24,10 @@ internal interface IXLPivotDependentCache
 
     /// <summary>Their names as written in the part, which is what the cache XML carries.</summary>
     List<string> PivotTableNames { get; }
+
+    /// <summary>
+    /// The pivot cache behind <see cref="PivotTables"/>. Pivot tables sharing one of these caches
+    /// share a pivot cache, so the first answers for all of them.
+    /// </summary>
+    XLPivotCache? PivotCache { get; set; }
 }

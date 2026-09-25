@@ -75,6 +75,38 @@ internal sealed class XLPivotCaches : IXLPivotCaches, IEnumerable<XLPivotCache>,
     }
 
     /// <summary>
+    /// Gives the cache a <see cref="XLPivotCache.PivotCacheId"/> if it has none yet, one no pivot cache
+    /// in the workbook is already using.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Slicer caches and timeline caches both quote this identifier, and both allocate it here. It
+    /// used to be allocated by two identical copies kept in step by convention alone; one allocator
+    /// is what guarantees a workbook holding both kinds of control never hands two pivot caches the
+    /// same identifier.
+    /// </para>
+    /// <para>
+    /// Excel writes a large arbitrary number here; the value carries no meaning beyond matching the
+    /// <c>pivotCacheId</c> a control cache quotes. Counting up from the highest in use keeps it
+    /// deterministic, which matters because a save has to be reproducible.
+    /// </para>
+    /// </remarks>
+    internal void EnsurePivotCacheId(XLPivotCache cache)
+    {
+        if (cache.PivotCacheId is not null)
+            return;
+
+        uint highest = 0;
+        foreach (var other in _caches)
+        {
+            if (other.PivotCacheId is { } id && id > highest)
+                highest = id;
+        }
+
+        cache.PivotCacheId = highest + 1;
+    }
+
+    /// <summary>
     /// A cache whose source is a range on the renamed sheet names the sheet by its new name, so the
     /// source resolves again and is saved as Excel saves it: the <c>rename-*</c> fixture writes
     /// <c>sheet="Renamed"</c> (D66). A source given by a table or a defined name follows that table or

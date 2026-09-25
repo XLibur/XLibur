@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.IO.DrawingML;
 using XLibur.Excel.Tables;
+using static XLibur.Excel.IO.ControlPartReading;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
 
@@ -137,23 +138,6 @@ internal static class SlicerReader
         }
     }
 
-    private static void BindPivotTables(XLSlicerCache cache, Dictionary<string, XLPivotTable> pivotTables)
-    {
-        // A cache may name several pivot tables — that is how one set of buttons drives a whole
-        // dashboard — and may name one that is no longer in the workbook, which is left out rather
-        // than reported as a hole in the list.
-        foreach (var name in cache.PivotTableNames)
-        {
-            if (pivotTables.TryGetValue(name, out var pivotTable))
-                cache.PivotTables.Add(pivotTable);
-        }
-
-        // The item indices are indices into the shared items of the pivot cache behind those pivot
-        // tables. Pivot tables sharing a slicer cache share a pivot cache, so the first one answers
-        // for all of them.
-        cache.PivotCache = cache.PivotTables.Count > 0 ? cache.PivotTables[0].PivotCache : null;
-    }
-
     private static void BindTable(
         XLSlicerCache cache, Dictionary<uint, (XLTable Table, Dictionary<uint, int> ColumnPositions)> tables)
     {
@@ -164,18 +148,6 @@ internal static class SlicerReader
 
         if (cache.TableColumnId is { } columnId && entry.ColumnPositions.TryGetValue(columnId, out var position))
             cache.TableColumnPosition = position;
-    }
-
-    private static Dictionary<string, XLPivotTable> PivotTablesByName(XLWorksheets worksheets)
-    {
-        var pivotTables = new Dictionary<string, XLPivotTable>(XLHelper.NameComparer);
-        foreach (var worksheet in worksheets)
-        {
-            foreach (var pivotTable in worksheet.PivotTables.Cast<XLPivotTable>())
-                pivotTables[pivotTable.Name] = pivotTable;
-        }
-
-        return pivotTables;
     }
 
     /// <summary>
@@ -289,45 +261,5 @@ internal static class SlicerReader
             slicer.RowHeight?.Value is { } rowHeight ? rowHeight / DrawingUnits.EmuPerPoint : null);
 
         worksheet.SlicersInternal.Add(xlSlicer);
-    }
-
-    // ── Plumbing ────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Pairs each worksheet part with the loaded worksheet it belongs to, in sheet order.
-    /// </summary>
-    private static IEnumerable<(WorksheetPart Part, XLWorksheet Worksheet)> WorksheetParts(
-        WorkbookPart workbookPart, Sheets sheets, XLWorksheets worksheets)
-    {
-        foreach (var sheet in sheets.OfType<Sheet>())
-        {
-            // A sheet with an empty relationship id comes from a non-Excel producer, and the
-            // relationship may point at a chartsheet rather than a worksheet.
-            if (string.IsNullOrEmpty(sheet.Id?.Value)
-                || sheet.Name?.Value is not { } sheetName
-                || workbookPart.GetPartById(sheet.Id.Value) is not WorksheetPart worksheetPart
-                || !worksheets.TryGetWorksheet(sheetName, out var worksheet))
-            {
-                continue;
-            }
-
-            yield return (worksheetPart, worksheet);
-        }
-    }
-
-    /// <summary>
-    /// Reads a part's root element without attaching it to the part.
-    /// </summary>
-    /// <remarks>
-    /// This is the whole fidelity guarantee of this reader in three lines: the part is streamed, the
-    /// element that comes back is detached, and <c>part.RootElement</c> stays unmaterialised, so the
-    /// SDK has nothing to write back over the original bytes when the package is saved.
-    /// </remarks>
-    private static T? ReadDetached<T>(OpenXmlPart part) where T : OpenXmlElement
-    {
-        using var reader = new OpenXmlPartReader(part);
-
-        // Create reads the XML declaration only, so the first Read lands on the root element.
-        return reader.Read() ? reader.LoadCurrentElement() as T : null;
     }
 }
