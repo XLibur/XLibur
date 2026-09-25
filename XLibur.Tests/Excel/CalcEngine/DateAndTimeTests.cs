@@ -935,6 +935,29 @@ public class DateAndTimeTests
     }
 
     [Test]
+    // 9999-12-31 is a Friday, so the next working day would be in the year 10000.
+    [Arguments("WORKDAY(DATE(9999,12,31), 1)")]
+    [Arguments("WORKDAY(DATE(9999,12,1), 30)")]
+    // Walking back past serial date 0.
+    [Arguments("WORKDAY(10, -10)")]
+    // So large that no walk could land in range; it must not overflow either.
+    [Arguments("WORKDAY(1, 1E+10)")]
+    [Arguments("WORKDAY(DATE(2000,1,1), -1E+10)")]
+    public async Task Workday_returns_NUM_when_result_is_outside_the_date_range(string formula)
+    {
+        // Excel returns #NUM! when the result falls outside 1900-01-00 .. 9999-12-31, as
+        // WORKDAY.INTL already did. The legacy WORKDAY used to return an out-of-range serial.
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    public async Task Workday_last_working_day_before_the_year_10000_is_in_range()
+    {
+        // Monday 9999-12-27 plus four working days is Friday 9999-12-31, the last valid date.
+        await Assert.That(XLWorkbook.EvaluateExpr("WORKDAY(DATE(9999,12,27), 4)")).IsEqualTo(2958465);
+    }
+
+    [Test]
     [Arguments("\"8/22/2008\"", 2008)]
     [Arguments("\"1/2/2006 10:45 AM\"", 2006)]
     [Arguments("0", 1900)]
