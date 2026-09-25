@@ -100,38 +100,13 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
     public IXLRangeRow CopyTo(IXLCell target)
     {
         CopyToCell((XLCell)target);
-
-        var lastRowNumber = target.Address.RowNumber + RowCount() - 1;
-        if (lastRowNumber > XLHelper.MaxRowNumber)
-            lastRowNumber = XLHelper.MaxRowNumber;
-        var lastColumnNumber = target.Address.ColumnNumber + ColumnCount() - 1;
-        if (lastColumnNumber > XLHelper.MaxColumnNumber)
-            lastColumnNumber = XLHelper.MaxColumnNumber;
-
-        return target.Worksheet.Range(
-                target.Address.RowNumber,
-                target.Address.ColumnNumber,
-                lastRowNumber,
-                lastColumnNumber)
-            .Row(1);
+        return BuildCopyResult(target.Worksheet, target.Address.RowNumber, target.Address.ColumnNumber).Row(1);
     }
 
     public new IXLRangeRow CopyTo(IXLRangeBase target)
     {
         base.CopyTo(target);
-        var lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
-        if (lastRowNumber > XLHelper.MaxRowNumber)
-            lastRowNumber = XLHelper.MaxRowNumber;
-        var lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
-        if (lastColumnNumber > XLHelper.MaxColumnNumber)
-            lastColumnNumber = XLHelper.MaxColumnNumber;
-
-        return target.Worksheet.Range(
-                target.RangeAddress.FirstAddress.RowNumber,
-                target.RangeAddress.LastAddress.ColumnNumber,
-                lastRowNumber,
-                lastColumnNumber)
-            .Row(1);
+        return BuildCopyResult(target.Worksheet, target.RangeAddress.FirstAddress.RowNumber, target.RangeAddress.FirstAddress.ColumnNumber).Row(1);
     }
 
     public IXLRangeRow Row(int start, int end)
