@@ -188,7 +188,7 @@ internal sealed class XLColumns : XLStylizedBase, IXLColumns, IXLStylized
 
     public IXLCells CellsUsed()
     {
-        var cells = new XLCells(true, XLCellsUsedOptions.All);
+        var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
         foreach (var container in Columns)
             cells.Add(container.RangeAddress);
         return cells;

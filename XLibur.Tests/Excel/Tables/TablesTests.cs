@@ -1417,4 +1417,25 @@ public class TablesTests
         await Assert.That(table.EmphasizeFirstColumn).IsFalse();
         await Assert.That(table.EmphasizeLastColumn).IsFalse();
     }
+
+    /// <summary>
+    /// <c>IXLTableRows.CellsUsed(options)</c> returned every cell of the rows, blank ones included,
+    /// because it built its collection with <c>usedCellsOnly: false</c> (#623).
+    /// </summary>
+    [Test]
+    public async Task TableRows_CellsUsed_WithOptions_ExcludesBlankCells()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "Name";
+        ws.Cell("B1").Value = "Value";
+        ws.Cell("A2").Value = "x";
+        ws.Cell("B3").Value = 3;
+        var table = ws.Range("A1:B3").CreateTable();
+
+        var rows = table.DataRange!.Rows();
+        var cellsUsed = rows.CellsUsed(XLCellsUsedOptions.AllContents).Select(c => c.Address.ToString()!).ToList();
+
+        await Assert.That(cellsUsed).IsEquivalentTo(new[] { "A2", "B3" });
+    }
 }
