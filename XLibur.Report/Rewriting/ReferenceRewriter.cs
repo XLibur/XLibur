@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using XLibur.Excel;
@@ -114,68 +113,20 @@ internal static class ReferenceRewriter
     }
 
     /// <summary>
-    /// Moves one reference through one expansion, along whichever axis the expansion ran.
+    /// Moves one reference through one expansion — see <see cref="ExpansionMap.MapArea"/>.
     /// </summary>
-    /// <remarks>
-    /// A reference has to cross the template on the <em>other</em> axis to be stretched by it — a
-    /// chart plotting a column beside a vertical range is not plotting that range — but it still
-    /// moves if it sits past the template, because the insert that grew the range was a full-row or
-    /// full-column one.
-    /// </remarks>
     private static SheetReference Apply(SheetReference reference, ExpansionRecord expansion)
     {
-        var template = expansion.TemplateArea;
-
-        if (expansion.Axis.IsHorizontal)
-        {
-            if (reference.LastRow < template.FirstRow || reference.FirstRow > template.LastRow)
-            {
-                return reference with
-                {
-                    FirstColumn = Shift(reference.FirstColumn, template.LastColumn, expansion.SlotDelta),
-                    LastColumn = Shift(reference.LastColumn, template.LastColumn, expansion.SlotDelta),
-                };
-            }
-
-            var firstColumn = ExpansionMap.MapColumnStart(reference.FirstColumn, expansion);
-            var lastColumn = ExpansionMap.MapColumnEnd(reference.LastColumn, expansion);
-
-            return reference with
-            {
-                FirstColumn = firstColumn,
-                LastColumn = Math.Max(firstColumn, lastColumn),
-            };
-        }
-
-        if (reference.LastColumn < template.FirstColumn || reference.FirstColumn > template.LastColumn)
-        {
-            return reference with
-            {
-                FirstRow = Shift(reference.FirstRow, template.LastRow, expansion.SlotDelta),
-                LastRow = Shift(reference.LastRow, template.LastRow, expansion.SlotDelta),
-            };
-        }
-
-        var firstRow = ExpansionMap.MapRowStart(reference.FirstRow, expansion);
-        var lastRow = ExpansionMap.MapRowEnd(reference.LastRow, expansion);
+        var area = ExpansionMap.MapArea(
+            new RangeArea(reference.FirstRow, reference.FirstColumn, reference.LastRow, reference.LastColumn),
+            expansion);
 
         return reference with
         {
-            FirstRow = firstRow,
-            LastRow = Math.Max(firstRow, lastRow),
+            FirstRow = area.FirstRow,
+            FirstColumn = area.FirstColumn,
+            LastRow = area.LastRow,
+            LastColumn = area.LastColumn,
         };
     }
-
-    /// <summary>
-    /// Where one end of a reference the expansion did not stretch ends up: unchanged where it sat at
-    /// or before the template, moved by the delta where it sat past it.
-    /// </summary>
-    /// <remarks>
-    /// Each end is moved on its own, because a reference may straddle the template — starting above a
-    /// vertical range and ending below it, in columns the range does not touch. Its start stays put
-    /// and its tail follows the rows the insert pushed down; treating the reference as a unit would
-    /// leave the tail naming rows that have moved.
-    /// </remarks>
-    private static int Shift(int position, int templateLast, int delta) =>
-        position > templateLast ? position + delta : position;
 }

@@ -45,6 +45,52 @@ internal static class ExpansionMap
         return bySheet;
     }
 
+    /// <summary>
+    /// Moves one area through one expansion, along whichever axis the expansion ran.
+    /// </summary>
+    /// <remarks>
+    /// An area has to cross the template on the <em>other</em> axis to be stretched by it — a chart
+    /// plotting a column beside a vertical range is not plotting that range — but it still moves if
+    /// it sits past the template, because the insert that grew the range was a full-row or
+    /// full-column one. Chart series references and pivot cache sources both follow an expansion
+    /// through here, so the two cannot drift apart.
+    /// </remarks>
+    public static RangeArea MapArea(RangeArea area, ExpansionRecord expansion)
+    {
+        var template = expansion.TemplateArea;
+
+        if (expansion.Axis.IsHorizontal)
+        {
+            if (area.LastRow < template.FirstRow || area.FirstRow > template.LastRow)
+            {
+                return new RangeArea(
+                    area.FirstRow,
+                    Shift(area.FirstColumn, template.LastColumn, expansion.SlotDelta),
+                    area.LastRow,
+                    Shift(area.LastColumn, template.LastColumn, expansion.SlotDelta));
+            }
+
+            var firstColumn = MapColumnStart(area.FirstColumn, expansion);
+            var lastColumn = MapColumnEnd(area.LastColumn, expansion);
+
+            return new RangeArea(area.FirstRow, firstColumn, area.LastRow, Math.Max(firstColumn, lastColumn));
+        }
+
+        if (area.LastColumn < template.FirstColumn || area.FirstColumn > template.LastColumn)
+        {
+            return new RangeArea(
+                Shift(area.FirstRow, template.LastRow, expansion.SlotDelta),
+                area.FirstColumn,
+                Shift(area.LastRow, template.LastRow, expansion.SlotDelta),
+                area.LastColumn);
+        }
+
+        var firstRow = MapRowStart(area.FirstRow, expansion);
+        var lastRow = MapRowEnd(area.LastRow, expansion);
+
+        return new RangeArea(firstRow, area.FirstColumn, Math.Max(firstRow, lastRow), area.LastColumn);
+    }
+
     /// <summary>Where the top of something starting at <paramref name="row"/> ends up.</summary>
     public static int MapRowStart(int row, ExpansionRecord expansion) => expansion.Axis.IsHorizontal
         ? row
@@ -68,6 +114,19 @@ internal static class ExpansionMap
         ? MapEnd(column, expansion.TemplateArea.FirstColumn, expansion.TemplateArea.LastColumn,
             expansion.RenderedArea.LastColumn, expansion.SlotDelta)
         : column;
+
+    /// <summary>
+    /// Where one end of an area the expansion did not stretch ends up: unchanged where it sat at or
+    /// before the template, moved by the delta where it sat past it.
+    /// </summary>
+    /// <remarks>
+    /// Each end is moved on its own, because an area may straddle the template — starting above a
+    /// vertical range and ending below it, in columns the range does not touch. Its start stays put
+    /// and its tail follows the rows the insert pushed down; treating the area as a unit would leave
+    /// the tail naming rows that have moved.
+    /// </remarks>
+    private static int Shift(int position, int templateLast, int delta) =>
+        position > templateLast ? position + delta : position;
 
     /// <summary>
     /// Unchanged before the template, moved by the delta past it, and keeping its offset from the
