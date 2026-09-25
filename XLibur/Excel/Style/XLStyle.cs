@@ -135,16 +135,7 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        var transitionHash = (newFontKey.GetHashCode() * 397) ^ 0;
-        Value = Value.GetTransition(transitionHash, in newFontKey)
-                ?? Value.StoreTransition(transitionHash, in newFontKey, ResolveFont(newFontKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-
-        XLStyleValue ResolveFont(XLFontKey key)
-        {
-            var styleKey = Key with { Font = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+        ModifyComponent(in newFontKey, 0, static (k, c) => k with { Font = c });
     }
 
     /// <inheritdoc cref="ModifyFont"/>
@@ -161,20 +152,7 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        // Tag the hash so the same component key applied to different components lands in a
-        // different slot. This only spreads the entries out; correctness comes from the key
-        // comparison inside GetTransition, which also rejects a cross-component hash collision.
-        var transitionHash = (newBorderKey.GetHashCode() * 397) ^ 1;
-        Value = Value.GetTransition(transitionHash, in newBorderKey)
-                ?? Value.StoreTransition(transitionHash, in newBorderKey, ResolveBorder(newBorderKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-        return;
-
-        XLStyleValue ResolveBorder(XLBorderKey key)
-        {
-            var styleKey = Key with { Border = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+        ModifyComponent(in newBorderKey, 1, static (k, c) => k with { Border = c });
     }
 
     /// <inheritdoc cref="ModifyFont"/>
@@ -186,17 +164,7 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        var transitionHash = (newFillKey.GetHashCode() * 397) ^ 2;
-        Value = Value.GetTransition(transitionHash, in newFillKey)
-                ?? Value.StoreTransition(transitionHash, in newFillKey, ResolveFill(newFillKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-        return;
-
-        XLStyleValue ResolveFill(XLFillKey key)
-        {
-            var styleKey = Key with { Fill = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+        ModifyComponent(in newFillKey, 2, static (k, c) => k with { Fill = c });
     }
 
     /// <inheritdoc cref="ModifyFont"/>
@@ -208,17 +176,7 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        var transitionHash = (newAlignmentKey.GetHashCode() * 397) ^ 3;
-        Value = Value.GetTransition(transitionHash, in newAlignmentKey)
-                ?? Value.StoreTransition(transitionHash, in newAlignmentKey, ResolveAlignment(newAlignmentKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-        return;
-
-        XLStyleValue ResolveAlignment(XLAlignmentKey key)
-        {
-            var styleKey = Key with { Alignment = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+        ModifyComponent(in newAlignmentKey, 3, static (k, c) => k with { Alignment = c });
     }
 
     /// <inheritdoc cref="ModifyFont"/>
@@ -230,17 +188,7 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        var transitionHash = (newNumberFormatKey.GetHashCode() * 397) ^ 4;
-        Value = Value.GetTransition(transitionHash, in newNumberFormatKey)
-                ?? Value.StoreTransition(transitionHash, in newNumberFormatKey, ResolveNumberFormat(newNumberFormatKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-        return;
-
-        XLStyleValue ResolveNumberFormat(XLNumberFormatKey key)
-        {
-            var styleKey = Key with { NumberFormat = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+        ModifyComponent(in newNumberFormatKey, 4, static (k, c) => k with { NumberFormat = c });
     }
 
     /// <inheritdoc cref="ModifyFont"/>
@@ -252,17 +200,35 @@ internal sealed class XLStyle : IXLStyle
             return;
         }
 
-        var transitionHash = (newProtectionKey.GetHashCode() * 397) ^ 5;
-        Value = Value.GetTransition(transitionHash, in newProtectionKey)
-                ?? Value.StoreTransition(transitionHash, in newProtectionKey, ResolveProtection(newProtectionKey));
-        ((XLCell)_container!).SetStyleValue(Value);
-        return;
+        ModifyComponent(in newProtectionKey, 5, static (k, c) => k with { Protection = c });
+    }
 
-        XLStyleValue ResolveProtection(XLProtectionKey key)
-        {
-            var styleKey = Key with { Protection = key };
-            return XLStyleValue.FromKey(ref styleKey);
-        }
+    /// <summary>
+    /// The transition-cache body the six <c>Modify*</c> fast paths share, once any pending batch
+    /// has been ruled out.
+    /// </summary>
+    /// <param name="newKey">The component's new key.</param>
+    /// <param name="componentTag">Distinct per component. It tags the hash so the same component
+    /// key applied to different components lands in a different slot. This only spreads the
+    /// entries out; correctness comes from the key comparison inside
+    /// <see cref="XLStyleValue.GetTransition{TKey}"/>, which also rejects a cross-component hash
+    /// collision.</param>
+    /// <param name="with">Rewrites a style key with the new component. A static lambda, so it is
+    /// cached and allocates nothing; it runs only on a transition-cache miss.</param>
+    private void ModifyComponent<TKey>(in TKey newKey, int componentTag,
+        Func<XLStyleKey, TKey, XLStyleKey> with)
+        where TKey : struct, IEquatable<TKey>
+    {
+        var transitionHash = (newKey.GetHashCode() * 397) ^ componentTag;
+        Value = Value.GetTransition(transitionHash, in newKey)
+                ?? Value.StoreTransition(transitionHash, in newKey, Resolve(in newKey, with));
+        ((XLCell)_container!).SetStyleValue(Value);
+    }
+
+    private XLStyleValue Resolve<TKey>(in TKey newKey, Func<XLStyleKey, TKey, XLStyleKey> with)
+    {
+        var styleKey = with(Key, newKey);
+        return XLStyleValue.FromKey(ref styleKey);
     }
 
     /// <summary>
