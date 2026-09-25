@@ -122,5 +122,42 @@ public class CriteriaAggregateFunctionTests
         await Assert.That(ws.Evaluate("AVERAGEIFS(C1:C5, A1:A4, \"North\")")).IsEqualTo(XLError.IncompatibleValue);
         await Assert.That(ws.Evaluate("MAXIFS(C1:C5, A1:A4, \"North\")")).IsEqualTo(XLError.IncompatibleValue);
         await Assert.That(ws.Evaluate("MINIFS(C1:C5, A1:A4, \"North\")")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Evaluate("SUMIFS(C1:C5, A1:A4, \"North\")")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Evaluate("COUNTIFS(A1:A5, \"North\", B1:B4, \"A\")")).IsEqualTo(XLError.IncompatibleValue);
+
+        // The single-criterion forms don't require the two areas to agree.
+        await Assert.That((double)ws.Evaluate("SUMIF(A1:A5, \"North\", C1:C4)")).IsEqualTo(900d).Within(Tolerance);
+        await Assert.That((double)ws.Evaluate("AVERAGEIF(A1:A5, \"North\", C1:C4)")).IsEqualTo(300d).Within(Tolerance);
+    }
+
+    [Test]
+    public async Task SumIfs_And_CountIfs_MatchEveryCriterion()
+    {
+        using var wb = CreateSampleWorkbook();
+        var ws = wb.Worksheet("Data");
+
+        await Assert.That((double)ws.Evaluate("SUMIFS(C1:C5, A1:A5, \"North\", B1:B5, \"B\")")).IsEqualTo(500d).Within(Tolerance);
+        await Assert.That(ws.Evaluate("COUNTIFS(A1:A5, \"North\", B1:B5, \"A\")")).IsEqualTo(2);
+        await Assert.That(ws.Evaluate("COUNTIF(A1:A5, \"North\")")).IsEqualTo(3);
+        await Assert.That(ws.Evaluate("COUNTIF(C1:C5, \">250\")")).IsEqualTo(3);
+    }
+
+    [Test]
+    [Arguments("SUMIF(1, \">0\")")]
+    [Arguments("SUMIF(A1:A5, \"North\", 1)")]
+    [Arguments("AVERAGEIF(1, \">0\")")]
+    [Arguments("AVERAGEIF(A1:A5, \"North\", {1,2})")]
+    [Arguments("COUNTIF({1,2}, \">0\")")]
+    [Arguments("SUMIFS(1, A1:A5, \"North\")")]
+    [Arguments("SUMIFS(C1:C5, {1,2,3,4,5}, 1)")]
+    [Arguments("COUNTIFS({1,2}, \">0\")")]
+    [Arguments("AVERAGEIFS(1, A1:A5, \"North\")")]
+    [Arguments("MAXIFS(C1:C5, 1, \"North\")")]
+    public async Task CriteriaFunctions_RejectAnArgumentThatIsNotAnArea(string formula)
+    {
+        using var wb = CreateSampleWorkbook();
+        var ws = wb.Worksheet("Data");
+
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.IncompatibleValue);
     }
 }

@@ -234,44 +234,28 @@ internal static class Statistical
 
     private static AnyValue CountIf(CalcContext ctx, AnyValue countRange, ScalarValue selectionCriteria)
     {
-        // Excel doesn't support anything but area in the syntax, but we need to deal with it somehow.
-        if (!countRange.TryPickArea(out var countArea, out var areaError))
-            return areaError;
+        if (!TallyCriteria.TryCreateSingle(ctx, countRange, selectionCriteria, countRange, CountEveryMatch, out var tally, out var createError))
+            return createError;
 
-        var tally = new TallyCriteria(static _ => 1);
-        var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
-        tally.Add(countArea, criteria);
-
-        // TallyCriteria only sums up the value.
-        var result = tally.Tally(ctx, new[] { countRange }, new CountState(0));
-        if (!result.TryPickT0(out var state, out var error))
-            return error;
-
-        return state.TallyCount;
+        return CountMatches(ctx, countRange, tally);
     }
 
     private static AnyValue CountIfs(CalcContext ctx, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
     {
-        if (!criteriaRanges[0].Range.TryPickArea(out var countArea, out var areaError))
-            return areaError;
+        // The values of the tallied range aren't used, so the first criteria range stands in for it.
+        var countRange = criteriaRanges[0].Range;
+        if (!TallyCriteria.TryCreate(ctx, countRange, criteriaRanges, CountEveryMatch, out var tally, out var createError))
+            return createError;
 
-        var tally = new TallyCriteria(static _ => 1);
-        foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
-        {
-            var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
-            if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
-                return selectionAreaError;
+        return CountMatches(ctx, countRange, tally);
+    }
 
-            // All areas must have same size.
-            if (countArea.RowSpan != selectionArea.RowSpan ||
-                countArea.ColumnSpan != selectionArea.ColumnSpan)
-                return XLError.IncompatibleValue;
+    /// <summary>A <c>COUNTIF(S)</c> tally counts a matching cell whatever its value.</summary>
+    private static readonly Func<ScalarValue, double?> CountEveryMatch = static _ => 1;
 
-            tally.Add(selectionArea, criteria);
-        }
-
-        // The values in the range aren't used, so just use first area
-        var result = tally.Tally(ctx, new[] { criteriaRanges[0].Range }, new CountState(0));
+    private static AnyValue CountMatches(CalcContext ctx, AnyValue countRange, TallyCriteria tally)
+    {
+        var result = tally.Tally(ctx, new[] { countRange }, new CountState(0));
         if (!result.TryPickT0(out var state, out var error))
             return error;
 
@@ -284,14 +268,8 @@ internal static class Statistical
         if (averageRange.IsBlank)
             averageRange = range;
 
-        if (!range.TryPickArea(out var area, out var areaError))
-            return areaError;
-
-        if (!averageRange.TryPickArea(out _, out var averageAreaError))
-            return averageAreaError;
-
-        var tally = new TallyCriteria();
-        tally.Add(area, Criteria.Create(selectionCriteria, ctx.Culture));
+        if (!TallyCriteria.TryCreateSingle(ctx, range, selectionCriteria, averageRange, null, out var tally, out var error))
+            return error;
 
         // Average returns #DIV/0! when no cell satisfies the criterion, matching Excel.
         return Average(ctx, new[] { averageRange }, tally);
@@ -299,7 +277,7 @@ internal static class Statistical
 
     private static AnyValue AverageIfs(CalcContext ctx, AnyValue averageRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
     {
-        if (!TryBuildCriteriaTally(ctx, averageRange, criteriaRanges, out var tally, out var error))
+        if (!TallyCriteria.TryCreate(ctx, averageRange, criteriaRanges, null, out var tally, out var error))
             return error;
 
         // #DIV/0! when nothing matches, matching Excel.
@@ -308,7 +286,7 @@ internal static class Statistical
 
     private static AnyValue MaxIfs(CalcContext ctx, AnyValue maxRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
     {
-        if (!TryBuildCriteriaTally(ctx, maxRange, criteriaRanges, out var tally, out var error))
+        if (!TallyCriteria.TryCreate(ctx, maxRange, criteriaRanges, null, out var tally, out var error))
             return error;
 
         // Max returns 0 when nothing matches, matching Excel.
@@ -317,54 +295,11 @@ internal static class Statistical
 
     private static AnyValue MinIfs(CalcContext ctx, AnyValue minRange, List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges)
     {
-        if (!TryBuildCriteriaTally(ctx, minRange, criteriaRanges, out var tally, out var error))
+        if (!TallyCriteria.TryCreate(ctx, minRange, criteriaRanges, null, out var tally, out var error))
             return error;
 
         // Min returns 0 when nothing matches, matching Excel.
         return Min(ctx, new[] { minRange }, tally);
-    }
-
-    /// <summary>
-    /// Build a <see cref="TallyCriteria"/> for the <c>{AVERAGE,MAX,MIN}IFS</c> family: every
-    /// criteria area must match the size of the leading value area (Excel invariant), unlike the
-    /// single-criteria <c>*IF</c> forms. Returns <c>false</c> with <paramref name="error"/> set when
-    /// an argument isn't an area or the sizes disagree.
-    /// </summary>
-    private static bool TryBuildCriteriaTally(
-        CalcContext ctx,
-        AnyValue valueRange,
-        List<(AnyValue Range, ScalarValue Criteria)> criteriaRanges,
-        out TallyCriteria tally,
-        out AnyValue error)
-    {
-        tally = new TallyCriteria();
-        error = default;
-
-        if (!valueRange.TryPickArea(out var valueArea, out var valueAreaError))
-        {
-            error = valueAreaError;
-            return false;
-        }
-
-        foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
-        {
-            if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
-            {
-                error = selectionAreaError;
-                return false;
-            }
-
-            if (valueArea.RowSpan != selectionArea.RowSpan ||
-                valueArea.ColumnSpan != selectionArea.ColumnSpan)
-            {
-                error = XLError.IncompatibleValue;
-                return false;
-            }
-
-            tally.Add(selectionArea, Criteria.Create(selectionCriteria, ctx.Culture));
-        }
-
-        return true;
     }
 
     private static AnyValue DevSq(CalcContext ctx, Span<AnyValue> args)
@@ -993,50 +928,14 @@ internal static class Statistical
     /// </summary>
     internal static bool TryGetNumbers(CalcContext ctx, AnyValue arrayParam, out List<double> numbers, out XLError error)
     {
-        error = default;
-
-        if (arrayParam.TryPickScalar(out var scalar, out var collection))
+        // A scalar is converted to a number; an array or reference contributes its numbers only.
+        if (!CollectNumbers(ctx, [arrayParam], TallyNumbers.Default).TryPickT0(out var collected, out error))
         {
-            if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var scalarError))
-            {
-                numbers = null!;
-                error = scalarError;
-                return false;
-            }
-
-            numbers = new List<double>(1) { number };
-            return true;
+            numbers = null!;
+            return false;
         }
 
-        IEnumerable<ScalarValue> values;
-        int size;
-        if (collection.TryPickT0(out var array, out var reference))
-        {
-            values = array;
-            size = array.Width * array.Height;
-        }
-        else
-        {
-            values = reference.GetCellsValues(ctx);
-            size = reference.NumberOfCells;
-        }
-
-        // Pre-allocate to reduce allocations during doubling of the buffer.
-        var total = new List<double>(size);
-        foreach (var value in values)
-        {
-            if (value.IsError)
-            {
-                numbers = null!;
-                error = value.GetError();
-                return false;
-            }
-
-            if (value.IsNumber)
-                total.Add(value.GetNumber());
-        }
-
-        numbers = total;
+        numbers = collected;
         return true;
     }
 
