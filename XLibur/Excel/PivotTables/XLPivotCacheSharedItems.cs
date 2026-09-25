@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using XLibur.Excel.Cells;
 
 namespace XLibur.Excel;
@@ -17,7 +16,7 @@ namespace XLibur.Excel;
 /// Shared items can't contain <see cref="XLPivotCacheValueType.Index"/>.
 /// </para>
 /// </summary>
-internal sealed class XLPivotCacheSharedItems
+internal sealed class XLPivotCacheSharedItems : IXLPivotCacheValueSink
 {
     private readonly List<XLPivotCacheValue> _values = new();
 
@@ -36,57 +35,27 @@ internal sealed class XLPivotCacheSharedItems
 
     internal int Count => _values.Count;
 
-    internal void Add(XLCellValue value)
-    {
-        switch (value.Type)
-        {
-            case XLDataType.Blank:
-                AddMissing();
-                break;
-            case XLDataType.Boolean:
-                AddBoolean(value.GetBoolean());
-                break;
-            case XLDataType.Number:
-                AddNumber(value.GetNumber());
-                break;
-            case XLDataType.Text:
-                AddString(value.GetText());
-                break;
-            case XLDataType.Error:
-                AddError(value.GetError());
-                break;
-            case XLDataType.DateTime:
-                AddDateTime(value.GetDateTime());
-                break;
-            case XLDataType.TimeSpan:
-                AddDateTime(XLPivotCacheValue.ToCacheDateTime(value.GetTimeSpan()));
-                break;
-            default:
-                throw new UnreachableException();
-        }
-    }
-
-    internal void AddMissing()
+    public void AddMissing()
     {
         _values.Add(XLPivotCacheValue.ForMissing());
     }
 
-    internal void AddNumber(double number)
+    public void AddNumber(double number)
     {
         _values.Add(XLPivotCacheValue.ForNumber(number));
     }
 
-    internal void AddBoolean(bool boolean)
+    public void AddBoolean(bool boolean)
     {
         _values.Add(XLPivotCacheValue.ForBoolean(boolean));
     }
 
-    internal void AddError(XLError error)
+    public void AddError(XLError error)
     {
         _values.Add(XLPivotCacheValue.ForError(error));
     }
 
-    internal void AddString(string text)
+    public void AddString(string text)
     {
         // Shared items doesn't distinguish between two texts that differ only in case.
         if (!_stringMap.ContainsKey(text))
@@ -97,7 +66,7 @@ internal sealed class XLPivotCacheSharedItems
         }
     }
 
-    internal void AddDateTime(DateTime dateTime)
+    public void AddDateTime(DateTime dateTime)
     {
         _values.Add(XLPivotCacheValue.ForDateTime(dateTime));
     }
