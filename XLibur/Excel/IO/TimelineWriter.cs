@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
 using XLibur.Excel.IO.DrawingML;
+using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
@@ -162,8 +163,7 @@ internal static class TimelineWriter
             TimelineAnchorXml.Remove(worksheetPart.DrawingsPart, removed);
 
             if (removed.PartRelId is not { } relId
-                || !worksheetPart.Parts.Any(p => p.RelationshipId == relId)
-                || worksheetPart.GetPartById(relId) is not TimeLinePart part)
+                || worksheetPart.GetPartOrNull<TimeLinePart>(relId) is not { } part)
             {
                 continue;
             }
