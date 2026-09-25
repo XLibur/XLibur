@@ -121,59 +121,15 @@ internal static class PivotRewriter
     /// </summary>
     private static IXLRange RePoint(IXLRange source, List<ExpansionRecord> expansions)
     {
-        var worksheet = source.Worksheet;
-        var topRow = source.RangeAddress.FirstAddress.RowNumber;
-        var leftColumn = source.RangeAddress.FirstAddress.ColumnNumber;
-        var bottomRow = source.RangeAddress.LastAddress.RowNumber;
-        var rightColumn = source.RangeAddress.LastAddress.ColumnNumber;
+        var area = RangeArea.From(source);
 
         foreach (var expansion in expansions)
         {
-            var template = expansion.TemplateArea;
-
-            // The area has to cross the template on the other axis to be stretched by the expansion,
-            // but a full-row or full-column insert moves everything past it either way.
-            if (expansion.Axis.IsHorizontal)
-            {
-                var crosses = bottomRow >= template.FirstRow && topRow <= template.LastRow;
-
-                if (!crosses)
-                {
-                    leftColumn = Shift(leftColumn, template.LastColumn, expansion.SlotDelta);
-                    rightColumn = Shift(rightColumn, template.LastColumn, expansion.SlotDelta);
-
-                    continue;
-                }
-
-                leftColumn = ExpansionMap.MapColumnStart(leftColumn, expansion);
-                rightColumn = Math.Max(leftColumn, ExpansionMap.MapColumnEnd(rightColumn, expansion));
-                continue;
-            }
-
-            var overlaps = rightColumn >= template.FirstColumn && leftColumn <= template.LastColumn;
-
-            if (!overlaps)
-            {
-                topRow = Shift(topRow, template.LastRow, expansion.SlotDelta);
-                bottomRow = Shift(bottomRow, template.LastRow, expansion.SlotDelta);
-
-                continue;
-            }
-
-            topRow = ExpansionMap.MapRowStart(topRow, expansion);
-            bottomRow = Math.Max(topRow, ExpansionMap.MapRowEnd(bottomRow, expansion));
+            area = ExpansionMap.MapArea(area, expansion);
         }
 
-        return worksheet.Range(topRow, leftColumn, bottomRow, rightColumn);
+        return source.Worksheet.Range(area.FirstRow, area.FirstColumn, area.LastRow, area.LastColumn);
     }
-
-    /// <summary>
-    /// Where one edge of a source the expansion did not stretch ends up: unchanged where it sat at or
-    /// before the template, moved by the delta where it sat past it. Each edge moves on its own, so a
-    /// source straddling the template keeps its start and follows the rows its tail sat above.
-    /// </summary>
-    private static int Shift(int position, int templateLast, int delta) =>
-        position > templateLast ? position + delta : position;
 
     /// <summary>
     /// Re-reads the cache's records, and asks Excel to do the same when it opens the file.
