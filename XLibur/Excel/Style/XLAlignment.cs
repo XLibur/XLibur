@@ -83,10 +83,7 @@ internal sealed class XLAlignment : IXLAlignment
                 || value == XLAlignmentHorizontalValues.Distributed
             );
 
-            if (_style.IsCellContainer)
-                SetKey(Key with { Horizontal = value });
-            else
-                Modify(k => k with { Horizontal = value });
+            Apply(false, value, static (k, v) => k with { Horizontal = v });
             if (updateIndent)
                 Indent = 0;
         }
@@ -95,15 +92,7 @@ internal sealed class XLAlignment : IXLAlignment
     public XLAlignmentVerticalValues Vertical
     {
         get => Key.Vertical;
-        set
-        {
-            var key = Key;
-            if (key.Vertical == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Vertical = value });
-            else
-                Modify(k => k with { Vertical = value });
-        }
+        set => Apply(Key.Vertical == value, value, static (k, v) => k with { Vertical = v });
     }
 
     public int Indent
@@ -123,17 +112,14 @@ internal sealed class XLAlignment : IXLAlignment
                 // key, so each cell is asked for itself, inside the one modification - see
                 // WithIndent. Nothing is validated against the key, so the write cannot stop
                 // part-way through the cells (#505).
-                Modify(k => WithIndent(k, value));
+                Modify(value, static (k, v) => WithIndent(k, v));
                 return;
             }
 
             if (Indent != value)
                 PrepareHorizontalForIndent(value);
 
-            if (_style.IsCellContainer)
-                SetKey(Key with { Indent = value });
-            else
-                Modify(k => k with { Indent = value });
+            Apply(false, value, static (k, v) => k with { Indent = v });
         }
     }
 
@@ -187,57 +173,25 @@ internal sealed class XLAlignment : IXLAlignment
     public bool JustifyLastLine
     {
         get => Key.JustifyLastLine;
-        set
-        {
-            var key = Key;
-            if (key.JustifyLastLine == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { JustifyLastLine = value });
-            else
-                Modify(k => k with { JustifyLastLine = value });
-        }
+        set => Apply(Key.JustifyLastLine == value, value, static (k, v) => k with { JustifyLastLine = v });
     }
 
     public XLAlignmentReadingOrderValues ReadingOrder
     {
         get => Key.ReadingOrder;
-        set
-        {
-            var key = Key;
-            if (key.ReadingOrder == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { ReadingOrder = value });
-            else
-                Modify(k => k with { ReadingOrder = value });
-        }
+        set => Apply(Key.ReadingOrder == value, value, static (k, v) => k with { ReadingOrder = v });
     }
 
     public int RelativeIndent
     {
         get => Key.RelativeIndent;
-        set
-        {
-            var key = Key;
-            if (key.RelativeIndent == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { RelativeIndent = value });
-            else
-                Modify(k => k with { RelativeIndent = value });
-        }
+        set => Apply(Key.RelativeIndent == value, value, static (k, v) => k with { RelativeIndent = v });
     }
 
     public bool ShrinkToFit
     {
         get => Key.ShrinkToFit;
-        set
-        {
-            var key = Key;
-            if (key.ShrinkToFit == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { ShrinkToFit = value });
-            else
-                Modify(k => k with { ShrinkToFit = value });
-        }
+        set => Apply(Key.ShrinkToFit == value, value, static (k, v) => k with { ShrinkToFit = v });
     }
 
     public int TextRotation
@@ -250,27 +204,14 @@ internal sealed class XLAlignment : IXLAlignment
             if (rotation != 255 && (rotation < -90 || rotation > 90))
                 throw new ArgumentException("TextRotation must be between -90 and 90 degrees, or 255.");
 
-            var key = Key;
-            if (key.TextRotation == rotation && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { TextRotation = rotation });
-            else
-                Modify(k => k with { TextRotation = rotation });
+            Apply(Key.TextRotation == rotation, rotation, static (k, v) => k with { TextRotation = v });
         }
     }
 
     public bool WrapText
     {
         get => Key.WrapText;
-        set
-        {
-            var key = Key;
-            if (key.WrapText == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { WrapText = value });
-            else
-                Modify(k => k with { WrapText = value });
-        }
+        set => Apply(Key.WrapText == value, value, static (k, v) => k with { WrapText = v });
     }
 
     public bool TopToBottom
@@ -393,23 +334,27 @@ internal sealed class XLAlignment : IXLAlignment
     /// <see cref="XLFont"/>'s <c>Modify</c>.
     /// </para>
     /// </remarks>
-    private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
+    private void Modify<T>(T value, Func<XLAlignmentKey, T, XLAlignmentKey> with)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Alignment))
         {
-            Key = modification(Key);
-            _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
+            Key = with(Key, value);
+            _style.Modify(styleKey => styleKey with { Alignment = with(styleKey.Alignment, value) });
             return;
         }
 
-        _style.Modify(styleKey => styleKey with { Alignment = modification(styleKey.Alignment) });
+        _style.Modify(styleKey => styleKey with { Alignment = with(styleKey.Alignment, value) });
         _value = _style.Value.Alignment;
+    }
+
+    /// <inheritdoc cref="XLFont.Apply{T}"/>
+    private void Apply<T>(bool unchanged, T value, Func<XLAlignmentKey, T, XLAlignmentKey> with)
+    {
+        if (unchanged && _style.SkipsUnchangedValues) return;
+        if (_style.IsCellContainer)
+            SetKey(with(Key, value));
+        else
+            Modify(value, with);
     }
 
     #region Overridden

@@ -109,8 +109,8 @@ internal sealed class XLBorder : IXLBorder
     /// <remarks>
     /// Read-only. The setter this replaces interned the assigned key in the border repository, and
     /// every caller then went on to resolve a style that interned it again - see
-    /// <see cref="SetKey"/> and <see cref="Modify"/>, which both take the interned value off the
-    /// resulting style instead.
+    /// <see cref="SetKey"/> and <see cref="Modify(Func{XLBorderKey, XLBorderKey})"/>, which both take
+    /// the interned value off the resulting style instead.
     /// <para>
     /// While the style is batching, the key comes from the style's pending key rather than from
     /// <see cref="_value"/>: a batch resolves nothing until it flushes, so the cached value would
@@ -418,29 +418,13 @@ internal sealed class XLBorder : IXLBorder
     public bool DiagonalUp
     {
         get => Key.DiagonalUp;
-        set
-        {
-            var key = Key;
-            if (key.DiagonalUp == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { DiagonalUp = value });
-            else
-                Modify(k => k with { DiagonalUp = value });
-        }
+        set => Apply(Key.DiagonalUp == value, value, static (k, v) => k with { DiagonalUp = v });
     }
 
     public bool DiagonalDown
     {
         get => Key.DiagonalDown;
-        set
-        {
-            var key = Key;
-            if (key.DiagonalDown == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { DiagonalDown = value });
-            else
-                Modify(k => k with { DiagonalDown = value });
-        }
+        set => Apply(Key.DiagonalDown == value, value, static (k, v) => k with { DiagonalDown = v });
     }
 
     public IXLStyle SetOutsideBorder(XLBorderStyleValues value)
@@ -653,10 +637,7 @@ internal sealed class XLBorder : IXLBorder
         pendingColor = edgeHasNoStyle ? value.Key : null;
         if (edgeHasNoStyle || currentColor == value.Key) return;
 
-        if (_style.IsCellContainer)
-            SetKey(withColor(Key, value.Key));
-        else
-            Modify(k => withColor(k, value.Key));
+        Apply(false, value.Key, withColor);
     }
 
     private void ApplyEdgeColorThroughCells(
@@ -735,8 +716,27 @@ internal sealed class XLBorder : IXLBorder
             return;
         }
 
-        _style.Modify(styleKey => styleKey with { Border = modification(styleKey.Border) });
+        Modify(modification, static (k, m) => m(k));
+    }
+
+    /// <summary>
+    /// The non-cell half of <see cref="Modify(Func{XLBorderKey, XLBorderKey})"/>, with the value
+    /// passed as state beside <paramref name="with"/> - see <see cref="XLFont"/>'s <c>Apply</c>.
+    /// </summary>
+    private void Modify<T>(T value, Func<XLBorderKey, T, XLBorderKey> with)
+    {
+        _style.Modify(styleKey => styleKey with { Border = with(styleKey.Border, value) });
         _value = _style.Value.Border;
+    }
+
+    /// <inheritdoc cref="XLFont.Apply{T}"/>
+    private void Apply<T>(bool unchanged, T value, Func<XLBorderKey, T, XLBorderKey> with)
+    {
+        if (unchanged && _style.SkipsUnchangedValues) return;
+        if (_style.IsCellContainer)
+            SetKey(with(Key, value));
+        else
+            Modify(value, with);
     }
 
     #region Overridden

@@ -68,29 +68,13 @@ internal sealed class XLProtection : IXLProtection
     public bool Locked
     {
         get => Key.Locked;
-        set
-        {
-            var key = Key;
-            if (key.Locked == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Locked = value });
-            else
-                Modify(k => k with { Locked = value });
-        }
+        set => Apply(Key.Locked == value, value, static (k, v) => k with { Locked = v });
     }
 
     public bool Hidden
     {
         get => Key.Hidden;
-        set
-        {
-            var key = Key;
-            if (key.Hidden == value && _style.SkipsUnchangedValues) return;
-            if (_style.IsCellContainer)
-                SetKey(key with { Hidden = value });
-            else
-                Modify(k => k with { Hidden = value });
-        }
+        set => Apply(Key.Hidden == value, value, static (k, v) => k with { Hidden = v });
     }
 
     public IXLStyle SetLocked()
@@ -147,23 +131,27 @@ internal sealed class XLProtection : IXLProtection
     /// <see cref="XLFont"/>'s <c>Modify</c>.
     /// </para>
     /// </remarks>
-    private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
+    private void Modify<T>(T value, Func<XLProtectionKey, T, XLProtectionKey> with)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Protection))
         {
-            Key = modification(Key);
-            _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+            Key = with(Key, value);
+            _style.Modify(styleKey => styleKey with { Protection = with(styleKey.Protection, value) });
             return;
         }
 
-        _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+        _style.Modify(styleKey => styleKey with { Protection = with(styleKey.Protection, value) });
         _value = _style.Value.Protection;
+    }
+
+    /// <inheritdoc cref="XLFont.Apply{T}"/>
+    private void Apply<T>(bool unchanged, T value, Func<XLProtectionKey, T, XLProtectionKey> with)
+    {
+        if (unchanged && _style.SkipsUnchangedValues) return;
+        if (_style.IsCellContainer)
+            SetKey(with(Key, value));
+        else
+            Modify(value, with);
     }
 
     #region Overridden
