@@ -58,11 +58,16 @@ public class ExtensionsTests
     [Arguments("A%", "'A%'")]
     [Arguments("ABC1", "'ABC1'")]
     [Arguments("ABCD1", "ABCD1")]
+    // Excel quotes a name that starts with an R1C1 reference, and refuses a file that stores it bare.
     [Arguments("C05A", "'C05A'")]
-    [Arguments("A1B", "'A1B'")]
-    [Arguments("XFD1X", "'XFD1X'")]
+    [Arguments("R5Z", "'R5Z'")]
+    [Arguments("RC1X", "'RC1X'")]
+    // A name that only starts like an A1 cell is stored bare by Excel (#651).
+    [Arguments("A1B", "A1B")]
+    [Arguments("XFD1X", "XFD1X")]
     [Arguments("XFE1", "XFE1")]
     [Arguments("R1C1", "'R1C1'")]
+    [Arguments("RC", "'RC'")]
     [Arguments("TRUE", "'TRUE'")]
     [Arguments("False", "'False'")]
     [Arguments("TRUEX", "TRUEX")]

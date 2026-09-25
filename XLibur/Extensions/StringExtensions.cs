@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel;
+using XLibur.Parser;
 
 namespace XLibur.Extensions;
 
@@ -27,18 +28,16 @@ internal static partial class StringExtensions
             return sb.ToString();
         }
 
+        /// <summary>
+        /// The sheet name as a formula writes it before the <c>!</c>: quoted when the parser's
+        /// <see cref="NameUtils.ShouldQuote"/> says so, with its apostrophes doubled. The parser's rule
+        /// is the one Excel stores, so every formula XLibur writes names a sheet the same way (#651).
+        /// </summary>
         internal string EscapeSheetName()
         {
             if (string.IsNullOrEmpty(instance)) return instance;
 
-            var needEscape = (!char.IsLetter(instance[0]) && instance[0] != '_') ||
-                             XLHelper.IsValidA1Address(instance) ||
-                             XLHelper.IsValidRCAddress(instance) ||
-                             StartsLikeCellReference(instance) ||
-                             IsLogicalLiteral(instance) ||
-                             IsRelativeRowOrColumn(instance) ||
-                             ContainsCharacterRequiringEscape(instance);
-            if (!needEscape)
+            if (!NameUtils.ShouldQuote(instance.AsSpan()))
                 return instance;
 
             var escaped = instance.Contains('\'') ? instance.Replace("'", "''") : instance;
@@ -164,60 +163,6 @@ internal static partial class StringExtensions
             return trimmed[1..].TrimStart().ToString();
 
         return text;
-    }
-
-    /// <summary>
-    /// Does the name start with a pattern that could be confused with a cell reference?
-    /// E.g. "C05A" starts with column "C" followed by digit "0", which is ambiguous
-    /// to Excel's formula parser even though "C05A" isn't a complete valid A1 address.
-    /// </summary>
-    /// <summary>
-    /// Does the name contain any character that forces the sheet name to be quoted in a formula
-    /// (punctuation other than '.'/'_', separators, control characters, or symbols)?
-    /// </summary>
-    private static bool ContainsCharacterRequiringEscape(string name)
-    {
-        foreach (var c in name.AsSpan())
-        {
-            if ((char.IsPunctuation(c) && c != '.' && c != '_') ||
-                char.IsSeparator(c) ||
-                char.IsControl(c) ||
-                char.IsSymbol(c))
-                return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// <c>TRUE</c> and <c>FALSE</c> read as logical values, so a sheet with either name must be quoted.
-    /// </summary>
-    private static bool IsLogicalLiteral(string name)
-    {
-        return name.Equals("TRUE", StringComparison.OrdinalIgnoreCase) ||
-               name.Equals("FALSE", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// <c>R</c>, <c>C</c> and <c>RC</c> are the current row, column and cell in R1C1 notation, so a
-    /// sheet with one of these names must be quoted.
-    /// </summary>
-    private static bool IsRelativeRowOrColumn(string name)
-    {
-        return name.Equals("R", StringComparison.OrdinalIgnoreCase) ||
-               name.Equals("C", StringComparison.OrdinalIgnoreCase) ||
-               name.Equals("RC", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool StartsLikeCellReference(string name)
-    {
-        var i = 0;
-        while (i < name.Length && char.IsLetter(name[i]))
-            i++;
-
-        // 1-3 letters followed by at least one digit, where the letters form a valid column
-        return i >= 1 && i <= 3 && i < name.Length && char.IsDigit(name[i])
-            && XLHelper.IsValidColumn(name[..i]);
     }
 
     [GeneratedRegex(@"((?<!\r)\n|\r\n)", RegexOptions.Compiled)]

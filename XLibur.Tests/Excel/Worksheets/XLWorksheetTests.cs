@@ -1045,6 +1045,43 @@ public class XLWorksheetTests
         await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo("SUM('PWD1:Last'!A1)");
     }
 
+    /// <summary>
+    /// A formula names a renamed sheet the way Excel stores it (#651). A name that starts with an R1C1
+    /// reference (<c>R5Z</c>, <c>C05A</c>) has to be quoted: bare, Excel refuses to open the file. A name
+    /// that is a reference (<c>A1</c>, <c>RC</c>) is quoted as Excel quotes it, and a name that only
+    /// starts like an A1 cell (<c>A1B</c>) stays bare, as it does in Excel.
+    /// </summary>
+    [Test]
+    [Arguments("R5Z", "'R5Z'!A1")]
+    [Arguments("C05A", "'C05A'!A1")]
+    [Arguments("RC1X", "'RC1X'!A1")]
+    [Arguments("A1", "'A1'!A1")]
+    [Arguments("RC", "'RC'!A1")]
+    [Arguments("A1B", "A1B!A1")]
+    public async Task Rename_sheet_quotes_the_new_name_as_Excel_does(string newName, string expected)
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.Worksheets.Add("Data");
+        data.Cell("A1").Value = 42;
+        var ws = wb.Worksheets.Add("Summary");
+        ws.Cell("A1").FormulaA1 = "Data!A1";
+
+        data.Name = newName;
+
+        await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo(expected);
+        using var reloaded = SaveAndReload(wb);
+        await Assert.That(reloaded.Worksheet("Summary").Cell("A1").FormulaA1).IsEqualTo(expected);
+        await Assert.That(reloaded.Worksheet("Summary").Cell("A1").Value).IsEqualTo(42);
+    }
+
+    private static XLWorkbook SaveAndReload(XLWorkbook wb)
+    {
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream);
+        stream.Position = 0;
+        return new XLWorkbook(stream);
+    }
+
     [Test]
     // ReSharper disable once InconsistentNaming
     public async Task RangesFromDeletedWorksheetContainREF()
