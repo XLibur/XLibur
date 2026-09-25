@@ -408,8 +408,8 @@ public class DynamicArrayFunctionTests
 
     // The shape matrix (spec 37): SEQUENCE's row-count argument, in every shape the reduction
     // ladder has to handle. A representative for the dynamic-array family — TAKE/DROP/SORT/etc. all
-    // reduce their scalar arguments through the same ladder (AnyValue.TryReduceToScalar via
-    // TryScalarArg), so this exercises every step of it, not just SEQUENCE's own logic.
+    // reduce their scalar arguments through the same ladder (AnyValue.TryReduceToScalar, via
+    // TryReduceToInt/Number/Logical), so this exercises every step of it, not just SEQUENCE's own logic.
 
     [Test]
     public async Task Sequence_RowCount_Literal()
