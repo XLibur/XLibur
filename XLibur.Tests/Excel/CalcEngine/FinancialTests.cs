@@ -108,6 +108,30 @@ public class FinancialTests
         await Assert.That(XLWorkbook.EvaluateExpr("IPMT(0.1,2,1,1000)")).IsEqualTo(XLError.NumberInvalid);
     }
 
+    // Values from Excel 365. An annuity-due (type 1) pays period 1 before any interest accrues,
+    // so its interest is 0; IPMT, PPMT, CUMIPMT and CUMPRINC must agree on that (#629).
+    [Test]
+    [Arguments("IPMT(0.1,1,3,1000,0,1)", 0)]
+    [Arguments("IPMT(0.1,1,3,1000,0,0)", -100)]
+    [Arguments("IPMT(0.1,2,3,1000,0,1)", -63.44410876132931)]
+    [Arguments("IPMT(0.1,2,3,1000,0,0)", -69.78851963746224)]
+    [Arguments("IPMT(0.1,3,3,1000,0,1)", -33.23262839879155)]
+    [Arguments("IPMT(0.1,3,3,1000,0,0)", -36.555891238670704)]
+    [Arguments("IPMT(0.1,1,3,1000,500,1)", 0)]
+    [Arguments("IPMT(0.1,1,3,1000,500,0)", -100)]
+    [Arguments("PPMT(0.1,1,3,1000,0,1)", -365.55891238670705)]
+    [Arguments("CUMIPMT(0.1,3,1000,1,1,1)", 0)]
+    [Arguments("CUMIPMT(0.1,3,1000,1,1,0)", -100.00000000000006)]
+    [Arguments("CUMIPMT(0.1,3,1000,1,3,1)", -96.67673716012109)]
+    [Arguments("CUMIPMT(0.1,3,1000,1,3,0)", -206.34441087613322)]
+    [Arguments("CUMPRINC(0.1,3,1000,1,1,1)", -365.55891238670705)]
+    [Arguments("CUMPRINC(0.1,3,1000,1,1,0)", -302.1148036253777)]
+    public async Task Ipmt_AnnuityDueFirstPeriodCarriesNoInterest(string formula, double expectedResult)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expectedResult).Within(XLHelper.Epsilon);
+    }
+
     [Test]
     [Arguments("PMT(0.08/12,10,10000)", -1037.03208935915)]
     [Arguments("PMT(0.08/12,10,10000,0,1)", -1030.16432717797)]
