@@ -35,6 +35,8 @@ internal static partial class StringExtensions
                              XLHelper.IsValidA1Address(instance) ||
                              XLHelper.IsValidRCAddress(instance) ||
                              StartsLikeCellReference(instance) ||
+                             IsLogicalLiteral(instance) ||
+                             IsRelativeRowOrColumn(instance) ||
                              ContainsCharacterRequiringEscape(instance);
             if (!needEscape)
                 return instance;
@@ -185,6 +187,26 @@ internal static partial class StringExtensions
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// <c>TRUE</c> and <c>FALSE</c> read as logical values, so a sheet with either name must be quoted.
+    /// </summary>
+    private static bool IsLogicalLiteral(string name)
+    {
+        return name.Equals("TRUE", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("FALSE", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// <c>R</c>, <c>C</c> and <c>RC</c> are the current row, column and cell in R1C1 notation, so a
+    /// sheet with one of these names must be quoted.
+    /// </summary>
+    private static bool IsRelativeRowOrColumn(string name)
+    {
+        return name.Equals("R", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("C", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("RC", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool StartsLikeCellReference(string name)

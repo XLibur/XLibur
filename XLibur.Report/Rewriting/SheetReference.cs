@@ -85,7 +85,7 @@ internal readonly record struct SheetReference(
 
         if (SheetName is { Length: > 0 } sheet)
         {
-            text.Append(QuoteSheetName(sheet)).Append('!');
+            text.Append(XLHelper.QuoteSheetName(sheet)).Append('!');
         }
 
         text.Append('$').Append(XLHelper.GetColumnLetterFromNumber(FirstColumn)).Append('$').Append(FirstRow);
@@ -247,24 +247,5 @@ internal readonly record struct SheetReference(
         }
 
         return i;
-    }
-
-    private static string QuoteSheetName(string name)
-    {
-        var needsQuotes = false;
-
-        for (var i = 0; i < name.Length; i++)
-        {
-            var c = name[i];
-            if (!char.IsAsciiLetterOrDigit(c) && c != '_' && c != '.')
-            {
-                needsQuotes = true;
-                break;
-            }
-        }
-
-        needsQuotes |= name.Length > 0 && char.IsAsciiDigit(name[0]);
-
-        return needsQuotes ? "'" + name.Replace("'", "''") + "'" : name;
     }
 }

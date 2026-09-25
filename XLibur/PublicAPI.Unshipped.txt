@@ -471,3 +471,4 @@ XLibur.Excel.IXLPageSetup.ClearHorizontalPageBreaks() -> void
 XLibur.Excel.IXLPageSetup.ClearVerticalPageBreaks() -> void
 XLibur.Excel.IXLPageSetup.RemoveHorizontalPageBreak(int row) -> bool
 XLibur.Excel.IXLPageSetup.RemoveVerticalPageBreak(int column) -> bool
+static XLibur.Excel.XLHelper.QuoteSheetName(string! sheetName) -> string!

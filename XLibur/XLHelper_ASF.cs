@@ -16,6 +16,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
@@ -97,6 +98,35 @@ public static partial class XLHelper
     {
         if (!TryValidateSheetName(sheetName, out var reason))
             throw new ArgumentException(reason);
+    }
+
+    /// <summary>
+    /// Quotes a sheet name so it can prefix a reference in a formula, for example
+    /// <c>'My Sheet'!A1</c>. The name is returned as it is when it needs no quotes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A name is quoted when it does not start with a letter or an underscore, when it contains a
+    /// character that is not allowed in an unquoted name (a space or punctuation, for example), or
+    /// when it could be read as a cell reference or a value: <c>AB12</c>, <c>R1C1</c>, <c>RC</c>,
+    /// <c>TRUE</c>, or a name that starts with a cell reference, such as <c>A1B</c>.
+    /// </para>
+    /// <para>
+    /// An apostrophe in a quoted name is doubled, so <c>O'Brien</c> becomes <c>'O''Brien'</c>.
+    /// Letters outside ASCII, such as <c>Übersicht</c>, do not need quotes.
+    /// </para>
+    /// <para>
+    /// This is the rule that XLibur uses when it writes formulas. The method does not validate the
+    /// name; use <see cref="ValidateSheetName"/> for that.
+    /// </para>
+    /// </remarks>
+    /// <param name="sheetName">The sheet name, without quotes.</param>
+    /// <returns>The sheet name, in quotes when it needs them. An empty name is returned as it is.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sheetName"/> is <c>null</c>.</exception>
+    public static string QuoteSheetName(string sheetName)
+    {
+        ArgumentNullException.ThrowIfNull(sheetName);
+        return sheetName.EscapeSheetName();
     }
 
     /// <summary>
