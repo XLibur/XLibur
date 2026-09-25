@@ -612,12 +612,33 @@ internal static class WorkbookStylesPartWriter
             if (!string.IsNullOrEmpty(styleNumberFormat.Format))
                 numberFormat.FormatCode = styleNumberFormat.Format;
             else if (XLPredefinedFormat.FormatCodes.TryGetValue(styleNumberFormat.NumberFormatId,
-                         out var formatCode))
+                         out var formatCode)
+                     || DifferentialOnlyFormatCodes.TryGetValue(styleNumberFormat.NumberFormatId, out formatCode))
                 numberFormat.FormatCode = formatCode;
+            else
+                // CT_NumFmt requires formatCode, and Excel refuses to open a dxf <numFmt> without
+                // one. An id with no known code (a locale-specific built-in) is left out instead.
+                return null;
         }
 
         return numberFormat;
     }
+
+    /// <summary>
+    /// The en-US codes of the built-in currency and accounting formats that
+    /// <see cref="XLPredefinedFormat.FormatCodes"/> does not list, as Excel writes them into a dxf.
+    /// A dxf <c>&lt;numFmt&gt;</c> must carry a <c>formatCode</c> even for a built-in id.
+    /// </summary>
+    private static readonly Dictionary<int, string> DifferentialOnlyFormatCodes = new()
+    {
+        { 5, "$#,##0_);($#,##0)" },
+        { 6, "$#,##0_);[Red]($#,##0)" },
+        { 8, "$#,##0.00_);[Red]($#,##0.00)" },
+        { 41, "_(* #,##0_);_(* \\(#,##0\\);_(* \"-\"_);_(@_)" },
+        { 42, "_(\"$\"* #,##0_);_(\"$\"* \\(#,##0\\);_(\"$\"* \"-\"_);_(@_)" },
+        { 43, "_(* #,##0.00_);_(* \\(#,##0.00\\);_(* \"-\"??_);_(@_)" },
+        { 44, "_(\"$\"* #,##0.00_);_(\"$\"* \\(#,##0.00\\);_(\"$\"* \"-\"??_);_(@_)" },
+    };
 
     private static void ResolveRest(Stylesheet stylesheet, SaveContext context)
     {

@@ -40,6 +40,56 @@ internal class DifferentialFormatNumberFormatTests
         await Assert.That(cf.Style.NumberFormat.NumberFormatId).IsEqualTo(10);
     }
 
+    /// <summary>
+    /// <c>CT_NumFmt</c> requires <c>formatCode</c>, and Excel will not open a file whose dxf
+    /// <c>&lt;numFmt&gt;</c> lacks one. Accounting (44) is missing from
+    /// <see cref="XLPredefinedFormat.FormatCodes"/>, so the writer must supply its code itself.
+    /// </summary>
+    [Test]
+    public async Task A_built_in_accounting_format_is_written_with_its_format_code()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Range("A1:A5").AddConditionalFormat().WhenGreaterThan(5).NumberFormat
+                .SetNumberFormatId(44);
+            wb.SaveAs(ms);
+        }
+
+        var numFmt = ReadDxfNumberFormats(ms.ToArray()).Single();
+        await Assert.That(numFmt?.NumberFormatId?.Value).IsEqualTo(44U);
+        await Assert.That(numFmt?.FormatCode?.Value)
+            .IsEqualTo("_(\"$\"* #,##0.00_);_(\"$\"* \\(#,##0.00\\);_(\"$\"* \"-\"??_);_(@_)");
+
+        ms.Position = 0;
+        using var reloaded = new XLWorkbook(ms);
+        var cf = reloaded.Worksheet("Sheet1").ConditionalFormats.Single();
+        await Assert.That(cf.Style.NumberFormat.NumberFormatId).IsEqualTo(44);
+    }
+
+    /// <summary>
+    /// A locale-specific built-in id has no code XLibur knows. Writing its <c>&lt;numFmt&gt;</c>
+    /// without one would make the file unopenable, so the number format is left out.
+    /// </summary>
+    [Test]
+    public async Task A_built_in_id_with_no_known_format_code_writes_no_number_format()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            var cf = ws.Range("A1:A5").AddConditionalFormat().WhenGreaterThan(5);
+            cf.NumberFormat.SetNumberFormatId(30);
+            cf.Fill.SetBackgroundColor(XLColor.Red);
+            wb.SaveAs(ms);
+        }
+
+        var numFmts = ReadDxfNumberFormats(ms.ToArray());
+        await Assert.That(numFmts.Count).IsEqualTo(1);
+        await Assert.That(numFmts[0]).IsNull();
+    }
+
     [Test]
     public async Task Conditional_format_and_table_field_dxfs_never_share_a_number_format_id()
     {
