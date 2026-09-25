@@ -55,6 +55,29 @@ public class DataValidationCriteriaTests
         await Assert.That(rule.MaxValue).IsEqualTo(TakesTwoValues(comparison) ? "Data!$A$2" : "");
     }
 
+    /// <summary>
+    /// A date criterion is stored as the date's serial number, in invariant text whatever the culture,
+    /// through the same one-value and two-value paths as every other criteria type.
+    /// </summary>
+    [Test]
+    [SetCulture("cs-CZ")]
+    [MatrixDataSource]
+    public async Task A_date_criterion_is_stored_as_its_serial_number(
+        [Matrix(XLOperator.Between, XLOperator.NotBetween, XLOperator.EqualTo, XLOperator.NotEqualTo,
+            XLOperator.GreaterThan, XLOperator.LessThan, XLOperator.EqualOrGreaterThan, XLOperator.EqualOrLessThan)]
+        XLOperator comparison)
+    {
+        using var wb = NewBook(out _, out var other);
+        var rule = other.Cell("B1").CreateDataValidation();
+
+        CompareDates(rule.Date, comparison, new DateTime(2024, 1, 15, 12, 0, 0), new DateTime(2024, 2, 1));
+
+        await Assert.That(rule.AllowedValues).IsEqualTo(XLAllowedValues.Date);
+        await Assert.That(rule.Operator).IsEqualTo(comparison);
+        await Assert.That(rule.MinValue).IsEqualTo("45306.5");
+        await Assert.That(rule.MaxValue).IsEqualTo(TakesTwoValues(comparison) ? "45323" : "");
+    }
+
     /// <summary>The sheet's name is written as a formula writes it, quoted where it needs to be.</summary>
     [Test]
     [Arguments("My Data", "'My Data'")]
@@ -399,6 +422,40 @@ public class DataValidationCriteriaTests
 
     /// <summary>Sets the rule through the <see cref="IXLCell"/> overload for <paramref name="comparison"/>.</summary>
     private static void Compare(XLValidationCriteria criteria, XLOperator comparison, IXLCell first, IXLCell second)
+    {
+        switch (comparison)
+        {
+            case XLOperator.Between:
+                criteria.Between(first, second);
+                break;
+            case XLOperator.NotBetween:
+                criteria.NotBetween(first, second);
+                break;
+            case XLOperator.EqualTo:
+                criteria.EqualTo(first);
+                break;
+            case XLOperator.NotEqualTo:
+                criteria.NotEqualTo(first);
+                break;
+            case XLOperator.GreaterThan:
+                criteria.GreaterThan(first);
+                break;
+            case XLOperator.LessThan:
+                criteria.LessThan(first);
+                break;
+            case XLOperator.EqualOrGreaterThan:
+                criteria.EqualOrGreaterThan(first);
+                break;
+            case XLOperator.EqualOrLessThan:
+                criteria.EqualOrLessThan(first);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(comparison), comparison, null);
+        }
+    }
+
+    /// <summary>Sets the rule through the <see cref="DateTime"/> overload for <paramref name="comparison"/>.</summary>
+    private static void CompareDates(XLDateCriteria criteria, XLOperator comparison, DateTime first, DateTime second)
     {
         switch (comparison)
         {

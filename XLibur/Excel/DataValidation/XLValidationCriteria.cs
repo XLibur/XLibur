@@ -12,107 +12,60 @@ public abstract class XLValidationCriteria : IXLValidationCriteria
 
     #region IXLValidationCriteria Members
 
-    public void Between(string minValue, string maxValue)
-    {
-        dataValidation.MinValue = minValue;
-        dataValidation.MaxValue = maxValue;
-        dataValidation.Operator = XLOperator.Between;
-    }
+    public void Between(string minValue, string maxValue) => Set(minValue, maxValue, XLOperator.Between);
 
     public void Between(IXLCell minValue, IXLCell maxValue)
-    {
-        dataValidation.MinValue = CellReference(minValue);
-        dataValidation.MaxValue = CellReference(maxValue);
-        dataValidation.Operator = XLOperator.Between;
-    }
+        => Set(CellReference(minValue), CellReference(maxValue), XLOperator.Between);
 
-    public void EqualOrGreaterThan(string value)
-    {
-        dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.EqualOrGreaterThan;
-    }
+    public void EqualOrGreaterThan(string value) => Set(value, XLOperator.EqualOrGreaterThan);
 
-    public void EqualOrGreaterThan(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.EqualOrGreaterThan;
-    }
+    public void EqualOrGreaterThan(IXLCell cell) => Set(CellReference(cell), XLOperator.EqualOrGreaterThan);
 
-    public void EqualOrLessThan(string value)
-    {
-        dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.EqualOrLessThan;
-    }
+    public void EqualOrLessThan(string value) => Set(value, XLOperator.EqualOrLessThan);
 
-    public void EqualOrLessThan(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.EqualOrLessThan;
-    }
+    public void EqualOrLessThan(IXLCell cell) => Set(CellReference(cell), XLOperator.EqualOrLessThan);
 
-    public void EqualTo(string value)
-    {
-        dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.EqualTo;
-    }
+    public void EqualTo(string value) => Set(value, XLOperator.EqualTo);
 
-    public void EqualTo(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.EqualTo;
-    }
+    public void EqualTo(IXLCell cell) => Set(CellReference(cell), XLOperator.EqualTo);
 
-    public void GreaterThan(string value)
+    public void GreaterThan(string value) => Set(value, XLOperator.GreaterThan);
+
+    public void GreaterThan(IXLCell cell) => Set(CellReference(cell), XLOperator.GreaterThan);
+
+    public void LessThan(string value) => Set(value, XLOperator.LessThan);
+
+    public void LessThan(IXLCell cell) => Set(CellReference(cell), XLOperator.LessThan);
+
+    public void NotBetween(string minValue, string maxValue) => Set(minValue, maxValue, XLOperator.NotBetween);
+
+    public void NotBetween(IXLCell minValue, IXLCell maxValue)
+        => Set(CellReference(minValue), CellReference(maxValue), XLOperator.NotBetween);
+
+    public void NotEqualTo(string value) => Set(value, XLOperator.NotEqualTo);
+
+    public void NotEqualTo(IXLCell cell) => Set(CellReference(cell), XLOperator.NotEqualTo);
+
+    #endregion IXLValidationCriteria Members
+
+    /// <summary>
+    /// Stores a criterion that compares with one value: the one place every criteria type writes it.
+    /// </summary>
+    private protected void Set(string value, XLOperator op)
     {
         dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.GreaterThan;
+        dataValidation.Operator = op;
     }
 
-    public void GreaterThan(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.GreaterThan;
-    }
-
-    public void LessThan(string value)
-    {
-        dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.LessThan;
-    }
-
-    public void LessThan(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.LessThan;
-    }
-
-    public void NotBetween(string minValue, string maxValue)
+    /// <summary>
+    /// Stores a criterion that compares with two bounds (between, not between).
+    /// </summary>
+    private protected void Set(string minValue, string maxValue, XLOperator op)
     {
         dataValidation.MinValue = minValue;
         dataValidation.MaxValue = maxValue;
-        dataValidation.Operator = XLOperator.NotBetween;
+        dataValidation.Operator = op;
     }
-
-    public void NotBetween(IXLCell minValue, IXLCell maxValue)
-    {
-        dataValidation.MinValue = CellReference(minValue);
-        dataValidation.MaxValue = CellReference(maxValue);
-        dataValidation.Operator = XLOperator.NotBetween;
-    }
-
-    public void NotEqualTo(string value)
-    {
-        dataValidation.Value = value;
-        dataValidation.Operator = XLOperator.NotEqualTo;
-    }
-
-    public void NotEqualTo(IXLCell cell)
-    {
-        dataValidation.Value = CellReference(cell);
-        dataValidation.Operator = XLOperator.NotEqualTo;
-    }
-
-    #endregion IXLValidationCriteria Members
 
     /// <summary>
     /// The criterion text for <paramref name="cell"/>: its fixed A1 address, with the name of its sheet,
