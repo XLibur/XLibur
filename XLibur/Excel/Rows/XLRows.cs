@@ -171,29 +171,11 @@ internal sealed class XLRows : XLStylizedBase, IXLRows, IXLStylized
         Rows.ForEach(r => r.Expand());
     }
 
-    public IXLCells Cells()
-    {
-        var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (var container in Rows)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells Cells() => XLCells.FromRanges(Rows, false, XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed()
-    {
-        var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (var container in Rows)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed() => CellsUsed(XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed(XLCellsUsedOptions options)
-    {
-        var cells = new XLCells(true, options);
-        foreach (var container in Rows)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed(XLCellsUsedOptions options) => XLCells.FromRanges(Rows, true, options);
 
     public IXLRows AddHorizontalPageBreaks()
     {

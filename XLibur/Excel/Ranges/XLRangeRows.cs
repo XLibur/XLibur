@@ -45,30 +45,11 @@ internal sealed class XLRangeRows : XLStylizedBase, IXLRangeRows, IXLStylized
         return GetEnumerator();
     }
 
-    public IXLCells Cells()
-    {
-        var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (var container in _ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells Cells() => XLCells.FromRanges(_ranges, false, XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed()
-    {
-        var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (var container in _ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed() => CellsUsed(XLCellsUsedOptions.AllContents);
 
-
-    public IXLCells CellsUsed(XLCellsUsedOptions options)
-    {
-        var cells = new XLCells(true, options);
-        foreach (var container in _ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed(XLCellsUsedOptions options) => XLCells.FromRanges(_ranges, true, options);
 
     #endregion IXLRangeRows Members
 

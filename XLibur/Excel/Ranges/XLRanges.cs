@@ -207,29 +207,11 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
         return this;
     }
 
-    public XLCells Cells()
-    {
-        var cells = new XLCells(false, XLCellsUsedOptions.AllContents);
-        foreach (var container in Ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public XLCells Cells() => XLCells.FromRanges(Ranges, false, XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed()
-    {
-        var cells = new XLCells(true, XLCellsUsedOptions.AllContents);
-        foreach (var container in Ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed() => CellsUsed(XLCellsUsedOptions.AllContents);
 
-    public IXLCells CellsUsed(XLCellsUsedOptions options)
-    {
-        var cells = new XLCells(true, options);
-        foreach (var container in Ranges)
-            cells.Add(container.RangeAddress);
-        return cells;
-    }
+    public IXLCells CellsUsed(XLCellsUsedOptions options) => XLCells.FromRanges(Ranges, true, options);
 
     #endregion IXLRanges Members
 

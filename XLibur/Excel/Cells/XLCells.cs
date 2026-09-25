@@ -29,6 +29,22 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         _predicate = predicate ?? (_ => true);
     }
 
+    /// <summary>
+    /// Build a cell collection that covers the address of each range, in order.
+    /// This is the one definition of <c>Cells()</c>/<c>CellsUsed()</c> for the row, column
+    /// and range collections.
+    /// </summary>
+    /// <param name="ranges">The ranges whose cells the collection covers.</param>
+    /// <param name="usedCellsOnly">If <c>true</c>, enumerate only used cells, else every cell.</param>
+    /// <param name="options">What counts as a used cell. Ignored when <paramref name="usedCellsOnly"/> is <c>false</c>.</param>
+    internal static XLCells FromRanges(IEnumerable<XLRangeBase> ranges, bool usedCellsOnly, XLCellsUsedOptions options)
+    {
+        var cells = new XLCells(usedCellsOnly, options);
+        foreach (var range in ranges)
+            cells.Add(range.RangeAddress);
+        return cells;
+    }
+
     #endregion Constructor
 
     #region IEnumerable<XLCell> Members
