@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -288,7 +287,7 @@ internal static class RichDataWriter
 
     private static XmlWriterSettings XmlSettings() => new()
     {
-        Encoding = Encoding.UTF8,
+        Encoding = XLHelper.NoBomUTF8,
         CloseOutput = true,
     };
 }

@@ -1,4 +1,7 @@
+using System;
 using System.IO;
+using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
 using System.Threading.Tasks;
@@ -188,5 +191,39 @@ public class XLCellImageTests
                 await Assert.That(cell.Style.Font.Bold).IsTrue();
             },
             validate: false);
+    }
+
+    /// <summary>
+    /// The four rich data parts were written with <c>Encoding.UTF8</c>, which emits a byte order
+    /// mark. Every other hand-written part is BOM-free, and so is what Excel writes.
+    /// </summary>
+    [Test]
+    public async Task Save_RichDataParts_HaveNoByteOrderMark()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            using var imgStream = new MemoryStream(CreateTestPng());
+            wb.AddWorksheet().Cell("A1").SetCellImage(imgStream, XLPictureFormat.Png, "red pixel");
+            wb.SaveAs(ms);
+        }
+
+        ms.Position = 0;
+        using var document = SpreadsheetDocument.Open(ms, false);
+        var richDataParts = document.WorkbookPart!.Parts
+            .Select(p => p.OpenXmlPart)
+            .Where(p => p.ContentType.StartsWith("application/vnd.ms-excel.rdrichvalue", StringComparison.Ordinal)
+                        || p.ContentType == "application/vnd.ms-excel.richValueRel+xml")
+            .ToList();
+
+        await Assert.That(richDataParts.Count).IsEqualTo(4);
+        foreach (var part in richDataParts)
+        {
+            using var partStream = part.GetStream(FileMode.Open, FileAccess.Read);
+            var head = new byte[3];
+            var read = partStream.ReadAtLeast(head, 3, throwOnEndOfStream: false);
+            var hasBom = read == 3 && head[0] == 0xEF && head[1] == 0xBB && head[2] == 0xBF;
+            await Assert.That(hasBom).IsFalse().Because(part.Uri.ToString());
+        }
     }
 }
