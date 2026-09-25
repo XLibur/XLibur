@@ -52,6 +52,12 @@ internal sealed class XLFont : IXLFont
 
     private readonly XLStyle _style;
 
+    /// <summary>
+    /// True when this font was built without a style, over a key the empty style it made for itself
+    /// does not hold - a rich text run's font, say. See <see cref="Modify"/>.
+    /// </summary>
+    private readonly bool _detached;
+
     private XLFontValue _value;
 
     /// <remarks>
@@ -80,6 +86,7 @@ internal sealed class XLFont : IXLFont
     /// <param name="value">Style value to use.</param>
     public XLFont(XLStyle? style, XLFontValue value)
     {
+        _detached = style is null;
         _style = style ?? XLStyle.CreateEmptyStyle();
         _value = value;
     }
@@ -152,11 +159,32 @@ internal sealed class XLFont : IXLFont
     /// not share: a range is held weakly by its worksheet, and one rebuilt after a collection starts
     /// from its parent's style rather than its cells' (#505). A value equal to that record can still
     /// change a cell, so there the setter always writes.
+    /// <para>
+    /// An attached font does not assign <c>Key</c>, which would intern the new font in its repository
+    /// only for the result to be discarded - the same wasted lookup <see cref="SetKey"/> documents -
+    /// and would run <paramref name="modification"/> an extra time. The style interns the font again
+    /// when it resolves its key, so the facade takes the interned value back off the resulting style.
+    /// A detached font cannot: its empty style holds the default font, not this one's key, so the
+    /// facade's own key stays the source of truth there.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
-        Key = modification(Key);
+        if (_style.IsCellContainer)
+        {
+            SetKey(modification(Key));
+            return;
+        }
+
+        if (_detached)
+        {
+            Key = modification(Key);
+            _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Font = modification(styleKey.Font) });
+        _value = _style.Value.Font;
     }
 
     #region IXLFont Members

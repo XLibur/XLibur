@@ -33,7 +33,6 @@ internal sealed class XLNumberFormat : IXLNumberFormat
             var pending = _style.Pending;
             return pending is null ? _value.Key : pending.NumberFormat;
         }
-        private set => _value = XLNumberFormatValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -149,10 +148,19 @@ internal sealed class XLNumberFormat : IXLNumberFormat
         _value = _style.Value.NumberFormat;
     }
 
+    /// <remarks>
+    /// Neither branch assigns <c>Key</c>. See <see cref="XLBorder"/>'s <c>Modify</c>.
+    /// </remarks>
     private void Modify(Func<XLNumberFormatKey, XLNumberFormatKey> modification)
     {
-        Key = modification(Key);
+        if (_style.IsCellContainer)
+        {
+            SetKey(modification(Key));
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { NumberFormat = modification(styleKey.NumberFormat) });
+        _value = _style.Value.NumberFormat;
     }
 
     #region Overridden

@@ -34,7 +34,6 @@ internal sealed class XLFill : IXLFill
             var pending = _style.Pending;
             return pending is null ? _value.Key : pending.Fill;
         }
-        private set => _value = XLFillValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -96,11 +95,20 @@ internal sealed class XLFill : IXLFill
     /// rebuilt after a collection starts from its parent's style rather than its cells' (#505). So
     /// the non-cell path hands the decision to <paramref name="modification"/>, which runs once per
     /// distinct cell style.
+    /// <para>
+    /// Neither branch assigns <c>Key</c>. See <see cref="XLBorder"/>'s <c>Modify</c>.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
-        Key = modification(Key);
+        if (_style.IsCellContainer)
+        {
+            SetKey(modification(Key));
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Fill = modification(styleKey.Fill) });
+        _value = _style.Value.Fill;
     }
 
     /// <summary>

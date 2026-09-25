@@ -33,7 +33,6 @@ internal sealed class XLProtection : IXLProtection
             var pending = _style.Pending;
             return pending is null ? _value.Key : pending.Protection;
         }
-        private set => _value = XLProtectionValue.FromKey(ref value);
     }
 
     #endregion Properties
@@ -142,11 +141,20 @@ internal sealed class XLProtection : IXLProtection
     /// <see cref="XLStyle.SkipsUnchangedValues"/> allows it: on a cell or a worksheet. On a range or
     /// <c>IXLCells</c> the key is only that container's record of its style, which its cells need
     /// not share (#505), so there the setter always writes.
+    /// <para>
+    /// Neither branch assigns <c>Key</c>. See <see cref="XLBorder"/>'s <c>Modify</c>.
+    /// </para>
     /// </remarks>
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
-        Key = modification(Key);
+        if (_style.IsCellContainer)
+        {
+            SetKey(modification(Key));
+            return;
+        }
+
         _style.Modify(styleKey => styleKey with { Protection = modification(styleKey.Protection) });
+        _value = _style.Value.Protection;
     }
 
     #region Overridden
