@@ -8,6 +8,14 @@ namespace XLibur.Excel.CalcEngine.Functions;
 internal static class ArgumentsExtensions
 {
     /// <summary>
+    /// Is the optional argument at <paramref name="index"/> left out? It is when the argument list
+    /// is too short to reach it, and when it is written as an empty placeholder, as the middle
+    /// argument of <c>TAKE(A1:C3,,2)</c>, which arrives as a blank scalar.
+    /// </summary>
+    internal static bool IsOmitted(this Span<AnyValue> args, int index)
+        => args.Length <= index || (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank);
+
+    /// <summary>
     /// Aggregate all values in the arguments of a function into a single value. If any value is an error, return the error.
     /// </summary>
     /// <remarks>

@@ -1064,7 +1064,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </list>
     /// </summary>
     private static ScalarValue ToCellContentValue(AnyValue value, CalcContext ctx)
-        => value.TryReduceToScalar(ctx, out var scalar, out var error) ? scalar : error;
+        => value.ReduceToScalar(ctx);
 
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {

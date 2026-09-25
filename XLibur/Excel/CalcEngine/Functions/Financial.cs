@@ -144,7 +144,7 @@ internal static class Financial
     private static AnyValue Npv(CalcContext ctx, Span<AnyValue> args)
     {
         // NPV(rate, value1, [value2], ...). rate is a scalar (marked param 0), values may be ranges.
-        if (!TryScalarNumber(ctx, args[0], out var rate, out var rateError))
+        if (!args[0].TryReduceToNumber(ctx, out var rate, out var rateError))
             return rateError;
         if (rate <= -1)
             return XLError.NumberInvalid;
@@ -196,7 +196,7 @@ internal static class Financial
             return XLError.NumberInvalid;
 
         var guess = 0.1;
-        if (args.Length > 1 && !TryScalarNumber(ctx, args[1], out guess, out var guessError))
+        if (args.Length > 1 && !args[1].TryReduceToNumber(ctx, out guess, out var guessError))
             return guessError;
 
         return SolveIrr(cashflows, guess);
@@ -238,11 +238,11 @@ internal static class Financial
     private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
     {
         // RATE(nper, pmt, pv, [fv], [type], [guess]) - solved iteratively. All arguments are scalars.
-        if (!TryScalarNumber(ctx, args[0], out var nper, out var nperError))
+        if (!args[0].TryReduceToNumber(ctx, out var nper, out var nperError))
             return nperError;
-        if (!TryScalarNumber(ctx, args[1], out var pmt, out var pmtError))
+        if (!args[1].TryReduceToNumber(ctx, out var pmt, out var pmtError))
             return pmtError;
-        if (!TryScalarNumber(ctx, args[2], out var pv, out var pvError))
+        if (!args[2].TryReduceToNumber(ctx, out var pv, out var pvError))
             return pvError;
 
         if (!TryOptionalScalarNumber(ctx, args, 3, 0, out var fv, out var fvError))
@@ -263,7 +263,7 @@ internal static class Financial
     {
         value = defaultValue;
         error = default;
-        return args.Length <= index || TryScalarNumber(ctx, args[index], out value, out error);
+        return args.Length <= index || args[index].TryReduceToNumber(ctx, out value, out error);
     }
 
     /// <summary>
@@ -716,7 +716,7 @@ internal static class Financial
     private static AnyValue FvSchedule(CalcContext ctx, Span<AnyValue> args)
     {
         // FVSCHEDULE(principal, schedule) — compounds the principal by each rate in turn.
-        if (!TryScalarNumber(ctx, args[0], out var principal, out var principalError))
+        if (!args[0].TryReduceToNumber(ctx, out var principal, out var principalError))
             return principalError;
 
         var value = principal;
@@ -741,9 +741,9 @@ internal static class Financial
         // positive flows reinvested at reinvest_rate.
         if (!TryCollectNumbers(ctx, args[..1], out var cashflows, out var valuesError))
             return valuesError;
-        if (!TryScalarNumber(ctx, args[1], out var financeRate, out var financeError))
+        if (!args[1].TryReduceToNumber(ctx, out var financeRate, out var financeError))
             return financeError;
-        if (!TryScalarNumber(ctx, args[2], out var reinvestRate, out var reinvestError))
+        if (!args[2].TryReduceToNumber(ctx, out var reinvestRate, out var reinvestError))
             return reinvestError;
 
         var count = cashflows.Count;
@@ -794,7 +794,7 @@ internal static class Financial
     {
         // XNPV(rate, values, dates) — each flow is discounted by its own actual/365 offset from the
         // first date, rather than by a period index.
-        if (!TryScalarNumber(ctx, args[0], out var rate, out var rateError))
+        if (!args[0].TryReduceToNumber(ctx, out var rate, out var rateError))
             return rateError;
         if (rate <= -1)
             return XLError.NumberInvalid;
@@ -811,7 +811,7 @@ internal static class Financial
             return scheduleError;
 
         var guess = 0.1;
-        if (args.Length > 2 && !TryScalarNumber(ctx, args[2], out guess, out var guessError))
+        if (args.Length > 2 && !args[2].TryReduceToNumber(ctx, out guess, out var guessError))
             return guessError;
         if (guess <= -1)
             return XLError.NumberInvalid;
@@ -997,22 +997,6 @@ internal static class Financial
     }
 
     #endregion
-
-    /// <summary>
-    /// Read an argument that must be a single number. The functions in this file take ranges for
-    /// some parameters and scalars for others, so a scalar parameter still receives whatever the
-    /// formula wrote there: a reference to one cell is unwrapped, a larger range goes through
-    /// implicit intersection — the same reduction the signature adapters apply.
-    /// </summary>
-    private static bool TryScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
-    }
 
     private static bool TryCollectNumbers(CalcContext ctx, ReadOnlySpan<AnyValue> valueArgs, out List<double> numbers, out XLError error)
     {

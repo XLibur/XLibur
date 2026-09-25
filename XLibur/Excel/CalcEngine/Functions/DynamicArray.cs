@@ -151,7 +151,7 @@ internal static class DynamicArray
         ignore = 0;
         byColumn = false;
         error = default;
-        if (args.Length > 1 && !TryIntArg(ctx, args[1], out ignore, out error))
+        if (args.Length > 1 && !args[1].TryReduceToInt(ctx, 0, out ignore, out error))
             return false;
 
         if (ignore is < 0 or > 3)
@@ -160,7 +160,7 @@ internal static class DynamicArray
             return false;
         }
 
-        return args.Length <= 2 || TryBoolArg(ctx, args[2], out byColumn, out error);
+        return args.Length <= 2 || args[2].TryReduceToLogical(ctx, out byColumn, out error);
     }
 
     /// <summary>The values of <paramref name="source"/> in scan order, less the skipped kinds.</summary>
@@ -199,7 +199,7 @@ internal static class DynamicArray
         if (array!.Width != 1 && array.Height != 1)
             return XLError.IncompatibleValue;
 
-        if (!TryIntArg(ctx, args[1], out var wrapCount, out var wrapCountError))
+        if (!args[1].TryReduceToInt(ctx, 0, out var wrapCount, out var wrapCountError))
             return wrapCountError;
         if (wrapCount < 1)
             return XLError.NumberInvalid;
@@ -449,13 +449,10 @@ internal static class DynamicArray
     {
         value = null;
         error = default;
-        if (args.Length <= index)
+        if (args.IsOmitted(index))
             return true;
 
-        if (args[index].TryPickScalar(out var scalar, out _) && scalar.IsBlank)
-            return true;
-
-        if (!TryIntArg(ctx, args[index], out var number, out error))
+        if (!args[index].TryReduceToInt(ctx, 0, out var number, out error))
             return false;
 
         value = number;
@@ -463,23 +460,23 @@ internal static class DynamicArray
     }
 
     private static ScalarValue ScalarOf(CalcContext ctx, in AnyValue value)
-        => TryScalarArg(ctx, value, out var scalar) ? scalar : XLError.NoValueAvailable;
+        => value.TryReduceToScalar(ctx, out var scalar, out _) ? scalar : XLError.NoValueAvailable;
 
     private static AnyValue Sequence(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryIntArg(ctx, args[0], out var rows, out var rowsError))
+        if (!args[0].TryReduceToInt(ctx, 0, out var rows, out var rowsError))
             return rowsError;
 
         var columns = 1;
-        if (args.Length > 1 && !TryIntArg(ctx, args[1], out columns, out var columnsError))
+        if (args.Length > 1 && !args[1].TryReduceToInt(ctx, 0, out columns, out var columnsError))
             return columnsError;
 
         double start = 1;
-        if (args.Length > 2 && !TryNumberArg(ctx, args[2], out start, out var startError))
+        if (args.Length > 2 && !args[2].TryReduceToNumber(ctx, out start, out var startError))
             return startError;
 
         double step = 1;
-        if (args.Length > 3 && !TryNumberArg(ctx, args[3], out step, out var stepError))
+        if (args.Length > 3 && !args[3].TryReduceToNumber(ctx, out step, out var stepError))
             return stepError;
 
         if (rows < 1 || columns < 1 || rows > XLHelper.MaxRowNumber || columns > XLHelper.MaxColumnNumber)
@@ -511,11 +508,11 @@ internal static class DynamicArray
             return XLError.IncompatibleValue;
 
         var byColumn = false;
-        if (args.Length > 1 && !TryBoolArg(ctx, args[1], out byColumn, out var byColumnError))
+        if (args.Length > 1 && !args[1].TryReduceToLogical(ctx, out byColumn, out var byColumnError))
             return byColumnError;
 
         var exactlyOnce = false;
-        if (args.Length > 2 && !TryBoolArg(ctx, args[2], out exactlyOnce, out var exactlyOnceError))
+        if (args.Length > 2 && !args[2].TryReduceToLogical(ctx, out exactlyOnce, out var exactlyOnceError))
             return exactlyOnceError;
 
         // Work row-wise; when comparing columns, operate on the transpose and transpose back.
@@ -606,11 +603,11 @@ internal static class DynamicArray
         sortOrder = 1;
         byColumn = false;
         error = default;
-        if (args.Length > 1 && !TryIntArg(ctx, args[1], out sortIndex, out error))
+        if (args.Length > 1 && !args[1].TryReduceToInt(ctx, 0, out sortIndex, out error))
             return false;
-        if (args.Length > 2 && !TryIntArg(ctx, args[2], out sortOrder, out error))
+        if (args.Length > 2 && !args[2].TryReduceToInt(ctx, 0, out sortOrder, out error))
             return false;
-        if (args.Length > 3 && !TryBoolArg(ctx, args[3], out byColumn, out error))
+        if (args.Length > 3 && !args[3].TryReduceToLogical(ctx, out byColumn, out error))
             return false;
 
         if (sortOrder != 1 && sortOrder != -1)
@@ -685,7 +682,7 @@ internal static class DynamicArray
     /// <summary>Read a SORTBY sort order, which must be 1 (ascending) or -1 (descending).</summary>
     private static bool TrySortOrderArg(CalcContext ctx, in AnyValue arg, out int order, out XLError error)
     {
-        if (!TryIntArg(ctx, arg, out order, out error))
+        if (!arg.TryReduceToInt(ctx, 0, out order, out error))
             return false;
 
         if (order != 1 && order != -1)
@@ -768,7 +765,7 @@ internal static class DynamicArray
 
     private static AnyValue XLookup(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryScalarArg(ctx, args[0], out var lookupValue))
+        if (!args[0].TryReduceToScalar(ctx, out var lookupValue, out _))
             return XLError.IncompatibleValue;
         if (lookupValue.TryPickError(out var lookupError))
             return lookupError;
@@ -800,11 +797,11 @@ internal static class DynamicArray
         matchMode = 0;
         searchMode = 1;
         error = default;
-        if (args.Length > matchModeIndex && !TryIntArg(ctx, args[matchModeIndex], out matchMode, out error))
+        if (args.Length > matchModeIndex && !args[matchModeIndex].TryReduceToInt(ctx, 0, out matchMode, out error))
             return false;
 
         var searchModeIndex = matchModeIndex + 1;
-        return args.Length <= searchModeIndex || TryIntArg(ctx, args[searchModeIndex], out searchMode, out error);
+        return args.Length <= searchModeIndex || args[searchModeIndex].TryReduceToInt(ctx, 0, out searchMode, out error);
     }
 
     /// <summary>
@@ -830,7 +827,7 @@ internal static class DynamicArray
 
     private static AnyValue XMatch(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryScalarArg(ctx, args[0], out var lookupValue))
+        if (!args[0].TryReduceToScalar(ctx, out var lookupValue, out _))
             return XLError.IncompatibleValue;
         if (lookupValue.TryPickError(out var lookupError))
             return lookupError;
@@ -839,11 +836,11 @@ internal static class DynamicArray
             return XLError.IncompatibleValue;
 
         var matchMode = 0;
-        if (args.Length > 2 && !TryIntArg(ctx, args[2], out matchMode, out var matchModeError))
+        if (args.Length > 2 && !args[2].TryReduceToInt(ctx, 0, out matchMode, out var matchModeError))
             return matchModeError;
 
         var searchMode = 1;
-        if (args.Length > 3 && !TryIntArg(ctx, args[3], out searchMode, out var searchModeError))
+        if (args.Length > 3 && !args[3].TryReduceToInt(ctx, 0, out searchMode, out var searchModeError))
             return searchModeError;
 
         var vertical = !(lookupArray!.Height == 1 && lookupArray.Width > 1);
@@ -958,45 +955,4 @@ internal static class DynamicArray
 
     private static AnyValue Orient(Array array, bool transposed)
         => transposed ? new TransposedArray(array) : array;
-
-    private static bool TryScalarArg(CalcContext ctx, in AnyValue arg, out ScalarValue scalar)
-        => arg.TryReduceToScalar(ctx, out scalar, out _);
-
-    private static bool TryNumberArg(CalcContext ctx, in AnyValue arg, out double number, out XLError error)
-    {
-        error = default;
-        if (!TryScalarArg(ctx, arg, out var scalar))
-        {
-            number = 0;
-            error = XLError.IncompatibleValue;
-            return false;
-        }
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
-    }
-
-    private static bool TryIntArg(CalcContext ctx, in AnyValue arg, out int value, out XLError error)
-    {
-        if (!TryNumberArg(ctx, arg, out var number, out error))
-        {
-            value = 0;
-            return false;
-        }
-
-        value = (int)Math.Truncate(number);
-        return true;
-    }
-
-    private static bool TryBoolArg(CalcContext ctx, in AnyValue arg, out bool value, out XLError error)
-    {
-        error = default;
-        if (!TryScalarArg(ctx, arg, out var scalar))
-        {
-            value = false;
-            error = XLError.IncompatibleValue;
-            return false;
-        }
-
-        return scalar.TryCoerceLogicalOrBlankOrNumberOrText(out value, out error);
-    }
 }

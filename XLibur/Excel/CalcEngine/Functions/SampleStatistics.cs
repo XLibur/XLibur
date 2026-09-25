@@ -4,27 +4,13 @@ namespace XLibur.Excel.CalcEngine.Functions;
 
 /// <summary>
 /// The handful of operations every statistical function needs before it can do anything
-/// interesting: reduce an argument to one number, and take the mean and spread of a materialized
-/// sample. They live here rather than in each caller because <see cref="Distributions"/> and
-/// <see cref="Regression"/> both want all of them.
+/// interesting: take the mean and spread of a materialized sample. They live here rather than in
+/// each caller because <see cref="Distributions"/> and <see cref="Regression"/> both want all of
+/// them. A scalar parameter that arrives unreduced is read with
+/// <see cref="AnyValue.TryReduceToNumber"/>.
 /// </summary>
 internal static class SampleStatistics
 {
-    /// <summary>
-    /// Reduce an argument to the single number a scalar parameter wants. The statistical functions
-    /// mark only their data parameters as taking a range, so the rest arrive unreduced: a reference
-    /// to one cell is unwrapped, a larger one goes through implicit intersection.
-    /// </summary>
-    internal static bool TryGetScalarNumber(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
-    }
-
     internal static double Mean(List<double> values)
     {
         var total = 0d;

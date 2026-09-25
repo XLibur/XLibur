@@ -1062,9 +1062,11 @@ internal static class MathTrig
     /// </summary>
     private static AnyValue Aggregate(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetAggregateArgument(ctx, args[0], out var functionArgument, out var functionError))
+        // Only the data parameters are marked as taking a range, so the function number, the
+        // options and the k arrive unreduced and have to be reduced to a number here.
+        if (!args[0].TryReduceToNumber(ctx, out var functionArgument, out var functionError))
             return functionError;
-        if (!TryGetAggregateArgument(ctx, args[1], out var optionsArgument, out var optionsError))
+        if (!args[1].TryReduceToNumber(ctx, out var optionsArgument, out var optionsError))
             return optionsError;
 
         var functionNumber = Math.Truncate(functionArgument);
@@ -1096,7 +1098,7 @@ internal static class MathTrig
         if (args.Length < 4)
             return XLError.IncompatibleValue;
 
-        if (!TryGetAggregateArgument(ctx, args[3], out var k, out var kError))
+        if (!args[3].TryReduceToNumber(ctx, out var k, out var kError))
             return kError;
 
         if (!Statistical.CollectNumbers(ctx, args[2..3], tally).TryPickT0(out var numbers, out var valuesError))
@@ -1111,19 +1113,6 @@ internal static class MathTrig
             18 => Statistical.PercentileExclusive(numbers, k),
             _ => Statistical.QuartileExclusive(numbers, k),
         };
-    }
-
-    /// <summary>Read one of AGGREGATE's scalar arguments — the function number, the options or the k.</summary>
-    private static bool TryGetAggregateArgument(CalcContext ctx, in AnyValue value, out double number, out XLError error)
-    {
-        number = 0;
-
-        // Only the data parameters are marked as taking a range, so these arrive unreduced and a
-        // reference to a single cell has to be unwrapped here.
-        if (!value.TryReduceToScalar(ctx, out var scalar, out error))
-            return false;
-
-        return scalar.ToNumber(ctx.Culture).TryPickT0(out number, out error);
     }
 
     private static AnyValue Sum(CalcContext ctx, Span<AnyValue> args)
