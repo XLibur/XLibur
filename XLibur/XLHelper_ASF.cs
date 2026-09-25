@@ -106,10 +106,11 @@ public static partial class XLHelper
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A name is quoted when it does not start with a letter or an underscore, when it contains a
-    /// character that is not allowed in an unquoted name (a space or punctuation, for example), or
-    /// when it could be read as a cell reference or a value: <c>AB12</c>, <c>R1C1</c>, <c>RC</c>,
-    /// <c>TRUE</c>, or a name that starts with a cell reference, such as <c>A1B</c>.
+    /// A name is quoted when it contains a character that Excel quotes (a space or punctuation, for
+    /// example, or a digit at the start), when it is a cell reference or a value (<c>AB12</c>,
+    /// <c>R1C1</c>, <c>RC</c>, <c>TRUE</c>), or when it starts with an R1C1 reference, such as
+    /// <c>R5Z</c> or <c>C05A</c>. Excel refuses to open a file that names such a sheet without
+    /// quotes. A name that only starts with an A1 cell, such as <c>A1B</c>, needs no quotes.
     /// </para>
     /// <para>
     /// An apostrophe in a quoted name is doubled, so <c>O'Brien</c> becomes <c>'O''Brien'</c>.

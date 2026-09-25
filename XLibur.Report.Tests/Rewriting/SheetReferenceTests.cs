@@ -90,12 +90,15 @@ public class SheetReferenceTests
 
     /// <summary>
     /// A sheet name that reads as a cell reference or a logical value is quoted, or Excel would
-    /// read <c>AB12!$A$1</c> as something other than a sheet reference (#626).
+    /// read <c>AB12!$A$1</c> as something other than a sheet reference (#626). A name that only
+    /// starts with an A1 cell stays bare, as Excel stores it; one that starts with an R1C1
+    /// reference is quoted (#651).
     /// </summary>
     [Test]
     [Arguments("AB12", "'AB12'!$A$1")]
     [Arguments("R1C1", "'R1C1'!$A$1")]
-    [Arguments("A1B", "'A1B'!$A$1")]
+    [Arguments("R5Z", "'R5Z'!$A$1")]
+    [Arguments("A1B", "A1B!$A$1")]
     [Arguments("TRUE", "'TRUE'!$A$1")]
     [Arguments("1Data", "'1Data'!$A$1")]
     public async Task QuotesASheetNameThatLooksLikeACellReference(string sheet, string expected)

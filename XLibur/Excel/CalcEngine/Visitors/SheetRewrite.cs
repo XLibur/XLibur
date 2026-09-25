@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using XLibur.Parser;
 using XLibur.Excel.Coordinates;
+using XLibur.Extensions;
 
 namespace XLibur.Excel.CalcEngine.Visitors;
 
@@ -188,10 +189,7 @@ internal sealed class SheetRewrite
     /// A sheet prefix quoted the way the parser quotes one: only when the name needs it, with its
     /// apostrophes doubled.
     /// </summary>
-    private static string SheetPrefix(string sheet)
-        => NameUtils.ShouldQuote(sheet.AsSpan())
-            ? "'" + sheet.Replace("'", "''") + "'!"
-            : sheet + "!";
+    private static string SheetPrefix(string sheet) => sheet.EscapeSheetName() + "!";
 
     /// <summary>
     /// Replaces each range of <paramref name="text"/> with its text, from the last to the first, so
