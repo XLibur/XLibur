@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.IO;
 
@@ -211,15 +211,7 @@ public class SheetViewDefaultPolarityTests
 
     private static string SheetViewTag(MemoryStream package)
     {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals("xl/worksheets/sheet1.xml", StringComparison.OrdinalIgnoreCase));
-
-        using var reader = new StreamReader(entry.Open());
-        var xml = reader.ReadToEnd();
-
-        var match = Regex.Match(xml, "<(?:[A-Za-z_][\\w.-]*:)?sheetView\\b[^>]*>");
+        var match = Regex.Match(package.Sheet1Xml(),"<(?:[A-Za-z_][\\w.-]*:)?sheetView\\b[^>]*>");
         return match.Success ? match.Value : string.Empty;
     }
 

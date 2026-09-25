@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Extensions;
-using XLibur.Tests.Excel.IO;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -109,7 +109,7 @@ public class XLErrorTests
         var partNames = package.PartNames();
         var cacheParts = partNames.Where(n => Regex.IsMatch(n, @"(^|/)pivotCacheDefinition\d*\.xml$")).ToArray();
         await Assert.That(cacheParts.Length).IsEqualTo(1).Because(string.Join(", ", partNames));
-        await Assert.That(package.PartXml(cacheParts[0])).Contains($"\"{text}\"");
+        await Assert.That(package.ReadPart(cacheParts[0])).Contains($"\"{text}\"");
 
         using var reloaded = new XLWorkbook(package);
 

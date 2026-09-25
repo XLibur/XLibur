@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Excel.PivotTables.Areas;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -390,16 +390,7 @@ internal class XLPivotDataFieldsTests
         return string.Join(",", fields.Select(f => f.SourceName));
     }
 
-    private static string PivotTableXml(Stream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        using var entry = archive.Entries
-            .First(e => e.FullName.StartsWith("xl/pivotTables/pivotTable", StringComparison.Ordinal))
-            .Open();
-        using var reader = new StreamReader(entry);
-        return reader.ReadToEnd();
-    }
+    private static string PivotTableXml(Stream package) => package.ReadPartUnder("xl/pivotTables/pivotTable");
 
     #endregion
 }

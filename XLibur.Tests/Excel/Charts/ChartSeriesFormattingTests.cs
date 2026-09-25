@@ -37,18 +37,6 @@ public class ChartSeriesFormattingTests
         return chart;
     }
 
-    /// <summary>
-    /// Saves with the OpenXML validator switched on, so a schema-invalid child order fails the test
-    /// rather than only showing up as a repair prompt in Excel.
-    /// </summary>
-    private static MemoryStream SaveValidated(XLWorkbook wb)
-    {
-        var ms = new MemoryStream();
-        wb.SaveAs(ms, validate: true);
-        ms.Position = 0;
-        return ms;
-    }
-
     private static C.ChartSpace ChartSpaceOf(MemoryStream stream)
     {
         stream.Position = 0;
@@ -73,7 +61,7 @@ public class ChartSeriesFormattingTests
             series.LineColor = XLColor.FromArgb(0x00, 0x33, 0x66);
             series.LineWidthPt = 2.25;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -95,7 +83,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.ColumnClustered);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2").FillColor = XLColor.FromArgb(0x12, 0x34, 0x56);
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         var seriesElement = chartSpace.Descendants<C.BarChartSeries>().Single();
@@ -116,7 +104,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.ColumnClustered);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         var seriesElement = chartSpace.Descendants<C.BarChartSeries>().Single();
@@ -134,7 +122,7 @@ public class ChartSeriesFormattingTests
             chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2").FillColor =
                 XLColor.FromTheme(XLThemeColor.Accent3);
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -160,7 +148,7 @@ public class ChartSeriesFormattingTests
             series.MarkerSize = 9;
             series.MarkerFillColor = XLColor.FromArgb(0x00, 0xB0, 0x50);
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -184,7 +172,7 @@ public class ChartSeriesFormattingTests
             var chart = AddChart(ws, XLChartType.Line);
             chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2").MarkerStyle = XLMarkerStyle.None;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -205,7 +193,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.LineWithMarkers);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         var seriesElement = chartSpace.Descendants<C.LineChartSeries>().Single();
@@ -227,7 +215,7 @@ public class ChartSeriesFormattingTests
             var chart = AddChart(ws, XLChartType.Line);
             chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2").Smooth = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -246,7 +234,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.Line);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         await Assert.That(chartSpace.Descendants<C.Smooth>()).IsEmpty();
@@ -260,7 +248,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.XYScatterSmoothLinesNoMarkers);
         chart.Series.Add("Points", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         await Assert.That(chartSpace.Descendants<C.Smooth>().Single().Val!.Value).IsTrue();
@@ -274,7 +262,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.XYScatterSmoothLinesNoMarkers);
         chart.Series.Add("Points", "Data!$B$1:$B$2", "Data!$A$1:$A$2").Smooth = false;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         await Assert.That(chartSpace.Descendants<C.Smooth>().Single().Val!.Value).IsFalse();
@@ -293,7 +281,7 @@ public class ChartSeriesFormattingTests
             foreach (var name in new[] { "High", "Low", "Close" })
                 chart.Series.Add(name, "Data!$B$1:$B$2", "Data!$A$1:$A$2").Smooth = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             var chartSpace = ChartSpaceOf(saved);
             await Assert.That(chartSpace.Descendants<C.Smooth>().Select(s => s.Val!.Value)).IsEquivalentTo(new[] { true, true, true }, CollectionOrdering.Matching);
 
@@ -342,7 +330,7 @@ public class ChartSeriesFormattingTests
 
             await Assert.That(() =>
             {
-                using var ms = SaveValidated(wb);
+                using var ms = TestHelper.SaveValidated(wb);
             }).ThrowsNothing().Because($"{type} produced invalid chart XML.");
         }
     }
@@ -358,7 +346,7 @@ public class ChartSeriesFormattingTests
         chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
         chart.Series.Add("Price", "Data!$C$1:$C$2", "Data!$A$1:$A$2").UseSecondaryAxis = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
         var plotArea = chartSpace.Descendants<C.PlotArea>().Single();
 
@@ -393,7 +381,7 @@ public class ChartSeriesFormattingTests
             chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
             chart.Series.Add("Price", "Data!$C$1:$C$2", "Data!$A$1:$A$2").UseSecondaryAxis = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -421,7 +409,7 @@ public class ChartSeriesFormattingTests
             chart.SecondaryChartType = XLChartType.Line;
             chart.SecondarySeries.Add("Price", "Data!$C$1:$C$2", "Data!$A$1:$A$2").UseSecondaryAxis = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -444,7 +432,7 @@ public class ChartSeriesFormattingTests
         var chart = AddChart(ws, XLChartType.Pie);
         chart.Series.Add("Share", "Data!$B$1:$B$2", "Data!$A$1:$A$2").UseSecondaryAxis = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
 
         await Assert.That(chartSpace.Descendants<C.PieChart>().Count()).IsEqualTo(1);
@@ -489,7 +477,7 @@ public class ChartSeriesFormattingTests
         // Reloading through XLibur and saving with validation on checks both that the example reads
         // back and that what it wrote is schema-valid.
         using var wb = new XLWorkbook(path);
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         await Assert.That(wb.Worksheets.Count).IsEqualTo(7);
     }
 
@@ -502,7 +490,7 @@ public class ChartSeriesFormattingTests
             var ws = AddDataSheet(wb);
             var chart = AddChart(ws, XLChartType.ColumnClustered);
             chart.Series.Add("Units", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 

@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
 using XLibur.Excel.IO;
+using XLibur.Tests.Utils;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.IO;

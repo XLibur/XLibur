@@ -1,13 +1,12 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -43,7 +42,7 @@ public class PivotTableDeletionTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartsUnder(saved, "xl/pivotTables/")).IsEmpty();
+        await Assert.That(saved.PartsUnder("xl/pivotTables/")).IsEmpty();
         await Assert.That(sheetName).IsNotEmpty();
     }
 
@@ -108,24 +107,26 @@ public class PivotTableDeletionTests
             wb.SaveAs(saved);
         }
 
-        var entries = EntryNames(saved);
+        var entries = saved.PartNames();
 
         // The part, the cache part and the #N/A defined name all go, or the saved file has an orphan
         // Excel will offer to repair.
         await Assert.That(entries.Any(n => n.StartsWith("xl/timelines/", StringComparison.Ordinal))).IsFalse();
         await Assert.That(entries.Any(n => n.StartsWith("xl/timelineCaches/", StringComparison.Ordinal))).IsFalse();
 
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.WorkbookXml();
         await Assert.That(workbookXml).DoesNotContain("timelineCacheRef");
         await Assert.That(workbookXml).DoesNotContain("ВстроеннаяВременнаяШкала_Date");
 
-        // And the drawing no longer asks Excel to draw a band the package does not define.
-        await Assert.That(ReadPart(saved, "xl/drawings/drawing1.xml")).DoesNotContain("timeslicer");
+        // And the drawing no longer asks Excel to draw a band the package does not define. A save
+        // that dropped the drawing part altogether satisfies that too.
+        if (saved.TryReadPart("xl/drawings/drawing1.xml", out var drawingXml))
+            await Assert.That(drawingXml).DoesNotContain("timeslicer");
 
         // The worksheet's own extLst reference has to go too, or a stale relationship id sits in an
         // extension list the XSD does not check. Pivot is sheet1.xml in this fixture — the sheetIds
         // are crossed, so this is not the same part sheetIds would suggest.
-        var pivotSheetXml = ReadPart(saved, "xl/worksheets/sheet1.xml");
+        var pivotSheetXml = saved.Sheet1Xml();
         await Assert.That(pivotSheetXml).DoesNotContain("timelineRef");
 
         // Stronger still: the whole <ext> should be pruned once its list empties, not just the ref
@@ -202,65 +203,11 @@ public class PivotTableDeletionTests
 
     #region Helpers
 
-    private static XLWorkbook SlicerWorkbook()
-    {
-        using var source = TestHelper.GetStreamFromResource(
-            TestHelper.GetResourcePath(@"TryToLoad\SlicersOnPivotAndTable.xlsx"));
-        var ms = new MemoryStream();
-        source.CopyTo(ms);
-        ms.Position = 0;
-        return new XLWorkbook(ms);
-    }
+    private static XLWorkbook SlicerWorkbook() => TestHelper.LoadWorkbook(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
-    private static XLWorkbook Load()
-    {
-        using var resource = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var stream = new MemoryStream();
-        resource.CopyTo(stream);
-        stream.Position = 0;
+    private static XLWorkbook Load() => TestHelper.LoadWorkbook(Fixture);
 
-        // The workbook reads its original stream again on save, so it cannot be disposed here.
-        return new XLWorkbook(stream);
-    }
-
-    private static XLWorkbook TimelineWorkbook()
-    {
-        using var source = TestHelper.GetStreamFromResource(
-            TestHelper.GetResourcePath(@"TryToLoad\Timelines_Missing_21232.xlsx"));
-        var ms = new MemoryStream();
-        source.CopyTo(ms);
-        ms.Position = 0;
-        return new XLWorkbook(ms);
-    }
-
-    private static string[] PartsUnder(MemoryStream package, string prefix)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries
-            .Where(e => e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.FullName)
-            .ToArray();
-    }
-
-    private static List<string> EntryNames(MemoryStream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries.Select(e => e.FullName).ToList();
-    }
-
-    private static string ReadPart(MemoryStream package, string partName)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.GetEntry(partName);
-        if (entry is null)
-            return string.Empty;
-
-        using var reader = new StreamReader(entry.Open());
-        return reader.ReadToEnd();
-    }
+    private static XLWorkbook TimelineWorkbook() => TestHelper.LoadWorkbook(@"TryToLoad\Timelines_Missing_21232.xlsx");
 
     #endregion
 }

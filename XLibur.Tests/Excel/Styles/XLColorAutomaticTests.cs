@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Styles;
 
@@ -71,7 +72,7 @@ public partial class XLColorAutomaticTests
 
         // Assert against the <fonts> block alone: a solid fill writes its own <fgColor auto="1"/>,
         // which would make a whole-document match pass for the wrong reason.
-        var fonts = FontsBlock(ReadPart(ms.ToArray(), "xl/styles.xml"));
+        var fonts = FontsBlock(ms.ReadPart("xl/styles.xml"));
 
         using (Assert.Multiple())
         {
@@ -114,14 +115,6 @@ public partial class XLColorAutomaticTests
         var color = wb.Worksheets.First().Cell("A1").Style.Font.FontColor;
 
         await Assert.That(color.IsAutomatic).IsTrue().Because("auto=\"1\" should load as the automatic color.");
-    }
-
-    private static string ReadPart(byte[] xlsx, string partPath)
-    {
-        using var zip = new ZipArchive(new MemoryStream(xlsx), ZipArchiveMode.Read);
-        var entry = zip.GetEntry(partPath) ?? throw new InvalidOperationException($"Missing part: {partPath}");
-        using var r = new StreamReader(entry.Open());
-        return r.ReadToEnd();
     }
 
     /// <summary>

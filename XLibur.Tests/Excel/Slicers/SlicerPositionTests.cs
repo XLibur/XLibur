@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions.Enums;
@@ -9,6 +8,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
 using XLibur.Excel.Tables;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Slicers;
 
@@ -53,8 +53,8 @@ public class SlicerPositionTests
         }
 
         using var original = Resource();
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml"))
-            .IsEquivalentTo(PartBytes(original, "xl/slicers/slicer2.xml"), CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/slicers/slicer2.xml"))
+            .IsEquivalentTo(original.PartBytes("xl/slicers/slicer2.xml"), CollectionOrdering.Matching);
     }
 
     // ── Placing a created slicer ────────────────────────────────────────
@@ -100,7 +100,7 @@ public class SlicerPositionTests
 
         // The frame names the slicer and sits under the slicer graphic-data URI; that pair is what
         // Excel resolves to draw the panel.
-        var drawing = ReadPart(saved, "xl/drawings/drawing2.xml");
+        var drawing = saved.ReadPart("xl/drawings/drawing2.xml");
         await Assert.That(drawing).Contains("http://schemas.microsoft.com/office/drawing/2010/slicer");
         await Assert.That(drawing).Contains("name=\"Region 2\"");
         await Assert.That(drawing).Contains("oneCellAnchor");
@@ -120,8 +120,8 @@ public class SlicerPositionTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartExists(saved, "xl/drawings/drawing3.xml")).IsTrue();
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet3.xml")).Contains("<x:drawing");
+        await Assert.That(saved.PartExists("xl/drawings/drawing3.xml")).IsTrue();
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet3.xml")).Contains("<x:drawing");
     }
 
     // ── Moving ──────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ public class SlicerPositionTests
             wb.SaveAs(saved);
         }
 
-        var drawing = ReadPart(saved, "xl/drawings/drawing2.xml");
+        var drawing = saved.ReadPart("xl/drawings/drawing2.xml");
 
         // From was col 5 row 1; to was col 8 row 15. Both move by the same delta, so the panel
         // covers the same number of columns and rows as before.
@@ -157,7 +157,7 @@ public class SlicerPositionTests
             wb.SaveAs(saved);
         }
 
-        var drawing = ReadPart(saved, "xl/drawings/drawing2.xml");
+        var drawing = saved.ReadPart("xl/drawings/drawing2.xml");
 
         // The anchor is edited, not replaced. Excel's frame carries an mc:AlternateContent wrapper,
         // a fallback shape and a creationId, none of which XLibur models — replacing the anchor to
@@ -172,7 +172,7 @@ public class SlicerPositionTests
     public async Task Moving_a_slicer_does_not_touch_its_slicer_part()
     {
         using var original = Resource();
-        var before = PartBytes(original, "xl/slicers/slicer2.xml");
+        var before = original.PartBytes("xl/slicers/slicer2.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -183,7 +183,7 @@ public class SlicerPositionTests
 
         // Position lives in the drawing, so moving a slicer must leave the slicers part closed —
         // the two halves of an edit are gated separately.
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -287,20 +287,9 @@ public class SlicerPositionTests
     private static XLSlicers SlicersOf(XLWorkbook wb, string sheetName) =>
         ((XLWorksheet)wb.Worksheet(sheetName)).SlicersInternal;
 
-    private static XLWorkbook Load()
-    {
-        var stream = Resource();
-        stream.Position = 0;
-        return new XLWorkbook(stream);
-    }
+    private static XLWorkbook Load() => TestHelper.LoadWorkbook(Fixture);
 
-    private static MemoryStream Resource()
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms;
-    }
+    private static MemoryStream Resource() => TestHelper.OpenResource(Fixture);
 
     private static async Task AssertSchemaValid(MemoryStream package)
     {
@@ -312,36 +301,6 @@ public class SlicerPositionTests
             .ToList();
 
         await Assert.That(string.Join(Environment.NewLine, errors)).IsEmpty();
-    }
-
-    private static bool PartExists(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries.Any(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string ReadPart(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream);
-        return reader.ReadToEnd();
-    }
-
-    private static byte[] PartBytes(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var buffer = new MemoryStream();
-        entryStream.CopyTo(buffer);
-        return buffer.ToArray();
     }
 
     #endregion
