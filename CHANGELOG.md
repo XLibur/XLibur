@@ -22,6 +22,10 @@
 
 - **`XLHelper.QuoteSheetName(string)` quotes a sheet name for use in a formula reference.** It uses the same rule XLibur uses when it writes formulas, so a name that reads as a cell, an R1C1 reference or a value (`AB12`, `R1C1`, `TRUE`) is quoted, and an apostrophe in the name is doubled (#626).
 
+### ⚡ Performance
+
+- **Setting a style property allocates about 20% less.** Each font, fill, border, alignment, number format and protection setter used to allocate a closure even on a single cell, and a setter on a range, row, column or worksheet then looked the changed style up in the style repository a second time (#621). Each setter now passes its value to one shared method per style part, and the second lookup is gone. In a benchmark that sets one property of each part, a cell allocates 23% less (13.6 MB to 10.4 MB) and a small range 17% less (63.1 MB to 52.5 MB).
+
 ### 🐛 Bug Fixes
 
 - **Row `AdjustToContents` now makes a row tall enough for a cell with wrap text.** It counted only hard line breaks, so a long wrapped text got the height of one line, and the row could even shrink below the default height (#615, reported as ClosedXML/ClosedXML#2867). A cell with `Alignment.WrapText` set and no text rotation is now wrapped to its column width, less the cell padding and the indent. A line breaks after a space or a hyphen, and a word too long for the column is split between characters. Merged cells are still skipped, rotated text is measured as before, and column `AdjustToContents` is unchanged.
