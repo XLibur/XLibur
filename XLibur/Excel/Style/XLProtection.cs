@@ -149,12 +149,6 @@ internal sealed class XLProtection : IXLProtection
     /// </remarks>
     private void Modify(Func<XLProtectionKey, XLProtectionKey> modification)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Protection))
         {
             Key = modification(Key);

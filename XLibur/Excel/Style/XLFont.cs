@@ -170,12 +170,6 @@ internal sealed class XLFont : IXLFont
     /// </remarks>
     private void Modify(Func<XLFontKey, XLFontKey> modification)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Font))
         {
             Key = modification(Key);

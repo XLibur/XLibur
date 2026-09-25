@@ -395,12 +395,6 @@ internal sealed class XLAlignment : IXLAlignment
     /// </remarks>
     private void Modify(Func<XLAlignmentKey, XLAlignmentKey> modification)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Alignment))
         {
             Key = modification(Key);

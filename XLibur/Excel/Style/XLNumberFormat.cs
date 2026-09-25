@@ -155,12 +155,6 @@ internal sealed class XLNumberFormat : IXLNumberFormat
     /// </remarks>
     private void Modify(Func<XLNumberFormatKey, XLNumberFormatKey> modification)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.NumberFormat))
         {
             Key = modification(Key);

@@ -103,12 +103,6 @@ internal sealed class XLFill : IXLFill
     /// </remarks>
     private void Modify(Func<XLFillKey, XLFillKey> modification)
     {
-        if (_style.IsCellContainer)
-        {
-            SetKey(modification(Key));
-            return;
-        }
-
         if (!ReferenceEquals(_value, _style.Value.Fill))
         {
             Key = modification(Key);
