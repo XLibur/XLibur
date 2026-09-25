@@ -48,6 +48,8 @@
 
 - **IPMT and PPMT now return the right values for period 1 of an annuity-due (type 1).** IPMT returned about `-90.91` for `IPMT(0.1,1,3,1000,0,1)`, where Excel and CUMIPMT return `0`, and PPMT was wrong by the same amount (#629). IPMT, PPMT, CUMIPMT and CUMPRINC now use the same interest calculation.
 
+- **An array formula now evaluates a function once for each element of an array or range argument.** A function that takes one value per argument, such as ABS, SIGN or LEN, was called with the whole array for every element, so each cell of the result showed the top-left value: `{=ABS(A1:A2)}` repeated A1's result in both cells, and `{=SIGN({-1,2,0})}` across three columns gave `-1, -1, -1` instead of `-1, 1, 0` (#649). A text function such as LEN threw `UnsupportedFeatureException` instead. Arguments of different shapes are broadcast as before: `{=POWER({2,3},{1;2})}` over two rows and two columns gives `2, 3` and `4, 9`.
+
 ## v0.610.0 - 2026-09-16
 
 ### Changed

@@ -92,29 +92,34 @@ internal sealed class FunctionDefinition
     private AnyValue EvaluateArrayElements(CalcContext ctx, Span<AnyValue> args, int totalRows, int totalColumns)
     {
         var result = new ScalarValue[totalRows, totalColumns];
+        var itemArgs = new AnyValue[args.Length];
         for (var row = 0; row < totalRows; ++row)
         {
             for (var column = 0; column < totalColumns; ++column)
             {
-                result[row, column] = EvaluateSingleElement(ctx, args, row, column);
+                result[row, column] = EvaluateSingleElement(ctx, args, itemArgs, row, column);
             }
         }
 
         return new ConstArray(result);
     }
 
-    private ScalarValue EvaluateSingleElement(CalcContext ctx, Span<AnyValue> args, int row, int column)
+    /// <summary>
+    /// Call the function for one element of the result. Each single-value argument is replaced
+    /// by its element at <paramref name="row"/>, <paramref name="column"/>; multi-value arguments
+    /// are passed whole.
+    /// </summary>
+    private ScalarValue EvaluateSingleElement(CalcContext ctx, Span<AnyValue> args, AnyValue[] itemArgs, int row, int column)
     {
-        var itemArg = new AnyValue[args.Length];
-        for (var i = 0; i < itemArg.Length; ++i)
+        for (var i = 0; i < itemArgs.Length; ++i)
         {
             ref var arg = ref args[i];
-            itemArg[i] = IsParameterSingleValue(i)
+            itemArgs[i] = IsParameterSingleValue(i)
                 ? arg.GetArray()[row, column].ToAnyValue()
                 : arg;
         }
 
-        var itemResult = _function(ctx, args);
+        var itemResult = _function(ctx, itemArgs);
 
         // Even if function returns an array, only the top-left value of array is used
         // as a result for the item, per tests with FILTERXML.
