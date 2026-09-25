@@ -1,4 +1,6 @@
+using System;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Utils;
 
 namespace XLibur.Excel;
@@ -31,8 +33,16 @@ internal static class XLCFBaseConverter
     }
 
     /// <summary>
-    /// The cell a formula the converter builds is written relative to, as a relative A1 address.
+    /// The cell a formula the converter builds is written relative to, as a relative A1 address: the
+    /// rule's anchor (<see cref="XLConditionalFormat.AnchorOf"/>), which is also where Excel writes it
+    /// from. For <c>B1:B5 A3:A5</c> that is <c>A1</c>, not the first area's <c>B1</c>.
     /// </summary>
     public static string AnchorAddress(IXLConditionalFormat cf)
-        => cf.Range.RangeAddress.FirstAddress.ToStringRelative(false);
+    {
+        var areas = ((XLConditionalFormat)cf).Areas;
+        if (areas.Count == 0)
+            throw new InvalidOperationException("XLConditionalFormat requires at least one Range.");
+
+        return XLConditionalFormat.AnchorOf(areas).ToString();
+    }
 }
