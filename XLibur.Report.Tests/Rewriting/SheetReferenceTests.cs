@@ -79,6 +79,7 @@ public class SheetReferenceTests
     [Arguments("Sales 2026", 1, 1, 2, 1, "'Sales 2026'!$A$1:$A$2")]
     [Arguments("Bob's data", 1, 1, 1, 1, "'Bob''s data'!$A$1")]
     [Arguments("Plain_1.a", 1, 1, 1, 1, "Plain_1.a!$A$1")]
+    [Arguments("Übersicht", 1, 1, 1, 1, "Übersicht!$A$1")]
     public async Task WritesTheReferenceBackTheWayExcelStoresOne(
         string? sheet, int firstRow, int firstColumn, int lastRow, int lastColumn, string expected)
     {
@@ -87,9 +88,28 @@ public class SheetReferenceTests
         await Assert.That(reference.ToText()).IsEqualTo(expected);
     }
 
+    /// <summary>
+    /// A sheet name that reads as a cell reference or a logical value is quoted, or Excel would
+    /// read <c>AB12!$A$1</c> as something other than a sheet reference (#626).
+    /// </summary>
+    [Test]
+    [Arguments("AB12", "'AB12'!$A$1")]
+    [Arguments("R1C1", "'R1C1'!$A$1")]
+    [Arguments("A1B", "'A1B'!$A$1")]
+    [Arguments("TRUE", "'TRUE'!$A$1")]
+    [Arguments("1Data", "'1Data'!$A$1")]
+    public async Task QuotesASheetNameThatLooksLikeACellReference(string sheet, string expected)
+    {
+        var reference = new SheetReference(sheet, 1, 1, 1, 1);
+
+        await Assert.That(reference.ToText()).IsEqualTo(expected);
+        await Assert.That(Parse(expected).SheetName).IsEqualTo(sheet);
+    }
+
     [Test]
     [Arguments("Data!$B$3:$B$8")]
     [Arguments("'Sales 2026'!$A$1:$A$2")]
+    [Arguments("'AB12'!$B$3:$B$8")]
     [Arguments("Data!$B$3")]
     public async Task ParsingAndWritingRoundTrip(string text)
     {

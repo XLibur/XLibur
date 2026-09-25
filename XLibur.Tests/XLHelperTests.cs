@@ -154,6 +154,30 @@ public class XLHelperTests
     }
 
     [Test]
+    [Arguments("Sheet1", "Sheet1")]
+    [Arguments("_data", "_data")]
+    [Arguments("Übersicht", "Übersicht")]
+    [Arguments("My Sheet", "'My Sheet'")]
+    [Arguments("O'Brien", "'O''Brien'")]
+    [Arguments("1Data", "'1Data'")]
+    [Arguments("AB12", "'AB12'")]
+    [Arguments("R1C1", "'R1C1'")]
+    [Arguments("A1B", "'A1B'")]
+    [Arguments("TRUE", "'TRUE'")]
+    [Arguments("false", "'false'")]
+    [Arguments("", "")]
+    public async Task QuoteSheetName_quotes_only_names_that_need_it(string sheetName, string expected)
+    {
+        await Assert.That(XLHelper.QuoteSheetName(sheetName)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task QuoteSheetName_rejects_null()
+    {
+        await Assert.That(() => XLHelper.QuoteSheetName(null!)).Throws<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task CreateSafeSheetNamesInvalidReplacementChar()
     {
         await Assert.That(() => XLHelper.CreateSafeSheetName("abc\\def", replaceChar: ':')).Throws<ArgumentException>();

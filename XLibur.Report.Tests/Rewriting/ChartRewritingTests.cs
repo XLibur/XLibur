@@ -63,6 +63,31 @@ public class ChartRewritingTests
         await Assert.That(Series(workbook).ValueReferences).IsEqualTo("Report!$B$3:$B$6");
     }
 
+    /// <summary>
+    /// A sheet whose name reads as a cell reference keeps its quotes when the series is re-pointed;
+    /// <c>AB12!$B$3:$B$6</c> would be read as a reference to cell AB12 (#626).
+    /// </summary>
+    [Test]
+    [Arguments("AB12")]
+    [Arguments("R1C1")]
+    [Arguments("TRUE")]
+    public async Task ASheetNamedLikeACellStaysQuotedWhenTheSeriesStretches(string sheetName)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet(sheetName);
+        sheet.Cell("A3").Value = "{{ item.Product }}";
+        sheet.Cell("B3").Value = "{{ item.Quantity }}";
+        sheet.Charts.Add(XLChartType.ColumnClustered)
+            .Series.Add("Quantity", $"'{sheetName}'!$B$3:$B$3", $"'{sheetName}'!$A$3:$A$3");
+        workbook.DefinedNames.Add("Items", sheet.Range("A3:B4"));
+
+        Generate(workbook);
+
+        var series = workbook.Worksheet(sheetName).Charts.Single().Series.Single();
+        await Assert.That(series.ValueReferences).IsEqualTo($"'{sheetName}'!$B$3:$B$6");
+        await Assert.That(series.CategoryReferences).IsEqualTo($"'{sheetName}'!$A$3:$A$6");
+    }
+
     [Test]
     public async Task TheCategoryReferenceStretchesTheSameWay()
     {
