@@ -168,6 +168,56 @@ public class WorkdayIntlTests
     }
 
     [Test]
+    // WORKDAY.INTL jumps whole weeks at a time; these compare it with a plain day-by-day walk, for
+    // offsets short and long, both directions, several weekends, and holidays that cluster both
+    // near the start and far along the walk.
+    [Arguments("0000011", 1)]
+    [Arguments("0000011", 5)]
+    [Arguments("0000011", 6)]
+    [Arguments("0000011", 1234)]
+    [Arguments("0000011", -1234)]
+    [Arguments("1000000", 777)]
+    [Arguments("1000000", -777)]
+    [Arguments("0000000", 400)]
+    [Arguments("1111110", 60)]
+    [Arguments("1111110", -60)]
+    [Arguments("0110100", 999)]
+    public async Task WorkdayIntl_WeekJumpAgreesWithADayByDayWalk(string weekend, int offset)
+    {
+        const int start = 45000; // 2023-03-15, a Wednesday.
+        int[] holidays = [45001, 45002, 45003, 45010, 44990, 44999, 45500, 45501, 45502, 45503, 45504, 44600, 44601, 44000];
+
+        var expected = WalkWorkdays(start, offset, weekend, holidays);
+        var formula = $"WORKDAY.INTL({start}, {offset}, \"{weekend}\", {{{string.Join(",", holidays)}}})";
+        await Assert.That((double)XLWorkbook.EvaluateExpr(formula)).IsEqualTo(expected);
+
+        // The legacy function takes the same path with the Saturday+Sunday weekend.
+        if (weekend == "0000011")
+        {
+            var legacy = $"WORKDAY({start}, {offset}, {{{string.Join(",", holidays)}}})";
+            await Assert.That((double)XLWorkbook.EvaluateExpr(legacy)).IsEqualTo(expected);
+        }
+    }
+
+    /// <summary>The obvious algorithm: step one day at a time and count the working days.</summary>
+    private static double WalkWorkdays(int start, int offset, string weekend, int[] holidays)
+    {
+        var step = offset > 0 ? 1 : -1;
+        var date = start;
+        for (var remaining = System.Math.Abs(offset); remaining > 0;)
+        {
+            date += step;
+
+            // Serial dates count Monday as (serial + 5) % 7 == 0, matching the mask's Monday-first order.
+            var isWeekend = weekend[(date + 5) % 7] == '1';
+            if (!isWeekend && System.Array.IndexOf(holidays, date) < 0)
+                remaining--;
+        }
+
+        return date;
+    }
+
+    [Test]
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 8)")] // 8, 9 and 10 are not codes.
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 0)")]
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 18)")]

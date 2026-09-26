@@ -23,8 +23,7 @@ namespace XLibur.Excel.CalcEngine
         /// <remarks>
         /// The area is normalized on the way in, and the constructors below do the same. Every
         /// area a Reference holds is therefore top-left to bottom-right, which the rest of this
-        /// type relies on: <see cref="GetCellsValues"/> iterates first-to-last and would yield
-        /// nothing for a reversed area, <see cref="Apply"/> takes its origin from
+        /// type relies on: <see cref="Apply"/> takes its origin from
         /// <c>FirstAddress</c> while sizing from the absolute spans and would read a rectangle
         /// hung off the wrong corner, and <c>RangeOp</c>'s bounding box compares only matching
         /// corners. This used to be a precondition rejected with an <see cref="ArgumentException"/>,
@@ -122,28 +121,6 @@ namespace XLibur.Excel.CalcEngine
                         size += area.NumberOfCells;
                 }
                 return size;
-            }
-        }
-
-        /// <summary>
-        /// An iterator over all nonblank cells of the range. Some cells can be iterated
-        /// over multiple times (e.g., a union of two ranges with overlapping cells).
-        /// </summary>
-        public IEnumerable<ScalarValue> GetCellsValues(CalcContext ctx)
-        {
-            foreach (var area in this)
-            {
-                for (var row = area.FirstAddress.RowNumber; row <= area.LastAddress.RowNumber; ++row)
-                {
-                    for (var column = area.FirstAddress.ColumnNumber; column <= area.LastAddress.ColumnNumber; ++column)
-                    {
-                        var cellValue = ctx.GetCellValue(area.Worksheet, row, column);
-                        if (!cellValue.IsBlank)
-                        {
-                            yield return cellValue;
-                        }
-                    }
-                }
             }
         }
 
