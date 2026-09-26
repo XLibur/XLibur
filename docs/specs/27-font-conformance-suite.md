@@ -1157,7 +1157,8 @@ columns on every run. A font metric the three adapters cannot agree on gets the 
 > was deleted, as were the per-adapter `Fonts/` folders. The test fonts collapsed the same way:
 > `TestFontA.ttf` and `TestFontB.ttf` live only in `XLibur.Tests/Resource/Fonts/`, and both font
 > engine test projects link them back under `Resource\Fonts`. The text below records the state
-> this spec found, before that change; the paths it names no longer exist.
+> this spec found, before that change; the font files and `Fonts/` folders it names no longer
+> exist, and the `.csproj` line numbers it cites have moved.
 
 Checked while gathering evidence, and confirmed:
 
