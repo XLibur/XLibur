@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Packaging;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
@@ -952,14 +951,11 @@ public partial class XLWorkbook
                         e.Attribute("type")?.Value == "#" + XLConstants.Comment.ShapeTypeId)
             .Remove();
 
+        vmlStream.SetLength(0);
         vmlStream.Position = 0;
 
-        using (var writer = new XmlTextWriter(vmlStream, Encoding.UTF8))
-        {
-            var contents = xdoc.ToString();
-            writer.WriteRaw(contents);
-            vmlStream.SetLength(contents.Length);
-        }
+        using (var writer = VmlDrawingPartWriter.VmlXmlWriter(vmlStream))
+            writer.WriteRaw(xdoc.ToString());
 
         return xdoc.Root.HasElements;
     }

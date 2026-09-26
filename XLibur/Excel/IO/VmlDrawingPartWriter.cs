@@ -26,8 +26,9 @@ internal static class VmlDrawingPartWriter
         using var ms = new MemoryStream();
         using var stream = vmlDrawingPart.GetStream(FileMode.OpenOrCreate);
         XLWorkbook.CopyStream(stream, ms);
+        stream.SetLength(0);
         stream.Position = 0;
-        var writer = new XmlTextWriter(stream, Encoding.UTF8);
+        var writer = VmlXmlWriter(stream);
 
         writer.WriteStartElement("xml");
 
@@ -74,6 +75,13 @@ internal static class VmlDrawingPartWriter
 
         return hasAnyVmlElements;
     }
+
+    /// <summary>
+    /// A writer for a VML drawing part: UTF-8 without a byte order mark and without an XML
+    /// declaration, which is what Excel writes. It stays an <see cref="XmlTextWriter"/> rather than
+    /// a <see cref="PartXmlWriter"/> so that, apart from the BOM, the output is unchanged.
+    /// </summary>
+    internal static XmlTextWriter VmlXmlWriter(Stream stream) => new(stream, XLHelper.NoBomUTF8);
 
     // VML Shape for Comment
     private static Vml.Shape GenerateCommentShape(XLCell c, XLComment comment)
