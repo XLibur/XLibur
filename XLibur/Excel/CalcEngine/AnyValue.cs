@@ -256,7 +256,7 @@ internal readonly struct AnyValue
             return true;
         }
 
-        var intersected = reference.ImplicitIntersection(ctx.FormulaAddress);
+        var intersected = reference.ImplicitIntersection(ctx.FormulaSheetPoint);
         if (!intersected.TryPickT0(out var singleCellReference, out error))
         {
             scalar = default;
@@ -423,7 +423,7 @@ internal readonly struct AnyValue
         if (reference.IsSingleCell())
             return this;
 
-        return reference.ImplicitIntersection(context.FormulaAddress)
+        return reference.ImplicitIntersection(context.FormulaSheetPoint)
             .TryPickT0(out var singleCellReference, out var error)
             ? singleCellReference!
             : error;

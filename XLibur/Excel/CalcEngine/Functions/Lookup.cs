@@ -37,7 +37,7 @@ internal static class Lookup
     private static AnyValue Column(CalcContext ctx, Span<AnyValue> p)
     {
         if (p.Length == 0 || p[0].IsBlank)
-            return ctx.FormulaAddress.ColumnNumber;
+            return ctx.FormulaSheetPoint.Column;
 
         if (!p[0].TryPickArea(out var area, out var error))
             return error;
@@ -395,7 +395,7 @@ internal static class Lookup
     private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)
     {
         if (p.Length == 0 || p[0].IsBlank)
-            return ctx.FormulaAddress.RowNumber;
+            return ctx.FormulaSheetPoint.Row;
 
         if (!p[0].TryPickArea(out var area, out var error))
             return error;

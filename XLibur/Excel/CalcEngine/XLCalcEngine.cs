@@ -399,7 +399,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     formula.A1,
                     sheet.Workbook,
                     sheet,
-                    new XLAddress(sheet, point.Row, point.Column, true, true));
+                    point);
                 valueSlice.SetCellValue(point, result.ToCellValue());
             }
             else if (formula.Type == FormulaType.Array)
@@ -668,7 +668,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 formulaText,
                 sheet.Workbook,
                 sheet,
-                new XLAddress(sheet, appliedPoint.Row, appliedPoint.Column, true, true),
+                appliedPoint,
                 recalculateSheetId: recalculateSheetId);
             valueSlice.SetCellValue(appliedPoint, single.ToCellValue());
         }
@@ -736,7 +736,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// The expression needed to know where it was being evaluated, and was given no
     /// <paramref name="address"/> (or no <paramref name="ws"/>) to answer from.
     /// </exception>
-    internal ScalarValue EvaluateFormula(string expression, XLWorkbook? wb = null, XLWorksheet? ws = null, IXLAddress? address = null, bool recursive = false, uint? recalculateSheetId = null)
+    internal ScalarValue EvaluateFormula(string expression, XLWorkbook? wb = null, XLWorksheet? ws = null, Point? address = null, bool recursive = false, uint? recalculateSheetId = null)
     {
         var ctx = new CalcContext(this, _culture, wb, ws, address, recursive)
         {
@@ -772,7 +772,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     /// <remarks>
     /// Split out so the missing-context translation in the caller covers every step that can read
-    /// <see cref="CalcContext.FormulaAddress"/>, rather than only the first one.
+    /// <see cref="CalcContext.FormulaSheetPoint"/>, rather than only the first one.
     /// </remarks>
     private ScalarValue EvaluateAndReduce(string expression, CalcContext ctx)
     {
