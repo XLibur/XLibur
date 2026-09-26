@@ -205,6 +205,33 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal string? RelId { get; set; }
 
+    /// <summary>
+    /// The worksheet part as loaded, with <c>&lt;sheetData&gt;</c> emptied, and the <see cref="RelId"/>
+    /// it was read under. Null when the sheet was not loaded, was streamed, or has been saved since.
+    /// </summary>
+    private (byte[] Markup, string? RelId)? _partWithoutSheetData;
+
+    /// <summary>
+    /// Keeps the loaded part minus its cells, so the first save can rebuild the part's DOM without
+    /// reading the part and skipping over every cell again.
+    /// </summary>
+    internal void KeepPartWithoutSheetData(byte[] markup) => _partWithoutSheetData = (markup, RelId);
+
+    /// <summary>
+    /// Returns the part kept by <see cref="KeepPartWithoutSheetData"/> and forgets it.
+    /// </summary>
+    /// <remarks>
+    /// Valid once. A save writes a new part and makes its destination the source of the next save,
+    /// so the markup kept from the load no longer describes the part that save will find. Null also
+    /// when the sheet now points at a different part than the one it was loaded from.
+    /// </remarks>
+    internal byte[]? TakePartWithoutSheetData()
+    {
+        var kept = _partWithoutSheetData;
+        _partWithoutSheetData = null;
+        return kept is { } k && k.RelId == RelId ? k.Markup : null;
+    }
+
     public XLDataValidations DataValidations { get; private set; }
 
     public IXLCharts Charts { get; private set; }
@@ -1155,9 +1182,17 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         _rangeIndices.Add(rangeIndex);
     }
 
-    internal void Cleanup()
+    /// <param name="workbookDisposing">
+    /// True when the whole workbook is being disposed, which lets the cells go without giving back
+    /// their shared strings one at a time. False when only this sheet is being deleted.
+    /// </param>
+    internal void Cleanup(bool workbookDisposing = false)
     {
-        Internals.Dispose();
+        if (workbookDisposing)
+            Internals.DisposeWithWorkbook();
+        else
+            Internals.Dispose();
+
         Pictures.ForEach(p => p.Dispose());
         _rangeRepository.Clear();
         _rangeIndices.Clear();

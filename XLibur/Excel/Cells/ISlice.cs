@@ -58,6 +58,16 @@ internal interface ISlice
     void Clear(Area range);
 
     /// <summary>
+    /// Drop every value at once, without the per-cell bookkeeping of <see cref="Clear"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only for a worksheet discarded with its workbook. Nothing the values hold is released one by
+    /// one — a text value keeps its shared-string reference — because the workbook drops the
+    /// shared-string table as a whole straight afterwards.
+    /// </remarks>
+    void Reset();
+
+    /// <summary>
     /// Clear all values in the <paramref name="rangeToDelete"/> and shift all values right of the deleted area to the deleted place.
     /// </summary>
     void DeleteAreaAndShiftLeft(Area rangeToDelete);

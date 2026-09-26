@@ -25,7 +25,7 @@ internal sealed partial class Slice<TElement> : ISlice
     /// The content of the slice. Note that LUT uses an index that starts from 0,
     /// so rows and columns must be adjusted to retrieve the value.
     /// </summary>
-    private readonly Lut<RowData> _data;
+    private Lut<RowData> _data;
 
     /// <summary>
     /// Key is the column number, value is the number of cells in the column that are used.
@@ -84,6 +84,15 @@ internal sealed partial class Slice<TElement> : ISlice
 
     /// <inheritdoc />
     public Dictionary<int, int>.KeyCollection UsedColumns => _columnUsage.Keys;
+
+    /// <inheritdoc />
+    public void Reset()
+    {
+        _data = new Lut<RowData>();
+        _columnUsage.Clear();
+        MaxColumn = 0;
+        _version++;
+    }
 
     /// <inheritdoc />
     public void Clear(Area range)

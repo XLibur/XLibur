@@ -33,6 +33,9 @@ internal sealed class FormulaSlice : ISlice
         _formulas.Clear(range);
     }
 
+    /// <inheritdoc />
+    public void Reset() => _formulas.Reset();
+
     public void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         _formulas.DeleteAreaAndShiftLeft(rangeToDelete);

@@ -43,6 +43,12 @@
 
 - **SUM, COUNT and the other functions that read a range allocate less on each call again.** In 0.620.0 each read of a range went through three nested iterators, one more object on the heap per layer, for every formula evaluated (#680). The read is back to one iterator per call. Reading a 50,000-row sheet with a `SUM` in each row allocates 10 MB less (112.6 MB to 102.6 MB), close to the 100.2 MB of 0.610.0.
 
+- **Opening a workbook and saving it again is about 40% faster.** On a workbook of 8,000 numbers opened to change two document properties and saved, the round trip takes 9.5 ms instead of 16.2 ms, and the open alone 3.5 ms instead of 6.8 ms. The saved worksheet XML does not change: round-tripping the 1,588 workbooks in the test resources gives the same parts, byte for byte, as before. Four changes:
+  - The loader inflated and tokenised every cell of a worksheet three times: once to skip the cells, once to read them, and once more in the save to copy the rest of the part. The part is now inflated once and the cells are tokenised once. The markup around the cells is cut out by a byte search and kept for the first save. A part the byte search cannot place exactly, such as one with a comment ahead of the cells or in another encoding, is read as before.
+  - Opened read-only, the OpenXML SDK copies the whole package to a temporary file on disk before reading it. XLibur now opens the package itself. It falls back to the SDK only when a relationship has an external target that is not a valid URI, which is the one case the copy is for.
+  - A plain value cell (number, date, time, boolean, error or shared string) is written as text in one call per row instead of about eight `XmlWriter` calls per cell. The saved bytes are the same.
+  - Disposing a workbook drops each sheet's cells at once instead of clearing them one by one.
+
 - **Parsing a formula no longer builds display text for each cell reference in it.** The parser wrote each reference out as text, such as `D1:H1`, and nothing in the calculation read it (#686). The text is now built only when something asks for it. Parsing `SUM(D1:H1)` allocates 593 bytes instead of 729, and the first read of a 50,000-row sheet with a `SUM` in each row allocates 7.6 MB less.
 
 - **The formula parser is now `XLibur.ClosedXML.Parser` 5.0.2, which allocates less for each parse.** A parse no longer grows a new token list or creates a new parser object, and it passes function arguments as an array of the exact size (XLibur/ClosedXML.Parser#64, #686). The parsed formulas are the same.

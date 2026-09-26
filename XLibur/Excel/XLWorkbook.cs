@@ -1120,7 +1120,7 @@ public partial class XLWorkbook : IXLWorkbook
         if (!disposing)
             return;
 
-        Worksheets.ForEach(w => ((XLWorksheet)w).Cleanup());
+        Worksheets.ForEach(w => ((XLWorksheet)w).Cleanup(workbookDisposing: true));
 
         // Release calc engine and its heavy structures (DependencyTree,
         // CalculationChain, ExpressionCache, ArrayPool buffers).

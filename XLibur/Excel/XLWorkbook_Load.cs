@@ -35,14 +35,40 @@ public partial class XLWorkbook
 
     private void LoadSheets(string fileName)
     {
+        // Opened as the SDK would open it for reading, so a caller sees the same sharing rules.
+        using (var file = File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            if (TryLoadFromReadOnlyPackage(file))
+                return;
+        }
+
         using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(fileName, false));
         LoadSpreadsheetDocument(dSpreadsheet);
     }
 
     private void LoadSheets(Stream stream)
     {
+        if (TryLoadFromReadOnlyPackage(stream))
+            return;
+
         using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(stream, false));
         LoadSpreadsheetDocument(dSpreadsheet);
+    }
+
+    /// <summary>
+    /// Loads from a package opened directly rather than through the SDK's read-only open, which
+    /// copies the whole package to a temporary file first. Returns false, having loaded nothing,
+    /// when the package needs what that copy is for; see <see cref="ReadOnlyPackageOpener"/>.
+    /// </summary>
+    private bool TryLoadFromReadOnlyPackage(Stream stream)
+    {
+        using var package = ReadOnlyPackageOpener.TryOpen(stream);
+        if (package is null)
+            return false;
+
+        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(package));
+        LoadSpreadsheetDocument(dSpreadsheet);
+        return true;
     }
 
     /// <summary>
@@ -106,6 +132,7 @@ public partial class XLWorkbook
         foreach (var ws in WorksheetsInternal)
         {
             ws.RelId = null;
+            ws.TakePartWithoutSheetData();
 
             foreach (var pt in ws.PivotTables.Cast<XLPivotTable>())
             {
@@ -529,7 +556,15 @@ public partial class XLWorkbook
             Load = context,
             Workbook = this,
         };
-        var elementState = default(WorksheetElementState);
+
+        using (var partBuffer = WorksheetPartBuffer.TryRead(worksheetPart))
+        {
+            if (partBuffer is not null
+                && TryLoadWorksheetFromBuffer(partBuffer, in elementContext, in sheetDataContext, ref sheetDataState))
+            {
+                return;
+            }
+        }
 
         // Pass 1: structural elements via the OpenXML SDK reader (the proven DOM path). The
         // <sheetData> hot path is skipped here — it is read in pass 2 with a raw XmlReader, which
@@ -537,23 +572,87 @@ public partial class XLWorkbook
         // reader's object model. Structural elements such as <cols> are parsed here (before pass 2
         // runs), so column styles are already available when cells resolve their inherited style.
         using (var reader = new OpenXmlPartReader(worksheetPart))
-        {
-            while (reader.Read())
-            {
-                // Skipped wholesale, without descending:
-                //  - CustomSheetViews carries its own auto filter data and more, ignored for now.
-                //  - SheetData is read in pass 2 by the raw reader.
-                // ReadNextSibling leaves the reader *on* the next sibling rather than needing
-                // another Read, which is why this is a leading loop rather than a `continue`.
-                while (reader.ElementType == typeof(CustomSheetViews) || reader.ElementType == typeof(SheetData))
-                    reader.ReadNextSibling();
-
-                WorksheetElementReader.TryLoad(reader, in elementContext, ref elementState);
-            }
-        }
+            LoadStructuralElements(reader, in elementContext);
 
         // Pass 2: read <sheetData> rows/cells directly from a raw XmlReader.
         LoadSheetDataRaw(worksheetPart, in sheetDataContext, ref sheetDataState);
+    }
+
+    /// <summary>
+    /// Loads a worksheet from its inflated part, tokenising the cells once. Returns false, having
+    /// loaded nothing, when a raw reader does not find <c>&lt;sheetData&gt;</c> where
+    /// <see cref="SheetDataLocator"/> put it; the caller then streams the part instead.
+    /// </summary>
+    /// <remarks>
+    /// Keeps the order of the streaming path — every structural element, including those after
+    /// <c>&lt;sheetData&gt;</c> such as merges and hyperlinks, before any cell — because the cells
+    /// resolve their inherited style against <c>&lt;cols&gt;</c>. The structural pass reads the part
+    /// with the cells cut out, and that copy is kept for the first save, which would otherwise
+    /// read the part again to cut them out itself.
+    /// </remarks>
+    private static bool TryLoadWorksheetFromBuffer(
+        WorksheetPartBuffer partBuffer,
+        in WorksheetElementContext elementContext,
+        in WorksheetSheetDataReader.SheetDataReadContext sheetDataContext,
+        ref WorksheetSheetDataReader.SheetDataReadState sheetDataState)
+    {
+        using var cellStream = partBuffer.OpenRead();
+        using var cellReader = PartXmlReader.Create(cellStream);
+
+        if (!MoveToLocatedSheetData(cellReader, partBuffer.SheetData.Prefix))
+            return false;
+
+        var withoutSheetData = partBuffer.CopyWithoutSheetData();
+        var worksheetPart = elementContext.Part;
+        using (var reader = new OpenXmlPartReader(new MemoryStream(withoutSheetData, writable: false),
+                   worksheetPart.Features, new OpenXmlPartReaderOptions { CloseStream = true }))
+        {
+            LoadStructuralElements(reader, in elementContext);
+        }
+
+        if (!cellReader.IsEmptyElement)
+        {
+            cellReader.Read(); // Move into <sheetData> (first <row> or </sheetData>).
+            WorksheetSheetDataReader.LoadSheetDataRows(cellReader, in sheetDataContext, ref sheetDataState);
+        }
+
+        elementContext.Worksheet.KeepPartWithoutSheetData(withoutSheetData);
+        return true;
+    }
+
+    /// <summary>
+    /// Moves to the first element named <c>sheetData</c> and confirms it is the one
+    /// <see cref="SheetDataLocator"/> found: in the main namespace, a child of the root, and written
+    /// with the same prefix.
+    /// </summary>
+    private static bool MoveToLocatedSheetData(XmlReader reader, string prefix)
+    {
+        while (reader.Read())
+        {
+            if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheetData")
+                continue;
+
+            return reader.NamespaceURI == OpenXmlConst.Main2006SsNs && reader.Depth == 1 && reader.Prefix == prefix;
+        }
+
+        return false;
+    }
+
+    private static void LoadStructuralElements(OpenXmlPartReader reader, in WorksheetElementContext elementContext)
+    {
+        var elementState = default(WorksheetElementState);
+        while (reader.Read())
+        {
+            // Skipped wholesale, without descending:
+            //  - CustomSheetViews carries its own auto filter data and more, ignored for now.
+            //  - SheetData is read in pass 2 by the raw reader.
+            // ReadNextSibling leaves the reader *on* the next sibling rather than needing
+            // another Read, which is why this is a leading loop rather than a `continue`.
+            while (reader.ElementType == typeof(CustomSheetViews) || reader.ElementType == typeof(SheetData))
+                reader.ReadNextSibling();
+
+            WorksheetElementReader.TryLoad(reader, in elementContext, ref elementState);
+        }
     }
 
     /// <summary>

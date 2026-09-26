@@ -30,6 +30,22 @@ internal sealed class XLWorksheetInternals : IDisposable
     {
         CellsCollection.ValueSlice.DereferenceSlice();
         CellsCollection.Clear();
+        ReleaseRest();
+    }
+
+    /// <summary>
+    /// Releases the sheet's storage when its workbook is disposed. Unlike <see cref="Dispose"/>,
+    /// which deleting one sheet uses, it does not give back each cell's shared string one by one:
+    /// the workbook drops the whole shared-string table next, so that work would be thrown away.
+    /// </summary>
+    public void DisposeWithWorkbook()
+    {
+        CellsCollection.Reset();
+        ReleaseRest();
+    }
+
+    private void ReleaseRest()
+    {
         ColumnsCollection.Clear();
         RowsCollection.Clear();
         MergedRanges.RemoveAll();

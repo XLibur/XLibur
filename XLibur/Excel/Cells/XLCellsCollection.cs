@@ -133,6 +133,16 @@ internal sealed class XLCellsCollection : IWorkbookListener
             slice.Clear(clearRange);
     }
 
+    /// <summary>
+    /// Drop every cell at once. Only for a worksheet discarded with its workbook; see
+    /// <see cref="ISlice.Reset"/>.
+    /// </summary>
+    internal void Reset()
+    {
+        foreach (var slice in _slices)
+            slice.Reset();
+    }
+
     internal void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         foreach (var slice in _slices)

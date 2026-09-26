@@ -38,6 +38,9 @@ internal sealed class ValueSlice : ISlice
         _values.Clear(range);
     }
 
+    /// <inheritdoc />
+    public void Reset() => _values.Reset();
+
     public void DeleteAreaAndShiftLeft(Area rangeToDelete)
     {
         DereferenceTextInRange(rangeToDelete);

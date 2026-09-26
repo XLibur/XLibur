@@ -22,7 +22,10 @@ internal static class WorksheetPartWriter
         SaveOptions options,
         SaveContext context)
     {
-        var worksheetDom = GetWorksheetDom(partIsEmpty, worksheetPart, xlWorksheet, options, context);
+        // Taken whether or not it is used: once this save has written the part, the markup kept from
+        // the load describes a part that no longer exists.
+        var loadedMarkup = xlWorksheet.TakePartWithoutSheetData();
+        var worksheetDom = GetWorksheetDom(partIsEmpty, worksheetPart, xlWorksheet, loadedMarkup, options, context);
         StreamToPart(worksheetDom, worksheetPart, xlWorksheet, context, options);
     }
 
@@ -49,10 +52,17 @@ internal static class WorksheetPartWriter
     /// Accessing the part through <c>worksheetPart.Worksheet</c> is not an option: that creates an
     /// attached DOM which the SDK tracks and writes back to the part on its own.
     /// </para>
+    /// <para>
+    /// When the load kept the part with its cells already cut out
+    /// (<see cref="XLWorksheet.TakePartWithoutSheetData"/>), that copy is read instead, and the part
+    /// is not read at all.
+    /// </para>
     /// </remarks>
-    private static Worksheet ReadWorksheetDomWithoutSheetData(WorksheetPart worksheetPart)
+    private static Worksheet ReadWorksheetDomWithoutSheetData(WorksheetPart worksheetPart, byte[]? loadedMarkup)
     {
-        using var withoutRows = CopyPartWithEmptySheetData(worksheetPart);
+        using var withoutRows = loadedMarkup is not null
+            ? new MemoryStream(loadedMarkup, writable: false)
+            : CopyPartWithEmptySheetData(worksheetPart);
         using var reader = new OpenXmlPartReader(withoutRows, worksheetPart.Features, default);
 
         // Create reads the XML declaration only, so the first Read lands on <worksheet>.
@@ -130,6 +140,7 @@ internal static class WorksheetPartWriter
         bool partIsEmpty,
         WorksheetPart worksheetPart,
         XLWorksheet xlWorksheet,
+        byte[]? loadedMarkup,
         SaveOptions options,
         SaveContext context)
     {
@@ -140,7 +151,7 @@ internal static class WorksheetPartWriter
 
         #region Worksheet
 
-        var worksheet = partIsEmpty ? new Worksheet() : ReadWorksheetDomWithoutSheetData(worksheetPart);
+        var worksheet = partIsEmpty ? new Worksheet() : ReadWorksheetDomWithoutSheetData(worksheetPart, loadedMarkup);
 
         if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
             worksheet.AddNamespaceDeclaration("r", RelationshipsNs);

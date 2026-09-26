@@ -24,6 +24,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //   firstedit   the dependency-tree build that the first edit after a load pays (#513),
     //               with allocation by type; optionally takes rows, formulas per row, shared,
     //               dotmemory
+    //   properties  loops the XLBench open -> amend two document properties -> save round trip,
+    //               for attaching a profiler; optionally takes a duration in seconds
     // Every other mode attaches dotMemory and targets the load path.
     // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
     // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.
@@ -42,6 +44,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         case "hyperlinks": HyperlinkScalingProfile.Run(); break;
         case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
         case "firstedit": FirstEditProfile.Run(args); break;
+        case "properties": PropertiesRoundTripProfile.Run(args); break;
         default: MemoryProfile.Run(args); break;
     }
 

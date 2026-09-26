@@ -21,6 +21,10 @@ internal static class SheetDataWriter
 
         xml.WriteStartElement("sheetData", Main2006SsNs);
 
+        // Looked up inside <sheetData>, where the cells are written, so the prefix is the one the
+        // writer itself would give them.
+        var rawCells = RawCellBuffer.Create(xml);
+
         // Evaluating a dirty dynamic-array formula spills into its footprint, which both creates the
         // cells the write loop has to visit and sets the Range that identifies them. Left to the
         // per-cell evaluation below, a spill triggered part-way through the pass would land behind
@@ -54,6 +58,10 @@ internal static class SheetDataWriter
             var point = enumerator.Current;
             var currentRowNumber = point.Row;
 
+            // Buffered cells belong to the open row, so they go out before anything closes it.
+            if (currentRowNumber != rowState.OpenedRowNumber)
+                rawCells?.Flush(xml);
+
             WriteIntermediateRows(xml, xlWorksheet, rows, currentRowNumber, maxColumn, context, ref rowState);
 
             // Resolve the value and its share-string flag once for both the blank-and-empty check
@@ -79,8 +87,14 @@ internal static class SheetDataWriter
             var cellStyleId =
                 ResolveCellStyleId(xlWorksheet, point, ref lastCachedStyle, ref lastCachedStyleId, context);
 
+            if (rawCells is not null && TryAppendRawCell(rawCells, ref cellCtx, point, cellStyleId, cellValue, shareString))
+                continue;
+
+            rawCells?.Flush(xml);
             WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId, cellValue, shareString);
         }
+
+        rawCells?.Flush(xml);
 
         if (rowState.IsRowOpened)
             xml.WriteEndElement(); // row
@@ -300,6 +314,40 @@ internal static class SheetDataWriter
         {
             WriteBlankStyledCell(xml, ctx.CellsCollection, point, ctx.CellRef, cellStyleId);
         }
+    }
+
+    /// <summary>
+    /// Appends a plain value cell to <paramref name="rawCells"/>, or returns false for any cell
+    /// <see cref="WriteCellAtPoint"/> writes some other way: a formula, a table's totals label, a
+    /// spilled or array result, a blank, or text that is not shared.
+    /// </summary>
+    private static bool TryAppendRawCell(RawCellBuffer rawCells, ref CellWriteContext ctx, Point point,
+        uint cellStyleId, XLCellValue cellValue, bool shareString)
+    {
+        var isSharedText = cellValue.Type == XLDataType.Text && shareString;
+        if (cellValue.Type == XLDataType.Blank || (cellValue.Type == XLDataType.Text && !isSharedText))
+            return false;
+
+        var cellsCollection = ctx.CellsCollection;
+        if (cellsCollection.FormulaSlice.Get(point) is not null
+            || (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point))
+            || IsCachedResultCell(ctx.CachedResultFormulas, point))
+        {
+            return false;
+        }
+
+        Span<char> cellRef = ctx.CellRef;
+        var cellRefLength = point.Format(cellRef);
+
+        // Taken at the same point in the pass as the writer path takes it, so shared strings are
+        // numbered in the same order.
+        var sharedStringId = isSharedText
+            ? ctx.SaveContext.GetSharedStringId(cellsCollection.ValueSlice.GetShareStringId(point), point)
+            : 0;
+
+        ref readonly var misc = ref cellsCollection.MiscSlice[point];
+        return rawCells.TryAppendValueCell(cellRef[..cellRefLength], cellStyleId, cellValue, shareString,
+            sharedStringId, in misc, ctx.Use1904DateSystem);
     }
 
     /// <summary>
