@@ -26,6 +26,8 @@
 
 - **Setting a style property allocates about 20% less.** Each font, fill, border, alignment, number format and protection setter used to allocate a closure even on a single cell, and a setter on a range, row, column or worksheet then looked the changed style up in the style repository a second time (#621). Each setter now passes its value to one shared method per style part, and the second lookup is gone. In a benchmark that sets one property of each part, a cell allocates 23% less (13.6 MB to 10.4 MB) and a small range 17% less (63.1 MB to 52.5 MB).
 
+- **AND, OR, NPV, IRR, MIRR, FVSCHEDULE, XNPV and XIRR read only the used cells of a range.** They used to read every cell, so a whole-column reference such as `A:A` cost about a million reads (#621). They now use the same sparse read as SUM and COUNT, in the same row-by-row order.
+
 ### 🐛 Bug Fixes
 
 - **Row `AdjustToContents` now makes a row tall enough for a cell with wrap text.** It counted only hard line breaks, so a long wrapped text got the height of one line, and the row could even shrink below the default height (#615, reported as ClosedXML/ClosedXML#2867). A cell with `Alignment.WrapText` set and no text rotation is now wrapped to its column width, less the cell padding and the indent. A line breaks after a space or a hyphen, and a word too long for the column is split between characters. Merged cells are still skipped, rotated text is measured as before, and column `AdjustToContents` is unchanged.
@@ -51,6 +53,16 @@
 - **IPMT and PPMT now return the right values for period 1 of an annuity-due (type 1).** IPMT returned about `-90.91` for `IPMT(0.1,1,3,1000,0,1)`, where Excel and CUMIPMT return `0`, and PPMT was wrong by the same amount (#629). IPMT, PPMT, CUMIPMT and CUMPRINC now use the same interest calculation.
 
 - **An array formula now evaluates a function once for each element of an array or range argument.** A function that takes one value per argument, such as ABS, SIGN or LEN, was called with the whole array for every element, so each cell of the result showed the top-left value: `{=ABS(A1:A2)}` repeated A1's result in both cells, and `{=SIGN({-1,2,0})}` across three columns gave `-1, -1, -1` instead of `-1, 1, 0` (#649). A text function such as LEN threw `UnsupportedFeatureException` instead. Arguments of different shapes are broadcast as before: `{=POWER({2,3},{1;2})}` over two rows and two columns gives `2, 3` and `4, 9`.
+
+- **A conditional format on several ranges now saves its formula for the right cell.** Blank, error, text (contains, begins with, ends with) and date-occurring rules write a formula relative to one anchor cell. XLibur used the first cell of the first range, while Excel uses the top-left corner of the rectangle around all the ranges, so in Excel each cell tested a neighbouring cell (#621). A blanks rule on `B1:B5 A3:A5` is now saved as `LEN(TRIM(A1))=0`, as Excel saves it. Rules on a single range are unchanged.
+
+- **Rich data parts are saved without a UTF-8 byte order mark.** The four parts that hold in-cell images started with a BOM; every other part XLibur writes has none (#621).
+
+- **Column and row autofit round the maximum digit width the same way as the rest of XLibur.** Column `AdjustToContents` and the wrap width of row `AdjustToContents` used banker's rounding, while loading, column-width conversion and cell padding rounded half away from zero (#621). All now round half away from zero. Output changes only for a font whose digit width is exactly an even number of pixels plus a half, such as Calibri 128pt at 96 DPI: those columns are now one pixel per character wider.
+
+- **WORKDAY returns `#NUM!` when the result falls outside the valid date range.** It returned a serial number past 9999-12-31 or before 1900, where WORKDAY.INTL already returned `#NUM!` (#621). A day count too large to land in range, such as `1E+10`, now returns `#NUM!` at once in both functions, instead of stepping day by day. NETWORKDAYS and WORKDAY now share their code with the .INTL versions.
+
+- **`Evaluate` reads the whole spill of a dynamic array that was not yet calculated.** When `ws.Evaluate` read a range holding a dynamic-array formula that had not been calculated, the formula spilled while the range was being read, and the new values were missed: with `A1` = `SEQUENCE(3)`, `ws.Evaluate("SUM(A1:A3)")` returned 1 instead of 6 (#621). SUM, COUNT, NPV, IRR, MIRR, AND, OR and the other functions that read a range's values are fixed. Formulas calculated as part of the workbook were not affected.
 
 ## v0.610.0 - 2026-09-16
 
