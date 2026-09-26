@@ -1,10 +1,9 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Comments;
 
@@ -19,7 +18,7 @@ public class ThreadedCommentsTests
     [Test]
     public async Task Round_trip_preserves_thread_structure()
     {
-        using var saved = LoadResourceAndSave(@"TryToLoad\ThreadedComment.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\ThreadedComment.xlsx", validate: true);
         using var wb = new XLWorkbook(saved);
         var thread = wb.Worksheets.First().Cell("A1").GetThreadedComment()!;
 
@@ -39,15 +38,15 @@ public class ThreadedCommentsTests
     [Test]
     public async Task Round_trip_keeps_person_and_thread_ids_stable()
     {
-        using var saved = LoadResourceAndSave(@"TryToLoad\ThreadedComment.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\ThreadedComment.xlsx", validate: true);
 
-        var personXml = ReadPart(saved, "xl/persons/");
+        var personXml = saved.ReadPartUnder("xl/persons/");
         await Assert.That(personXml).Contains($"id=\"{PersonId}\"");
         await Assert.That(personXml).Contains("displayName=\"Herzog, Bernd\"");
         await Assert.That(personXml).Contains("providerId=\"AD\"");
         await Assert.That(personXml).Contains("userId=\"S-1-5-21-2931304574-606859833-1339073683-15873\"");
 
-        var threadXml = ReadPart(saved, "xl/threadedComments/");
+        var threadXml = saved.ReadPartUnder("xl/threadedComments/");
         await Assert.That(threadXml).Contains($"id=\"{ThreadRootId}\"");
         await Assert.That(threadXml).Contains($"personId=\"{PersonId}\"");
         await Assert.That(threadXml).Contains($"parentId=\"{ThreadRootId}\"");
@@ -59,11 +58,11 @@ public class ThreadedCommentsTests
     [Test]
     public async Task Round_trip_writes_the_legacy_fallback_note_excel_pairs_with_a_thread()
     {
-        using var saved = LoadResourceAndSave(@"TryToLoad\ThreadedComment.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\ThreadedComment.xlsx", validate: true);
 
         // Older Excel shows this note; 365 hides it and shows the thread. The pairing is the
         // "tc={rootId}" author together with the xr:uid pointing at the same root.
-        var commentsXml = ReadPart(saved, "xl/comments1.xml");
+        var commentsXml = saved.ReadPartUnder("xl/comments1.xml");
         await Assert.That(commentsXml).Contains($">tc={ThreadRootId}<");
         await Assert.That(commentsXml).Contains($"uid=\"{ThreadRootId}\"");
         await Assert.That(commentsXml).Contains("[Threaded comment]");
@@ -86,7 +85,7 @@ public class ThreadedCommentsTests
 
         // The fallback is derived from the thread on every save, so an edit cannot leave the two
         // showing different text to different Excel versions.
-        var commentsXml = ReadPart(ms, "xl/comments1.xml");
+        var commentsXml = ms.ReadPartUnder("xl/comments1.xml");
         await Assert.That(commentsXml).Contains("Edited root.");
         await Assert.That(commentsXml).DoesNotContain("This is a threaded comment.");
     }
@@ -149,7 +148,7 @@ public class ThreadedCommentsTests
             wb.SaveAs(ms, validate: true);
         }
 
-        await Assert.That(ReadPart(ms, "xl/threadedComments/")).Contains("done=\"1\"");
+        await Assert.That(ms.ReadPartUnder("xl/threadedComments/")).Contains("done=\"1\"");
 
         using var reloaded = new XLWorkbook(ms);
         var ws2 = reloaded.Worksheet("Sheet1");
@@ -183,9 +182,9 @@ public class ThreadedCommentsTests
             wb.SaveAs(ms, validate: true);
         }
 
-        await Assert.That(PartExists(ms, "xl/threadedComments/")).IsFalse();
-        await Assert.That(PartExists(ms, "xl/persons/")).IsFalse();
-        await Assert.That(PartExists(ms, "xl/comments1.xml")).IsTrue();
+        await Assert.That(ms.PartExistsUnder("xl/threadedComments/")).IsFalse();
+        await Assert.That(ms.PartExistsUnder("xl/persons/")).IsFalse();
+        await Assert.That(ms.PartExistsUnder("xl/comments1.xml")).IsTrue();
     }
 
     [Test]
@@ -201,7 +200,7 @@ public class ThreadedCommentsTests
             wb.SaveAs(ms, validate: true);
         }
 
-        await Assert.That(PartExists(ms, "xl/threadedComments/")).IsFalse();
+        await Assert.That(ms.PartExistsUnder("xl/threadedComments/")).IsFalse();
 
         using var reloaded = new XLWorkbook(ms);
         var cell = reloaded.Worksheets.First().Cell("A1");
@@ -229,7 +228,7 @@ public class ThreadedCommentsTests
             wb.SaveAs(ms, validate: true);
         }
 
-        var threadXml = ReadPart(ms, "xl/threadedComments/");
+        var threadXml = ms.ReadPartUnder("xl/threadedComments/");
         await Assert.That(threadXml).Contains("<mention");
         await Assert.That(threadXml).Contains("startIndex=\"0\"");
     }
@@ -321,54 +320,4 @@ public class ThreadedCommentsTests
 
     #endregion
 
-    #region Helpers
-
-    private static MemoryStream LoadResourceAndSave(string resourcePath)
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resourcePath));
-        var ms = new MemoryStream();
-
-        using (var wb = new XLWorkbook(stream))
-            wb.SaveAs(ms, validate: true);
-
-        return ms;
-    }
-
-    /// <summary>
-    /// Reads the single part under <paramref name="partPathPrefix"/>. Parts are matched by prefix
-    /// and case insensitively because the OpenXML SDK names a part it creates itself differently
-    /// from one Excel wrote — "xl/threadedcomments/threadedcomment.xml" rather than
-    /// "xl/threadedComments/". Excel resolves parts through relationships, so
-    /// the name is not part of the contract.
-    /// </summary>
-    private static string ReadPart(MemoryStream package, string partPathPrefix)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = FindEntry(archive, partPathPrefix)
-                    ?? throw new InvalidOperationException(
-                        $"The package has no part under '{partPathPrefix}'. It has: " +
-                        string.Join(", ", archive.Entries.Select(e => e.FullName)));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream, Encoding.UTF8);
-        return reader.ReadToEnd();
-    }
-
-    private static bool PartExists(MemoryStream package, string partPathPrefix)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return FindEntry(archive, partPathPrefix) is not null;
-    }
-
-    // FirstOrDefault returns null when nothing matches, and both callers handle that. The project
-    // now has a nullable context, so the annotation says so rather than being suppressed.
-    private static ZipArchiveEntry? FindEntry(ZipArchive archive, string partPathPrefix)
-    {
-        return archive.Entries.FirstOrDefault(e =>
-            e.FullName.StartsWith(partPathPrefix, StringComparison.OrdinalIgnoreCase));
-    }
-
-    #endregion
 }

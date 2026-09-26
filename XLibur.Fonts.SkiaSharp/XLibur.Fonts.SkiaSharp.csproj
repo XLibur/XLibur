@@ -21,12 +21,13 @@
         <!--
             CarlitoBare is a Calibri metric-compatible, metric-only font (no glyph outlines) embedded as the
             ultimate fallback for the auto-registered default engine. It guarantees text measurement works in
-            headless/serverless environments that have no system fonts.
+            headless/serverless environments that have no system fonts. The one copy lives in resources/fonts
+            and is shared with XLibur.Fonts.SixLabors.V1.
         -->
-        <EmbeddedResource Include="Fonts\CarlitoBare-Bold.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Bold.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-BoldItalic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-BoldItalic.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-Italic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Italic.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-Regular.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Regular.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Bold.ttf" Link="Fonts\CarlitoBare-Bold.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Bold.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-BoldItalic.ttf" Link="Fonts\CarlitoBare-BoldItalic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-BoldItalic.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Italic.ttf" Link="Fonts\CarlitoBare-Italic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Italic.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Regular.ttf" Link="Fonts\CarlitoBare-Regular.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>

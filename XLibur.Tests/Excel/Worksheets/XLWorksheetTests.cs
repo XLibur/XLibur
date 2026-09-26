@@ -1069,17 +1069,9 @@ public class XLWorksheetTests
         data.Name = newName;
 
         await Assert.That(ws.Cell("A1").FormulaA1).IsEqualTo(expected);
-        using var reloaded = SaveAndReload(wb);
+        using var reloaded = TestHelper.SaveAndReload(wb);
         await Assert.That(reloaded.Worksheet("Summary").Cell("A1").FormulaA1).IsEqualTo(expected);
         await Assert.That(reloaded.Worksheet("Summary").Cell("A1").Value).IsEqualTo(42);
-    }
-
-    private static XLWorkbook SaveAndReload(XLWorkbook wb)
-    {
-        using var stream = new MemoryStream();
-        wb.SaveAs(stream);
-        stream.Position = 0;
-        return new XLWorkbook(stream);
     }
 
     [Test]

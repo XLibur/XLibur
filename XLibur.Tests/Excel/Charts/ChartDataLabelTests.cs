@@ -33,14 +33,6 @@ public class ChartDataLabelTests
         return chart;
     }
 
-    private static MemoryStream SaveValidated(XLWorkbook wb)
-    {
-        var ms = new MemoryStream();
-        wb.SaveAs(ms, validate: true);
-        ms.Position = 0;
-        return ms;
-    }
-
     private static C.ChartSpace ChartSpaceOf(MemoryStream stream)
     {
         stream.Position = 0;
@@ -65,7 +57,7 @@ public class ChartDataLabelTests
             series.DataLabels.NumberFormat = "#,##0";
             series.DataLabels.Position = XLDataLabelPosition.OutsideEnd;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -95,7 +87,7 @@ public class ChartDataLabelTests
             chart.DataLabels.ShowValue = true;
             chart.DataLabels.Position = XLDataLabelPosition.InsideEnd;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -121,7 +113,7 @@ public class ChartDataLabelTests
         chart.Series.Add("Cost", "Data!$C$1:$C$2", "Data!$A$1:$A$2").DataLabels.ShowSeriesName = true;
         chart.DataLabels.ShowValue = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartSpace = ChartSpaceOf(ms);
         var barChart = chartSpace.Descendants<C.BarChart>().Single();
 
@@ -147,7 +139,7 @@ public class ChartDataLabelTests
         var chart = AddChart(ws, XLChartType.ColumnClustered);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         await Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>()).IsEmpty();
     }
 
@@ -159,7 +151,7 @@ public class ChartDataLabelTests
         var chart = AddChart(ws, XLChartType.ColumnClustered);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2").DataLabels.ShowValue = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var labels = ChartSpaceOf(ms).Descendants<C.DataLabels>().Single();
 
         await Assert.That(labels.Elements<C.ShowLegendKey>().Single().Val!.Value).IsFalse();
@@ -182,7 +174,7 @@ public class ChartDataLabelTests
             series.DataLabels.ShowPercentage = true;
             series.DataLabels.Position = XLDataLabelPosition.BestFit;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -224,7 +216,7 @@ public class ChartDataLabelTests
 
             await Assert.That(() =>
             {
-                using var ms = SaveValidated(wb);
+                using var ms = TestHelper.SaveValidated(wb);
             }).ThrowsNothing().Because($"{type} produced invalid chart XML.");
         }
     }
@@ -238,7 +230,7 @@ public class ChartDataLabelTests
         chart.Series.Add("S1", "Data!$B$1:$B$2", "Data!$A$1:$A$2").DataLabels.ShowValue = true;
         chart.DataLabels.ShowValue = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         await Assert.That(ChartSpaceOf(ms).Descendants<C.DataLabels>()).IsEmpty().Because("Neither CT_SurfaceChart nor CT_SurfaceSer has a dLbls child.");
     }
 
@@ -319,7 +311,7 @@ public class ChartDataLabelTests
         line.DataLabels.ShowValue = true;
         await Assert.That(() =>
         {
-            using var ms = SaveValidated(wb);
+            using var ms = TestHelper.SaveValidated(wb);
         }).ThrowsNothing();
     }
 
@@ -337,7 +329,7 @@ public class ChartDataLabelTests
         // refuse the file, so it is left out.
         chart.ChartType = XLChartType.Area;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var labels = ChartSpaceOf(ms).Descendants<C.DataLabels>().Single();
         await Assert.That(labels.Elements<C.DataLabelPosition>()).IsEmpty();
         await Assert.That(labels.Elements<C.ShowValue>().Single().Val!.Value).IsTrue();

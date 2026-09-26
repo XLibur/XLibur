@@ -12,22 +12,6 @@ namespace XLibur.Tests.Excel.Loading;
 /// </summary>
 public class SheetDataValueReadingTests
 {
-    private static XLWorkbook SaveAndReload(XLWorkbook workbook)
-    {
-        var ms = new MemoryStream();
-        workbook.SaveAs(ms);
-        ms.Position = 0;
-        return new XLWorkbook(ms);
-    }
-
-    private static XLWorkbook SaveAndReload(XLWorkbook workbook, SaveOptions options)
-    {
-        var ms = new MemoryStream();
-        workbook.SaveAs(ms, options);
-        ms.Position = 0;
-        return new XLWorkbook(ms);
-    }
-
     [Test]
     [Arguments(10)]
     [Arguments(63)]
@@ -43,7 +27,7 @@ public class SheetDataValueReadingTests
         var ws = original.AddWorksheet("Sheet1");
         ws.Cell("A1").Value = text;
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         await Assert.That(reloaded.Worksheet("Sheet1").Cell("A1").GetString()).IsEqualTo(text);
     }
@@ -62,7 +46,7 @@ public class SheetDataValueReadingTests
 
         // Cached formula values are only written when explicitly requested; without this the
         // formula cell would carry no <v> and the t="str" read path would not be exercised.
-        using var reloaded = SaveAndReload(original, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+        using var reloaded = TestHelper.SaveAndReload(original, new SaveOptions { EvaluateFormulasBeforeSaving = true });
 
         await Assert.That(reloaded.Worksheet("Sheet1").Cell("A2").CachedValue.GetText()).IsEqualTo(text);
     }
@@ -92,7 +76,7 @@ public class SheetDataValueReadingTests
         for (var i = 0; i < numbers.Length; i++)
             ws.Cell(i + 1, 1).Value = numbers[i];
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < numbers.Length; i++)
@@ -113,7 +97,7 @@ public class SheetDataValueReadingTests
         for (var i = 0; i < count; i++)
             ws.Cell(i + 1, 1).Value = "s" + i;
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
         using (Assert.Multiple())
@@ -135,7 +119,7 @@ public class SheetDataValueReadingTests
         for (var i = 0; i < texts.Length; i++)
             ws.Cell(i + 1, 1).Value = texts[i];
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < texts.Length; i++)
@@ -156,7 +140,7 @@ public class SheetDataValueReadingTests
         for (var i = 0; i < texts.Length; i++)
             ws.Cell(i + 1, 1).Value = texts[i];
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
         for (var i = 0; i < texts.Length; i++)
@@ -178,7 +162,7 @@ public class SheetDataValueReadingTests
 
         ws.Cell("A3").Value = "plain after";
 
-        using var reloaded = SaveAndReload(original);
+        using var reloaded = TestHelper.SaveAndReload(original);
 
         var loaded = reloaded.Worksheet("Sheet1");
         using (Assert.Multiple())

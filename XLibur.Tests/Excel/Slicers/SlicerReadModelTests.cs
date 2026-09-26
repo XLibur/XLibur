@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions.Enums;
@@ -8,6 +7,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Slicers;
 
@@ -204,13 +204,13 @@ public class SlicerReadModelTests
         // that the SDK writes back over the original bytes on save, taking with it every attribute
         // XLibur does not model. The reader streams the parts detached instead, and this asserts it.
         using var original = Resource();
-        var before = PartBytes(original, "xl/slicers/slicer2.xml");
-        var beforeCache = PartBytes(original, "xl/slicerCaches/slicerCache1.xml");
+        var before = original.PartBytes("xl/slicers/slicer2.xml");
+        var beforeCache = original.PartBytes("xl/slicerCaches/slicerCache1.xml");
 
         using var saved = LoadAndSave();
 
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
-        await Assert.That(PartBytes(saved, "xl/slicerCaches/slicerCache1.xml")).IsEquivalentTo(beforeCache, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/slicerCaches/slicerCache1.xml")).IsEquivalentTo(beforeCache, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -243,48 +243,11 @@ public class SlicerReadModelTests
 
     #region Helpers
 
-    /// <summary>
-    /// The fixture, opened over a copy that outlives this call. The workbook reads its original
-    /// stream again on save, so the stream cannot be disposed when this returns.
-    /// </summary>
-    private static XLWorkbook Load()
-    {
-        var stream = Resource();
-        stream.Position = 0;
-        return new XLWorkbook(stream);
-    }
+    private static XLWorkbook Load() => TestHelper.LoadWorkbook(Fixture);
 
-    private static MemoryStream Resource()
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms;
-    }
+    private static MemoryStream Resource() => TestHelper.OpenResource(Fixture);
 
-    private static MemoryStream LoadAndSave()
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var ms = new MemoryStream();
-
-        using (var wb = new XLWorkbook(stream))
-            wb.SaveAs(ms);
-
-        return ms;
-    }
-
-    private static byte[] PartBytes(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var buffer = new MemoryStream();
-        entryStream.CopyTo(buffer);
-        return buffer.ToArray();
-    }
+    private static MemoryStream LoadAndSave() => TestHelper.LoadAndSave(Fixture);
 
     #endregion
 }

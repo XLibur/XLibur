@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Charts;
 
@@ -43,16 +44,16 @@ public class ChartGoldenCorpusTests
     [Arguments("scatter-smooth")]
     public async Task Chart_part_xml_matches_the_golden_fixture(string name)
     {
-        var actual = ChartGoldenCorpus.Normalise(
+        var corpus = ChartGoldenCorpus.Corpus;
+        var actual = GoldenCorpus.Normalise(
             ChartGoldenCorpus.CaptureChartPartXml(ws => Fixtures(name, ws)));
 
-        if (ChartGoldenCorpus.CanWriteGolden)
-            ChartGoldenCorpus.WriteGolden(name, actual);
+        if (corpus.CanWrite)
+            corpus.Write(name, actual);
 
-        var expected = ChartGoldenCorpus.ReadGolden(name);
+        var expected = corpus.Read(name);
         await Assert.That(expected).IsNotNull()
-            .Because($"The corpus holds no fixture for '{name}'. Regenerate with " +
-                     "XLIBUR_WRITE_CHART_GOLDEN=1, then rebuild so the new file is embedded.");
+            .Because($"The corpus holds no fixture for '{name}'. {corpus.RegenerationHint}");
 
         await Assert.That(actual).IsEqualTo(expected);
     }

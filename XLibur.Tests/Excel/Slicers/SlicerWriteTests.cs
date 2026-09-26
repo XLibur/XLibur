@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions.Enums;
@@ -9,6 +8,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
 using XLibur.Excel.Tables;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Slicers;
 
@@ -46,7 +46,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        var xml = ReadPart(saved, "xl/slicers/slicer2.xml");
+        var xml = saved.ReadPart("xl/slicers/slicer2.xml");
 
         // The edits landed.
         await Assert.That(xml).Contains("caption=\"Pick a region\"");
@@ -86,7 +86,7 @@ public class SlicerWriteTests
     public async Task Editing_one_slicer_leaves_the_other_slicers_part_untouched()
     {
         using var original = Resource();
-        var before = PartBytes(original, "xl/slicers/slicer1.xml");
+        var before = original.PartBytes("xl/slicers/slicer1.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -97,7 +97,7 @@ public class SlicerWriteTests
 
         // slicer1 is the table slicer on the other sheet. Nobody assigned to it, so its part is not
         // even opened — the byte comparison is what proves the patcher's gate actually gates.
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/slicers/slicer1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -113,7 +113,7 @@ public class SlicerWriteTests
 
         // Excel omits the caption when it matches the name and shows the name instead, so restating
         // it would be a difference from what Excel writes for the same state.
-        await Assert.That(ReadPart(saved, "xl/slicers/slicer2.xml")).DoesNotContain("caption=");
+        await Assert.That(saved.ReadPart("xl/slicers/slicer2.xml")).DoesNotContain("caption=");
     }
 
     // ── Adding alongside a slicer that is already there ─────────────────
@@ -134,7 +134,7 @@ public class SlicerWriteTests
     public async Task Adding_a_slicer_leaves_the_slicer_already_on_the_sheet_byte_for_byte_intact()
     {
         using var original = Resource();
-        var before = PartBytes(original, "xl/slicers/slicer2.xml");
+        var before = original.PartBytes("xl/slicers/slicer2.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -144,7 +144,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching)
+        await Assert.That(saved.PartBytes("xl/slicers/slicer2.xml")).IsEquivalentTo(before, CollectionOrdering.Matching)
             .Because("Excel's own slicer part must pass through untouched; the new slicer belongs in a part of its own.");
     }
 
@@ -163,11 +163,11 @@ public class SlicerWriteTests
         // names one part per slicer. That is the shape the manual check confirmed working.
         foreach (var part in SlicerParts(saved))
         {
-            var count = System.Text.RegularExpressions.Regex.Count(ReadPart(saved, part), "<[^>]*:?slicer ");
+            var count = System.Text.RegularExpressions.Regex.Count(saved.ReadPart(part), "<[^>]*:?slicer ");
             await Assert.That(count).IsEqualTo(1).Because($"{part} should define exactly one slicer.");
         }
 
-        var sheetXml = ReadPart(saved, "xl/worksheets/sheet2.xml");
+        var sheetXml = saved.ReadPart("xl/worksheets/sheet2.xml");
         var refs = System.Text.RegularExpressions.Regex.Count(sheetXml, "<x14:slicer r:id=");
         await Assert.That(refs).IsEqualTo(2).Because("The sheet now points at two slicer parts.");
     }
@@ -221,22 +221,22 @@ public class SlicerWriteTests
         }
 
         // 1. A slicer definition, in a part of its own or alongside the sheet's existing one.
-        var slicerXml = string.Concat(SlicerParts(saved).Select(p => ReadPart(saved, p)));
+        var slicerXml = string.Concat(SlicerParts(saved).Select(p => saved.ReadPart(p)));
         await Assert.That(slicerXml).Contains("name=\"Region 2\"")
             .Because("Region and Region 1 are taken, so the next free slicer name is Region 2.");
         await Assert.That(slicerXml).Contains($"cache=\"{cacheName}\"");
 
         // 2. The worksheet extLst reference, under the pivot slicer URI.
-        var sheetXml = ReadPart(saved, "xl/worksheets/sheet2.xml");
+        var sheetXml = saved.ReadPart("xl/worksheets/sheet2.xml");
         await Assert.That(sheetXml).Contains("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
 
         // 3. A cache part, bound to the pivot table by name.
-        var cacheXml = string.Concat(CacheParts(saved).Select(p => ReadPart(saved, p)));
+        var cacheXml = string.Concat(CacheParts(saved).Select(p => saved.ReadPart(p)));
         await Assert.That(cacheXml).Contains($"name=\"{cacheName}\"");
         await Assert.That(cacheXml).Contains("SalesPivot");
 
         // 4. The workbook registration, in the x14 registry rather than the x15 one.
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
         await Assert.That(workbookXml).Contains("{BBE1A952-AA13-448e-AADC-164F8A28A991}");
 
         // 5. The #N/A defined name Excel writes per cache.
@@ -277,7 +277,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        var xml = ReadPart(saved, "xl/pivotTables/pivotTable.xml");
+        var xml = saved.ReadPart("xl/pivotTables/pivotTable.xml");
 
         await Assert.That(xml).Contains("createdVersion=\"5\"")
             .Because("A pivot table stamped version 0 is one no slicer can attach to.");
@@ -298,7 +298,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        var xml = ReadPart(saved, "xl/pivotTables/pivotTable1.xml");
+        var xml = saved.ReadPart("xl/pivotTables/pivotTable1.xml");
 
         await Assert.That(xml).Contains("createdVersion=\"8\"");
         await Assert.That(xml).Contains("updatedVersion=\"8\"");
@@ -319,10 +319,10 @@ public class SlicerWriteTests
         // the pivot cache definition and is not the renumbered cacheId in workbook.xml. The fixture
         // already carries one, so a slicer added to it has to reuse that rather than invent a
         // second — otherwise the new slicer points at a pivot cache that does not exist.
-        var pivotCacheXml = ReadPart(saved, "xl/pivotCache/pivotCacheDefinition1.xml");
+        var pivotCacheXml = saved.ReadPart("xl/pivotCache/pivotCacheDefinition1.xml");
         await Assert.That(pivotCacheXml).Contains("pivotCacheId=\"973837003\"");
 
-        var cacheXml = string.Concat(CacheParts(saved).Select(p => ReadPart(saved, p)));
+        var cacheXml = string.Concat(CacheParts(saved).Select(p => saved.ReadPart(p)));
         await Assert.That(cacheXml).Contains("pivotCacheId=\"973837003\"");
     }
 
@@ -369,10 +369,10 @@ public class SlicerWriteTests
 
         // A table slicer uses the other of each pair of URIs. Getting either wrong orphans the
         // cache as surely as leaving it out.
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet1.xml"))
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet1.xml"))
             .Contains("{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
 
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
         await Assert.That(workbookXml).Contains("{46BE6895-7355-4a93-B00E-2C351335B9C9}");
         // The prefix the writer puts on the element is not the point, so the assertion is on the
         // name and its #N/A value rather than on the serialised form.
@@ -380,7 +380,7 @@ public class SlicerWriteTests
 
         // The cache binds by table id and column id, neither of which XLibur models — both come
         // from what the table part was actually written as. Amount is the third column.
-        var cacheXml = string.Concat(CacheParts(saved).Select(p => ReadPart(saved, p)));
+        var cacheXml = string.Concat(CacheParts(saved).Select(p => saved.ReadPart(p)));
         await Assert.That(cacheXml).Contains("tableSlicerCache");
         await Assert.That(cacheXml).Contains("column=\"3\"");
     }
@@ -424,12 +424,12 @@ public class SlicerWriteTests
         }
 
         // Every trace has to go, or the saved file has an orphan Excel offers to repair.
-        await Assert.That(PartExists(saved, "xl/slicers/slicer2.xml")).IsFalse();
-        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache1.xml")).IsFalse();
+        await Assert.That(saved.PartExists("xl/slicers/slicer2.xml")).IsFalse();
+        await Assert.That(saved.PartExists("xl/slicerCaches/slicerCache1.xml")).IsFalse();
 
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
         await Assert.That(workbookXml).DoesNotContain("Slicer_Region1");
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet2.xml")).DoesNotContain("slicerList");
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet2.xml")).DoesNotContain("slicerList");
     }
 
     /// <summary>
@@ -451,7 +451,7 @@ public class SlicerWriteTests
             wb.SaveAs(saved);
         }
 
-        var drawingXml = ReadPart(saved, "xl/drawings/drawing2.xml");
+        var drawingXml = saved.ReadPart("xl/drawings/drawing2.xml");
         await Assert.That(drawingXml).DoesNotContain("Region 1")
             .Because("The graphic frame names the slicer, so it cannot outlive it.");
         await Assert.That(drawingXml).DoesNotContain("/slicer")
@@ -469,7 +469,7 @@ public class SlicerWriteTests
         }
 
         // The table slicer on the other sheet is untouched by the cascade, so its frame stays.
-        await Assert.That(ReadPart(saved, "xl/drawings/drawing1.xml")).Contains("Region");
+        await Assert.That(saved.ReadPart("xl/drawings/drawing1.xml")).Contains("Region");
     }
 
     [Test]
@@ -485,10 +485,10 @@ public class SlicerWriteTests
         // The table slicer on the other sheet has nothing to do with the pivot table, and both
         // slicers filter a field called Region — so a cascade keyed on anything looser than the
         // cache's own pivot table list would take this one out too.
-        await Assert.That(PartExists(saved, "xl/slicers/slicer1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache2.xml")).IsTrue();
-        await Assert.That(ReadPart(saved, "xl/workbook.xml")).Contains("name=\"Slicer_Region\">");
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet1.xml")).Contains("slicerList");
+        await Assert.That(saved.PartExists("xl/slicers/slicer1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicerCaches/slicerCache2.xml")).IsTrue();
+        await Assert.That(saved.ReadPart("xl/workbook.xml")).Contains("name=\"Slicer_Region\">");
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet1.xml")).Contains("slicerList");
     }
 
     [Test]
@@ -581,29 +581,9 @@ public class SlicerWriteTests
     private static XLSlicers SlicersOf(XLWorkbook wb, string sheetName) =>
         ((XLWorksheet)wb.Worksheet(sheetName)).SlicersInternal;
 
-    /// <summary>
-    /// The fixture, opened over a copy that outlives this call.
-    /// </summary>
-    /// <remarks>
-    /// The workbook keeps hold of the stream it was opened from and reads it again on save — that
-    /// is the mechanism the whole round trip depends on — so the stream cannot be disposed when
-    /// this returns. A <see cref="MemoryStream"/> needs no deterministic disposal, so handing one
-    /// over and letting it go is safe.
-    /// </remarks>
-    private static XLWorkbook Load()
-    {
-        var stream = Resource();
-        stream.Position = 0;
-        return new XLWorkbook(stream);
-    }
+    private static XLWorkbook Load() => TestHelper.LoadWorkbook(Fixture);
 
-    private static MemoryStream Resource()
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms;
-    }
+    private static MemoryStream Resource() => TestHelper.OpenResource(Fixture);
 
     private static async Task AssertSchemaValid(MemoryStream package)
     {
@@ -620,49 +600,9 @@ public class SlicerWriteTests
         await Assert.That(string.Join(Environment.NewLine, errors)).IsEmpty();
     }
 
-    private static string[] SlicerParts(MemoryStream package) => PartsUnder(package, "xl/slicers/");
+    private static string[] SlicerParts(MemoryStream package) => package.PartsUnder("xl/slicers/");
 
-    private static string[] CacheParts(MemoryStream package) => PartsUnder(package, "xl/slicerCaches/");
-
-    private static string[] PartsUnder(MemoryStream package, string prefix)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries
-            .Where(e => e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.FullName)
-            .ToArray();
-    }
-
-    private static bool PartExists(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries.Any(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string ReadPart(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream);
-        return reader.ReadToEnd();
-    }
-
-    private static byte[] PartBytes(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e => e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var buffer = new MemoryStream();
-        entryStream.CopyTo(buffer);
-        return buffer.ToArray();
-    }
+    private static string[] CacheParts(MemoryStream package) => package.PartsUnder("xl/slicerCaches/");
 
     #endregion
 }

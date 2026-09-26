@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using XLibur.Excel;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.RichText;
 
@@ -114,7 +115,7 @@ public class RichTextColorRoundTripTests
             wb.SaveAs(outMs);
         }
 
-        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+        var savedSharedStrings = outMs.ReadPart("xl/sharedStrings.xml");
 
         await Assert.That(savedSharedStrings).Contains("superscript").Because($"The edit was dropped.\n\n{savedSharedStrings}");
     }
@@ -158,7 +159,7 @@ public class RichTextColorRoundTripTests
         var run = reloaded.Worksheets.First().Cell("A1").GetRichText().First();
 
         await Assert.That(run.VerticalAlignment).IsEqualTo(XLFontVerticalTextAlignmentValues.Baseline)
-            .Because($"The run stated baseline, so the save must keep saying so.\n\n{ReadPart(outMs.ToArray(), "xl/sharedStrings.xml")}");
+            .Because($"The run stated baseline, so the save must keep saying so.\n\n{outMs.ReadPart("xl/sharedStrings.xml")}");
     }
 
     [Test]
@@ -284,7 +285,7 @@ public class RichTextColorRoundTripTests
             wb.SaveAs(outMs);
         }
 
-        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+        var savedSharedStrings = outMs.ReadPart("xl/sharedStrings.xml");
 
         using (Assert.Multiple())
         {
@@ -309,7 +310,7 @@ public class RichTextColorRoundTripTests
             wb.SaveAs(outMs);
         }
 
-        var savedSharedStrings = ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+        var savedSharedStrings = outMs.ReadPart("xl/sharedStrings.xml");
 
         await Assert.That(savedSharedStrings).DoesNotContain("FF000000", StringComparison.OrdinalIgnoreCase).Because($"Splitting an inherited run re-materialized the ambiguous black.\n\n{savedSharedStrings}");
     }
@@ -360,7 +361,7 @@ public class RichTextColorRoundTripTests
         using (var wb = new XLWorkbook(new MemoryStream(input)))
             wb.SaveAs(outMs);
 
-        return ReadPart(outMs.ToArray(), "xl/sharedStrings.xml");
+        return outMs.ReadPart("xl/sharedStrings.xml");
     }
 
     private static int CountOccurrences(string haystack, string needle)
@@ -374,14 +375,6 @@ public class RichTextColorRoundTripTests
         }
 
         return count;
-    }
-
-    private static string ReadPart(byte[] xlsx, string partPath)
-    {
-        using var zip = new ZipArchive(new MemoryStream(xlsx), ZipArchiveMode.Read);
-        var entry = zip.GetEntry(partPath) ?? throw new InvalidOperationException($"Missing part: {partPath}");
-        using var r = new StreamReader(entry.Open());
-        return r.ReadToEnd();
     }
 
     private static byte[] BuildWorkbook(string sharedStrings, int siCount, string styles = "")

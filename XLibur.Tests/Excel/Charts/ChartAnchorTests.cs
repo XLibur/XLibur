@@ -23,14 +23,6 @@ public class ChartAnchorTests
         return ws;
     }
 
-    private static MemoryStream SaveValidated(XLWorkbook wb)
-    {
-        var ms = new MemoryStream();
-        wb.SaveAs(ms, validate: true);
-        ms.Position = 0;
-        return ms;
-    }
-
     private static Xdr.WorksheetDrawing DrawingOf(MemoryStream stream)
     {
         stream.Position = 0;
@@ -51,7 +43,7 @@ public class ChartAnchorTests
 
         await Assert.That(chart.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var drawing = DrawingOf(ms);
         await Assert.That(drawing.Elements<Xdr.TwoCellAnchor>().Count()).IsEqualTo(1);
         await Assert.That(drawing.Elements<Xdr.OneCellAnchor>()).IsEmpty();
@@ -71,7 +63,7 @@ public class ChartAnchorTests
             chart.Width = 480;
             chart.Height = 288;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             var drawing = DrawingOf(saved);
             await Assert.That(drawing.Elements<Xdr.OneCellAnchor>().Count()).IsEqualTo(1);
 
@@ -108,7 +100,7 @@ public class ChartAnchorTests
             chart.Width = 400;
             chart.Height = 250;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             var drawing = DrawingOf(saved);
             await Assert.That(drawing.Elements<Xdr.AbsoluteAnchor>().Count()).IsEqualTo(1);
 
@@ -160,7 +152,7 @@ public class ChartAnchorTests
             absolute.Width = 320;
             absolute.Height = 240;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -195,7 +187,7 @@ public class ChartAnchorTests
             chart.Width = 400;
             chart.Height = 250;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(original);
         }
 
@@ -238,7 +230,7 @@ public class ChartAnchorTests
             await Assert.That(chart.Position.Row).IsEqualTo(6);
             await Assert.That(chart.SecondPosition.Row).IsEqualTo(22);
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             var drawing = DrawingOf(saved);
             var anchor = drawing.Elements<Xdr.TwoCellAnchor>().Single();
             await Assert.That(anchor.FromMarker!.RowId!.Text).IsEqualTo("6");

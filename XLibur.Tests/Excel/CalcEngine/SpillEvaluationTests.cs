@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
 using XLibur.Excel;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 // Phase B1 — in-memory spilling of dynamic-array formulas.
@@ -491,7 +491,7 @@ public class SpillEvaluationTests
             wb.SaveAs(ms, validate: false);
         }
 
-        var sheetXml = ReadSheetXml(ms);
+        var sheetXml = ms.Sheet1Xml();
 
         // The anchor keeps its formula; the spilled cell holds only the cached result, but both are
         // typed as formula results.
@@ -523,7 +523,7 @@ public class SpillEvaluationTests
             wb.SaveAs(ms, new SaveOptions { EvaluateFormulasBeforeSaving = true, ValidatePackage = false });
         }
 
-        var sheetXml = ReadSheetXml(ms);
+        var sheetXml = ms.Sheet1Xml();
 
         await Assert.That(CellXml(sheetXml, "C1")).Contains(@"ref=""C1:C2""");
         await Assert.That(CellXml(sheetXml, "C2"))
@@ -566,16 +566,8 @@ public class SpillEvaluationTests
             reloaded.SaveAs(second, validate: false);
         }
 
-        var sheetXml = ReadSheetXml(second);
+        var sheetXml = second.Sheet1Xml();
         await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>");
-    }
-
-    private static string ReadSheetXml(MemoryStream savedWorkbook)
-    {
-        using var zip = new ZipArchive(new MemoryStream(savedWorkbook.ToArray()), ZipArchiveMode.Read);
-        var sheetEntry = zip.Entries.First(e => e.FullName.Contains("sheet1.xml", StringComparison.OrdinalIgnoreCase));
-        using var reader = new StreamReader(sheetEntry.Open());
-        return reader.ReadToEnd();
     }
 
     private static string CellXml(string sheetXml, string cellRef)

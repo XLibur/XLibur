@@ -1,11 +1,10 @@
 using System;
 using System.IO;
-using System.IO.Compression;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Streaming;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.IO;
 
@@ -120,10 +119,10 @@ public class WritePathAgreementTests
     private const string AnyPrefix = "<(?:[A-Za-z_][\\w.-]*:)?";
 
     private static string PaneTag(MemoryStream package)
-        => Match(ReadSheet1(package), $"{AnyPrefix}pane\\b[^>]*>");
+        => Match(package.Sheet1Xml(), $"{AnyPrefix}pane\\b[^>]*>");
 
     private static string ColTag(MemoryStream package, uint min)
-        => Match(ReadSheet1(package), $"{AnyPrefix}col\\b[^>]*\\bmin=\"{min}\"[^>]*>");
+        => Match(package.Sheet1Xml(), $"{AnyPrefix}col\\b[^>]*\\bmin=\"{min}\"[^>]*>");
 
     private static string Match(string xml, string pattern)
     {
@@ -136,18 +135,6 @@ public class WritePathAgreementTests
     {
         var match = Regex.Match(tag, $"\\b{name}=\"([^\"]*)\"");
         return match.Success ? match.Groups[1].Value : null;
-    }
-
-    private static string ReadSheet1(MemoryStream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals("xl/worksheets/sheet1.xml", StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream);
-        return reader.ReadToEnd();
     }
 
     #endregion Helpers
