@@ -1149,6 +1149,17 @@ columns on every run. A font metric the three adapters cannot agree on gets the 
 
 ## Closing note — three copies of CarlitoBare, one of them dead
 
+> **Resolved by PR #657 (#621 finding 24).** CarlitoBare now exists once, in
+> `resources/fonts/CarlitoBare-{Regular,Bold,Italic,BoldItalic}.ttf`. `XLibur.Fonts.SixLabors.V1`
+> and `XLibur.Fonts.SkiaSharp` both embed it through linked `EmbeddedResource` items that keep
+> their existing `LogicalName`s (`XLibur.Graphics.Fonts.…` and `XLibur.Fonts.SkiaSharp.Fonts.…`),
+> so neither adapter's resource lookup changed. The unembedded copy in `XLibur/Graphics/Fonts/`
+> was deleted, as were the per-adapter `Fonts/` folders. The test fonts collapsed the same way:
+> `TestFontA.ttf` and `TestFontB.ttf` live only in `XLibur.Tests/Resource/Fonts/`, and both font
+> engine test projects link them back under `Resource\Fonts`. The text below records the state
+> this spec found, before that change; the font files and `Fonts/` folders it names no longer
+> exist, and the `.csproj` line numbers it cites have moved.
+
 Checked while gathering evidence, and confirmed:
 
 - `XLibur/Graphics/Fonts/CarlitoBare-{Regular,Bold,Italic,BoldItalic}.ttf` are **tracked**
