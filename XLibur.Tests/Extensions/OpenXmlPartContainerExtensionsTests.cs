@@ -24,4 +24,20 @@ public class OpenXmlPartContainerExtensionsTests
         await Assert.That(workbookPart.GetPartOrNull<WorksheetPart>(null)).IsNull();
         await Assert.That(workbookPart.GetPartOrNull<WorksheetPart>(string.Empty)).IsNull();
     }
+
+    [Test]
+    public async Task HasPartWithId_FindsKnownId_AndIsFalseOtherwise()
+    {
+        using var ms = new MemoryStream();
+        using var document = SpreadsheetDocument.Create(ms, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook);
+        var workbookPart = document.AddWorkbookPart();
+        workbookPart.AddNewPart<WorksheetPart>("rId7");
+
+        await Assert.That(workbookPart.HasPartWithId("rId7")).IsTrue();
+        await Assert.That(workbookPart.HasPartWithId("rId8")).IsFalse();
+
+        // No id at all: false, as the old linear scan answered.
+        await Assert.That(workbookPart.HasPartWithId(null)).IsFalse();
+        await Assert.That(workbookPart.HasPartWithId(string.Empty)).IsFalse();
+    }
 }
