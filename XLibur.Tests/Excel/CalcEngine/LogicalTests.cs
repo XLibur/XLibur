@@ -77,6 +77,42 @@ public class LogicalTests
         await Assert.That(ws.Evaluate("AND(TRUE,A4)")).IsEqualTo(ExpectedCellValue.From(true));
     }
 
+    // Expected results were verified over COM in Excel 16. An error in a range or array element
+    // wins over any logical result (no short-circuit on FALSE for AND or TRUE for OR), and the
+    // first error is returned: argument order first, then cell order within a collection.
+    [Test]
+    [Arguments("AND(A1:A2)", XLError.NoValueAvailable)]
+    [Arguments("OR(A1:A2)", XLError.NoValueAvailable)]
+    [Arguments("AND(B1:B2)", XLError.NoValueAvailable)]
+    [Arguments("OR(B1:B2)", XLError.NoValueAvailable)]
+    [Arguments("AND({TRUE,#N/A})", XLError.NoValueAvailable)]
+    [Arguments("OR({TRUE,#N/A})", XLError.NoValueAvailable)]
+    [Arguments("AND({FALSE,#N/A})", XLError.NoValueAvailable)]
+    [Arguments("OR({FALSE,#N/A})", XLError.NoValueAvailable)]
+    [Arguments("OR({TRUE,#DIV/0!})", XLError.DivisionByZero)]
+    [Arguments("AND({TRUE,#DIV/0!})", XLError.DivisionByZero)]
+    [Arguments("AND(FALSE,A1:A2)", XLError.NoValueAvailable)]
+    [Arguments("OR(TRUE,A1:A2)", XLError.NoValueAvailable)]
+    [Arguments("AND(C1:C2)", XLError.DivisionByZero)]
+    [Arguments("OR(C1:C2)", XLError.DivisionByZero)]
+    [Arguments("AND(C2,C1)", XLError.NoValueAvailable)]
+    [Arguments("OR(C2,C1)", XLError.NoValueAvailable)]
+    [Arguments("AND(A1:A2,C1)", XLError.NoValueAvailable)]
+    [Arguments("OR(A1:A2,C1)", XLError.NoValueAvailable)]
+    public async Task AndOr_ErrorInCollectionElement_ReturnsFirstError(string formula, XLError expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").FormulaA1 = "NA()";
+        ws.Cell("A2").Value = true;
+        ws.Cell("B1").Value = false;
+        ws.Cell("B2").FormulaA1 = "NA()";
+        ws.Cell("C1").FormulaA1 = "1/0";
+        ws.Cell("C2").FormulaA1 = "NA()";
+
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
+    }
+
     [Test]
     public async Task If_2_Params_true()
     {

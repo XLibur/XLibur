@@ -35,13 +35,18 @@ internal static class Logical
                     return true;
                 return logical;
             },
-            static v => v.IsLogical || v.IsNumber); // No text conversion for element of collection, blanks are ignored in references
+            IsLogicalNumberOrError);
 
         if (!aggResult.TryPickT0(out var value, out var error))
             return error;
 
         return value;
     }
+
+    // Collection filter for AND and OR. Elements of an array or reference are not converted from
+    // text (text is skipped) and blanks in references are ignored. Errors must pass the filter so
+    // the convert step returns them: in Excel an error element wins over any logical result.
+    private static bool IsLogicalNumberOrError(ScalarValue v) => v.IsLogical || v.IsNumber || v.IsError;
 
     // FALSE() and TRUE() are zero-argument Excel functions. They are registered through Adapt as
     // method groups, so they have to stay methods; a constant cannot be converted to the delegate.
@@ -134,7 +139,7 @@ internal static class Logical
                     return false;
                 return logical;
             },
-            static v => v.IsLogical || v.IsNumber); // No text conversion for element of collection, blanks are ignored in references
+            IsLogicalNumberOrError);
 
         if (!aggResult.TryPickT0(out var value, out var error))
             return error;
