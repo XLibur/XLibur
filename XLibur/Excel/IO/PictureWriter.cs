@@ -202,10 +202,7 @@ internal static class PictureWriter
         EnsureDrawingNamespaces(worksheetDrawing);
 
         // Overwrite actual image binary data
-        ImagePart imagePart;
-        if (drawingsPart.HasPartWithId(pic.RelId!))
-            imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId!);
-        else
+        if (drawingsPart.GetPartOrNull<ImagePart>(pic.RelId) is not { } imagePart)
         {
             pic.RelId = context.RelIdGenerator.GetNext(RelType.Workbook);
             imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), pic.RelId);
@@ -533,10 +530,9 @@ internal static class PictureWriter
     /// </summary>
     private static void RefeedGroupedPictureImage(DrawingsPart drawingsPart, XLPicture pic)
     {
-        if (string.IsNullOrEmpty(pic.RelId) || !drawingsPart.HasPartWithId(pic.RelId))
+        if (drawingsPart.GetPartOrNull<ImagePart>(pic.RelId) is not { } imagePart)
             return;
 
-        var imagePart = (ImagePart)drawingsPart.GetPartById(pic.RelId);
         pic.ImageStream.Position = 0;
         imagePart.FeedData(pic.ImageStream);
     }
@@ -626,7 +622,7 @@ internal static class PictureWriter
             FindGroupedPictureById(worksheetDrawing, id)?.Remove();
 
             // Drop the image part only if nothing else references it any more.
-            if (!string.IsNullOrEmpty(relId) && drawingsPart.HasPartWithId(relId))
+            if (drawingsPart.HasPartWithId(relId))
                 DeleteImagePartIfUnreferenced(drawingsPart, worksheetDrawing, relId);
         }
     }

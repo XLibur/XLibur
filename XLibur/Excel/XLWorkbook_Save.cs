@@ -759,8 +759,8 @@ public partial class XLWorkbook
         XLWorksheet worksheet)
     {
         var wsRelId = worksheet.RelId;
-        if (workbookPart.Parts.Any(p => p.RelationshipId == wsRelId))
-            return ((WorksheetPart)workbookPart.GetPartById(wsRelId!), false);
+        if (workbookPart.GetPartOrNull<WorksheetPart>(wsRelId) is { } worksheetPart)
+            return (worksheetPart, false);
 
         return (workbookPart.AddNewPart<WorksheetPart>(wsRelId!), true);
     }
@@ -1045,7 +1045,7 @@ public partial class XLWorkbook
         List<PivotCache>? orphanedCaches = null;
         foreach (var pc in workbookPart.Workbook.PivotCaches.Elements<PivotCache>())
         {
-            if (pc.Id is null || !workbookPart.HasPartWithId(pc.Id.Value!))
+            if (!workbookPart.HasPartWithId(pc.Id?.Value))
                 (orphanedCaches ??= []).Add(pc);
         }
 
@@ -1067,7 +1067,7 @@ public partial class XLWorkbook
         foreach (var pt in allPivotTables)
         {
             var ps = pt.PivotCache.CastTo<XLPivotCache>();
-            if (!string.IsNullOrEmpty(ps.WorkbookCacheRelId) && workbookPart.HasPartWithId(ps.WorkbookCacheRelId))
+            if (workbookPart.HasPartWithId(ps.WorkbookCacheRelId))
                 continue;
 
             if (seenSources.Add(ps))

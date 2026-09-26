@@ -1,13 +1,22 @@
-using System.Linq;
+using System.Diagnostics.CodeAnalysis;
 using DocumentFormat.OpenXml.Packaging;
 
 namespace XLibur.Extensions;
 
 internal static class OpenXmlPartContainerExtensions
 {
-    public static bool HasPartWithId(this OpenXmlPartContainer container, string relId)
+    /// <summary>
+    /// Whether the container has a child part with relationship id <paramref name="relId"/>.
+    /// A null or empty id has no part.
+    /// </summary>
+    /// <remarks>
+    /// One dictionary lookup through <see cref="OpenXmlPartContainer.TryGetPartById"/>, where the
+    /// old check scanned every child relationship. The guard keeps the old answer of false for a
+    /// null or empty id, which <c>TryGetPartById</c> is not documented to accept.
+    /// </remarks>
+    public static bool HasPartWithId(this OpenXmlPartContainer container, [NotNullWhen(true)] string? relId)
     {
-        return container.Parts.Any(p => p.RelationshipId.Equals(relId));
+        return !string.IsNullOrEmpty(relId) && container.TryGetPartById(relId, out _);
     }
 
     /// <summary>
