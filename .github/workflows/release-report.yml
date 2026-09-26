@@ -9,9 +9,11 @@ name: Release Report
 #   git push upstream report-v0.1.0
 #
 # Or dispatch from main with a version, as Publish Release does for core: the run
-# tags HEAD as report-v<version> before it builds, so MinVer produces that version,
-# and pushes the tag only once every check below has passed. A dry run tags only
-# its own checkout and pushes nothing.
+# rolls the "XLibur.Report — Unreleased" section of CHANGELOG.md into a dated
+# version heading, commits it, and tags that commit report-v<version> before it
+# builds, so MinVer produces that version. The commit and tag are pushed only once
+# every check below has passed. A dry run shows the changelog diff and pushes
+# nothing.
 #
 # Run with dry-run first (workflow_dispatch) to see the versions and the declared
 # core dependency without publishing anything.
@@ -98,10 +100,17 @@ jobs:
             exit 1
           fi
 
+          # Roll the report section of the changelog, as Publish Release does for
+          # core, and tag that commit — so the tag's commit holds its own notes.
+          bash .github/scripts/roll-changelog.sh --report "$version"
+          git --no-pager diff -- CHANGELOG.md
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git commit -m "chore: roll changelog for $tag"
           git tag -a "$tag" -m "XLibur.Report $version"
-          echo "Tagged HEAD as $tag"
+          echo "Tagged the changelog commit as $tag"
           echo "REQUESTED_TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Setup .NET
@@ -275,11 +284,15 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Only now that every check has passed, so a refused run leaves no tag
-      # behind. The release step below then finds the tag rather than making one.
-      - name: Push the requested tag
+      # Only now that every check has passed, so a refused run leaves neither the
+      # changelog commit nor the tag behind. main goes first: if it moved during
+      # the run the push is rejected, and nothing is tagged or published. The
+      # release step below then finds the tag rather than making one.
+      - name: Push the changelog commit and tag
         if: env.DRY_RUN != 'true' && env.REQUESTED_TAG != ''
-        run: git push origin "$REQUESTED_TAG"
+        run: |
+          git push origin HEAD:main
+          git push origin "$REQUESTED_TAG"
 
       - name: NuGet login
         if: env.DRY_RUN != 'true'
