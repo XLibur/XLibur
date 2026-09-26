@@ -221,14 +221,26 @@ public class WorkdayIntlTests
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 8)")] // 8, 9 and 10 are not codes.
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 0)")]
     [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), 18)")]
-    [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"1111111\")")] // No working day left.
-    [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"000001\")")] // Too short.
-    [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"000001x\")")] // Not 0 or 1.
     [Arguments("WORKDAY.INTL(DATE(2024,1,1), 5, 8)")]
-    [Arguments("WORKDAY.INTL(DATE(2024,1,1), 5, \"1111111\")")]
-    public async Task WeekendArgument_OutOfRangeReturnsNumberInvalid(string formula)
+    public async Task WeekendArgument_UnknownCodeReturnsNumberInvalid(string formula)
     {
         await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"000001\")")] // Too short.
+    [Arguments("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"000001x\")")] // Not 0 or 1.
+    [Arguments("WORKDAY.INTL(DATE(2024,1,1), 5, \"000001x\")")]
+    [Arguments("WORKDAY.INTL(DATE(2024,1,1), 5, \"1111111\")")] // No working day to land on.
+    public async Task WeekendArgument_BadMaskReturnsIncompatibleValue(string formula)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task NetWorkDaysIntl_AllSevenDaysWeekendCountsNoWorkingDays()
+    {
+        await Assert.That((double)XLWorkbook.EvaluateExpr("NETWORKDAYS.INTL(DATE(2024,1,1), DATE(2024,1,7), \"1111111\")")).IsEqualTo(0d);
     }
 
     [Test]

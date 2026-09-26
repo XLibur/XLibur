@@ -360,8 +360,8 @@ internal static class DateAndTime
     private const int SaturdaySundayWeekend = (1 << 5) | (1 << 6);
 
     /// <summary>
-    /// Every day of the week is a weekend — the one mask Excel rejects, since it would leave no
-    /// working day for NETWORKDAYS.INTL to count or WORKDAY.INTL to land on.
+    /// Every day of the week is a weekend. NETWORKDAYS.INTL accepts it and counts no working days;
+    /// WORKDAY.INTL rejects it with <c>#VALUE!</c>, since it would leave no day to land on.
     /// </summary>
     private const int AllDaysWeekend = 0b111_1111;
 
@@ -395,54 +395,39 @@ internal static class DateAndTime
     /// Read the <c>weekend</c> argument of the .INTL functions: either one of the numbered codes, or
     /// a seven-character string of 0s and 1s running Monday to Sunday where 1 marks a weekend day.
     /// </summary>
-    private static bool TryGetWeekendMask(CalcContext ctx, in AnyValue value, out int mask, out XLError error)
+    /// <remarks>
+    /// An error passed as the weekend is not propagated: Excel replaces it with
+    /// <paramref name="errorValueBecomes"/>, which is <c>#NUM!</c> for WORKDAY.INTL and
+    /// <c>#VALUE!</c> for NETWORKDAYS.INTL. A string that is not a mask is <c>#VALUE!</c>, a number
+    /// that is not a code is <c>#NUM!</c>, and so is a reference to an empty cell — only an omitted
+    /// weekend means Saturday and Sunday.
+    /// </remarks>
+    private static bool TryGetWeekendMask(CalcContext ctx, in AnyValue value, XLError errorValueBecomes, bool allowAllDays, out int mask, out XLError error)
     {
         mask = 0;
-        error = XLError.NumberInvalid;
-
         var scalar = value.ReduceToScalar(ctx);
-        if (scalar.TryPickError(out var scalarError))
+        if (scalar.IsError)
         {
-            error = scalarError;
+            error = errorValueBecomes;
             return false;
         }
 
-        // An omitted weekend is the ordinary Saturday and Sunday.
         if (scalar.IsBlank)
         {
             mask = SaturdaySundayWeekend;
-            error = default;
-            return true;
+            error = value.IsReference ? XLError.NumberInvalid : default;
+            return !value.IsReference;
         }
 
-        if (!TryGetWeekendMaskFromValue(ctx, scalar, out mask, ref error))
-            return false;
-
-        // A week with no working day in it has no answer.
-        if (mask == AllDaysWeekend)
-            return false;
-
-        error = default;
-        return true;
-    }
-
-    /// <summary>
-    /// Read a non-blank weekend argument, spelled either as a seven-character mask or as a
-    /// numbered code. <paramref name="error"/> is changed only when the value is not a number.
-    /// </summary>
-    private static bool TryGetWeekendMaskFromValue(CalcContext ctx, ScalarValue scalar, out int mask, ref XLError error)
-    {
         if (scalar.TryPickText(out var pattern, out _))
-            return TryGetWeekendMaskFromPattern(pattern!, out mask);
-
-        if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
         {
-            mask = 0;
-            error = numberError;
-            return false;
+            error = XLError.IncompatibleValue;
+            return TryGetWeekendMaskFromPattern(pattern!, out mask) && (allowAllDays || mask != AllDaysWeekend);
         }
 
-        return TryGetWeekendMaskFromCode((int)Math.Truncate(number), out mask);
+        error = XLError.NumberInvalid;
+        return scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out _)
+               && TryGetWeekendMaskFromCode((int)Math.Truncate(number), out mask);
     }
 
     /// <summary>
@@ -497,19 +482,30 @@ internal static class DateAndTime
         return true;
     }
 
+    /// <remarks>
+    /// Excel reads the weekend before the dates, so <c>=NETWORKDAYS.INTL(#N/A, 1, 99)</c> is
+    /// <c>#NUM!</c>. An error given as the weekend becomes <c>#VALUE!</c>, and a weekend of all
+    /// seven days is allowed and counts no working days.
+    /// </remarks>
     private static AnyValue NetWorkDaysIntl(CalcContext ctx, Span<AnyValue> args)
     {
+        if (!TryGetWeekendMask(ctx, OptionalArg(args, 2), XLError.IncompatibleValue, allowAllDays: true, out var mask, out var weekendError))
+            return weekendError;
+
         if (!TryGetDate(ctx, args[0].ReduceToScalar(ctx), out var startDate, out var startError))
             return startError;
 
         if (!TryGetDate(ctx, args[1].ReduceToScalar(ctx), out var endDate, out var endError))
             return endError;
 
-        if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
-            return weekendError;
+        if (!TryGetHolidays(ctx, OptionalArg(args, 3), mask, out var holidays, out var holidaysError))
+            return holidaysError;
 
         return CountNetWorkdays(startDate, endDate, mask, holidays);
     }
+
+    private static AnyValue OptionalArg(Span<AnyValue> args, int index)
+        => args.Length > index ? args[index] : ScalarValue.Blank.ToAnyValue();
 
     /// <summary>
     /// Working days from <paramref name="startDate"/> to <paramref name="endDate"/>, both included,
@@ -525,21 +521,6 @@ internal static class DateAndTime
 
         var total = CountWorkdays(startDate, endDate, mask) - CountHolidaysBetween(holidays, startDate, endDate);
         return reversed ? -total : total;
-    }
-
-    /// <summary>
-    /// Read the optional <c>weekend</c> (third) and <c>holidays</c> (fourth) arguments of the
-    /// .INTL functions, in that order.
-    /// </summary>
-    private static bool TryGetWeekendAndHolidays(CalcContext ctx, Span<AnyValue> args, out int mask, out HashSet<int> holidays, out XLError error)
-    {
-        if (!TryGetWeekendMask(ctx, args.Length > 2 ? args[2] : ScalarValue.Blank.ToAnyValue(), out mask, out error))
-        {
-            holidays = [];
-            return false;
-        }
-
-        return TryGetHolidays(ctx, args.Length > 3 ? args[3] : ScalarValue.Blank.ToAnyValue(), mask, out holidays, out error);
     }
 
     private static int CountHolidaysBetween(HashSet<int> holidays, int startDate, int endDate)
@@ -575,23 +556,73 @@ internal static class DateAndTime
     }
 
     private static AnyValue WorkdayIntl(CalcContext ctx, Span<AnyValue> args)
-    {
-        if (!TryGetDate(ctx, args[0].ReduceToScalar(ctx), out var startDate, out var startError))
-            return startError;
+        => Workday(ctx, args[0].ReduceToScalar(ctx), args[1].ReduceToScalar(ctx), OptionalArg(args, 2), OptionalArg(args, 3)).ToAnyValue();
 
-        if (!args[1].ReduceToScalar(ctx).ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
+    /// <summary>
+    /// The shared body of WORKDAY and WORKDAY.INTL, in the order Excel checks the arguments.
+    /// </summary>
+    /// <remarks>
+    /// <list type="number">
+    /// <item>The start date, then the offset. The offset is rounded down, not toward zero, so -0.5
+    /// is one working day back.</item>
+    /// <item>A zero offset returns the start date, weekend or not, before the weekend or holidays
+    /// are looked at — even when they are errors.</item>
+    /// <item>Holidays given as one value (a scalar or a single cell) are converted to a number: an
+    /// error propagates, and text or a logical is <c>#VALUE!</c>.</item>
+    /// <item>The weekend. An error given as the weekend becomes <c>#NUM!</c>; a weekend of all seven
+    /// days is <c>#VALUE!</c>.</item>
+    /// <item>Every holiday, in order, as a date.</item>
+    /// </list>
+    /// </remarks>
+    private static ScalarValue Workday(CalcContext ctx, ScalarValue startDateScalar, ScalarValue offsetScalar, AnyValue weekend, AnyValue holidays)
+    {
+        if (!TryGetDate(ctx, startDateScalar, out var startDate, out var startDateError))
+            return startDateError;
+
+        if (!offsetScalar.ToNumber(ctx.Culture).TryPickT0(out var offsetNumber, out var offsetError))
             return offsetError;
 
-        if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
-            return weekendError;
-
-        var offset = Math.Truncate(offsetNumber);
-
-        // A zero offset returns the start date untouched, weekend or not.
+        var offset = Math.Floor(offsetNumber);
         if (offset == 0)
             return startDate;
 
-        return StepWorkdays(startDate, offset, mask, holidays).ToAnyValue();
+        if (!TryCoerceSingleHoliday(ctx, holidays, out var singleHolidayError))
+            return singleHolidayError;
+
+        if (!TryGetWeekendMask(ctx, weekend, XLError.NumberInvalid, allowAllDays: false, out var mask, out var weekendError))
+            return weekendError;
+
+        if (!TryGetHolidays(ctx, holidays, mask, out var holidayDates, out var holidaysError))
+            return holidaysError;
+
+        return StepWorkdays(startDate, offset, mask, holidayDates);
+    }
+
+    /// <summary>
+    /// WORKDAY.INTL converts a holidays argument that is a single value before it reads the weekend,
+    /// so <c>=WORKDAY.INTL(1, 1, 99, "abc")</c> is <c>#VALUE!</c> rather than the weekend's
+    /// <c>#NUM!</c>. Whether the number is a valid date is left for later, and a range or an array
+    /// is left whole for later too.
+    /// </summary>
+    private static bool TryCoerceSingleHoliday(CalcContext ctx, in AnyValue holidays, out XLError error)
+    {
+        error = default;
+        if (!holidays.TryPickScalar(out var holiday, out var collection))
+        {
+            if (collection.TryPickT0(out _, out var reference) || !reference.TryGetSingleCellValue(out holiday, ctx))
+                return true;
+        }
+
+        if (holiday.IsBlank)
+            return true;
+
+        if (holiday.IsLogical)
+        {
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
+        return holiday.ToNumber(ctx.Culture).TryPickT0(out _, out error);
     }
 
     /// <summary>
@@ -831,29 +862,11 @@ internal static class DateAndTime
     }
 
     /// <summary>
-    /// WORKDAY is WORKDAY.INTL with weekend code 1: the same walk over a Saturday and Sunday
+    /// WORKDAY is WORKDAY.INTL with the weekend omitted: the same walk over a Saturday and Sunday
     /// weekend, including its <c>#NUM!</c> when the answer falls outside the supported date range.
     /// </summary>
     private static ScalarValue Workday(CalcContext ctx, ScalarValue startDateScalar, ScalarValue dayOffsetValue, AnyValue holidays)
-    {
-        if (!TryGetDate(ctx, startDateScalar, out var startDate, out var startDateError))
-            return startDateError;
-
-        if (!dayOffsetValue.ToNumber(ctx.Culture).TryPickT0(out var dayOffsetDouble, out var dayOffsetError))
-            return dayOffsetError;
-
-        var dayOffset = Math.Truncate(dayOffsetDouble);
-
-        // When offset is zero, return the startDate, regardless if it is Saturday or Sunday.
-        // Unlike WORKDAY.INTL, this comes before the holidays are read.
-        if (dayOffset == 0)
-            return startDate;
-
-        if (!TryGetHolidays(ctx, holidays, SaturdaySundayWeekend, out var holidayDates, out var holidaysError))
-            return holidaysError;
-
-        return StepWorkdays(startDate, dayOffset, SaturdaySundayWeekend, holidayDates);
-    }
+        => Workday(ctx, startDateScalar, dayOffsetValue, ScalarValue.Blank.ToAnyValue(), holidays);
 
     private static ScalarValue GetYear(CalcContext ctx, double serialDateTime)
     {
