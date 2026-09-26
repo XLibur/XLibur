@@ -56,13 +56,21 @@
 
 - **A conditional format on several ranges now saves its formula for the right cell.** Blank, error, text (contains, begins with, ends with) and date-occurring rules write a formula relative to one anchor cell. XLibur used the first cell of the first range, while Excel uses the top-left corner of the rectangle around all the ranges, so in Excel each cell tested a neighbouring cell (#621). A blanks rule on `B1:B5 A3:A5` is now saved as `LEN(TRIM(A1))=0`, as Excel saves it. Rules on a single range are unchanged.
 
+- **Text conditional-format rules save a valid formula when their text contains a double quote.** `WhenContains`, `WhenNotContains`, `WhenStartsWith` and `WhenEndsWith` put the text into the formula's string literal without doubling `"`, so `WhenContains("say \"hi\"")` saved the invalid `NOT(ISERROR(SEARCH("say "hi"",A1)))` (#660). The quote is now doubled in the formula, as Excel does, and the `text` attribute keeps the raw text.
+
 - **Rich data parts are saved without a UTF-8 byte order mark.** The four parts that hold in-cell images started with a BOM, unlike the other XML parts XLibur writes, such as the worksheet, shared string and comment parts (#621).
+
+- **VML drawing parts are saved without a UTF-8 byte order mark.** The parts that hold comment shapes and header/footer images started with a BOM; Excel writes them without one (#661). When a workbook is saved again, these parts are now truncated before they are rewritten, so a shorter part no longer keeps the end of the old one.
 
 - **Column and row autofit round the maximum digit width the same way as the rest of XLibur.** Column `AdjustToContents` and the wrap width of row `AdjustToContents` used banker's rounding, while loading, column-width conversion and cell padding rounded half away from zero (#621). All now round half away from zero. Output changes only for a font whose digit width is exactly an even number of pixels plus a half, such as Calibri 128pt at 96 DPI: those columns are now one pixel per character wider.
 
 - **WORKDAY returns `#NUM!` when the result falls outside the valid date range.** It returned a serial number past 9999-12-31 or before 1900, where WORKDAY.INTL already returned `#NUM!` (#621). A day count too large to land in range, such as `1E+10`, now returns `#NUM!` at once in both functions, instead of stepping day by day. NETWORKDAYS and WORKDAY now share their code with the .INTL versions.
 
 - **`Evaluate` reads the whole spill of a dynamic array that was not yet calculated.** When `ws.Evaluate` read a range holding a dynamic-array formula that had not been calculated, the formula spilled while the range was being read, and the new values were missed: with `A1` = `SEQUENCE(3)`, `ws.Evaluate("SUM(A1:A3)")` returned 1 instead of 6 (#621). SUM, COUNT, NPV, IRR, MIRR, AND, OR and the other functions that read a range's values are fixed. Formulas calculated as part of the workbook were not affected.
+
+- **SUBTOTAL, AGGREGATE and the \*IF/\*IFS functions read the whole spill of a dynamic array that was not yet calculated.** Under `ws.Evaluate`, `SUBTOTAL(9,A1:A3)` or `SUMIF(A1:A3,">0")` over an uncalculated `A1` = `SEQUENCE(3)` returned 1 instead of 6 (#663). These functions now use the same read as SUM. SUBTOTAL and AGGREGATE also no longer miss the visible cells of a spill whose formula is on a hidden row: with row 1 hidden, `SUBTOTAL(109,A1:A3)` now returns 5, as in Excel. That case was also wrong in normal workbook calculation.
+
+- **AND and OR return an error found in a range or array argument.** An error such as `#N/A` inside a range or array was skipped, so `=AND(A1:A2)` with `A1` = `#N/A` and `A2` = `TRUE` returned `TRUE` (#659). As in Excel, an error now wins over the logical result, even beside `FALSE` in AND or `TRUE` in OR, and the first error is returned, in argument order and then cell order.
 
 ## v0.610.0 - 2026-09-16
 
