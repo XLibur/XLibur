@@ -13,7 +13,8 @@ name: Release Report
 # version heading, commits it, and tags that commit report-v<version> before it
 # builds, so MinVer produces that version. The commit and tag are pushed only once
 # every check below has passed. A dry run shows the changelog diff and pushes
-# nothing.
+# nothing. If a run fails after the push, dispatch the same version again: it
+# resumes from the tag and finishes the NuGet push and the GitHub Release.
 #
 # Run with dry-run first (workflow_dispatch) to see the versions and the declared
 # core dependency without publishing anything.
@@ -86,14 +87,39 @@ jobs:
           fi
 
           tag="report-v$version"
+          latest=$(git tag --list 'report-v[0-9]*' --sort=-v:refname | head -n1)
+
+          # The tag is pushed before the NuGet push and the GitHub Release, so a
+          # run that fails in either leaves the tag behind with the release half
+          # done. Re-running with the same version resumes it from the tag: both
+          # NuGet pushes skip a version already there, and the release step
+          # updates a release that exists. Only the latest tag can resume — an
+          # older one is a typo, and rebuilding it would replace its assets.
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-            echo "::error::Tag $tag already exists"
-            exit 1
+            if [ "$tag" != "$latest" ]; then
+              echo "::error::Tag $tag already exists and is not the latest report tag ($latest)"
+              exit 1
+            fi
+
+            # Released means a published GitHub Release carrying both packages,
+            # since the release is the last thing a run creates.
+            assets=$(gh release view "$tag" --json isDraft,assets \
+              --jq 'select(.isDraft | not) | .assets[].name' 2>/dev/null || true)
+            if grep -qxF "XLibur.Report.$version.nupkg" <<<"$assets" && \
+               grep -qxF "XLibur.Report.DynamicLinq.$version.nupkg" <<<"$assets"; then
+              echo "::error::$tag is already released"
+              exit 1
+            fi
+
+            echo "::notice::$tag exists but its release is incomplete — resuming from the tag"
+            git checkout --quiet "$tag"
+            echo "REQUESTED_TAG=$tag" >> "$GITHUB_ENV"
+            echo "RESUMING=true" >> "$GITHUB_ENV"
+            exit 0
           fi
 
           # NuGet versions cannot be reused, so refuse anything that is not an
           # increase over the highest report tag.
-          latest=$(git tag --list 'report-v[0-9]*' --sort=-v:refname | head -n1)
           if [ -n "$latest" ] && \
              [ "$(printf '%s\n%s\n' "$version" "${latest#report-v}" | sort -V | head -n1)" = "$version" ]; then
             echo "::error::$tag is not an increase over the latest tag $latest"
@@ -269,6 +295,10 @@ jobs:
               echo "**Dry run — nothing was published.**"
               echo
             fi
+            if [ "${RESUMING:-}" = "true" ]; then
+              echo "**Resumed an incomplete release from its existing tag.**"
+              echo
+            fi
             echo "Version: \`$REPORT_VERSION\` (release \`$RELEASE_TAG\`)"
             echo
             echo "Core dependency: \`XLibur $CORE_DEPENDENCY\`"
@@ -285,14 +315,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Only now that every check has passed, so a refused run leaves neither the
-      # changelog commit nor the tag behind. main goes first: if it moved during
-      # the run the push is rejected, and nothing is tagged or published. The
-      # release step below then finds the tag rather than making one.
+      # changelog commit nor the tag behind. One atomic push, so main never gets
+      # the rolled changelog without its tag: a retry would then find the
+      # Unreleased section empty. If main moved during the run the push is
+      # rejected, and nothing is tagged or published. A resumed run pushed both
+      # the first time. The release step below finds the tag rather than making one.
       - name: Push the changelog commit and tag
-        if: env.DRY_RUN != 'true' && env.REQUESTED_TAG != ''
-        run: |
-          git push origin HEAD:main
-          git push origin "$REQUESTED_TAG"
+        if: env.DRY_RUN != 'true' && env.REQUESTED_TAG != '' && env.RESUMING != 'true'
+        run: git push --atomic origin HEAD:main "$REQUESTED_TAG"
 
       - name: NuGet login
         if: env.DRY_RUN != 'true'
