@@ -56,7 +56,7 @@
 
 - **A conditional format on several ranges now saves its formula for the right cell.** Blank, error, text (contains, begins with, ends with) and date-occurring rules write a formula relative to one anchor cell. XLibur used the first cell of the first range, while Excel uses the top-left corner of the rectangle around all the ranges, so in Excel each cell tested a neighbouring cell (#621). A blanks rule on `B1:B5 A3:A5` is now saved as `LEN(TRIM(A1))=0`, as Excel saves it. Rules on a single range are unchanged.
 
-- **Rich data parts are saved without a UTF-8 byte order mark.** The four parts that hold in-cell images started with a BOM; every other part XLibur writes has none (#621).
+- **Rich data parts are saved without a UTF-8 byte order mark.** The four parts that hold in-cell images started with a BOM, unlike the other XML parts XLibur writes, such as the worksheet, shared string and comment parts (#621).
 
 - **Column and row autofit round the maximum digit width the same way as the rest of XLibur.** Column `AdjustToContents` and the wrap width of row `AdjustToContents` used banker's rounding, while loading, column-width conversion and cell padding rounded half away from zero (#621). All now round half away from zero. Output changes only for a font whose digit width is exactly an even number of pixels plus a half, such as Calibri 128pt at 96 DPI: those columns are now one pixel per character wider.
 
