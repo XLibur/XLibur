@@ -20,6 +20,10 @@
 
 ## Unreleased
 
+### ⚡ Performance
+
+- **SUM, COUNT and the other functions that read a range allocate less on each call again.** In 0.620.0 each read of a range went through three nested iterators, one more object on the heap per layer, for every formula evaluated (#680). The read is back to one iterator per call. Reading a 50,000-row sheet with a `SUM` in each row allocates 10 MB less (112.6 MB to 102.6 MB), close to the 100.2 MB of 0.610.0.
+
 ### 🐛 Bug Fixes
 
 - **WORKDAY, WORKDAY.INTL and NETWORKDAYS.INTL check their arguments in the same order as Excel.** Checked against Excel over COM (#665). WORKDAY.INTL with an offset of zero now returns the start date without reading the weekend or holidays, as WORKDAY already did: `=WORKDAY.INTL(DATE(2024,1,1),0,1,#N/A)` is the start date, not `#N/A`. Both functions round a fractional offset down instead of toward zero, so `-0.5` is one working day back. An error given as the weekend becomes `#NUM!` in WORKDAY.INTL and `#VALUE!` in NETWORKDAYS.INTL instead of being passed on. A weekend string that is not a valid mask is `#VALUE!` instead of `#NUM!`. A reference to an empty cell as the weekend is `#NUM!`; only an omitted weekend means Saturday and Sunday. NETWORKDAYS.INTL reads the weekend before the dates, and accepts `"1111111"` and returns 0.

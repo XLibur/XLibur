@@ -5,7 +5,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 
 /// <summary>
 /// Functions that read the values of a reference all go through the one sparse walk,
-/// <c>CalcContext.GetUsedPoints</c>. It visits only the cells that hold something, yet it must
+/// <c>CalcContext.UsedPointsWalk</c>. It visits only the cells that hold something, yet it must
 /// still hand them over in row-major order — left to right, then top to bottom — because NPV, IRR
 /// and MIRR depend on the order.
 /// </summary>
