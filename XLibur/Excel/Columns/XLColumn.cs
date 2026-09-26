@@ -192,8 +192,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         var dpi = new Dpi(Worksheet.Workbook.DpiX, Worksheet.Workbook.DpiY);
         var columnWidthPx = CalculateMinColumnWidth(startRow, endRow, engine, dpi);
 
-        // Maximum digit width, rounded to pixels, so Calibri at 11 pts returns 7 pixels MDW (the correct value)
-        var mdw = (int)Math.Round(engine.GetMaxDigitWidth(Worksheet.Workbook.Style.Font, dpi.X));
+        var mdw = XLHelper.GetMdw(engine, Worksheet.Workbook.Style.Font, dpi.X);
 
         var minWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(minWidth, mdw));
         if (columnWidthPx < minWidthInPx)
@@ -251,8 +250,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             cell.GetGlyphBoxes(engine, dpi, glyphs);
             var textWidthPx = (int)Math.Ceiling(GetContentWidth(cellStyle.Alignment.TextRotation, glyphs));
 
-            var scaledMdw = GetScaledMdw(engine, cellStyle.Font, dpi);
-            var cellWidthPx = GetCellWidthPx(textWidthPx, scaledMdw);
+            var cellMdw = XLHelper.GetMdw(engine, cellStyle.Font, dpi.X);
+            var cellWidthPx = GetCellWidthPx(textWidthPx, cellMdw);
 
             if (autoFilterRows.Contains(cell.Address.RowNumber))
             {
@@ -267,20 +266,11 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     }
 
     /// <summary>
-    /// Maximum digit width of the font, rounded to whole pixels.
-    /// </summary>
-    internal static double GetScaledMdw(IXLFontEngine engine, IXLFontBase font, Dpi dpi)
-    {
-        var scaledMdw = engine.GetMaxDigitWidth(font, dpi.X);
-        return Math.Round(scaledMdw, MidpointRounding.AwayFromZero);
-    }
-
-    /// <summary>
     /// Width in pixels of a cell that holds content of the given width, including padding on
     /// each side and the grid line.
     /// </summary>
     /// <param name="textWidthPx">Width of the content in pixels.</param>
-    /// <param name="scaledMdw">Maximum digit width of the cell font, see <see cref="GetScaledMdw"/>.</param>
+    /// <param name="scaledMdw">Maximum digit width of the cell font in whole pixels, see <see cref="XLHelper.GetMdw(IXLFontEngine, IXLFontBase, double)"/>.</param>
     internal static int GetCellWidthPx(int textWidthPx, double scaledMdw)
     {
         // Not sure about rounding, but larger is probably better, so use ceiling.
@@ -530,25 +520,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            string firstPart = arrRange[0];
-            string secondPart = arrRange[1];
-            rangeAddressToUse = FixColumnAddress(firstPart) + ":" + FixColumnAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixColumnAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: false);
 
     public IXLRangeColumn Range(int firstRow, int lastRow)
     {

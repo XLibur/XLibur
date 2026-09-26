@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Extensions;
@@ -11,13 +10,7 @@ internal static class PivotTableCacheRecordsPartWriter
 {
     internal static void WriteContent(PivotTableCacheRecordsPart recordsPart, XLPivotCache pivotCache)
     {
-        var settings = new XmlWriterSettings
-        {
-            Encoding = XLHelper.NoBomUTF8
-        };
-
-        using var partStream = recordsPart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(recordsPart);
 
         xml.WriteStartDocument();
         xml.WriteStartElement("pivotCacheRecords", Main2006SsNs);

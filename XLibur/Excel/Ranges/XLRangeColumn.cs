@@ -124,21 +124,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
         var rowPairs = columns.Split(',');
         foreach (var trimmedPair in rowPairs.Select(pair => pair.Trim()))
         {
-            string firstRow;
-            string lastRow;
-            if (trimmedPair.Contains(':') || trimmedPair.Contains('-'))
-            {
-                var rowRange = trimmedPair.Split(':', '-');
-
-                firstRow = rowRange[0];
-                lastRow = rowRange[1];
-            }
-            else
-            {
-                firstRow = trimmedPair;
-                lastRow = trimmedPair;
-            }
-
+            var (firstRow, lastRow) = XLHelper.SplitRangePair(trimmedPair);
             retVal.Add(Range(firstRow, lastRow).FirstColumn()!);
         }
 
@@ -177,25 +163,7 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
         return Range(firstRow, 1, lastRow, 1);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            var firstPart = arrRange[0];
-            var secondPart = arrRange[1];
-            rangeAddressToUse = FixColumnAddress(firstPart) + ":" + FixColumnAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixColumnAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: false);
 
     public int CompareTo(XLRangeColumn otherColumn, IXLSortElements rowsToSort)
     {

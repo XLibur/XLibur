@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -69,14 +68,7 @@ internal static class PersonPartWriter
 
     internal static void GenerateContent(WorkbookPersonPart personPart, XLWorkbook workbook)
     {
-        var settings = new XmlWriterSettings
-        {
-            CloseOutput = true,
-            Encoding = XLHelper.NoBomUTF8
-        };
-
-        var partStream = personPart.GetStream(FileMode.Create);
-        using var xml = XmlWriter.Create(partStream, settings);
+        using var xml = PartXmlWriter.Create(personPart);
 
         xml.WriteStartElement("personList", ThreadedCommentsNs);
         xml.WriteAttributeString("xmlns", "x", null, OpenXmlConst.Main2006SsNs);

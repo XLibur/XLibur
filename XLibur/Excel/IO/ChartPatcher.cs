@@ -4,6 +4,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.IO.Charts;
+using XLibur.Extensions;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 
@@ -201,18 +202,8 @@ internal static class ChartPatcher
     /// </summary>
     private static OpenXmlPart? ResolvePart(WorksheetPart worksheetPart, XLChart xlChart)
     {
-        if (xlChart.RelId == null)
-            return null;
-
-        var drawingsPart = worksheetPart.DrawingsPart;
-        if (drawingsPart == null)
-            return null;
-
-        // GetPartById throws for an unknown id, and the relationship can be missing when the chart
-        // was created in a workbook that has not been saved through this package yet.
-        if (!drawingsPart.Parts.Any(p => p.RelationshipId == xlChart.RelId))
-            return null;
-
-        return drawingsPart.GetPartById(xlChart.RelId);
+        // The relationship can be missing when the chart was created in a workbook that has not
+        // been saved through this package yet.
+        return worksheetPart.DrawingsPart?.GetPartOrNull<OpenXmlPart>(xlChart.RelId);
     }
 }

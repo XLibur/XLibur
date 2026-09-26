@@ -125,22 +125,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
         var columnPairs = rows.Split(',');
         foreach (var trimmedPair in columnPairs.Select(pair => pair.Trim()))
         {
-            string firstColumn;
-            string lastColumn;
-            if (trimmedPair.Contains(':') || trimmedPair.Contains('-'))
-            {
-                var columnRange = trimmedPair.Contains('-')
-                    ? trimmedPair.Replace('-', ':').Split(':')
-                    : trimmedPair.Split(':');
-                firstColumn = columnRange[0];
-                lastColumn = columnRange[1];
-            }
-            else
-            {
-                firstColumn = trimmedPair;
-                lastColumn = trimmedPair;
-            }
-
+            var (firstColumn, lastColumn) = XLHelper.SplitRangePair(trimmedPair);
             retVal.Add(Range(firstColumn, lastColumn).FirstRow()!);
         }
 
@@ -173,25 +158,7 @@ internal class XLRangeRow : XLStoredRangeBase, IXLRangeRow
         return Range(1, firstColumn, 1, lastColumn);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            var firstPart = arrRange[0];
-            var secondPart = arrRange[1];
-            rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixRowAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: true);
 
     public int CompareTo(XLRangeRow otherRow, IXLSortElements columnsToSort)
     {

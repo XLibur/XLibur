@@ -78,7 +78,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
     private void AddColumnsFromSegment(XLRangeColumns result, string segment)
     {
-        ParseRangeSegment(segment, out var first, out var last);
+        var (first, last) = XLHelper.SplitRangePair(segment);
 
         var columnsToAdd = int.TryParse(first, out _)
             ? Columns(int.Parse(first), int.Parse(last))
@@ -86,21 +86,6 @@ internal class XLRange : XLStoredRangeBase, IXLRange
 
         foreach (var col in columnsToAdd)
             result.Add(col);
-    }
-
-    private static void ParseRangeSegment(string segment, out string first, out string last)
-    {
-        if (segment.Contains(':') || segment.Contains('-'))
-        {
-            var parts = XLHelper.SplitRange(segment);
-            first = parts[0];
-            last = parts[1];
-        }
-        else
-        {
-            first = segment;
-            last = segment;
-        }
     }
 
     IXLCell IXLRange.Cell(int row, int column)
@@ -193,7 +178,7 @@ internal class XLRange : XLStoredRangeBase, IXLRange
         var retVal = new XLRangeRows();
         foreach (var segment in rows.Split(','))
         {
-            ParseRangeSegment(segment.Trim(), out var first, out var last);
+            var (first, last) = XLHelper.SplitRangePair(segment.Trim());
             foreach (var row in Rows(int.Parse(first), int.Parse(last)))
                 retVal.Add(row);
         }

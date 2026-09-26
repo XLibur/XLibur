@@ -9,53 +9,21 @@ public class XLDateCriteria : XLValidationCriteria
     {
     }
 
-    public void Between(DateTime minValue, DateTime maxValue)
-    {
-        dataValidation.MinValue = minValue.ToOADate().ToInvariantString();
-        dataValidation.MaxValue = maxValue.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.Between;
-    }
+    public void Between(DateTime minValue, DateTime maxValue) => base.Between(GetXLDate(minValue), GetXLDate(maxValue));
 
-    public void EqualOrGreaterThan(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.EqualOrGreaterThan;
-    }
+    public void EqualOrGreaterThan(DateTime value) => base.EqualOrGreaterThan(GetXLDate(value));
 
-    public void EqualOrLessThan(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.EqualOrLessThan;
-    }
+    public void EqualOrLessThan(DateTime value) => base.EqualOrLessThan(GetXLDate(value));
 
-    public void EqualTo(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.EqualTo;
-    }
+    public void EqualTo(DateTime value) => base.EqualTo(GetXLDate(value));
 
-    public void GreaterThan(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.GreaterThan;
-    }
+    public void GreaterThan(DateTime value) => base.GreaterThan(GetXLDate(value));
 
-    public void LessThan(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.LessThan;
-    }
+    public void LessThan(DateTime value) => base.LessThan(GetXLDate(value));
 
-    public void NotBetween(DateTime minValue, DateTime maxValue)
-    {
-        dataValidation.MinValue = minValue.ToOADate().ToInvariantString();
-        dataValidation.MaxValue = maxValue.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.NotBetween;
-    }
+    public void NotBetween(DateTime minValue, DateTime maxValue) => base.NotBetween(GetXLDate(minValue), GetXLDate(maxValue));
 
-    public void NotEqualTo(DateTime value)
-    {
-        dataValidation.Value = value.ToOADate().ToInvariantString();
-        dataValidation.Operator = XLOperator.NotEqualTo;
-    }
+    public void NotEqualTo(DateTime value) => base.NotEqualTo(GetXLDate(value));
+
+    private static string GetXLDate(DateTime value) => value.ToOADate().ToInvariantString();
 }

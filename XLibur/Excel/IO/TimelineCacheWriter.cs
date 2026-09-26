@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.IO.DrawingML;
+using XLibur.Extensions;
 using static XLibur.Excel.XLWorkbook;
 using X15 = DocumentFormat.OpenXml.Office2013.Excel;
 
@@ -120,8 +121,7 @@ internal static class TimelineCacheWriter
         if (cache.WorkbookRelId is not { } relId)
             return;
 
-        if (workbookPart.Parts.Any(p => p.RelationshipId == relId)
-            && workbookPart.GetPartById(relId) is TimeLineCachePart part)
+        if (workbookPart.GetPartOrNull<TimeLineCachePart>(relId) is { } part)
         {
             workbookPart.DeletePart(part);
         }

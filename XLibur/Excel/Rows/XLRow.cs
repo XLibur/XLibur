@@ -342,7 +342,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             if (wrapWidthPx > 0)
             {
                 cell.GetGlyphBoxes(engine, dpi, glyphs, breaks);
-                var scaledMdw = XLColumn.GetScaledMdw(engine, cellStyle.Font, dpi);
+                var scaledMdw = XLHelper.GetMdw(engine, cellStyle.Font, dpi.X);
                 contentHeightPx = XLWrappedText.GetHeight(glyphs, breaks, wrapWidthPx, scaledMdw);
             }
             else
@@ -370,7 +370,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             : Worksheet.ColumnWidth;
 
         // Column widths are in characters of the workbook font, the same as XLColumn.AdjustToContents.
-        var mdw = (int)Math.Round(engine.GetMaxDigitWidth(Worksheet.Workbook.Style.Font, dpi.X));
+        var mdw = XLHelper.GetMdw(engine, Worksheet.Workbook.Style.Font, dpi.X);
         var columnWidthPx = (int)Math.Round(XLHelper.NoCToPixels(columnWidth, mdw));
 
         // Each indent level is one character wide.
@@ -635,25 +635,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         OnRangeAddressChanged(oldAddress, RangeAddress);
     }
 
-    public override XLRange Range(string rangeAddressStr)
-    {
-        string rangeAddressToUse;
-        if (rangeAddressStr.Contains(':') || rangeAddressStr.Contains('-'))
-        {
-            if (rangeAddressStr.Contains('-'))
-                rangeAddressStr = rangeAddressStr.Replace('-', ':');
-
-            var arrRange = rangeAddressStr.Split(':');
-            var firstPart = arrRange[0];
-            var secondPart = arrRange[1];
-            rangeAddressToUse = FixRowAddress(firstPart) + ":" + FixRowAddress(secondPart);
-        }
-        else
-            rangeAddressToUse = FixRowAddress(rangeAddressStr);
-
-        var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
-        return Range(rangeAddress);
-    }
+    public override XLRange Range(string rangeAddressStr) => RangeFromLineAddress(rangeAddressStr, isRow: true);
 
     internal void SetStyleNoColumns(IXLStyle value)
     {

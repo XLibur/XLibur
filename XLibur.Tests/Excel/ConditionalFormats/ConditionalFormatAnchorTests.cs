@@ -70,6 +70,46 @@ public class ConditionalFormatAnchorTests
     }
 
     /// <summary>
+    /// The blank, error, text and date rules have a formula the save builds from a template, and Excel
+    /// writes that formula relative to the anchor too. Measured over COM: Excel saves a "blanks" rule
+    /// on <c>B1:B5,A3:A5</c> as <c>LEN(TRIM(A1))=0</c>, an "errors" rule on <c>F3:F5,E1:E2</c> as
+    /// <c>ISERROR(E1)</c>, and a "does not contain" rule on <c>J2:J5,H4:H6</c> as
+    /// <c>ISERROR(SEARCH("ab",H2))</c>, <c>H2</c> being in neither area. The save used to write each
+    /// template for the first area's first cell (<c>B1</c>, <c>F3</c>, <c>J2</c>), so Excel tested
+    /// every cell's neighbour.
+    /// </summary>
+    [Test]
+    public async Task A_template_formula_is_written_for_the_anchor()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        AddRule(ws, "B1:B5", "A3:A5").WhenIsBlank().Fill.SetBackgroundColor(XLColor.Red);
+        AddRule(ws, "F3:F5", "E1:E2").WhenIsError().Fill.SetBackgroundColor(XLColor.Red);
+        AddRule(ws, "J2:J5", "H4:H6").WhenNotContains("ab").Fill.SetBackgroundColor(XLColor.Red);
+        AddRule(ws, "M3:M5", "L1:L2").WhenDateIs(XLTimePeriod.Today).Fill.SetBackgroundColor(XLColor.Red);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+        using var document = SpreadsheetDocument.Open(ms, false);
+        var formulas = document.WorkbookPart!.WorksheetParts.Single().Worksheet!
+            .Descendants<S.Formula>()
+            .Select(f => f.Text)
+            .ToList();
+
+        await Assert.That(formulas).IsEquivalentTo(new[]
+        {
+            "LEN(TRIM(A1))=0",
+            "ISERROR(E1)",
+            "ISERROR(SEARCH(\"ab\",H2))",
+            "FLOOR(L1,1)=TODAY()",
+        });
+
+        static IXLConditionalFormat AddRule(IXLWorksheet ws, string first, string second)
+            => ws.Range(first).AddConditionalFormat().SetRanges(new[] { ws.Range(first), ws.Range(second) });
+    }
+
+    /// <summary>
     /// Saves <paramref name="wb"/> to <paramref name="ms"/> with the default options and reads its one
     /// rule back as <c>anchor anchors formula</c>, the anchor being the top-left of the saved range.
     /// </summary>

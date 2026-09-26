@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.IO.DrawingML;
 using XLibur.Excel.Tables;
+using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
@@ -135,8 +136,7 @@ internal static class SlicerCacheWriter
         if (cache.WorkbookRelId is not { } relId)
             return;
 
-        if (workbookPart.Parts.Any(p => p.RelationshipId == relId)
-            && workbookPart.GetPartById(relId) is SlicerCachePart part)
+        if (workbookPart.GetPartOrNull<SlicerCachePart>(relId) is { } part)
         {
             workbookPart.DeletePart(part);
         }
