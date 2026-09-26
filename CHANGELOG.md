@@ -15,6 +15,7 @@
 - [v0.300.0](#v03000---2026-08-02)
 - [v0.200.0](#v02000---2026-08-01)
 - [XLibur.Report — Unreleased](#xliburreport--unreleased)
+- [XLibur.Report v0.620.0](#xliburreport-v06200---2026-09-26)
 - [v0.106.0](#v01060---2026-07-25)
 
 ## Unreleased
@@ -1047,6 +1048,8 @@ rich-text equality.
 `XLibur.Report` is versioned and released independently of the core library, on its own
 `report-v*` tag stream, so its changes are recorded here rather than under the core version
 above. Nothing in this section has shipped yet.
+
+## XLibur.Report v0.620.0 - 2026-09-26
 
 ### ✨ New Features
 
