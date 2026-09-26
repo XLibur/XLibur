@@ -19,6 +19,10 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **WORKDAY, WORKDAY.INTL and NETWORKDAYS.INTL check their arguments in the same order as Excel.** Checked against Excel over COM (#665). WORKDAY.INTL with an offset of zero now returns the start date without reading the weekend or holidays, as WORKDAY already did: `=WORKDAY.INTL(DATE(2024,1,1),0,1,#N/A)` is the start date, not `#N/A`. Both functions round a fractional offset down instead of toward zero, so `-0.5` is one working day back. An error given as the weekend becomes `#NUM!` in WORKDAY.INTL and `#VALUE!` in NETWORKDAYS.INTL instead of being passed on. A weekend string that is not a valid mask is `#VALUE!` instead of `#NUM!`. A reference to an empty cell as the weekend is `#NUM!`; only an omitted weekend means Saturday and Sunday. NETWORKDAYS.INTL reads the weekend before the dates, and accepts `"1111111"` and returns 0.
+
 ## v0.620.0 - 2026-09-26
 
 ### ✨ New Features
@@ -68,8 +72,6 @@
 - **Column and row autofit round the maximum digit width the same way as the rest of XLibur.** Column `AdjustToContents` and the wrap width of row `AdjustToContents` used banker's rounding, while loading, column-width conversion and cell padding rounded half away from zero (#621). All now round half away from zero. Output changes only for a font whose digit width is exactly an even number of pixels plus a half, such as Calibri 128pt at 96 DPI: those columns are now one pixel per character wider.
 
 - **WORKDAY returns `#NUM!` when the result falls outside the valid date range.** It returned a serial number past 9999-12-31 or before 1900, where WORKDAY.INTL already returned `#NUM!` (#621). A day count too large to land in range, such as `1E+10`, now returns `#NUM!` at once in both functions, instead of stepping day by day. NETWORKDAYS and WORKDAY now share their code with the .INTL versions.
-
-- **WORKDAY, WORKDAY.INTL and NETWORKDAYS.INTL check their arguments in the same order as Excel.** Checked against Excel over COM (#665). WORKDAY.INTL with an offset of zero now returns the start date without reading the weekend or holidays, as WORKDAY already did: `=WORKDAY.INTL(DATE(2024,1,1),0,1,#N/A)` is the start date, not `#N/A`. Both functions round a fractional offset down instead of toward zero, so `-0.5` is one working day back. An error given as the weekend becomes `#NUM!` in WORKDAY.INTL and `#VALUE!` in NETWORKDAYS.INTL instead of being passed on. A weekend string that is not a valid mask is `#VALUE!` instead of `#NUM!`. A reference to an empty cell as the weekend is `#NUM!`; only an omitted weekend means Saturday and Sunday. NETWORKDAYS.INTL reads the weekend before the dates, and accepts `"1111111"` and returns 0.
 
 - **`Evaluate` reads the whole spill of a dynamic array that was not yet calculated.** When `ws.Evaluate` read a range holding a dynamic-array formula that had not been calculated, the formula spilled while the range was being read, and the new values were missed: with `A1` = `SEQUENCE(3)`, `ws.Evaluate("SUM(A1:A3)")` returned 1 instead of 6 (#621). SUM, COUNT, NPV, IRR, MIRR, AND, OR and the other functions that read a range's values are fixed. Formulas calculated as part of the workbook were not affected.
 
