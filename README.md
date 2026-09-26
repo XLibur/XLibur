@@ -109,12 +109,12 @@ Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTIN
 
 **Consider XLibur if** you want any of the following over ClosedXML 0.105:
 
-- **Reduced memory usage and performance gains** — particularly for workbooks with many formatted
+- **Reduced memory usage and performance gains** - particularly for workbooks with many formatted
   cells. See the [published benchmarks](https://jafin.github.io/XLBench/charts.html).
-- **Bug fixes** — several outstanding community issues resolved that are still pending upstream.
-- **Community contributions** — several community PRs and enhancement requests have been merged into
+- **Bug fixes** - several outstanding community issues resolved that are still pending upstream.
+- **Community contributions** - several community PRs and enhancement requests have been merged into
   this codebase.
-- **Features with no equivalent in 0.105**, listed below.
+- **Additional Features with no equivalent in 0.105**, listed below.
 
 ### Features beyond ClosedXML 0.105
 
