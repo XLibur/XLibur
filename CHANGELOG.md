@@ -1104,6 +1104,8 @@ above. Nothing in this section has shipped yet.
 
 - **`XLibur.Report` no longer pins an exact core version.** It built against core internals, and a package compiled against internals can only honestly declare an exact dependency — so it pinned `[0.200.0]`, which made every core release a Report release and defeated the point of the separate `report-v*` tag stream. Report now builds against public API only (see the core section above) and declares an open floor of `0.201.0`, so a Report release travels with any core at or above that. ([#354](https://github.com/XLibur/XLibur/pull/354) by [@jafin](https://github.com/jafin))
 
+- **`XLibur.Report` now requires core 0.620.0 or later** (up from 0.201.0). Chart references are quoted with `XLHelper.QuoteSheetName`, which first shipped in core 0.620.0, so with an older core the package failed at run time with a `MissingMethodException` (#626).
+
 - **`XLibur.Report.DynamicLinq` moves to System.Linq.Dynamic.Core 1.7.3** (from 1.7.1). ([#345](https://github.com/XLibur/XLibur/pull/345) by [@dependabot](https://github.com/apps/dependabot))
 
 ## v0.106.0 - 2026-07-25

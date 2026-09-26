@@ -30,10 +30,14 @@
     been a promise core never made: NuGet would happily unify core upward and the report package
     would fail at runtime against internals that had since moved. Spec 13 replaced that grant with
     `XLFunctionLibrary` and the `IXLPivotCache` source members, which is what makes a floor honest.
-    0.201.0 is the first core release carrying them, so it is the floor.
+
+    The floor is the oldest core that has every public member the report package calls, so raise it
+    whenever the package starts calling something newer. It is 0.620.0 because chart references are
+    quoted with `XLHelper.QuoteSheetName`, which first shipped in core 0.620.0 — against an older
+    core the package would fail at runtime with a MissingMethodException.
   -->
   <PropertyGroup>
-    <XLiburDependencyVersion Condition="'$(XLiburDependencyVersion)' == ''">0.201.0</XLiburDependencyVersion>
+    <XLiburDependencyVersion Condition="'$(XLiburDependencyVersion)' == ''">0.620.0</XLiburDependencyVersion>
   </PropertyGroup>
 
   <!--
