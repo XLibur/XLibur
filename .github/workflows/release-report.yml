@@ -8,18 +8,29 @@ name: Release Report
 #   git tag -a report-v0.1.0 -m "XLibur.Report 0.1.0"
 #   git push upstream report-v0.1.0
 #
+# Or dispatch from main with a version, as Publish Release does for core: the run
+# rolls the "XLibur.Report — Unreleased" section of CHANGELOG.md into a dated
+# version heading, commits it, and tags that commit report-v<version> before it
+# builds, so MinVer produces that version. The commit and tag are pushed only once
+# every check below has passed. A dry run shows the changelog diff and pushes
+# nothing.
+#
 # Run with dry-run first (workflow_dispatch) to see the versions and the declared
 # core dependency without publishing anything.
 #
-# Pushing the tag is what releases. A dispatch with dry-run off will publish, but
-# only from a commit that is exactly a report-v tag — anywhere else MinVer yields
-# a pre-release and the run refuses, because a NuGet version cannot be reused.
+# Without a version, a dispatch with dry-run off will publish only from a commit
+# that is exactly a report-v tag — anywhere else MinVer yields a pre-release and
+# the run refuses, because a NuGet version cannot be reused.
 
 on:
   push:
     tags: ['report-v[0-9]*']
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version to release, e.g. 0.300.0. Leave empty to use the report-v tag on the commit.'
+        required: false
+        type: string
       dry-run:
         description: 'Dry run — build, pack and check, but do not publish'
         required: false
@@ -52,6 +63,55 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # Before the build, so MinVer reads the new tag. The input is passed through
+      # the environment, never interpolated into the script — a workflow_dispatch
+      # input is attacker-controlled text.
+      - name: Tag the requested version
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::A versioned report release must run from main (got $GITHUB_REF_NAME)"
+            exit 1
+          fi
+
+          version="${INPUT_VERSION#report-}"
+          version="${version#v}"
+
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$version' is not a stable MAJOR.MINOR.PATCH version"
+            exit 1
+          fi
+
+          tag="report-v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists"
+            exit 1
+          fi
+
+          # NuGet versions cannot be reused, so refuse anything that is not an
+          # increase over the highest report tag.
+          latest=$(git tag --list 'report-v[0-9]*' --sort=-v:refname | head -n1)
+          if [ -n "$latest" ] && \
+             [ "$(printf '%s\n%s\n' "$version" "${latest#report-v}" | sort -V | head -n1)" = "$version" ]; then
+            echo "::error::$tag is not an increase over the latest tag $latest"
+            exit 1
+          fi
+
+          # Roll the report section of the changelog, as Publish Release does for
+          # core, and tag that commit — so the tag's commit holds its own notes.
+          bash .github/scripts/roll-changelog.sh --report "$version"
+          git --no-pager diff -- CHANGELOG.md
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git commit -m "chore: roll changelog for $tag"
+          git tag -a "$tag" -m "XLibur.Report $version"
+          echo "Tagged the changelog commit as $tag"
+          echo "REQUESTED_TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
@@ -118,15 +178,17 @@ jobs:
       # A tag push must produce packages carrying that tag's version. A mismatch
       # means MinVer did not see the tag — usually a shallow clone or a tag that
       # does not match the report prefix — and would publish a pre-release version.
+      # The same holds for a tag this run created from the version input.
       - name: Verify the version matches the tag
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || env.REQUESTED_TAG != ''
         run: |
-          expected="${GITHUB_REF_NAME#report-v}"
+          tag="${REQUESTED_TAG:-$GITHUB_REF_NAME}"
+          expected="${tag#report-v}"
           if [ "$REPORT_VERSION" != "$expected" ]; then
-            echo "::error::Packages are version $REPORT_VERSION but tag $GITHUB_REF_NAME expects $expected — refusing to publish"
+            echo "::error::Packages are version $REPORT_VERSION but tag $tag expects $expected — refusing to publish"
             exit 1
           fi
-          echo "Version $REPORT_VERSION matches tag $GITHUB_REF_NAME"
+          echo "Version $REPORT_VERSION matches tag $tag"
 
       # The check above only runs on a tag, so a dispatch run with dry-run off
       # would otherwise publish whatever MinVer produced. On any commit that is
@@ -221,6 +283,16 @@ jobs:
               echo "- \`$(basename "$sbom")\`"
             done
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Only now that every check has passed, so a refused run leaves neither the
+      # changelog commit nor the tag behind. main goes first: if it moved during
+      # the run the push is rejected, and nothing is tagged or published. The
+      # release step below then finds the tag rather than making one.
+      - name: Push the changelog commit and tag
+        if: env.DRY_RUN != 'true' && env.REQUESTED_TAG != ''
+        run: |
+          git push origin HEAD:main
+          git push origin "$REQUESTED_TAG"
 
       - name: NuGet login
         if: env.DRY_RUN != 'true'
