@@ -3,7 +3,6 @@ using XLibur.Excel.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using XLibur.Tests.Utils;
 using DocumentFormat.OpenXml;
@@ -965,11 +964,7 @@ public class XLPivotTableTests
             wb.SaveAs(secondSave);
         }
 
-        secondSave.Position = 0;
-        using var archive = new ZipArchive(secondSave, ZipArchiveMode.Read, leaveOpen: true);
-        using var entry = archive.Entries.First(e => e.FullName.StartsWith("xl/pivotTables/pivotTable", StringComparison.Ordinal)).Open();
-        using var reader = new StreamReader(entry);
-        var pivotTableXml = await reader.ReadToEndAsync();
+        var pivotTableXml = secondSave.ReadPartUnder("xl/pivotTables/pivotTable");
 
         await Assert.That(pivotTableXml).Contains("dataPosition=")
             .Because("The row axis still references the values field (-2), so dataPosition is required for Excel to open the file without repair");
@@ -1549,19 +1544,8 @@ public class XLPivotTableTests
     [Test]
     public async Task A_round_trip_leaves_the_pivot_tables_cells_in_the_file()
     {
-        using var stream = TestHelper.GetStreamFromResource(
-            TestHelper.GetResourcePath(@"TryToLoad\SlicersOnPivotAndTable.xlsx"));
-        using var saved = new MemoryStream();
-        using (var wb = new XLWorkbook(stream))
-        {
-            wb.SaveAs(saved);
-        }
-
-        saved.Position = 0;
-        using var archive = new ZipArchive(saved, ZipArchiveMode.Read, leaveOpen: true);
-        using var entry = archive.Entries.First(e => e.FullName == "xl/worksheets/sheet2.xml").Open();
-        using var reader = new StreamReader(entry);
-        var sheetXml = reader.ReadToEnd();
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        var sheetXml = saved.ReadPart("xl/worksheets/sheet2.xml");
 
         // The pivot occupies A3:B5 and Excel rendered it before the file was saved. "Grand Total"
         // is a shared string, so the row it sits on is the readable witness that the render is

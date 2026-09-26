@@ -132,7 +132,7 @@ public class SheetCopyConditionalFormatTests
         await Assert.That(KeptRules(saved, Copy)).IsEquivalentTo(expected);
         await Assert.That(ExtensionXml(saved, "Other")).IsEqualTo(ExtensionXml(Resource(KeptRulesFixture), "Other"));
 
-        using var untouched = LoadAndSave(Resource(KeptRulesFixture));
+        using var untouched = TestHelper.LoadAndSave(Folder + KeptRulesFixture);
         await Assert.That(ValidationErrors(saved)).IsEquivalentTo(ValidationErrors(untouched));
     }
 
@@ -495,16 +495,6 @@ public class SheetCopyConditionalFormatTests
             after?.Invoke(wb);
             wb.SaveAs(ms, validate);
         }
-
-        ms.Position = 0;
-        return ms;
-    }
-
-    private static MemoryStream LoadAndSave(Stream source)
-    {
-        var ms = new MemoryStream();
-        using (var wb = new XLWorkbook(source))
-            wb.SaveAs(ms);
 
         ms.Position = 0;
         return ms;
