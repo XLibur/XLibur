@@ -6,7 +6,8 @@ namespace XLibur.Excel;
 /// <summary>
 /// A rule whose one formula Excel writes from a fixed template: the blank, error and text rules.
 /// The template's <c>{0}</c> is the rule's anchor cell (<see cref="XLCFBaseConverter.AnchorAddress"/>);
-/// for a text rule, <c>{1}</c> is the text it looks for and <c>{2}</c> that text's length.
+/// for a text rule, <c>{1}</c> is the text it looks for, escaped as a formula string literal, and
+/// <c>{2}</c> the raw text's length.
 /// </summary>
 /// <remarks>As <see cref="XLCFDatesOccurringConverter"/> does for its time periods.</remarks>
 internal sealed class XLCFTemplateConverter : IXLCFConverter
@@ -51,8 +52,10 @@ internal sealed class XLCFTemplateConverter : IXLCFConverter
             conditionalFormattingRule.Text = text;
         }
 
+        // {1} sits inside a formula string literal, so a quote in the text is doubled there (as
+        // Excel writes it); the text attribute keeps the raw text, and {2} is the raw text's length.
         var formulaText = string.Format(CultureInfo.InvariantCulture, _template,
-            XLCFBaseConverter.AnchorAddress(cf), text, text?.Length);
+            XLCFBaseConverter.AnchorAddress(cf), text?.Replace("\"", "\"\""), text?.Length);
         conditionalFormattingRule.Append(new Formula { Text = formulaText });
 
         return conditionalFormattingRule;
