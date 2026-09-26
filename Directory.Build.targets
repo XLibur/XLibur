@@ -22,7 +22,7 @@
     condition below yields to it.
   -->
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
-    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.12" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(GenerateSBOM)' == ''">
