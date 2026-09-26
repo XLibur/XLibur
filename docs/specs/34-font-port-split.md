@@ -244,6 +244,13 @@ shared conformance module. That is the same disease as this spec's, one layer up
 comes first: two near-identical suites that never compare their two subjects to each other are
 exactly the gate this refactor needs and does not have.
 
+*Update, PR #657 (#621 finding 23):* the engine tests the two suites had in common now live once,
+in `XLibur.Fonts.Tests.Shared/FontEngineContractTests.cs`, an abstract base linked into both test
+projects as source. `SixLaborsFontEngineTests.cs` and `SkiaSharpFontEngineTests.cs` remain, but
+each is a small `[InheritsTests]` subclass that supplies its engine plus that engine's own tests.
+The shared folder also holds the test-font reader (`TestHelper.cs`), and the test fonts themselves
+are linked from `XLibur.Tests/Resource/Fonts/` rather than copied into each project.
+
 ## Non-goals
 
 - **Not changing `IXLFontEngine`.** The core-facing port keeps its five methods and its signatures.
@@ -291,7 +298,8 @@ not carried forward.
 - `AddEmbeddedFont` `:232-248` · `CalculateMaxDigitWidth` `:250-273`
 - `PointsToPixels` `:275` (`internal`, no users) · `MetricId` `:277-305`
 - `Fonts/` holds four `CarlitoBare-*.ttf`; resource path `XLibur.Graphics.Fonts.CarlitoBare-{0}.ttf`
-  (`:235`)
+  (`:235`). *Since PR #657 the files live once, in `resources/fonts/`, and V1 embeds them through
+  linked items that keep that `LogicalName`; the project has no `Fonts/` folder any more.*
 
 **v2 — `XLibur.Fonts.SixLabors/SixLaborsFontEngine.cs`, 277 lines:**
 
@@ -1381,6 +1389,8 @@ git commit -m 'perf(fonts): benchmark the autofit path across the new font seam 
   - The four `CarlitoBare-*.ttf` under `XLibur/Graphics/Fonts/` are tracked and embedded by nothing —
     spec 27's closing note establishes this and explicitly declines to delete them. This spec
     declines too, for the same reason: it is unrelated to the seam and would make criterion 11
-    ("registration is untouched") harder to read.
+    ("registration is untouched") harder to read. *Since done separately by PR #657 (#621 finding
+    24): one copy in `resources/fonts/`, linked into V1 and SkiaSharp under their existing logical
+    names.*
   - `XLibur.Fonts.SixLabors.V1/ModuleInit.cs` retains V1's module initializer for backward
     compatibility (`docs/font-architecture.md:168`). Untouched.
