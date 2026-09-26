@@ -306,7 +306,6 @@ internal sealed class ReferenceNode : ValueNode
     public ReferenceNode(PrefixNode? prefix, ReferenceArea referenceArea, bool isA1)
     {
         Prefix = prefix;
-        Address = isA1 ? referenceArea.GetDisplayStringA1() : referenceArea.GetDisplayStringR1C1();
         ReferenceArea = referenceArea;
         IsA1 = isA1;
     }
@@ -319,7 +318,11 @@ internal sealed class ReferenceNode : ValueNode
     /// <summary>
     /// An address of a reference that corresponds to <see cref="Type"/>. Always without a sheet (that is in the prefix).
     /// </summary>
-    public string Address { get; }
+    /// <remarks>
+    /// Built on first read. Evaluation reads <see cref="ReferenceArea"/>, not this text, so building
+    /// it for every parsed reference cost about 150 bytes per formula that nothing used (#686).
+    /// </remarks>
+    public string Address => field ??= IsA1 ? ReferenceArea.GetDisplayStringA1() : ReferenceArea.GetDisplayStringR1C1();
 
     /// <summary>
     /// An area from a parser.
