@@ -325,7 +325,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// caller reads the point's value before it asks for the next one — the walk starts again over
     /// the rest of the area: the remainder of the row, then the rows below. That sees the new
     /// cells and still visits each cell once, in order. A caller may skip a point without reading
-    /// it (a filtered-out cell); nothing is evaluated then, so the walk goes on. On the calculation
+    /// it (a filtered-out cell), but it must still read a dynamic-array anchor it skips, or that
+    /// anchor's spill is never written and never walked. On the calculation
     /// chain nothing is evaluated mid-walk: reading a dirty cell throws, the chain evaluates it
     /// first and the whole formula is read again.
     /// </remarks>
@@ -450,8 +451,18 @@ internal sealed class CalcContext : IStructuredReferenceScope
 
             foreach (var point in GetUsedPoints(sheet, range))
             {
-                if (IsFilteredOut(sheet, point, skipHiddenRows, ref hiddenRowTracker, visitor))
+                var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
+                if (IsFilteredOut(formula, point, skipHiddenRows, ref hiddenRowTracker, visitor))
+                {
+                    // A dynamic-array anchor that is left out still owns the cells it spills into,
+                    // and those count. Read it, so a dirty anchor is evaluated first and spills:
+                    // recursively (the walk then restarts), or on the calculation chain, which
+                    // evaluates it and reads the whole formula again.
+                    if (formula is { IsDynamicArray: true })
+                        _ = GetCellValue(sheet, point.Row, point.Column);
+
                     continue;
+                }
 
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
                 if (!scalarValue.IsBlank)
@@ -474,13 +485,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// Whether a cell is left out of <see cref="GetFilteredNonBlankValues"/>: its row is hidden and hidden
     /// rows are skipped, or its own formula calls one of the filtered functions.
     /// </summary>
-    private static bool IsFilteredOut(XLWorksheet sheet, Point point, bool skipHiddenRows,
+    private static bool IsFilteredOut(XLCellFormula? formula, Point point, bool skipHiddenRows,
         ref HiddenRowTracker hiddenRowTracker, FunctionVisitor visitor)
     {
         if (skipHiddenRows && hiddenRowTracker.IsHidden(point.Row))
             return true;
 
-        return CallsFunction(sheet.Internals.CellsCollection.FormulaSlice.Get(point), visitor);
+        return CallsFunction(formula, visitor);
     }
 
     private static bool CallsFunction(XLCellFormula? formula, FunctionVisitor visitor)

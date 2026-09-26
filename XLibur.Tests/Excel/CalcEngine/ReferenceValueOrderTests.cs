@@ -176,6 +176,26 @@ public class ReferenceValueOrderTests
     }
 
     /// <summary>
+    /// The anchor's own row is hidden, so the anchor is left out, but the cells it spills into are
+    /// visible and count: 2 + 3. The anchor must still be evaluated so that it spills.
+    /// </summary>
+    [Test]
+    [Arguments("SUBTOTAL(109,A1:A3)", 5d, false)]
+    [Arguments("SUBTOTAL(109,A1:A3)", 5d, true)]
+    [Arguments("AGGREGATE(9,5,A1:A3)", 5d, false)]
+    [Arguments("AGGREGATE(9,5,A1:A3)", 5d, true)]
+    [Arguments("SUBTOTAL(9,A1:A3)", 6d, false)]
+    public async Task SpillOfAnAnchorOnAHiddenRowIsRead(string formula, double expected, bool inCell)
+    {
+        var ws = NewSpillSheet(out var wb, "SEQUENCE(3)");
+        using (wb)
+        {
+            ws.Row(1).Hide();
+            await Assert.That((double)EvaluateFormula(ws, formula, inCell)).IsEqualTo(expected);
+        }
+    }
+
+    /// <summary>
     /// The nested-SUBTOTAL filter still applies to the cells found after a restart: A4 holds a
     /// SUBTOTAL of its own and is below the spill, so the walk reaches it only after the restart.
     /// </summary>
