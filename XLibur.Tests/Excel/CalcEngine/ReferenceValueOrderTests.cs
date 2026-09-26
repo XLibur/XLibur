@@ -4,8 +4,8 @@ using XLibur.Excel;
 namespace XLibur.Tests.Excel.CalcEngine;
 
 /// <summary>
-/// Functions that read the values of a reference all go through the one sparse iterator,
-/// <c>CalcContext.GetNonBlankValues</c>. It visits only the cells that hold something, yet it must
+/// Functions that read the values of a reference all go through the one sparse walk,
+/// <c>CalcContext.GetUsedPoints</c>. It visits only the cells that hold something, yet it must
 /// still hand them over in row-major order — left to right, then top to bottom — because NPV, IRR
 /// and MIRR depend on the order.
 /// </summary>
@@ -130,6 +130,80 @@ public class ReferenceValueOrderTests
         }
 
         await Assert.That((double)actual).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// SUBTOTAL, AGGREGATE and the criteria functions read a reference through their own sparse
+    /// readers, which must also see the cells a dirty anchor spills into once it is read.
+    /// </summary>
+    [Test]
+    [Arguments("SUBTOTAL(9,A1:A3)", 6d, false)]
+    [Arguments("SUBTOTAL(9,A1:A3)", 6d, true)]
+    [Arguments("SUBTOTAL(109,A1:A3)", 6d, false)]
+    [Arguments("SUBTOTAL(3,A1:A3)", 3d, false)] // COUNTA goes through the same reader.
+    [Arguments("AGGREGATE(9,0,A1:A3)", 6d, false)]
+    [Arguments("AGGREGATE(9,5,A1:A3)", 6d, false)]
+    [Arguments("SUMIF(A1:A3,\">0\")", 6d, false)]
+    [Arguments("SUMIF(A1:A3,\">0\")", 6d, true)]
+    [Arguments("COUNTIF(A1:A3,\">1\")", 2d, false)]
+    [Arguments("SUMIFS(A1:A3,A1:A3,\">0\")", 6d, false)]
+    [Arguments("AVERAGEIF(A:A,\">0\")", 2d, false)]
+    public async Task UnevaluatedSpillIsReadByFilteredAndCriteriaReaders(string formula, double expected, bool inCell)
+    {
+        var ws = NewSpillSheet(out var wb, "SEQUENCE(3)");
+        using (wb)
+            await Assert.That((double)EvaluateFormula(ws, formula, inCell)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// The hidden-row filter still applies to the cells found after a restart: row 2 is hidden, so
+    /// only A1 and A3 of the spilled <c>{1;2;3}</c> count.
+    /// </summary>
+    [Test]
+    [Arguments("SUBTOTAL(109,A1:A3)", 4d, false)]
+    [Arguments("SUBTOTAL(109,A1:A3)", 4d, true)]
+    [Arguments("SUBTOTAL(9,A1:A3)", 6d, false)] // 9 counts hidden rows.
+    [Arguments("AGGREGATE(9,5,A1:A3)", 4d, false)]
+    [Arguments("AGGREGATE(9,5,A1:A3)", 4d, true)]
+    public async Task HiddenRowFilterAppliesAfterASpillRestart(string formula, double expected, bool inCell)
+    {
+        var ws = NewSpillSheet(out var wb, "SEQUENCE(3)");
+        using (wb)
+        {
+            ws.Row(2).Hide();
+            await Assert.That((double)EvaluateFormula(ws, formula, inCell)).IsEqualTo(expected);
+        }
+    }
+
+    /// <summary>
+    /// The nested-SUBTOTAL filter still applies to the cells found after a restart: A4 holds a
+    /// SUBTOTAL of its own and is below the spill, so the walk reaches it only after the restart.
+    /// </summary>
+    [Test]
+    [Arguments("SUBTOTAL(9,A1:A4)", 6d, false)]
+    [Arguments("SUBTOTAL(9,A1:A4)", 6d, true)]
+    [Arguments("AGGREGATE(9,0,A1:A4)", 6d, false)]
+    [Arguments("AGGREGATE(9,0,A1:A4)", 6d, true)]
+    [Arguments("SUM(A1:A4)", 106d, false)] // The unfiltered reader does count A4.
+    public async Task NestedSubtotalFilterAppliesAfterASpillRestart(string formula, double expected, bool inCell)
+    {
+        var ws = NewSpillSheet(out var wb, "SEQUENCE(3)");
+        using (wb)
+        {
+            ws.Cell("B1").Value = 100;
+            ws.Cell("A4").FormulaA1 = "SUBTOTAL(9,B1)";
+            await Assert.That((double)EvaluateFormula(ws, formula, inCell)).IsEqualTo(expected);
+        }
+    }
+
+    private static XLCellValue EvaluateFormula(IXLWorksheet ws, string formula, bool inCell)
+    {
+        if (!inCell)
+            return ws.Evaluate(formula); // Evaluates dirty formulas recursively.
+
+        // A cell formula, recalculated through the calculation chain.
+        ws.Cell("Z1").FormulaA1 = formula;
+        return ws.Cell("Z1").Value;
     }
 
     private static IXLWorksheet NewSpillSheet(out XLWorkbook wb, string spill)

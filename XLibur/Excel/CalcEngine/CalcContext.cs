@@ -302,18 +302,34 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <summary>
     /// The non-blank values of one area of <paramref name="sheet"/>, in row-major order.
     /// </summary>
+    private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
+    {
+        foreach (var point in GetUsedPoints(sheet, area))
+        {
+            var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+            if (!scalarValue.IsBlank)
+                yield return scalarValue;
+        }
+    }
+
+    /// <summary>
+    /// The points of the cells of one area of <paramref name="sheet"/> that hold a value or a
+    /// formula, in row-major order. This is the sparse walk every reader of a reference shares.
+    /// </summary>
     /// <remarks>
     /// The slice enumerator only sees the cells that were used when it was built. When dirty
     /// formulas are evaluated recursively (<c>worksheet.Evaluate</c>), reading a cell can evaluate
     /// a dirty formula on the spot: the cell's own, or the dynamic-array anchor that owns a spilled
     /// cell, wherever that anchor is. A spill may then write cells later in the area that were
-    /// empty a moment ago. So after any read that evaluated something, the walk starts again over
-    /// the rest of the area — the remainder of the row, then the rows below — which sees the new
-    /// cells and still visits each cell once, in order. On the calculation chain nothing is
-    /// evaluated mid-walk: reading a dirty cell throws, the chain evaluates it first and the
-    /// whole formula is read again.
+    /// empty a moment ago. So when anything was evaluated while the caller had a point — the
+    /// caller reads the point's value before it asks for the next one — the walk starts again over
+    /// the rest of the area: the remainder of the row, then the rows below. That sees the new
+    /// cells and still visits each cell once, in order. A caller may skip a point without reading
+    /// it (a filtered-out cell); nothing is evaluated then, so the walk goes on. On the calculation
+    /// chain nothing is evaluated mid-walk: reading a dirty cell throws, the chain evaluates it
+    /// first and the whole formula is read again.
     /// </remarks>
-    private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
+    private IEnumerable<Point> GetUsedPoints(XLWorksheet sheet, Area area)
     {
         var cells = sheet.Internals.CellsCollection;
 
@@ -328,12 +344,9 @@ internal sealed class CalcContext : IStructuredReferenceScope
             {
                 var point = enumerator.Current;
                 var evaluationsBefore = _recursiveEvaluations;
-                var scalarValue = GetCellValue(sheet, point.Row, point.Column);
-                var evaluated = _recursiveEvaluations != evaluationsBefore;
-                if (!scalarValue.IsBlank)
-                    yield return scalarValue;
+                yield return point;
 
-                if (evaluated)
+                if (_recursiveEvaluations != evaluationsBefore)
                 {
                     pending ??= new Stack<Area>();
                     if (point.Row < current.BottomRow)
@@ -411,10 +424,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
         var sheet = areaReference.Worksheet ?? Worksheet;
         var area = Area.FromRangeAddress(areaReference);
 
-        var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(area);
-        while (enumerator.MoveNext())
+        foreach (var point in GetUsedPoints(sheet, area))
         {
-            var point = enumerator.Current;
             var scalarValue = GetCellValue(sheet, point.Row, point.Column);
             if (criteria.Match(scalarValue))
                 yield return point;
@@ -437,12 +448,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
             var range = Area.FromRangeAddress(area);
             var hiddenRowTracker = new HiddenRowTracker(sheet);
 
-            // A value can be either in a non-empty value slice or an empty cell with a formula.
-            var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
-            while (enumerator.MoveNext())
+            foreach (var point in GetUsedPoints(sheet, range))
             {
-                var point = enumerator.Current;
-
                 if (IsFilteredOut(sheet, point, skipHiddenRows, ref hiddenRowTracker, visitor))
                     continue;
 
