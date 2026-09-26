@@ -80,7 +80,7 @@ internal static class HeaderFooterImageWriter
         Dictionary<XLHFImage, string> imageRelIds)
     {
         using var stream = vmlPart.GetStream(FileMode.Create);
-        using var writer = new XmlTextWriter(stream, Encoding.UTF8);
+        using var writer = VmlDrawingPartWriter.VmlXmlWriter(stream);
 
         writer.WriteStartElement("xml");
         writer.WriteAttributeString("xmlns", "v", null, VmlNs);
