@@ -3,10 +3,10 @@ using XLibur.Excel;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Worksheets;
 
@@ -270,16 +270,8 @@ public class XLSheetViewTests
     /// <summary>How many worksheet parts in the package carry <c>tabSelected="1"</c>.</summary>
     private static int SelectedTabCount(MemoryStream package)
     {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-
-        return archive.Entries
-            .Where(e => e.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase))
-            .Count(e =>
-            {
-                using var reader = new StreamReader(e.Open());
-                return Regex.IsMatch(reader.ReadToEnd(), "\\btabSelected=\"(1|true)\"");
-            });
+        return package.PartsUnder("xl/worksheets/sheet")
+            .Count(part => Regex.IsMatch(package.ReadPart(part), "\\btabSelected=\"(1|true)\""));
     }
 
     #endregion Spec 38 regressions

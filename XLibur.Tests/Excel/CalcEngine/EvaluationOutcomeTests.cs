@@ -1,12 +1,12 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -1194,10 +1194,7 @@ public class EvaluationOutcomeTests
 
     internal static string CachedValueInFile(MemoryStream stream, string address)
     {
-        using var zip = new ZipArchive(new MemoryStream(stream.ToArray()), ZipArchiveMode.Read);
-        var entry = zip.Entries.First(e => e.FullName.EndsWith("sheet1.xml", StringComparison.OrdinalIgnoreCase));
-        using var reader = new StreamReader(entry.Open());
-        var sheet = System.Xml.Linq.XDocument.Parse(reader.ReadToEnd());
+        var sheet = System.Xml.Linq.XDocument.Parse(stream.Sheet1Xml());
         var cell = sheet.Descendants().First(e => e.Name.LocalName == "c" && (string?)e.Attribute("r") == address);
         var value = cell.Elements().FirstOrDefault(e => e.Name.LocalName == "v");
         return value is null ? $"{address} has no <v>" : $"{address} <v>{value.Value}</v>";

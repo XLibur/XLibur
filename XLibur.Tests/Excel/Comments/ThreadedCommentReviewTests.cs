@@ -1,8 +1,6 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
@@ -115,27 +113,10 @@ public partial class ThreadedCommentReviewTests
             wb.SaveAs(ms, validate: true);
         }
 
-        // Strip the dT attribute the writer emitted.
-        ms.Position = 0;
-        using (var archive = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true))
-        {
-            var entry = archive.Entries.First(e =>
-                e.FullName.StartsWith("xl/threadedcomments/", StringComparison.OrdinalIgnoreCase));
-
-            string xml;
-            using (var reader = new StreamReader(entry.Open(), Encoding.UTF8))
-                xml = reader.ReadToEnd();
-
-            xml = TimestampAttribute().Replace(xml, string.Empty);
-
-            using var stream = entry.Open();
-            stream.SetLength(0);
-            using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-            writer.Write(xml);
-        }
-
-        ms.Position = 0;
-        return ms;
+        // Strip the dT attribute the writer emitted. The part is found by its folder, because the
+        // SDK names a threaded-comment part it creates differently from one Excel wrote.
+        var threadPart = ms.PartsUnder("xl/threadedcomments/").First();
+        return ms.RewritePart(threadPart, xml => TimestampAttribute().Replace(xml, string.Empty));
     }
 
     // The threaded-comment timestamp is written at save time, so it has to come out before two

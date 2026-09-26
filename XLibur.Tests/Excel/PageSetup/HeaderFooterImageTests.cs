@@ -1,12 +1,12 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
 using XLibur.Excel;
 using XLibur.Excel.IO;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.PageSetup;
 
@@ -239,16 +239,12 @@ public class HeaderFooterImageTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        ms.Position = 0;
-        using var archive = new ZipArchive(ms, ZipArchiveMode.Read);
-
         // Find VML rels file
-        var vmlRelsEntry = archive.Entries.FirstOrDefault(e =>
-            e.FullName.Contains("drawings/_rels/") && e.FullName.EndsWith(".rels"));
-        await Assert.That(vmlRelsEntry).IsNotNull().Because("VML rels file should exist");
+        var vmlRelsPart = ms.PartNames().FirstOrDefault(p =>
+            p.Contains("drawings/_rels/") && p.EndsWith(".rels"));
+        await Assert.That(vmlRelsPart).IsNotNull().Because("VML rels file should exist");
 
-        using var relsStream = vmlRelsEntry!.Open();
-        var relsXml = XDocument.Load(relsStream);
+        var relsXml = XDocument.Parse(ms.ReadPart(vmlRelsPart!));
         var ns = XNamespace.Get("http://schemas.openxmlformats.org/package/2006/relationships");
         var imageRels = relsXml.Root!.Elements(ns + "Relationship")
             .Where(r => r.Attribute("Type")?.Value.Contains("image") == true)
@@ -267,11 +263,7 @@ public class HeaderFooterImageTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        ms.Position = 0;
-        using var archive = new ZipArchive(ms, ZipArchiveMode.Read);
-        var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
-        using var sheetStream = sheetEntry.Open();
-        var sheetXml = XDocument.Load(sheetStream);
+        var sheetXml = XDocument.Parse(ms.ReadPartUnder(WorksheetParts));
         var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
         var legacyDrawingHF = sheetXml.Root!.Element(ssNs + "legacyDrawingHF");
         await Assert.That(legacyDrawingHF).IsNotNull().Because("Sheet should contain <legacyDrawingHF> element");
@@ -323,11 +315,7 @@ public class HeaderFooterImageTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        ms.Position = 0;
-        using var archive = new ZipArchive(ms, ZipArchiveMode.Read);
-        var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
-        using var sheetStream = sheetEntry.Open();
-        var sheetXml = XDocument.Load(sheetStream);
+        var sheetXml = XDocument.Parse(ms.ReadPartUnder(WorksheetParts));
         var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
         var legacyDrawingHF = sheetXml.Root!.Element(ssNs + "legacyDrawingHF");
         await Assert.That(legacyDrawingHF).IsNull().Because("Sheet should NOT contain <legacyDrawingHF> when no images");
@@ -344,18 +332,12 @@ public class HeaderFooterImageTests
         using var ms = new MemoryStream();
         wb.SaveAs(ms, true);
 
-        ms.Position = 0;
-        using var archive = new ZipArchive(ms, ZipArchiveMode.Read);
-
         // Should have at least 2 VML drawing parts (one for comments, one for HF images)
-        var vmlParts = archive.Entries.Where(e =>
-            e.FullName.Contains("drawings/") && e.FullName.EndsWith(".vml")).ToList();
-        await Assert.That(vmlParts.Count).IsGreaterThanOrEqualTo(2).Because("Should have separate VML parts for comments and HF images");
+        var vmlParts = VmlDrawingParts(ms);
+        await Assert.That(vmlParts.Length).IsGreaterThanOrEqualTo(2).Because("Should have separate VML parts for comments and HF images");
 
         // Should have both legacyDrawing and legacyDrawingHF
-        var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
-        using var sheetStream = sheetEntry.Open();
-        var sheetXml = XDocument.Load(sheetStream);
+        var sheetXml = XDocument.Parse(ms.ReadPartUnder(WorksheetParts));
         var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
 
         await Assert.That(sheetXml.Root!.Element(ssNs + "legacyDrawing")).IsNotNull();
@@ -394,30 +376,18 @@ public class HeaderFooterImageTests
     private static (string vmlXml, string headerText, string footerText, string[] contentTypes, string[] mediaFiles)
         ExtractPackageInfo(Stream packageStream)
     {
-        packageStream.Position = 0;
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true);
-
         // Get sheet XML for header/footer text
-        var sheetEntry = archive.Entries.First(e => e.FullName.Contains("worksheets/sheet"));
-        string headerText, footerText;
-        using (var sheetStream = sheetEntry.Open())
-        {
-            var sheetXml = XDocument.Load(sheetStream);
-            var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
-            var hf = sheetXml.Root!.Element(ssNs + "headerFooter");
-            headerText = hf?.Element(ssNs + "oddHeader")?.Value ?? "";
-            footerText = hf?.Element(ssNs + "oddFooter")?.Value ?? "";
-        }
+        var sheetXml = XDocument.Parse(packageStream.ReadPartUnder(WorksheetParts));
+        var ssNs = XNamespace.Get(OpenXmlConst.Main2006SsNs);
+        var hf = sheetXml.Root!.Element(ssNs + "headerFooter");
+        var headerText = hf?.Element(ssNs + "oddHeader")?.Value ?? "";
+        var footerText = hf?.Element(ssNs + "oddFooter")?.Value ?? "";
 
         // Get VML content (look for the HF VML part, not the comments one)
         var vmlXml = "";
-        var vmlEntries = archive.Entries.Where(e =>
-            e.FullName.Contains("drawings/") && e.FullName.EndsWith(".vml")).ToList();
-        foreach (var vmlEntry in vmlEntries)
+        foreach (var vmlPart in VmlDrawingParts(packageStream))
         {
-            using var vmlStream = vmlEntry.Open();
-            using var reader = new StreamReader(vmlStream);
-            var content = reader.ReadToEnd();
+            var content = packageStream.ReadPart(vmlPart);
             // The HF VML part will have shape ids like LH, CH, RH, LF, CF, RF
             if (content.Contains("\"LH\"") || content.Contains("\"CH\"") || content.Contains("\"RH\"") ||
                 content.Contains("\"LF\"") || content.Contains("\"CF\"") || content.Contains("\"RF\""))
@@ -428,24 +398,26 @@ public class HeaderFooterImageTests
         }
 
         // Get content types
-        var ctEntry = archive.Entries.First(e => e.FullName == "[Content_Types].xml");
-        string[] contentTypes;
-        using (var ctStream = ctEntry.Open())
-        {
-            var ctXml = XDocument.Load(ctStream);
-            contentTypes = ctXml.Root!.Elements()
-                .Select(e => e.Attribute("ContentType")?.Value ?? "")
-                .Where(v => !string.IsNullOrEmpty(v))
-                .ToArray();
-        }
+        var ctXml = XDocument.Parse(packageStream.ReadPart("[Content_Types].xml"));
+        var contentTypes = ctXml.Root!.Elements()
+            .Select(e => e.Attribute("ContentType")?.Value ?? "")
+            .Where(v => !string.IsNullOrEmpty(v))
+            .ToArray();
 
-        var mediaFiles = archive.Entries
-            .Where(e => e.FullName.Contains("media/"))
-            .Select(e => e.FullName)
+        var mediaFiles = packageStream.PartNames()
+            .Where(p => p.Contains("media/"))
             .ToArray();
 
         return (vmlXml, headerText, footerText, contentTypes, mediaFiles);
     }
+
+    // The single worksheet these tests save. Matched by prefix, as the tests always have.
+    private const string WorksheetParts = "xl/worksheets/sheet";
+
+    private static string[] VmlDrawingParts(Stream package) =>
+        package.PartNames()
+            .Where(p => p.Contains("drawings/") && p.EndsWith(".vml"))
+            .ToArray();
 
     private static string[] GetVmlShapeIds(string vmlXml)
     {
