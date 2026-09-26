@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using TUnit.Assertions.Enums;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel;
 
@@ -22,21 +22,21 @@ public class RoundTripFidelityTests
     [Test]
     public async Task Chartsheets_survive_a_round_trip()
     {
-        using var saved = LoadAndSave(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
 
-        await Assert.That(PartExists(saved, "xl/chartsheets/sheet1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/chartsheets/sheet1.xml")).IsTrue();
 
         // The sheet entry has to stay in workbook.xml too, or the surviving part is an orphan.
         // WorkbookPartWriter reorders the sheets it models around the unsupported ones instead of
         // rewriting the list from scratch, which is what keeps this entry alive.
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
         await Assert.That(workbookXml).Contains("name=\"Chart\"");
     }
 
     [Test]
     public async Task A_chartsheet_still_loads_after_a_round_trip()
     {
-        using var saved = LoadAndSave(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"Other\PivotTableReferenceFiles\ChartsheetAndPivotTable.xlsx");
 
         // Reopening proves the relationships and content types survived, not just the part bytes.
         // The chartsheet is not an IXLWorksheet — it stays in the unsupported-sheet list — so only
@@ -50,20 +50,20 @@ public class RoundTripFidelityTests
     [Test]
     public async Task ActiveX_controls_survive_a_round_trip()
     {
-        using var saved = LoadAndSave(@"TryToLoad\LO\xlsx\activex_checkbox.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsx\activex_checkbox.xlsx");
 
-        await Assert.That(PartExists(saved, "xl/activeX/activeX1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/activeX/activeX1.bin")).IsTrue();
+        await Assert.That(saved.PartExists("xl/activeX/activeX1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/activeX/activeX1.bin")).IsTrue();
     }
 
     [Test]
     public async Task Form_control_references_survive_in_the_worksheet_xml()
     {
-        using var saved = LoadAndSave(@"TryToLoad\LO\xlsx\activex_checkbox.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsx\activex_checkbox.xlsx");
 
         // Surviving parts are not enough: the worksheet is rewritten from the model on every save,
         // so if <controls> were dropped the activeX parts would be left as unreachable orphans.
-        var sheetXml = ReadPart(saved, "xl/worksheets/sheet1.xml");
+        var sheetXml = saved.ReadPart("xl/worksheets/sheet1.xml");
         await Assert.That(sheetXml).Contains("controls>");
         await Assert.That(sheetXml).Contains("CheckBox1343");
         await Assert.That(sheetXml).Contains("legacyDrawing");
@@ -77,83 +77,83 @@ public class RoundTripFidelityTests
     [Test]
     public async Task Custom_xml_parts_survive_a_round_trip()
     {
-        using var saved = LoadAndSave(@"TryToLoad\LO\xlsx\customxml.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsx\customxml.xlsx");
 
-        await Assert.That(PartExists(saved, "customXml/item1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "customXml/itemProps1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("customXml/item1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("customXml/itemProps1.xml")).IsTrue();
     }
 
     [Test]
     public async Task Timelines_and_their_caches_survive_a_round_trip()
     {
-        using var saved = LoadAndSave(@"TryToLoad\Timelines_Missing_21232.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\Timelines_Missing_21232.xlsx");
 
-        await Assert.That(PartExists(saved, "xl/timelines/timeline1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/timelineCaches/timelineCache1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/timelines/timeline1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/timelineCaches/timelineCache1.xml")).IsTrue();
     }
 
     [Test]
     public async Task Slicers_and_their_caches_survive_a_round_trip()
     {
-        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
         // slicer1 hangs off the table on sheet1, slicer2 off the pivot table on sheet2. Their caches
         // are cross-numbered: slicerCache1 serves the pivot slicer, slicerCache2 the table slicer.
-        await Assert.That(PartExists(saved, "xl/slicers/slicer1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/slicers/slicer2.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/slicerCaches/slicerCache2.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicers/slicer1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicers/slicer2.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicerCaches/slicerCache1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicerCaches/slicerCache2.xml")).IsTrue();
     }
 
     [Test]
     public async Task Slicer_styling_XLibur_does_not_model_survives_a_round_trip()
     {
-        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
         // The pivot slicer carries a renamed caption, a non-default built-in style and a single
         // selected item. None of that is modelled, so it only survives if the part is left alone.
-        var pivotSlicer = ReadPart(saved, "xl/slicers/slicer2.xml");
+        var pivotSlicer = saved.ReadPart("xl/slicers/slicer2.xml");
         await Assert.That(pivotSlicer).Contains("caption=\"Region filter\"");
         await Assert.That(pivotSlicer).Contains("style=\"SlicerStyleDark3\"");
 
         // s="1" on a single <i> is the selection. The table slicer's cache instead carries an
         // x15:tableSlicerCache extension, which is the other of the two binding paths.
-        var pivotCache = ReadPart(saved, "xl/slicerCaches/slicerCache1.xml");
+        var pivotCache = saved.ReadPart("xl/slicerCaches/slicerCache1.xml");
         await Assert.That(pivotCache).Contains("<i x=\"0\" s=\"1\"/>");
 
-        var tableCache = ReadPart(saved, "xl/slicerCaches/slicerCache2.xml");
+        var tableCache = saved.ReadPart("xl/slicerCaches/slicerCache2.xml");
         await Assert.That(tableCache).Contains("tableSlicerCache");
     }
 
     [Test]
     public async Task Slicer_references_survive_in_the_worksheet_xml()
     {
-        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
         // Same trap as the form controls above: the worksheet part is rebuilt from the model on
         // every save, so surviving slicer parts are orphans unless the sheet keeps pointing at them.
         // Excel uses a different extension URI for a table slicer than for a pivot slicer.
-        var tableSheet = ReadPart(saved, "xl/worksheets/sheet1.xml");
+        var tableSheet = saved.ReadPart("xl/worksheets/sheet1.xml");
         await Assert.That(tableSheet).Contains("{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
         await Assert.That(tableSheet).Contains("slicerList");
 
-        var pivotSheet = ReadPart(saved, "xl/worksheets/sheet2.xml");
+        var pivotSheet = saved.ReadPart("xl/worksheets/sheet2.xml");
         await Assert.That(pivotSheet).Contains("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
         await Assert.That(pivotSheet).Contains("slicerList");
 
         // The extLst points at the slicer part by relationship id, so the relationship has to live too.
-        await Assert.That(ReadPart(saved, "xl/worksheets/_rels/sheet1.xml.rels"))
+        await Assert.That(saved.ReadPart("xl/worksheets/_rels/sheet1.xml.rels"))
             .Contains("../slicers/slicer1.xml");
-        await Assert.That(ReadPart(saved, "xl/worksheets/_rels/sheet2.xml.rels"))
+        await Assert.That(saved.ReadPart("xl/worksheets/_rels/sheet2.xml.rels"))
             .Contains("../slicers/slicer2.xml");
     }
 
     [Test]
     public async Task Slicer_cache_references_survive_in_the_workbook_xml()
     {
-        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
 
         // Two separate registries: x14:slicerCaches for the pivot slicer, x15:slicerCaches for the
         // table slicer. Losing either one orphans a cache part that still exists on disk.
@@ -165,9 +165,9 @@ public class RoundTripFidelityTests
         await Assert.That(workbookXml).Contains("Slicer_Region");
         await Assert.That(workbookXml).Contains("Slicer_Region1");
 
-        await Assert.That(ReadPart(saved, "xl/_rels/workbook.xml.rels"))
+        await Assert.That(saved.ReadPart("xl/_rels/workbook.xml.rels"))
             .Contains("slicerCaches/slicerCache1.xml");
-        await Assert.That(ReadPart(saved, "xl/_rels/workbook.xml.rels"))
+        await Assert.That(saved.ReadPart("xl/_rels/workbook.xml.rels"))
             .Contains("slicerCaches/slicerCache2.xml");
     }
 
@@ -185,10 +185,10 @@ public class RoundTripFidelityTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartExists(saved, "xl/slicers/slicer1.xml")).IsTrue();
-        await Assert.That(PartExists(saved, "xl/slicers/slicer2.xml")).IsTrue();
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet1.xml")).Contains("slicerList");
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet2.xml")).Contains("slicerList");
+        await Assert.That(saved.PartExists("xl/slicers/slicer1.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/slicers/slicer2.xml")).IsTrue();
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet1.xml")).Contains("slicerList");
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet2.xml")).Contains("slicerList");
     }
 
     [Test]
@@ -211,7 +211,7 @@ public class RoundTripFidelityTests
             using var ms = new MemoryStream();
             fs.CopyTo(ms);
 
-            await Assert.That(PartExists(ms, "xl/chartsheets/sheet1.xml")).IsTrue();
+            await Assert.That(ms.PartExists("xl/chartsheets/sheet1.xml")).IsTrue();
         }
         finally
         {
@@ -232,7 +232,7 @@ public class RoundTripFidelityTests
             wb.SaveAs(ms, validate: true);
         }
 
-        await Assert.That(PartExists(ms, "xl/chartsheets/sheet1.xml")).IsFalse();
+        await Assert.That(ms.PartExists("xl/chartsheets/sheet1.xml")).IsFalse();
     }
 
     [Test]
@@ -245,17 +245,17 @@ public class RoundTripFidelityTests
         // Every other slicer test asserts with Contains, which cannot see a part that was rewritten
         // rather than passed through. That is why this went unnoticed: the frame keeps every element
         // and attribute, and only the serialisation changes.
-        using var original = Resource(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
-        var before1 = PartBytes(original, "xl/drawings/drawing1.xml");
-        var before2 = PartBytes(original, "xl/drawings/drawing2.xml");
+        using var original = TestHelper.OpenResource(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        var before1 = original.PartBytes("xl/drawings/drawing1.xml");
+        var before2 = original.PartBytes("xl/drawings/drawing2.xml");
 
-        using var saved = LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\SlicersOnPivotAndTable.xlsx");
 
         // CollectionOrdering.Matching, because IsEquivalentTo ignores order by default — it holds
         // {1,2,3} equivalent to {3,2,1}. For a byte-for-byte claim that is not what is meant.
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml"))
+        await Assert.That(saved.PartBytes("xl/drawings/drawing1.xml"))
             .IsEquivalentTo(before1, CollectionOrdering.Matching);
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing2.xml"))
+        await Assert.That(saved.PartBytes("xl/drawings/drawing2.xml"))
             .IsEquivalentTo(before2, CollectionOrdering.Matching);
     }
 
@@ -284,69 +284,13 @@ public class RoundTripFidelityTests
         }
 
         // Sheet 1's drawing held two pictures and nothing else, so emptying it should take the part.
-        await Assert.That(PartExists(saved, "xl/drawings/drawing1.xml")).IsFalse();
+        await Assert.That(saved.PartExists("xl/drawings/drawing1.xml")).IsFalse();
 
         // The other sheets kept their pictures, so their drawings must survive.
-        await Assert.That(PartExists(saved, "xl/drawings/drawing2.xml")).IsTrue();
+        await Assert.That(saved.PartExists("xl/drawings/drawing2.xml")).IsTrue();
 
         saved.Position = 0;
         using var reloaded = new XLWorkbook(saved);
         await Assert.That(reloaded.Worksheets.First().Pictures.Count).IsEqualTo(0);
     }
-
-    #region Helpers
-
-    private static MemoryStream Resource(string resourcePath)
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resourcePath));
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms;
-    }
-
-    private static byte[] PartBytes(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var buffer = new MemoryStream();
-        entryStream.CopyTo(buffer);
-        return buffer.ToArray();
-    }
-
-    private static MemoryStream LoadAndSave(string resourcePath)
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resourcePath));
-        var ms = new MemoryStream();
-
-        using (var wb = new XLWorkbook(stream))
-            wb.SaveAs(ms);
-
-        return ms;
-    }
-
-    private static bool PartExists(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries.Any(e =>
-            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string ReadPart(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream);
-        return reader.ReadToEnd();
-    }
-
-    #endregion
 }

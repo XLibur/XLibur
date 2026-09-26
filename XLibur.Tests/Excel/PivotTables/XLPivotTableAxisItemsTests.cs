@@ -1,10 +1,10 @@
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -194,10 +194,6 @@ internal class XLPivotTableAxisItemsTests
             partUri = pivotTablePart.Uri.OriginalString.TrimStart('/');
         }
 
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        using var entry = archive.GetEntry(partUri)!.Open();
-        using var reader = new StreamReader(entry);
-        return reader.ReadToEnd();
+        return package.ReadPart(partUri);
     }
 }

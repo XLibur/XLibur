@@ -35,14 +35,6 @@ public class ChartLegendAndAxisTests
         return chart;
     }
 
-    private static MemoryStream SaveValidated(XLWorkbook wb)
-    {
-        var ms = new MemoryStream();
-        wb.SaveAs(ms, validate: true);
-        ms.Position = 0;
-        return ms;
-    }
-
     private static C.ChartSpace ChartSpaceOf(MemoryStream stream)
     {
         stream.Position = 0;
@@ -61,7 +53,7 @@ public class ChartLegendAndAxisTests
         var chart = AddChart(ws, XLChartType.ColumnClustered);
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         await Assert.That(ChartSpaceOf(ms).Descendants<C.Legend>()).IsEmpty();
     }
 
@@ -78,7 +70,7 @@ public class ChartLegendAndAxisTests
             chart.Legend.Position = XLLegendPosition.Bottom;
             chart.Legend.Overlay = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -101,7 +93,7 @@ public class ChartLegendAndAxisTests
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
         chart.Legend.Visible = true;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var chartElement = ChartSpaceOf(ms).Elements<C.Chart>().Single();
         var children = chartElement.ChildElements.Select(e => e.LocalName).ToList();
 
@@ -119,7 +111,7 @@ public class ChartLegendAndAxisTests
             var chart = AddChart(ws, XLChartType.ColumnClustered);
             chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
             chart.Legend.Visible = true;
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(withLegend);
         }
 
@@ -145,7 +137,7 @@ public class ChartLegendAndAxisTests
             var ws = AddDataSheet(wb);
             AddChart(ws, XLChartType.ColumnClustered)
                 .Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(original);
         }
 
@@ -174,7 +166,7 @@ public class ChartLegendAndAxisTests
             var ws = AddDataSheet(wb);
             AddChart(ws, XLChartType.ColumnClustered)
                 .Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(original);
         }
 
@@ -212,7 +204,7 @@ public class ChartLegendAndAxisTests
             chart.ValueAxis.Title = "Revenue";
             chart.ValueAxis.NumberFormat = "$ #,##0";
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -242,7 +234,7 @@ public class ChartLegendAndAxisTests
             chart.ValueAxis.MinorUnit = 10;
             chart.ValueAxis.MajorGridlines = true;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -271,7 +263,7 @@ public class ChartLegendAndAxisTests
         chart.ValueAxis.Min = 1;
         chart.ValueAxis.Max = 1000;
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var valueAxis = ChartSpaceOf(ms).Descendants<C.ValueAxis>().Single();
         var scaling = valueAxis.Elements<C.Scaling>().Single();
 
@@ -292,7 +284,7 @@ public class ChartLegendAndAxisTests
             chart.ValueAxis.LogScale = true;
             chart.ValueAxis.LogBase = 2;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -317,7 +309,7 @@ public class ChartLegendAndAxisTests
 
         // CT_CatAx has neither a unit nor room for c:logBase, so writing them would make Excel
         // refuse the file.
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var categoryAxis = ChartSpaceOf(ms).Descendants<C.CategoryAxis>().Single();
 
         await Assert.That(categoryAxis.Elements<C.MajorUnit>()).IsEmpty();
@@ -335,7 +327,7 @@ public class ChartLegendAndAxisTests
             chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
             chart.ValueAxis.Visible = false;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -363,7 +355,7 @@ public class ChartLegendAndAxisTests
             chart.SecondaryValueAxis.Title = "Price";
             chart.SecondaryValueAxis.Max = 10;
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -390,7 +382,7 @@ public class ChartLegendAndAxisTests
             chart.CategoryAxis.MajorUnit = 25;
             chart.ValueAxis.Title = "Y";
 
-            using var saved = SaveValidated(wb);
+            using var saved = TestHelper.SaveValidated(wb);
             saved.CopyTo(ms);
         }
 
@@ -413,7 +405,7 @@ public class ChartLegendAndAxisTests
         chart.Series.Add("Sales", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
         chart.ValueAxis.Title = "Revenue";
 
-        using var ms = SaveValidated(wb);
+        using var ms = TestHelper.SaveValidated(wb);
         var valueAxis = ChartSpaceOf(ms).Descendants<C.ValueAxis>().Single();
         var title = valueAxis.Elements<C.Title>().Single();
 
@@ -457,7 +449,7 @@ public class ChartLegendAndAxisTests
 
             await Assert.That(() =>
             {
-                using var ms = SaveValidated(wb);
+                using var ms = TestHelper.SaveValidated(wb);
             }).ThrowsNothing().Because($"{type} produced invalid chart XML.");
         }
     }

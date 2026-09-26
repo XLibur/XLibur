@@ -6,7 +6,7 @@ using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Drawings;
 using XLibur.Tests.Excel.Cells;
-using XLibur.Tests.Excel.IO;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 

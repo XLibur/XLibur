@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Comments;
 
@@ -43,7 +44,7 @@ public partial class ThreadedCommentReviewTests
         }
 
         // A personId with no matching <person> is a dangling reference Excel cannot resolve.
-        var personXml = ReadPart(ms, "xl/persons/");
+        var personXml = ms.ReadPartUnder("xl/persons/");
         await Assert.That(personXml).Contains(authorId.ToString("B").ToUpperInvariant());
 
         using var reloaded = new XLWorkbook(ms);
@@ -135,21 +136,6 @@ public partial class ThreadedCommentReviewTests
 
         ms.Position = 0;
         return ms;
-    }
-
-    private static string ReadPart(MemoryStream package, string partPathPrefix)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.FirstOrDefault(e =>
-                        e.FullName.StartsWith(partPathPrefix, StringComparison.OrdinalIgnoreCase))
-                    ?? throw new InvalidOperationException(
-                        $"The package has no part under '{partPathPrefix}'. It has: " +
-                        string.Join(", ", archive.Entries.Select(e => e.FullName)));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream, Encoding.UTF8);
-        return reader.ReadToEnd();
     }
 
     // The threaded-comment timestamp is written at save time, so it has to come out before two

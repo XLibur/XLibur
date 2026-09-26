@@ -29,6 +29,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     private Dictionary<SheetPoint, ScalarValue>? _recursiveCellValueCache;
 
+    /// <summary>
+    /// How many dirty formulas this context has evaluated recursively. An evaluation can spill a
+    /// dynamic array into cells that were empty, so a sparse walk that sees it change knows its
+    /// view of the used cells may be stale.
+    /// </summary>
+    private int _recursiveEvaluations;
+
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
         : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.Address)
     {
@@ -264,6 +271,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         if (_recursiveCellValueCache is { } cache && cache.TryGetValue(bookPoint, out var cached))
             return cached;
 
+        _recursiveEvaluations++;
         var cell = sheet.GetCell(point);
         var value = cell?.Value ?? Blank.Value;
         (_recursiveCellValueCache ??= new Dictionary<SheetPoint, ScalarValue>()).Add(bookPoint, value);
@@ -275,22 +283,73 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// slice iterators, it scales with number of cells, not a size of area in reference (i.e., it works
     /// fine even if reference is <c>A1:XFD1048576</c>). It also works for 3D references.
     /// </summary>
+    /// <remarks>
+    /// This is the one way the calc engine reads the values of a reference. Areas are read in
+    /// their order in the reference and each area in row-major order (left to right, then top to
+    /// bottom), the order functions such as NPV, IRR and MIRR depend on. A cell covered by two
+    /// overlapping areas is read once for each.
+    /// </remarks>
     internal IEnumerable<ScalarValue> GetNonBlankValues(Reference reference)
     {
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
-            var range = Area.FromRangeAddress(area);
+            foreach (var scalarValue in GetNonBlankValues(sheet, Area.FromRangeAddress(area)))
+                yield return scalarValue;
+        }
+    }
 
+    /// <summary>
+    /// The non-blank values of one area of <paramref name="sheet"/>, in row-major order.
+    /// </summary>
+    /// <remarks>
+    /// The slice enumerator only sees the cells that were used when it was built. When dirty
+    /// formulas are evaluated recursively (<c>worksheet.Evaluate</c>), reading a cell can evaluate
+    /// a dirty formula on the spot: the cell's own, or the dynamic-array anchor that owns a spilled
+    /// cell, wherever that anchor is. A spill may then write cells later in the area that were
+    /// empty a moment ago. So after any read that evaluated something, the walk starts again over
+    /// the rest of the area — the remainder of the row, then the rows below — which sees the new
+    /// cells and still visits each cell once, in order. On the calculation chain nothing is
+    /// evaluated mid-walk: reading a dirty cell throws, the chain evaluates it first and the
+    /// whole formula is read again.
+    /// </remarks>
+    private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
+    {
+        var cells = sheet.Internals.CellsCollection;
+
+        // What is left to read after a restart, the next piece on top. Only a restart allocates it.
+        Stack<Area>? pending = null;
+        var current = area;
+        while (true)
+        {
             // A value can be either in a non-empty value slice or an empty cell with a formula.
-            var enumerator = sheet.Internals.CellsCollection.ForValuesAndFormulas(range);
+            var enumerator = cells.ForValuesAndFormulas(current);
             while (enumerator.MoveNext())
             {
                 var point = enumerator.Current;
+                var evaluationsBefore = _recursiveEvaluations;
                 var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+                var evaluated = _recursiveEvaluations != evaluationsBefore;
                 if (!scalarValue.IsBlank)
                     yield return scalarValue;
+
+                if (evaluated)
+                {
+                    pending ??= new Stack<Area>();
+                    if (point.Row < current.BottomRow)
+                        pending.Push(new Area(new Point(point.Row + 1, current.LeftColumn), current.LastPoint));
+
+                    if (point.Column < current.RightColumn)
+                        pending.Push(new Area(new Point(point.Row, point.Column + 1), new Point(point.Row, current.RightColumn)));
+
+                    break;
+                }
             }
+
+            if (pending is null || pending.Count == 0)
+                yield break;
+
+            current = pending.Pop();
         }
     }
 

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using XLibur.Parser;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
-using XLibur.Tests.Excel.IO;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.NamedRanges;
 

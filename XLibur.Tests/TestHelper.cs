@@ -201,6 +201,77 @@ internal static class TestHelper
         return Extractor.ReadFileFromResourceToStream(resourcePath);
     }
 
+    /// <summary>
+    /// A writable, seekable, in-memory copy of an embedded test resource, rewound to the start.
+    /// </summary>
+    /// <remarks>
+    /// A copy rather than the manifest stream itself, so a test can rewrite parts of the package in
+    /// place, or read it again after a workbook has been loaded from it.
+    /// </remarks>
+    /// <param name="filePartName">The resource path under <c>Resource</c>, e.g. <c>@"Other\Slicers\Fixture.xlsx"</c>.</param>
+    public static MemoryStream OpenResource(string filePartName)
+    {
+        using var resource = GetStreamFromResource(GetResourcePath(filePartName));
+        var ms = new MemoryStream();
+        resource.CopyTo(ms);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>
+    /// Loads a workbook from an in-memory copy of an embedded test resource.
+    /// </summary>
+    /// <remarks>
+    /// The copy is deliberately left open: a workbook reads its source stream again on save, to
+    /// carry over the parts it did not load, so the stream has to live as long as the workbook.
+    /// </remarks>
+    public static XLWorkbook LoadWorkbook(string filePartName) => new(OpenResource(filePartName));
+
+    /// <summary>
+    /// Loads an embedded test resource and saves it unchanged, returning the saved package rewound
+    /// to the start.
+    /// </summary>
+    public static MemoryStream LoadAndSave(string filePartName, bool validate = false)
+    {
+        using var source = GetStreamFromResource(GetResourcePath(filePartName));
+        using var wb = new XLWorkbook(source);
+        var ms = new MemoryStream();
+        wb.SaveAs(ms, validate);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>
+    /// Saves <paramref name="workbook"/> through the OpenXML validator and returns the package,
+    /// rewound to the start.
+    /// </summary>
+    public static MemoryStream SaveValidated(IXLWorkbook workbook)
+    {
+        var ms = new MemoryStream();
+        workbook.SaveAs(ms, validate: true);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>
+    /// Saves <paramref name="workbook"/> to memory and loads the result as a new workbook. The
+    /// original is left open; a test that means to prove nothing survives in memory disposes it
+    /// before reloading, and does not use this.
+    /// </summary>
+    public static XLWorkbook SaveAndReload(IXLWorkbook workbook, SaveOptions? options = null)
+    {
+        var ms = new MemoryStream();
+        if (options is null)
+            workbook.SaveAs(ms);
+        else
+            workbook.SaveAs(ms, options);
+
+        ms.Position = 0;
+
+        // The stream stays open for the same reason as in LoadWorkbook.
+        return new XLWorkbook(ms);
+    }
+
     public static async Task LoadFile(string filePartName)
     {
         using var stream = GetStreamFromResource(GetResourcePath(filePartName));

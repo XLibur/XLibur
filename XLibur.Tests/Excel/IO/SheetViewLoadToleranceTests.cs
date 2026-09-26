@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.IO;
 

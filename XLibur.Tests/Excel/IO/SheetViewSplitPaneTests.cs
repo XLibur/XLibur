@@ -1,11 +1,9 @@
 using System;
 using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.IO;
 
@@ -193,24 +191,15 @@ public class SheetViewSplitPaneTests
 
     private static void RewriteSheet1(MemoryStream package, Func<string, string> transform)
     {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Update, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals("xl/worksheets/sheet1.xml", StringComparison.OrdinalIgnoreCase));
+        package.RewriteSheet1(xml =>
+        {
+            var rewritten = transform(xml);
+            if (rewritten == xml)
+                throw new InvalidOperationException(
+                    "The sheet1.xml transform changed nothing, so the test is not exercising what it says.");
 
-        string xml;
-        using (var reader = new StreamReader(entry.Open()))
-            xml = reader.ReadToEnd();
-
-        var rewritten = transform(xml);
-        if (rewritten == xml)
-            throw new InvalidOperationException(
-                "The sheet1.xml transform changed nothing, so the test is not exercising what it says.");
-
-        using var stream = entry.Open();
-        stream.SetLength(0);
-        using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-        writer.Write(rewritten);
+            return rewritten;
+        });
     }
 
     private static string PaneTag(MemoryStream package) => Tag(package, "pane");
@@ -221,7 +210,7 @@ public class SheetViewSplitPaneTests
     /// </summary>
     private static string Tag(MemoryStream package, string name)
     {
-        var match = Regex.Match(ReadSheet1(package), $"<(?:[A-Za-z_][\\w.-]*:)?{name}\\b[^>]*>");
+        var match = Regex.Match(package.Sheet1Xml(), $"<(?:[A-Za-z_][\\w.-]*:)?{name}\\b[^>]*>");
         return match.Success ? match.Value : string.Empty;
     }
 
@@ -230,18 +219,6 @@ public class SheetViewSplitPaneTests
     {
         var match = Regex.Match(tag, $"\\b{name}=\"([^\"]*)\"");
         return match.Success ? match.Groups[1].Value : null;
-    }
-
-    private static string ReadSheet1(MemoryStream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals("xl/worksheets/sheet1.xml", StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var reader = new StreamReader(entryStream);
-        return reader.ReadToEnd();
     }
 
     #endregion Helpers

@@ -1,14 +1,13 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using TUnit.Assertions.Enums;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Timelines;
 
@@ -38,7 +37,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        var entries = EntryNames(saved);
+        var entries = saved.PartNames();
 
         // 1 and 2: the timeline definition and the cache part. The fixture already owns
         // timeline1/timelineCache1, so the created pair must be new parts rather than additions to
@@ -47,9 +46,9 @@ public class TimelineWriteTests
         await Assert.That(entries.Count(n => n.StartsWith("xl/timelineCaches/", StringComparison.Ordinal))).IsEqualTo(2);
 
         // 3: the worksheet's extLst reference, on the sheet the timeline is drawn on.
-        await Assert.That(ReadPart(saved, "xl/worksheets/sheet2.xml")).Contains("timelineRef");
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet2.xml")).Contains("timelineRef");
 
-        var workbookXml = ReadPart(saved, "xl/workbook.xml");
+        var workbookXml = saved.ReadPart("xl/workbook.xml");
 
         // 4: the workbook registration, and 5: the #N/A defined name.
         await Assert.That(workbookXml).Contains("{D0CA8CA8-9F24-4464-BF8E-62219DCF47F9}");
@@ -57,7 +56,7 @@ public class TimelineWriteTests
         await Assert.That(workbookXml).Contains("#N/A");
 
         // 6: the drawing anchor.
-        await Assert.That(ReadPart(saved, "xl/drawings/drawing2.xml")).Contains("timeslicer");
+        await Assert.That(saved.ReadPart("xl/drawings/drawing2.xml")).Contains("timeslicer");
 
         // The extras from Task 2's review: assertions confirming the created cache's <state> carries
         // all six pieces the created cache writes, not just the ones already checked above. The
@@ -66,7 +65,7 @@ public class TimelineWriteTests
             .Where(n => n.StartsWith("xl/timelineCaches/", StringComparison.Ordinal))
             .OrderBy(n => n, StringComparer.Ordinal)
             .Last();
-        var cacheXml = ReadPart(saved, createdCachePart);
+        var cacheXml = saved.ReadPart(createdCachePart);
 
         await Assert.That(cacheXml).Contains("minimalRefreshVersion=\"6\"");
         await Assert.That(cacheXml).Contains("lastRefreshVersion=\"6\"");
@@ -136,7 +135,7 @@ public class TimelineWriteTests
         // throughout a feature that did not work, because each covered only a sheet where nothing
         // had been added. This adds a timeline to the sheet that already has one.
         using var original = Resource();
-        var before = PartBytes(original, "xl/timelines/timeline1.xml");
+        var before = original.PartBytes("xl/timelines/timeline1.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -146,7 +145,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -163,7 +162,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        var parts = EntryNames(saved)
+        var parts = saved.PartNames()
             .Where(n => n.StartsWith("xl/timelines/", StringComparison.Ordinal))
             .ToList();
 
@@ -171,7 +170,7 @@ public class TimelineWriteTests
 
         foreach (var part in parts)
         {
-            var xml = ReadPart(saved, part);
+            var xml = saved.ReadPart(part);
             await Assert.That(CountOccurrences(xml, "<x15:timeline ") + CountOccurrences(xml, "<timeline "))
                 .IsEqualTo(1)
                 .Because($"{part} must hold exactly one timeline.");
@@ -192,7 +191,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        var xml = ReadPart(saved, "xl/timelines/timeline1.xml");
+        var xml = saved.ReadPart("xl/timelines/timeline1.xml");
 
         await Assert.That(xml).Contains("caption=\"Pick a period\"");
         await Assert.That(xml).Contains("level=\"1\"");
@@ -222,7 +221,7 @@ public class TimelineWriteTests
         using var baseline = new MemoryStream();
         using (var wb = Load())
             wb.SaveAs(baseline);
-        var drawingBaseline = PartBytes(baseline, "xl/drawings/drawing1.xml");
+        var drawingBaseline = baseline.PartBytes("xl/drawings/drawing1.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -232,7 +231,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/drawings/drawing1.xml")).IsEquivalentTo(drawingBaseline, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/drawings/drawing1.xml")).IsEquivalentTo(drawingBaseline, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -240,7 +239,7 @@ public class TimelineWriteTests
     {
         // Loading a workbook and saving it after an unrelated edit must not open the timeline part.
         using var original = Resource();
-        var before = PartBytes(original, "xl/timelines/timeline1.xml");
+        var before = original.PartBytes("xl/timelines/timeline1.xml");
 
         using var saved = new MemoryStream();
         using (var wb = Load())
@@ -249,7 +248,7 @@ public class TimelineWriteTests
             wb.SaveAs(saved);
         }
 
-        await Assert.That(PartBytes(saved, "xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
+        await Assert.That(saved.PartBytes("xl/timelines/timeline1.xml")).IsEquivalentTo(before, CollectionOrdering.Matching);
     }
 
     // ── Schema ──────────────────────────────────────────────────────────
@@ -277,43 +276,9 @@ public class TimelineWriteTests
 
     #region Helpers
 
-    private static XLWorkbook Load()
-    {
-        var stream = Resource();
-        stream.Position = 0;
-        return new XLWorkbook(stream);
-    }
+    private static XLWorkbook Load() => TestHelper.LoadWorkbook(Fixture);
 
-    private static MemoryStream Resource()
-    {
-        using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(Fixture));
-        var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms;
-    }
-
-    private static byte[] PartBytes(MemoryStream package, string partPath)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        var entry = archive.Entries.First(e =>
-            e.FullName.Equals(partPath, StringComparison.OrdinalIgnoreCase));
-
-        using var entryStream = entry.Open();
-        using var buffer = new MemoryStream();
-        entryStream.CopyTo(buffer);
-        return buffer.ToArray();
-    }
-
-    private static string ReadPart(MemoryStream package, string partPath) =>
-        Encoding.UTF8.GetString(PartBytes(package, partPath));
-
-    private static System.Collections.Generic.List<string> EntryNames(MemoryStream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        return archive.Entries.Select(e => e.FullName).ToList();
-    }
+    private static MemoryStream Resource() => TestHelper.OpenResource(Fixture);
 
     private static int CountOccurrences(string haystack, string needle)
     {

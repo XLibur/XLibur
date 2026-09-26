@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
-using XLibur.Tests.Excel.IO;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.NamedRanges;
 

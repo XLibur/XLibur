@@ -47,36 +47,6 @@ internal static class DateAndTime
         ce.RegisterFunction("YEARFRAC", 2, 3, AdaptLastOptional(YearFrac, 0), FunctionFlags.Scalar); // Returns the year fraction representing the number of whole days between start_date and end_date
     }
 
-    private static int BusinessDaysUntil(int firstDay, int lastDay, ICollection<int> distinctHolidays)
-    {
-        if (firstDay > lastDay)
-#pragma warning disable S2234            
-            return -BusinessDaysUntil(lastDay, firstDay, distinctHolidays);
-#pragma warning restore S2234        
-
-        var workDays = lastDay - firstDay + 1;
-        var fullWeekCount = Math.DivRem(workDays, 7, out var remainingDays);
-
-        // find out if there are weekends during the time exceeding the full weeks
-        for (var day = lastDay - remainingDays + 1; day <= lastDay; ++day)
-        {
-            if (IsWeekend(day))
-                workDays--;
-        }
-
-        // subtract the weekends during the full weeks in the interval
-        workDays -= fullWeekCount * 2;
-
-        // subtract the number of bank holidays during the time interval
-        foreach (var holidayDate in distinctHolidays)
-        {
-            if (firstDay <= holidayDate && holidayDate <= lastDay && !IsWeekend(holidayDate))
-                --workDays;
-        }
-
-        return workDays;
-    }
-
     private static ScalarValue Date(CalcContext ctx, double year, double month, double day)
     {
         // Unlike most functions, values are floored - not truncated.
@@ -350,11 +320,6 @@ internal static class DateAndTime
         }
     }
 
-    private static bool IsWeekend(int date)
-    {
-        return WeekdayCalc(date) is 1 or 7;
-    }
-
     private static ScalarValue Minute(CalcContext ctx, double serialTime)
     {
         return GetTimeComponent(ctx, serialTime, static d => d.Minute);
@@ -368,6 +333,10 @@ internal static class DateAndTime
         return DateParts.From(ctx, serialDate).Month;
     }
 
+    /// <summary>
+    /// NETWORKDAYS is NETWORKDAYS.INTL with weekend code 1: the same count over a Saturday and
+    /// Sunday weekend.
+    /// </summary>
     private static ScalarValue NetWorkDays(CalcContext ctx, ScalarValue startDate, ScalarValue endDate, AnyValue holidays)
     {
         if (!TryGetDate(ctx, startDate, out var startSerialDate, out var startDateError))
@@ -376,20 +345,19 @@ internal static class DateAndTime
         if (!TryGetDate(ctx, endDate, out var endSerialDate, out var endDateError))
             return endDateError;
 
-        // Use set to skip duplicate values
-        var allHolidays = new HashSet<int>();
-        foreach (var holidayValue in ctx.GetNonBlankValues(holidays))
-        {
-            if (!TryGetDate(ctx, holidayValue, out var holidayDate, out var error))
-                return error;
+        if (!TryGetHolidays(ctx, holidays, SaturdaySundayWeekend, out var holidayDates, out var holidaysError))
+            return holidaysError;
 
-            allHolidays.Add(holidayDate);
-        }
-
-        return BusinessDaysUntil(startSerialDate, endSerialDate, allHolidays);
+        return CountNetWorkdays(startSerialDate, endSerialDate, SaturdaySundayWeekend, holidayDates);
     }
 
     #region Configurable weekends
+
+    /// <summary>
+    /// Saturday and Sunday, weekend code 1: the default of the .INTL functions and the only weekend
+    /// of NETWORKDAYS and WORKDAY.
+    /// </summary>
+    private const int SaturdaySundayWeekend = (1 << 5) | (1 << 6);
 
     /// <summary>
     /// Every day of the week is a weekend — the one mask Excel rejects, since it would leave no
@@ -442,7 +410,7 @@ internal static class DateAndTime
         // An omitted weekend is the ordinary Saturday and Sunday.
         if (scalar.IsBlank)
         {
-            mask = (1 << 5) | (1 << 6);
+            mask = SaturdaySundayWeekend;
             error = default;
             return true;
         }
@@ -540,6 +508,16 @@ internal static class DateAndTime
         if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
             return weekendError;
 
+        return CountNetWorkdays(startDate, endDate, mask, holidays);
+    }
+
+    /// <summary>
+    /// Working days from <paramref name="startDate"/> to <paramref name="endDate"/>, both included,
+    /// less the <paramref name="holidays"/> between them. The shared core of NETWORKDAYS and
+    /// NETWORKDAYS.INTL.
+    /// </summary>
+    private static int CountNetWorkdays(int startDate, int endDate, int mask, HashSet<int> holidays)
+    {
         // Counting backwards gives the same magnitude with the opposite sign.
         var reversed = startDate > endDate;
         if (reversed)
@@ -607,24 +585,58 @@ internal static class DateAndTime
         if (!TryGetWeekendAndHolidays(ctx, args, out var mask, out var holidays, out var weekendError))
             return weekendError;
 
-        var offset = (int)Math.Truncate(offsetNumber);
+        var offset = Math.Truncate(offsetNumber);
 
         // A zero offset returns the start date untouched, weekend or not.
         if (offset == 0)
             return startDate;
 
-        return StepWorkdays(startDate, offset, mask, holidays);
+        return StepWorkdays(startDate, offset, mask, holidays).ToAnyValue();
     }
 
     /// <summary>
-    /// Step day by day from <paramref name="startDate"/> until <paramref name="offset"/> working
-    /// days have passed, or the date leaves the supported range.
+    /// The date <paramref name="offset"/> working days from <paramref name="startDate"/>, or
+    /// <c>#NUM!</c> when it falls outside the supported date range. The shared core of WORKDAY and
+    /// WORKDAY.INTL; <paramref name="offset"/> is a whole, non-zero number.
     /// </summary>
-    private static AnyValue StepWorkdays(int startDate, int offset, int mask, HashSet<int> holidays)
+    /// <remarks>
+    /// Any seven consecutive days hold the same number of working days, so whole weeks are jumped
+    /// at once, taking off the holidays passed over. Only the last week or so is walked day by day,
+    /// which keeps a large offset from costing one step per calendar day.
+    /// </remarks>
+    private static ScalarValue StepWorkdays(int startDate, double offset, int mask, HashSet<int> holidays)
     {
+        // Each working day moves the date on by at least one day, so an offset this large cannot
+        // land inside the range; checking here also keeps the cast to int safe.
+        if (Math.Abs(offset) > Year10K)
+            return XLError.NumberInvalid;
+
         var step = offset > 0 ? 1 : -1;
-        var remaining = Math.Abs(offset);
+        var remaining = (int)Math.Abs(offset);
+        var workdaysPerWeek = 7 - System.Numerics.BitOperations.PopCount((uint)mask);
+        var holidaysAhead = HolidaysInWalkOrder(holidays, startDate, step);
+        var nextHoliday = 0;
         var date = startDate;
+
+        // Leave at least one working day for the walk below, so the answer is always past the jump.
+        while (remaining > workdaysPerWeek)
+        {
+            var weeks = (remaining - 1) / workdaysPerWeek;
+            var landing = date + step * 7L * weeks;
+            if (landing < 0 || landing > Year10K)
+                return XLError.NumberInvalid;
+
+            date = (int)landing;
+            var holidaysPassed = 0;
+            while (nextHoliday < holidaysAhead.Count && (holidaysAhead[nextHoliday] - date) * step <= 0)
+            {
+                holidaysPassed++;
+                nextHoliday++;
+            }
+
+            remaining -= weeks * workdaysPerWeek - holidaysPassed;
+        }
+
         while (remaining > 0)
         {
             date += step;
@@ -636,6 +648,26 @@ internal static class DateAndTime
         }
 
         return date;
+    }
+
+    /// <summary>
+    /// The holidays strictly past <paramref name="startDate"/> in the direction of
+    /// <paramref name="step"/>, in the order a walk in that direction meets them.
+    /// </summary>
+    private static List<int> HolidaysInWalkOrder(HashSet<int> holidays, int startDate, int step)
+    {
+        var ahead = new List<int>(holidays.Count);
+        foreach (var holiday in holidays)
+        {
+            if ((holiday - startDate) * step > 0)
+                ahead.Add(holiday);
+        }
+
+        ahead.Sort();
+        if (step < 0)
+            ahead.Reverse();
+
+        return ahead;
     }
 
     #endregion
@@ -798,6 +830,10 @@ internal static class DateAndTime
         return weekNum + 1;
     }
 
+    /// <summary>
+    /// WORKDAY is WORKDAY.INTL with weekend code 1: the same walk over a Saturday and Sunday
+    /// weekend, including its <c>#NUM!</c> when the answer falls outside the supported date range.
+    /// </summary>
     private static ScalarValue Workday(CalcContext ctx, ScalarValue startDateScalar, ScalarValue dayOffsetValue, AnyValue holidays)
     {
         if (!TryGetDate(ctx, startDateScalar, out var startDate, out var startDateError))
@@ -806,109 +842,17 @@ internal static class DateAndTime
         if (!dayOffsetValue.ToNumber(ctx.Culture).TryPickT0(out var dayOffsetDouble, out var dayOffsetError))
             return dayOffsetError;
 
-        var dayOffset = (int)Math.Truncate(dayOffsetDouble);
+        var dayOffset = Math.Truncate(dayOffsetDouble);
 
         // When offset is zero, return the startDate, regardless if it is Saturday or Sunday.
+        // Unlike WORKDAY.INTL, this comes before the holidays are read.
         if (dayOffset == 0)
             return startDate;
 
-        var cmp = dayOffset > 0 ? Comparer<int>.Default : Comparer<int>.Create(static (x, y) => y.CompareTo(x));
-        var oneDay = dayOffset > 0 ? 1 : -1; // One day in a specified direction
-
-        if (!CollectWorkdayHolidays(ctx, holidays, startDate, cmp).TryPickT0(out var orderedHolidays, out var holidaysError))
+        if (!TryGetHolidays(ctx, holidays, SaturdaySundayWeekend, out var holidayDates, out var holidaysError))
             return holidaysError;
 
-        var (lastDateSoFar, workdaysSoFar) = SkipHolidaySegments(orderedHolidays, startDate, dayOffset, oneDay, cmp);
-
-        return FindWorkdayFromPosition(lastDateSoFar, dayOffset - workdaysSoFar, oneDay);
-    }
-
-    private static OneOf<List<int>, XLError> CollectWorkdayHolidays(
-        CalcContext ctx, AnyValue holidays, int startDate, Comparer<int> comparer)
-    {
-        // Use set to skip duplicate values
-        var distinctHolidays = new HashSet<int>();
-        foreach (var holidayValue in ctx.GetNonBlankValues(holidays))
-        {
-            if (!TryGetDate(ctx, holidayValue, out var holidayDate, out var error))
-                return error;
-
-            if (comparer.Compare(holidayDate, startDate) < 0)
-                continue;
-
-            if (IsWeekend(holidayDate))
-                continue;
-
-            distinctHolidays.Add(holidayDate);
-        }
-
-        // Distinct, ordered holidays during a workweek
-        var sortedHolidays = new List<int>(distinctHolidays);
-        sortedHolidays.Sort(comparer);
-        return sortedHolidays;
-    }
-
-    /// <summary>
-    /// Walk through holiday segments, counting workdays between consecutive holidays,
-    /// until we've either exhausted all holidays or passed the target offset.
-    /// Returns the last date processed and the number of workdays counted so far.
-    /// </summary>
-    private static (int LastDate, int WorkdaysCounted) SkipHolidaySegments(
-        List<int> orderedHolidays, int startDate, int dayOffset, int oneDay, Comparer<int> cmp)
-    {
-        var lastDateSoFar = startDate;
-        var workdaysSoFar = 0;
-        var startIsHoliday = orderedHolidays.Count > 0 && orderedHolidays[0] == startDate;
-
-        for (var i = startIsHoliday ? 1 : 0; i < orderedHolidays.Count; ++i)
-        {
-            var holidayDate = orderedHolidays[i];
-
-            // Count workdays in the segment from lastDateSoFar+oneDay to holidayDate.
-            // When days are same, BusinessDaysUntil returns 1 regardless of direction, so add a condition.
-            var segmentWorkdays = lastDateSoFar + oneDay != holidayDate
-                ? BusinessDaysUntil(lastDateSoFar + oneDay, holidayDate, System.Array.Empty<int>())
-                : oneDay;
-
-            if (cmp.Compare(workdaysSoFar + segmentWorkdays, dayOffset) > 0)
-                break; // Target day is in this segment — no more holidays to skip.
-
-            // The segment workdays include holidayDate as a workday, use -1 so it is not counted.
-            workdaysSoFar += segmentWorkdays - oneDay;
-            lastDateSoFar = holidayDate;
-        }
-
-        return (lastDateSoFar, workdaysSoFar);
-    }
-
-    /// <summary>
-    /// From a known position with no remaining holidays, advance by the given number
-    /// of remaining workdays, skipping weekends.
-    /// </summary>
-    private static int FindWorkdayFromPosition(int fromDate, int remainingWorkdays, int oneDay)
-    {
-        var weekCount = Math.DivRem(remainingWorkdays, 5, out var remaining);
-
-        // When we start on Sunday and want 5 dayOffset, ensure that we end up on friday of same week, not Sunday.
-        if (remaining == 0)
-        {
-            // We know that weekCount is at least 1, so decreasing one won't go negative.
-            weekCount -= oneDay;
-            remaining += oneDay * 5;
-        }
-
-        var workday = fromDate + weekCount * 7;
-        while (remaining != 0)
-        {
-            do
-            {
-                workday += oneDay;
-            } while (IsWeekend(workday));
-
-            remaining -= oneDay;
-        }
-
-        return workday;
+        return StepWorkdays(startDate, dayOffset, SaturdaySundayWeekend, holidayDates);
     }
 
     private static ScalarValue GetYear(CalcContext ctx, double serialDateTime)

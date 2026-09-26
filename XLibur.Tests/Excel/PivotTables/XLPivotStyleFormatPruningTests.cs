@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
@@ -314,14 +314,5 @@ internal class XLPivotStyleFormatPruningTests
         return formats.Success ? int.Parse(formats.Groups["count"].Value) : 0;
     }
 
-    private static string PivotTableXml(Stream package)
-    {
-        package.Position = 0;
-        using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
-        using var entry = archive.Entries
-            .First(e => e.FullName.StartsWith("xl/pivotTables/pivotTable", StringComparison.Ordinal))
-            .Open();
-        using var reader = new StreamReader(entry);
-        return reader.ReadToEnd();
-    }
+    private static string PivotTableXml(Stream package) => package.ReadPartUnder("xl/pivotTables/pivotTable");
 }

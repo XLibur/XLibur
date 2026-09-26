@@ -1024,7 +1024,8 @@ internal static class Financial
 
     /// <summary>
     /// Yield the scalar values of an argument in order, whether it's a single scalar, an array, or a
-    /// range reference. Mirrors how <see cref="Statistical"/> reads a data set.
+    /// range reference. Mirrors how <see cref="Statistical"/> reads a data set. A reference yields
+    /// only its non-blank cells, in row-major order.
     /// </summary>
     private static IEnumerable<ScalarValue> EnumerateScalars(CalcContext ctx, AnyValue value)
     {
@@ -1041,7 +1042,7 @@ internal static class Financial
         }
         else
         {
-            foreach (var item in reference.GetCellsValues(ctx))
+            foreach (var item in ctx.GetNonBlankValues(reference))
                 yield return item;
         }
     }

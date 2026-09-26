@@ -21,10 +21,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Fonts\CarlitoBare-Bold.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Bold.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-BoldItalic.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-BoldItalic.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-Italic.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Italic.ttf" />
-        <EmbeddedResource Include="Fonts\CarlitoBare-Regular.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Regular.ttf" />
+        <!-- The one copy of CarlitoBare lives in resources/fonts and is shared with XLibur.Fonts.SkiaSharp.
+             The logical names are the core ones, which DefaultFontEngine looks up; do not change them. -->
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Bold.ttf" Link="Fonts\CarlitoBare-Bold.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Bold.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-BoldItalic.ttf" Link="Fonts\CarlitoBare-BoldItalic.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-BoldItalic.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Italic.ttf" Link="Fonts\CarlitoBare-Italic.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Italic.ttf" />
+        <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Regular.ttf" Link="Fonts\CarlitoBare-Regular.ttf" LogicalName="XLibur.Graphics.Fonts.CarlitoBare-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>
