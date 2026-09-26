@@ -294,27 +294,22 @@ internal sealed class CalcContext : IStructuredReferenceScope
         foreach (var area in reference)
         {
             var sheet = area.Worksheet ?? Worksheet;
-            foreach (var scalarValue in GetNonBlankValues(sheet, Area.FromRangeAddress(area)))
-                yield return scalarValue;
+            var walk = new UsedPointsWalk(sheet, Area.FromRangeAddress(area));
+            while (walk.MoveNext(_recursiveEvaluations))
+            {
+                var point = walk.Current;
+                var scalarValue = GetCellValue(sheet, point.Row, point.Column);
+                if (!scalarValue.IsBlank)
+                    yield return scalarValue;
+            }
         }
     }
 
     /// <summary>
-    /// The non-blank values of one area of <paramref name="sheet"/>, in row-major order.
-    /// </summary>
-    private IEnumerable<ScalarValue> GetNonBlankValues(XLWorksheet sheet, Area area)
-    {
-        foreach (var point in GetUsedPoints(sheet, area))
-        {
-            var scalarValue = GetCellValue(sheet, point.Row, point.Column);
-            if (!scalarValue.IsBlank)
-                yield return scalarValue;
-        }
-    }
-
-    /// <summary>
-    /// The points of the cells of one area of <paramref name="sheet"/> that hold a value or a
-    /// formula, in row-major order. This is the sparse walk every reader of a reference shares.
+    /// The points of the cells of one area of a sheet that hold a value or a formula, in
+    /// row-major order. This is the sparse walk every reader of a reference shares. It is a
+    /// struct so that a reader's own iterator holds it, rather than each reader stacking a
+    /// second iterator object on every call.
     /// </summary>
     /// <remarks>
     /// The slice enumerator only sees the cells that were used when it was built. When dirty
@@ -328,42 +323,66 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// it (a filtered-out cell), but it must still read a dynamic-array anchor it skips, or that
     /// anchor's spill is never written and never walked. On the calculation
     /// chain nothing is evaluated mid-walk: reading a dirty cell throws, the chain evaluates it
-    /// first and the whole formula is read again.
+    /// first and the whole formula is read again. The caller passes the context's count of
+    /// recursive evaluations to each <see cref="MoveNext"/>; a change since the last point is
+    /// what triggers the restart.
     /// </remarks>
-    private IEnumerable<Point> GetUsedPoints(XLWorksheet sheet, Area area)
+    private struct UsedPointsWalk
     {
-        var cells = sheet.Internals.CellsCollection;
+        private readonly XLCellsCollection _cells;
 
         // What is left to read after a restart, the next piece on top. Only a restart allocates it.
-        Stack<Area>? pending = null;
-        var current = area;
-        while (true)
+        private Stack<Area>? _pending;
+        private Area _current;
+        private XLCellsCollection.SlicesEnumerator _enumerator;
+        private bool _hasPoint;
+        private int _evaluationsBefore;
+
+        public UsedPointsWalk(XLWorksheet sheet, Area area)
         {
+            _cells = sheet.Internals.CellsCollection;
+            _current = area;
+
             // A value can be either in a non-empty value slice or an empty cell with a formula.
-            var enumerator = cells.ForValuesAndFormulas(current);
-            while (enumerator.MoveNext())
+            _enumerator = _cells.ForValuesAndFormulas(area);
+        }
+
+        public Point Current { get; private set; }
+
+        public bool MoveNext(int recursiveEvaluations)
+        {
+            var restart = _hasPoint && recursiveEvaluations != _evaluationsBefore;
+            if (restart)
             {
-                var point = enumerator.Current;
-                var evaluationsBefore = _recursiveEvaluations;
-                yield return point;
+                var point = Current;
+                _pending ??= new Stack<Area>();
+                if (point.Row < _current.BottomRow)
+                    _pending.Push(new Area(new Point(point.Row + 1, _current.LeftColumn), _current.LastPoint));
 
-                if (_recursiveEvaluations != evaluationsBefore)
-                {
-                    pending ??= new Stack<Area>();
-                    if (point.Row < current.BottomRow)
-                        pending.Push(new Area(new Point(point.Row + 1, current.LeftColumn), current.LastPoint));
-
-                    if (point.Column < current.RightColumn)
-                        pending.Push(new Area(new Point(point.Row, point.Column + 1), new Point(point.Row, current.RightColumn)));
-
-                    break;
-                }
+                if (point.Column < _current.RightColumn)
+                    _pending.Push(new Area(new Point(point.Row, point.Column + 1), new Point(point.Row, _current.RightColumn)));
             }
 
-            if (pending is null || pending.Count == 0)
-                yield break;
+            while (true)
+            {
+                if (!restart && _enumerator.MoveNext())
+                {
+                    Current = _enumerator.Current;
+                    _evaluationsBefore = recursiveEvaluations;
+                    _hasPoint = true;
+                    return true;
+                }
 
-            current = pending.Pop();
+                restart = false;
+                if (_pending is null || _pending.Count == 0)
+                {
+                    _hasPoint = false;
+                    return false;
+                }
+
+                _current = _pending.Pop();
+                _enumerator = _cells.ForValuesAndFormulas(_current);
+            }
         }
     }
 
@@ -425,8 +444,10 @@ internal sealed class CalcContext : IStructuredReferenceScope
         var sheet = areaReference.Worksheet ?? Worksheet;
         var area = Area.FromRangeAddress(areaReference);
 
-        foreach (var point in GetUsedPoints(sheet, area))
+        var walk = new UsedPointsWalk(sheet, area);
+        while (walk.MoveNext(_recursiveEvaluations))
         {
+            var point = walk.Current;
             var scalarValue = GetCellValue(sheet, point.Row, point.Column);
             if (criteria.Match(scalarValue))
                 yield return point;
@@ -449,8 +470,10 @@ internal sealed class CalcContext : IStructuredReferenceScope
             var range = Area.FromRangeAddress(area);
             var hiddenRowTracker = new HiddenRowTracker(sheet);
 
-            foreach (var point in GetUsedPoints(sheet, range))
+            var walk = new UsedPointsWalk(sheet, range);
+            while (walk.MoveNext(_recursiveEvaluations))
             {
+                var point = walk.Current;
                 var formula = sheet.Internals.CellsCollection.FormulaSlice.Get(point);
                 if (IsFilteredOut(formula, point, skipHiddenRows, ref hiddenRowTracker, visitor))
                 {
