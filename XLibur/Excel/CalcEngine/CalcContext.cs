@@ -15,7 +15,14 @@ internal sealed class CalcContext : IStructuredReferenceScope
 {
     private readonly bool _recursive;
     private readonly XLWorksheet? _worksheet;
-    private readonly IXLAddress? _formulaAddress;
+
+    // A point, not an IXLAddress: XLAddress is a struct, so holding it as the interface boxed it on
+    // every evaluation, and most formulas never ask where they are (#686). A missing cell is
+    // NoCell rather than a Point? or a flag: either would make every context eight bytes larger.
+    private readonly Point _formulaPoint;
+
+    // Row 0, column 0: a point no sheet has, so it is never the cell of a formula.
+    private static readonly Point NoCell = new(0, 0);
 
     /// <summary>
     /// Per-evaluation cache for <see cref="GetCellValue"/>'s recursive branch. Lazily
@@ -37,17 +44,17 @@ internal sealed class CalcContext : IStructuredReferenceScope
     private int _recursiveEvaluations;
 
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
-        : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.Address)
+        : this(calcEngine, culture, cell.Worksheet.Workbook, cell.Worksheet, cell.SheetPoint)
     {
     }
 
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLWorkbook? workbook, XLWorksheet? worksheet,
-        IXLAddress? formulaAddress, bool recursive = false)
+        Point? formulaPoint, bool recursive = false)
     {
         CalcEngine = calcEngine;
         Workbook = workbook;
         _worksheet = worksheet;
-        _formulaAddress = formulaAddress;
+        _formulaPoint = formulaPoint ?? NoCell;
         _recursive = recursive;
         Culture = culture;
     }
@@ -71,11 +78,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// which reports the missing context.
     /// </summary>
     internal bool HasWorksheet => _worksheet is not null;
-
-    /// <summary>
-    /// Address of the calculated formula.
-    /// </summary>
-    public IXLAddress FormulaAddress => _formulaAddress ?? throw new MissingContextException();
 
     /// <summary>
     /// The context a defined name's formula is evaluated in, when the formula this context is
@@ -119,7 +121,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
                 throw new XLCircularReferenceException($"A defined name whose formula is '{nameFormula}' depends on its own value.");
         }
 
-        return new(CalcEngine, Culture, Workbook, _worksheet, _formulaAddress, _recursive)
+        return new(CalcEngine, Culture, Workbook, _worksheet, _formulaPoint, _recursive)
         {
             RecalculateSheetId = RecalculateSheetId,
             NameFormula = nameFormula,
@@ -176,7 +178,11 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     public uint? RecalculateSheetId { get; set; }
 
-    internal Point FormulaSheetPoint => new(FormulaAddress.RowNumber, FormulaAddress.ColumnNumber);
+    /// <summary>
+    /// Row and column of the cell whose formula is calculated.
+    /// </summary>
+    /// <exception cref="MissingContextException">The formula is evaluated without a cell.</exception>
+    internal Point FormulaSheetPoint => _formulaPoint != NoCell ? _formulaPoint : throw new MissingContextException();
 
     /// <inheritdoc />
     /// <remarks>

@@ -1642,8 +1642,14 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public XLCellValue Evaluate(string expression, string? formulaAddress = null)
     {
-        IXLAddress? address = formulaAddress is not null ? XLAddress.Create(formulaAddress) : null;
-        return CalcEngine.EvaluateFormula(expression, Workbook, this, address, true).ToCellValue();
+        Point? point = null;
+        if (formulaAddress is not null)
+        {
+            var address = XLAddress.Create(formulaAddress);
+            point = new Point(address.RowNumber, address.ColumnNumber);
+        }
+
+        return CalcEngine.EvaluateFormula(expression, Workbook, this, point, true).ToCellValue();
     }
 
     public void RecalculateAllFormulas()

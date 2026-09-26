@@ -233,9 +233,9 @@ namespace XLibur.Excel.CalcEngine
         /// <summary>
         /// Do an implicit intersection of an address.
         /// </summary>
-        /// <param name="formulaAddress"></param>
+        /// <param name="formulaPoint">Row and column of the cell whose formula is calculated.</param>
         /// <returns>An address of the intersection or error if the intersection failed.</returns>
-        public OneOf<Reference, XLError> ImplicitIntersection(IXLAddress formulaAddress)
+        public OneOf<Reference, XLError> ImplicitIntersection(Point formulaPoint)
         {
             if (AreaCount != 1)
                 return XLError.IncompatibleValue;
@@ -244,8 +244,8 @@ namespace XLibur.Excel.CalcEngine
             if (area.RowSpan == 1 && area.ColumnSpan == 1)
                 return this;
 
-            var column = formulaAddress.ColumnNumber;
-            var row = formulaAddress.RowNumber;
+            var column = formulaPoint.Column;
+            var row = formulaPoint.Row;
 
             if (area.ColumnSpan == 1 && area.FirstAddress.RowNumber <= row && row <= area.LastAddress.RowNumber)
             {

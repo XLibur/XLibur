@@ -97,7 +97,7 @@ public sealed class XLFunctionLibrary
 
         // No workbook and no cell: the whole point is a call made before there is a grid to be
         // relative to. Functions that reach for one throw, and are translated below.
-        var context = new CalcContext(_engine, _culture, workbook: null, worksheet: null, formulaAddress: null);
+        var context = new CalcContext(_engine, _culture, workbook: null, worksheet: null, formulaPoint: null);
 
         var value = EvaluationPolicy.RaiseMissingContextAsPublic(
             (Definition: definition, Context: context, Arguments: args, Name: name),

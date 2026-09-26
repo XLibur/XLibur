@@ -35,7 +35,7 @@ public class SparseWalkAllocationTests
         for (var column = 1; column <= 5; column++)
             ws.Cell(1, column).Value = column;
 
-        var ctx = new CalcContext(wb.CalcEngine, CultureInfo.InvariantCulture, wb, ws, formulaAddress: null);
+        var ctx = new CalcContext(wb.CalcEngine, CultureInfo.InvariantCulture, wb, ws, formulaPoint: null);
         var reference = new Reference(new XLRangeAddress(ws, "A1:E1"));
 
         await Assert.That(Sum(ctx, reference)).IsEqualTo(15.0);
