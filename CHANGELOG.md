@@ -26,6 +26,8 @@
 
 - **Parsing a formula no longer builds display text for each cell reference in it.** The parser wrote each reference out as text, such as `D1:H1`, and nothing in the calculation read it (#686). The text is now built only when something asks for it. Parsing `SUM(D1:H1)` allocates 593 bytes instead of 729, and the first read of a 50,000-row sheet with a `SUM` in each row allocates 7.6 MB less.
 
+- **The formula parser is now `XLibur.ClosedXML.Parser` 5.0.2, which allocates less for each parse.** A parse no longer grows a new token list or creates a new parser object, and it passes function arguments as an array of the exact size (XLibur/ClosedXML.Parser#64, #686). The parsed formulas are the same.
+
 ### 🐛 Bug Fixes
 
 - **WORKDAY, WORKDAY.INTL and NETWORKDAYS.INTL check their arguments in the same order as Excel.** Checked against Excel over COM (#665). WORKDAY.INTL with an offset of zero now returns the start date without reading the weekend or holidays, as WORKDAY already did: `=WORKDAY.INTL(DATE(2024,1,1),0,1,#N/A)` is the start date, not `#N/A`. Both functions round a fractional offset down instead of toward zero, so `-0.5` is one working day back. An error given as the weekend becomes `#NUM!` in WORKDAY.INTL and `#VALUE!` in NETWORKDAYS.INTL instead of being passed on. A weekend string that is not a valid mask is `#VALUE!` instead of `#NUM!`. A reference to an empty cell as the weekend is `#NUM!`; only an omitted weekend means Saturday and Sunday. NETWORKDAYS.INTL reads the weekend before the dates, and accepts `"1111111"` and returns 0.
