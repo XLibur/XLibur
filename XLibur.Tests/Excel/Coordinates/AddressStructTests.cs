@@ -131,22 +131,28 @@ public class AddressStructTests
     /// <summary>
     /// <see cref="XLAddress"/> used to cache its A1 text, and a caller that kept one boxed
     /// <see cref="IXLAddress"/> formatted it for free after the first call. A readonly struct cannot
-    /// cache, so each call now builds its string. It must build only that one string: the row
-    /// text and a concatenation made two for rows from 300 up, which .NET does not cache.
+    /// cache, so each call now builds its string. It must build only that one string: building
+    /// the row and column text first and concatenating it made up to three, and
+    /// <c>string.Concat(object[])</c> boxed the chars and the column number as well.
     /// </summary>
     [Test]
     [Arguments("ToString(A1)")]
     [Arguments("ToStringRelative()")]
     [Arguments("ToStringFixed(A1)")]
+    [Arguments("ToString(R1C1)")]
+    [Arguments("ToStringFixed(R1C1)")]
     public async Task FormattingAHeldAddress_AllocatesOnlyTheResult(string form)
     {
         using var wb = new XLWorkbook();
-        IXLAddress address = wb.AddWorksheet("Sheet1").Cell(1000, 2).Address;
+        // Row and column both from 300 up, which .NET's cache of small numbers' text does not cover.
+        IXLAddress address = wb.AddWorksheet("Sheet1").Cell(1000, 400).Address;
         Func<string> format = form switch
         {
             "ToString(A1)" => () => address.ToString(XLReferenceStyle.A1),
             "ToStringRelative()" => () => address.ToStringRelative(),
-            _ => () => address.ToStringFixed(XLReferenceStyle.A1),
+            "ToStringFixed(A1)" => () => address.ToStringFixed(XLReferenceStyle.A1),
+            "ToString(R1C1)" => () => address.ToString(XLReferenceStyle.R1C1),
+            _ => () => address.ToStringFixed(XLReferenceStyle.R1C1),
         };
         var text = format();
 

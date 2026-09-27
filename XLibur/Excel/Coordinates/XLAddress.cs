@@ -226,7 +226,7 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
             address = GetTrimmedAddress();
         else if (referenceStyle == XLReferenceStyle.R1C1
                  || HasWorksheet && Sheet!.Workbook.ReferenceStyle == XLReferenceStyle.R1C1)
-            address = "R" + RowNumber.ToInvariantString() + "C" + ColumnNumber.ToInvariantString();
+            address = FormatR1C1();
         else
             address = GetTrimmedAddress();
 
@@ -270,6 +270,24 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
         RowNumber.TryFormat(buffer[pos..], out var written, provider: CultureInfo.InvariantCulture);
         pos += written;
+
+        return new string(buffer[..pos]);
+    }
+
+    /// <summary>
+    /// Formats the address in R1C1 style as exactly one string, as <see cref="FormatA1"/> does.
+    /// </summary>
+    private string FormatR1C1()
+    {
+        // Max layout: 'R' + 7 row digits + 'C' + 5 column digits = 14 chars.
+        Span<char> buffer = stackalloc char[16];
+        buffer[0] = 'R';
+        RowNumber.TryFormat(buffer[1..], out var rowWritten, provider: CultureInfo.InvariantCulture);
+        var pos = 1 + rowWritten;
+
+        buffer[pos++] = 'C';
+        ColumnNumber.TryFormat(buffer[pos..], out var columnWritten, provider: CultureInfo.InvariantCulture);
+        pos += columnWritten;
 
         return new string(buffer[..pos]);
     }
@@ -403,7 +421,7 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
             address = referenceStyle switch
             {
                 XLReferenceStyle.A1 => FormatA1(fixedColumn: true, fixedRow: true),
-                XLReferenceStyle.R1C1 => string.Concat('R', RowNumber.ToInvariantString(), 'C', ColumnNumber),
+                XLReferenceStyle.R1C1 => FormatR1C1(),
                 _ => throw new NotImplementedException(),
             };
         }
