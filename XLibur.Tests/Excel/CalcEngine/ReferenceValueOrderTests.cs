@@ -63,12 +63,18 @@ public class ReferenceValueOrderTests
     /// spills into are empty until it runs. Reading the anchor evaluates it, and the cells it then
     /// spills into, later in row-major order, must still be read.
     /// </summary>
+    /// <remarks>
+    /// A small area such as <c>A1:B2</c> is walked point by point, and <c>A1:B100</c> or a whole
+    /// column by the sparse walk, which has to restart to see the spill. Both must read it.
+    /// </remarks>
     [Test]
     [Arguments("SEQUENCE(3)", "NPV(1, A1:A3)", 1.375, false)] // 1/2 + 2/4 + 3/8
     [Arguments("SEQUENCE(3)", "NPV(1, A1:A3)", 1.375, true)]
     [Arguments("SEQUENCE(3)", "NPV(1, A:A)", 1.375, false)]
     [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B2)", 1.625, false)] // 1/2 + 2/4 + 3/8 + 4/16, row by row
     [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B2)", 1.625, true)]
+    [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B100)", 1.625, false)]
+    [Arguments("SEQUENCE(2, 2)", "NPV(1, A1:B100)", 1.625, true)]
     [Arguments("SEQUENCE(3)", "SUM(A1:A3)", 6d, false)]
     [Arguments("SEQUENCE(3)", "SUM(A:A)", 6d, false)]
     [Arguments("SEQUENCE(3)", "SUM(A:A)", 6d, true)]
@@ -145,6 +151,8 @@ public class ReferenceValueOrderTests
     [Arguments("AGGREGATE(9,5,A1:A3)", 6d, false)]
     [Arguments("SUMIF(A1:A3,\">0\")", 6d, false)]
     [Arguments("SUMIF(A1:A3,\">0\")", 6d, true)]
+    [Arguments("SUMIF(A1:A100,\">0\")", 6d, false)] // Sparse walk.
+    [Arguments("SUBTOTAL(9,A1:A100)", 6d, false)]
     [Arguments("COUNTIF(A1:A3,\">1\")", 2d, false)]
     [Arguments("SUMIFS(A1:A3,A1:A3,\">0\")", 6d, false)]
     [Arguments("AVERAGEIF(A:A,\">0\")", 2d, false)]
@@ -162,6 +170,8 @@ public class ReferenceValueOrderTests
     [Test]
     [Arguments("SUBTOTAL(109,A1:A3)", 4d, false)]
     [Arguments("SUBTOTAL(109,A1:A3)", 4d, true)]
+    [Arguments("SUBTOTAL(109,A1:A100)", 4d, false)] // Sparse walk.
+    [Arguments("SUBTOTAL(109,A1:A100)", 4d, true)]
     [Arguments("SUBTOTAL(9,A1:A3)", 6d, false)] // 9 counts hidden rows.
     [Arguments("AGGREGATE(9,5,A1:A3)", 4d, false)]
     [Arguments("AGGREGATE(9,5,A1:A3)", 4d, true)]

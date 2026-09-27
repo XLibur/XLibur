@@ -27,16 +27,50 @@ public class SparseWalkAllocationTests
     /// </summary>
     private const long CeilingBytesPerCall = 560;
 
+    /// <summary>
+    /// A small area is walked point by point, with no slice enumerators (#686). Point by point it
+    /// measured 172 bytes in Release and 260 in Debug on net10.0, and 169 and 257 on net8.0;
+    /// through the slice enumerators it cost the same as the sparse walk above. The ceiling sits
+    /// between the two, like the one above.
+    /// </summary>
+    private const long SmallAreaCeilingBytesPerCall = 340;
+
+    /// <summary>
+    /// An area larger than the point-by-point walk takes, so the sparse walk reads it.
+    /// </summary>
     [Test]
     public async Task ReadingAOneAreaReference_AllocatesOneIteratorPerCall()
     {
         using var wb = new XLWorkbook();
+        var ws = NewSheet(wb);
+        var reference = new Reference(new XLRangeAddress(ws, "A1:E100"));
+
+        var perCall = await MeasureSum(wb, ws, reference);
+        await Assert.That(perCall).IsLessThan(CeilingBytesPerCall);
+    }
+
+    [Test]
+    public async Task ReadingASmallArea_AllocatesNoSliceEnumerators()
+    {
+        using var wb = new XLWorkbook();
+        var ws = NewSheet(wb);
+        var reference = new Reference(new XLRangeAddress(ws, "A1:E1"));
+
+        var perCall = await MeasureSum(wb, ws, reference);
+        await Assert.That(perCall).IsLessThan(SmallAreaCeilingBytesPerCall);
+    }
+
+    private static XLWorksheet NewSheet(XLWorkbook wb)
+    {
         var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
         for (var column = 1; column <= 5; column++)
             ws.Cell(1, column).Value = column;
+        return ws;
+    }
 
+    private static async Task<long> MeasureSum(XLWorkbook wb, XLWorksheet ws, Reference reference)
+    {
         var ctx = new CalcContext(wb.CalcEngine, CultureInfo.InvariantCulture, wb, ws, formulaPoint: null);
-        var reference = new Reference(new XLRangeAddress(ws, "A1:E1"));
 
         await Assert.That(Sum(ctx, reference)).IsEqualTo(15.0);
 
@@ -47,8 +81,7 @@ public class SparseWalkAllocationTests
         var before = GC.GetTotalAllocatedBytes(precise: true);
         for (var i = 0; i < Calls; i++)
             Sum(ctx, reference);
-        var perCall = (GC.GetTotalAllocatedBytes(precise: true) - before) / Calls;
-        await Assert.That(perCall).IsLessThan(CeilingBytesPerCall);
+        return (GC.GetTotalAllocatedBytes(precise: true) - before) / Calls;
     }
 
     private static double Sum(CalcContext ctx, Reference reference)
