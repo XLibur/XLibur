@@ -10,6 +10,11 @@ internal sealed class FormulaSlice : ISlice
     private readonly XLCalcEngine _engine;
     private readonly Slice<XLCellFormula?> _formulas = new();
 
+    /// <summary>
+    /// The number of formulas of this slice edited in place. See <see cref="RecordInPlaceEdit"/>.
+    /// </summary>
+    private int _inPlaceEdits;
+
     public FormulaSlice(XLWorksheet sheet)
     {
         _sheet = sheet;
@@ -18,7 +23,18 @@ internal sealed class FormulaSlice : ISlice
 
     public bool IsEmpty => _formulas.IsEmpty;
 
-    public int Version => _formulas.Version;
+    /// <inheritdoc />
+    /// <remarks>
+    /// Counts the formulas edited in place as well as the cells set, since both change what a save
+    /// writes. Both counts only go up, so their sum changes whenever either does.
+    /// </remarks>
+    public int Version => _formulas.Version + _inPlaceEdits;
+
+    /// <summary>
+    /// Records that a formula this slice holds was changed without being set again, such as its text
+    /// by a sheet rename or its <see cref="XLCellFormula.Range"/> by a shift.
+    /// </summary>
+    internal void RecordInPlaceEdit() => _inPlaceEdits++;
 
     public int MaxColumn => _formulas.MaxColumn;
 
