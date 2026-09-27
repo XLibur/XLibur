@@ -28,9 +28,9 @@ public class ThreadedCommentSaveCostTests
         // Warm up so JIT and any first-call setup are outside the measured window.
         PersonPartWriter.CollectReferencedPersons(wb);
 
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         var persons = PersonPartWriter.CollectReferencedPersons(wb);
-        var allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         await Assert.That(persons).IsEmpty();
 

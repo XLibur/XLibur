@@ -11,7 +11,8 @@ internal sealed class TallyAll : ITally
 {
     private readonly bool _ignoreArrayText;
     private readonly bool _includeErrors;
-    private readonly Func<CalcContext, Reference, IEnumerable<ScalarValue>> _getNonBlankValues;
+    // Null reads a reference through the context's struct enumerator, which allocates nothing.
+    private readonly Func<CalcContext, Reference, IEnumerable<ScalarValue>>? _getNonBlankValues;
 
     /// <summary>
     /// <list type="bullet">
@@ -63,7 +64,7 @@ internal sealed class TallyAll : ITally
     {
         _ignoreArrayText = ignoreArrayText;
         _includeErrors = includeErrors;
-        _getNonBlankValues = getNonBlankValues ?? (static (ctx, reference) => ctx.GetNonBlankValues(reference));
+        _getNonBlankValues = getNonBlankValues;
     }
 
     public OneOf<T, XLError> Tally<T>(CalcContext ctx, Span<AnyValue> args, T initialState)
@@ -101,27 +102,38 @@ internal sealed class TallyAll : ITally
     private OneOf<T, XLError> TallyCollection<T>(OneOf<Array, Reference> collection, CalcContext ctx, T state)
         where T : ITallyState<T>
     {
-        bool isArray;
-        IEnumerable<ScalarValue> valuesIterator;
         if (collection.TryPickT0(out var array, out var reference))
-        {
-            valuesIterator = array;
-            isArray = true;
-        }
-        else
-        {
-            valuesIterator = _getNonBlankValues(ctx, reference);
-            isArray = false;
-        }
+            return TallyValues(array.GetEnumerator(), isArray: true, state);
 
-        foreach (var value in valuesIterator)
-        {
-            var result = TallyValue(value, isArray, ref state);
-            if (!result.TryPickT0(out _, out var error))
-                return error;
-        }
+        if (_getNonBlankValues is not null)
+            return TallyValues(_getNonBlankValues(ctx, reference).GetEnumerator(), isArray: false, state);
 
-        return state;
+        return TallyValues(ctx.EnumerateNonBlankValues(reference), isArray: false, state);
+    }
+
+    /// <summary>
+    /// Tallies the values of an array or a reference. Generic over the enumerator, so the context's
+    /// struct enumerator is neither boxed nor copied into an iterator.
+    /// </summary>
+    private OneOf<T, XLError> TallyValues<T, TValues>(TValues values, bool isArray, T state)
+        where T : ITallyState<T>
+        where TValues : IEnumerator<ScalarValue>
+    {
+        try
+        {
+            while (values.MoveNext())
+            {
+                var result = TallyValue(values.Current, isArray, ref state);
+                if (!result.TryPickT0(out _, out var error))
+                    return error;
+            }
+
+            return state;
+        }
+        finally
+        {
+            values.Dispose();
+        }
     }
 
     private OneOf<bool, XLError> TallyValue<T>(ScalarValue value, bool isArray, ref T state)

@@ -62,9 +62,9 @@ public class LazyArrayEvaluationTests
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         _ = evaluate();
-        return GC.GetTotalAllocatedBytes(precise: true) - before;
+        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
     /// <summary>

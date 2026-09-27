@@ -7,7 +7,8 @@ internal sealed class TallyNumbers : ITally
 {
     private readonly bool _ignoreScalarBlank;
     private readonly bool _ignoreErrors;
-    private readonly Func<CalcContext, Reference, IEnumerable<ScalarValue>> _getNonBlankValues;
+    // Null reads a reference through the context's struct enumerator, which allocates nothing.
+    private readonly Func<CalcContext, Reference, IEnumerable<ScalarValue>>? _getNonBlankValues;
 
     /// <summary>
     /// Tally numbers.
@@ -59,7 +60,7 @@ internal sealed class TallyNumbers : ITally
     {
         _ignoreScalarBlank = ignoreScalarBlank;
         _ignoreErrors = ignoreErrors;
-        _getNonBlankValues = getNonBlankValues ?? (static (ctx, reference) => ctx.GetNonBlankValues(reference));
+        _getNonBlankValues = getNonBlankValues;
     }
 
     /// <summary>
@@ -106,26 +107,47 @@ internal sealed class TallyNumbers : ITally
     private bool TallyCollection<T>(CalcContext ctx, OneOf<Array, Reference> collection, ref T tally, out XLError error)
         where T : ITallyState<T>
     {
+        if (collection.TryPickT0(out var array, out var reference))
+            return TallyValues(array.GetEnumerator(), ref tally, out error);
+
+        if (_getNonBlankValues is not null)
+            return TallyValues(_getNonBlankValues(ctx, reference).GetEnumerator(), ref tally, out error);
+
+        return TallyValues(ctx.EnumerateNonBlankValues(reference), ref tally, out error);
+    }
+
+    /// <summary>
+    /// Tallies the values of an array or a reference. Generic over the enumerator, so the context's
+    /// struct enumerator is neither boxed nor copied into an iterator.
+    /// </summary>
+    private bool TallyValues<T, TValues>(TValues values, ref T tally, out XLError error)
+        where T : ITallyState<T>
+        where TValues : IEnumerator<ScalarValue>
+    {
         error = default;
-        var valuesIterator = !collection.TryPickT0(out var array, out var reference)
-            ? _getNonBlankValues(ctx, reference)
-            : array;
-
-        foreach (var value in valuesIterator)
+        try
         {
-            if (value.TryPickError(out error))
+            while (values.MoveNext())
             {
-                if (_ignoreErrors)
-                    continue;
+                var value = values.Current;
+                if (value.TryPickError(out error))
+                {
+                    if (_ignoreErrors)
+                        continue;
 
-                return false;
+                    return false;
+                }
+
+                // For arrays and references, only the number type is used. Other types are ignored.
+                if (value.TryPickNumber(out var number))
+                    tally = tally.Tally(number);
             }
 
-            // For arrays and references, only the number type is used. Other types are ignored.
-            if (value.TryPickNumber(out var number))
-                tally = tally.Tally(number);
+            return true;
         }
-
-        return true;
+        finally
+        {
+            values.Dispose();
+        }
     }
 }

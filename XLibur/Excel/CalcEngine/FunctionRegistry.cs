@@ -29,6 +29,24 @@ internal sealed class FunctionRegistry
     /// </summary>
     public IEnumerable<string> Names => _func.Keys;
 
+    /// <summary>
+    /// The name of a function as its node keeps it. For a registered function that is the
+    /// registry's own string, so a parse does not copy the name out of the formula text (#686). The
+    /// case can differ from the text; every reader of the name ignores case.
+    /// </summary>
+    /// <remarks>
+    /// Finding a string key by a span needs <c>GetAlternateLookup</c>, which .NET 9 added. On
+    /// .NET 8 the name is always copied.
+    /// </remarks>
+    public string GetName(ReadOnlySpan<char> name)
+    {
+#if NET9_0_OR_GREATER
+        if (_func.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(name, out var registeredName, out _))
+            return registeredName;
+#endif
+        return name.ToString();
+    }
+
     public bool TryGetFunc(string name, out FunctionDefinition? func)
     {
         return _func.TryGetValue(name, out func);

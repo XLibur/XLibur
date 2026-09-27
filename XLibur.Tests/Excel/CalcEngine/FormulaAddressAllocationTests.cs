@@ -39,10 +39,10 @@ public class FormulaAddressAllocationTests
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < Calls; i++)
             engine.EvaluateFormula("1+2", wb, ws, point);
-        var perCall = (GC.GetTotalAllocatedBytes(precise: true) - before) / Calls;
+        var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / Calls;
         await Assert.That(perCall).IsLessThan(CeilingBytesPerCall);
     }
 }
