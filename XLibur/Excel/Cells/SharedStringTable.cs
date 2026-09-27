@@ -28,6 +28,12 @@ internal sealed class SharedStringTable
     private readonly Dictionary<Text, int> _reverseDict = new();
 
     /// <summary>
+    /// Set when a cell was loaded from the file's shared string table without its text recording
+    /// the index the cell used. See <see cref="MarkFileIndicesIncomplete"/>.
+    /// </summary>
+    private bool _fileIndicesIncomplete;
+
+    /// <summary>
     /// Number of texts the table holds reference to.
     /// </summary>
     internal int Count => _table.Count - _freeIds.Count;
@@ -133,8 +139,44 @@ internal sealed class SharedStringTable
     internal void RecordFileIndex(int id, int fileIndex)
     {
         var entry = _table[id];
+
+        // Cells used two indices for one text. Whichever the text keeps, the cells that used the
+        // other name an index the save does not write the text at.
+        if (entry.FileIndex != Entry.NoFileIndex && entry.FileIndex != fileIndex)
+            _fileIndicesIncomplete = true;
+
         if (entry.FileIndex == Entry.NoFileIndex || fileIndex < entry.FileIndex)
             _table[id] = new Entry(entry.Text, entry.RefCount, fileIndex);
+    }
+
+    /// <summary>
+    /// Records that a cell was loaded from the file's shared string table, but its text does not
+    /// record the index the cell used: the index was out of range, or the text was kept inline.
+    /// </summary>
+    internal void MarkFileIndicesIncomplete() => _fileIndicesIncomplete = true;
+
+    /// <summary>
+    /// Does <paramref name="map"/> (from <see cref="GetConsecutiveMap"/>) write every text at the
+    /// index each cell loaded it from? Only then can a save keep cells as the file had them.
+    /// </summary>
+    /// <remarks>
+    /// Not when a cell's index was not recorded (<see cref="MarkFileIndicesIncomplete"/>), nor when
+    /// any text moved: that happens when the file listed a text no cell uses ahead of others, or a
+    /// cell edit since the load left a file text unused.
+    /// </remarks>
+    internal bool WritesTextsAtFileIndices(int[] map)
+    {
+        if (_fileIndicesIncomplete)
+            return false;
+
+        for (var i = 0; i < _table.Count; i++)
+        {
+            var entry = _table[i];
+            if (IsShared(entry) && entry.FileIndex != Entry.NoFileIndex && map[i] != entry.FileIndex)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

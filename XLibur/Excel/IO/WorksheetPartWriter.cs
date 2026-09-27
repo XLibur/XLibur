@@ -26,7 +26,14 @@ internal static class WorksheetPartWriter
         // the load describes a part that no longer exists.
         var loadedMarkup = xlWorksheet.TakePartWithoutSheetData();
         var worksheetDom = GetWorksheetDom(partIsEmpty, worksheetPart, xlWorksheet, loadedMarkup, options, context);
-        StreamToPart(worksheetDom, worksheetPart, xlWorksheet, context, options);
+
+        // Read before StreamToPart replaces the part. Only the part the load kept can have its cells
+        // kept, and only on the first save.
+        using var loadedSheetData = partIsEmpty || loadedMarkup is null
+            ? null
+            : LoadedSheetData.TryRead(worksheetPart, xlWorksheet, loadedMarkup, worksheetDom, options, context);
+
+        StreamToPart(worksheetDom, worksheetPart, xlWorksheet, loadedSheetData, context, options);
     }
 
     /// <summary>
@@ -313,13 +320,18 @@ internal static class WorksheetPartWriter
     /// substituting <see cref="SheetData"/> with the streaming writer lets us avoid the
     /// element-wrapping ceremony of <c>OpenXmlPartWriter</c> in the SheetData hot path
     /// without reaching into its private state via reflection.
+    /// <para>
+    /// When <paramref name="loadedSheetData"/> is given, the cells are copied from it as the file
+    /// had them instead of being streamed from the model.
+    /// </para>
     /// </remarks>
     private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
-        SaveContext context, SaveOptions options)
+        LoadedSheetData? loadedSheetData, SaveContext context, SaveOptions options)
     {
-        // The worksheet part might have stale content; PartXmlWriter opens it with
-        // FileMode.Create, which truncates it.
-        using var xml = PartXmlWriter.Create(worksheetPart);
+        // The worksheet part might have stale content; FileMode.Create truncates it. The stream is
+        // held here, not left to the writer, so kept cells can be copied to it directly.
+        using var output = worksheetPart.GetStream(FileMode.Create);
+        using var xml = PartXmlWriter.Create(output, closeOutput: false);
 
         xml.WriteStartDocument(true);
 
@@ -340,7 +352,9 @@ internal static class WorksheetPartWriter
 
         foreach (var child in worksheet.ChildElements)
         {
-            if (child is SheetData)
+            if (child is SheetData && loadedSheetData is not null)
+                loadedSheetData.WriteTo(xml, output);
+            else if (child is SheetData)
                 SheetDataWriter.StreamSheetData(xml, xlWorksheet, context, options);
             else
                 child.WriteTo(xml);

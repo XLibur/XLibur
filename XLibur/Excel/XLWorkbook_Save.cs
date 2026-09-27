@@ -354,6 +354,7 @@ public partial class XLWorkbook
                                         context.RelIdGenerator.GetNext(RelType.Workbook));
         SharedStringTableWriter.GenerateSharedStringTablePartContent(this, sharedStringTablePart, context);
 
+        context.StylesheetWasLoaded = workbookPart.WorkbookStylesPart?.Stylesheet is not null;
         var workbookStylesPart = workbookPart.WorkbookStylesPart ??
                                  workbookPart.AddNewPart<WorkbookStylesPart>(
                                      context.RelIdGenerator.GetNext(RelType.Workbook));

@@ -233,13 +233,14 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     /// <summary>
-    /// The cells as the workbook load left them. Null when the sheet was not loaded, was loaded from
-    /// a template, or its part was too large to keep (see <see cref="RecordLoadedCells"/>).
+    /// The cells as the file had them. Null when the sheet was not loaded, was loaded from a
+    /// template, or its part was too large to keep (see <see cref="RecordLoadedCells"/>).
     /// </summary>
     private SheetDataBaseline? _loadedCells;
 
     /// <summary>
-    /// Records the cells as they are now, as the ones the sheet was loaded with.
+    /// Records the cells as they are now, as the ones the file had. Called as soon as the load has
+    /// read them, before a later step of the load can write to a cell.
     /// </summary>
     /// <remarks>
     /// Only for a sheet whose part was kept by <see cref="KeepPartWithoutSheetData"/>. A save can keep
@@ -251,6 +252,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         if (_partWithoutSheetData is not null)
             _loadedCells = SheetDataBaseline.Capture(this);
     }
+
+    /// <summary>
+    /// Takes the comments and images the load added after the cells into the record of
+    /// <see cref="RecordLoadedCells"/>. Called when the load ends.
+    /// </summary>
+    internal void RecordLoadedAnnotations() => _loadedCells?.RecordAnnotations(this);
 
     /// <summary>
     /// Forgets the cells recorded by <see cref="RecordLoadedCells"/>.
