@@ -69,8 +69,9 @@ public class SaveOptions
     /// By default, the first save of a loaded workbook copies the cells of an unchanged sheet as the
     /// file had them, instead of writing them again. That is faster, and keeps markup XLibur would
     /// otherwise drop or respell, such as row <c>spans</c> and the exact text of numbers. The rest of
-    /// the sheet is still written from the model. Set this to <c>true</c> to have every sheet
-    /// written as XLibur writes it, for example to normalise a file.
+    /// the sheet is still written from the model. When that would say the same as the file did, the
+    /// whole sheet is kept as the file had it, down to the bytes. Set this to <c>true</c> to have every
+    /// sheet written as XLibur writes it, for example to normalise a file.
     /// <para>
     /// A sheet's cells are copied only when nothing a save writes into them has changed, the sheet
     /// has no formulas, pivot tables, tables with a totals row, cell images or dynamic arrays, and
