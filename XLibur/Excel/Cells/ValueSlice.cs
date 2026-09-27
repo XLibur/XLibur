@@ -209,6 +209,32 @@ internal sealed class ValueSlice : ISlice
         _values.SetNonDefault(point, in modified);
     }
 
+    /// <summary>
+    /// The <see cref="SetCellValueDuringLoad"/> fast path for a text loaded from item
+    /// <paramref name="fileIndex"/> of the file's shared string table. Records that index, so a
+    /// save writes the text back at the same place.
+    /// </summary>
+    internal void SetSharedTextDuringLoad(Point point, string text, int fileIndex)
+    {
+        var id = _sst.IncreaseRef(text, inline: false);
+        _sst.RecordFileIndex(id, fileIndex);
+
+        var content = new XLValueSliceContent(id, XLDataType.Text, inline: false);
+        _values.SetNonDefault(point, in content);
+    }
+
+    /// <summary>
+    /// Records that the text of the cell at <paramref name="point"/> was loaded from item
+    /// <paramref name="fileIndex"/> of the file's shared string table. For a text set by another
+    /// route than <see cref="SetSharedTextDuringLoad"/>, such as a rich text.
+    /// </summary>
+    internal void RecordSharedTextFileIndex(Point point, int fileIndex)
+    {
+        ref readonly var cellValue = ref _values[point];
+        if (cellValue.Type == XLDataType.Text && !cellValue.Inline)
+            _sst.RecordFileIndex((int)cellValue.Value, fileIndex);
+    }
+
     internal XLImmutableRichText? GetRichText(Point point)
     {
         ref readonly var cellValue = ref _values[point];

@@ -1,3 +1,4 @@
+using System;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Tables;
@@ -27,12 +28,23 @@ internal static class SharedStringTableWriter
         var sst = workbook.SharedStringTable;
         var map = sst.GetConsecutiveMap();
         context.SstMap = map;
+
+        // The map does not follow id order (texts loaded from a file come first, in the file's
+        // order), so the items are written in the order of the ids they are mapped to.
+        var idsInWriteOrder = new int[sst.Count];
+        var written = 0;
         for (var sharedStringId = 0; sharedStringId < map.Length; ++sharedStringId)
         {
             var continuousId = map[sharedStringId];
             if (continuousId < 0)
                 continue;
 
+            idsInWriteOrder[continuousId] = sharedStringId;
+            written++;
+        }
+
+        foreach (var sharedStringId in idsInWriteOrder.AsSpan(0, written))
+        {
             var richText = sst.GetRichText(sharedStringId);
             if (richText is not null)
             {

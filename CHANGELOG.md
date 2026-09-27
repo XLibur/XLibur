@@ -43,6 +43,10 @@
   - A plain value cell (number, date, time, boolean, error or shared string) is written as text in one call per row instead of about eight `XmlWriter` calls per cell. The saved bytes are the same.
   - Disposing a workbook drops each sheet's cells at once instead of clearing them one by one.
 
+### Changed
+
+- **A loaded workbook saves its shared strings in the order the file had them.** XLibur numbered each text by the cell that first used it, and wrote the table in that order. Excel's table follows its own order, so saving an unchanged Excel workbook renumbered its strings and rewrote every string cell with a new index: across the 846 worksheets in the test resources, 204 of the 509 that use strings had their indices changed (#702). Texts loaded from a file are now written first, in the file's order, and texts added after the load follow them. Saving an unchanged workbook keeps each index as the file had it, for all but 5 of those 509 sheets. The indices still move where the file listed a text twice, or listed one that no cell uses, since neither is written again. The saved workbook means the same as before; only the numbering changes.
+
 ## v0.630.0 - 2026-09-27
 
 ### ⚡ Performance

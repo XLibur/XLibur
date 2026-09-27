@@ -569,9 +569,9 @@ internal static class StyleDecoder
     /// The writes are gated and ordered exactly as the decoder this replaced gated and ordered
     /// them, and that is load-bearing rather than cosmetic. A rich run is part of its shared
     /// string's identity, so every property write on one dereferences that string's
-    /// shared-string-table entry and interns a new one. Since
-    /// <c>SharedStringTable.GetConsecutiveMap</c> emits entries in insertion order, a different
-    /// set or order of intermediate writes reorders <c>sharedStrings.xml</c> for a file whose
+    /// shared-string-table entry and interns a new one. <c>SharedStringTable.GetConsecutiveMap</c>
+    /// emits a text the load did not record a file index for in insertion order, so a different set
+    /// or order of intermediate writes can reorder <c>sharedStrings.xml</c> for a file whose
     /// content is unchanged. The four booleans are written unconditionally, as before; everything
     /// else is written only when the run states the element.
     /// </para>
