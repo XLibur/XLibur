@@ -209,24 +209,7 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
         if (!IsValid)
             return InvalidRef;
 
-        var columnLetter = ColumnLetter;
-
-        // Max layout: '$' + 3 column letters + '$' + 7 row digits = 12 chars.
-        Span<char> buffer = stackalloc char[16];
-        var pos = 0;
-        if (FixedColumn)
-            buffer[pos++] = '$';
-
-        columnLetter.AsSpan().CopyTo(buffer[pos..]);
-        pos += columnLetter.Length;
-
-        if (FixedRow)
-            buffer[pos++] = '$';
-
-        RowNumber.TryFormat(buffer[pos..], out var written, provider: CultureInfo.InvariantCulture);
-        pos += written;
-
-        return new string(buffer[..pos]);
+        return FormatA1(FixedColumn, FixedRow);
     }
 
     public string ToString(XLReferenceStyle referenceStyle)
@@ -262,7 +245,33 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
 
     internal string GetTrimmedAddress()
     {
-        return ColumnLetter + RowNumber.ToInvariantString();
+        return FormatA1(fixedColumn: false, fixedRow: false);
+    }
+
+    /// <summary>
+    /// Formats the address in A1 style as exactly one string. The struct is readonly and cannot
+    /// cache the result, so each call allocates, and it allocates nothing but the result.
+    /// </summary>
+    private string FormatA1(bool fixedColumn, bool fixedRow)
+    {
+        var columnLetter = ColumnLetter;
+
+        // Max layout: '$' + 3 column letters + '$' + 7 row digits = 12 chars.
+        Span<char> buffer = stackalloc char[16];
+        var pos = 0;
+        if (fixedColumn)
+            buffer[pos++] = '$';
+
+        columnLetter.AsSpan().CopyTo(buffer[pos..]);
+        pos += columnLetter.Length;
+
+        if (fixedRow)
+            buffer[pos++] = '$';
+
+        RowNumber.TryFormat(buffer[pos..], out var written, provider: CultureInfo.InvariantCulture);
+        pos += written;
+
+        return new string(buffer[..pos]);
     }
 
     #endregion Methods
@@ -393,7 +402,7 @@ public readonly struct XLAddress : IXLAddress, IEquatable<XLAddress>
         {
             address = referenceStyle switch
             {
-                XLReferenceStyle.A1 => string.Concat('$', ColumnLetter, '$', RowNumber.ToInvariantString()),
+                XLReferenceStyle.A1 => FormatA1(fixedColumn: true, fixedRow: true),
                 XLReferenceStyle.R1C1 => string.Concat('R', RowNumber.ToInvariantString(), 'C', ColumnNumber),
                 _ => throw new NotImplementedException(),
             };

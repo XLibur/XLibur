@@ -128,6 +128,47 @@ public class AddressStructTests
         await Assert.That(bytes).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// <see cref="XLAddress"/> used to cache its A1 text, and a caller that kept one boxed
+    /// <see cref="IXLAddress"/> formatted it for free after the first call. A readonly struct cannot
+    /// cache, so each call now builds its string. It must build only that one string: the row
+    /// text and a concatenation made two for rows from 300 up, which .NET does not cache.
+    /// </summary>
+    [Test]
+    [Arguments("ToString(A1)")]
+    [Arguments("ToStringRelative()")]
+    [Arguments("ToStringFixed(A1)")]
+    public async Task FormattingAHeldAddress_AllocatesOnlyTheResult(string form)
+    {
+        using var wb = new XLWorkbook();
+        IXLAddress address = wb.AddWorksheet("Sheet1").Cell(1000, 2).Address;
+        Func<string> format = form switch
+        {
+            "ToString(A1)" => () => address.ToString(XLReferenceStyle.A1),
+            "ToStringRelative()" => () => address.ToStringRelative(),
+            _ => () => address.ToStringFixed(XLReferenceStyle.A1),
+        };
+        var text = format();
+
+        var (bytes, length) = MeasureAllocation(() =>
+        {
+            var length = 0L;
+            for (var i = 0; i < Calls; i++)
+                length += format().Length;
+            return length;
+        });
+        var (oneStringEach, _) = MeasureAllocation(() =>
+        {
+            var length = 0L;
+            for (var i = 0; i < Calls; i++)
+                length += new string('x', text.Length).Length;
+            return length;
+        });
+
+        await Assert.That(length).IsEqualTo((long)text.Length * Calls);
+        await Assert.That(bytes).IsEqualTo(oneStringEach);
+    }
+
     [Test]
     public async Task CellAddresses_CompareByValue()
     {
