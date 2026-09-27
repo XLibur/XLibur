@@ -38,10 +38,10 @@ public class FunctionNameAllocationTests
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < Parses; i++)
             engine.Parse("SUM(D1:H1)");
-        var perParse = (GC.GetTotalAllocatedBytes(precise: true) - before) / Parses;
+        var perParse = (GC.GetAllocatedBytesForCurrentThread() - before) / Parses;
         await Assert.That(perParse).IsLessThan(CeilingBytesPerParse);
     }
 
