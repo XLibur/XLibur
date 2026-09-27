@@ -396,10 +396,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             else if (formula.Type == FormulaType.Normal)
             {
                 var result = EvaluateFormula(
-                    formula.A1,
+                    formula.GetAst(this),
                     sheet.Workbook,
                     sheet,
-                    point);
+                    point,
+                    recursive: false,
+                    recalculateSheetId: null);
                 valueSlice.SetCellValue(point, result.ToCellValue());
             }
             else if (formula.Type == FormulaType.Array)
@@ -407,7 +409,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 var range = formula.Range;
                 var leftTopCorner = range.FirstPoint;
                 var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
-                var array = EvaluateArrayFormula(formula.A1, masterCell, recalculateSheetId: null);
+                var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId: null);
                 var result = array.Broadcast(range.Height, range.Width);
 
                 for (var rowIdx = 0; rowIdx < result.Height; ++rowIdx)
@@ -655,7 +657,6 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     private void ApplyFormula(XLCellFormula formula, Point appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, uint? recalculateSheetId)
     {
-        var formulaText = formula.A1;
         if (formula.IsDynamicArray)
         {
             // The formula lives only in the anchor cell (spilled cells are formula-less),
@@ -665,10 +666,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         else if (formula.Type == FormulaType.Normal)
         {
             var single = EvaluateFormula(
-                formulaText,
+                formula.GetAst(this),
                 sheet.Workbook,
                 sheet,
                 appliedPoint,
+                recursive: false,
                 recalculateSheetId: recalculateSheetId);
             valueSlice.SetCellValue(appliedPoint, single.ToCellValue());
         }
@@ -678,7 +680,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             var range = formula.Range;
             var leftTopCorner = range.FirstPoint;
             var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
-            var array = EvaluateArrayFormula(formulaText, masterCell, recalculateSheetId);
+            var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId);
 
             // The array from formula can be smaller or larger than the
             // range of cells it should fit into. Broadcast it to the size.
@@ -728,8 +730,9 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <c>XLWorkbook.EvaluateExprCurrent</c> and <see cref="XLWorksheet.Evaluate"/> — all of which
     /// may be called with no <paramref name="address"/>, and two of which with no
     /// <paramref name="ws"/> either. That is why the missing-context translation below lives here
-    /// rather than at each caller. The two recalculation call sites that also use this overload
-    /// always pass a real workbook, sheet and address, so they cannot reach it.
+    /// rather than at each caller. The text is parsed through <see cref="ExpressionCache"/>, because
+    /// it belongs to no cell that could keep the tree. A cell's formula keeps its own
+    /// (<see cref="XLCellFormula.GetAst"/>).
     /// </para>
     /// </remarks>
     /// <exception cref="XLNoWorksheetContextException">
@@ -737,6 +740,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <paramref name="address"/> (or no <paramref name="ws"/>) to answer from.
     /// </exception>
     internal ScalarValue EvaluateFormula(string expression, XLWorkbook? wb = null, XLWorksheet? ws = null, Point? address = null, bool recursive = false, uint? recalculateSheetId = null)
+        => EvaluateFormula(_cache[expression], wb, ws, address, recursive, recalculateSheetId);
+
+    /// <summary>
+    /// Evaluates a normal formula that is already parsed. The recalculation paths pass the tree a
+    /// cell's formula keeps, and always pass a real workbook, sheet and address, so they cannot
+    /// reach the missing-context translation.
+    /// </summary>
+    private ScalarValue EvaluateFormula(Formula formula, XLWorkbook? wb, XLWorksheet? ws, Point? address, bool recursive, uint? recalculateSheetId)
     {
         var ctx = new CalcContext(this, _culture, wb, ws, address, recursive)
         {
@@ -760,23 +771,23 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
         // the formula address just as much, so `V1,VBL1` still threw the internal type.
         return EvaluationPolicy.RaiseMissingContextAsPublic(
-            (Engine: this, Expression: expression, Context: ctx),
-            static s => s.Engine.EvaluateAndReduce(s.Expression, s.Context),
-            static s => $"'{s.Expression}' needs to know the cell it is being evaluated in, and was evaluated without one. "
+            (Engine: this, Formula: formula, Context: ctx),
+            static s => s.Engine.EvaluateAndReduce(s.Formula, s.Context),
+            static s => $"'{s.Formula.Text}' needs to know the cell it is being evaluated in, and was evaluated without one. "
                         + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.");
     }
 
     /// <summary>
-    /// Evaluate <paramref name="expression"/> in <paramref name="ctx"/> and reduce the result to
+    /// Evaluate <paramref name="formula"/> in <paramref name="ctx"/> and reduce the result to
     /// the single value a cell would hold.
     /// </summary>
     /// <remarks>
     /// Split out so the missing-context translation in the caller covers every step that can read
     /// <see cref="CalcContext.FormulaSheetPoint"/>, rather than only the first one.
     /// </remarks>
-    private ScalarValue EvaluateAndReduce(string expression, CalcContext ctx)
+    private ScalarValue EvaluateAndReduce(Formula formula, CalcContext ctx)
     {
-        var result = EvaluateFormula(expression, ctx);
+        var result = EvaluateFormula(formula, ctx);
 
         if (CalcContext.UseImplicitIntersection)
         {
@@ -793,14 +804,14 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         return ToCellContentValue(result, ctx);
     }
 
-    private Array EvaluateArrayFormula(string expression, XLCell masterCell, uint? recalculateSheetId)
+    private Array EvaluateArrayFormula(Formula formula, XLCell masterCell, uint? recalculateSheetId)
     {
         var ctx = new CalcContext(this, _culture, masterCell)
         {
             IsArrayCalculation = true,
             RecalculateSheetId = recalculateSheetId
         };
-        var result = EvaluateFormula(expression, ctx);
+        var result = EvaluateFormula(formula, ctx);
         if (result.TryPickSingleOrMultiValue(out var single, out var multi, ctx))
             return new ScalarArray(single, 1, 1);
 
@@ -826,7 +837,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         var formulaSlice = cells.FormulaSlice;
 
         var masterCell = sheet.Cell(anchor.Row, anchor.Column);
-        var array = EvaluateArrayFormula(formula.A1, masterCell, recalculateSheetId);
+        var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId);
 
         var lastRow = anchor.Row + array.Height - 1;
         var lastColumn = anchor.Column + array.Width - 1;
@@ -1009,15 +1020,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
         var ctx = caller.ForDefinedName(nameFormula);
-        return EvaluateFormula(nameFormula, ctx);
+        return EvaluateFormula(_cache[nameFormula], ctx);
     }
 
-    private AnyValue EvaluateFormula(string expression, CalcContext ctx)
+    private AnyValue EvaluateFormula(Formula formula, CalcContext ctx)
     {
-        var x = _cache[expression];
-
-        var result = x.AstRoot.Accept(ctx, _visitor);
-        return result;
+        return formula.AstRoot.Accept(ctx, _visitor);
     }
 
     /// <summary>

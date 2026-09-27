@@ -92,6 +92,11 @@ internal sealed class XLCellFormula
     private Point _sharedR1C1Anchor;
 
     /// <summary>
+    /// The tree of <see cref="A1"/>, parsed by the first evaluation. See <see cref="GetAst"/>.
+    /// </summary>
+    private Formula? _ast;
+
+    /// <summary>
     /// Is this formula clean, i.e. is its cached value up to date?
     /// </summary>
     internal bool IsClean() => _isClean;
@@ -566,6 +571,33 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
+    /// The tree of <see cref="A1"/> that evaluation walks. The first call parses it, and later calls
+    /// return the same tree, so a recalculation does not parse the formula again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The tree used to be kept in the engine's <see cref="ExpressionCache"/>, a weak table keyed by
+    /// the text. The text lives as long as this formula, so the table kept every tree alive anyway,
+    /// and added its own entry and a lookup on every evaluation (#686). Here the tree lives exactly as
+    /// long as the text it was parsed from: <see cref="InvalidateExtent"/> drops it wherever
+    /// <see cref="A1"/> changes.
+    /// </para>
+    /// <para>
+    /// A refused formula keeps nothing, so each evaluation parses it again and fails again. The tree
+    /// belongs to the engine that parsed it, which is why the workbook's engine must be replaced before
+    /// any formula is evaluated (see <c>XLWorkbook.CalcEngine</c>).
+    /// </para>
+    /// </remarks>
+    /// <param name="engine">The engine of the workbook this formula is in.</param>
+    /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
+    internal Formula GetAst(XLCalcEngine engine) => _ast ??= engine.Parse(A1);
+
+    /// <summary>
+    /// Whether <see cref="GetAst"/> has kept a tree that is still current. For tests.
+    /// </summary>
+    internal bool HasAst => _ast is not null;
+
+    /// <summary>
     /// Keep the R1C1 text of the shared formula that the loader read this formula from.
     /// </summary>
     /// <param name="r1c1">The R1C1 text of the group. All cells of the group get the same string.</param>
@@ -642,15 +674,17 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
-    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/> and the R1C1
-    /// text that the loader kept (see <see cref="TryGetSharedR1C1"/>). Must be called from every place
-    /// that assigns <see cref="A1"/> after construction.
+    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/>, the R1C1
+    /// text that the loader kept (see <see cref="TryGetSharedR1C1"/>) and the parsed tree (see
+    /// <see cref="GetAst"/>). Must be called from every place that assigns <see cref="A1"/> after
+    /// construction.
     /// </summary>
     private void InvalidateExtent()
     {
         _maxShiftableRow = 0;
         _maxShiftableColumn = 0;
         _sharedR1C1 = null;
+        _ast = null;
     }
 
     /// <summary>
