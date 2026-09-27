@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -293,21 +294,81 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// This is the one way the calc engine reads the values of a reference. Areas are read in
     /// their order in the reference and each area in row-major order (left to right, then top to
     /// bottom), the order functions such as NPV, IRR and MIRR depend on. A cell covered by two
-    /// overlapping areas is read once for each.
+    /// overlapping areas is read once for each. The values come from
+    /// <see cref="EnumerateNonBlankValues"/>; a caller that only loops over them should use that
+    /// instead, because this iterator is one more heap object per call.
     /// </remarks>
     internal IEnumerable<ScalarValue> GetNonBlankValues(Reference reference)
     {
-        foreach (var area in reference)
+        var values = EnumerateNonBlankValues(reference);
+        while (values.MoveNext())
+            yield return values.Current;
+    }
+
+    /// <summary>
+    /// The values of <see cref="GetNonBlankValues(Reference)"/>, as a struct enumerator that
+    /// allocates nothing. The tally functions (SUM, COUNT, AVERAGE and the like) read every
+    /// reference argument through it, so an evaluation of <c>SUM(D1:H1)</c> does not allocate an
+    /// iterator (#686).
+    /// </summary>
+    internal NonBlankValueEnumerator EnumerateNonBlankValues(Reference reference) => new(this, reference);
+
+    /// <summary>
+    /// See <see cref="EnumerateNonBlankValues"/>. It is a mutable struct: keep it in a local and
+    /// call <see cref="MoveNext"/> on that local, or pass it by <c>ref</c> or as a type argument.
+    /// A copy moves on its own.
+    /// </summary>
+    internal struct NonBlankValueEnumerator : IEnumerator<ScalarValue>
+    {
+        private readonly CalcContext _ctx;
+        private readonly Reference _reference;
+        private int _nextArea;
+
+        // The sheet of the area being walked, null before the first area.
+        private XLWorksheet? _sheet;
+        private UsedPointsWalk _walk;
+
+        internal NonBlankValueEnumerator(CalcContext ctx, Reference reference)
         {
-            var sheet = area.Worksheet ?? Worksheet;
-            var walk = new UsedPointsWalk(sheet, Area.FromRangeAddress(area));
-            while (walk.MoveNext(_recursiveEvaluations))
+            _ctx = ctx;
+            _reference = reference;
+        }
+
+        public ScalarValue Current { get; private set; }
+
+        readonly object IEnumerator.Current => Current;
+
+        public bool MoveNext()
+        {
+            while (true)
             {
-                var point = walk.Current;
-                var scalarValue = GetCellValue(sheet, point.Row, point.Column);
-                if (!scalarValue.IsBlank)
-                    yield return scalarValue;
+                if (_sheet is not null)
+                {
+                    while (_walk.MoveNext(_ctx._recursiveEvaluations))
+                    {
+                        var point = _walk.Current;
+                        var scalarValue = _ctx.GetCellValue(_sheet, point.Row, point.Column);
+                        if (!scalarValue.IsBlank)
+                        {
+                            Current = scalarValue;
+                            return true;
+                        }
+                    }
+                }
+
+                if (_nextArea == _reference.AreaCount)
+                    return false;
+
+                var area = _reference[_nextArea++];
+                _sheet = area.Worksheet ?? _ctx.Worksheet;
+                _walk = new UsedPointsWalk(_sheet, Area.FromRangeAddress(area));
             }
+        }
+
+        readonly void IEnumerator.Reset() => throw new NotSupportedException();
+
+        public readonly void Dispose()
+        {
         }
     }
 
