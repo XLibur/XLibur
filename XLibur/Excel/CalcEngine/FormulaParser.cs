@@ -234,28 +234,28 @@ internal sealed class FormulaParser
         public ValueNode Function(string context, SymbolRange range, ReadOnlySpan<char> functionName,
             IReadOnlyList<ValueNode> arguments)
         {
-            return GetFunctionNode(null, functionName.ToString(), arguments);
+            return GetFunctionNode(null, _functionRegistry.GetName(functionName), arguments);
         }
 
         public ValueNode Function(string context, SymbolRange range, string sheetName, ReadOnlySpan<char> functionName,
             IReadOnlyList<ValueNode> args)
         {
             var prefixNode = new PrefixNode(null, sheetName, null, null);
-            return GetFunctionNode(prefixNode, functionName.ToString(), args);
+            return GetFunctionNode(prefixNode, _functionRegistry.GetName(functionName), args);
         }
 
         public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheetName,
             ReadOnlySpan<char> functionName, IReadOnlyList<ValueNode> arguments)
         {
             var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheetName, null, null);
-            return GetFunctionNode(prefixNode, functionName.ToString(), arguments);
+            return GetFunctionNode(prefixNode, _functionRegistry.GetName(functionName), arguments);
         }
 
         public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> functionName,
             IReadOnlyList<ValueNode> arguments)
         {
             var prefixNode = new PrefixNode(new FileNode(workbookIndex), null, null, null);
-            return GetFunctionNode(prefixNode, functionName.ToString(), arguments);
+            return GetFunctionNode(prefixNode, _functionRegistry.GetName(functionName), arguments);
         }
 
         public ValueNode CellFunction(string context, SymbolRange range, RowCol cell,
