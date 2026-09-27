@@ -88,22 +88,28 @@ internal sealed class WorksheetPartBuffer : IDisposable
     /// The part with <c>&lt;sheetData&gt;</c> reduced to an empty element and every other byte as
     /// it was.
     /// </summary>
+    /// <remarks>
+    /// The start tag is kept whole and only closed as an empty element. It can declare namespaces,
+    /// including the prefix <c>&lt;sheetData&gt;</c> itself is written with when the root does not
+    /// declare it, and a copy of the bare name would leave that prefix undeclared.
+    /// </remarks>
     internal byte[] CopyWithoutSheetData()
     {
         var xml = Buffer.AsSpan(0, _length);
-        var name = xml.Slice(SheetData.NameStart, SheetData.NameLength);
-        var suffixLength = _length - SheetData.End;
+        if (SheetData.IsEmptyElement)
+            return xml.ToArray();
 
-        var copy = new byte[SheetData.Start + name.Length + 3 + suffixLength];
+        // Everything before the start tag's '>', then '/>' in its place.
+        var startTagOpen = xml[..(SheetData.StartTagEnd - 1)];
+        var suffix = xml[SheetData.End..];
+
+        var copy = new byte[startTagOpen.Length + 2 + suffix.Length];
         var span = copy.AsSpan();
 
-        xml[..SheetData.Start].CopyTo(span);
-        span = span[SheetData.Start..];
-        span[0] = (byte)'<';
-        name.CopyTo(span[1..]);
-        span[name.Length + 1] = (byte)'/';
-        span[name.Length + 2] = (byte)'>';
-        xml[SheetData.End..].CopyTo(span[(name.Length + 3)..]);
+        startTagOpen.CopyTo(span);
+        span[startTagOpen.Length] = (byte)'/';
+        span[startTagOpen.Length + 1] = (byte)'>';
+        suffix.CopyTo(span[(startTagOpen.Length + 2)..]);
 
         return copy;
     }

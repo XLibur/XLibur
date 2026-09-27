@@ -72,6 +72,53 @@ public class LoadSaveFastPathTests
     }
 
     [Test]
+    public async Task A_prefix_declared_on_sheetData_itself_is_kept_for_the_markup_around_the_cells()
+    {
+        using var package = SaveStructuredWorkbook();
+
+        // Legal and rare: the root uses the default namespace, and <sheetData> declares the prefix
+        // it is written with. Cutting the cells out must not cut that declaration with them.
+        using var declaredOnSheetData = Copy(package).RewriteSheet1(PrefixDeclaredOnSheetDataOnly);
+
+        using var plain = new XLWorkbook(package);
+        using var declared = new XLWorkbook(declaredOnSheetData);
+
+        var declaredSheet = (XLWorksheet)declared.Worksheet(1);
+        await Assert.That(declaredSheet.TakePartWithoutSheetData()).IsNotNull();
+
+        foreach (var address in new[] { "A1", "B2", "C3", "D4", "B7" })
+        {
+            var expected = plain.Worksheet(1).Cell(address);
+            var actual = declared.Worksheet(1).Cell(address);
+            await Assert.That(actual.Value).IsEqualTo(expected.Value);
+            await Assert.That(actual.Style.Font.Bold).IsEqualTo(expected.Style.Font.Bold);
+            await Assert.That(actual.HasHyperlink).IsEqualTo(expected.HasHyperlink);
+        }
+
+        await Assert.That(declaredSheet.Column(2).Style.Font.Italic).IsTrue();
+        await Assert.That(declaredSheet.MergedRanges.Count).IsEqualTo(1);
+        await Assert.That(declaredSheet.PageSetup.PageOrientation).IsEqualTo(XLPageOrientation.Landscape);
+    }
+
+    [Test]
+    public async Task A_prefix_declared_on_sheetData_itself_saves_a_loadable_part()
+    {
+        using var package = SaveStructuredWorkbook();
+        using var declaredOnSheetData = Copy(package).RewriteSheet1(PrefixDeclaredOnSheetDataOnly);
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(declaredOnSheetData))
+            wb.SaveAs(saved);
+
+        using var reloaded = new XLWorkbook(saved);
+        var sheet = reloaded.Worksheet(1);
+        await Assert.That(sheet.Cell("A1").Value).IsEqualTo("Header");
+        await Assert.That(sheet.Cell("B2").Value).IsEqualTo(2.5);
+        await Assert.That(sheet.MergedRanges.Count).IsEqualTo(1);
+        await Assert.That(sheet.PageSetup.PageOrientation).IsEqualTo(XLPageOrientation.Landscape);
+    }
+
+    [Test]
     public async Task The_part_kept_from_the_load_serves_one_save_only()
     {
         using var package = SaveStructuredWorkbook();
@@ -265,6 +312,35 @@ public class LoadSaveFastPathTests
 
         output.Position = 0;
         return output;
+    }
+
+    /// <summary>
+    /// Rewrites a sheet XLibur saved (every element prefixed <c>x:</c>, declared on the root) so the
+    /// root and everything outside the cells use the default namespace, and <c>&lt;x:sheetData&gt;</c>
+    /// declares <c>xmlns:x</c> for itself.
+    /// </summary>
+    private static string PrefixDeclaredOnSheetDataOnly(string xml)
+    {
+        const string mainNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var sheetDataStart = xml.IndexOf("<x:sheetData>", StringComparison.Ordinal);
+        var sheetDataEnd = xml.IndexOf("</x:sheetData>", StringComparison.Ordinal) + "</x:sheetData>".Length;
+        if (sheetDataStart < 0 || sheetDataEnd < sheetDataStart)
+            throw new InvalidOperationException("The saved sheet has no <x:sheetData> element to rewrite.");
+
+        static string Unprefixed(string markup) => markup
+            .Replace("<x:", "<", StringComparison.Ordinal)
+            .Replace("</x:", "</", StringComparison.Ordinal);
+
+        var before = Unprefixed(xml[..sheetDataStart])
+            .Replace($"xmlns:x=\"{mainNs}\"", $"xmlns=\"{mainNs}\"", StringComparison.Ordinal);
+        var cells = xml[sheetDataStart..sheetDataEnd]
+            .Replace("<x:sheetData>", $"<x:sheetData xmlns:x=\"{mainNs}\">", StringComparison.Ordinal);
+        var after = Unprefixed(xml[sheetDataEnd..]);
+
+        if (!before.Contains($"xmlns=\"{mainNs}\"", StringComparison.Ordinal))
+            throw new InvalidOperationException("The saved sheet does not declare the x prefix on its root.");
+
+        return before + cells + after;
     }
 
     /// <summary>An expandable copy, which a package rewrite needs.</summary>

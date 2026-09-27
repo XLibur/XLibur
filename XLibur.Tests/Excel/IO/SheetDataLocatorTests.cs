@@ -35,6 +35,22 @@ public class SheetDataLocatorTests
     }
 
     [Test]
+    [Arguments("<x:sheetData xmlns:x=\"" + Main + "\"><x:row r=\"1\"/></x:sheetData>",
+        "<x:sheetData xmlns:x=\"" + Main + "\">")]
+    [Arguments("<sheetData foo=\"a>b\" ><row r=\"1\"/></sheetData>", "<sheetData foo=\"a>b\" >")]
+    [Arguments("<x:sheetData xmlns:x=\"" + Main + "\" />", "<x:sheetData xmlns:x=\"" + Main + "\" />")]
+    public async Task Marks_where_the_start_tag_ends(string sheetData, string startTag)
+    {
+        var xml = Part(string.Empty, sheetData);
+
+        var found = SheetDataLocator.TryLocate(xml, out var location);
+
+        await Assert.That(found).IsTrue();
+        await Assert.That(Slice(xml, location.Start, location.StartTagEnd)).IsEqualTo(startTag);
+        await Assert.That(location.IsEmptyElement).IsEqualTo(sheetData.EndsWith("/>"));
+    }
+
+    [Test]
     public async Task Skips_the_name_where_it_is_an_attribute_value_or_text()
     {
         const string sheetData = "<x:sheetData><x:row r=\"1\"/></x:sheetData>";

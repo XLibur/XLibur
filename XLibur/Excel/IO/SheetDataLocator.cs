@@ -28,10 +28,19 @@ internal static class SheetDataLocator
     /// <summary>Where <c>&lt;sheetData&gt;</c> sits in the part.</summary>
     /// <param name="Start">Index of the <c>&lt;</c> opening the start tag.</param>
     /// <param name="End">Index just past the <c>&gt;</c> closing the element.</param>
+    /// <param name="StartTagEnd">
+    /// Index just past the <c>&gt;</c> closing the start tag. Equal to <paramref name="End"/> when
+    /// the element is written as an empty-element tag.
+    /// </param>
     /// <param name="NameStart">Index of the element's qualified name inside the start tag.</param>
     /// <param name="NameLength">Byte length of the qualified name, prefix included.</param>
     /// <param name="Prefix">The namespace prefix, or an empty string for none.</param>
-    internal readonly record struct Location(int Start, int End, int NameStart, int NameLength, string Prefix);
+    internal readonly record struct Location(int Start, int End, int StartTagEnd, int NameStart, int NameLength,
+        string Prefix)
+    {
+        /// <summary>Whether the element is written as <c>&lt;sheetData/&gt;</c>, with no content.</summary>
+        internal bool IsEmptyElement => StartTagEnd == End;
+    }
 
     /// <summary>
     /// Locates <c>&lt;sheetData&gt;</c>, or returns false when the part is not in a shape this can
@@ -63,14 +72,14 @@ internal static class SheetDataLocator
 
         if (xml[tagEnd - 1] == (byte)'/')
         {
-            location = new Location(start, tagEnd + 1, nameStart, nameLength, prefix);
+            location = new Location(start, tagEnd + 1, tagEnd + 1, nameStart, nameLength, prefix);
             return true;
         }
 
         if (!TryFindEndTag(xml, tagEnd + 1, name, out var end))
             return false;
 
-        location = new Location(start, end, nameStart, nameLength, prefix);
+        location = new Location(start, end, tagEnd + 1, nameStart, nameLength, prefix);
         return true;
     }
 
