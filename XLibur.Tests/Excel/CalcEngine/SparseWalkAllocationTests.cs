@@ -78,10 +78,10 @@ public class SparseWalkAllocationTests
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < Calls; i++)
             Sum(ctx, reference);
-        return (GC.GetTotalAllocatedBytes(precise: true) - before) / Calls;
+        return (GC.GetAllocatedBytesForCurrentThread() - before) / Calls;
     }
 
     private static double Sum(CalcContext ctx, Reference reference)
