@@ -1264,14 +1264,24 @@ internal static class WorksheetSheetDataReader
                 SetCellText(xlCell, entry.RichText);
                 if (!inline)
                     cellsCollection.ValueSlice.RecordSharedTextFileIndex(cellAddress, sharedStringId);
+                else
+                    ws.Workbook.SharedStringTable.MarkFileIndicesIncomplete();
             }
             else if (!inline)
+            {
                 cellsCollection.ValueSlice.SetSharedTextDuringLoad(cellAddress, entry.PlainText, sharedStringId);
+            }
             else
+            {
                 cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, entry.PlainText, inline);
+                ws.Workbook.SharedStringTable.MarkFileIndicesIncomplete();
+            }
         }
         else
+        {
             cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, string.Empty, inline);
+            ws.Workbook.SharedStringTable.MarkFileIndicesIncomplete();
+        }
     }
 
     private static void SetBooleanCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,

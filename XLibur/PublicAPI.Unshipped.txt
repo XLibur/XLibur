@@ -251,6 +251,8 @@ XLibur.Excel.SaveOptions.CompressionLevel.get -> System.IO.Compression.Compressi
 XLibur.Excel.SaveOptions.CompressionLevel.set -> void
 XLibur.Excel.SaveOptions.Password.get -> string?
 XLibur.Excel.SaveOptions.Password.set -> void
+XLibur.Excel.SaveOptions.RewriteUnchangedSheets.get -> bool
+XLibur.Excel.SaveOptions.RewriteUnchangedSheets.set -> void
 XLibur.Excel.Streaming.XLStreamingColumn
 XLibur.Excel.Streaming.XLStreamingColumn.Collapsed.get -> bool
 XLibur.Excel.Streaming.XLStreamingColumn.Collapsed.set -> void

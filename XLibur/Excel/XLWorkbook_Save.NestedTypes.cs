@@ -73,6 +73,23 @@ public partial class XLWorkbook
         /// </summary>
         public int[] SstMap { get; set; } = null!;
 
+        private bool? _sharedStringsAtFileIndices;
+
+        /// <summary>
+        /// Does this save write every loaded text at the index the file had it (see
+        /// <see cref="SharedStringTable.WritesTextsAtFileIndices"/>)? Asked once per save, and only
+        /// when a sheet could keep its cells.
+        /// </summary>
+        internal bool SharedStringsAtFileIndices(SharedStringTable sst)
+            => _sharedStringsAtFileIndices ??= sst.WritesTextsAtFileIndices(SstMap);
+
+        /// <summary>
+        /// Whether the package being saved already had a styles part. Its <c>cellXfs</c> are kept
+        /// and only appended to, so a cell kept from the file still names the same format; a new
+        /// styles part numbers them afresh.
+        /// </summary>
+        public bool StylesheetWasLoaded { get; set; }
+
         /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
         /// metadata type. When <c>null</c>, no dynamic array formulas are present.

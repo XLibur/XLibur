@@ -84,6 +84,28 @@ internal sealed class WorksheetPartBuffer : IDisposable
     /// <summary>A read-only stream over the whole part.</summary>
     internal MemoryStream OpenRead() => new(Buffer, 0, _length, writable: false);
 
+    /// <summary>The whole part.</summary>
+    internal ReadOnlySpan<byte> Xml => Buffer.AsSpan(0, _length);
+
+    /// <summary>
+    /// Is <paramref name="markup"/> what <see cref="CopyWithoutSheetData"/> would return? Compared
+    /// in place, without making the copy.
+    /// </summary>
+    internal bool EqualsWithoutSheetData(ReadOnlySpan<byte> markup)
+    {
+        var xml = Xml;
+        if (SheetData.IsEmptyElement)
+            return markup.SequenceEqual(xml);
+
+        var startTagOpen = xml[..(SheetData.StartTagEnd - 1)];
+        var suffix = xml[SheetData.End..];
+
+        return markup.Length == startTagOpen.Length + 2 + suffix.Length
+               && markup.StartsWith(startTagOpen)
+               && markup[startTagOpen.Length..].StartsWith("/>"u8)
+               && markup[(startTagOpen.Length + 2)..].SequenceEqual(suffix);
+    }
+
     /// <summary>
     /// The part with <c>&lt;sheetData&gt;</c> reduced to an empty element and every other byte as
     /// it was.

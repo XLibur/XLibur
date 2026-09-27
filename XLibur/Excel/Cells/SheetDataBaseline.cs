@@ -6,10 +6,16 @@ using XLibur.Excel.Rows;
 namespace XLibur.Excel;
 
 /// <summary>
-/// What a worksheet's cells were when the workbook load ended, kept so a save can tell whether the
-/// sheet's <c>&lt;sheetData&gt;</c> would come out as the file had it (#702).
+/// What a worksheet's cells were as the file had them, kept so a save can tell whether the sheet's
+/// <c>&lt;sheetData&gt;</c> would come out as the file had it (#702).
 /// </summary>
 /// <remarks>
+/// It is captured as soon as the load has read the cells. Later steps of the load can write to a
+/// cell: loading a table names its empty header cells after the fields. Those count as changes, since
+/// the file's cells do not hold them. The misc slice is the exception. Comments, threaded comments
+/// and in-cell images are loaded into it after the cells, and none of them is written into the cells'
+/// markup, so its version is taken again when the load ends (<see cref="RecordAnnotations"/>).
+/// <para>
 /// It errs towards reporting a change: setting a cell to the value it already holds counts, and so
 /// does materialising a column, which gives the cells of each existing row a style of their own. The
 /// aim is never to miss a change. It records what the sheet-data writer reads:
@@ -26,6 +32,7 @@ namespace XLibur.Excel;
 /// Formulas get one more check, at save. A formula that is dirty then has its cached value
 /// recalculated or dropped by the save. Editing another sheet can make it dirty without writing to
 /// this one.
+/// </para>
 /// <para>
 /// Not tracked, because the tiers of #702 exclude these sheets: labels in a table's totals row, which
 /// the writer takes from the table; and the <c>cm</c> index of a dynamic array, which is
@@ -38,7 +45,7 @@ internal sealed class SheetDataBaseline
     private readonly int _valueVersion;
     private readonly int _formulaVersion;
     private readonly int _styleVersion;
-    private readonly int _miscVersion;
+    private int _miscVersion;
     private readonly XLStyleValue _sheetStyle;
     private readonly bool _use1904DateSystem;
 
@@ -69,6 +76,13 @@ internal sealed class SheetDataBaseline
     /// Records the cells of <paramref name="sheet"/> as they are now.
     /// </summary>
     internal static SheetDataBaseline Capture(XLWorksheet sheet) => new(sheet);
+
+    /// <summary>
+    /// Takes in the comments, threaded comments and in-cell images the load added to the misc slice
+    /// after the cells were captured. A cell image is written into the cells as <c>vm</c>, but a save
+    /// never keeps the cells of a sheet that has one.
+    /// </summary>
+    internal void RecordAnnotations(XLWorksheet sheet) => _miscVersion = sheet.Internals.CellsCollection.MiscSlice.Version;
 
     /// <summary>
     /// Would <paramref name="sheet"/>'s cells be written as they were when this baseline was captured?

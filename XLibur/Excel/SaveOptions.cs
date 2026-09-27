@@ -62,6 +62,24 @@ public class SaveOptions
     public bool GenerateCalculationChain { get; set; } = true;
 
     /// <summary>
+    /// Write the cells of every sheet from the workbook's model, including sheets whose cells have
+    /// not changed since the workbook was loaded. Defaults to <c>false</c>.
+    /// </summary>
+    /// <remarks>
+    /// By default, the first save of a loaded workbook copies the cells of an unchanged sheet as the
+    /// file had them, instead of writing them again. That is faster, and keeps markup XLibur would
+    /// otherwise drop or respell, such as row <c>spans</c> and the exact text of numbers. The rest of
+    /// the sheet is still written from the model. Set this to <c>true</c> to have every sheet
+    /// written as XLibur writes it, for example to normalise a file.
+    /// <para>
+    /// A sheet's cells are copied only when nothing a save writes into them has changed, the sheet
+    /// has no formulas, pivot tables, tables with a totals row, cell images or dynamic arrays, and
+    /// every shared string the file had is written back at its index.
+    /// </para>
+    /// </remarks>
+    public bool RewriteUnchangedSheets { get; set; }
+
+    /// <summary>
     /// Password used to encrypt the saved workbook. When set, the file is written with agile
     /// encryption (AES-256-CBC, SHA-512), the profile Excel itself writes.
     /// </summary>

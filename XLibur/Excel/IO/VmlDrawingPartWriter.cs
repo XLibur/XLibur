@@ -205,33 +205,51 @@ internal static class VmlDrawingPartWriter
         return tb;
     }
 
+    private static double ColumnWidth(XLWorksheet worksheet, int column) =>
+        worksheet.Internals.ColumnsCollection.TryGetValue(column, out var xlColumn)
+            ? xlColumn.Width
+            : worksheet.ColumnWidth;
+
+    private static double RowHeight(XLWorksheet worksheet, int row) =>
+        worksheet.Internals.RowsCollection.TryGetValue(row, out var xlRow)
+            ? xlRow.Height
+            : worksheet.RowHeight;
+
+    /// <remarks>
+    /// Widths and heights are read without materialising a column or a row. Materialising one gives
+    /// the cells it crosses a style of their own, so a save would change the sheet it is writing,
+    /// and a sheet saved with comments could not keep its loaded cells (#702). A line that is not
+    /// materialised has the sheet's default size, which is what materialising it would give it.
+    /// </remarks>
     private static Anchor GetAnchor(XLCell cell, XLComment c, double cWidth, double cHeight)
     {
+        var worksheet = cell.Worksheet;
+
         var fcNumber = c.Position.Column - 1;
         var fcOffset = Convert.ToInt32(c.Position.ColumnOffset * 7.5);
-        var widthFromColumns = cell.Worksheet.Column(c.Position.Column).Width - c.Position.ColumnOffset;
-        var lastCell = cell.CellRight(c.Position.Column - cell.Address.ColumnNumber);
+        var lastColumn = c.Position.Column;
+        var widthFromColumns = ColumnWidth(worksheet, lastColumn) - c.Position.ColumnOffset;
         while (widthFromColumns <= cWidth)
         {
-            lastCell = lastCell.CellRight();
-            widthFromColumns += lastCell.WorksheetColumn().Width;
+            lastColumn++;
+            widthFromColumns += ColumnWidth(worksheet, lastColumn);
         }
 
-        var lcNumber = lastCell.WorksheetColumn().ColumnNumber() - 1;
-        var lcOffset = Convert.ToInt32((lastCell.WorksheetColumn().Width - (widthFromColumns - cWidth)) * 7.5);
+        var lcNumber = lastColumn - 1;
+        var lcOffset = Convert.ToInt32((ColumnWidth(worksheet, lastColumn) - (widthFromColumns - cWidth)) * 7.5);
 
         var frNumber = c.Position.Row - 1;
         var frOffset = Convert.ToInt32(c.Position.RowOffset);
-        var heightFromRows = cell.Worksheet.Row(c.Position.Row).Height - c.Position.RowOffset;
-        lastCell = cell.CellBelow(c.Position.Row - cell.Address.RowNumber);
+        var lastRow = c.Position.Row;
+        var heightFromRows = RowHeight(worksheet, lastRow) - c.Position.RowOffset;
         while (heightFromRows <= cHeight)
         {
-            lastCell = lastCell.CellBelow();
-            heightFromRows += lastCell.WorksheetRow().Height;
+            lastRow++;
+            heightFromRows += RowHeight(worksheet, lastRow);
         }
 
-        var lrNumber = lastCell.WorksheetRow().RowNumber() - 1;
-        var lrOffset = Convert.ToInt32(lastCell.WorksheetRow().Height - (heightFromRows - cHeight));
+        var lrNumber = lastRow - 1;
+        var lrOffset = Convert.ToInt32(RowHeight(worksheet, lastRow) - (heightFromRows - cHeight));
         return new Anchor
         {
             Text = string.Concat(

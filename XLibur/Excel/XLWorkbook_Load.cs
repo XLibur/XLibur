@@ -182,8 +182,9 @@ public partial class XLWorkbook
     /// whether the load left any formula clean (#504).
     /// </summary>
     /// <remarks>
-    /// Each sheet then records its cells as loaded, so a save can tell which sheets are unchanged
-    /// (#702). That comes last, after every step of the load that writes to a cell.
+    /// Each sheet records its cells as soon as they are read, so a save can tell which sheets still
+    /// hold what the file had (#702). The comments and images loaded after them are taken in here,
+    /// at the end.
     /// </remarks>
     private void LoadSpreadsheetDocument(SpreadsheetDocument dSpreadsheet)
     {
@@ -198,7 +199,7 @@ public partial class XLWorkbook
         }
 
         foreach (var ws in WorksheetsInternal)
-            ws.RecordLoadedCells();
+            ws.RecordLoadedAnnotations();
     }
 
     private void LoadSpreadsheetDocumentContent(SpreadsheetDocument dSpreadsheet)
@@ -525,6 +526,10 @@ public partial class XLWorkbook
             StyleDecoder.ApplyStyle(ws, 0, styles);
 
             LoadWorksheetElements(worksheetPart, ws, sharedStrings, context);
+
+            // Before anything else writes a cell: loading a table, for one, names empty header cells
+            // after their fields, and the file's cells do not hold those names.
+            ws.RecordLoadedCells();
 
             // Hydrate in-cell images from rich data metadata
             LoadRichValueImages(context, ws);
