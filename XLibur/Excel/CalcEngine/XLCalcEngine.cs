@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.CalcEngine.Functions;
 using XLibur.Excel.Coordinates;
@@ -24,6 +25,20 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private readonly ExpressionCache _cache;               // cache with parsed expressions
     private readonly FormulaParser _parser;
     private readonly CalculationVisitor _visitor;
+
+    /// <summary>
+    /// The context the next top-level evaluation of a normal formula reuses, instead of allocating
+    /// one per formula (#686). It is null while an evaluation holds it, so an evaluation nested in
+    /// that one, such as a dirty cell read recursively, builds a context of its own. It is taken
+    /// with <see cref="Interlocked.Exchange{T}(ref T, T)"/>: two threads must never share one.
+    /// </summary>
+    /// <remarks>
+    /// A context can be reused because nothing built on it outlives its evaluation: the lazy arrays
+    /// that capture it must not (see <see cref="BinaryArray"/>), and this path returns a single
+    /// value. Array formulas, which return an array, and defined names build their own contexts.
+    /// </remarks>
+    private CalcContext? _spareContext;
+
     private DependencyTree? _dependencyTree;
     private XLCalculationChain? _chain;
 
@@ -749,32 +764,39 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     private ScalarValue EvaluateFormula(Formula formula, XLWorkbook? wb, XLWorksheet? ws, Point? address, bool recursive, uint? recalculateSheetId)
     {
-        var ctx = new CalcContext(this, _culture, wb, ws, address, recursive)
+        var ctx = Interlocked.Exchange(ref _spareContext, null)
+                  ?? new CalcContext(this, _culture, workbook: null, worksheet: null, formulaPoint: null);
+
+        // D38. This overload is the legacy (non-array, non-spilling) formula path, so an
+        // operator's reference operand intersects here — but only when there is a cell to
+        // intersect against. Without an address there is no row and no column, which is why
+        // `worksheet.Evaluate("MIN(A1:A2-B1)")` keeps array semantics while the same formula
+        // in a cell does not. EvaluateArrayFormula builds its context separately and leaves
+        // this false, so array and dynamic-array formulas are unaffected.
+        ctx.Reuse(wb, ws, address, recursive, recalculateSheetId,
+            intersectOperands: CalcContext.UseImplicitIntersection && address is not null);
+
+        try
         {
-            RecalculateSheetId = recalculateSheetId,
-
-            // D38. This overload is the legacy (non-array, non-spilling) formula path, so an
-            // operator's reference operand intersects here — but only when there is a cell to
-            // intersect against. Without an address there is no row and no column, which is why
-            // `worksheet.Evaluate("MIN(A1:A2-B1)")` keeps array semantics while the same formula
-            // in a cell does not. EvaluateArrayFormula builds its context separately and leaves
-            // this false, so array and dynamic-array formulas are unaffected.
-            IntersectOperands = CalcContext.UseImplicitIntersection && address is not null
-        };
-
-        // MissingContextException is internal, so letting it out of a public Evaluate hands the
-        // caller an exception they cannot name, let alone catch. Found by fuzzing (D37).
-        // EvaluationPolicy raises it as the public type, and is the one place that is written.
-        //
-        // The whole body is translated, not just the evaluation. The first version of the D37 fix
-        // wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
-        // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
-        // the formula address just as much, so `V1,VBL1` still threw the internal type.
-        return EvaluationPolicy.RaiseMissingContextAsPublic(
-            (Engine: this, Formula: formula, Context: ctx),
-            static s => s.Engine.EvaluateAndReduce(s.Formula, s.Context),
-            static s => $"'{s.Formula.Text}' needs to know the cell it is being evaluated in, and was evaluated without one. "
-                        + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.");
+            // MissingContextException is internal, so letting it out of a public Evaluate hands the
+            // caller an exception they cannot name, let alone catch. Found by fuzzing (D37).
+            // EvaluationPolicy raises it as the public type, and is the one place that is written.
+            //
+            // The whole body is translated, not just the evaluation. The first version of the D37 fix
+            // wrapped only EvaluateFormula, and the fuzzer found the gap in seven minutes:
+            // ToCellContentValue reduces a multi-area reference by implicit intersection, which needs
+            // the formula address just as much, so `V1,VBL1` still threw the internal type.
+            return EvaluationPolicy.RaiseMissingContextAsPublic(
+                (Engine: this, Formula: formula, Context: ctx),
+                static s => s.Engine.EvaluateAndReduce(s.Formula, s.Context),
+                static s => $"'{s.Formula.Text}' needs to know the cell it is being evaluated in, and was evaluated without one. "
+                            + $"Use it in a cell formula, or pass a formula address to {nameof(IXLWorksheet)}.{nameof(IXLWorksheet.Evaluate)}.");
+        }
+        finally
+        {
+            ctx.Release();
+            _spareContext = ctx;
+        }
     }
 
     /// <summary>

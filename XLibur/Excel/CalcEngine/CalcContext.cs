@@ -14,13 +14,15 @@ namespace XLibur.Excel.CalcEngine;
 
 internal sealed class CalcContext : IStructuredReferenceScope
 {
-    private readonly bool _recursive;
-    private readonly XLWorksheet? _worksheet;
+    // Not readonly: the engine reuses one context for each top-level evaluation (#686). See Reuse.
+    private bool _recursive;
+    private XLWorkbook? _workbook;
+    private XLWorksheet? _worksheet;
 
     // A point, not an IXLAddress: XLAddress is a struct, so holding it as the interface boxed it on
     // every evaluation, and most formulas never ask where they are (#686). A missing cell is
     // NoCell rather than a Point? or a flag: either would make every context eight bytes larger.
-    private readonly Point _formulaPoint;
+    private Point _formulaPoint;
 
     // Row 0, column 0: a point no sheet has, so it is never the cell of a formula.
     private static readonly Point NoCell = new(0, 0);
@@ -53,11 +55,48 @@ internal sealed class CalcContext : IStructuredReferenceScope
         Point? formulaPoint, bool recursive = false)
     {
         CalcEngine = calcEngine;
-        Workbook = workbook;
+        _workbook = workbook;
         _worksheet = worksheet;
         _formulaPoint = formulaPoint ?? NoCell;
         _recursive = recursive;
         Culture = culture;
+    }
+
+    /// <summary>
+    /// Makes a context the engine keeps ready for another top-level evaluation of a normal formula,
+    /// as if it had just been built for it. The engine reuses one context this way instead of
+    /// allocating one for every formula it calculates (#686).
+    /// </summary>
+    /// <remarks>
+    /// Everything an evaluation can change is set again here: the cell and its sheet and workbook,
+    /// the recursive choice, the sheet a recalculation is limited to, both intersection flags, the
+    /// cells remembered by a recursive read and the count of recursive evaluations. What stays is
+    /// what never changes for an engine: the engine and its culture. A context made for a defined
+    /// name is never reused, so its name and caller are not reset.
+    /// </remarks>
+    internal void Reuse(XLWorkbook? workbook, XLWorksheet? worksheet, Point? formulaPoint, bool recursive,
+        uint? recalculateSheetId, bool intersectOperands)
+    {
+        _workbook = workbook;
+        _worksheet = worksheet;
+        _formulaPoint = formulaPoint ?? NoCell;
+        _recursive = recursive;
+        RecalculateSheetId = recalculateSheetId;
+        IsArrayCalculation = false;
+        IntersectOperands = intersectOperands;
+        _recursiveCellValueCache = null;
+        _recursiveEvaluations = 0;
+    }
+
+    /// <summary>
+    /// Drops what the last evaluation read, once it is over, so a context the engine keeps for the
+    /// next one does not keep a sheet or remembered values alive in between.
+    /// </summary>
+    internal void Release()
+    {
+        _workbook = null;
+        _worksheet = null;
+        _recursiveCellValueCache = null;
     }
 
     // LEGACY: Remove once legacy functions are migrated
@@ -66,7 +105,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <summary>
     /// Worksheet of the cell the formula is calculating.
     /// </summary>
-    public XLWorkbook Workbook => field ?? throw new MissingContextException();
+    public XLWorkbook Workbook => _workbook ?? throw new MissingContextException();
 
     /// <summary>
     /// Worksheet of the cell the formula is calculating.
