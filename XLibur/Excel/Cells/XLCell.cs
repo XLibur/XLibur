@@ -238,7 +238,6 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     IXLWorksheet IXLCell.Worksheet => Worksheet;
 
-    IXLAddress IXLCell.Address => Address;
 
     IXLRange IXLCell.AsRange()
     {

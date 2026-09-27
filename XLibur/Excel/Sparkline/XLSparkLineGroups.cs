@@ -197,7 +197,7 @@ internal sealed class XLSparklineGroups : IXLSparklineGroups, ISheetListener
             return;
 
         var invalidSparklines = _sparklineGroups.SelectMany(g => g)
-            .Where(sl => !((XLAddress)sl.Location.Address).IsValid)
+            .Where(sl => !sl.Location.Address.IsValid)
             .ToList();
 
         foreach (var sparkline in invalidSparklines)

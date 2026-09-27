@@ -75,7 +75,7 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
     {
         ArgumentNullException.ThrowIfNull(range);
 
-        var dataValidationsToRemove = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)range.RangeAddress)
+        var dataValidationsToRemove = _dataValidationIndex.GetIntersectedRanges(range.RangeAddress)
             .Select(e => e.DataValidation)
             .Distinct()
             .ToList();
@@ -416,7 +416,7 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
 
     private void ProcessRangeRemoved(IXLRange range)
     {
-        var entries = _dataValidationIndex.GetIntersectedRanges((XLRangeAddress)range.RangeAddress)
+        var entries = _dataValidationIndex.GetIntersectedRanges(range.RangeAddress)
             .Where(e => Equals(e.RangeAddress, range.RangeAddress));
         entries.ToArray().ForEach(entry => _dataValidationIndex.Remove(entry.RangeAddress));
     }
@@ -482,7 +482,7 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
     /// </summary>
     private sealed class XLDataValidationIndexEntry : IXLAddressable
     {
-        public XLDataValidationIndexEntry(IXLRangeAddress rangeAddress, XLDataValidation dataValidation)
+        public XLDataValidationIndexEntry(XLRangeAddress rangeAddress, XLDataValidation dataValidation)
         {
             RangeAddress = rangeAddress;
             DataValidation = dataValidation;
@@ -493,6 +493,6 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
         /// <summary>
         ///   Gets an object with the boundaries of this range.
         /// </summary>
-        public IXLRangeAddress RangeAddress { get; }
+        public XLRangeAddress RangeAddress { get; }
     }
 }

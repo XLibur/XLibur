@@ -78,7 +78,7 @@ namespace XLibur.Excel.CalcEngine
 
             using var enumerator = ranges.GetEnumerator();
             enumerator.MoveNext();
-            _firstArea = ((XLRangeAddress)enumerator.Current.RangeAddress).Normalize();
+            _firstArea = enumerator.Current.RangeAddress.Normalize();
 
             if (count > 1)
             {
@@ -86,7 +86,7 @@ namespace XLibur.Excel.CalcEngine
                 for (var i = 0; i < count - 1; i++)
                 {
                     enumerator.MoveNext();
-                    _additionalAreas[i] = ((XLRangeAddress)enumerator.Current.RangeAddress).Normalize();
+                    _additionalAreas[i] = enumerator.Current.RangeAddress.Normalize();
                 }
             }
         }
@@ -222,7 +222,7 @@ namespace XLibur.Excel.CalcEngine
         {
             foreach (var area in reference)
             {
-                var ws = area.Worksheet ?? ctx.Worksheet;
+                var ws = area.Sheet ?? ctx.Worksheet;
                 if (sheet is null) sheet = ws;
                 else if (sheet != ws) return false;
             }
@@ -249,13 +249,13 @@ namespace XLibur.Excel.CalcEngine
 
             if (area.ColumnSpan == 1 && area.FirstAddress.RowNumber <= row && row <= area.LastAddress.RowNumber)
             {
-                var intersection = new XLAddress(area.Worksheet, row, area.FirstAddress.ColumnNumber, false, false);
+                var intersection = new XLAddress(area.Sheet, row, area.FirstAddress.ColumnNumber, false, false);
                 return new Reference(new XLRangeAddress(intersection, intersection));
             }
 
             if (area.RowSpan == 1 && area.FirstAddress.ColumnNumber <= column && column <= area.LastAddress.ColumnNumber)
             {
-                var intersection = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber, column, false, false);
+                var intersection = new XLAddress(area.Sheet, area.FirstAddress.RowNumber, column, false, false);
                 return new Reference(new XLRangeAddress(intersection, intersection));
             }
 
@@ -275,7 +275,7 @@ namespace XLibur.Excel.CalcEngine
                 return false;
             }
 
-            value = ctx.GetCellValue(_firstArea.Worksheet, _firstArea.FirstAddress.RowNumber, _firstArea.FirstAddress.ColumnNumber);
+            value = ctx.GetCellValue(_firstArea.Sheet, _firstArea.FirstAddress.RowNumber, _firstArea.FirstAddress.ColumnNumber);
             return true;
         }
 
@@ -322,13 +322,13 @@ namespace XLibur.Excel.CalcEngine
             worksheet = null;
             if (reference.AreaCount == 1)
             {
-                worksheet = reference._firstArea.Worksheet;
+                worksheet = reference._firstArea.Sheet;
                 return true;
             }
 
             foreach (var area in reference)
             {
-                var ws = area.Worksheet ?? contextWorksheet;
+                var ws = area.Sheet ?? contextWorksheet;
                 if (ws is null) continue;
                 if (worksheet is null) worksheet = ws;
                 else if (worksheet != ws) return false;

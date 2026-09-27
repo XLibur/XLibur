@@ -263,7 +263,7 @@ internal sealed class ReferenceArray : Array
         _offsetRow = area.FirstAddress.RowNumber;
     }
 
-    public override ScalarValue this[int y, int x] => _context.GetCellValue(_area.Worksheet, y + _offsetRow, x + _offsetColumn);
+    public override ScalarValue this[int y, int x] => _context.GetCellValue(_area.Sheet, y + _offsetRow, x + _offsetColumn);
 
     public override int Width => _area.ColumnSpan;
 

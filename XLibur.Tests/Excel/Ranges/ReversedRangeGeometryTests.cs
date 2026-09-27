@@ -110,8 +110,8 @@ public class ReversedRangeGeometryTests
 
     private sealed class AddressableStub : IXLAddressable
     {
-        public AddressableStub(IXLRangeAddress rangeAddress) => RangeAddress = rangeAddress;
-        public IXLRangeAddress RangeAddress { get; }
+        public AddressableStub(XLRangeAddress rangeAddress) => RangeAddress = rangeAddress;
+        public XLRangeAddress RangeAddress { get; }
     }
 
     /// <summary>

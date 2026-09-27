@@ -1171,7 +1171,7 @@ internal static class Text
             return TArray(ctx, array);
 
         var area = reference[0];
-        var cellValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
+        var cellValue = ctx.GetCellValue(area.Sheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         if (cellValue.TryPickError(out var cellError))
             return cellError;
 

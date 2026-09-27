@@ -399,7 +399,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
                     return false;
 
                 var area = _reference[_nextArea++];
-                _sheet = area.Worksheet ?? _ctx.Worksheet;
+                _sheet = area.Sheet ?? _ctx.Worksheet;
                 _walk = new UsedPointsWalk(_sheet, Area.FromRangeAddress(area));
             }
         }
@@ -589,7 +589,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     private IEnumerable<Point> GetCriteriaPointsOfEveryCell(XLRangeAddress areaReference, Criteria criteria)
     {
-        var sheet = areaReference.Worksheet ?? Worksheet;
+        var sheet = areaReference.Sheet ?? Worksheet;
         var area = Area.FromRangeAddress(areaReference);
 
         foreach (var point in area)
@@ -606,7 +606,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     private IEnumerable<Point> GetCriteriaPointsOfUsedCells(XLRangeAddress areaReference, Criteria criteria)
     {
-        var sheet = areaReference.Worksheet ?? Worksheet;
+        var sheet = areaReference.Sheet ?? Worksheet;
         var area = Area.FromRangeAddress(areaReference);
 
         var walk = new UsedPointsWalk(sheet, area);
@@ -631,7 +631,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         var visitor = new FunctionVisitor(functions);
         foreach (var area in reference)
         {
-            var sheet = area.Worksheet ?? Worksheet;
+            var sheet = area.Sheet ?? Worksheet;
             var range = Area.FromRangeAddress(area);
             var hiddenRowTracker = new HiddenRowTracker(sheet);
 
@@ -742,7 +742,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     {
         foreach (var area in reference)
         {
-            var sheet = area.Worksheet;
+            var sheet = area.Sheet;
             foreach (var point in Area.FromRangeAddress(area))
             {
                 yield return GetCellValue(sheet, point.Row, point.Column);

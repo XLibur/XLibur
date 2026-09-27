@@ -204,7 +204,7 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         var copy = targetSheet.SparklineGroups.Add(new XLSparklineGroup(targetSheet, this));
         foreach (var sparkline in _sparklines.Values)
         {
-            var location = targetSheet.Cell(((XLAddress)sparkline.Location.Address).WithoutWorksheet());
+            var location = targetSheet.Cell(sparkline.Location.Address.WithoutWorksheet());
             var sourceData = sparkline.SourceData.Worksheet == Worksheet
                 ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString()!)!
                 : sparkline.SourceData;

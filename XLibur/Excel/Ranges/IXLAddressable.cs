@@ -10,5 +10,5 @@ public interface IXLAddressable
     ///   Gets an object with the boundaries of this range.
     /// </summary>
 
-    IXLRangeAddress RangeAddress { get; }
+    XLRangeAddress RangeAddress { get; }
 }

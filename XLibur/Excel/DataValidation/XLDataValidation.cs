@@ -255,7 +255,7 @@ internal sealed class XLDataValidation : IXLDataValidation
         ArgumentNullException.ThrowIfNull(range);
 
         if (range.Worksheet != Worksheet)
-            range = Worksheet.Range(((XLRangeAddress)range.RangeAddress).WithoutWorksheet());
+            range = Worksheet.Range(range.RangeAddress.WithoutWorksheet());
 
         Areas = Areas.With(Area.FromRangeAddress(range.RangeAddress));
 

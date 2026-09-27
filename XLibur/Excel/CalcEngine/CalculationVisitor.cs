@@ -180,7 +180,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             anchorArea.FirstAddress.ColumnNumber != anchorArea.LastAddress.ColumnNumber)
             return XLError.CellReference;
 
-        var sheet = anchorArea.Worksheet as XLWorksheet ?? context.Worksheet;
+        var sheet = anchorArea.Sheet as XLWorksheet ?? context.Worksheet;
         var anchorRow = anchorArea.FirstAddress.RowNumber;
         var anchorColumn = anchorArea.FirstAddress.ColumnNumber;
 

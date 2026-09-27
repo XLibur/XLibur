@@ -68,7 +68,7 @@ public class XLRangeAddressTests
 
         var normalizedAddress = rangeAddress.Normalize();
 
-        await Assert.That(rangeAddress.Worksheet).IsSameReferenceAs(ws);
+        await Assert.That(rangeAddress.Sheet).IsSameReferenceAs(ws);
         await Assert.That(normalizedAddress.ToString()).IsEqualTo(expectedAddress);
     }
 
@@ -230,7 +230,7 @@ public class XLRangeAddressTests
         rangeAddress = (XLRangeAddress)ws.Range("2:2").RangeAddress;
         await Assert.That(rangeAddress.IsNormalized).IsTrue();
 
-        rangeAddress = (XLRangeAddress)ws.RangeAddress;
+        rangeAddress = ws.RangeAddress;
         await Assert.That(rangeAddress.IsNormalized).IsTrue();
     }
 

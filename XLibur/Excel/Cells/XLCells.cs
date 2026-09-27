@@ -51,7 +51,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
 
     private IEnumerable<XLCell> GetAllCells()
     {
-        var groupedAddresses = _rangeAddresses.GroupBy(addr => addr.Worksheet);
+        var groupedAddresses = _rangeAddresses.GroupBy(addr => addr.Sheet);
         foreach (var worksheetGroup in groupedAddresses)
         {
             var ws = worksheetGroup.Key!;
@@ -111,7 +111,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         if (_rangeAddresses.Count == 1)
         {
             var rangeAddress = _rangeAddresses[0];
-            var ws = rangeAddress.Worksheet;
+            var ws = rangeAddress.Sheet;
             if (ws is not null && !HasCandidates(ws))
                 return GetUsedCellsInRange(rangeAddress, ws, Enumerable.Empty<Point>());
         }
@@ -121,7 +121,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
 
     private IEnumerable<XLCell> GetUsedCellsOrdered()
     {
-        var groupedAddresses = _rangeAddresses.GroupBy(addr => addr.Worksheet);
+        var groupedAddresses = _rangeAddresses.GroupBy(addr => addr.Sheet);
         foreach (var worksheetGroup in groupedAddresses)
         {
             var ws = worksheetGroup.Key!;
@@ -322,7 +322,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         if (_styleInitialized)
             return;
 
-        var worksheetStyle = rangeAddress.Worksheet?.Style;
+        var worksheetStyle = rangeAddress.Sheet?.Style;
         if (worksheetStyle == null)
             return;
 

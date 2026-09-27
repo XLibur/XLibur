@@ -66,7 +66,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public bool Contains(in XLAddress address)
     {
-        CheckWorksheet(address.Worksheet);
+        CheckWorksheet(address.Sheet);
 
         // Deliberately not LINQ: this is the merged-range test that runs on every cell write, and
         // the Any(closure) form cost a display class, a Where iterator and an enumerator per call
@@ -97,7 +97,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public IEnumerable<IXLAddressable> GetIntersectedRanges(XLRangeAddress rangeAddress)
     {
-        CheckWorksheet(rangeAddress.Worksheet);
+        CheckWorksheet(rangeAddress.Sheet);
 
         if (_quadTree == null)
         {
@@ -115,7 +115,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public IEnumerable<IXLAddressable> GetIntersectedRanges(XLAddress address)
     {
-        CheckWorksheet(address.Worksheet);
+        CheckWorksheet(address.Sheet);
 
         if (_quadTree == null)
         {
@@ -127,7 +127,7 @@ internal abstract class XLRangeIndex : IXLRangeIndex
 
     public bool Intersects(in XLRangeAddress rangeAddress)
     {
-        CheckWorksheet(rangeAddress.Worksheet);
+        CheckWorksheet(rangeAddress.Sheet);
 
         if (_quadTree == null)
         {

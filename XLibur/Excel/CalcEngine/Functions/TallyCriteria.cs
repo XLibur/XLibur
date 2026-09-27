@@ -154,7 +154,7 @@ internal sealed class TallyCriteria : ITally
             {
                 var origin = area.FirstAddress;
                 var shifted = new Point(origin.RowNumber + rowOfs, origin.ColumnNumber + colOfs);
-                var cellValue = ctx.GetCellValue(area.Worksheet, shifted.Row, shifted.Column);
+                var cellValue = ctx.GetCellValue(area.Sheet, shifted.Row, shifted.Column);
                 var number = _toNumber(cellValue);
                 if (number is not null)
                     state = state.Tally(number.Value);

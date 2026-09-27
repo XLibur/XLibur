@@ -472,3 +472,69 @@ XLibur.Excel.IXLPageSetup.ClearVerticalPageBreaks() -> void
 XLibur.Excel.IXLPageSetup.RemoveHorizontalPageBreak(int row) -> bool
 XLibur.Excel.IXLPageSetup.RemoveVerticalPageBreak(int column) -> bool
 static XLibur.Excel.XLHelper.QuoteSheetName(string! sheetName) -> string!
+*REMOVED*XLibur.Excel.IXLAddressable.RangeAddress.get -> XLibur.Excel.IXLRangeAddress!
+*REMOVED*XLibur.Excel.IXLCell.Address.get -> XLibur.Excel.IXLAddress!
+*REMOVED*XLibur.Excel.IXLRangeAddress.FirstAddress.get -> XLibur.Excel.IXLAddress!
+*REMOVED*XLibur.Excel.IXLRangeAddress.LastAddress.get -> XLibur.Excel.IXLAddress!
+XLibur.Excel.IXLAddressable.RangeAddress.get -> XLibur.Excel.XLRangeAddress
+XLibur.Excel.IXLCell.Address.get -> XLibur.Excel.XLAddress
+XLibur.Excel.IXLRangeAddress.FirstAddress.get -> XLibur.Excel.XLAddress
+XLibur.Excel.IXLRangeAddress.LastAddress.get -> XLibur.Excel.XLAddress
+XLibur.Excel.XLAddress
+XLibur.Excel.XLAddress.ColumnLetter.get -> string!
+XLibur.Excel.XLAddress.ColumnNumber.get -> int
+XLibur.Excel.XLAddress.Equals(XLibur.Excel.IXLAddress? other) -> bool
+XLibur.Excel.XLAddress.Equals(XLibur.Excel.XLAddress other) -> bool
+XLibur.Excel.XLAddress.FixedColumn.get -> bool
+XLibur.Excel.XLAddress.FixedRow.get -> bool
+XLibur.Excel.XLAddress.RowNumber.get -> int
+XLibur.Excel.XLAddress.ToString(XLibur.Excel.XLReferenceStyle referenceStyle) -> string!
+XLibur.Excel.XLAddress.ToString(XLibur.Excel.XLReferenceStyle referenceStyle, bool includeSheet) -> string!
+XLibur.Excel.XLAddress.ToStringFixed() -> string!
+XLibur.Excel.XLAddress.ToStringFixed(XLibur.Excel.XLReferenceStyle referenceStyle) -> string!
+XLibur.Excel.XLAddress.ToStringFixed(XLibur.Excel.XLReferenceStyle referenceStyle, bool includeSheet) -> string!
+XLibur.Excel.XLAddress.ToStringRelative() -> string!
+XLibur.Excel.XLAddress.ToStringRelative(bool includeSheet) -> string!
+XLibur.Excel.XLAddress.UniqueId.get -> string!
+XLibur.Excel.XLAddress.Worksheet.get -> XLibur.Excel.IXLWorksheet?
+XLibur.Excel.XLAddress.XLAddress() -> void
+XLibur.Excel.XLRangeAddress
+XLibur.Excel.XLRangeAddress.AsRange() -> XLibur.Excel.IXLRange?
+XLibur.Excel.XLRangeAddress.ColumnSpan.get -> int
+XLibur.Excel.XLRangeAddress.Contains(XLibur.Excel.IXLAddress! address) -> bool
+XLibur.Excel.XLRangeAddress.ContainsWhole(XLibur.Excel.IXLRangeAddress! range) -> bool
+XLibur.Excel.XLRangeAddress.Equals(XLibur.Excel.XLRangeAddress other) -> bool
+XLibur.Excel.XLRangeAddress.FirstAddress.get -> XLibur.Excel.XLAddress
+XLibur.Excel.XLRangeAddress.Intersection(XLibur.Excel.IXLRangeAddress! otherRangeAddress) -> XLibur.Excel.XLRangeAddress
+XLibur.Excel.XLRangeAddress.Intersects(XLibur.Excel.IXLRangeAddress! otherAddress) -> bool
+XLibur.Excel.XLRangeAddress.IsEntireColumn() -> bool
+XLibur.Excel.XLRangeAddress.IsEntireRow() -> bool
+XLibur.Excel.XLRangeAddress.IsEntireSheet() -> bool
+XLibur.Excel.XLRangeAddress.IsValid.get -> bool
+XLibur.Excel.XLRangeAddress.LastAddress.get -> XLibur.Excel.XLAddress
+XLibur.Excel.XLRangeAddress.NumberOfCells.get -> int
+XLibur.Excel.XLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.XLRangeAddress
+XLibur.Excel.XLRangeAddress.RowSpan.get -> int
+XLibur.Excel.XLRangeAddress.ToString(XLibur.Excel.XLReferenceStyle referenceStyle) -> string!
+XLibur.Excel.XLRangeAddress.ToString(XLibur.Excel.XLReferenceStyle referenceStyle, bool includeSheet) -> string!
+XLibur.Excel.XLRangeAddress.ToStringFixed() -> string!
+XLibur.Excel.XLRangeAddress.ToStringFixed(XLibur.Excel.XLReferenceStyle referenceStyle) -> string!
+XLibur.Excel.XLRangeAddress.ToStringFixed(XLibur.Excel.XLReferenceStyle referenceStyle, bool includeSheet) -> string!
+XLibur.Excel.XLRangeAddress.ToStringRelative() -> string!
+XLibur.Excel.XLRangeAddress.ToStringRelative(bool includeSheet) -> string!
+XLibur.Excel.XLRangeAddress.Worksheet.get -> XLibur.Excel.IXLWorksheet?
+XLibur.Excel.XLRangeAddress.XLRangeAddress() -> void
+override XLibur.Excel.XLAddress.Equals(object? obj) -> bool
+override XLibur.Excel.XLAddress.GetHashCode() -> int
+override XLibur.Excel.XLAddress.ToString() -> string!
+override XLibur.Excel.XLRangeAddress.Equals(object? obj) -> bool
+override XLibur.Excel.XLRangeAddress.GetHashCode() -> int
+override XLibur.Excel.XLRangeAddress.ToString() -> string!
+static XLibur.Excel.XLAddress.operator !=(XLibur.Excel.XLAddress left, XLibur.Excel.XLAddress right) -> bool
+static XLibur.Excel.XLAddress.operator ==(XLibur.Excel.XLAddress left, XLibur.Excel.XLAddress right) -> bool
+static XLibur.Excel.XLRangeAddress.operator !=(XLibur.Excel.XLRangeAddress left, XLibur.Excel.XLRangeAddress right) -> bool
+static XLibur.Excel.XLRangeAddress.operator ==(XLibur.Excel.XLRangeAddress left, XLibur.Excel.XLRangeAddress right) -> bool
+*REMOVED*XLibur.Excel.IXLRangeAddress.Intersection(XLibur.Excel.IXLRangeAddress! otherRangeAddress) -> XLibur.Excel.IXLRangeAddress!
+*REMOVED*XLibur.Excel.IXLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.IXLRangeAddress!
+XLibur.Excel.IXLRangeAddress.Intersection(XLibur.Excel.IXLRangeAddress! otherRangeAddress) -> XLibur.Excel.XLRangeAddress
+XLibur.Excel.IXLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.XLRangeAddress

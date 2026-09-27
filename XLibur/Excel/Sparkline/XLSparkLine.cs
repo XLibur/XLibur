@@ -17,8 +17,8 @@ internal sealed class XLSparkline : IXLSparkline
     public bool IsValid =>
         Location != null &&
         SourceData != null &&
-        ((XLAddress)Location.Address).IsValid &&
-        ((XLRangeAddress)SourceData.RangeAddress).IsValid;
+        Location.Address.IsValid &&
+        SourceData.RangeAddress.IsValid;
 
     public IXLCell Location
     {
