@@ -1254,12 +1254,19 @@ internal static class WorksheetSheetDataReader
         if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
             && sharedStrings is not null && sharedStringId < sharedStrings.Length)
         {
+            // The file index is recorded so a save writes each text back where the file had it.
             var entry = sharedStrings[sharedStringId];
             if (entry.IsRichText)
             {
+                // Recorded after the fact: applying the runs replaces the cell's text entry once
+                // per property, and only the last one is the text the cell keeps.
                 var xlCell = new XLCell(ws, cellAddress);
                 SetCellText(xlCell, entry.RichText);
+                if (!inline)
+                    cellsCollection.ValueSlice.RecordSharedTextFileIndex(cellAddress, sharedStringId);
             }
+            else if (!inline)
+                cellsCollection.ValueSlice.SetSharedTextDuringLoad(cellAddress, entry.PlainText, sharedStringId);
             else
                 cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, entry.PlainText, inline);
         }

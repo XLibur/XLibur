@@ -114,34 +114,87 @@ internal sealed class SharedStringTable
 
         if (entry.RefCount > 1)
         {
-            _table[id] = new Entry(entry.Text, entry.RefCount - 1);
+            _table[id] = new Entry(entry.Text, entry.RefCount - 1, entry.FileIndex);
             return;
         }
 
+        // A freed entry forgets its file index with its text: the id may be reused for another text.
         _table[id] = new Entry(Text.Empty, 0);
         _freeIds.Add(id);
         _reverseDict.Remove(entry.Text);
     }
 
     /// <summary>
+    /// Record that the text with <paramref name="id"/> was loaded from item
+    /// <paramref name="fileIndex"/> of the file's shared string table, so a save writes it back at
+    /// the same place (see <see cref="GetConsecutiveMap"/>). A text the file lists more than once
+    /// keeps the lowest index.
+    /// </summary>
+    internal void RecordFileIndex(int id, int fileIndex)
+    {
+        var entry = _table[id];
+        if (entry.FileIndex == Entry.NoFileIndex || fileIndex < entry.FileIndex)
+            _table[id] = new Entry(entry.Text, entry.RefCount, fileIndex);
+    }
+
+    /// <summary>
     /// Get a map that takes the actual string id and returns a continuous sequence (i.e., no gaps).
     /// If an id is free (no ref count), the id is mapped to -1.
     /// </summary>
+    /// <remarks>
+    /// Texts loaded from a file come first, in the order the file listed them, and every other text
+    /// follows in id order. So a workbook saved without changing its texts writes each at the index
+    /// the file had, and its cells keep the indices they were loaded with. Mapping in id order alone
+    /// would write the texts in the order the cells first used them, which is not the order of a
+    /// table Excel wrote. The indices shift only where the file listed a text that no cell uses, or
+    /// listed one text twice, because neither is written again.
+    /// </remarks>
     internal int[] GetConsecutiveMap()
     {
         var map = new int[_table.Count];
+
+        // Slot i holds the id of the text loaded from file item i, or -1.
+        var maxFileIndex = Entry.NoFileIndex;
+        for (var i = 0; i < _table.Count; i++)
+        {
+            var entry = _table[i];
+            if (IsShared(entry) && entry.FileIndex > maxFileIndex)
+                maxFileIndex = entry.FileIndex;
+        }
+
+        var byFileIndex = maxFileIndex >= 0 ? new int[maxFileIndex + 1] : [];
+        Array.Fill(byFileIndex, -1);
+
         var mappedStringId = 0;
         for (var i = 0; i < _table.Count; i++)
         {
             var entry = _table[i];
-            var isShared =
-                entry.RefCount > 0 && // Only used entry can be written to sst
-                !entry.Text.Inline; // Inline texts shouldn't be written to sst
-            map[i] = isShared ? mappedStringId++ : -1;
+            map[i] = -1;
+            if (!IsShared(entry) || entry.FileIndex == Entry.NoFileIndex)
+                continue;
+
+            if (byFileIndex[entry.FileIndex] < 0)
+                byFileIndex[entry.FileIndex] = i;
+        }
+
+        foreach (var id in byFileIndex)
+        {
+            if (id >= 0)
+                map[id] = mappedStringId++;
+        }
+
+        for (var i = 0; i < _table.Count; i++)
+        {
+            if (map[i] < 0 && IsShared(_table[i]))
+                map[i] = mappedStringId++;
         }
 
         return map;
     }
+
+    private static bool IsShared(Entry entry) =>
+        entry.RefCount > 0 && // Only used entry can be written to sst
+        !entry.Text.Inline; // Inline texts shouldn't be written to sst
 
     private int IncreaseTextRef(Text text)
     {
@@ -153,7 +206,7 @@ internal sealed class SharedStringTable
         }
 
         var entry = _table[id];
-        _table[id] = new Entry(entry.Text, entry.RefCount + 1);
+        _table[id] = new Entry(entry.Text, entry.RefCount + 1, entry.FileIndex);
         return id;
     }
 
@@ -223,10 +276,19 @@ internal sealed class SharedStringTable
         /// </summary>
         internal readonly int RefCount;
 
-        internal Entry(Text text, int refCount)
+        /// <summary>
+        /// The index of the text in the shared string table of the file it was loaded from, or
+        /// <see cref="NoFileIndex"/> for a text that was not loaded from one.
+        /// </summary>
+        internal readonly int FileIndex;
+
+        internal const int NoFileIndex = -1;
+
+        internal Entry(Text text, int refCount, int fileIndex = NoFileIndex)
         {
             Text = text;
             RefCount = refCount;
+            FileIndex = fileIndex;
         }
     }
 }
