@@ -169,18 +169,9 @@ internal sealed class A1Template
         /// <returns><c>false</c> when a relative axis is moved off the sheet.</returns>
         private static bool TryMove(RowCol end, int row, int column, out int movedRow, out int movedColumn)
         {
-            movedRow = Move(end.RowType, end.RowValue, row);
-            movedColumn = Move(end.ColumnType, end.ColumnValue, column);
-            return (end.RowType != ReferenceAxisType.Relative || movedRow is >= RowCol.MinRow and <= RowCol.MaxRow) &&
-                   (end.ColumnType != ReferenceAxisType.Relative || movedColumn is >= RowCol.MinCol and <= RowCol.MaxCol);
-
-            static int Move(ReferenceAxisType type, int value, int anchor) => type switch
-            {
-                ReferenceAxisType.Relative => value + anchor,
-                ReferenceAxisType.Absolute => value,
-                ReferenceAxisType.None => 0,
-                _ => throw new NotSupportedException()
-            };
+            // Both axes are moved, so both are assigned, before either answer is read.
+            return TryMoveRow(end.RowType, end.RowValue, row, out movedRow) &
+                   TryMoveColumn(end.ColumnType, end.ColumnValue, column, out movedColumn);
         }
 
         /// <summary>Write one end of an area in A1 notation, for example <c>$B3</c>.</summary>
@@ -226,6 +217,50 @@ internal sealed class A1Template
             }
 
             return length;
+        }
+    }
+
+    /// <summary>
+    /// Move the row axis of an R1C1 reference to the cell in row <paramref name="row"/>, as the
+    /// conversion to A1 does. See <see cref="TryMoveAxis"/>.
+    /// </summary>
+    internal static bool TryMoveRow(ReferenceAxisType type, int value, int row, out int movedRow)
+        => TryMoveAxis(type, value, row, RowCol.MinRow, RowCol.MaxRow, out movedRow);
+
+    /// <summary>
+    /// Move the column axis of an R1C1 reference to the cell in column <paramref name="column"/>, as
+    /// the conversion to A1 does. See <see cref="TryMoveAxis"/>.
+    /// </summary>
+    internal static bool TryMoveColumn(ReferenceAxisType type, int value, int column, out int movedColumn)
+        => TryMoveAxis(type, value, column, RowCol.MinCol, RowCol.MaxCol, out movedColumn);
+
+    /// <summary>
+    /// Move one axis of an R1C1 reference to the cell at <paramref name="anchor"/> on that axis.
+    /// </summary>
+    /// <remarks>
+    /// A relative axis moved off the sheet does not wrap round to the other edge. The conversion to A1
+    /// writes the whole reference as <c>#REF!</c> instead, and evaluating a shared formula from its
+    /// R1C1 tree must give the error that the A1 text of the cell gives (#686). This is the one place
+    /// the rule is written. <c>ReferenceAreaExtensions.ToSheetRange</c> wraps, as a defined name does,
+    /// and is not for formula text.
+    /// </remarks>
+    /// <returns><c>false</c> when a relative axis is moved off the sheet. An axis of type
+    /// <see cref="ReferenceAxisType.None"/> moves to <c>0</c>.</returns>
+    private static bool TryMoveAxis(ReferenceAxisType type, int value, int anchor, int min, int max, out int moved)
+    {
+        switch (type)
+        {
+            case ReferenceAxisType.Relative:
+                moved = value + anchor;
+                return moved >= min && moved <= max;
+            case ReferenceAxisType.Absolute:
+                moved = value;
+                return true;
+            case ReferenceAxisType.None:
+                moved = 0;
+                return true;
+            default:
+                throw new NotSupportedException();
         }
     }
 
