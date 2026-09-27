@@ -740,13 +740,13 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         // only in x14: Excel's copy of a rule refers to the copy's cells (cf-copy-after.xlsx, #535).
         targetSheet.ConditionalFormats.RenameSheetInFormulas(Name, newSheetName);
         SparklineGroups.CopyTo(targetSheet);
-        MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
+        MergedRanges.ForEach(mr => targetSheet.Range(mr.RangeAddress.WithoutWorksheet()).Merge());
         SelectedRanges.ForEach(sr =>
-            targetSheet.SelectedRanges.Add(targetSheet.Range(((XLRangeAddress)sr.RangeAddress).WithoutWorksheet())));
+            targetSheet.SelectedRanges.Add(targetSheet.Range(sr.RangeAddress.WithoutWorksheet())));
 
         if (AutoFilter.IsEnabled)
         {
-            var range = targetSheet.Range(((XLRangeAddress)AutoFilter.Range.RangeAddress).WithoutWorksheet());
+            var range = targetSheet.Range(AutoFilter.Range.RangeAddress.WithoutWorksheet());
             range.SetAutoFilter();
         }
 

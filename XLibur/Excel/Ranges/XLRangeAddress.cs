@@ -6,27 +6,34 @@ using XLibur.Extensions;
 
 namespace XLibur.Excel;
 
-internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAddress>
+/// <summary>
+/// Address of a rectangular range of cells, with an optional worksheet.
+/// </summary>
+/// <remarks>
+/// This is what <see cref="IXLAddressable.RangeAddress"/> returns. It is a struct, so reading its
+/// members allocates nothing. Assigning it to an <see cref="IXLRangeAddress"/> boxes a copy.
+/// </remarks>
+public readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAddress>
 {
     private const string RefError = "#REF!";
 
     #region Static members
 
-    public static XLRangeAddress EntireColumn(XLWorksheet worksheet, int column)
+    internal static XLRangeAddress EntireColumn(XLWorksheet worksheet, int column)
     {
         return new XLRangeAddress(
             new XLAddress(worksheet, 1, column, false, false),
             new XLAddress(worksheet, XLHelper.MaxRowNumber, column, false, false));
     }
 
-    public static XLRangeAddress EntireRow(XLWorksheet worksheet, int row)
+    internal static XLRangeAddress EntireRow(XLWorksheet worksheet, int row)
     {
         return new XLRangeAddress(
             new XLAddress(worksheet, row, 1, false, false),
             new XLAddress(worksheet, row, XLHelper.MaxColumnNumber, false, false));
     }
 
-    public static readonly XLRangeAddress Invalid = new XLRangeAddress(
+    internal static readonly XLRangeAddress Invalid = new XLRangeAddress(
         new XLAddress(-1, -1, fixedRow: true, fixedColumn: true),
         new XLAddress(-1, -1, fixedRow: true, fixedColumn: true)
     );
@@ -44,9 +51,9 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     #region Constructor
 
-    public XLRangeAddress(XLAddress firstAddress, XLAddress lastAddress) : this()
+    internal XLRangeAddress(XLAddress firstAddress, XLAddress lastAddress) : this()
     {
-        Worksheet = firstAddress.Worksheet;
+        Sheet = firstAddress.Sheet;
         FirstAddress = firstAddress;
         LastAddress = lastAddress;
     }
@@ -55,7 +62,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     /// <exception cref="ArgumentException"><paramref name="rangeAddress"/> is empty.</exception>
     /// <exception cref="FormatException"><paramref name="rangeAddress"/> has an empty half, such
     /// as "A1:" or ":".</exception>
-    public XLRangeAddress(XLWorksheet? worksheet, string rangeAddress) : this()
+    internal XLRangeAddress(XLWorksheet? worksheet, string rangeAddress) : this()
     {
         // A missing address and a half-written one fail differently and are reported differently.
         // Without these guards a null reached string.Contains below and an empty part reached
@@ -109,7 +116,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
             }
         }
 
-        Worksheet = worksheet;
+        Sheet = worksheet;
     }
 
     /// <summary>
@@ -127,25 +134,23 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     #region Public properties
 
-    public XLWorksheet? Worksheet { get; }
+    /// <summary>
+    /// The worksheet of the address, as the internal type. Null for an address without a worksheet.
+    /// </summary>
+    internal XLWorksheet? Sheet { get; }
 
+    /// <inheritdoc/>
+    public IXLWorksheet? Worksheet
+    {
+        [DebuggerStepThrough]
+        get => Sheet;
+    }
+
+    /// <inheritdoc/>
     public XLAddress FirstAddress { get; }
 
+    /// <inheritdoc/>
     public XLAddress LastAddress { get; }
-
-    IXLWorksheet? IXLRangeAddress.Worksheet => Worksheet;
-
-    IXLAddress IXLRangeAddress.FirstAddress
-    {
-        [DebuggerStepThrough]
-        get => FirstAddress;
-    }
-
-    IXLAddress IXLRangeAddress.LastAddress
-    {
-        [DebuggerStepThrough]
-        get => LastAddress;
-    }
 
     public bool IsValid => FirstAddress.IsValid && LastAddress.IsValid;
 
@@ -175,20 +180,20 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         }
     }
 
-    private bool WorksheetIsDeleted => Worksheet?.IsDeleted == true;
+    private bool WorksheetIsDeleted => Sheet?.IsDeleted == true;
 
     #endregion Public properties
 
     #region Public methods
 
-    public bool IsNormalized => LastAddress.RowNumber >= FirstAddress.RowNumber
+    internal bool IsNormalized => LastAddress.RowNumber >= FirstAddress.RowNumber
                                 && LastAddress.ColumnNumber >= FirstAddress.ColumnNumber;
 
     /// <summary>
     /// Lead a range address to a normal form - when <see cref="FirstAddress"/> points to the top-left address and
     /// <see cref="LastAddress"/> points to the bottom-right address.
     /// </summary>
-    public XLRangeAddress Normalize()
+    internal XLRangeAddress Normalize()
     {
         if (FirstAddress.RowNumber <= LastAddress.RowNumber &&
             FirstAddress.ColumnNumber <= LastAddress.ColumnNumber)
@@ -228,8 +233,8 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         }
 
         return new XLRangeAddress(
-            new XLAddress(FirstAddress.Worksheet, firstRow, firstColumn, firstRowFixed, firstColumnFixed),
-            new XLAddress(LastAddress.Worksheet, lastRow, lastColumn, lastRowFixed, lastColumnFixed));
+            new XLAddress(FirstAddress.Sheet, firstRow, firstColumn, firstRowFixed, firstColumnFixed),
+            new XLAddress(LastAddress.Sheet, lastRow, lastColumn, lastRowFixed, lastColumnFixed));
     }
 
     public bool Intersects(IXLRangeAddress otherAddress)
@@ -320,7 +325,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
     {
         if (includeSheet || WorksheetIsDeleted)
             return string.Concat(
-                WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
+                WorksheetIsDeleted ? "#REF" : Sheet!.Name.EscapeSheetName(),
                 "!", address);
 
         return address;
@@ -418,12 +423,12 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
         return FirstAddress.Equals(address.FirstAddress) &&
                LastAddress.Equals(address.LastAddress) &&
-               EqualityComparer<XLWorksheet?>.Default.Equals(Worksheet, address.Worksheet);
+               EqualityComparer<XLWorksheet?>.Default.Equals(Sheet, address.Sheet);
     }
 
     public bool Equals(XLRangeAddress other)
     {
-        return ReferenceEquals(Worksheet, other.Worksheet) &&
+        return ReferenceEquals(Sheet, other.Sheet) &&
                FirstAddress == other.FirstAddress &&
                LastAddress == other.LastAddress;
     }
@@ -433,11 +438,11 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         var hashCode = -778064135;
         hashCode = hashCode * -1521134295 + FirstAddress.GetHashCode();
         hashCode = hashCode * -1521134295 + LastAddress.GetHashCode();
-        hashCode = hashCode * -1521134295 + EqualityComparer<XLWorksheet?>.Default.GetHashCode(Worksheet!);
+        hashCode = hashCode * -1521134295 + EqualityComparer<XLWorksheet?>.Default.GetHashCode(Sheet!);
         return hashCode;
     }
 
-    public bool IsSingleCell()
+    internal bool IsSingleCell()
     {
         return IsValid
                && FirstAddress.RowNumber == LastAddress.RowNumber
@@ -463,7 +468,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         return IsValid && IsEntireColumn() && IsEntireRow();
     }
 
-    public IXLRangeAddress Relative(IXLRangeAddress sourceRangeAddress, IXLRangeAddress targetRangeAddress)
+    public XLRangeAddress Relative(IXLRangeAddress sourceRangeAddress, IXLRangeAddress targetRangeAddress)
     {
         var xlSourceRangeAddress = (XLRangeAddress)sourceRangeAddress;
         var xlTargetRangeAddress = (XLRangeAddress)targetRangeAddress;
@@ -473,7 +478,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     internal XLRangeAddress Relative(in XLRangeAddress sourceRangeAddress, in XLRangeAddress targetRangeAddress)
     {
-        var sheet = targetRangeAddress.Worksheet;
+        var sheet = targetRangeAddress.Sheet;
 
         return new XLRangeAddress
         (
@@ -500,7 +505,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
         );
     }
 
-    public IXLRangeAddress Intersection(IXLRangeAddress otherRangeAddress)
+    public XLRangeAddress Intersection(IXLRangeAddress otherRangeAddress)
     {
         ArgumentNullException.ThrowIfNull(otherRangeAddress);
 
@@ -510,7 +515,7 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
     internal XLRangeAddress Intersection(in XLRangeAddress otherRangeAddress)
     {
-        if (!Equals(Worksheet, otherRangeAddress.Worksheet))
+        if (!Equals(Sheet, otherRangeAddress.Sheet))
             throw new ArgumentOutOfRangeException(nameof(otherRangeAddress),
                 "The other range address is on a different worksheet");
 
@@ -531,20 +536,20 @@ internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAdd
 
         return new XLRangeAddress
         (
-            new XLAddress(Worksheet, firstRow, firstColumn, fixedRow: false, fixedColumn: false),
-            new XLAddress(Worksheet, lastRow, lastColumn, fixedRow: false, fixedColumn: false)
+            new XLAddress(Sheet, firstRow, firstColumn, fixedRow: false, fixedColumn: false),
+            new XLAddress(Sheet, lastRow, lastColumn, fixedRow: false, fixedColumn: false)
         );
     }
 
     public IXLRange? AsRange()
     {
-        if (Worksheet == null)
+        if (Sheet == null)
             throw new InvalidOperationException("The worksheet of the current range address has not been set.");
 
         if (!IsValid)
             return null;
 
-        return Worksheet.Range(this);
+        return Sheet.Range(this);
     }
 
     #endregion Public methods

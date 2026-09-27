@@ -129,7 +129,7 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         get;
         set
         {
-            if (value.HasWorksheet && !value.Worksheet!.Equals(Worksheet))
+            if (value.HasWorksheet && !value.Sheet!.Equals(Worksheet))
                 throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
 
             field = value;
@@ -147,7 +147,7 @@ internal sealed class XLSheetView : IXLSheetView, ISheetListener
         get;
         set
         {
-            if (value is { HasWorksheet: true } addr && !addr.Worksheet!.Equals(Worksheet))
+            if (value is { HasWorksheet: true } addr && !addr.Sheet!.Equals(Worksheet))
                 throw new ArgumentException("The value should be on the same worksheet as the sheet view.");
 
             field = value;

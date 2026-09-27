@@ -43,7 +43,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public abstract XLRangeAddress RangeAddress { get; protected set; }
 
-    public virtual XLWorksheet Worksheet => RangeAddress.Worksheet!;
+    public virtual XLWorksheet Worksheet => RangeAddress.Sheet!;
 
     internal Area SheetRange => !RangeAddress.IsValid
         ? throw new InvalidOperationException("Range address is invalid.")
@@ -76,9 +76,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     #region IXLRangeBase Members
 
-    IXLRangeAddress IXLAddressable.RangeAddress => RangeAddress;
 
-    IXLWorksheet IXLRangeBase.Worksheet => RangeAddress.Worksheet!;
+    IXLWorksheet IXLRangeBase.Worksheet => RangeAddress.Sheet!;
 
     // Write-only properties: intentional design for setting values across a range
 #pragma warning disable S2376
@@ -415,8 +414,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public IXLRangeBase Relative(IXLRangeBase sourceBaseRange, IXLRangeBase targetBaseRange)
     {
-        var xlSourceBaseRangeAddress = (XLRangeAddress)sourceBaseRange.RangeAddress;
-        var xlTargetBaseRangeAddress = (XLRangeAddress)targetBaseRange.RangeAddress;
+        var xlSourceBaseRangeAddress = sourceBaseRange.RangeAddress;
+        var xlTargetBaseRangeAddress = targetBaseRange.RangeAddress;
         var xlRangeAddress = RangeAddress.Relative(in xlSourceBaseRangeAddress, in xlTargetBaseRangeAddress);
 
         return ((XLRangeBase)targetBaseRange).Range(in xlRangeAddress);
@@ -462,12 +461,12 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public bool Contains(IXLRangeBase range)
     {
-        return Contains((XLAddress)range.RangeAddress.FirstAddress, (XLAddress)range.RangeAddress.LastAddress);
+        return Contains(range.RangeAddress.FirstAddress, range.RangeAddress.LastAddress);
     }
 
     public bool Contains(IXLCell cell)
     {
-        return Contains((XLAddress)cell.Address);
+        return Contains(cell.Address);
     }
 
     public bool Contains(XLAddress first, XLAddress last)
@@ -746,8 +745,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     public XLRange Range(IXLCell firstCell, IXLCell lastCell)
     {
-        var newFirstCellAddress = (XLAddress)firstCell.Address;
-        var newLastCellAddress = (XLAddress)lastCell.Address;
+        var newFirstCellAddress = firstCell.Address;
+        var newLastCellAddress = lastCell.Address;
 
         return GetRange(newFirstCellAddress, newLastCellAddress);
     }
@@ -801,8 +800,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     internal XLRange Range(in XLRangeAddress rangeAddress)
     {
-        var ws = rangeAddress.FirstAddress.Worksheet ??
-                 rangeAddress.LastAddress.Worksheet ??
+        var ws = rangeAddress.FirstAddress.Sheet ??
+                 rangeAddress.LastAddress.Sheet ??
                  Worksheet;
 
         var newFirstCellAddress = new XLAddress(ws,
@@ -822,10 +821,10 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
     private XLRange GetRange(XLAddress newFirstCellAddress, XLAddress newLastCellAddress)
     {
-        if (!Worksheet.Equals(newFirstCellAddress.Worksheet))
+        if (!Worksheet.Equals(newFirstCellAddress.Sheet))
             throw new ArgumentException("The address refers to a different worksheet.", nameof(newFirstCellAddress));
 
-        if (!Worksheet.Equals(newLastCellAddress.Worksheet))
+        if (!Worksheet.Equals(newLastCellAddress.Sheet))
             throw new ArgumentException("The address refers to a different worksheet.", nameof(newLastCellAddress));
 
         // Bounds are the normalised rectangle's, not RangeAddress.FirstAddress/LastAddress
@@ -850,8 +849,8 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         var newRangeAddress = new XLRangeAddress(newFirstCellAddress, newLastCellAddress);
         var xlRangeParameters = new XLRangeParameters(newRangeAddress, Style);
 
-        return newFirstCellAddress.Worksheet != null
-            ? newFirstCellAddress.Worksheet.GetOrCreateRange(in xlRangeParameters)
+        return newFirstCellAddress.Sheet != null
+            ? newFirstCellAddress.Sheet.GetOrCreateRange(in xlRangeParameters)
             : Worksheet.GetOrCreateRange(in xlRangeParameters);
     }
 

@@ -580,7 +580,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         if (targetSheet == Range.Worksheet)
             throw new InvalidOperationException(
                 "Cannot copy conditional format to the worksheet it already belongs to.");
-        var targetRanges = Ranges.Select(r => targetSheet.Range(((XLRangeAddress)r.RangeAddress).WithoutWorksheet()));
+        var targetRanges = Ranges.Select(r => targetSheet.Range(r.RangeAddress.WithoutWorksheet()));
         var newCf = new XLConditionalFormat(this, targetRanges);
         targetSheet.ConditionalFormats.Add(newCf);
         return newCf;

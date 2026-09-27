@@ -14,7 +14,7 @@ public interface IXLRangeAddress
     /// <value>
     /// The first address.
     /// </value>
-    IXLAddress FirstAddress { get; }
+    XLAddress FirstAddress { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether this range is valid.
@@ -30,7 +30,7 @@ public interface IXLRangeAddress
     /// <value>
     /// The last address.
     /// </value>
-    IXLAddress LastAddress { get; }
+    XLAddress LastAddress { get; }
 
     /// <summary>
     /// Gets the number of cells in the area covered by the range address.
@@ -55,7 +55,7 @@ public interface IXLRangeAddress
     /// </summary>
     /// <param name="otherRangeAddress">The other range address.</param>
     /// <returns>The intersection's range address</returns>
-    IXLRangeAddress Intersection(IXLRangeAddress otherRangeAddress);
+    XLRangeAddress Intersection(IXLRangeAddress otherRangeAddress);
 
     bool Intersects(IXLRangeAddress otherAddress);
 
@@ -90,7 +90,7 @@ public interface IXLRangeAddress
     /// <param name="sourceRangeAddress">The source base range address.</param>
     /// <param name="targetRangeAddress">The target base range address.</param>
     /// <returns>The relative range</returns>
-    IXLRangeAddress Relative(IXLRangeAddress sourceRangeAddress, IXLRangeAddress targetRangeAddress);
+    XLRangeAddress Relative(IXLRangeAddress sourceRangeAddress, IXLRangeAddress targetRangeAddress);
 
     string ToString(XLReferenceStyle referenceStyle);
 

@@ -140,22 +140,22 @@ internal static class Lookup
         // Return one column at colNumber
         if (rowNumber == 0)
         {
-            var topCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
-            var bottomCell = new XLAddress(area.Worksheet, area.LastAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
+            var topCell = new XLAddress(area.Sheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
+            var bottomCell = new XLAddress(area.Sheet, area.LastAddress.RowNumber, area.FirstAddress.ColumnNumber + colNumber - 1, true, true);
             return new Reference(new XLRangeAddress(topCell, bottomCell));
         }
 
         // Return one row at rowNumber
         if (colNumber == 0)
         {
-            var leftCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.FirstAddress.ColumnNumber, true, true);
-            var rightCell = new XLAddress(area.Worksheet, area.FirstAddress.RowNumber + rowNumber - 1, area.LastAddress.ColumnNumber, true, true);
+            var leftCell = new XLAddress(area.Sheet, area.FirstAddress.RowNumber + rowNumber - 1, area.FirstAddress.ColumnNumber, true, true);
+            var rightCell = new XLAddress(area.Sheet, area.FirstAddress.RowNumber + rowNumber - 1, area.LastAddress.ColumnNumber, true, true);
             return new Reference(new XLRangeAddress(leftCell, rightCell));
         }
 
         // Return a single cell reference.
         var areaCorner = area.FirstAddress;
-        var cellAddress = new XLAddress(area.Worksheet, areaCorner.RowNumber + rowNumber - 1, areaCorner.ColumnNumber + colNumber - 1, true, true);
+        var cellAddress = new XLAddress(area.Sheet, areaCorner.RowNumber + rowNumber - 1, areaCorner.ColumnNumber + colNumber - 1, true, true);
         return new Reference(new XLRangeAddress(cellAddress, cellAddress));
     }
 

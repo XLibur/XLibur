@@ -115,7 +115,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
 
     public bool Contains(IXLCell cell)
     {
-        var address = (XLAddress)cell.Address;
+        var address = cell.Address;
         return Contains(in address);
     }
 
@@ -126,12 +126,12 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
     /// </summary>
     internal bool Contains(in XLAddress address)
     {
-        return GetRangeIndex(address.Worksheet!).Contains(in address);
+        return GetRangeIndex(address.Sheet!).Contains(in address);
     }
 
     public bool Contains(IXLRange range)
     {
-        return GetIntersectedRanges((XLRangeAddress)range.RangeAddress)
+        return GetIntersectedRanges(range.RangeAddress)
             .Any(r => r.Contains(range));
     }
 
@@ -147,7 +147,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
 
     internal IEnumerable<IXLRange> GetIntersectedRanges(in XLRangeAddress rangeAddress)
     {
-        return GetRangeIndex(rangeAddress.Worksheet!)
+        return GetRangeIndex(rangeAddress.Sheet!)
             .GetIntersectedRanges(rangeAddress);
     }
 
@@ -163,7 +163,7 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
 
     internal IEnumerable<IXLRange> GetIntersectedRanges(in XLAddress address)
     {
-        return GetRangeIndex(address.Worksheet!)
+        return GetRangeIndex(address.Sheet!)
             .GetIntersectedRanges(address);
     }
 

@@ -18,7 +18,7 @@ public interface IXLCell
 
     /// <summary>Gets this cell's address, relative to the worksheet.</summary>
     /// <value>The cell's address.</value>
-    IXLAddress Address { get; }
+    XLAddress Address { get; }
 
     /// <summary>
     /// Get the value of a cell without evaluation of a formula. If the cell contains

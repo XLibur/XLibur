@@ -123,7 +123,7 @@ internal static class Information
             return array.Apply(static v => NToNumber(v));
 
         var area = reference[0];
-        var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
+        var referenceValue = ctx.GetCellValue(area.Sheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
         return NToNumber(referenceValue).ToAnyValue();
     }
 

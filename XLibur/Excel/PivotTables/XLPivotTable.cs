@@ -1075,7 +1075,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         {
             var format = conditionalFormat.Format;
             var ranges = format.Ranges
-                .Select(r => targetSheet.Range(((XLRangeAddress)r.RangeAddress).WithoutWorksheet()));
+                .Select(r => targetSheet.Range(r.RangeAddress.WithoutWorksheet()));
             var formatCopy = new XLConditionalFormat(format, ranges) { Priority = format.Priority };
             var copied = new XLPivotConditionalFormat(formatCopy)
             {

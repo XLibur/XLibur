@@ -21,6 +21,22 @@
 
 ## Unreleased
 
+### ⚠️ Breaking Changes
+
+#### Addresses
+
+- **`IXLCell.Address` now returns the struct `XLAddress`, and `IXLAddressable.RangeAddress` (which every range has) returns the struct `XLRangeAddress`. `IXLRangeAddress.FirstAddress` and `LastAddress` return `XLAddress`, and `IXLRangeAddress.Intersection` and `Relative` return `XLRangeAddress`.** All of them returned interfaces over internal structs, so every call put a copy on the heap. The parameters of `Intersection` and `Relative` are still `IXLRangeAddress`, so passing an `XLRangeAddress` to them still boxes it. `cell.Address.ColumnNumber` allocated 40 bytes, `range.RangeAddress` 72, and `range.RangeAddress.FirstAddress.ColumnNumber` 112 ([#699](https://github.com/XLibur/XLibur/issues/699)). Reading `cell.Address` once for each of the 750,000 used cells of a 50,000-row sheet allocated 30 MB. All of these now allocate nothing. Both structs implement the interfaces they replace, so reading their members, calling `ToString`, and passing them where an `IXLAddress` or `IXLRangeAddress` is expected compile unchanged and give the same results. What changes:
+  - **Recompile against this version.** The return type is part of a property's signature, so an assembly built against an older XLibur throws `MissingMethodException` until it is recompiled. This includes `XLibur.Report`: use `XLibur.Report` built for this version, not an older one.
+  - **`==` compares values.** Before, `a.Address == b.Address` compared two references to two new copies, so it was always false, even for the same cell. It is now true when the row, the column and the `$` flags are equal. **The worksheet is not compared**: `A1` on one sheet `==` `A1` on another, as `Equals` already said. `==` between two `RangeAddress` values also compares the worksheet.
+  - **Null checks no longer compile.** `cell.Address == null`, `cell.Address is null` and `cell.Address?.RowNumber` fail to compile, because a struct is never null. The properties never returned null before either.
+  - **`var` picks the struct.** `var a = cell.Address;` is now an `XLAddress`, so assigning another `IXLAddress` to `a` later no longer compiles. Declare `a` as `IXLAddress` to keep the old behaviour. The assignment then boxes once, as every call did before.
+  - **Implementations and mocks** of `IXLCell`, `IXLAddressable`, `IXLRangeBase` and `IXLRangeAddress` must return the structs.
+  - **An address no longer remembers its A1 text.** An `IXLAddress` kept in a variable used to build the text of `ToString(XLReferenceStyle.A1)` and `ToStringRelative()` once, and return the same string after that. A struct that cannot change cannot keep it, so each call builds a new string. Each call to `ToString`, `ToStringRelative` or `ToStringFixed` now allocates only the string it returns, in A1 and R1C1 style alike. Before, a row or column from 300 up had its own string first, and `ToStringFixed` boxed its letters and the column number: `ToStringFixed(XLReferenceStyle.R1C1)` for `R1000C400` allocated 280 bytes, and now allocates 40. Format the address once and keep the string if you need it many times.
+
+### ⚡ Performance
+
+- **Looking up a table column by name, as a structured reference such as `Table1[Age]` does, allocates 56 bytes less.** The table compares its current address with the one its field names were built for. It held that address as an interface, so every lookup put a copy of the current address on the heap. Reading the field names again now allocates nothing ([#699](https://github.com/XLibur/XLibur/issues/699)).
+
 ## v0.630.0 - 2026-09-27
 
 ### ⚡ Performance
@@ -1073,6 +1089,10 @@ rich-text equality.
 `XLibur.Report` is versioned and released independently of the core library, on its own
 `report-v*` tag stream, so its changes are recorded here rather than under the core version
 above. Nothing in this section has shipped yet.
+
+### 🔧 Dependencies
+
+- **Requires XLibur 0.700.0 or later.** Core 0.700.0 changes the return types of `IXLCell.Address`, `IXLAddressable.RangeAddress` and `IXLRangeAddress.FirstAddress`/`LastAddress` to structs ([#699](https://github.com/XLibur/XLibur/issues/699)). A report package built against an older core fails with `MissingMethodException` on core 0.700.0, so the two must be upgraded together. Reading a cell's row and column while expanding a range no longer allocates 80 bytes per cell.
 
 ## XLibur.Report v0.620.0 - 2026-09-26
 

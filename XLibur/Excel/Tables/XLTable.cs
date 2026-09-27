@@ -32,14 +32,14 @@ internal sealed class XLTable : XLRange, IXLTable
 
     public override XLRangeType RangeType => XLRangeType.Table;
 
-    private IXLRangeAddress? _lastRangeAddress;
+    private XLRangeAddress? _lastRangeAddress;
     private Dictionary<string, IXLTableField>? _fieldNames;
 
     public Dictionary<string, IXLTableField> FieldNames
     {
         get
         {
-            if (_fieldNames != null && _lastRangeAddress != null && _lastRangeAddress.Equals(RangeAddress))
+            if (_fieldNames != null && _lastRangeAddress.HasValue && _lastRangeAddress.Value.Equals(RangeAddress))
                 return _fieldNames;
 
             _lastRangeAddress = RangeAddress;
@@ -373,7 +373,7 @@ internal sealed class XLTable : XLRange, IXLTable
         var newHeaders = CollectNewHeaders(range);
         range = AdjustTotalsRowPosition(range, totalsRowChanged, ref oldTotalsRowNumber);
 
-        RangeAddress = (XLRangeAddress)range.RangeAddress;
+        RangeAddress = range.RangeAddress;
         RescanFieldNames();
 
         if (ShowTotalsRow)
