@@ -133,6 +133,7 @@ public partial class XLWorkbook
         {
             ws.RelId = null;
             ws.TakePartWithoutSheetData();
+            ws.ForgetLoadedCells();
 
             foreach (var pt in ws.PivotTables.Cast<XLPivotTable>())
             {
@@ -180,6 +181,10 @@ public partial class XLWorkbook
     /// Loads the workbook. The calc engine hears of no cell the load writes, and learns at the end
     /// whether the load left any formula clean (#504).
     /// </summary>
+    /// <remarks>
+    /// Each sheet then records its cells as loaded, so a save can tell which sheets are unchanged
+    /// (#702). That comes last, after every step of the load that writes to a cell.
+    /// </remarks>
     private void LoadSpreadsheetDocument(SpreadsheetDocument dSpreadsheet)
     {
         CalcEngine.BeginLoad();
@@ -191,6 +196,9 @@ public partial class XLWorkbook
         {
             CalcEngine.EndLoad(this);
         }
+
+        foreach (var ws in WorksheetsInternal)
+            ws.RecordLoadedCells();
     }
 
     private void LoadSpreadsheetDocumentContent(SpreadsheetDocument dSpreadsheet)

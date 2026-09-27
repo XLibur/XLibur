@@ -1217,7 +1217,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     private void ShiftArrayFormulaRows(XLCellFormula formula, XLRange shiftedRange, int rowsShifted)
     {
         var shifted = XLCellFormulaShifter.ShiftFormulaRows(formula.A1, Worksheet, shiftedRange, rowsShifted);
-        formula.UpdateShiftedA1(shifted);
+        var edited = formula.UpdateShiftedA1(shifted);
 
         // When the array's own cells are relocated by a same-sheet row insert/delete, the
         // physical cell move shifts the cells but not the formula's stored Range, leaving the
@@ -1225,9 +1225,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (ReferenceEquals(Worksheet, shiftedRange.Worksheet))
         {
             var newRange = ShiftArrayRangeRows(formula.Range, shiftedRange, rowsShifted);
-            if (newRange != formula.Range)
-                formula.Range = newRange;
+            edited |= MoveFormulaRange(formula, newRange);
         }
+
+        if (edited)
+            _cellsCollection.FormulaSlice.RecordInPlaceEdit();
     }
 
     internal void ShiftFormulaColumns(XLRange shiftedRange, int columnsShifted, HashSet<XLCellFormula> processedArrayFormulas)
@@ -1277,14 +1279,16 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     private void ShiftArrayFormulaColumns(XLCellFormula formula, XLRange shiftedRange, int columnsShifted)
     {
         var shifted = XLCellFormulaShifter.ShiftFormulaColumns(formula.A1, Worksheet, shiftedRange, columnsShifted);
-        formula.UpdateShiftedA1(shifted);
+        var edited = formula.UpdateShiftedA1(shifted);
 
         if (ReferenceEquals(Worksheet, shiftedRange.Worksheet))
         {
             var newRange = ShiftArrayRangeColumns(formula.Range, shiftedRange, columnsShifted);
-            if (newRange != formula.Range)
-                formula.Range = newRange;
+            edited |= MoveFormulaRange(formula, newRange);
         }
+
+        if (edited)
+            _cellsCollection.FormulaSlice.RecordInPlaceEdit();
     }
 
     /// <summary>
@@ -1295,19 +1299,30 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// the (already-moved) spilled values as a <c>#SPILL!</c> collision, and the plain setter
     /// would also drop the dynamic-array flag (losing the <c>cm</c> metadata on save).
     /// </summary>
-    private static void ShiftDynamicArrayFormula(XLCellFormula formula, string shiftedA1, bool sameSheet, Func<Area> shiftRange)
+    private void ShiftDynamicArrayFormula(XLCellFormula formula, string shiftedA1, bool sameSheet, Func<Area> shiftRange)
     {
-        if (!string.Equals(shiftedA1, formula.A1, StringComparison.Ordinal))
-            formula.UpdateShiftedA1(shiftedA1);
+        var edited = formula.UpdateShiftedA1(shiftedA1);
 
         // Only a same-sheet insert/delete physically relocates the anchor and its spilled cells,
         // so the stored footprint must move with them.
-        if (!sameSheet)
-            return;
+        if (sameSheet)
+            edited |= MoveFormulaRange(formula, shiftRange());
 
-        var newRange = shiftRange();
-        if (newRange != formula.Range)
-            formula.Range = newRange;
+        if (edited)
+            _cellsCollection.FormulaSlice.RecordInPlaceEdit();
+    }
+
+    /// <summary>
+    /// Sets the <see cref="XLCellFormula.Range"/> of a formula in place.
+    /// </summary>
+    /// <returns>Whether the range changed.</returns>
+    private static bool MoveFormulaRange(XLCellFormula formula, Area newRange)
+    {
+        if (newRange == formula.Range)
+            return false;
+
+        formula.Range = newRange;
+        return true;
     }
 
     /// <summary>
@@ -1495,16 +1510,12 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
                 throw new ArgumentException("Cell doesn't contain a formula.");
             }
 
-            if (value is null)
-            {
-                Formula.Range = default;
-                return;
-            }
-
-            if (value.Worksheet is not null && Worksheet != value.Worksheet)
+            if (value is not null && value.Worksheet is not null && Worksheet != value.Worksheet)
                 throw new ArgumentException("The reference worksheet must be same as worksheet of the cell or null.");
 
-            Formula.Range = Area.FromRangeAddress(value);
+            var newRange = value is null ? default : Area.FromRangeAddress(value);
+            if (MoveFormulaRange(Formula, newRange))
+                _cellsCollection.FormulaSlice.RecordInPlaceEdit();
         }
     }
 

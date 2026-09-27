@@ -650,14 +650,16 @@ internal sealed class XLCellFormula
     /// data-table formula, which share a single instance across every cell of their range
     /// and therefore must not be rebuilt as normal per-cell formulas.
     /// </summary>
-    internal void UpdateShiftedA1(string newA1)
+    /// <returns>Whether the text changed.</returns>
+    internal bool UpdateShiftedA1(string newA1)
     {
         if (string.Equals(newA1, A1, StringComparison.Ordinal))
-            return;
+            return false;
 
         A1 = newA1;
         InvalidateExtent();
         MarkExplicitlyDirty();
+        return true;
     }
 
     public void RenameSheet(Point origin, string oldSheetName, string newSheetName)
@@ -671,7 +673,8 @@ internal sealed class XLCellFormula
     /// <param name="origin">The cell the formula is in.</param>
     /// <param name="formulaSheetName">The sheet the parser reads the formula as being on.</param>
     /// <param name="rewrite">What the rename or the delete does to formula text.</param>
-    internal void RewriteSheet(Point origin, string formulaSheetName, SheetRewrite rewrite)
+    /// <returns>Whether the text changed.</returns>
+    internal bool RewriteSheet(Point origin, string formulaSheetName, SheetRewrite rewrite)
     {
         var a1 = A1;
 
@@ -679,14 +682,15 @@ internal sealed class XLCellFormula
         // nothing to re-point. Throwing would leave the rename or the delete half done, with some
         // holders changed and others not.
         if (!rewrite.TryRewrite(a1, formulaSheetName, origin, out var res))
-            return;
+            return false;
 
-        if (res != a1)
-        {
-            A1 = res;
-            InvalidateExtent();
-            MarkExplicitlyDirty();
-        }
+        if (res == a1)
+            return false;
+
+        A1 = res;
+        InvalidateExtent();
+        MarkExplicitlyDirty();
+        return true;
     }
 
     /// <summary>

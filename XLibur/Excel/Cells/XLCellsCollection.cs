@@ -757,8 +757,11 @@ internal sealed class XLCellsCollection : IWorkbookListener
         {
             ref readonly var cellFormula = ref enumerator.Current;
             var currentPoint = enumerator.Point;
-            if (IsMasterCell(cellFormula, currentPoint))
-                cellFormula.RewriteSheet(currentPoint, formulaSheetName, rewrite);
+            if (IsMasterCell(cellFormula, currentPoint)
+                && cellFormula.RewriteSheet(currentPoint, formulaSheetName, rewrite))
+            {
+                FormulaSlice.RecordInPlaceEdit();
+            }
         }
     }
 

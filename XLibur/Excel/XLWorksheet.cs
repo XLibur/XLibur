@@ -232,6 +232,41 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return kept is { } k && k.RelId == RelId ? k.Markup : null;
     }
 
+    /// <summary>
+    /// The cells as the workbook load left them. Null when the sheet was not loaded, was loaded from
+    /// a template, or its part was too large to keep (see <see cref="RecordLoadedCells"/>).
+    /// </summary>
+    private SheetDataBaseline? _loadedCells;
+
+    /// <summary>
+    /// Records the cells as they are now, as the ones the sheet was loaded with.
+    /// </summary>
+    /// <remarks>
+    /// Only for a sheet whose part was kept by <see cref="KeepPartWithoutSheetData"/>. A save can keep
+    /// the cells of no other sheet (#702), and the record holds an entry for each row with
+    /// attributes, which in a file from Excel is every row.
+    /// </remarks>
+    internal void RecordLoadedCells()
+    {
+        if (_partWithoutSheetData is not null)
+            _loadedCells = SheetDataBaseline.Capture(this);
+    }
+
+    /// <summary>
+    /// Forgets the cells recorded by <see cref="RecordLoadedCells"/>.
+    /// </summary>
+    internal void ForgetLoadedCells() => _loadedCells = null;
+
+    /// <summary>
+    /// Would a save write the sheet's <c>&lt;sheetData&gt;</c> differently from how the load read it?
+    /// </summary>
+    /// <remarks>
+    /// <c>true</c> also when there is nothing to compare with: a sheet that was not loaded, was
+    /// loaded from a template, or had a part too large to keep. See <see cref="SheetDataBaseline"/>
+    /// for what counts as a change.
+    /// </remarks>
+    internal bool CellsChangedSinceLoad() => _loadedCells is null || !_loadedCells.Matches(this);
+
     public XLDataValidations DataValidations { get; private set; }
 
     public IXLCharts Charts { get; private set; }
