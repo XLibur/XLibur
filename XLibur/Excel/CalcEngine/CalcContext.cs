@@ -332,10 +332,23 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// first and the whole formula is read again. The caller passes the context's count of
     /// recursive evaluations to each <see cref="MoveNext"/>; a change since the last point is
     /// what triggers the restart.
+    /// <para>
+    /// An area of at most <see cref="PointByPointMaxCells"/> cells is walked point by point
+    /// instead, checking each cell as it is reached (#686). The slice enumerators cost about 216
+    /// bytes to build, which for <c>SUM(D1:H1)</c> is paid to visit five cells. Because each cell
+    /// is checked only when the walk reaches it, a cell a spill wrote a moment ago is seen without
+    /// a restart. The points and their order are the same as the sparse walk's.
+    /// </para>
     /// </remarks>
     private struct UsedPointsWalk
     {
+        /// <summary>
+        /// The largest area, in cells, that is walked point by point.
+        /// </summary>
+        private const int PointByPointMaxCells = 64;
+
         private readonly XLCellsCollection _cells;
+        private readonly bool _pointByPoint;
 
         // What is left to read after a restart, the next piece on top. Only a restart allocates it.
         private Stack<Area>? _pending;
@@ -349,6 +362,15 @@ internal sealed class CalcContext : IStructuredReferenceScope
             _cells = sheet.Internals.CellsCollection;
             _current = area;
 
+            // The product of a whole sheet's sides does not fit in an int.
+            _pointByPoint = (long)area.Width * area.Height <= PointByPointMaxCells;
+            if (_pointByPoint)
+            {
+                // Not yet checked: _hasPoint is false.
+                Current = area.FirstPoint;
+                return;
+            }
+
             // A value can be either in a non-empty value slice or an empty cell with a formula.
             _enumerator = _cells.ForValuesAndFormulas(area);
         }
@@ -357,6 +379,9 @@ internal sealed class CalcContext : IStructuredReferenceScope
 
         public bool MoveNext(int recursiveEvaluations)
         {
+            if (_pointByPoint)
+                return MoveNextPoint();
+
             var restart = _hasPoint && recursiveEvaluations != _evaluationsBefore;
             if (restart)
             {
@@ -388,6 +413,40 @@ internal sealed class CalcContext : IStructuredReferenceScope
 
                 _current = _pending.Pop();
                 _enumerator = _cells.ForValuesAndFormulas(_current);
+            }
+        }
+
+        /// <summary>
+        /// The next point, in row-major order, whose cell holds a value or a formula, the same
+        /// cells <see cref="XLCellsCollection.ForValuesAndFormulas"/> enumerates.
+        /// <see cref="Current"/> is the cursor: the point last returned, or before the first
+        /// call, the area's first point, not checked yet.
+        /// </summary>
+        private bool MoveNextPoint()
+        {
+            var point = Current;
+            var check = !_hasPoint;
+            while (true)
+            {
+                if (check && (_cells.ValueSlice.IsUsed(point) || _cells.FormulaSlice.IsUsed(point)))
+                {
+                    Current = point;
+                    _hasPoint = true;
+                    return true;
+                }
+
+                if (point == _current.LastPoint)
+                {
+                    // Stay at the end, so that a further call returns false too.
+                    Current = point;
+                    _hasPoint = true;
+                    return false;
+                }
+
+                point = point.Column < _current.RightColumn
+                    ? new Point(point.Row, point.Column + 1)
+                    : new Point(point.Row + 1, _current.LeftColumn);
+                check = true;
             }
         }
     }
