@@ -38,6 +38,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         case "compression": CompressionProfile.Run(); break;
         case "loadalloc": LoadDecompositionProfile.Run(); break;
         case "dirtyread": DirtyFormulaReadProfile.Run(); break;
+        case "sharedread": SharedFormulaReadProfile.Run(); break;
         case "hyperlinks": HyperlinkScalingProfile.Run(); break;
         case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
         case "firstedit": FirstEditProfile.Run(args); break;

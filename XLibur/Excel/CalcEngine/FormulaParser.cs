@@ -261,6 +261,13 @@ internal sealed class FormulaParser
         public ValueNode CellFunction(string context, SymbolRange range, RowCol cell,
             IReadOnlyList<ValueNode> arguments)
         {
+            // R1C1 text is parsed only to evaluate a shared formula from one tree for all its cells
+            // (#686). A cell called as a function is #REF! in the tree, but the A1 text of each cell
+            // names a different cell, and the one named LOG10 is that function. So the text is refused,
+            // and each cell reads its own A1 text, as A1Template does for the same reason.
+            if (!_isA1)
+                throw new ExpressionParseException("A cell called as a function in R1C1 text reads differently in each cell.");
+
             // Grammar technically allows evaluating a function from a different cell. The intended
             // usage is likely for lambda functions. Excel (as of 2022) doesn't do that, so use preference
             // as LOG10. Parser doesn't know about names of functions, so names such as LOG10 will always end up

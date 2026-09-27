@@ -79,17 +79,17 @@ internal sealed class XLCellFormula
     private int _maxShiftableColumn;
 
     /// <summary>
-    /// The R1C1 text of the shared formula that the loader read this formula from, or <c>null</c>.
-    /// Every formula of one shared group holds the same string, so the dependency tree can parse the
-    /// group once, not the A1 text of each cell (#513). See <see cref="TryGetSharedR1C1"/>.
+    /// The shared formula that the loader read this formula from, or <c>null</c>. Every formula of one
+    /// shared formula holds the same object, so the dependency tree and evaluation parse its R1C1 text
+    /// once, not the A1 text of each cell (#513, #686). See <see cref="TryGetShared"/>.
     /// </summary>
-    private string? _sharedR1C1;
+    private SharedFormulaGroup? _shared;
 
     /// <summary>
-    /// The cell that the loader put this formula in. <see cref="_sharedR1C1"/> is the R1C1 text of
+    /// The cell that the loader put this formula in. <see cref="_shared"/> is the R1C1 text of
     /// <see cref="A1"/> only at this cell.
     /// </summary>
-    private Point _sharedR1C1Anchor;
+    private Point _sharedAnchor;
 
     /// <summary>
     /// The tree of <see cref="A1"/>, parsed by the first evaluation. See <see cref="GetAst"/>.
@@ -571,10 +571,18 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
-    /// The tree of <see cref="A1"/> that evaluation walks. The first call parses it, and later calls
-    /// return the same tree, so a recalculation does not parse the formula again.
+    /// The tree that evaluation walks for this formula in the cell at <paramref name="point"/>. The
+    /// first call parses it, and later calls return the same tree, so a recalculation does not parse
+    /// the formula again.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// A cell of a shared formula that has not changed or moved since the load evaluates the one R1C1
+    /// tree of its group (<see cref="SharedFormulaGroup"/>, #686). That tree is never kept in this
+    /// formula: it is right only at the cell the loader put the formula in, and a row inserted above
+    /// moves the formula without changing its A1 text. Any other formula evaluates the tree of its
+    /// <see cref="A1"/> text.
+    /// </para>
     /// <para>
     /// The tree used to be kept in the engine's <see cref="ExpressionCache"/>, a weak table keyed by
     /// the text. The text lives as long as this formula, so the table kept every tree alive anyway,
@@ -589,37 +597,45 @@ internal sealed class XLCellFormula
     /// </para>
     /// </remarks>
     /// <param name="engine">The engine of the workbook this formula is in.</param>
+    /// <param name="point">The cell this formula is evaluated in.</param>
     /// <exception cref="ExpressionParseException">The parser refused the formula.</exception>
-    internal Formula GetAst(XLCalcEngine engine) => _ast ??= engine.Parse(A1);
+    internal Formula GetAst(XLCalcEngine engine, Point point)
+    {
+        if (TryGetShared(point, out var group) && group.TryGetAst(engine, out var sharedAst))
+            return sharedAst;
+
+        return _ast ??= engine.Parse(A1);
+    }
 
     /// <summary>
-    /// Whether <see cref="GetAst"/> has kept a tree that is still current. For tests.
+    /// Whether <see cref="GetAst"/> has kept a tree of <see cref="A1"/> that is still current. For tests.
     /// </summary>
     internal bool HasAst => _ast is not null;
 
     /// <summary>
-    /// Keep the R1C1 text of the shared formula that the loader read this formula from.
+    /// Keep the shared formula that the loader read this formula from.
     /// </summary>
-    /// <param name="r1c1">The R1C1 text of the group. All cells of the group get the same string.</param>
+    /// <param name="group">The shared formula. All cells of it get the same object.</param>
     /// <param name="anchor">The cell that the loader put this formula in.</param>
-    internal void SetSharedR1C1(string r1c1, Point anchor)
+    internal void SetShared(SharedFormulaGroup group, Point anchor)
     {
-        _sharedR1C1 = r1c1;
-        _sharedR1C1Anchor = anchor;
+        _shared = group;
+        _sharedAnchor = anchor;
     }
 
     /// <summary>
-    /// Get the R1C1 text of this formula in the cell at <paramref name="point"/>, if the loader kept it.
+    /// Get the shared formula that the loader read this formula from, if it still holds for the cell at
+    /// <paramref name="point"/>.
     /// </summary>
     /// <remarks>
-    /// R1C1 text depends on the A1 text and on the cell. The kept text is dropped when <see cref="A1"/>
+    /// R1C1 text depends on the A1 text and on the cell. The shared formula is dropped when <see cref="A1"/>
     /// changes, and it is given only for the cell that the loader used. A row inserted above moves the
     /// formula <c>A1</c> down one row: its A1 text stays the same, but its R1C1 text changes.
     /// </remarks>
-    internal bool TryGetSharedR1C1(Point point, [NotNullWhen(true)] out string? r1c1)
+    internal bool TryGetShared(Point point, [NotNullWhen(true)] out SharedFormulaGroup? group)
     {
-        r1c1 = _sharedR1C1;
-        return r1c1 is not null && _sharedR1C1Anchor == point;
+        group = _shared;
+        return group is not null && _sharedAnchor == point;
     }
 
     public override string ToString()
@@ -674,8 +690,8 @@ internal sealed class XLCellFormula
     }
 
     /// <summary>
-    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/>, the R1C1
-    /// text that the loader kept (see <see cref="TryGetSharedR1C1"/>) and the parsed tree (see
+    /// Drops the cached <see cref="MaxShiftableRow"/>/<see cref="MaxShiftableColumn"/>, the shared
+    /// formula that the loader kept (see <see cref="TryGetShared"/>) and the parsed tree (see
     /// <see cref="GetAst"/>). Must be called from every place that assigns <see cref="A1"/> after
     /// construction.
     /// </summary>
@@ -683,7 +699,7 @@ internal sealed class XLCellFormula
     {
         _maxShiftableRow = 0;
         _maxShiftableColumn = 0;
-        _sharedR1C1 = null;
+        _shared = null;
         _ast = null;
     }
 

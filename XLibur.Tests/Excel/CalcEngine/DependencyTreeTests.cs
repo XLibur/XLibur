@@ -564,7 +564,7 @@ internal class DependencyTreeTests
             var formulaArea = new SheetArea(sheet.Name, new Area(cell.SheetPoint, cell.SheetPoint));
 
             // Without the kept text, the build parses the A1 text, and the comparison proves nothing.
-            await Assert.That(formula.TryGetSharedR1C1(cell.SheetPoint, out _)).IsTrue();
+            await Assert.That(formula.TryGetShared(cell.SheetPoint, out _)).IsTrue();
             await Assert.That(tree.GetKeptPrecedents(formula))
                 .IsEquivalentTo(tree.GetPrecedents(formulaArea, formula, wb).Areas);
         }
@@ -584,7 +584,7 @@ internal class DependencyTreeTests
         sheet.Row(1).InsertRowsAbove(1);
         var moved = (XLCell)sheet.Cell("F2");
         await Assert.That(moved.FormulaA1).IsEqualTo("Sheet2!A1*2");
-        await Assert.That(moved.Formula!.TryGetSharedR1C1(moved.SheetPoint, out _)).IsFalse();
+        await Assert.That(moved.Formula!.TryGetShared(moved.SheetPoint, out _)).IsFalse();
         foreach (var cell in sheet.Range("F2:F5").Cells())
             _ = cell.Value;
 
@@ -599,14 +599,14 @@ internal class DependencyTreeTests
     public async Task Kept_R1C1_text_is_given_only_at_its_cell_and_until_the_A1_text_changes()
     {
         var formula = XLCellFormula.NormalA1("A1*2");
-        formula.SetSharedR1C1("RC[-1]*2", new Point(1, 2));
+        formula.SetShared(new SharedFormulaGroup("RC[-1]*2"), new Point(1, 2));
 
-        await Assert.That(formula.TryGetSharedR1C1(new Point(1, 2), out var r1c1)).IsTrue();
-        await Assert.That(r1c1).IsEqualTo("RC[-1]*2");
-        await Assert.That(formula.TryGetSharedR1C1(new Point(2, 2), out _)).IsFalse();
+        await Assert.That(formula.TryGetShared(new Point(1, 2), out var group)).IsTrue();
+        await Assert.That(group!.R1C1).IsEqualTo("RC[-1]*2");
+        await Assert.That(formula.TryGetShared(new Point(2, 2), out _)).IsFalse();
 
         formula.UpdateShiftedA1("A2*2");
-        await Assert.That(formula.TryGetSharedR1C1(new Point(1, 2), out _)).IsFalse();
+        await Assert.That(formula.TryGetShared(new Point(1, 2), out _)).IsFalse();
     }
 
     private static readonly string[] SharedFormulaCells =

@@ -1150,16 +1150,17 @@ internal static class WorksheetSheetDataReader
                     out var refusal))
                 throw refusal.ToException();
 
-            sharedFormulas.Add(sharedIndex, new SharedFormula(formulaR1C1));
+            sharedFormula = new SharedFormula(formulaR1C1);
+            sharedFormulas.Add(sharedIndex, sharedFormula);
 
-            // Each cell keeps the R1C1 text of its group, so the dependency tree parses the group once
-            // instead of the A1 text of each cell (#513).
-            formula.SetSharedR1C1(formulaR1C1, cellAddress);
+            // Each cell keeps its group, so the dependency tree and evaluation parse the group once
+            // instead of the A1 text of each cell (#513, #686).
+            formula.SetShared(sharedFormula.Group, cellAddress);
         }
         else
         {
             formula = XLCellFormula.NormalA1(sharedFormula.ToA1(cellAddress));
-            formula.SetSharedR1C1(sharedFormula.R1C1, cellAddress);
+            formula.SetShared(sharedFormula.Group, cellAddress);
             formulaSlice.SetDuringLoad(cellAddress, formula);
         }
 
@@ -1167,16 +1168,20 @@ internal static class WorksheetSheetDataReader
     }
 
     /// <summary>
-    /// One shared formula of a sheet: the R1C1 text that each of its cells keeps (#513), and the
-    /// template that writes the A1 text of each cell after the first (#542).
+    /// One shared formula of a sheet while it loads: the group that each of its cells keeps (#513,
+    /// #686), and the template that writes the A1 text of each cell after the first (#542). The
+    /// template is needed only during the load, so the cells keep the group and not this.
     /// </summary>
     internal sealed class SharedFormula(string r1c1)
     {
         private A1Template? _template;
         private bool _parsed;
 
-        /// <summary>The R1C1 text of the formula. Every cell of the formula gets this one string.</summary>
-        internal string R1C1 { get; } = r1c1;
+        /// <summary>The group that every cell of the formula keeps.</summary>
+        internal SharedFormulaGroup Group { get; } = new(r1c1);
+
+        /// <summary>The R1C1 text of the formula.</summary>
+        internal string R1C1 => Group.R1C1;
 
         /// <summary>
         /// The A1 text of the formula in the cell at <paramref name="origin"/>: the text that

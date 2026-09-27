@@ -34,12 +34,12 @@ public class FormulaAstLifetimeTests
         var cell = (XLCell)ws.Cell("B1");
         cell.FormulaA1 = "A1*2";
         await Assert.That(cell.Value.GetNumber()).IsEqualTo(10d);
-        var ast = cell.Formula!.GetAst(wb.CalcEngine);
+        var ast = cell.Formula!.GetAst(wb.CalcEngine, cell.SheetPoint);
 
         ws.Cell("A1").Value = 7;
 
         await Assert.That(cell.Value.GetNumber()).IsEqualTo(14d);
-        await Assert.That(cell.Formula!.GetAst(wb.CalcEngine)).IsSameReferenceAs(ast);
+        await Assert.That(cell.Formula!.GetAst(wb.CalcEngine, cell.SheetPoint)).IsSameReferenceAs(ast);
     }
 
     /// <summary>

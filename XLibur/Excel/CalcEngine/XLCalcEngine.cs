@@ -396,7 +396,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             else if (formula.Type == FormulaType.Normal)
             {
                 var result = EvaluateFormula(
-                    formula.GetAst(this),
+                    formula.GetAst(this, point),
                     sheet.Workbook,
                     sheet,
                     point,
@@ -409,7 +409,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 var range = formula.Range;
                 var leftTopCorner = range.FirstPoint;
                 var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
-                var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId: null);
+                var array = EvaluateArrayFormula(formula.GetAst(this, leftTopCorner), masterCell, recalculateSheetId: null);
                 var result = array.Broadcast(range.Height, range.Width);
 
                 for (var rowIdx = 0; rowIdx < result.Height; ++rowIdx)
@@ -666,7 +666,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         else if (formula.Type == FormulaType.Normal)
         {
             var single = EvaluateFormula(
-                formula.GetAst(this),
+                formula.GetAst(this, appliedPoint),
                 sheet.Workbook,
                 sheet,
                 appliedPoint,
@@ -680,7 +680,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
             var range = formula.Range;
             var leftTopCorner = range.FirstPoint;
             var masterCell = sheet.Cell(leftTopCorner.Row, leftTopCorner.Column);
-            var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId);
+            var array = EvaluateArrayFormula(formula.GetAst(this, leftTopCorner), masterCell, recalculateSheetId);
 
             // The array from formula can be smaller or larger than the
             // range of cells it should fit into. Broadcast it to the size.
@@ -837,7 +837,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         var formulaSlice = cells.FormulaSlice;
 
         var masterCell = sheet.Cell(anchor.Row, anchor.Column);
-        var array = EvaluateArrayFormula(formula.GetAst(this), masterCell, recalculateSheetId);
+        var array = EvaluateArrayFormula(formula.GetAst(this, anchor), masterCell, recalculateSheetId);
 
         var lastRow = anchor.Row + array.Height - 1;
         var lastColumn = anchor.Column + array.Width - 1;

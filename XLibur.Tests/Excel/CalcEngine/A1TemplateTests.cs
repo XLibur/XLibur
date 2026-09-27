@@ -220,9 +220,9 @@ public class A1TemplateTests
             await Assert.That(cell.FormulaA1).IsEqualTo(a1);
 
             var first = (XLCell)sheet.Cell(group);
-            await Assert.That(first.Formula!.TryGetSharedR1C1(first.SheetPoint, out var groupR1C1)).IsTrue();
-            await Assert.That(cell.Formula!.TryGetSharedR1C1(cell.SheetPoint, out var r1c1)).IsTrue();
-            await Assert.That(r1c1).IsSameReferenceAs(groupR1C1);
+            await Assert.That(first.Formula!.TryGetShared(first.SheetPoint, out var firstGroup)).IsTrue();
+            await Assert.That(cell.Formula!.TryGetShared(cell.SheetPoint, out var cellGroup)).IsTrue();
+            await Assert.That(cellGroup).IsSameReferenceAs(firstGroup);
         }
     }
 

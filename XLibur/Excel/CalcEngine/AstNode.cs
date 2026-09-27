@@ -303,11 +303,21 @@ internal sealed class ReferenceNode : ValueNode
     // prefixed reference is only used after ReferenceEquals confirms it was resolved against
     // the sheet being asked about, so any other value is recomputed rather than misapplied.
 
+    /// <summary>
+    /// An R1C1 reference with a relative axis, such as <c>R[-1]C</c>. It reads a different area in
+    /// each cell it is evaluated for, so it is resolved on every evaluation and never memoized.
+    /// </summary>
+    private readonly bool _isRelativeR1C1;
+
     public ReferenceNode(PrefixNode? prefix, ReferenceArea referenceArea, bool isA1)
     {
         Prefix = prefix;
         ReferenceArea = referenceArea;
         IsA1 = isA1;
+        _isRelativeR1C1 = !isA1 && (IsRelative(referenceArea.First) || IsRelative(referenceArea.Second));
+
+        static bool IsRelative(RowCol end)
+            => end.RowType == ReferenceAxisType.Relative || end.ColumnType == ReferenceAxisType.Relative;
     }
 
     /// <summary>
@@ -338,14 +348,18 @@ internal sealed class ReferenceNode : ValueNode
 
     public AnyValue GetReference(CalcContext ctx)
     {
+        if (_isRelativeR1C1)
+            return GetRelativeReference(ctx);
+
         if (Prefix is null)
             return _sheetlessReference ??= new Reference(BuildAddress(null));
 
         if (!Prefix.GetWorksheet(ctx.Workbook).TryPickT0(out var ws, out var err))
             return err;
 
-        // A cell's formula keeps its AST (XLCellFormula.GetAst), and an array formula's one
-        // AST serves every cell of its range. Recalculation re-resolves every reference, so the
+        // A cell's formula keeps its AST (XLCellFormula.GetAst), an array formula's one AST serves
+        // every cell of its range, and a shared formula's one R1C1 AST every cell of the group (a
+        // relative R1C1 reference never gets here). Recalculation re-resolves every reference, so the
         // same node is resolved many times and almost always against the same sheet. Keyed on the
         // resolved sheet rather than cached outright: a rename or a delete-and-re-add changes
         // which sheet the prefix resolves to, and that must not serve the previous address.
@@ -360,16 +374,49 @@ internal sealed class ReferenceNode : ValueNode
     }
 
     /// <summary>
+    /// Resolve an R1C1 reference with a relative axis for the cell being evaluated. A shared formula
+    /// is evaluated from one R1C1 tree for every cell of it (#686).
+    /// </summary>
+    /// <remarks>
+    /// Each cell of a shared formula also has A1 text, which the loader wrote from the same R1C1 text.
+    /// This gives what that text gives. A reference that the cell moves off the sheet is written there
+    /// as <c>#REF!</c>, with no sheet, so it is the error here whatever the prefix names.
+    /// </remarks>
+    private AnyValue GetRelativeReference(CalcContext ctx)
+    {
+        var cell = ctx.FormulaSheetPoint;
+        var first = ReferenceArea.First;
+        var second = ReferenceArea.Second;
+        if (!A1Template.TryMoveRow(first.RowType, first.RowValue, cell.Row, out var row1) ||
+            !A1Template.TryMoveColumn(first.ColumnType, first.ColumnValue, cell.Column, out var col1) ||
+            !A1Template.TryMoveRow(second.RowType, second.RowValue, cell.Row, out var row2) ||
+            !A1Template.TryMoveColumn(second.ColumnType, second.ColumnValue, cell.Column, out var col2))
+            return XLError.CellReference;
+
+        XLWorksheet? sheet = null;
+        if (Prefix is not null)
+        {
+            if (!Prefix.GetWorksheet(ctx.Workbook).TryPickT0(out var ws, out var err))
+                return err;
+
+            sheet = (XLWorksheet)ws;
+        }
+
+        return new Reference(ToAddress(sheet,
+            Axis(first.RowType, row1, XLHelper.MinRowNumber),
+            Axis(first.ColumnType, col1, XLHelper.MinColumnNumber),
+            Axis(second.RowType, row2, XLHelper.MaxRowNumber),
+            Axis(second.ColumnType, col2, XLHelper.MaxColumnNumber)));
+    }
+
+    /// <summary>
     /// Build the range address from the <see cref="ReferenceArea"/> the parser produced,
     /// rather than by re-parsing <see cref="Address"/> — which the constructor generated from
     /// that same area, so parsing it only recovers what is already known.
     /// </summary>
     /// <remarks>
-    /// Only the A1 form is handled. <see cref="IsA1"/> is <c>false</c> only for ASTs built to
-    /// rewrite R1C1 formula text, and those are never evaluated: the only caller that reaches
-    /// here is <see cref="XLCalcEngine.Parse"/>, which always parses as A1. The previous
-    /// string-parsing implementation could not resolve R1C1 either — <see cref="XLRangeAddress"/>
-    /// does not parse that syntax — so this narrows nothing.
+    /// Every axis here is a position: an A1 axis, or an absolute R1C1 one. An R1C1 reference with a
+    /// relative axis is an offset from the cell, and <see cref="GetRelativeReference"/> resolves it.
     /// </remarks>
     private XLRangeAddress BuildAddress(XLWorksheet? sheet)
     {
@@ -378,10 +425,21 @@ internal sealed class ReferenceNode : ValueNode
 
         // An axis of type None means the other axis carries the reference (A:B has no row,
         // 1:5 has no column), so the missing axis spans the whole sheet.
-        var (row1, fixedRow1) = Axis(first.RowType, first.RowValue, XLHelper.MinRowNumber);
-        var (col1, fixedCol1) = Axis(first.ColumnType, first.ColumnValue, XLHelper.MinColumnNumber);
-        var (row2, fixedRow2) = Axis(second.RowType, second.RowValue, XLHelper.MaxRowNumber);
-        var (col2, fixedCol2) = Axis(second.ColumnType, second.ColumnValue, XLHelper.MaxColumnNumber);
+        return ToAddress(sheet,
+            Axis(first.RowType, first.RowValue, XLHelper.MinRowNumber),
+            Axis(first.ColumnType, first.ColumnValue, XLHelper.MinColumnNumber),
+            Axis(second.RowType, second.RowValue, XLHelper.MaxRowNumber),
+            Axis(second.ColumnType, second.ColumnValue, XLHelper.MaxColumnNumber));
+    }
+
+    private static XLRangeAddress ToAddress(XLWorksheet? sheet,
+        (int Position, bool Fixed) firstRow, (int Position, bool Fixed) firstColumn,
+        (int Position, bool Fixed) secondRow, (int Position, bool Fixed) secondColumn)
+    {
+        var (row1, fixedRow1) = firstRow;
+        var (col1, fixedCol1) = firstColumn;
+        var (row2, fixedRow2) = secondRow;
+        var (col2, fixedCol2) = secondColumn;
 
         // The endpoints need not be the top-left and bottom-right corners (D4:A1, D1:A4), but
         // Reference requires a normalized address. Each axis is ordered independently, with
