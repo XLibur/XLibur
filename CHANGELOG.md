@@ -43,6 +43,10 @@
   - A plain value cell (number, date, time, boolean, error or shared string) is written as text in one call per row instead of about eight `XmlWriter` calls per cell. The saved bytes are the same.
   - Disposing a workbook drops each sheet's cells at once instead of clearing them one by one.
 
+### 🐛 Bug Fixes
+
+- **A sheet XLibur created saves the same bytes when it is loaded and saved again.** The root `<worksheet>` element declared the `mc` prefix after the `mc:Ignorable` attribute and its own `x` prefix after all its attributes, where the XML writer put them. Loaded again, the file declared them in the order it was written, and the next save wrote them ahead of the attributes, so an unchanged sheet did not round-trip byte for byte (#702). The first save now writes them in the order every later save does. The same holds for a sheet whose root uses the default namespace, as Excel writes it: XLibur's first save of it now saves the same bytes again. The XML means the same either way; only the order of the declarations changes.
+
 ## v0.630.0 - 2026-09-27
 
 ### ⚡ Performance

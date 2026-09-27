@@ -163,8 +163,20 @@ internal static class WorksheetPartWriter
         if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs))
         {
             worksheet.AddNamespaceDeclaration("x14ac", X14Ac2009SsNs);
+            if (worksheet.NamespaceDeclarations.All(ns => ns.Value != MarkupCompatibilityNs))
+                worksheet.AddNamespaceDeclaration("mc", MarkupCompatibilityNs);
+
             worksheet.SetAttribute(new OpenXmlAttribute("mc", "Ignorable", MarkupCompatibilityNs, "x14ac"));
         }
+
+        // Every prefix the root is written with is declared in the DOM, so StreamToPart writes the
+        // declarations ahead of the attributes. Left to the XmlWriter, a missing one is declared
+        // where it is first needed: mc after mc:Ignorable, and the root's own prefix after all the
+        // attributes. Loading that output puts them all in the DOM, so the next save wrote them in
+        // another order, and a sheet XLibur created did not save the same bytes twice.
+        if (!string.IsNullOrEmpty(worksheet.Prefix)
+            && worksheet.NamespaceDeclarations.All(ns => ns.Key != worksheet.Prefix))
+            worksheet.AddNamespaceDeclaration(worksheet.Prefix, worksheet.NamespaceUri);
 
         #endregion Worksheet
 
