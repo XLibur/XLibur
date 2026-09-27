@@ -344,9 +344,9 @@ internal sealed class ReferenceNode : ValueNode
         if (!Prefix.GetWorksheet(ctx.Workbook).TryPickT0(out var ws, out var err))
             return err;
 
-        // ASTs are shared between every cell holding the same formula text (see
-        // ExpressionCache), and recalculation re-resolves every reference, so the same node
-        // is resolved many times and almost always against the same sheet. Keyed on the
+        // A cell's formula keeps its AST (XLCellFormula.GetAst), and an array formula's one
+        // AST serves every cell of its range. Recalculation re-resolves every reference, so the
+        // same node is resolved many times and almost always against the same sheet. Keyed on the
         // resolved sheet rather than cached outright: a rename or a delete-and-re-add changes
         // which sheet the prefix resolves to, and that must not serve the previous address.
         var sheet = (XLWorksheet)ws;

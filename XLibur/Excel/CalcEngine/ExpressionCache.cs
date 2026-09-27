@@ -7,7 +7,12 @@ namespace XLibur.Excel.CalcEngine;
 /// This saves parsing time.
 /// </summary>
 /// <remarks>
-/// Uses weak references to avoid accumulating unused expressions.
+/// <para>Uses weak references to avoid accumulating unused expressions.</para>
+/// <para>
+/// Only for text that belongs to no cell: <c>Evaluate</c> calls and defined names. A cell's formula
+/// keeps its own tree (<see cref="XLCellFormula.GetAst"/>), because its text lives as long as the
+/// formula does, and a weak entry keyed by it kept every tree alive anyway (#686).
+/// </para>
 /// </remarks>
 internal sealed class ExpressionCache
 {

@@ -1199,7 +1199,8 @@ public partial class XLWorkbook : IXLWorkbook
         get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture) { Workbook = this }; }
 
         // A test seam, for an engine over a function table of the test's own. Set it before any
-        // formula is evaluated: the engine it replaces is dropped with its dependency tree and chain.
+        // formula is evaluated: the engine it replaces is dropped with its dependency tree and chain,
+        // but a formula keeps the AST the old engine parsed for it (XLCellFormula.GetAst).
         set
         {
             value.Workbook = this;
