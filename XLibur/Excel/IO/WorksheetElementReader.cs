@@ -520,7 +520,7 @@ internal static class WorksheetElementReader
         {
             var xlCell = (XLCell)xlCell1;
             if (hl.Id != null)
-                xlCell.SetCellHyperlink(new XLHyperlink(hyperlinkDictionary[hl.Id.Value!], tooltip!));
+                xlCell.SetCellHyperlink(new XLHyperlink(hyperlinkDictionary[hl.Id.Value!], tooltip!) { RelId = hl.Id.Value });
             else if (hl.Location != null)
                 xlCell.SetCellHyperlink(new XLHyperlink(hl.Location.Value!, tooltip!));
             else

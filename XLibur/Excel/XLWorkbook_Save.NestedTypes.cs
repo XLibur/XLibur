@@ -225,6 +225,15 @@ public partial class XLWorkbook
             }
         }
 
+        /// <summary>
+        /// Record an ID the caller keeps from an earlier load or save, so <see cref="GetNext"/>
+        /// never hands it to another relationship in this save.
+        /// </summary>
+        public void Reserve(RelType relType, string relId)
+        {
+            AddValues([relId], relType);
+        }
+
         public void Reset(RelType relType)
         {
             _relIds.Remove(relType);

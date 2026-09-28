@@ -58,6 +58,21 @@ public class KeepUnchangedPartTests
     }
 
     [Test]
+    public async Task A_sheet_with_an_external_hyperlink_keeps_its_part()
+    {
+        // The hyperlink is written with the relationship id it was loaded with (#705).
+        using var source = Source(ws => ws.Cell("D1").SetHyperlink(new XLHyperlink("http://example.com/")));
+
+        using var saved = LoadAndSave(source);
+
+        await Assert.That(IsAsTheFileHadIt(saved, Sheet1)).IsTrue();
+        await AssertValues(saved);
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Data").Cell("D1").GetHyperlink().ExternalAddress!.ToString())
+            .IsEqualTo("http://example.com/");
+    }
+
+    [Test]
     public async Task Editing_another_sheet_leaves_an_unchanged_sheets_part()
     {
         using var source = Source(_ => { });
