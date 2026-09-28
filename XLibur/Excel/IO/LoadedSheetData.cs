@@ -46,28 +46,30 @@ internal sealed class LoadedSheetData : IDisposable
     }
 
     /// <summary>
+    /// Can the save keep the cells of <paramref name="xlWorksheet"/> as the file had them? Both
+    /// tiers of #702 ask this: keeping the whole part, and keeping only its cells.
+    /// </summary>
+    /// <param name="xlWorksheet">The sheet being saved.</param>
+    /// <param name="options">The options of the save.</param>
+    /// <param name="context">The save.</param>
+    internal static bool CanKeepCells(XLWorksheet xlWorksheet, SaveOptions options, SaveContext context) =>
+        !options.RewriteUnchangedSheets
+        && context.StylesheetWasLoaded
+        && CellsCanBeKept(xlWorksheet)
+        && context.SharedStringsAtFileIndices(xlWorksheet.Workbook.SharedStringTable);
+
+    /// <summary>
     /// Reads the cells of <paramref name="worksheetPart"/> as the file had them, or returns null when
-    /// the save has to write them from the model.
+    /// the save has to write them from the model. Call it only when <see cref="CanKeepCells"/> says
+    /// the cells can be kept.
     /// </summary>
     /// <param name="worksheetPart">The part in the package being saved, not yet written.</param>
-    /// <param name="xlWorksheet">The sheet being saved.</param>
     /// <param name="loadedMarkup">
     /// The part without its cells, as the load kept it (<see cref="XLWorksheet.TakePartWithoutSheetData"/>).
     /// </param>
     /// <param name="worksheet">The root the save writes, which the kept cells have to fit under.</param>
-    /// <param name="options">The options of the save.</param>
-    /// <param name="context">The save.</param>
-    internal static LoadedSheetData? TryRead(WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
-        byte[] loadedMarkup, Worksheet worksheet, SaveOptions options, SaveContext context)
+    internal static LoadedSheetData? TryRead(WorksheetPart worksheetPart, byte[] loadedMarkup, Worksheet worksheet)
     {
-        if (options.RewriteUnchangedSheets
-            || !context.StylesheetWasLoaded
-            || !CellsCanBeKept(xlWorksheet)
-            || !context.SharedStringsAtFileIndices(xlWorksheet.Workbook.SharedStringTable))
-        {
-            return null;
-        }
-
         var part = WorksheetPartBuffer.TryRead(worksheetPart);
         if (part is null)
             return null;

@@ -27,13 +27,56 @@ internal static class WorksheetPartWriter
         var loadedMarkup = xlWorksheet.TakePartWithoutSheetData();
         var worksheetDom = GetWorksheetDom(partIsEmpty, worksheetPart, xlWorksheet, loadedMarkup, options, context);
 
-        // Read before StreamToPart replaces the part. Only the part the load kept can have its cells
-        // kept, and only on the first save.
-        using var loadedSheetData = partIsEmpty || loadedMarkup is null
-            ? null
-            : LoadedSheetData.TryRead(worksheetPart, xlWorksheet, loadedMarkup, worksheetDom, options, context);
+        // Only the part the load kept can be kept, whole or only its cells, and only on the first save.
+        if (partIsEmpty || loadedMarkup is null || !LoadedSheetData.CanKeepCells(xlWorksheet, options, context))
+        {
+            StreamToPart(worksheetDom, worksheetPart, xlWorksheet, null, context, options);
+            return;
+        }
 
+        // Tier 1 of #702: the part is not opened, so the package keeps it as the file had it.
+        if (WritesAsLoaded(worksheetDom, loadedMarkup))
+            return;
+
+        // Tier 2: read before StreamToPart replaces the part.
+        using var loadedSheetData = LoadedSheetData.TryRead(worksheetPart, loadedMarkup, worksheetDom);
         StreamToPart(worksheetDom, worksheetPart, xlWorksheet, loadedSheetData, context, options);
+    }
+
+    /// <summary>
+    /// Would the part be written as the load read it, apart from its cells? Compares the markup the
+    /// save would write around the cells with the markup the load kept.
+    /// </summary>
+    /// <param name="worksheet">The DOM the save writes, with its <c>&lt;sheetData&gt;</c> empty.</param>
+    /// <param name="loadedMarkup">The part as the load read it, with its <c>&lt;sheetData&gt;</c> emptied.</param>
+    /// <remarks>
+    /// The comparison is by <see cref="XmlInfoset"/>, not by bytes. A file XLibur or ClosedXML wrote
+    /// can differ from what a save writes in how it spells the same thing, such as where the root
+    /// declares its namespaces. Every change outside the cells shows up: views, columns, merges,
+    /// conditional formats, page setup, and the relationship ids that hyperlinks, drawings, comments
+    /// and tables are written with. A sheet from Excel seldom matches, because XLibur writes more
+    /// defaults than Excel does; it keeps its cells through tier 2.
+    /// <para>
+    /// A kept part is taken as the one the load read. The package being saved is a copy of the one
+    /// the workbook was loaded from, and every part a save does not write, such as images or
+    /// printer settings, is taken from it on the same trust. Checking the part would mean opening
+    /// it, and an opened part is compressed again.
+    /// </para>
+    /// </remarks>
+    private static bool WritesAsLoaded(Worksheet worksheet, byte[] loadedMarkup)
+    {        using var regenerated = new MemoryStream();
+        using (var xml = PartXmlWriter.Create(regenerated, closeOutput: false))
+        {
+            WriteRootStartTag(xml, worksheet);
+            foreach (var child in worksheet.ChildElements)
+                child.WriteTo(xml);
+
+            xml.WriteEndElement();
+        }
+
+        regenerated.Position = 0;
+        using var loaded = new MemoryStream(loadedMarkup, writable: false);
+        return XmlInfoset.AreEquivalent(loaded, regenerated);
     }
 
     /// <summary>
@@ -334,21 +377,7 @@ internal static class WorksheetPartWriter
         using var xml = PartXmlWriter.Create(output, closeOutput: false);
 
         xml.WriteStartDocument(true);
-
-        // Open <worksheet> with the same prefix/name/namespace and attributes/namespace
-        // declarations as the source DOM. The default-namespace declaration is emitted
-        // implicitly by WriteStartElement when the element is in that namespace, so it is
-        // skipped from the explicit declaration loop to avoid an "xmlns" duplicate.
-        xml.WriteStartElement(worksheet.Prefix, worksheet.LocalName, worksheet.NamespaceUri);
-        foreach (var ns in worksheet.NamespaceDeclarations)
-        {
-            if (string.IsNullOrEmpty(ns.Key))
-                continue;
-            xml.WriteAttributeString("xmlns", ns.Key, null, ns.Value);
-        }
-
-        foreach (var attr in worksheet.GetAttributes())
-            xml.WriteAttributeString(attr.Prefix, attr.LocalName, attr.NamespaceUri, attr.Value);
+        WriteRootStartTag(xml, worksheet);
 
         foreach (var child in worksheet.ChildElements)
         {
@@ -362,5 +391,28 @@ internal static class WorksheetPartWriter
 
         xml.WriteEndElement(); // worksheet
         xml.WriteEndDocument();
+    }
+
+    /// <summary>
+    /// Opens <c>&lt;worksheet&gt;</c> with the same prefix, name, namespace, attributes and namespace
+    /// declarations as the DOM.
+    /// </summary>
+    /// <remarks>
+    /// The default-namespace declaration is emitted implicitly by <c>WriteStartElement</c> when the
+    /// element is in that namespace, so it is skipped from the explicit declaration loop to avoid an
+    /// <c>xmlns</c> duplicate.
+    /// </remarks>
+    private static void WriteRootStartTag(XmlWriter xml, Worksheet worksheet)
+    {
+        xml.WriteStartElement(worksheet.Prefix, worksheet.LocalName, worksheet.NamespaceUri);
+        foreach (var ns in worksheet.NamespaceDeclarations)
+        {
+            if (string.IsNullOrEmpty(ns.Key))
+                continue;
+            xml.WriteAttributeString("xmlns", ns.Key, null, ns.Value);
+        }
+
+        foreach (var attr in worksheet.GetAttributes())
+            xml.WriteAttributeString(attr.Prefix, attr.LocalName, attr.NamespaceUri, attr.Value);
     }
 }
