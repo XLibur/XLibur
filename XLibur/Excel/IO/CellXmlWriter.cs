@@ -99,7 +99,7 @@ internal static class CellXmlWriter
     }
 
     /// <summary>
-    /// Open a <c>&lt;c&gt;</c> element with its reference, style and type attributes. The
+    /// Open a <c>&lt;c&gt;</c> element with its reference, style (unless 0) and type attributes. The
     /// element is left open so the caller can add optional attributes and the value.
     /// <c>reference</c> holds the cell reference as written by <c>Point.Format</c>, of which
     /// <c>referenceLength</c> chars are used.
@@ -113,7 +113,9 @@ internal static class CellXmlWriter
         w.WriteRaw(reference, 0, referenceLength);
         w.WriteEndAttribute();
 
-        w.WriteAttribute("s", styleId);
+        // Style 0 is what a missing s means, and Excel does not write it.
+        if (styleId != 0)
+            w.WriteAttribute("s", styleId);
 
         if (dataType is not null)
             w.WriteAttributeString("t", dataType);

@@ -38,11 +38,16 @@ internal static class ColumnWriter
         IReadOnlyDictionary<XLStyleValue, StyleInfo> sharedStyles)
     {
         var worksheetStyleId = sharedStyles[xlWorksheet.StyleValue].StyleId;
+        // A loaded <cols> that holds only ranges to the last column is written back even here: the
+        // load took such a range as the sheet's width rather than as columns, and that width is not
+        // written as a defaultColWidth (#709).
         if (xlWorksheet.Internals.CellsCollection.IsEmpty &&
             xlWorksheet.Internals.ColumnsCollection.Count == 0
-            && worksheetStyleId == 0)
+            && worksheetStyleId == 0
+            && !HoldsOnlyTheSheetWidth(worksheet.Elements<Columns>().FirstOrDefault()))
         {
             worksheet.RemoveAllChildren<Columns>();
+            cm.SetElement(XLWorksheetContents.Columns, null);
             return;
         }
 
@@ -76,6 +81,17 @@ internal static class ColumnWriter
             cm.SetElement(XLWorksheetContents.Columns, null);
         }
     }
+
+    /// <summary>
+    /// Does the loaded <c>&lt;cols&gt;</c> hold only ranges that run to the last column with nothing
+    /// but a width and a style, which the load takes as the sheet's own?
+    /// </summary>
+    private static bool HoldsOnlyTheSheetWidth(Columns? columns) =>
+        columns is not null && columns.Elements<Column>().Any() && columns.Elements<Column>().All(c =>
+            c.Max?.Value == XLHelper.MaxColumnNumber
+            && c.Hidden is null or { Value: false }
+            && c.Collapsed is null or { Value: false }
+            && c.OutlineLevel is null);
 
     private static (int min, int max) GetColumnsRange(XLWorksheet xlWorksheet)
     {
@@ -120,9 +136,10 @@ internal static class ColumnWriter
             var col in
             ctx.Columns.Elements<Column>().Where(c => c.Min! > (uint)(maxInColumnsCollection)).OrderBy(c => c.Min!.Value))
         {
-            col.Style = ctx.WorksheetStyleId;
+            // The sheet's own style and width, so customWidth stays as the file had it: Excel
+            // writes a column that only carries the sheet's width without one.
+            col.Style = SchemaDefault.UInt(col.Style, ctx.WorksheetStyleId, 0);
             col.Width = ctx.DefaultColumn.Width;
-            col.CustomWidth = true;
 
             if ((int)col.Max!.Value > maxInColumnsCollection)
                 maxInColumnsCollection = (int)col.Max.Value;
@@ -143,23 +160,32 @@ internal static class ColumnWriter
             sharedStyles[col.StyleValue].StyleId, col.Width,
             col.IsHidden, col.Collapsed, col.OutlineLevel);
 
-        return ToColumnElement(settings);
+        // A column with the sheet's width has no customWidth, as Excel writes it. The model does not
+        // know whether a width was set, only what it is.
+        if (settings.Width is { } width && ctx.DefaultColumn.Width is { } sheetWidth
+                                        && Math.Abs(width - sheetWidth) < XLHelper.Epsilon)
+            settings = settings with { CustomWidth = false };
+
+        return ToColumnElement(ctx, settings);
     }
 
     /// <summary>
     /// A <c>&lt;col&gt;</c> carrying the worksheet's own style and default width, used to back-fill
-    /// the columns either side of the ones the sheet actually configured.
+    /// the columns either side of the ones the sheet actually configured. Its width is the sheet's,
+    /// so it has no <c>customWidth</c>, as Excel writes such a column.
     /// </summary>
     private static Column WorksheetDefaultColumn(ColumnWriteContext ctx, uint min, uint max)
-        => ToColumnElement(ctx.DefaultColumn with { Min = min, Max = max });
+        => ToColumnElement(ctx, ctx.DefaultColumn with { Min = min, Max = max, CustomWidth = false });
 
-    private static Column ToColumnElement(XLColumnSettings settings)
+    private static Column ToColumnElement(ColumnWriteContext ctx, XLColumnSettings settings)
     {
         var column = new Column
         {
             Min = settings.Min,
             Max = settings.Max,
-            Style = settings.StyleId,
+            // Style 0 is what a missing style means, so it is left out, as Excel leaves it out. Not
+            // on a sheet with a style of its own: a column without a style loads with the sheet's.
+            Style = settings.StyleId is 0 && ctx.WorksheetStyleId == 0 ? null : settings.StyleId,
             Width = settings.Width,
             CustomWidth = settings.CustomWidth ? true : null,
         };
@@ -231,9 +257,15 @@ internal static class ColumnWriter
         var newColumn = (Column)existingColumn.CloneNode(true);
         newColumn.Min = column.Min;
         newColumn.Max = column.Max;
-        newColumn.Style = column.Style;
+
+        // A style="0" the file had stays; the column writes none of its own.
+        newColumn.Style = column.Style ?? SchemaDefault.UInt(existingColumn.Style, 0, 0);
         newColumn.Width = column.Width!.SaveRound();
-        newColumn.CustomWidth = column.CustomWidth;
+
+        // customWidth stays as the file had it, set or not, while the width is the same: the clone
+        // already carries it. The model does not know whether a width was set, only what it is.
+        if (!SameWidth(existingColumn.Width, newColumn.Width))
+            newColumn.CustomWidth = column.CustomWidth;
 
         newColumn.Hidden = column.Hidden != null ? true : null;
         newColumn.Collapsed = column.Collapsed != null ? true : null;
@@ -257,10 +289,16 @@ internal static class ColumnWriter
         }
     }
 
+    /// <summary>Are the widths the same to the precision a width is saved with?</summary>
+    private static bool SameWidth(DoubleValue? loaded, DoubleValue? written) =>
+        loaded is { HasValue: true } && written is { HasValue: true } &&
+        Math.Abs(Math.Round(loaded.Value, 6) - written.Value) < XLHelper.Epsilon;
+
     private static bool ColumnsAreEqual(Column left, Column right)
     {
         return NullableValuesEqual(left.Style, right.Style)
                && NullableDoublesEqual(left.Width, right.Width)
+               && NullableValuesEqual(left.CustomWidth, right.CustomWidth)
                && NullableValuesEqual(left.Hidden, right.Hidden)
                && NullableValuesEqual(left.Collapsed, right.Collapsed)
                && NullableValuesEqual(left.OutlineLevel, right.OutlineLevel);

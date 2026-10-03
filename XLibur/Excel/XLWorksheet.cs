@@ -775,7 +775,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         targetSheet.DataValidations.RenameSheetInCriteria(Name, newSheetName);
         targetSheet.Visibility = Visibility;
         targetSheet.ColumnWidth = ColumnWidth;
-        targetSheet.ColumnWidthChanged = ColumnWidthChanged;
+
+        // A width the source took from its file, from baseColWidth or a range to the last column,
+        // does not count as changed there, because the file's markup carries it. The copy has no
+        // such markup, so it writes any width a new sheet would not have (#709).
+        targetSheet.ColumnWidthChanged = ColumnWidthChanged
+                                         || Math.Abs(ColumnWidth - targetSheet.Workbook.ColumnWidth) > XLHelper.Epsilon;
         targetSheet.RowHeight = RowHeight;
         targetSheet.RowHeightChanged = RowHeightChanged;
         targetSheet.InnerStyle = InnerStyle;

@@ -17,26 +17,44 @@ internal static class SheetViewWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet)
     {
-        worksheet.SheetProperties ??= new SheetProperties();
+        var sheetProperties = worksheet.SheetProperties;
+        var loadedEmpty = sheetProperties is not null && SchemaDefault.IsEmpty(sheetProperties);
+        sheetProperties ??= new SheetProperties();
 
-        worksheet.SheetProperties.TabColor = xlWorksheet.SheetView.TabColor.HasValue
+        sheetProperties.TabColor = xlWorksheet.SheetView.TabColor.HasValue
             ? new TabColor().FromXLiburColor<TabColor>(xlWorksheet.SheetView.TabColor)
             : null;
 
-        cm.SetElement(XLWorksheetContents.SheetProperties, worksheet.SheetProperties);
+        WriteOutlineProperties(sheetProperties, xlWorksheet);
 
-        worksheet.SheetProperties.OutlineProperties ??= new OutlineProperties();
-
-        worksheet.SheetProperties.OutlineProperties.SummaryBelow =
-            (xlWorksheet.Outline.SummaryVLocation ==
-             XLOutlineSummaryVLocation.Bottom);
-        worksheet.SheetProperties.OutlineProperties.SummaryRight =
-            (xlWorksheet.Outline.SummaryHLocation ==
-             XLOutlineSummaryHLocation.Right);
-
-        if (worksheet.SheetProperties.PageSetupProperties == null
+        if (sheetProperties.PageSetupProperties == null
             && (xlWorksheet.PageSetup.PagesTall > 0 || xlWorksheet.PageSetup.PagesWide > 0))
-            worksheet.SheetProperties.PageSetupProperties = new PageSetupProperties { FitToPage = true };
+            sheetProperties.PageSetupProperties = new PageSetupProperties { FitToPage = true };
+
+        SchemaDefault.Place(worksheet, cm, XLWorksheetContents.SheetProperties, sheetProperties, loadedEmpty);
+    }
+
+    /// <summary>
+    /// Writes <c>&lt;outlinePr&gt;</c> only when summary rows are above or summary columns are on
+    /// the left, as Excel does. Excel writes neither <c>summaryBelow="1"</c> nor
+    /// <c>summaryRight="1"</c>, whether or not the sheet has an outline, and drops them from a file
+    /// it saves again. A loaded file that has them keeps them (see <see cref="SchemaDefault"/>).
+    /// </summary>
+    private static void WriteOutlineProperties(SheetProperties sheetProperties, XLWorksheet xlWorksheet)
+    {
+        var outlineProperties = sheetProperties.OutlineProperties;
+        var loadedEmpty = outlineProperties is not null && SchemaDefault.IsEmpty(outlineProperties);
+        outlineProperties ??= new OutlineProperties();
+
+        outlineProperties.SummaryBelow = SchemaDefault.Bool(outlineProperties.SummaryBelow,
+            xlWorksheet.Outline.SummaryVLocation == XLOutlineSummaryVLocation.Bottom, schemaDefault: true);
+        outlineProperties.SummaryRight = SchemaDefault.Bool(outlineProperties.SummaryRight,
+            xlWorksheet.Outline.SummaryHLocation == XLOutlineSummaryHLocation.Right, schemaDefault: true);
+
+        if (SchemaDefault.IsEmpty(outlineProperties) && !loadedEmpty)
+            sheetProperties.OutlineProperties = null;
+        else if (outlineProperties.Parent is null)
+            sheetProperties.OutlineProperties = outlineProperties;
     }
 
     internal static void WriteSheetDimension(
@@ -88,11 +106,20 @@ internal static class SheetViewWriter
 
         SetTopLeftCell(sheetView, xlWorksheet);
 
+        // A selection the file wrote without an active cell is written without one again, while it
+        // is the selection the file had. Excel reads the absence as a choice of its own, which an
+        // active cell taken from the selection would replace.
+        var loadedSelections = sheetView.Elements<Selection>().ToList();
+        var deriveActiveCell = loadedSelections.Count == 0
+                               || loadedSelections.Exists(s => s.ActiveCell is not null)
+                               || loadedSelections.Exists(s =>
+                                   s.SequenceOfReferences?.InnerText != SelectedRangesText(xlWorksheet));
+
         sheetView.RemoveAllChildren<Selection>();
         svcm.SetElement(XLSheetViewContents.Selection, null);
 
         if (xlWorksheet.SelectedRanges.Count > 0 || xlWorksheet.ActiveCell is not null)
-            SetupSelections(sheetView, svcm, xlWorksheet, pane);
+            SetupSelections(sheetView, svcm, xlWorksheet, pane, deriveActiveCell);
 
         SetZoomScales(sheetView, xlWorksheet);
     }
@@ -180,9 +207,9 @@ internal static class SheetViewWriter
     }
 
     private static void SetupSelections(SheetView sheetView, XLSheetViewContentManager svcm,
-        XLWorksheet xlWorksheet, Pane? pane)
+        XLWorksheet xlWorksheet, Pane? pane, bool deriveActiveCell)
     {
-        var firstSelection = xlWorksheet.SelectedRanges.FirstOrDefault();
+        var firstSelection = deriveActiveCell ? xlWorksheet.SelectedRanges.FirstOrDefault() : null;
 
         if (pane != null)
         {
@@ -202,11 +229,11 @@ internal static class SheetViewWriter
             else if (firstSelection != null)
                 selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
 
-            var seqRef = new List<string> { selection.ActiveCell!.Value! };
-            seqRef.AddRange(xlWorksheet.SelectedRanges.Select(range =>
-                range.RangeAddress.FirstAddress.Equals(range.RangeAddress.LastAddress)
-                    ? range.RangeAddress.FirstAddress.ToStringRelative(false)
-                    : range.RangeAddress.ToStringRelative(false)));
+            var seqRef = new List<string>();
+            if (selection.ActiveCell is not null)
+                seqRef.Add(selection.ActiveCell.Value!);
+
+            seqRef.AddRange(SelectedRanges(xlWorksheet));
 
             selection.SequenceOfReferences = new ListValue<StringValue>
             { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
@@ -215,6 +242,17 @@ internal static class SheetViewWriter
             svcm.SetElement(XLSheetViewContents.Selection, selection);
         }
     }
+
+    /// <summary>The selected ranges as a selection's <c>sqref</c> lists them.</summary>
+    private static IEnumerable<string> SelectedRanges(XLWorksheet xlWorksheet) =>
+        xlWorksheet.SelectedRanges.Select(range =>
+            range.RangeAddress.FirstAddress.Equals(range.RangeAddress.LastAddress)
+                ? range.RangeAddress.FirstAddress.ToStringRelative(false)
+                : range.RangeAddress.ToStringRelative(false));
+
+    /// <summary>The <c>sqref</c> of the selected ranges, with no active cell.</summary>
+    private static string SelectedRangesText(XLWorksheet xlWorksheet) =>
+        string.Join(" ", SelectedRanges(xlWorksheet).Distinct());
 
     private static void SetZoomScales(SheetView sheetView, XLWorksheet xlWorksheet)
     {

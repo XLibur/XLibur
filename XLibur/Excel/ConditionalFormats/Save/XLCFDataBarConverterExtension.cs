@@ -3,6 +3,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.IO;
 using XLibur.Extensions;
 using ColorType = DocumentFormat.OpenXml.Office2010.Excel.ColorType;
 using ConditionalFormattingRule = DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule;
@@ -36,8 +37,9 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         {
             MinLength = 0,
             MaxLength = 100,
-            Gradient = cf.Gradient,
-            ShowValue = !cf.ShowBarOnly,
+            // A schema default is left out, as Excel leaves it out (#709).
+            Gradient = SchemaDefault.Bool(null, cf.Gradient, true),
+            ShowValue = SchemaDefault.Bool(null, !cf.ShowBarOnly, true),
         };
 
         if (cf.BarAxisPosition != XLDataBarAxisPosition.Automatic)

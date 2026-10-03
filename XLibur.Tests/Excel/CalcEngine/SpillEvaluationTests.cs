@@ -496,7 +496,7 @@ public class SpillEvaluationTests
         // The anchor keeps its formula; the spilled cell holds only the cached result, but both are
         // typed as formula results.
         await Assert.That(CellXml(sheetXml, "C1")).Contains(@"t=""str""").And.Contains(@"cm=""1""");
-        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>");
+        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" t=""str""><x:v>beta</x:v></x:c>");
     }
 
     /// <summary>
@@ -527,7 +527,7 @@ public class SpillEvaluationTests
 
         await Assert.That(CellXml(sheetXml, "C1")).Contains(@"ref=""C1:C2""");
         await Assert.That(CellXml(sheetXml, "C2"))
-            .IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>")
+            .IsEqualTo(@"<x:c r=""C2"" t=""str""><x:v>beta</x:v></x:c>")
             .Because("the cell the anchor's ref promises must exist, and be typed as a formula result");
     }
 
@@ -567,7 +567,7 @@ public class SpillEvaluationTests
         }
 
         var sheetXml = second.Sheet1Xml();
-        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" s=""0"" t=""str""><x:v>beta</x:v></x:c>");
+        await Assert.That(CellXml(sheetXml, "C2")).IsEqualTo(@"<x:c r=""C2"" t=""str""><x:v>beta</x:v></x:c>");
     }
 
     private static string CellXml(string sheetXml, string cellRef)

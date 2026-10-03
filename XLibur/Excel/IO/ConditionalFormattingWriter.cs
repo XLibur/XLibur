@@ -649,40 +649,53 @@ internal static class ConditionalFormattingWriter
             new X14.MarkersColor().FromXLiburColor<X14.MarkersColor>(xlSparklineGroup.Style.MarkersColor);
     }
 
+    // A sparkline group is built from the model, so there is nothing loaded to keep: an attribute
+    // that holds its schema default is left out, as Excel leaves it out.
     private static void SetSparklineMarkers(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
     {
-        sparklineGroup.High = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.HighPoint);
-        sparklineGroup.Low = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LowPoint);
-        sparklineGroup.First = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.FirstPoint);
-        sparklineGroup.Last = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.LastPoint);
-        sparklineGroup.Negative = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.NegativePoints);
-        sparklineGroup.Markers = xlSparklineGroup.ShowMarkers.HasFlag(XLSparklineMarkers.Markers);
+        var markers = xlSparklineGroup.ShowMarkers;
+        sparklineGroup.High = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.HighPoint), false);
+        sparklineGroup.Low = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.LowPoint), false);
+        sparklineGroup.First = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.FirstPoint), false);
+        sparklineGroup.Last = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.LastPoint), false);
+        sparklineGroup.Negative = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.NegativePoints), false);
+        sparklineGroup.Markers = SchemaDefault.Bool(null, markers.HasFlag(XLSparklineMarkers.Markers), false);
     }
 
     private static void SetSparklineDisplayOptions(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
     {
-        sparklineGroup.DisplayHidden = xlSparklineGroup.DisplayHidden;
-        sparklineGroup.LineWeight = xlSparklineGroup.LineWeight;
-        sparklineGroup.Type = xlSparklineGroup.Type.ToOpenXml();
+        sparklineGroup.DisplayHidden = SchemaDefault.Bool(null, xlSparklineGroup.DisplayHidden, false);
+        sparklineGroup.LineWeight = Math.Abs(xlSparklineGroup.LineWeight - DefaultSparklineLineWeight) < XLHelper.Epsilon
+            ? null
+            : xlSparklineGroup.LineWeight;
+        sparklineGroup.Type = SchemaDefault.Enum(null, xlSparklineGroup.Type.ToOpenXml(), X14.SparklineTypeValues.Line);
+
+        // Always written: the model's default is not the schema's, so a missing attribute would read
+        // back as another value. Excel writes it on every group too.
         sparklineGroup.DisplayEmptyCellsAs = xlSparklineGroup.DisplayEmptyCellsAs.ToOpenXml();
     }
+
+    /// <summary>The schema default of <c>lineWeight</c>, in points.</summary>
+    private const double DefaultSparklineLineWeight = 0.75;
 
     private static void SetSparklineAxes(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
     {
         sparklineGroup.AxisColor = new X14.AxisColor
         { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
-        sparklineGroup.DisplayXAxis = xlSparklineGroup.HorizontalAxis.IsVisible;
-        sparklineGroup.RightToLeft = xlSparklineGroup.HorizontalAxis.RightToLeft;
-        sparklineGroup.DateAxis = xlSparklineGroup.HorizontalAxis.DateAxis;
+        sparklineGroup.DisplayXAxis = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.IsVisible, false);
+        sparklineGroup.RightToLeft = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.RightToLeft, false);
+        sparklineGroup.DateAxis = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.DateAxis, false);
         if (xlSparklineGroup.HorizontalAxis.DateAxis)
             sparklineGroup.Formula = new OfficeExcel.Formula(
                 xlSparklineGroup.DateRange!.RangeAddress.ToString(XLReferenceStyle.A1, true));
 
-        sparklineGroup.MinAxisType = xlSparklineGroup.VerticalAxis.MinAxisType.ToOpenXml();
+        sparklineGroup.MinAxisType = SchemaDefault.Enum(null, xlSparklineGroup.VerticalAxis.MinAxisType.ToOpenXml(),
+            X14.SparklineAxisMinMaxValues.Individual);
         if (xlSparklineGroup.VerticalAxis.MinAxisType == XLSparklineAxisMinMax.Custom)
             sparklineGroup.ManualMin = xlSparklineGroup.VerticalAxis.ManualMin;
 
-        sparklineGroup.MaxAxisType = xlSparklineGroup.VerticalAxis.MaxAxisType.ToOpenXml();
+        sparklineGroup.MaxAxisType = SchemaDefault.Enum(null, xlSparklineGroup.VerticalAxis.MaxAxisType.ToOpenXml(),
+            X14.SparklineAxisMinMaxValues.Individual);
         if (xlSparklineGroup.VerticalAxis.MaxAxisType == XLSparklineAxisMinMax.Custom)
             sparklineGroup.ManualMax = xlSparklineGroup.VerticalAxis.ManualMax;
     }

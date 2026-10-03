@@ -115,7 +115,7 @@ internal static class DataValidationWriter
         List<(IXLDataValidation DataValidation, string MinValue, string MaxValue)> dataValidationsStandard)
     {
         // Save validations that don't use another sheet. It must have at least 1 child, XML doesn't allow 0.
-        if (!dataValidationsStandard.Any(d => d.DataValidation.IsDirty()))
+        if (!dataValidationsStandard.Any(d => HasContent(d.DataValidation)))
         {
             worksheet.RemoveAllChildren<DataValidations>();
             cm.SetElement(XLWorksheetContents.DataValidations, null);
@@ -135,21 +135,25 @@ internal static class DataValidationWriter
             foreach (var (dv, minValue, maxValue) in dataValidationsStandard)
             {
                 var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+
+                // Built from the model, so there is nothing loaded to keep: a default is left out.
                 var dataValidation = new DataValidation
                 {
-                    AllowBlank = dv.IgnoreBlanks,
-                    Formula1 = new Formula1(minValue),
-                    Formula2 = new Formula2(maxValue),
-                    Type = dv.AllowedValues.ToOpenXml(),
-                    ShowErrorMessage = dv.ShowErrorMessage,
-                    Prompt = dv.InputMessage,
-                    PromptTitle = dv.InputTitle,
-                    ErrorTitle = dv.ErrorTitle,
-                    Error = dv.ErrorMessage,
-                    ShowDropDown = !dv.InCellDropdown,
-                    ShowInputMessage = dv.ShowInputMessage,
-                    ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-                    Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
+                    AllowBlank = SchemaDefault.Bool(null, dv.IgnoreBlanks, false),
+                    Formula1 = string.IsNullOrEmpty(minValue) ? null : new Formula1(minValue),
+                    Formula2 = string.IsNullOrEmpty(maxValue) ? null : new Formula2(maxValue),
+                    Type = SchemaDefault.Enum(null, dv.AllowedValues.ToOpenXml(), DataValidationValues.None),
+                    ShowErrorMessage = SchemaDefault.Bool(null, dv.ShowErrorMessage, false),
+                    Prompt = NullIfEmpty(dv.InputMessage),
+                    PromptTitle = NullIfEmpty(dv.InputTitle),
+                    ErrorTitle = NullIfEmpty(dv.ErrorTitle),
+                    Error = NullIfEmpty(dv.ErrorMessage),
+                    ShowDropDown = SchemaDefault.Bool(null, !dv.InCellDropdown, false),
+                    ShowInputMessage = SchemaDefault.Bool(null, dv.ShowInputMessage, false),
+                    ErrorStyle = SchemaDefault.Enum(null, dv.ErrorStyle.ToOpenXml(), DataValidationErrorStyleValues.Stop),
+                    Operator = HasOperator(dv.AllowedValues)
+                        ? SchemaDefault.Enum(null, dv.Operator.ToOpenXml(), DataValidationOperatorValues.Between)
+                        : null,
                     SequenceOfReferences = new ListValue<StringValue> { InnerText = sequence }
                 };
 
@@ -257,26 +261,46 @@ internal static class DataValidationWriter
         var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
         return new X14.DataValidation
         {
-            AllowBlank = dv.IgnoreBlanks,
+            AllowBlank = SchemaDefault.Bool(null, dv.IgnoreBlanks, false),
             DataValidationForumla1 = !string.IsNullOrWhiteSpace(minValue)
                 ? new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue))
                 : null,
             DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue)
                 ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue))
                 : null,
-            Type = dv.AllowedValues.ToOpenXml(),
-            ShowErrorMessage = dv.ShowErrorMessage,
-            Prompt = dv.InputMessage,
-            PromptTitle = dv.InputTitle,
-            ErrorTitle = dv.ErrorTitle,
-            Error = dv.ErrorMessage,
-            ShowDropDown = !dv.InCellDropdown,
-            ShowInputMessage = dv.ShowInputMessage,
-            ErrorStyle = dv.ErrorStyle.ToOpenXml(),
-            Operator = HasOperator(dv.AllowedValues) ? dv.Operator.ToOpenXml() : null,
+            Type = SchemaDefault.Enum(null, dv.AllowedValues.ToOpenXml(), DataValidationValues.None),
+            ShowErrorMessage = SchemaDefault.Bool(null, dv.ShowErrorMessage, false),
+            Prompt = NullIfEmpty(dv.InputMessage),
+            PromptTitle = NullIfEmpty(dv.InputTitle),
+            ErrorTitle = NullIfEmpty(dv.ErrorTitle),
+            Error = NullIfEmpty(dv.ErrorMessage),
+            ShowDropDown = SchemaDefault.Bool(null, !dv.InCellDropdown, false),
+            ShowInputMessage = SchemaDefault.Bool(null, dv.ShowInputMessage, false),
+            ErrorStyle = SchemaDefault.Enum(null, dv.ErrorStyle.ToOpenXml(), DataValidationErrorStyleValues.Stop),
+            Operator = HasOperator(dv.AllowedValues)
+                ? SchemaDefault.Enum(null, dv.Operator.ToOpenXml(), DataValidationOperatorValues.Between)
+                : null,
             ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sequence }
         };
     }
+
+    /// <summary>
+    /// Does the rule say anything? <see cref="IXLDataValidation.IsDirty"/>, or a title or message,
+    /// shown or not.
+    /// </summary>
+    /// <remarks>
+    /// Excel writes the text of an input or error message whose display is turned off, and leaves
+    /// out <c>showInputMessage</c> or <c>showErrorMessage</c>. Such a rule loads with the message
+    /// hidden, and <see cref="IXLDataValidation.IsDirty"/> does not count hidden text, so an "Any
+    /// value" rule that has only that text would be dropped (#709).
+    /// </remarks>
+    private static bool HasContent(IXLDataValidation dv) =>
+        dv.IsDirty()
+        || !string.IsNullOrWhiteSpace(dv.InputTitle) || !string.IsNullOrWhiteSpace(dv.InputMessage)
+        || !string.IsNullOrWhiteSpace(dv.ErrorTitle) || !string.IsNullOrWhiteSpace(dv.ErrorMessage);
+
+    /// <summary>A message or title, left out when empty, as Excel leaves it out.</summary>
+    private static StringValue? NullIfEmpty(string? text) => string.IsNullOrEmpty(text) ? null : new StringValue(text);
 
     /// <summary>
     /// Only validation types that compare values use the operator attribute.
