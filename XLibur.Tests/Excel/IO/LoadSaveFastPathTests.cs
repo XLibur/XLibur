@@ -229,13 +229,13 @@ public class LoadSaveFastPathTests
         }
 
         var xml = output.Sheet1Xml();
-        await Assert.That(xml).Contains("<x:c r=\"A1\" s=\"0\"><x:v>1.5</x:v></x:c>");
-        await Assert.That(xml).Contains("<x:c r=\"B1\" s=\"0\" t=\"b\"><x:v>1</x:v></x:c>");
-        await Assert.That(xml).Contains("<x:c r=\"C1\" s=\"0\" t=\"e\"><x:v>#N/A</x:v></x:c>");
-        await Assert.That(xml).Contains("<x:c r=\"D1\" s=\"0\" t=\"s\"><x:v>0</x:v></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"A1\"><x:v>1.5</x:v></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"B1\" t=\"b\"><x:v>1</x:v></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"C1\" t=\"e\"><x:v>#N/A</x:v></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"D1\" t=\"s\"><x:v>0</x:v></x:c>");
         await Assert.That(xml).Contains("<x:c r=\"E1\" s=\"1\"><x:v>46024</x:v></x:c>");
         await Assert.That(xml).Contains("<x:c r=\"F1\" s=\"2\"><x:v>0.25</x:v></x:c>");
-        await Assert.That(xml).Contains("<x:c r=\"G1\" s=\"0\"><x:v>-1E+20</x:v></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"G1\"><x:v>-1E+20</x:v></x:c>");
     }
 
     [Test]
@@ -262,7 +262,7 @@ public class LoadSaveFastPathTests
 
         await Assert.That(order.All(i => i >= 0)).IsTrue();
         await Assert.That(order.SequenceEqual(order.Order())).IsTrue();
-        await Assert.That(xml).Contains("<x:c r=\"D1\" s=\"0\" t=\"inlineStr\"><x:is><x:t>inline</x:t></x:is></x:c>");
+        await Assert.That(xml).Contains("<x:c r=\"D1\" t=\"inlineStr\"><x:is><x:t>inline</x:t></x:is></x:c>");
 
         using var reloaded = new XLWorkbook(output);
         var sheet = reloaded.Worksheet(1);

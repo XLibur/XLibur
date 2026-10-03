@@ -41,7 +41,13 @@ internal static class WorksheetColumnReader
             columns.Elements<Column>().FirstOrDefault(c => c.Max?.Value == XLHelper.MaxColumnNumber);
 
         if (wsDefaultColumn != null && wsDefaultColumn.Width != null)
+        {
+            // The width stays on the range, which is written back. It is not a defaultColWidth the
+            // file had, so it does not count as a change to the sheet's own (#709).
+            var columnWidthChanged = ws.ColumnWidthChanged;
             ws.ColumnWidth = wsDefaultColumn.Width - XLConstants.ColumnWidthOffset;
+            ws.ColumnWidthChanged = columnWidthChanged;
+        }
 
         var styleIndexDefault = wsDefaultColumn != null && wsDefaultColumn.Style != null
             ? int.Parse(wsDefaultColumn.Style.InnerText!)

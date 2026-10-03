@@ -72,14 +72,15 @@ public partial class XLWorkbook : IXLWorkbook
                 PageOrientation = XLPageOrientation.Default,
                 Scale = 100,
                 PaperSize = XLPaperSize.LetterPaper,
+                // Excel's "Normal" margins, which it gives every new sheet (#709).
                 Margins = new XLMargins
                 {
                     Top = 0.75,
-                    Bottom = 0.5,
-                    Left = 0.75,
-                    Right = 0.75,
-                    Header = 0.5,
-                    Footer = 0.75
+                    Bottom = 0.75,
+                    Left = 0.7,
+                    Right = 0.7,
+                    Header = 0.3,
+                    Footer = 0.3
                 },
                 ScaleHFWithDocument = true,
                 AlignHFWithMargins = true,

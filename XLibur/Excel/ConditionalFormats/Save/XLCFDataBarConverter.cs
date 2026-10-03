@@ -15,7 +15,7 @@ internal sealed class XLCFDataBarConverter : IXLCFConverter
     {
         var conditionalFormattingRule = XLCFBaseConverter.Convert(cf, priority);
 
-        var dataBar = new DataBar { ShowValue = !cf.ShowBarOnly };
+        var dataBar = new DataBar { ShowValue = SchemaDefault.Bool(null, !cf.ShowBarOnly, true) };
 
         var conditionalFormatValueObject1 = GetConditionalFormatValueObjectByIndex(cf, 1, ConditionalFormatValueObjectValues.Min);
         var conditionalFormatValueObject2 = GetConditionalFormatValueObjectByIndex(cf, 2, ConditionalFormatValueObjectValues.Max);

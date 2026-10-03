@@ -85,9 +85,15 @@ internal sealed class RawCellBuffer
 
         Append(_cellOpen);
         Append(reference);
-        Append("\" s=\"");
-        AppendNumber(styleId);
         Append('"');
+
+        // Style 0 is what a missing s means, and Excel does not write it.
+        if (styleId != 0)
+        {
+            Append(" s=\"");
+            AppendNumber(styleId);
+            Append('"');
+        }
 
         if (dataType is not null)
         {

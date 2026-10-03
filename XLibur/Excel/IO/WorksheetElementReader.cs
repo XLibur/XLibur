@@ -105,8 +105,14 @@ internal static class WorksheetElementReader
             ws.ColumnWidth = XLHelper.ConvertWidthToNoC(sfp.DefaultColumnWidth.Value,
                 ws.Style.Font, workbook);
         else if (sfp.BaseColumnWidth is not null)
+        {
             ws.ColumnWidth = XLWorkbook.CalculateColumnWidth(sfp.BaseColumnWidth.Value,
                 ws.Style.Font, workbook);
+
+            // The width follows from baseColWidth, which the sheet keeps. Writing it out as well
+            // would add a defaultColWidth the file did not have (#709).
+            ws.ColumnWidthChanged = false;
+        }
     }
 
     /// <summary>
@@ -299,7 +305,10 @@ internal static class WorksheetElementReader
             ws.PageSetup.PrintErrorValue = pageSetup.Errors.Value.ToXLibur();
         if (pageSetup.HorizontalDpi != null) ws.PageSetup.HorizontalDpi = (int)pageSetup.HorizontalDpi.Value;
         if (pageSetup.VerticalDpi != null) ws.PageSetup.VerticalDpi = (int)pageSetup.VerticalDpi.Value;
-        if (pageSetup.FirstPageNumber?.HasValue ?? false)
+        // firstPageNumber counts only with useFirstPageNumber. Without it, Excel numbers the pages
+        // from 1 whatever the number says.
+        if (pageSetup.UseFirstPageNumber is { HasValue: true, Value: true } &&
+            (pageSetup.FirstPageNumber?.HasValue ?? false))
             ws.PageSetup.FirstPageNumber = (int)pageSetup.FirstPageNumber.Value;
     }
 
@@ -357,7 +366,18 @@ internal static class WorksheetElementReader
             LoadOutlineProperties(sheetProperty.OutlineProperties, ws);
 
         if (sheetProperty.PageSetupProperties != null)
+        {
             pageSetupProperties = sheetProperty.PageSetupProperties;
+
+            // Fit to page counts without a <pageSetup>, which a sheet whose other page settings are
+            // all defaults does not have (#709). fitToWidth and fitToHeight then take their default,
+            // 1. A <pageSetup>, read later, sets them from its own attributes.
+            if (pageSetupProperties.FitToPage is { HasValue: true, Value: true })
+            {
+                ws.PageSetup.PagesWide = 1;
+                ws.PageSetup.PagesTall = 1;
+            }
+        }
     }
 
     private static void LoadOutlineProperties(OutlineProperties outlineProperties, XLWorksheet ws)
@@ -470,7 +490,8 @@ internal static class WorksheetElementReader
 
     private static void ApplyDataValidationProperties(DataValidation dvs, XLDataValidation dvt)
     {
-        if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
+        // A missing flag is false, its schema default, which is not the model's default (#709).
+        dvt.IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(dvs.AllowBlank, false);
         if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
         ApplyDataValidationMessages(dvs, dvt);
         ApplyDataValidationCriteria(dvs, dvt);
@@ -478,8 +499,8 @@ internal static class WorksheetElementReader
 
     private static void ApplyDataValidationMessages(DataValidation dvs, XLDataValidation dvt)
     {
-        if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
-        if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
+        dvt.ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowErrorMessage, false);
+        dvt.ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowInputMessage, false);
         if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
         if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
         if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;

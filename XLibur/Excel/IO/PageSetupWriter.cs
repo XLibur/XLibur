@@ -89,19 +89,17 @@ internal static class PageSetupWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet)
     {
-        if (!worksheet.Elements<PrintOptions>().Any())
-        {
-            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.PrintOptions);
-            worksheet.InsertAfter(new PrintOptions(), previousElement);
-        }
+        var printOptions = worksheet.Elements<PrintOptions>().FirstOrDefault();
+        var loadedEmpty = printOptions is not null && SchemaDefault.IsEmpty(printOptions);
+        printOptions ??= new PrintOptions();
 
-        var printOptions = worksheet.Elements<PrintOptions>().First();
-        cm.SetElement(XLWorksheetContents.PrintOptions, printOptions);
+        var pageSetup = xlWorksheet.PageSetup;
+        printOptions.HorizontalCentered = SchemaDefault.Bool(printOptions.HorizontalCentered, pageSetup.CenterHorizontally, false);
+        printOptions.VerticalCentered = SchemaDefault.Bool(printOptions.VerticalCentered, pageSetup.CenterVertically, false);
+        printOptions.Headings = SchemaDefault.Bool(printOptions.Headings, pageSetup.ShowRowAndColumnHeadings, false);
+        printOptions.GridLines = SchemaDefault.Bool(printOptions.GridLines, pageSetup.ShowGridlines, false);
 
-        printOptions.HorizontalCentered = xlWorksheet.PageSetup.CenterHorizontally;
-        printOptions.VerticalCentered = xlWorksheet.PageSetup.CenterVertically;
-        printOptions.Headings = xlWorksheet.PageSetup.ShowRowAndColumnHeadings;
-        printOptions.GridLines = xlWorksheet.PageSetup.ShowGridlines;
+        SchemaDefault.Place(worksheet, cm, XLWorksheetContents.PrintOptions, printOptions, loadedEmpty);
     }
 
     internal static void WritePageMargins(
@@ -130,14 +128,9 @@ internal static class PageSetupWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet)
     {
-        if (!worksheet.Elements<PageSetup>().Any())
-        {
-            var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.PageSetup);
-            worksheet.InsertAfter(new PageSetup(), previousElement);
-        }
-
-        var pageSetup = worksheet.Elements<PageSetup>().First();
-        cm.SetElement(XLWorksheetContents.PageSetup, pageSetup);
+        var pageSetup = worksheet.Elements<PageSetup>().FirstOrDefault();
+        var loadedEmpty = pageSetup is not null && SchemaDefault.IsEmpty(pageSetup);
+        pageSetup ??= new PageSetup();
 
         SetPageSetupBasicProperties(pageSetup, xlWorksheet);
         SetPageSetupDpiAndScale(pageSetup, xlWorksheet);
@@ -147,29 +140,34 @@ internal static class PageSetupWriter
         // Let's remove the attribute of that's the case.
         if ((pageSetup.Copies ?? 0) <= 0)
             pageSetup.Copies = null;
+
+        SchemaDefault.Place(worksheet, cm, XLWorksheetContents.PageSetup, pageSetup, loadedEmpty);
     }
 
     private static void SetPageSetupBasicProperties(PageSetup pageSetup, XLWorksheet xlWorksheet)
     {
-        pageSetup.Orientation = xlWorksheet.PageSetup.PageOrientation.ToOpenXml();
-        pageSetup.PaperSize = (uint)xlWorksheet.PageSetup.PaperSize;
-        pageSetup.BlackAndWhite = xlWorksheet.PageSetup.BlackAndWhite;
-        pageSetup.Draft = xlWorksheet.PageSetup.DraftQuality;
-        pageSetup.PageOrder = xlWorksheet.PageSetup.PageOrder.ToOpenXml();
-        pageSetup.CellComments = xlWorksheet.PageSetup.ShowComments.ToOpenXml();
-        pageSetup.Errors = xlWorksheet.PageSetup.PrintErrorValue.ToOpenXml();
+        var model = xlWorksheet.PageSetup;
+        pageSetup.Orientation = SchemaDefault.Enum(pageSetup.Orientation, model.PageOrientation.ToOpenXml(), OrientationValues.Default);
+        pageSetup.PaperSize = SchemaDefault.UInt(pageSetup.PaperSize, (uint)model.PaperSize, 1);
+        pageSetup.BlackAndWhite = SchemaDefault.Bool(pageSetup.BlackAndWhite, model.BlackAndWhite, false);
+        pageSetup.Draft = SchemaDefault.Bool(pageSetup.Draft, model.DraftQuality, false);
+        pageSetup.PageOrder = SchemaDefault.Enum(pageSetup.PageOrder, model.PageOrder.ToOpenXml(), PageOrderValues.DownThenOver);
+        pageSetup.CellComments = SchemaDefault.Enum(pageSetup.CellComments, model.ShowComments.ToOpenXml(), CellCommentsValues.None);
+        pageSetup.Errors = SchemaDefault.Enum(pageSetup.Errors, model.PrintErrorValue.ToOpenXml(), PrintErrorValues.Displayed);
 
-        if (xlWorksheet.PageSetup.FirstPageNumber.HasValue)
+        if (model.FirstPageNumber.HasValue)
         {
             // Negative first page numbers are written as uint, e.g. -1 is 4294967295.
-            pageSetup.FirstPageNumber = UInt32Value.FromUInt32((uint)xlWorksheet.PageSetup.FirstPageNumber.Value);
+            pageSetup.FirstPageNumber = UInt32Value.FromUInt32((uint)model.FirstPageNumber.Value);
             pageSetup.UseFirstPageNumber = true;
         }
-        else
+        else if (pageSetup.UseFirstPageNumber is { HasValue: true, Value: true })
         {
             pageSetup.FirstPageNumber = null;
             pageSetup.UseFirstPageNumber = null;
         }
+
+        // Otherwise the number is not used, and whatever the file had stays as it was.
     }
 
     private static void SetPageSetupDpiAndScale(PageSetup pageSetup, XLWorksheet xlWorksheet)
@@ -184,7 +182,7 @@ internal static class PageSetupWriter
 
         if (xlWorksheet.PageSetup.Scale > 0)
         {
-            pageSetup.Scale = (uint)xlWorksheet.PageSetup.Scale;
+            pageSetup.Scale = SchemaDefault.UInt(pageSetup.Scale, (uint)xlWorksheet.PageSetup.Scale, 100);
             pageSetup.FitToWidth = null;
             pageSetup.FitToHeight = null;
         }
@@ -206,39 +204,38 @@ internal static class PageSetupWriter
         XLWorksheet xlWorksheet)
     {
         var headerFooter = worksheet.Elements<HeaderFooter>().FirstOrDefault();
+        var loadedEmpty = headerFooter is not null && SchemaDefault.IsEmpty(headerFooter);
         if (headerFooter == null)
             headerFooter = new HeaderFooter();
         else
             worksheet.RemoveAllChildren<HeaderFooter>();
 
-        var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.HeaderFooter);
-        worksheet.InsertAfter(headerFooter, previousElement);
-        cm.SetElement(XLWorksheetContents.HeaderFooter, headerFooter);
-
-        if (((XLHeaderFooter)xlWorksheet.PageSetup.Header).Changed
-            || ((XLHeaderFooter)xlWorksheet.PageSetup.Footer).Changed)
+        var pageSetup = xlWorksheet.PageSetup;
+        if (((XLHeaderFooter)pageSetup.Header).Changed || ((XLHeaderFooter)pageSetup.Footer).Changed)
         {
             headerFooter.RemoveAllChildren();
 
-            headerFooter.ScaleWithDoc = xlWorksheet.PageSetup.ScaleHFWithDocument;
-            headerFooter.AlignWithMargins = xlWorksheet.PageSetup.AlignHFWithMargins;
-            headerFooter.DifferentFirst = xlWorksheet.PageSetup.DifferentFirstPageOnHF;
-            headerFooter.DifferentOddEven = xlWorksheet.PageSetup.DifferentOddEvenPagesOnHF;
+            headerFooter.ScaleWithDoc = SchemaDefault.Bool(headerFooter.ScaleWithDoc, pageSetup.ScaleHFWithDocument, true);
+            headerFooter.AlignWithMargins = SchemaDefault.Bool(headerFooter.AlignWithMargins, pageSetup.AlignHFWithMargins, true);
+            headerFooter.DifferentFirst = SchemaDefault.Bool(headerFooter.DifferentFirst, pageSetup.DifferentFirstPageOnHF, false);
+            headerFooter.DifferentOddEven = SchemaDefault.Bool(headerFooter.DifferentOddEven, pageSetup.DifferentOddEvenPagesOnHF, false);
 
-            var oddHeader = new OddHeader(xlWorksheet.PageSetup.Header.GetText(XLHFOccurrence.OddPages));
-            headerFooter.AppendChild(oddHeader);
-            var oddFooter = new OddFooter(xlWorksheet.PageSetup.Footer.GetText(XLHFOccurrence.OddPages));
-            headerFooter.AppendChild(oddFooter);
+            // Excel writes a header or footer only when it has text.
+            AppendText(headerFooter, pageSetup.Header.GetText(XLHFOccurrence.OddPages), t => new OddHeader(t));
+            AppendText(headerFooter, pageSetup.Footer.GetText(XLHFOccurrence.OddPages), t => new OddFooter(t));
+            AppendText(headerFooter, pageSetup.Header.GetText(XLHFOccurrence.EvenPages), t => new EvenHeader(t));
+            AppendText(headerFooter, pageSetup.Footer.GetText(XLHFOccurrence.EvenPages), t => new EvenFooter(t));
+            AppendText(headerFooter, pageSetup.Header.GetText(XLHFOccurrence.FirstPage), t => new FirstHeader(t));
+            AppendText(headerFooter, pageSetup.Footer.GetText(XLHFOccurrence.FirstPage), t => new FirstFooter(t));
+        }
 
-            var evenHeader = new EvenHeader(xlWorksheet.PageSetup.Header.GetText(XLHFOccurrence.EvenPages));
-            headerFooter.AppendChild(evenHeader);
-            var evenFooter = new EvenFooter(xlWorksheet.PageSetup.Footer.GetText(XLHFOccurrence.EvenPages));
-            headerFooter.AppendChild(evenFooter);
+        SchemaDefault.Place(worksheet, cm, XLWorksheetContents.HeaderFooter, headerFooter, loadedEmpty);
+        return;
 
-            var firstHeader = new FirstHeader(xlWorksheet.PageSetup.Header.GetText(XLHFOccurrence.FirstPage));
-            headerFooter.AppendChild(firstHeader);
-            var firstFooter = new FirstFooter(xlWorksheet.PageSetup.Footer.GetText(XLHFOccurrence.FirstPage));
-            headerFooter.AppendChild(firstFooter);
+        static void AppendText(HeaderFooter headerFooter, string text, Func<string, OpenXmlElement> create)
+        {
+            if (!string.IsNullOrEmpty(text))
+                headerFooter.AppendChild(create(text));
         }
     }
 
