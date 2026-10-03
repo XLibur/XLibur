@@ -658,13 +658,7 @@ internal static class DateAndTime
                 return XLError.NumberInvalid;
 
             date = (int)landing;
-            var holidaysPassed = 0;
-            while (nextHoliday < holidaysAhead.Count && (holidaysAhead[nextHoliday] - date) * step <= 0)
-            {
-                holidaysPassed++;
-                nextHoliday++;
-            }
-
+            var holidaysPassed = CountHolidaysPassed(holidaysAhead, ref nextHoliday, date, step);
             remaining -= weeks * workdaysPerWeek - holidaysPassed;
         }
 
@@ -679,6 +673,22 @@ internal static class DateAndTime
         }
 
         return date;
+    }
+
+    /// <summary>
+    /// Counts the holidays from <paramref name="nextHoliday"/> on that a walk has reached by
+    /// <paramref name="date"/>, and moves <paramref name="nextHoliday"/> past them.
+    /// </summary>
+    private static int CountHolidaysPassed(List<int> holidaysAhead, ref int nextHoliday, int date, int step)
+    {
+        var passed = 0;
+        while (nextHoliday < holidaysAhead.Count && (holidaysAhead[nextHoliday] - date) * step <= 0)
+        {
+            passed++;
+            nextHoliday++;
+        }
+
+        return passed;
     }
 
     /// <summary>

@@ -97,7 +97,7 @@ internal static class SheetDataLocator
         if (xml[0] is 0xFE or 0xFF || xml[..4].Contains((byte)0))
             return -1;
 
-        var pos = xml.StartsWith("﻿"u8) ? 3 : 0;
+        var pos = xml.StartsWith("\uFEFF"u8) ? 3 : 0;
         var rest = xml[pos..];
         if (!rest.StartsWith("<?xml"u8) || rest.Length < 6 || !IsWhitespace(rest[5]))
             return pos;
@@ -151,33 +151,42 @@ internal static class SheetDataLocator
             if (afterName >= xml.Length || !IsNameTerminator(xml[afterName]))
                 continue;
 
-            if (local > 0 && xml[local - 1] == (byte)'<')
-            {
-                start = local - 1;
-                nameStart = local;
-            }
-            else if (local > 1 && xml[local - 1] == (byte)':')
-            {
-                var i = local - 2;
-                while (i >= 0 && IsNameByte(xml[i]))
-                    i--;
-
-                // A prefix of at least one character, opened by '<'. An attribute value such as
-                // codeName="x:sheetData" is preceded by a quote, not by '<', and so falls through.
-                if (i < 0 || i == local - 2 || xml[i] != (byte)'<')
-                    continue;
-
-                start = i;
-                nameStart = i + 1;
-            }
-            else
-            {
+            if (!TryFindTagOpen(xml, local, out start))
                 continue;
-            }
 
+            nameStart = start + 1;
             nameLength = afterName - nameStart;
             return nameLength <= MaxQualifiedNameLength;
         }
+    }
+
+    /// <summary>
+    /// Finds the <c>&lt;</c> that opens a tag whose local name starts at <paramref name="local"/>,
+    /// either directly before it or before a namespace prefix.
+    /// </summary>
+    private static bool TryFindTagOpen(ReadOnlySpan<byte> xml, int local, out int start)
+    {
+        start = 0;
+        if (local > 0 && xml[local - 1] == (byte)'<')
+        {
+            start = local - 1;
+            return true;
+        }
+
+        if (local <= 1 || xml[local - 1] != (byte)':')
+            return false;
+
+        var i = local - 2;
+        while (i >= 0 && IsNameByte(xml[i]))
+            i--;
+
+        // A prefix of at least one character, opened by '<'. An attribute value such as
+        // codeName="x:sheetData" is preceded by a quote, not by '<', and so falls through.
+        if (i < 0 || i == local - 2 || xml[i] != (byte)'<')
+            return false;
+
+        start = i;
+        return true;
     }
 
     /// <summary>
