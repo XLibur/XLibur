@@ -10,6 +10,13 @@ updates:
         update-types:
           - version-update:semver-minor
           - version-update:semver-major
+    groups:
+      # SkiaSharp checks at load time that its native library matches the
+      # managed version. Bumped apart, the font engine fails to load on Linux.
+      skiasharp:
+        patterns:
+          - SkiaSharp
+          - SkiaSharp.*
 
   - package-ecosystem: github-actions
     directory: /
