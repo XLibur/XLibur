@@ -1,4 +1,5 @@
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
@@ -47,8 +48,9 @@ internal static class DrawingPartScaffold
     /// Makes the worksheet point at its drawing part, if it does not already.
     /// </summary>
     /// <remarks>
-    /// The element goes before <c>&lt;tableParts&gt;</c> when there is one, because the schema fixes
-    /// the order of a worksheet's children and <c>drawing</c> comes first.
+    /// The schema fixes the order of a worksheet's children, so the element goes after the last one
+    /// that comes before <c>drawing</c>. A sheet with no tables has no <c>&lt;tableParts&gt;</c> to
+    /// put it in front of (#709).
     /// </remarks>
     internal static void EnsureDrawingElement(
         Worksheet worksheet,
@@ -62,14 +64,19 @@ internal static class DrawingPartScaffold
         var drawingRef = new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) };
         drawingRef.AddNamespaceDeclaration("r", RelationshipsNs);
 
-        var tableParts = worksheet.Elements<TableParts>().FirstOrDefault();
-        if (tableParts is not null)
-            worksheet.InsertBefore(drawingRef, tableParts);
-        else
-            worksheet.AppendChild(drawingRef);
-
-        cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
+        worksheet.InsertAfter(drawingRef, ElementBeforeDrawing(worksheet, cm));
+        cm.SetElement(XLWorksheetContents.Drawing, drawingRef);
     }
+
+    /// <summary>The element a new <c>&lt;drawing&gt;</c> goes after, or null to put it first.</summary>
+    /// <remarks>
+    /// <c>&lt;smartTags&gt;</c> comes right before <c>&lt;drawing&gt;</c> in the schema. The SDK has
+    /// no class for it, so it loads as an unknown element the content manager does not track, and it
+    /// is looked for here by name.
+    /// </remarks>
+    internal static OpenXmlElement? ElementBeforeDrawing(Worksheet worksheet, XLWorksheetContentManager cm) =>
+        worksheet.ChildElements.LastOrDefault(e => e.LocalName == "smartTags" && e.NamespaceUri == Main2006SsNs)
+        ?? cm.GetPreviousElementFor(XLWorksheetContents.Drawing);
 
     /// <summary>
     /// Declares the two namespaces every anchored drawing uses, when the root does not already.

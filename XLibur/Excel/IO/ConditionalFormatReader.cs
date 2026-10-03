@@ -330,10 +330,11 @@ internal static class ConditionalFormatReader
     /// </summary>
     private static void ApplyX14DataValidationDisplay(X14.DataValidation dvs, XLDataValidation dvt)
     {
-        if (dvs.AllowBlank != null) dvt.IgnoreBlanks = dvs.AllowBlank;
+        // A missing flag is false, its schema default, which is not the model's default (#709).
+        dvt.IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(dvs.AllowBlank, false);
         if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
-        if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
-        if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
+        dvt.ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowErrorMessage, false);
+        dvt.ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowInputMessage, false);
         if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
         if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
         if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;

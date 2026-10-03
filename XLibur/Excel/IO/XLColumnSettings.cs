@@ -41,8 +41,11 @@ internal readonly struct XLColumnSettings
     /// <summary><c>outlineLevel</c>. 0 means the attribute is omitted.</summary>
     internal required byte OutlineLevel { get; init; }
 
-    /// <summary><c>customWidth</c> accompanies a width and is omitted without one.</summary>
-    internal bool CustomWidth => Width is not null;
+    /// <summary>
+    /// <c>customWidth</c>: the width was set for the column, not taken from the sheet. It accompanies
+    /// a width and is omitted without one.
+    /// </summary>
+    internal bool CustomWidth { get; init; }
 
     /// <param name="min">First column the settings apply to, 1-based.</param>
     /// <param name="max">Last column the settings apply to, 1-based and inclusive.</param>
@@ -64,6 +67,7 @@ internal readonly struct XLColumnSettings
             Max = max,
             StyleId = styleId,
             Width = rawWidth is { } w ? ColumnWriter.GetColumnWidth(w).SaveRound() : null,
+            CustomWidth = rawWidth is not null,
             Hidden = hidden,
             Collapsed = collapsed,
             OutlineLevel = outlineLevel > 0 ? (byte)Math.Min(outlineLevel, byte.MaxValue) : (byte)0,

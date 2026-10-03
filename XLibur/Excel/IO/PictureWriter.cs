@@ -37,13 +37,12 @@ internal static class PictureWriter
             !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
             RebaseNonVisualDrawingPropertiesIds(worksheetPart);
 
-        var tableParts = worksheet.Elements<TableParts>().First();
         if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
         {
             var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
             worksheetDrawing.AddNamespaceDeclaration("r", RelationshipsNs);
-            worksheet.InsertBefore(worksheetDrawing, tableParts);
-            cm.SetElement(XLWorksheetContents.Drawing, worksheet.Elements<Drawing>().First());
+            worksheet.InsertAfter(worksheetDrawing, DrawingPartScaffold.ElementBeforeDrawing(worksheet, cm));
+            cm.SetElement(XLWorksheetContents.Drawing, worksheetDrawing);
         }
 
         RemoveEmptyDrawingPart(worksheet, cm, xlWorksheet, worksheetPart);

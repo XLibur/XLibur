@@ -329,12 +329,20 @@ internal static class WorksheetPartWriter
         if (emptyTable != null)
             throw new EmptyTableException($"Table '{emptyTable.Name}' should have at least 1 row.");
 
-        TableParts tableParts;
-        if (worksheet.Elements<TableParts>().Any())
+        xlTables.Deleted.Clear();
+
+        // A sheet with no tables has no <tableParts>, as Excel writes it, unless the file had one
+        // with no table in it.
+        var tableParts = worksheet.Elements<TableParts>().FirstOrDefault();
+        var loadedEmpty = tableParts is not null && !tableParts.HasChildren;
+        if (xlTables.Count == 0 && !loadedEmpty)
         {
-            tableParts = worksheet.Elements<TableParts>().First();
+            worksheet.RemoveAllChildren<TableParts>();
+            cm.SetElement(XLWorksheetContents.TableParts, null);
+            return;
         }
-        else
+
+        if (tableParts is null)
         {
             var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.TableParts);
             tableParts = new TableParts();
@@ -343,7 +351,6 @@ internal static class WorksheetPartWriter
 
         cm.SetElement(XLWorksheetContents.TableParts, tableParts);
 
-        xlTables.Deleted.Clear();
         tableParts.RemoveAllChildren();
         foreach (var xlTable in xlTables.Cast<XLTable>())
         {

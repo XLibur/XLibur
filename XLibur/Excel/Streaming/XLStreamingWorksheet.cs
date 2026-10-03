@@ -566,10 +566,10 @@ public sealed class XLStreamingWorksheet
         xml.WriteAttribute("max", settings.Max);
 
         if (settings.Width is { } width)
-        {
             xml.WriteAttribute("width", width);
+
+        if (settings.CustomWidth)
             xml.WriteAttributeString("customWidth", TrueValue);
-        }
 
         if (settings.StyleId is { } styleId)
             xml.WriteAttribute("style", styleId);
