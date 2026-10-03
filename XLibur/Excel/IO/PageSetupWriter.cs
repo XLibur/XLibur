@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -36,18 +38,36 @@ internal static class PageSetupWriter
         var hyperlinks = worksheet.Elements<Hyperlinks>().First();
         cm.SetElement(XLWorksheetContents.Hyperlinks, hyperlinks);
         hyperlinks.RemoveAllChildren<Hyperlink>();
+
+        // IDs of the relationships the part still holds. A kept hyperlink ID is only reused when it
+        // is free here: another hyperlink may already have claimed it (two cells loaded from one
+        // range), or the hyperlink may have moved from another sheet whose part numbered its own.
+        var usedRelIds = new HashSet<string>(StringComparer.Ordinal);
+        usedRelIds.UnionWith(worksheetPart.Parts.Select(p => p.RelationshipId));
+        usedRelIds.UnionWith(worksheetPart.ExternalRelationships.Select(r => r.Id));
+        usedRelIds.UnionWith(worksheetPart.DataPartReferenceRelationships.Select(r => r.Id));
         foreach (var hl in xlWorksheet.Hyperlinks)
-            hyperlinks.AppendChild(CreateHyperlink(hl, worksheetPart, context));
+            hyperlinks.AppendChild(CreateHyperlink(hl, worksheetPart, context, usedRelIds));
     }
 
-    private static Hyperlink CreateHyperlink(XLHyperlink hl, WorksheetPart worksheetPart, SaveContext context)
+    private static Hyperlink CreateHyperlink(XLHyperlink hl, WorksheetPart worksheetPart, SaveContext context,
+        HashSet<string> usedRelIds)
     {
         Hyperlink hyperlink;
         if (hl.IsExternal)
         {
-            var rId = context.RelIdGenerator.GetNext(RelType.Workbook);
+            var rId = hl.RelId;
+            if (rId is not null && usedRelIds.Add(rId))
+                context.RelIdGenerator.Reserve(RelType.Workbook, rId);
+            else
+            {
+                rId = context.RelIdGenerator.GetNext(RelType.Workbook);
+                usedRelIds.Add(rId);
+            }
+
             hyperlink = new Hyperlink { Reference = hl.Cell!.Address.ToString(), Id = rId };
             worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress!, true, rId);
+            hl.RelId = rId;
         }
         else
         {

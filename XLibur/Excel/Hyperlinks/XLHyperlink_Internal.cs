@@ -62,4 +62,27 @@ public partial class XLHyperlink
     }
 
     internal XLHyperlinks? Container { get; set; }
+
+    /// <summary>
+    /// The address <see cref="_relId"/> was written or loaded for. The relationship ID is only valid
+    /// while the hyperlink still points at this exact <see cref="Uri"/>.
+    /// </summary>
+    private Uri? _relIdAddress;
+
+    private string? _relId;
+
+    /// <summary>
+    /// The ID of the worksheet relationship that holds the external address, as loaded or last
+    /// saved. <c>null</c> when the hyperlink is internal, new, or its address has changed since.
+    /// Reusing it keeps the saved output stable across a load and save.
+    /// </summary>
+    internal string? RelId
+    {
+        get => IsExternal && _relId is not null && ReferenceEquals(_externalAddress, _relIdAddress) ? _relId : null;
+        set
+        {
+            _relId = value;
+            _relIdAddress = value is null ? null : _externalAddress;
+        }
+    }
 }
