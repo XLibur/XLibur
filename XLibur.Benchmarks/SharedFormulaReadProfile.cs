@@ -32,6 +32,9 @@ public static class SharedFormulaReadProfile
 {
     private const int Rows = 50_000;
 
+    // The rewrites run over the whole sheet part, several megabytes at this row count.
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(10);
+
     public static void Run()
     {
         SixLaborsV1FontBootstrap.Register();
@@ -111,13 +114,13 @@ public static class SharedFormulaReadProfile
         RewriteSheet(package, xml =>
         {
             // No cached values, so every read evaluates.
-            xml = Regex.Replace(xml, "(<x:f>[^<]*</x:f>)<x:v>[^<]*</x:v>", "$1");
+            xml = Regex.Replace(xml, "(<x:f>[^<]*</x:f>)<x:v>[^<]*</x:v>", "$1", RegexOptions.None, RegexTimeout);
             if (!shared)
                 return xml;
 
             return Regex.Replace(xml, @"<x:f>SUM\(A(\d+):E\1\)</x:f>", match => match.Groups[1].Value == "1"
                 ? $"<x:f t=\"shared\" ref=\"F1:F{Rows}\" si=\"0\">SUM(A1:E1)</x:f>"
-                : "<x:f t=\"shared\" si=\"0\" />");
+                : "<x:f t=\"shared\" si=\"0\" />", RegexOptions.None, RegexTimeout);
         });
 
         return package.ToArray();
