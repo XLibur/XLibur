@@ -194,32 +194,10 @@ internal sealed class SharedStringTable
     internal int[] GetConsecutiveMap()
     {
         var map = new int[_table.Count];
-
-        // Slot i holds the id of the text loaded from file item i, or -1.
-        var maxFileIndex = Entry.NoFileIndex;
-        for (var i = 0; i < _table.Count; i++)
-        {
-            var entry = _table[i];
-            if (IsShared(entry) && entry.FileIndex > maxFileIndex)
-                maxFileIndex = entry.FileIndex;
-        }
-
-        var byFileIndex = maxFileIndex >= 0 ? new int[maxFileIndex + 1] : [];
-        Array.Fill(byFileIndex, -1);
+        Array.Fill(map, -1);
 
         var mappedStringId = 0;
-        for (var i = 0; i < _table.Count; i++)
-        {
-            var entry = _table[i];
-            map[i] = -1;
-            if (!IsShared(entry) || entry.FileIndex == Entry.NoFileIndex)
-                continue;
-
-            if (byFileIndex[entry.FileIndex] < 0)
-                byFileIndex[entry.FileIndex] = i;
-        }
-
-        foreach (var id in byFileIndex)
+        foreach (var id in GetIdsByFileIndex())
         {
             if (id >= 0)
                 map[id] = mappedStringId++;
@@ -232,6 +210,32 @@ internal sealed class SharedStringTable
         }
 
         return map;
+    }
+
+    /// <summary>
+    /// Slot i holds the id of the first shared text loaded from file item i, or -1.
+    /// </summary>
+    private int[] GetIdsByFileIndex()
+    {
+        var maxFileIndex = Entry.NoFileIndex;
+        for (var i = 0; i < _table.Count; i++)
+        {
+            var entry = _table[i];
+            if (IsShared(entry) && entry.FileIndex > maxFileIndex)
+                maxFileIndex = entry.FileIndex;
+        }
+
+        var byFileIndex = maxFileIndex >= 0 ? new int[maxFileIndex + 1] : [];
+        Array.Fill(byFileIndex, -1);
+
+        for (var i = 0; i < _table.Count; i++)
+        {
+            var entry = _table[i];
+            if (IsShared(entry) && entry.FileIndex != Entry.NoFileIndex && byFileIndex[entry.FileIndex] < 0)
+                byFileIndex[entry.FileIndex] = i;
+        }
+
+        return byFileIndex;
     }
 
     private static bool IsShared(Entry entry) =>

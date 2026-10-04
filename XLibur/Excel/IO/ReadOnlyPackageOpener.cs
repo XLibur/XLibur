@@ -64,26 +64,31 @@ internal static class ReadOnlyPackageOpener
     {
         foreach (var part in package.GetParts())
         {
-            if (!PackUriHelper.IsRelationshipPartUri(part.Uri))
+            if (PackUriHelper.IsRelationshipPartUri(part.Uri) && HasUnparsableExternalTarget(part))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasUnparsableExternalTarget(PackagePart relationshipPart)
+    {
+        using var stream = relationshipPart.GetStream(FileMode.Open, FileAccess.Read);
+        using var reader = PartXmlReader.Create(stream);
+        while (reader.Read())
+        {
+            if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Relationship")
                 continue;
 
-            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
-            using var reader = PartXmlReader.Create(stream);
-            while (reader.Read())
+            if (!Enum.TryParse<TargetMode>(reader.GetAttribute(TargetModeAttribute), out var mode)
+                || mode != TargetMode.External)
             {
-                if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Relationship")
-                    continue;
-
-                if (!Enum.TryParse<TargetMode>(reader.GetAttribute(TargetModeAttribute), out var mode)
-                    || mode != TargetMode.External)
-                {
-                    continue;
-                }
-
-                var target = reader.GetAttribute(TargetAttribute) ?? string.Empty;
-                if (target.Length == 0 || !Uri.TryCreate(target, UriKind.RelativeOrAbsolute, out _))
-                    return true;
+                continue;
             }
+
+            var target = reader.GetAttribute(TargetAttribute) ?? string.Empty;
+            if (target.Length == 0 || !Uri.TryCreate(target, UriKind.RelativeOrAbsolute, out _))
+                return true;
         }
 
         return false;

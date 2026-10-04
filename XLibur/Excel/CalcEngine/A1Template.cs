@@ -170,8 +170,9 @@ internal sealed class A1Template
         private static bool TryMove(RowCol end, int row, int column, out int movedRow, out int movedColumn)
         {
             // Both axes are moved, so both are assigned, before either answer is read.
-            return TryMoveRow(end.RowType, end.RowValue, row, out movedRow) &
-                   TryMoveColumn(end.ColumnType, end.ColumnValue, column, out movedColumn);
+            var rowMoved = TryMoveRow(end.RowType, end.RowValue, row, out movedRow);
+            var columnMoved = TryMoveColumn(end.ColumnType, end.ColumnValue, column, out movedColumn);
+            return rowMoved && columnMoved;
         }
 
         /// <summary>Write one end of an area in A1 notation, for example <c>$B3</c>.</summary>

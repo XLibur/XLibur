@@ -57,31 +57,13 @@ internal static class XLWrappedText
             var i = start;
             while (i < end)
             {
-                // A word runs up to a space, or up to and including a hyphen.
                 var wordStart = i;
-                var wordWidth = 0d;
-                var wordHeight = 0d;
-                while (i < end && breaks[i] != GlyphBreak.Space)
-                {
-                    wordWidth += glyphs[i].AdvanceWidth;
-                    wordHeight = Math.Max(wordHeight, glyphs[i].LineHeight);
-                    i++;
-                    if (breaks[i - 1] == GlyphBreak.BreakAfter)
-                        break;
-                }
-
+                var (wordWidth, wordHeight) = MeasureWord(ref i, end);
                 var wordEnd = i;
 
                 // The spaces after a word stay on its line, but only count towards the width
                 // when another word follows on the same line.
-                var spaceWidth = 0d;
-                var spaceHeight = 0d;
-                while (i < end && breaks[i] == GlyphBreak.Space)
-                {
-                    spaceWidth += glyphs[i].AdvanceWidth;
-                    spaceHeight = Math.Max(spaceHeight, glyphs[i].LineHeight);
-                    i++;
-                }
+                var (spaceWidth, spaceHeight) = MeasureSpaces(ref i, end);
 
                 if (wordStart == wordEnd)
                 {
@@ -92,29 +74,7 @@ internal static class XLWrappedText
                     continue;
                 }
 
-                if (line.HasContent && Fits(line.Width + line.PendingSpaceWidth + wordWidth))
-                {
-                    line.Width += line.PendingSpaceWidth + wordWidth;
-                    line.Height = Math.Max(line.Height, wordHeight);
-                }
-                else
-                {
-                    if (line.HasContent)
-                        height += line.Break();
-
-                    if (Fits(wordWidth))
-                    {
-                        line.Width = wordWidth;
-                        line.Height = wordHeight;
-                    }
-                    else
-                    {
-                        height += SplitWord(ref line, wordStart, wordEnd);
-                    }
-
-                    line.HasContent = true;
-                }
-
+                height += PlaceWord(ref line, wordStart, wordEnd, wordWidth, wordHeight);
                 line.PendingSpaceWidth = spaceWidth;
                 line.Height = Math.Max(line.Height, spaceHeight);
             }
@@ -122,6 +82,72 @@ internal static class XLWrappedText
             if (line.HasContent)
                 height += line.Height;
 
+            return height;
+        }
+
+        /// <summary>
+        /// Measure the word that starts at <paramref name="i"/> and move <paramref name="i"/> past it.
+        /// A word runs up to a space, or up to and including a hyphen.
+        /// </summary>
+        private (double Width, double Height) MeasureWord(ref int i, int end)
+        {
+            var width = 0d;
+            var height = 0d;
+            while (i < end && breaks[i] != GlyphBreak.Space)
+            {
+                width += glyphs[i].AdvanceWidth;
+                height = Math.Max(height, glyphs[i].LineHeight);
+                i++;
+                if (breaks[i - 1] == GlyphBreak.BreakAfter)
+                    break;
+            }
+
+            return (width, height);
+        }
+
+        /// <summary>
+        /// Measure the run of spaces that starts at <paramref name="i"/> and move <paramref name="i"/>
+        /// past it.
+        /// </summary>
+        private (double Width, double Height) MeasureSpaces(ref int i, int end)
+        {
+            var width = 0d;
+            var height = 0d;
+            while (i < end && breaks[i] == GlyphBreak.Space)
+            {
+                width += glyphs[i].AdvanceWidth;
+                height = Math.Max(height, glyphs[i].LineHeight);
+                i++;
+            }
+
+            return (width, height);
+        }
+
+        /// <summary>
+        /// Put the word of glyphs <c>[start, end)</c> on the current line if it fits there, or else
+        /// start a new line for it. Returns the height of the lines it completed.
+        /// </summary>
+        private double PlaceWord(ref Line line, int start, int end, double wordWidth, double wordHeight)
+        {
+            if (line.HasContent && Fits(line.Width + line.PendingSpaceWidth + wordWidth))
+            {
+                line.Width += line.PendingSpaceWidth + wordWidth;
+                line.Height = Math.Max(line.Height, wordHeight);
+                return 0;
+            }
+
+            var height = line.HasContent ? line.Break() : 0d;
+            if (Fits(wordWidth))
+            {
+                line.Width = wordWidth;
+                line.Height = wordHeight;
+            }
+            else
+            {
+                height += SplitWord(ref line, start, end);
+            }
+
+            line.HasContent = true;
             return height;
         }
 
