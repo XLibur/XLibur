@@ -154,16 +154,24 @@ public static class KeepPartSurvey
             var results = new List<SheetResult>();
             foreach (var (sheetName, sourcePart) in WorksheetParts(sourcePackage))
             {
-                if (!savedParts.TryGetValue(sheetName, out var savedPart)
-                    || !workbook.TryGetWorksheet(sheetName, out IXLWorksheet? sheet))
+                var excluded = exclusions.TryGetValue(sheetName, out var e) ? e : string.Empty;
+                if (!workbook.TryGetWorksheet(sheetName, out IXLWorksheet? sheet))
                 {
+                    results.Add(Missing(file, sheetName, producer, excluded, "sheet missing from the loaded workbook", 0));
+                    continue;
+                }
+
+                if (!savedParts.TryGetValue(sheetName, out var savedPart))
+                {
+                    // A save that drops a sheet loses every cell it had.
+                    results.Add(Missing(file, sheetName, producer, excluded, "sheet missing from the saved package",
+                        sheet.CellsUsed(XLCellsUsedOptions.Contents).Count()));
                     continue;
                 }
 
                 var mismatches = reloaded.TryGetWorksheet(sheetName, out IXLWorksheet? reloadedSheet)
                     ? CountValueMismatches(sheet, reloadedSheet)
                     : sheet.CellsUsed(XLCellsUsedOptions.Contents).Count();
-                var excluded = exclusions.TryGetValue(sheetName, out var e) ? e : string.Empty;
                 results.Add(Classify(file, sheetName, producer, sourcePart, savedPart, excluded, mismatches));
             }
 
@@ -171,16 +179,22 @@ public static class KeepPartSurvey
         }
     }
 
+    /// <summary>A source worksheet the loaded workbook or the saved package does not have.</summary>
+    private static SheetResult Missing(string file, string sheet, string producer, string exclusions,
+        string category, int mismatches) =>
+        new(file, sheet, producer, Outcome.Missing, category, string.Empty, exclusions, mismatches,
+            Markup.NotCompared);
+
     private static SheetResult Classify(string file, string sheet, string producer, WorksheetPart sourcePart,
         WorksheetPart savedPart, string exclusions, int mismatches)
     {
         var sourceBytes = ReadAll(sourcePart);
         var savedBytes = ReadAll(savedPart);
         var result = new SheetResult(file, sheet, producer, Outcome.Rewritten, string.Empty, string.Empty,
-            exclusions, mismatches);
+            exclusions, mismatches, Markup.NotCompared);
 
         if (sourceBytes.AsSpan().SequenceEqual(savedBytes) && StartsWithMarker(savedBytes))
-            return result with { Outcome = Outcome.KeptWhole };
+            return result with { Outcome = Outcome.KeptWhole, Markup = Markup.Equal };
 
         using var sourceBuffer = WorksheetPartBuffer.TryRead(sourcePart);
         using var savedBuffer = WorksheetPartBuffer.TryRead(savedPart);
@@ -206,13 +220,16 @@ public static class KeepPartSurvey
         if (!equivalent)
         {
             var (category, detail) = MarkupDifference.First(sourceMarkup, savedMarkup);
-            return result with { Outcome = outcome, Category = "markup: " + category, Detail = detail };
+            return result with
+            {
+                Outcome = outcome, Category = "markup: " + category, Detail = detail, Markup = Markup.Differs,
+            };
         }
 
         var reason = exclusions.Length > 0
             ? "excluded: " + exclusions
             : "excluded for the workbook: styles not loaded, or shared strings not at file indices";
-        return result with { Outcome = outcome, Category = reason };
+        return result with { Outcome = outcome, Category = reason, Markup = Markup.Equal };
     }
 
     /// <summary>
@@ -434,13 +451,14 @@ public static class KeepPartSurvey
         Console.WriteLine($"Keep-part survey of {folder}");
         Console.WriteLine($"{fileCount} workbooks: {notLoaded} do not load, {failures.Count} fail to save or reload.");
         Console.WriteLine();
-        Console.WriteLine("Producer           Sheets  Kept whole  Cells kept  Rewritten  Mismatched cells  Sheets with mismatches");
+        Console.WriteLine("Producer           Sheets  Kept whole  Cells kept  Rewritten  Missing  Mismatched cells  Sheets with mismatches");
         foreach (var producer in Producers)
         {
             var group = sheets.Where(s => s.Producer == producer).ToList();
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"{producer,-18} {group.Count,6}  {Count(group, Outcome.KeptWhole),10}  {Count(group, Outcome.CellsKept),10}  "
-                + $"{Count(group, Outcome.Rewritten),9}  {group.Sum(s => s.ValueMismatches),16}  {group.Count(s => s.ValueMismatches > 0),22}"));
+                + $"{Count(group, Outcome.Rewritten),9}  {Count(group, Outcome.Missing),7}  {group.Sum(s => s.ValueMismatches),16}  "
+                + $"{group.Count(s => s.ValueMismatches > 0),22}"));
         }
 
         foreach (var producer in Producers)
@@ -485,7 +503,7 @@ public static class KeepPartSurvey
             return;
 
         Console.WriteLine();
-        Console.WriteLine("Excluded sheets by exclusion: markup equal / markup differs");
+        Console.WriteLine("Excluded sheets by exclusion: markup equal / markup differs / not compared");
         var reasons = excluded.SelectMany(s => s.Exclusions.Split(", ")).Distinct().Order(StringComparer.Ordinal);
         foreach (var (reason, producer) in reasons.SelectMany(reason => Producers.Select(producer => (reason, producer))))
         {
@@ -493,19 +511,22 @@ public static class KeepPartSurvey
             if (group.Count == 0)
                 continue;
 
-            var equal = group.Count(s => !s.Category.StartsWith("markup: ", StringComparison.Ordinal));
-            Console.WriteLine($"  {reason,-26} {producer,-18} {equal,5} / {group.Count - equal}");
+            // A sheet whose markup was not compared, because a part was not buffered or the sheet is
+            // missing, is counted on its own rather than as ready for whole-part reuse.
+            var equal = group.Count(s => s.Markup == Markup.Equal);
+            var differs = group.Count(s => s.Markup == Markup.Differs);
+            Console.WriteLine($"  {reason,-26} {producer,-18} {equal,5} / {differs} / {group.Count - equal - differs}");
         }
     }
 
     private static void ReportSheets(List<SheetResult> sheets)
     {
         Console.WriteLine();
-        Console.WriteLine("# file\tsheet\tproducer\toutcome\tmismatches\texclusions\tcategory\tdetail");
+        Console.WriteLine("# file\tsheet\tproducer\toutcome\tmismatches\texclusions\tmarkup\tcategory\tdetail");
         foreach (var s in sheets)
         {
             Console.WriteLine(string.Join('\t', s.File, s.Sheet, s.Producer, s.Outcome,
-                s.ValueMismatches.ToString(CultureInfo.InvariantCulture), s.Exclusions, s.Category, s.Detail));
+                s.ValueMismatches.ToString(CultureInfo.InvariantCulture), s.Exclusions, s.Markup, s.Category, s.Detail));
         }
     }
 
@@ -536,6 +557,17 @@ public static class KeepPartSurvey
         KeptWhole,
         CellsKept,
         Rewritten,
+
+        /// <summary>The source has the worksheet, and the loaded workbook or the saved package does not.</summary>
+        Missing,
+    }
+
+    /// <summary>How the markup of a sheet, without its cells, compared between the file and the save.</summary>
+    private enum Markup
+    {
+        NotCompared,
+        Equal,
+        Differs,
     }
 
     private sealed record SheetResult(
@@ -546,7 +578,8 @@ public static class KeepPartSurvey
         string Category,
         string Detail,
         string Exclusions,
-        int ValueMismatches);
+        int ValueMismatches,
+        Markup Markup);
 
     /// <summary>
     /// Finds the first place where two documents differ by the rules of <see cref="XmlInfoset"/>, and
