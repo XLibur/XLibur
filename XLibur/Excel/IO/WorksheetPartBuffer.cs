@@ -18,8 +18,9 @@ namespace XLibur.Excel.IO;
 /// once, and the markup around them is cut out by <see cref="SheetDataLocator"/> and kept, which
 /// serves both the structural pass and the first save.
 /// <para>
-/// Only parts up to <see cref="MaxBufferedLength"/> are buffered. A larger part keeps the
-/// streaming path, which never holds the whole part in memory.
+/// Only parts up to <see cref="MaxBufferedLength"/> are buffered. A larger part is streamed and
+/// never held whole: <see cref="PartWithoutSheetDataReader"/> makes the same copy without the cells
+/// from a stream (#723).
 /// </para>
 /// </remarks>
 internal sealed class WorksheetPartBuffer : IDisposable
@@ -44,6 +45,12 @@ internal sealed class WorksheetPartBuffer : IDisposable
     internal SheetDataLocator.Location SheetData { get; }
 
     /// <summary>
+    /// Is a part of <paramref name="declaredLength"/> bytes, inflated, too large to buffer? Such a
+    /// part is split from a stream instead (<see cref="PartWithoutSheetDataReader"/>).
+    /// </summary>
+    internal static bool IsTooLarge(long declaredLength) => declaredLength > MaxBufferedLength;
+
+    /// <summary>
     /// Reads and splits the part, or returns null when it is too large, when its stream does not
     /// match the length the package declares, or when <see cref="SheetDataLocator"/> cannot place
     /// the cells exactly.
@@ -62,7 +69,7 @@ internal sealed class WorksheetPartBuffer : IDisposable
             return null;
         }
 
-        if (declaredLength <= 0 || declaredLength > MaxBufferedLength)
+        if (declaredLength <= 0 || IsTooLarge(declaredLength))
             return null;
 
         // One byte of headroom, so a stream that runs past its declared length is caught rather
