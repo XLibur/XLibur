@@ -127,6 +127,8 @@ internal sealed class LoadedSheetData : IDisposable
     /// writes the value. <see cref="XLWorksheet.CellsChangedSinceLoad"/> counts both, and a dirty
     /// formula whose cached value the save would recalculate or drop. A kept formula keeps the form the
     /// file wrote it in, such as a shared formula, which the load reads as the same formula in each cell.
+    /// So a save with <see cref="SaveOptions.WriteSharedFormulas"/> off, which promises the text of each
+    /// formula in its own cell, writes the cells of a sheet with formulas from the model.
     /// </para>
     /// <para>
     /// A save with <see cref="SaveOptions.EvaluateFormulasBeforeSaving"/> calculates the sheet's dirty
@@ -139,7 +141,8 @@ internal sealed class LoadedSheetData : IDisposable
         var cells = sheet.Internals.CellsCollection;
         if (sheet.PivotTables.Any<IXLPivotTable>()
             || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow)
-            || HasCellMetadata(cells.MiscSlice))
+            || HasCellMetadata(cells.MiscSlice)
+            || (!options.WriteSharedFormulas && !cells.FormulaSlice.IsEmpty))
         {
             return false;
         }

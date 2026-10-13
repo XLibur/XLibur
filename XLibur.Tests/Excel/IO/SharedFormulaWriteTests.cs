@@ -41,11 +41,15 @@ public class SharedFormulaWriteTests
     }
 
     [Test]
-    public async Task The_switch_off_writes_a_formula_in_each_cell()
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task The_switch_off_writes_a_formula_in_each_cell(bool rewriteUnchangedSheets)
     {
+        // Without a rewrite the sheet is unchanged since the load, and would be kept with the shared
+        // formula the file had, so the switch also has to refuse keeping its cells.
         using var wb = LoadWithSharedColumn();
 
-        var saved = Save(wb, shared: false);
+        var saved = Save(wb, shared: false, rewriteUnchangedSheets);
 
         var f = FormulaElements(saved);
         for (var row = 1; row <= 10; row++)
@@ -518,10 +522,15 @@ public class SharedFormulaWriteTests
         return expected;
     }
 
-    private static MemoryStream Save(XLWorkbook wb, bool shared = true)
+    /// <summary>
+    /// Saves <paramref name="wb"/>. Every sheet is written from the model unless
+    /// <paramref name="rewriteUnchangedSheets"/> is false, because a sheet whose cells have not changed
+    /// is otherwise kept as the file had it (#720), and these tests are about what the writer writes.
+    /// </summary>
+    private static MemoryStream Save(XLWorkbook wb, bool shared = true, bool rewriteUnchangedSheets = true)
     {
         var package = new MemoryStream();
-        wb.SaveAs(package, new SaveOptions { WriteSharedFormulas = shared });
+        wb.SaveAs(package, new SaveOptions { WriteSharedFormulas = shared, RewriteUnchangedSheets = rewriteUnchangedSheets });
         return package;
     }
 
