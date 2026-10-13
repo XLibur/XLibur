@@ -146,9 +146,11 @@ public partial class XLWorkbook
     }
 
     /// <summary>
-    /// The last save that wrote all its parts, until <see cref="KeepWhatTheSaveWrote"/> takes it.
+    /// What the last save that wrote all its parts hands the next one, until
+    /// <see cref="KeepWhatTheSaveWrote"/> takes it. Only that, not the whole save, so a save that
+    /// fails afterwards leaves little behind.
     /// </summary>
-    private SaveContext? _unkeptSave;
+    private (int[] SstMap, List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> Parts)? _unkeptSave;
 
     /// <summary>
     /// Keeps what the last save wrote for the next save to compare against (#719): each worksheet
@@ -159,13 +161,12 @@ public partial class XLWorkbook
     /// </summary>
     private void KeepWhatTheSaveWrote()
     {
-        var save = _unkeptSave;
-        _unkeptSave = null;
-        if (save is null)
+        if (_unkeptSave is not { } save)
             return;
 
+        _unkeptSave = null;
         SharedStringTable.RecordSavedIndices(save.SstMap);
-        foreach (var (sheet, markup, cells) in save.PartsForNextSave)
+        foreach (var (sheet, markup, cells) in save.Parts)
             sheet.KeepSavedPart(markup, cells);
     }
 
@@ -223,7 +224,7 @@ public partial class XLWorkbook
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
 
-        _unkeptSave = context;
+        _unkeptSave = (context.SstMap, context.PartsForNextSave);
     }
 
     /// <summary>

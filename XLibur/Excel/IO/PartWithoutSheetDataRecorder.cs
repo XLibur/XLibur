@@ -26,8 +26,11 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
     /// <summary>The quote of the attribute value the start tag is in, or 0 outside one.</summary>
     private byte _quote;
 
-    /// <summary>The length of the copy up to the <c>&gt;</c> that closes the start tag, or -1.</summary>
-    private long _startTagEnd = -1;
+    /// <summary>The last byte of the start tag copied so far, to tell <c>/&gt;</c> from <c>&gt;</c>.</summary>
+    private byte _previous;
+
+    /// <summary>Whether the copy holds the whole start tag, closed as an empty element.</summary>
+    private bool _startTagCopied;
 
     private bool _failed;
 
@@ -55,7 +58,7 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
         xml.WriteRaw(string.Empty);
         xml.Flush();
 
-        _failed |= _mode != Mode.Copy || _startTagEnd >= 0;
+        _failed |= _mode != Mode.Copy || _startTagCopied;
         _mode = Mode.StartTag;
     }
 
@@ -72,26 +75,8 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
     /// The part with <c>&lt;sheetData&gt;</c> reduced to an empty element, or null when the part was
     /// not written as <see cref="SheetDataStarts"/> and <see cref="SheetDataEnded"/> expect.
     /// </summary>
-    internal byte[]? ToPartWithoutSheetData()
-    {
-        if (_failed || _mode != Mode.Copy || _startTagEnd < 2)
-            return null;
-
-        var copy = _copy.GetBuffer().AsSpan(0, (int)_copy.Length);
-        var startTagEnd = (int)_startTagEnd;
-
-        // Already an empty element: the copy is the whole part.
-        if (copy[startTagEnd - 2] == (byte)'/')
-            return copy.ToArray();
-
-        // Everything before the start tag's '>', then '/>' in its place.
-        var markup = new byte[copy.Length + 1];
-        copy[..(startTagEnd - 1)].CopyTo(markup);
-        markup[startTagEnd - 1] = (byte)'/';
-        markup[startTagEnd] = (byte)'>';
-        copy[startTagEnd..].CopyTo(markup.AsSpan(startTagEnd + 1));
-        return markup;
-    }
+    internal byte[]? ToPartWithoutSheetData() =>
+        _failed || _mode != Mode.Copy || !_startTagCopied ? null : _copy.ToArray();
 
     public override void Write(ReadOnlySpan<byte> buffer)
     {
@@ -113,8 +98,11 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
     public override void WriteByte(byte value) => Write([value]);
 
     /// <summary>
-    /// Copies up to the <c>&gt;</c> that closes the start tag, skipping any inside a quoted attribute
-    /// value, where the character is legal. The tag can arrive across several writes.
+    /// Copies the start tag up to the <c>&gt;</c> that closes it, skipping any inside a quoted
+    /// attribute value, where the character is legal, and closes it as an empty element: everything
+    /// before the <c>&gt;</c>, then <c>/&gt;</c> in its place, as the load cuts the cells out
+    /// (<see cref="WorksheetPartBuffer.CopyWithoutSheetData"/>). A tag already written as
+    /// <c>/&gt;</c> is copied as it is. The tag can arrive across several writes.
     /// </summary>
     private void CopyStartTag(ReadOnlySpan<byte> buffer)
     {
@@ -132,14 +120,26 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
             }
             else if (b == (byte)'>')
             {
-                _copy.Write(buffer[..(i + 1)]);
-                _startTagEnd = _copy.Length;
+                var previous = i > 0 ? buffer[i - 1] : _previous;
+                if (previous == (byte)'/')
+                {
+                    _copy.Write(buffer[..(i + 1)]);
+                }
+                else
+                {
+                    _copy.Write(buffer[..i]);
+                    _copy.Write("/>"u8);
+                }
+
+                _startTagCopied = true;
                 _mode = Mode.Skip;
                 return;
             }
         }
 
         _copy.Write(buffer);
+        if (!buffer.IsEmpty)
+            _previous = buffer[^1];
     }
 
     /// <summary>
