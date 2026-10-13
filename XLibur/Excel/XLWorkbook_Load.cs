@@ -577,6 +577,12 @@ public partial class XLWorkbook
             {
                 return;
             }
+
+            if (partBuffer is null
+                && TryLoadLargeWorksheet(in elementContext, in sheetDataContext, ref sheetDataState))
+            {
+                return;
+            }
         }
 
         // Pass 1: structural elements via the OpenXML SDK reader (the proven DOM path). The
@@ -615,7 +621,87 @@ public partial class XLWorkbook
         if (!MoveToLocatedSheetData(cellReader, partBuffer.SheetData.Prefix))
             return false;
 
-        var withoutSheetData = partBuffer.CopyWithoutSheetData();
+        LoadWorksheetFromSplitPart(cellReader, partBuffer.CopyWithoutSheetData(), in elementContext,
+            in sheetDataContext, ref sheetDataState);
+        return true;
+    }
+
+    /// <summary>
+    /// Loads a worksheet whose part is too large to buffer (#723) the way
+    /// <see cref="TryLoadWorksheetFromBuffer"/> loads a smaller one, without holding the part: the
+    /// copy without the cells is made from a stream (<see cref="PartWithoutSheetDataReader"/>), and
+    /// the cells are read from a second one. Returns false, having loaded nothing, for a part that is
+    /// not too large to buffer, or whose cells cannot be cut out exactly.
+    /// </summary>
+    /// <remarks>
+    /// The part is inflated twice, as on the streaming path this replaces, but tokenised outside the
+    /// cells only: the copy is made by byte search, and the structural pass reads the copy instead of
+    /// skipping over every cell. Keeping the copy lets the first save leave an unchanged sheet's part
+    /// as it was (#702, tier 1). Tier 2 still needs the part buffered, so a changed large sheet has its
+    /// cells written from the model.
+    /// </remarks>
+    private static bool TryLoadLargeWorksheet(
+        in WorksheetElementContext elementContext,
+        in WorksheetSheetDataReader.SheetDataReadContext sheetDataContext,
+        ref WorksheetSheetDataReader.SheetDataReadState sheetDataState)
+    {
+        var worksheetPart = elementContext.Part;
+        byte[]? withoutSheetData;
+        string prefix;
+        using (var stream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read))
+        {
+            if (!IsTooLargeToBuffer(stream))
+                return false;
+
+            withoutSheetData = PartWithoutSheetDataReader.TryCopy(stream, out prefix);
+        }
+
+        if (withoutSheetData is null)
+            return false;
+
+        using var cellStream = worksheetPart.GetStream(FileMode.Open, FileAccess.Read);
+        using var cellReader = PartXmlReader.Create(cellStream);
+
+        if (!MoveToLocatedSheetData(cellReader, prefix))
+            return false;
+
+        LoadWorksheetFromSplitPart(cellReader, withoutSheetData, in elementContext, in sheetDataContext,
+            ref sheetDataState);
+        return true;
+    }
+
+    /// <summary>
+    /// Is the part longer than <see cref="WorksheetPartBuffer"/> buffers? False also when its stream
+    /// does not know its length, which the buffer does not read either.
+    /// </summary>
+    private static bool IsTooLargeToBuffer(Stream stream)
+    {
+        try
+        {
+            return WorksheetPartBuffer.IsTooLarge(stream.Length);
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Loads the structural elements from the part without its cells, then the cells from
+    /// <paramref name="cellReader"/>, and keeps the copy for the first save.
+    /// </summary>
+    /// <param name="cellReader">A reader over the whole part, on <c>&lt;sheetData&gt;</c>.</param>
+    /// <param name="withoutSheetData">The part with <c>&lt;sheetData&gt;</c> reduced to an empty element.</param>
+    /// <param name="elementContext">The worksheet being loaded.</param>
+    /// <param name="sheetDataContext">What the cells are read with.</param>
+    /// <param name="sheetDataState">The state of the cell read.</param>
+    private static void LoadWorksheetFromSplitPart(
+        XmlReader cellReader,
+        byte[] withoutSheetData,
+        in WorksheetElementContext elementContext,
+        in WorksheetSheetDataReader.SheetDataReadContext sheetDataContext,
+        ref WorksheetSheetDataReader.SheetDataReadState sheetDataState)
+    {
         var worksheetPart = elementContext.Part;
         using (var reader = new OpenXmlPartReader(new MemoryStream(withoutSheetData, writable: false),
                    worksheetPart.Features, new OpenXmlPartReaderOptions { CloseStream = true }))
@@ -630,7 +716,6 @@ public partial class XLWorkbook
         }
 
         elementContext.Worksheet.KeepPartWithoutSheetData(withoutSheetData);
-        return true;
     }
 
     /// <summary>
