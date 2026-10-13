@@ -1198,18 +1198,33 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     return true;
             }
 
-            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
-            while (enumerator.MoveNext())
-            {
-                var formula = enumerator.Current;
-                if (ContainsAny(formula.A1, needles))
-                    return true;
+            if (AnyFormulaMayReadSheet(sheet, needles, oldNeedles, renamedFormulaAreas))
+                return true;
+        }
 
-                if (ContainsAny(formula.A1, oldNeedles)
-                    && DependencyTree.TryGetFormulaArea(formula, enumerator.Point, out var area))
-                {
-                    renamedFormulaAreas.Add((sheet, area));
-                }
+        return false;
+    }
+
+    /// <summary>
+    /// The formula part of <see cref="AnyTextMayReadSheet"/> for one <paramref name="sheet"/>: does the
+    /// text of one of its formulas contain one of <paramref name="needles"/>? Adds the area of each
+    /// formula whose text contains one of <paramref name="oldNeedles"/> to
+    /// <paramref name="renamedFormulaAreas"/>.
+    /// </summary>
+    private static bool AnyFormulaMayReadSheet(XLWorksheet sheet, string[] needles, string[] oldNeedles,
+        List<(XLWorksheet Sheet, Area Area)> renamedFormulaAreas)
+    {
+        using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            var formula = enumerator.Current;
+            if (ContainsAny(formula.A1, needles))
+                return true;
+
+            if (ContainsAny(formula.A1, oldNeedles)
+                && DependencyTree.TryGetFormulaArea(formula, enumerator.Point, out var area))
+            {
+                renamedFormulaAreas.Add((sheet, area));
             }
         }
 
