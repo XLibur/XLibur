@@ -323,7 +323,7 @@ public class SavingTests
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
             return wb;
-        }, @"Other\Charts\PreserveCharts\outputfile.xlsx");
+        }, @"Other\Charts\PreserveCharts\outputfile.xlsx", rewriteUnchangedSheets: true);
     }
 
     [Test]
