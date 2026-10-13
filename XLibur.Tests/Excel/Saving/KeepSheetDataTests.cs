@@ -98,13 +98,15 @@ public class KeepSheetDataTests
     }
 
     [Test]
-    public async Task A_sheet_with_a_totals_row_is_written_from_the_model()
+    public async Task A_sheet_with_an_empty_totals_row_keeps_its_cells()
     {
+        // The writer would write no totals cell, as the file has none (#721).
         using var source = Source(ws => ws.Range("A1:B2").CreateTable().ShowTotalsRow = true);
 
         using var saved = LoadAndSave(source);
 
-        await Assert.That(saved.Sheet1Xml()).DoesNotContain(Kept);
+        await Assert.That(saved.Sheet1Xml()).Contains(Kept);
+        await AssertValues(saved);
     }
 
     [Test]

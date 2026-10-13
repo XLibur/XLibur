@@ -124,6 +124,43 @@ internal static class SheetDataWriter
     }
 
     /// <summary>
+    /// Does the writer write every cell in the totals rows of the sheet's tables as it writes any
+    /// other cell holding the same value? Only then can a save keep the cells as the file had them
+    /// (#702, #721).
+    /// </summary>
+    /// <remarks>
+    /// A totals-row cell without a formula goes through <see cref="WriteTotalLabelCellDirect"/>. That
+    /// writes the cell's shared string, as for any other cell, when the field has a label. When the
+    /// field has none it writes nothing at all, and it writes any value that is not a shared string
+    /// as one. A formula takes the formula path either way.
+    /// </remarks>
+    internal static bool WritesTotalsRowsAsValues(XLWorksheet xlWorksheet)
+    {
+        var totalCells = CollectTableTotalCells(xlWorksheet);
+        if (totalCells is null)
+            return true;
+
+        var cellsCollection = xlWorksheet.Internals.CellsCollection;
+        var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
+        foreach (var point in totalCells)
+        {
+            if (cellsCollection.FormulaSlice.Get(point) is not null)
+                continue;
+
+            var value = cellsCollection.ValueSlice.GetCellValueAndShareString(point, out var shareString);
+            var field = FindTableFieldAt(xlWorksheet, point);
+            if (value.Type != XLDataType.Text || !shareString
+                || field is null || string.IsNullOrWhiteSpace(field.TotalsRowLabel)
+                || IsCachedResultCell(cachedResultFormulas, point))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Evaluate every dirty formula on the sheet, so the grid the write pass walks is the final one.
     /// </summary>
     /// <remarks>

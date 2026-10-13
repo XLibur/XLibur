@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
@@ -116,8 +115,12 @@ internal sealed class LoadedSheetData : IDisposable
     /// Would the save write the sheet's cells as the file had them, and can it keep them?
     /// </summary>
     /// <remarks>
-    /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns;
-    /// and tables with a totals row, whose labels the writer takes from the table.
+    /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns.
+    /// And a table's totals row, but only where the writer would write a cell in it otherwise than
+    /// as a value (<see cref="SheetDataWriter.WritesTotalsRowsAsValues"/>): it writes a label cell
+    /// by the table's field, and leaves out the cell of a field with no label (#721). The check is
+    /// made against the table as the save finds it, so it holds whatever changed the table since the
+    /// load; a change to the cells themselves is seen by <see cref="XLWorksheet.CellsChangedSinceLoad"/>.
     /// <para>
     /// A pivot table is not excluded (#721). Neither the load nor the save writes its values into
     /// the cells: XLibur does not lay a pivot table out, so its area holds what the file had, and a
@@ -140,7 +143,7 @@ internal sealed class LoadedSheetData : IDisposable
     {
         var cells = sheet.Internals.CellsCollection;
         if (!cells.FormulaSlice.IsEmpty
-            || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow))
+            || !SheetDataWriter.WritesTotalsRowsAsValues(sheet))
         {
             return false;
         }

@@ -35,8 +35,9 @@ namespace XLibur.Excel;
 /// this one.
 /// </para>
 /// <para>
-/// Not tracked, because the tiers of #702 exclude these sheets: labels in a table's totals row, which
-/// the writer takes from the table; and the <c>cm</c> index the save gives a dynamic-array formula
+/// Not tracked: labels in a table's totals row, which the writer takes from the table, so the save
+/// checks the tables as it finds them instead (<c>SheetDataWriter.WritesTotalsRowsAsValues</c>); and,
+/// because the tiers of #702 exclude these sheets, the <c>cm</c> index the save gives a dynamic-array formula
 /// that has none, which is workbook-wide (a sheet with a formula is excluded). A <c>cm</c> index
 /// the load read is in the misc slice and written as loaded. A sparkline added to a blank cell can add an empty <c>&lt;row&gt;</c> element and
 /// is not tracked either; it changes no cell.

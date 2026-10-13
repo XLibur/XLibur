@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
@@ -127,6 +129,38 @@ internal sealed class XLTableField : IXLTableField
             ((XLCell)_table.TotalsRow()!.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
             totalsRowLabel = value;
         }
+    }
+
+    /// <summary>
+    /// Sets the label the load read from the table part. A totals cell that already holds the label
+    /// as plain text is left as it is, so loading the label is not a change to the cells, and a save
+    /// can keep them as the file had them (#702, #721). Writing the label again would set the cell
+    /// to the value it holds, which the record of the loaded cells counts as a change.
+    /// </summary>
+    /// <remarks>
+    /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, strips a leading quote,
+    /// adjusts the style for a quote or a line break, and drops rich text. A cell that any of those
+    /// would change takes the setter.
+    /// </remarks>
+    internal void LoadTotalsRowLabel(string label)
+    {
+        var area = _table.Area;
+        var point = new Point(area.LastPoint.Row, area.FirstPoint.Column + Index);
+        var cells = _table.Worksheet.Internals.CellsCollection;
+        if (label.Length == 0
+            || label[0] == '\''
+            || label.Contains(Environment.NewLine, StringComparison.Ordinal)
+            || cells.FormulaSlice.Get(point) is not null
+            || cells.ValueSlice.GetRichText(point) is not null
+            || cells.ValueSlice.GetCellValue(point) is not { Type: XLDataType.Text } value
+            || value.GetText() != label)
+        {
+            TotalsRowLabel = label;
+            return;
+        }
+
+        totalsRowFunction = XLTotalsRowFunction.None;
+        totalsRowLabel = label;
     }
 
     public void Delete()
