@@ -105,7 +105,18 @@ internal static class TestHelper
         }, referenceResource, evaluateFormulae, validate);
     }
 
-    public static async Task CreateAndCompare(Func<IXLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true)
+    /// <param name="workbookGenerator">A function that creates the workbook to save.</param>
+    /// <param name="referenceResource">Reference workbook saved in resources</param>
+    /// <param name="evaluateFormulae">Should formulas of created workbook be evaluated and values saved?</param>
+    /// <param name="validate">Should the created workbook be validated during by OpenXmlSdk validator?</param>
+    /// <param name="rewriteUnchangedSheets">
+    /// Should the save write every sheet from the model (<see cref="SaveOptions.RewriteUnchangedSheets"/>)?
+    /// For a generator that loads a workbook and saves it before returning it: the references of
+    /// those tests hold what the model writes, which the second save wrote until it learnt to keep
+    /// what the first one wrote (#719).
+    /// </param>
+    public static async Task CreateAndCompare(Func<IXLWorkbook> workbookGenerator, string referenceResource, bool evaluateFormulae = false, bool validate = true,
+        bool rewriteUnchangedSheets = false)
     {
         Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
 
@@ -122,7 +133,15 @@ internal static class TestHelper
         var filePath2 = Path.Combine(directory ?? throw new InvalidOperationException(), fileName);
 
         using (var wb = workbookGenerator.Invoke())
-            wb.SaveAs(filePath2, validate, evaluateFormulae);
+        {
+            wb.SaveAs(filePath2, new SaveOptions
+            {
+                ValidatePackage = validate,
+                EvaluateFormulasBeforeSaving = evaluateFormulae,
+                GenerateCalculationChain = true,
+                RewriteUnchangedSheets = rewriteUnchangedSheets,
+            });
+        }
 
         if (CompareWithResources)
         {
@@ -152,7 +171,7 @@ internal static class TestHelper
             modify(wb);
             wb.SaveAs(ms, validate);
             return wb;
-        }, expectedOutputResourcePath, evaluateFormulae, validate);
+        }, expectedOutputResourcePath, evaluateFormulae, validate, rewriteUnchangedSheets: true);
     }
 
     /// <summary>
