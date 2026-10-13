@@ -25,24 +25,42 @@ internal static class WorksheetPartWriter
         SaveContext context)
     {
         // Taken whether or not it is used: once this save has written the part, the markup kept from
-        // the load describes a part that no longer exists.
+        // the load or the last save describes a part that no longer exists. The save hands the next
+        // one the markup of the part it leaves instead (#719).
         var loadedMarkup = xlWorksheet.TakePartWithoutSheetData();
         var worksheetDom = GetWorksheetDom(partIsEmpty, worksheetPart, xlWorksheet, loadedMarkup, options, context);
 
-        // Only the part the load kept can be kept, whole or only its cells, and only on the first save.
+        // Only a part the load or the last save kept can be kept, whole or only its cells.
         if (partIsEmpty || loadedMarkup is null || !LoadedSheetData.CanKeepCells(xlWorksheet, options, context))
         {
-            StreamToPart(worksheetDom, worksheetPart, xlWorksheet, null, context, options);
+            var written = StreamToPart(worksheetDom, worksheetPart, xlWorksheet, null, context, options,
+                recordPart: loadedMarkup is not null);
+
+            // The cells are recorded once they are written: writing them can evaluate formulas.
+            if (written is not null)
+                context.PartsForNextSave.Add((xlWorksheet, written, SheetDataBaseline.Capture(xlWorksheet)));
+
             return;
         }
 
-        // Tier 1 of #702: the part is not opened, so the package keeps it as the file had it.
+        // From here the cells have not changed since the sheet recorded them (CellsChangedSinceLoad),
+        // so that record still describes the cells this save leaves, kept or written from the model.
+        // The next save compares against it: null keeps it.
+
+        // Tier 1 of #702: the part is not opened, so the package keeps it as the file had it, and the
+        // markup that described it still does.
         if (WritesAsLoaded(worksheetDom, loadedMarkup))
+        {
+            context.PartsForNextSave.Add((xlWorksheet, loadedMarkup, null));
             return;
+        }
 
         // Tier 2: read before StreamToPart replaces the part.
         using var loadedSheetData = LoadedSheetData.TryRead(worksheetPart, loadedMarkup, worksheetDom);
-        StreamToPart(worksheetDom, worksheetPart, xlWorksheet, loadedSheetData, context, options);
+        var rewritten = StreamToPart(worksheetDom, worksheetPart, xlWorksheet, loadedSheetData, context, options,
+            recordPart: true);
+        if (rewritten is not null)
+            context.PartsForNextSave.Add((xlWorksheet, rewritten, null));
     }
 
     /// <summary>
@@ -422,30 +440,47 @@ internal static class WorksheetPartWriter
     /// When <paramref name="loadedSheetData"/> is given, the cells are copied from it as the file
     /// had them instead of being streamed from the model.
     /// </para>
+    /// <para>
+    /// When <paramref name="recordPart"/> is set, returns the part as written with its
+    /// <c>&lt;sheetData&gt;</c> emptied (<see cref="PartWithoutSheetDataRecorder"/>); otherwise null.
+    /// </para>
     /// </remarks>
-    private static void StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
-        LoadedSheetData? loadedSheetData, SaveContext context, SaveOptions options)
+    private static byte[]? StreamToPart(Worksheet worksheet, WorksheetPart worksheetPart, XLWorksheet xlWorksheet,
+        LoadedSheetData? loadedSheetData, SaveContext context, SaveOptions options, bool recordPart)
     {
         // The worksheet part might have stale content; FileMode.Create truncates it. The stream is
         // held here, not left to the writer, so kept cells can be copied to it directly.
-        using var output = worksheetPart.GetStream(FileMode.Create);
-        using var xml = PartXmlWriter.Create(output, closeOutput: false);
+        using var partStream = worksheetPart.GetStream(FileMode.Create);
+        using var recorder = recordPart ? new PartWithoutSheetDataRecorder(partStream) : null;
+        var output = (Stream?)recorder ?? partStream;
 
-        xml.WriteStartDocument(true);
-        WriteRootStartTag(xml, worksheet);
-
-        foreach (var child in worksheet.ChildElements)
+        using (var xml = PartXmlWriter.Create(output, closeOutput: false))
         {
-            if (child is SheetData && loadedSheetData is not null)
-                loadedSheetData.WriteTo(xml, output);
-            else if (child is SheetData)
-                SheetDataWriter.StreamSheetData(xml, xlWorksheet, context, options);
-            else
-                child.WriteTo(xml);
+            xml.WriteStartDocument(true);
+            WriteRootStartTag(xml, worksheet);
+
+            foreach (var child in worksheet.ChildElements)
+            {
+                if (child is not SheetData)
+                {
+                    child.WriteTo(xml);
+                    continue;
+                }
+
+                recorder?.SheetDataStarts(xml);
+                if (loadedSheetData is not null)
+                    loadedSheetData.WriteTo(xml, output);
+                else
+                    SheetDataWriter.StreamSheetData(xml, xlWorksheet, context, options);
+
+                recorder?.SheetDataEnded(xml);
+            }
+
+            xml.WriteEndElement(); // worksheet
+            xml.WriteEndDocument();
         }
 
-        xml.WriteEndElement(); // worksheet
-        xml.WriteEndDocument();
+        return recorder?.ToPartWithoutSheetData();
     }
 
     /// <summary>

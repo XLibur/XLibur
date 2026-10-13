@@ -406,6 +406,8 @@ public partial class XLWorkbook : IXLWorkbook
         }
         else
             CreatePackage(_originalFile!, _spreadsheetDocumentType, options);
+
+        KeepWhatTheSaveWrote();
     }
 
     /// <summary>
@@ -491,6 +493,8 @@ public partial class XLWorkbook : IXLWorkbook
         _encryptionPassword = password;
         _encryptedFile = file;
         _encryptedStream = stream;
+
+        KeepWhatTheSaveWrote();
     }
 
     /// <summary>
@@ -578,6 +582,7 @@ public partial class XLWorkbook : IXLWorkbook
         _originalStream = null;
         _templateSheetSource = null;
         ClearEncryptedOrigin();
+        KeepWhatTheSaveWrote();
     }
 
     /// <summary>
@@ -659,6 +664,7 @@ public partial class XLWorkbook : IXLWorkbook
         _originalFile = null;
         _templateSheetSource = null;
         ClearEncryptedOrigin();
+        KeepWhatTheSaveWrote();
     }
 
     /// <summary>
