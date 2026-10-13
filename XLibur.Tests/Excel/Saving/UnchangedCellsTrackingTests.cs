@@ -266,6 +266,39 @@ public class UnchangedCellsTrackingTests
     }
 
     [Test]
+    public async Task Renaming_a_sheet_leaves_a_formula_sheet_that_does_not_name_it_unchanged()
+    {
+        using var wb = LoadSource(addToUnused: ws =>
+        {
+            ws.Cell("A1").Value = "Unused";
+            ws.Cell("B1").FormulaA1 = "LEN(A1)";
+        });
+
+        // Data names Other, so its formulas are rewritten, but nothing that reads them changes.
+        wb.Worksheet("Other").Name = "Renamed";
+
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsTrue();
+        await Assert.That(Changed(Sheet(wb, "Unused"))).IsFalse();
+        await Assert.That(Sheet(wb, "Unused").Cell("B1").Value).IsEqualTo(6);
+    }
+
+    [Test]
+    [Arguments("IFERROR(Missing!A1,-1)")]
+    [Arguments("IFERROR(INDIRECT(\"Missing!A1\"),-1)")]
+    public async Task Renaming_a_sheet_to_a_name_a_formula_reads_recalculates_it(string formula)
+    {
+        using var wb = LoadSource(addToUnused: ws => ws.Cell("B1").FormulaA1 = formula);
+        var unused = Sheet(wb, "Unused");
+        await Assert.That(unused.Cell("B1").CachedValue).IsEqualTo(-1);
+
+        // The formula read a missing sheet until now, so its result changes.
+        wb.Worksheet("Other").Name = "Missing";
+
+        await Assert.That(unused.Cell("B1").Value).IsEqualTo(1);
+        await Assert.That(Changed(unused)).IsTrue();
+    }
+
+    [Test]
     public async Task Deleting_a_sheet_that_a_formula_names_changes_the_sheet_holding_the_formula()
     {
         using var wb = LoadSource();
@@ -406,7 +439,9 @@ public class UnchangedCellsTrackingTests
     /// </summary>
     /// <param name="addToData">Adds more to the Data sheet before the save.</param>
     /// <param name="evaluate">Whether the save writes the formulas' cached values.</param>
-    private static XLWorkbook LoadSource(Action<IXLWorksheet>? addToData = null, bool evaluate = true)
+    /// <param name="addToUnused">Adds to the Unused sheet, otherwise empty, before the save.</param>
+    private static XLWorkbook LoadSource(Action<IXLWorksheet>? addToData = null, bool evaluate = true,
+        Action<IXLWorksheet>? addToUnused = null)
     {
         // Not disposed: a loaded workbook saves by copying the stream it was loaded from.
         var stream = new MemoryStream();
@@ -414,7 +449,8 @@ public class UnchangedCellsTrackingTests
         {
             var ws = wb.AddWorksheet("Data");
             var other = wb.AddWorksheet("Other");
-            wb.AddWorksheet("Unused");
+            var unused = wb.AddWorksheet("Unused");
+            addToUnused?.Invoke(unused);
 
             other.Cell("A1").Value = 1;
             other.Cell("A2").Value = 2;

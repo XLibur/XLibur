@@ -326,9 +326,11 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     /// <para>
     /// One order serves both events. The calc engine comes first: on a delete it drops its dependency
     /// tree and marks every formula dirty, and on a rename it drops the tree and marks them dirty
-    /// only when the text of a formula or a defined name names either sheet name. A holder after it
-    /// rewrites the old name to the new one, so that text names one of the two either way, and the
-    /// engine and the holders commute on both events.
+    /// only when the text of a formula or a defined name names the new sheet name or calls
+    /// <c>INDIRECT</c> (#720). On a rename the order matters only for cost: after the holders, a
+    /// formula they rewrote would name the new name and cost a purge it does not need, since it reads
+    /// the same cells and the rewrite marks it dirty itself. On a delete the engine reads no text,
+    /// so it commutes with the holders.
     /// </para>
     /// <para>
     /// Each holder changes only its own text, and none of them reads another's, so the holders

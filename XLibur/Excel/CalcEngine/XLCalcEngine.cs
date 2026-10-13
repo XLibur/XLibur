@@ -1098,47 +1098,52 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     /// <summary>
     /// A sheet was renamed. Every formula is marked dirty, as after a structural edit, when a formula
-    /// or a defined name could give a different result: its text names the old or the new name, or
-    /// calls <c>INDIRECT</c>, which can find a sheet by a name in a cell. A rename that none of them
-    /// names changes no result, so it leaves the cached values clean, and a save can keep the cells
-    /// of a sheet with formulas (#720).
+    /// or a defined name could give a different result: its text names the new name, which it read
+    /// as a missing sheet until now, or calls <c>INDIRECT</c>, which finds a sheet by a name in a
+    /// text. Otherwise no result changes, so the cached values stay clean, and a save can keep the
+    /// cells of a sheet with formulas (#720).
     /// </summary>
     /// <remarks>
-    /// The engine hears of a rename before the holders rewrite their text, so a formula that names
-    /// the old name still does. Either way the dependency tree, which holds sheet names, is dropped;
-    /// the next edit builds it again from the rewritten text. The calculation chain and the spill
-    /// footprints hold sheet ids, which a rename does not change.
+    /// A formula that names the old name reads the same cells once the holders after the engine
+    /// have rewritten its text. The rewrite marks that formula dirty and counts as an edit of its
+    /// sheet (<see cref="FormulaSlice.RecordInPlaceEdit"/>), so that sheet is written by a save, but
+    /// nothing that reads the formula needs calculating again.
+    /// <para>
+    /// The dependency tree holds sheet names, so it is dropped either way; the next edit builds it
+    /// again from the rewritten text. Until #720 the tree was dropped and every formula marked dirty
+    /// on every rename. The calculation chain and the spill footprints hold sheet ids, which a rename
+    /// does not change.
+    /// </para>
     /// </remarks>
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {
         if (Workbook is null || _loading)
             return;
 
-        if (AnyTextMayReadSheet(Workbook, oldSheetName, newSheetName))
+        // No tree and no need of one: no formula is clean, so there is nothing to mark dirty.
+        if (_dependencyTree is null && !_needsDependencyTree)
+            return;
+
+        if (AnyTextMayReadSheet(Workbook, newSheetName))
         {
             Purge(Workbook.WorksheetsInternal);
             return;
         }
 
-        _needsDependencyTree |= _dependencyTree is not null;
+        _needsDependencyTree = true;
         _dependencyTree = null;
     }
 
     /// <summary>
-    /// Does the text of a formula or a defined name in <paramref name="workbook"/> contain either sheet
-    /// name, as written bare or quoted, or call <c>INDIRECT</c>? Matching text is enough: a name that
-    /// only matches inside another word costs a purge that was not needed, never a missed one.
+    /// Does the text of a formula or a defined name in <paramref name="workbook"/> contain
+    /// <paramref name="sheetName"/>, as written bare or quoted, or call <c>INDIRECT</c>? Matching
+    /// text is enough: a name that only matches inside another word costs a purge that was not
+    /// needed, never a missed one.
     /// </summary>
-    private static bool AnyTextMayReadSheet(XLWorkbook workbook, string oldSheetName, string newSheetName)
+    private static bool AnyTextMayReadSheet(XLWorkbook workbook, string sheetName)
     {
-        string[] needles =
-        [
-            oldSheetName,
-            oldSheetName.Replace("'", "''", StringComparison.Ordinal),
-            newSheetName,
-            newSheetName.Replace("'", "''", StringComparison.Ordinal),
-            "INDIRECT",
-        ];
+        var quoted = sheetName.Replace("'", "''", StringComparison.Ordinal);
+        string[] needles = quoted == sheetName ? [sheetName, "INDIRECT"] : [sheetName, quoted, "INDIRECT"];
 
         foreach (var definedName in workbook.DefinedNamesInternal)
         {
