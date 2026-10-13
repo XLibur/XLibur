@@ -6,7 +6,6 @@ using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using XLibur.Excel.Coordinates;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 
@@ -118,8 +117,7 @@ internal sealed class LoadedSheetData : IDisposable
     /// </summary>
     /// <remarks>
     /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns;
-    /// cell images, whose <c>vm</c> indices point into metadata the save writes again; and tables
-    /// with a totals row, whose labels the writer takes from the table.
+    /// and tables with a totals row, whose labels the writer takes from the table.
     /// <para>
     /// A pivot table is not excluded (#721). Neither the load nor the save writes its values into
     /// the cells: XLibur does not lay a pivot table out, so its area holds what the file had, and a
@@ -130,31 +128,24 @@ internal sealed class LoadedSheetData : IDisposable
     /// cell metadata it points into is the file's metadata part, to which a save only appends a
     /// block (for dynamic arrays), so every loaded index still names the block it named.
     /// </para>
+    /// <para>
+    /// Nor is a cell image (#721). The save numbers the images of the workbook again, and gives each
+    /// image cell its <c>vm</c> index and rich value index, before it writes any sheet. It changes a
+    /// cell only where the number moves, so <see cref="XLWorksheet.CellsChangedSinceLoad"/> sees every
+    /// cell whose <c>vm</c> or value a rewrite would write differently, and a sheet whose numbers
+    /// all stayed keeps cells that name the metadata and rich values this save writes.
+    /// </para>
     /// </remarks>
     private static bool CellsCanBeKept(XLWorksheet sheet)
     {
         var cells = sheet.Internals.CellsCollection;
         if (!cells.FormulaSlice.IsEmpty
-            || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow)
-            || HasValueMetadata(cells.MiscSlice))
+            || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow))
         {
             return false;
         }
 
         return !sheet.CellsChangedSinceLoad();
-    }
-
-    private static bool HasValueMetadata(Slice<XLMiscSliceContent> misc)
-    {
-        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(misc, Area.Full);
-        while (enumerator.MoveNext())
-        {
-            ref readonly var content = ref enumerator.Current;
-            if (content.ValueMetaIndex is not null || content.CellImage is not null)
-                return true;
-        }
-
-        return false;
     }
 
     /// <summary>

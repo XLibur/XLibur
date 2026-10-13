@@ -13,8 +13,9 @@ namespace XLibur.Excel;
 /// It is captured as soon as the load has read the cells. Later steps of the load can write to a
 /// cell: loading a table names its empty header cells after the fields. Those count as changes, since
 /// the file's cells do not hold them. The misc slice is the exception. Comments, threaded comments
-/// and in-cell images are loaded into it after the cells, and none of them is written into the cells'
-/// markup, so its version is taken again when the load ends (<see cref="RecordAnnotations"/>).
+/// and in-cell images are loaded into it after the cells. The first two are not written into the
+/// cells' markup, and an image is written as the <c>vm</c> index its cell was read with, so the
+/// version is taken again when the load ends (<see cref="RecordAnnotations"/>).
 /// <para>
 /// It errs towards reporting a change: setting a cell to the value it already holds counts, and so
 /// does materialising a column, which gives the cells of each existing row a style of their own. The
@@ -80,8 +81,9 @@ internal sealed class SheetDataBaseline
 
     /// <summary>
     /// Takes in the comments, threaded comments and in-cell images the load added to the misc slice
-    /// after the cells were captured. A cell image is written into the cells as <c>vm</c>, but a save
-    /// never keeps the cells of a sheet that has one.
+    /// after the cells were captured. A cell image is written into the cells as <c>vm</c> and a rich
+    /// value index; the save sets both before it writes a sheet, so a change it makes to either shows
+    /// up as a change here.
     /// </summary>
     internal void RecordAnnotations(XLWorksheet sheet) => _miscVersion = sheet.Internals.CellsCollection.MiscSlice.Version;
 
