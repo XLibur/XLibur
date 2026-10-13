@@ -35,6 +35,7 @@ internal static class SheetDataWriter
 
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
         var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
+        var sharedFormulas = CollectSharedFormulas(xlWorksheet, options);
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var rowState = new RowWriterState();
@@ -47,6 +48,7 @@ internal static class SheetDataWriter
             SaveOptions = options,
             TableTotalCells = tableTotalCells,
             CachedResultFormulas = cachedResultFormulas,
+            SharedFormulas = sharedFormulas,
             Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
         };
         uint rowStyleId = 0;
@@ -103,6 +105,12 @@ internal static class SheetDataWriter
 
         xml.WriteEndElement(); // SheetData
     }
+
+    /// <summary>
+    /// The shared formulas to write back, or <c>null</c> when the save writes none (ADR 0003).
+    /// </summary>
+    private static SharedFormulaPlan? CollectSharedFormulas(XLWorksheet xlWorksheet, SaveOptions options)
+        => options.WriteSharedFormulas ? SharedFormulaPlan.Create(xlWorksheet) : null;
 
     private static HashSet<Point>? CollectTableTotalCells(XLWorksheet xlWorksheet)
     {
@@ -387,7 +395,7 @@ internal static class SheetDataWriter
 
         WriteStartFormulaCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc, cmIndex);
 
-        WriteFormulaElement(xml, xlWorksheet, formula, point);
+        WriteFormulaElement(xml, xlWorksheet, formula, point, ctx.SharedFormulas);
 
         // Write cached value if present and the formula isn't dirty. Spilled (non-master)
         // array-formula cells also fall through here so their cached values round-trip.
@@ -401,9 +409,10 @@ internal static class SheetDataWriter
 
     /// <summary>
     /// Write the <c>f</c> element of a formula cell, or nothing for a non-master cell of an array formula.
+    /// A cell of a shared formula that a load brought in is written as part of it (ADR 0003).
     /// </summary>
     private static void WriteFormulaElement(XmlWriter xml, XLWorksheet xlWorksheet, XLCellFormula formula,
-        Point point)
+        Point point, SharedFormulaPlan? sharedFormulas)
     {
         if (formula.Type == FormulaType.DataTable)
         {
@@ -439,8 +448,23 @@ internal static class SheetDataWriter
         }
         else
         {
+            var index = string.Empty;
+            Area range = default;
+            var role = sharedFormulas?.GetRole(formula, point, out index, out range) ?? SharedFormulaRole.None;
             xml.WriteStartElement("f", Main2006SsNs);
-            xml.WriteString(formula.A1);
+            if (role != SharedFormulaRole.None)
+            {
+                xml.WriteAttributeString("t", "shared");
+                if (role == SharedFormulaRole.Master)
+                    xml.WriteAttributeString("ref", range.ToString());
+
+                xml.WriteAttributeString("si", index);
+            }
+
+            // A later cell of a shared formula holds no text: Excel ignores it and reads the master's.
+            if (role != SharedFormulaRole.Follower)
+                xml.WriteString(formula.A1);
+
             xml.WriteEndElement(); // f
         }
     }
@@ -766,6 +790,7 @@ internal static class SheetDataWriter
         public SaveOptions SaveOptions;
         public HashSet<Point>? TableTotalCells;
         public List<XLCellFormula>? CachedResultFormulas;
+        public SharedFormulaPlan? SharedFormulas;
         public bool Use1904DateSystem;
     }
 
