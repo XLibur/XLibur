@@ -316,6 +316,10 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
 
         foreach (var listener in GetWorkbookListeners())
             listener.OnSheetRenamed(oldSheetName, newSheetName);
+
+        // Only now does every formula name the new name, so only now can the engine find what reads
+        // the formulas the rename rewrote.
+        _workbook.CalcEngine.OnSheetRenameApplied();
     }
 
     /// <summary>
@@ -329,8 +333,9 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     /// only when the text of a formula or a defined name names the new sheet name or calls
     /// <c>INDIRECT</c> (#720). On a rename the order matters only for cost: after the holders, a
     /// formula they rewrote would name the new name and cost a purge it does not need, since it reads
-    /// the same cells and the rewrite marks it dirty itself. On a delete the engine reads no text,
-    /// so it commutes with the holders.
+    /// the same cells and the rewrite marks it dirty itself. What reads such a formula is marked dirty
+    /// after every holder, by <see cref="XLibur.Excel.CalcEngine.XLCalcEngine.OnSheetRenameApplied"/>, from the rewritten
+    /// text. On a delete the engine reads no text, so it commutes with the holders.
     /// </para>
     /// <para>
     /// Each holder changes only its own text, and none of them reads another's, so the holders

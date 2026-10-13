@@ -886,6 +886,75 @@ internal class DependencyTreeTests
         }
     }
 
+    /// <summary>
+    /// A rename rewrites a formula that names the sheet and marks it dirty. Calculated again, a
+    /// volatile formula gets a new result, so whatever reads it must be calculated again too, or
+    /// the two disagree. A rename used to mark every formula dirty; now it marks only these (#720).
+    /// </summary>
+    [Test]
+    public async Task Sheet_rename_marks_dirty_the_formulas_that_read_a_rewritten_formula()
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        var other = wb.AddWorksheet("Other");
+        other.Cell("A1").Value = 1;
+        data.Cell("B1").FormulaA1 = "Other!A1+RAND()";
+        data.Cell("C1").FormulaA1 = "B1*2";
+        data.Cell("D1").FormulaA1 = "C1+1";
+        data.Cell("E1").FormulaA1 = "A5*3";
+        wb.RecalculateAllFormulas();
+
+        other.Name = "Renamed";
+
+        await Assert.That(data.Cell("B1").NeedsRecalculation).IsTrue();
+        await Assert.That(data.Cell("C1").NeedsRecalculation).IsTrue();
+        await Assert.That(data.Cell("D1").NeedsRecalculation).IsTrue();
+        await Assert.That(data.Cell("E1").NeedsRecalculation).IsFalse();
+        var b1 = data.Cell("B1").GetDouble();
+        await Assert.That(data.Cell("C1").GetDouble()).IsEqualTo(b1 * 2);
+        await Assert.That(data.Cell("D1").GetDouble()).IsEqualTo(b1 * 2 + 1);
+    }
+
+    /// <summary>
+    /// After a load the engine has no dependency tree. A formula that reads the rewritten formula
+    /// through a defined name, which the rename rewrites too, or through a spilled cell of a
+    /// rewritten dynamic array, is still marked dirty.
+    /// </summary>
+    [Test]
+    public async Task Sheet_rename_after_a_load_marks_dirty_what_reads_a_rewritten_formula_through_a_name_or_a_spill()
+    {
+        using var stream = new MemoryStream();
+        using (var source = new XLWorkbook())
+        {
+            var sourceData = source.AddWorksheet("Data");
+            var sourceOther = source.AddWorksheet("Other");
+            sourceOther.Cell("A1").Value = 1;
+            sourceOther.Cell("A2").Value = 2;
+            sourceOther.Cell("B1").FormulaA1 = "Other!A1+RAND()";
+            source.DefinedNames.Add("Source", "Other!$B$1");
+            sourceData.Cell("C1").FormulaA1 = "Source*2";
+            sourceData.Cell("A10").SetDynamicFormulaA1("Other!A1:A2+RAND()");
+            sourceData.Cell("C10").FormulaA1 = "A11*2";
+            sourceData.Cell("E1").FormulaA1 = "A5*3";
+            source.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+        }
+
+        stream.Position = 0;
+        using var wb = new XLWorkbook(stream);
+        var data = wb.Worksheet("Data");
+        var other = wb.Worksheet("Other");
+        await Assert.That(data.Cell("C1").NeedsRecalculation).IsFalse();
+        await Assert.That(data.Cell("C10").NeedsRecalculation).IsFalse();
+
+        other.Name = "Renamed";
+
+        await Assert.That(data.Cell("C1").NeedsRecalculation).IsTrue();
+        await Assert.That(data.Cell("C10").NeedsRecalculation).IsTrue();
+        await Assert.That(data.Cell("E1").NeedsRecalculation).IsFalse();
+        await Assert.That(data.Cell("C1").GetDouble()).IsEqualTo(other.Cell("B1").GetDouble() * 2);
+        await Assert.That(data.Cell("C10").GetDouble()).IsEqualTo(data.Cell("A11").GetDouble() * 2);
+    }
+
     #endregion
 
     private static XLCellFormula AddFormula(DependencyTree tree, IXLWorksheet sheet, string address, string formula)
