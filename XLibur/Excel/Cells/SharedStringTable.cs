@@ -156,6 +156,30 @@ internal sealed class SharedStringTable
     internal void MarkFileIndicesIncomplete() => _fileIndicesIncomplete = true;
 
     /// <summary>
+    /// Records that a save wrote each text at the index <paramref name="map"/> (from
+    /// <see cref="GetConsecutiveMap"/>) gave it, once the destination of that save is the source of
+    /// the next one. The next save then starts from that file, not the one the workbook was loaded
+    /// from (#719).
+    /// </summary>
+    /// <remarks>
+    /// Every cell that save wrote names its text by <paramref name="map"/>. So does every cell it kept
+    /// as the file had it: it kept cells only when the map wrote each text at its file index
+    /// (<see cref="WritesTextsAtFileIndices"/>). The indices are complete again whichever way.
+    /// </remarks>
+    internal void RecordSavedIndices(int[] map)
+    {
+        for (var i = 0; i < _table.Count; i++)
+        {
+            var entry = _table[i];
+            var fileIndex = IsShared(entry) && i < map.Length ? map[i] : Entry.NoFileIndex;
+            if (entry.FileIndex != fileIndex)
+                _table[i] = new Entry(entry.Text, entry.RefCount, fileIndex);
+        }
+
+        _fileIndicesIncomplete = false;
+    }
+
+    /// <summary>
     /// Does <paramref name="map"/> (from <see cref="GetConsecutiveMap"/>) write every text at the
     /// index each cell loaded it from? Only then can a save keep cells as the file had them.
     /// </summary>

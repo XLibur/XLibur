@@ -108,7 +108,7 @@ public class XLFillTests
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
             return wb;
-        }, @"Other\StyleReferenceFiles\TransparentBackgroundFill\TransparentBackgroundFill.xlsx");
+        }, @"Other\StyleReferenceFiles\TransparentBackgroundFill\TransparentBackgroundFill.xlsx", rewriteUnchangedSheets: true);
     }
 
     [Test]

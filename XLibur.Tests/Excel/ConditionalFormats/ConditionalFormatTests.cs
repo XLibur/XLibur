@@ -21,7 +21,7 @@ public class ConditionalFormatTests
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
             return wb;
-        }, @"Other\StyleReferenceFiles\ConditionalFormattingOrder\ConditionalFormattingOrder.xlsx");
+        }, @"Other\StyleReferenceFiles\ConditionalFormattingOrder\ConditionalFormattingOrder.xlsx", rewriteUnchangedSheets: true);
     }
 
 

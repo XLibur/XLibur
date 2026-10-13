@@ -91,6 +91,21 @@ public partial class XLWorkbook
         public bool StylesheetWasLoaded { get; set; }
 
         /// <summary>
+        /// Whether this save put none or gray125 at fill position 0 or 1, which Excel reserves for
+        /// them, where the package had another fill or none. A <c>cellXf</c> kept from the file that
+        /// names that position then names a different fill, so no cell can be kept as the file had it.
+        /// </summary>
+        public bool ReservedFillsReplaced { get; set; }
+
+        /// <summary>
+        /// Each worksheet part this save wrote or left as it was, with the part minus its cells and
+        /// the cells as saved, for the next save to compare against (#719). The cells are null when
+        /// the sheet's record of them still holds. The workbook takes these only once the destination
+        /// of this save is the source of the next one (<see cref="KeepWhatTheSaveWrote"/>).
+        /// </summary>
+        internal List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> PartsForNextSave { get; } = [];
+
+        /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
         /// metadata type. When <c>null</c>, no dynamic array formulas are present.
         /// </summary>
