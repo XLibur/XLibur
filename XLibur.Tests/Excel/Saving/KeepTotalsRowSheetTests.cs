@@ -62,6 +62,32 @@ public class KeepTotalsRowSheetTests
     }
 
     [Test]
+    public async Task A_label_with_a_leading_quote_the_cell_already_holds_keeps_its_quote()
+    {
+        // Excel writes a label typed as ''Total so (checked over COM): the cell holds 'Total under
+        // quotePrefix="1", and the table part has totalsRowLabel="'Total". The style needs no change,
+        // but the label's setter would still strip the leading quote, and the save would then write
+        // Total: the load must leave the cell as the file has it.
+        using var source = QuotedLabelSource();
+        await Assert.That(source.ReadPart(TablePart(source))).Contains("totalsRowLabel=\"'Total\"");
+        source.Position = 0;
+
+        using (var wb = new XLWorkbook(source))
+        {
+            var ws = wb.Worksheet("Data");
+            await Assert.That(((XLWorksheet)ws).CellsChangedSinceLoad()).IsFalse();
+            await Assert.That(ws.Cell("A4").GetText()).IsEqualTo("'Total");
+            await Assert.That(ws.Cell("A4").Style.IncludeQuotePrefix).IsTrue();
+            await Assert.That(ws.Table("Sales").Field("Name").TotalsRowLabel).IsEqualTo("'Total");
+        }
+
+        using var saved = source.LoadAndSave();
+
+        await Assert.That(saved.IsKeptWhole(Sheet1)).IsTrue();
+        await AssertTotals(saved, "'Total");
+    }
+
+    [Test]
     public async Task Changing_the_label_makes_the_save_write_the_sheet()
     {
         using var source = Source(label: "Total");
@@ -186,6 +212,19 @@ public class KeepTotalsRowSheetTests
         }
 
         return stream.Mark(Sheet1);
+    }
+
+    /// <summary>
+    /// <see cref="Source"/> with the totals cell A4 holding <c>'Total</c> under the quote prefix
+    /// flag, and the table part giving the same text as the field's label.
+    /// </summary>
+    private static MemoryStream QuotedLabelSource()
+    {
+        // The setter takes ''Total as the quote prefix and 'Total, but keeps ''Total as the label.
+        var source = Source(label: "''Total");
+        source.RewritePart(TablePart(source), xml => xml.Replace("totalsRowLabel=\"''Total\"",
+            "totalsRowLabel=\"'Total\"", StringComparison.Ordinal));
+        return source;
     }
 
     private static string TablePart(Stream package) => package.PartsUnder("xl/tables/").Single();

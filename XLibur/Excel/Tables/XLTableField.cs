@@ -137,8 +137,14 @@ internal sealed class XLTableField : IXLTableField
     /// </summary>
     /// <remarks>
     /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, drops rich text, and adjusts
-    /// the style for the text (stripping a leading quote with it). A cell that any of those would
-    /// change takes the setter. Only for a table with a totals row.
+    /// the style for the text. A cell that any of those would change takes the setter. Only for a
+    /// table with a totals row.
+    /// <para>
+    /// The setter also strips a leading quote, as any value set through the API does, taking it as
+    /// the quote prefix. A cell that already holds the label under the quote prefix keeps its
+    /// quote: Excel writes a label typed as <c>''Total</c> as the text <c>'Total</c> with
+    /// <c>quotePrefix</c>, and the same text in the table part, so the quote is part of the label.
+    /// </para>
     /// </remarks>
     internal void LoadTotalsRowLabel(string label)
     {
