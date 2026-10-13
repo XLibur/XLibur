@@ -185,6 +185,58 @@ public class KeepExcelMarkupTests
     }
 
     [Test]
+    public async Task A_changed_setting_of_a_protection_that_protects_nothing_is_written()
+    {
+        using var source = Source(ExcelSheet.Replace("<pageMargins", "<sheetProtection selectLockedCells=\"1\"/><pageMargins",
+            StringComparison.Ordinal));
+
+        using var saved = LoadAndSave(source, wb =>
+            wb.Worksheet("Data").Protection.AllowElement(XLSheetProtectionElements.SelectLockedCells));
+
+        var protection = Root(saved).Descendants().Single(e => e.Name.LocalName == "sheetProtection");
+        await Assert.That(protection.Attribute("selectLockedCells")).IsNull();
+        using var reloaded = Reload(saved);
+        var ws = reloaded.Worksheet("Data");
+        await Assert.That(ws.Protection.IsProtected).IsFalse();
+        await Assert.That(ws.Protection.AllowedElements.HasFlag(XLSheetProtectionElements.SelectLockedCells)).IsTrue();
+    }
+
+    [Test]
+    public async Task A_malformed_merge_count_is_written_again()
+    {
+        using var source = Source(ExcelSheet.Replace("<pageMargins",
+            "<mergeCells count=\"x\"><mergeCell ref=\"B1:C1\"/></mergeCells><pageMargins", StringComparison.Ordinal));
+
+        using var saved = LoadAndSave(source);
+
+        var merges = Root(saved).Descendants().Single(e => e.Name.LocalName == "mergeCells");
+        await Assert.That(merges.Attribute("count")!.Value).IsEqualTo("1");
+    }
+
+    [Test]
+    public async Task An_active_cell_set_on_a_view_whose_first_selection_is_not_the_active_panes_is_written()
+    {
+        // Excel puts the cursor in the active pane's selection, here the last one. The load reads the
+        // first, so the model cannot tell setting the active cell to B1 from leaving it.
+        using var source = Source(ExcelSheet.Replace(SheetView,
+            "<sheetView tabSelected=\"1\" workbookViewId=\"0\">" +
+            "<pane xSplit=\"1\" ySplit=\"1\" topLeftCell=\"B2\" activePane=\"bottomRight\" state=\"frozen\"/>" +
+            "<selection pane=\"topRight\" activeCell=\"B1\" sqref=\"B1\"/>" +
+            "<selection pane=\"bottomLeft\" activeCell=\"A2\" sqref=\"A2\"/>" +
+            "<selection pane=\"bottomRight\" activeCell=\"C5\" sqref=\"C5\"/></sheetView>",
+            StringComparison.Ordinal));
+
+        using var saved = LoadAndSave(source, wb => wb.Worksheet("Data").SetActiveCell("B1"));
+
+        // The view is written again, so the active pane's selection has the cell, whichever pane that is.
+        var root = Root(saved);
+        var activePane = root.Descendants().Single(e => e.Name.LocalName == "pane").Attribute("activePane")?.Value ?? "topLeft";
+        var active = root.Descendants()
+            .Single(e => e.Name.LocalName == "selection" && (e.Attribute("pane")?.Value ?? "topLeft") == activePane);
+        await Assert.That(active.Attribute("activeCell")!.Value).IsEqualTo("B1");
+    }
+
+    [Test]
     public async Task Unprotecting_a_sheet_removes_its_protection()
     {
         using var source = Source(ExcelSheet.Replace("<pageMargins", "<sheetProtection sheet=\"1\" scenarios=\"1\"/><pageMargins",

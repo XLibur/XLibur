@@ -13,7 +13,13 @@ internal static class SheetProtectionWriter
         XLWorksheetContentManager cm,
         XLWorksheet xlWorksheet)
     {
-        if (xlWorksheet.Protection.IsProtected)
+        // A <sheetProtection> that does not protect the sheet, as LibreOffice writes one, is written
+        // again on an unprotected sheet: the load reads its settings, so they are written from the
+        // model and keep the file's spelling while they hold (#722).
+        var loaded = worksheet.Elements<SheetProtection>().FirstOrDefault();
+        var protectsNothing = loaded is not null && !OpenXmlHelper.GetBooleanValueAsBool(loaded.Sheet, false);
+
+        if (xlWorksheet.Protection.IsProtected || protectsNothing)
         {
             if (!worksheet.Elements<SheetProtection>().Any())
             {
@@ -75,15 +81,6 @@ internal static class SheetProtectionWriter
         }
         else
         {
-            // A <sheetProtection> that does not protect the sheet, as LibreOffice writes one, stays as
-            // the file had it. It loads as an unprotected sheet again (#722).
-            var loaded = worksheet.Elements<SheetProtection>().FirstOrDefault();
-            if (loaded is not null && !OpenXmlHelper.GetBooleanValueAsBool(loaded.Sheet, false))
-            {
-                cm.SetElement(XLWorksheetContents.SheetProtection, loaded);
-                return;
-            }
-
             worksheet.RemoveAllChildren<SheetProtection>();
             cm.SetElement(XLWorksheetContents.SheetProtection, null);
         }

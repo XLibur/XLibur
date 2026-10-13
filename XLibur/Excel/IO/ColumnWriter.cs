@@ -367,10 +367,14 @@ internal static class ColumnWriter
         return left.Value.Equals(right.Value);
     }
 
+    /// <summary>
+    /// Are the widths the same at the six decimals a save writes? A loaded width keeps the file's
+    /// digits, such as 14.85546875, and is the same width as 14.855469 (#722).
+    /// </summary>
     private static bool NullableDoublesEqual(DoubleValue? left, DoubleValue? right)
     {
         if (left == null && right == null) return true;
         if (left == null || right == null) return false;
-        return Math.Abs(left.Value - right.Value) < XLHelper.Epsilon;
+        return Math.Abs(Math.Round(left.Value, 6) - Math.Round(right.Value, 6)) < XLHelper.Epsilon;
     }
 }

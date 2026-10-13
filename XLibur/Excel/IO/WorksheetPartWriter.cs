@@ -318,15 +318,14 @@ internal static class WorksheetPartWriter
     {
         var merged = xlWorksheet.Internals.MergedRanges;
         var loaded = mergeCells.Elements<MergeCell>().ToList();
-        if (loaded.Count != merged.Count || mergeCells.Count?.Value is { } count && count != loaded.Count)
+        // A count the file spelled so it does not parse is written again rather than read.
+        if (loaded.Count != merged.Count
+            || mergeCells.Count is { } count && (!count.HasValue || count.Value != loaded.Count))
             return false;
 
         var areas = new HashSet<Area>();
         foreach (var range in merged)
-        {
-            var address = range.RangeAddress;
-            areas.Add(new Area(Point.FromAddress(address.FirstAddress), Point.FromAddress(address.LastAddress)));
-        }
+            areas.Add(Area.FromRangeAddress(range.RangeAddress));
 
         foreach (var mergeCell in loaded)
         {

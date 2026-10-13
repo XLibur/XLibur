@@ -108,8 +108,11 @@ internal static class SheetViewWriter
         var loadedSelections = sheetView.Elements<Selection>().ToList();
 
         // The selections the file had stay as it wrote them while the pane, the selected ranges and
-        // the active cell are the ones the load read from them (#722).
+        // the active cell are the ones the load read from them (#722). Only when the load read the
+        // selection of the active pane, where Excel puts the cursor: with others before it, the
+        // model cannot tell a cursor moved to the first one from one left where it was.
         if (loadedSelections.Count > 0 && pane?.OuterXml == loadedPane
+                                       && IsOfActivePane(loadedSelections[0], pane)
                                        && IsSelectionAsLoaded(loadedSelections[0], xlWorksheet))
         {
             svcm.SetElement(XLSheetViewContents.Selection, loadedSelections[^1]);
@@ -159,13 +162,22 @@ internal static class SheetViewWriter
 
         for (var i = 0; i < tokens.Length; i++)
         {
-            var address = ranges[i].RangeAddress;
-            var area = new Area(Point.FromAddress(address.FirstAddress), Point.FromAddress(address.LastAddress));
-            if (!Area.TryParse(tokens[i], out var loaded) || !loaded.Equals(area))
+            if (!Area.TryParse(tokens[i], out var loaded) || !loaded.Equals(Area.FromRangeAddress(ranges[i].RangeAddress)))
                 return false;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Is <paramref name="selection"/> the selection of the view's active pane? Both default to the
+    /// top-left pane, which is the only one a view without a pane has.
+    /// </summary>
+    private static bool IsOfActivePane(Selection selection, Pane? pane)
+    {
+        var selectionPane = selection.Pane is { HasValue: true } s ? s.Value : PaneValues.TopLeft;
+        var activePane = pane?.ActivePane is { HasValue: true } a ? a.Value : PaneValues.TopLeft;
+        return selectionPane == activePane;
     }
 
     private static void SetBooleanViewProperties(SheetView sheetView, XLWorksheet xlWorksheet)
