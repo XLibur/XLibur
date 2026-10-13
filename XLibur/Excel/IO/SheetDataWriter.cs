@@ -131,8 +131,9 @@ internal static class SheetDataWriter
     /// <remarks>
     /// A totals-row cell without a formula goes through <see cref="WriteTotalLabelCellDirect"/>. That
     /// writes the cell's shared string, as for any other cell, when the field has a label. When the
-    /// field has none it writes nothing at all, and it writes any value that is not a shared string
-    /// as one. A formula takes the formula path either way.
+    /// field has none it writes nothing at all, and it cannot write a value that is not a shared
+    /// string. A formula takes the formula path either way, so the method stands on its own for a
+    /// sheet with formulas; today's only caller has already refused those.
     /// </remarks>
     internal static bool WritesTotalsRowsAsValues(XLWorksheet xlWorksheet)
     {

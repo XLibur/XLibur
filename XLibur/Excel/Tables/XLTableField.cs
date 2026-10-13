@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 
@@ -138,18 +136,15 @@ internal sealed class XLTableField : IXLTableField
     /// to the value it holds, which the record of the loaded cells counts as a change.
     /// </summary>
     /// <remarks>
-    /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, strips a leading quote,
-    /// adjusts the style for a quote or a line break, and drops rich text. A cell that any of those
-    /// would change takes the setter.
+    /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, drops rich text, and adjusts
+    /// the style for the text (stripping a leading quote with it). A cell that any of those would
+    /// change takes the setter. Only for a table with a totals row.
     /// </remarks>
     internal void LoadTotalsRowLabel(string label)
     {
-        var area = _table.Area;
-        var point = new Point(area.LastPoint.Row, area.FirstPoint.Column + Index);
+        var point = ((XLCell)TotalsCell!).SheetPoint;
         var cells = _table.Worksheet.Internals.CellsCollection;
-        if (label.Length == 0
-            || label[0] == '\''
-            || label.Contains(Environment.NewLine, StringComparison.Ordinal)
+        if (_table.Worksheet.GetStyleForValue(label, point) is not null
             || cells.FormulaSlice.Get(point) is not null
             || cells.ValueSlice.GetRichText(point) is not null
             || cells.ValueSlice.GetCellValue(point) is not { Type: XLDataType.Text } value

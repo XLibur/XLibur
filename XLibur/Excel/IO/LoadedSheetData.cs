@@ -141,14 +141,10 @@ internal sealed class LoadedSheetData : IDisposable
     /// </remarks>
     private static bool CellsCanBeKept(XLWorksheet sheet)
     {
-        var cells = sheet.Internals.CellsCollection;
-        if (!cells.FormulaSlice.IsEmpty
-            || !SheetDataWriter.WritesTotalsRowsAsValues(sheet))
-        {
-            return false;
-        }
-
-        return !sheet.CellsChangedSinceLoad();
+        // Cheapest first: the totals check builds a cell for each used cell of every totals row.
+        return sheet.Internals.CellsCollection.FormulaSlice.IsEmpty
+               && !sheet.CellsChangedSinceLoad()
+               && SheetDataWriter.WritesTotalsRowsAsValues(sheet);
     }
 
     /// <summary>
