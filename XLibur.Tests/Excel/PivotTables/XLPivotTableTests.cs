@@ -1119,7 +1119,7 @@ public class XLPivotTableTests
             var wb = new XLWorkbook(stream);
             wb.SaveAs(ms);
             return wb;
-        }, @"Other\PivotTableReferenceFiles\PivotTableWithNoneTheme\outputfile.xlsx");
+        }, @"Other\PivotTableReferenceFiles\PivotTableWithNoneTheme\outputfile.xlsx", rewriteUnchangedSheets: true);
     }
 
     [Test]
