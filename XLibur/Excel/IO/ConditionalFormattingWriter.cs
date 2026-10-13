@@ -98,6 +98,8 @@ internal static class ConditionalFormattingWriter
         HashSet<XLConditionalFormat> xlSheetPivotCfs,
         SaveContext context)
     {
+        var loadedSqrefs = new SqrefSpellings(worksheet.Elements<ConditionalFormatting>()
+            .Select(c => c.SequenceOfReferences?.InnerText));
         worksheet.RemoveAllChildren<ConditionalFormatting>();
         var previousElement = cm.GetPreviousElementFor(XLWorksheetContents.ConditionalFormatting);
 
@@ -117,7 +119,7 @@ internal static class ConditionalFormattingWriter
             var conditionalFormatting = new ConditionalFormatting
             {
                 SequenceOfReferences =
-                    new ListValue<StringValue> { InnerText = cfGroup.SeqRefs },
+                    new ListValue<StringValue> { InnerText = loadedSqrefs.Spell(cfGroup.SeqRefs) },
                 Pivot = cfGroup.IsPivot ? true : null,
             };
             foreach (var cf in cfGroup.CfList)
