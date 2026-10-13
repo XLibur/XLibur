@@ -97,19 +97,29 @@ internal static class SheetViewWriter
 
         SetBooleanViewProperties(sheetView, xlWorksheet);
 
-        if (xlWorksheet.SheetView.View == XLSheetViewOptions.Normal)
-            sheetView.View = null;
-        else
-            sheetView.View = xlWorksheet.SheetView.View.ToOpenXml();
+        sheetView.View = SchemaDefault.Enum(sheetView.View, xlWorksheet.SheetView.View.ToOpenXml(),
+            SheetViewValues.Normal);
 
+        var loadedPane = sheetView.Elements<Pane>().FirstOrDefault()?.OuterXml;
         var pane = SetupPane(sheetView, svcm, xlWorksheet);
 
         SetTopLeftCell(sheetView, xlWorksheet);
 
+        var loadedSelections = sheetView.Elements<Selection>().ToList();
+
+        // The selections the file had stay as it wrote them while the pane, the selected ranges and
+        // the active cell are the ones the load read from them (#722).
+        if (loadedSelections.Count > 0 && pane?.OuterXml == loadedPane
+                                       && IsSelectionAsLoaded(loadedSelections[0], xlWorksheet))
+        {
+            svcm.SetElement(XLSheetViewContents.Selection, loadedSelections[^1]);
+            SetZoomScales(sheetView, xlWorksheet);
+            return;
+        }
+
         // A selection the file wrote without an active cell is written without one again, while it
         // is the selection the file had. Excel reads the absence as a choice of its own, which an
         // active cell taken from the selection would replace.
-        var loadedSelections = sheetView.Elements<Selection>().ToList();
         var deriveActiveCell = loadedSelections.Count == 0
                                || loadedSelections.Exists(s => s.ActiveCell is not null)
                                || loadedSelections.Exists(s =>
@@ -124,18 +134,53 @@ internal static class SheetViewWriter
         SetZoomScales(sheetView, xlWorksheet);
     }
 
+    /// <summary>
+    /// Are the sheet's selected ranges and active cell the ones the load read from
+    /// <paramref name="selection"/>, the first selection of the file's view? Ranges are compared by
+    /// the cells they cover, so <c>G1:G1048576</c> is the column <c>G:G</c>.
+    /// </summary>
+    private static bool IsSelectionAsLoaded(Selection selection, XLWorksheet xlWorksheet)
+    {
+        var activeCell = selection.ActiveCell?.Value;
+        if (activeCell is null)
+        {
+            if (xlWorksheet.ActiveCell is not null)
+                return false;
+        }
+        else if (xlWorksheet.ActiveCell is not { } active || !Point.TryParse(activeCell, out var point) || point != active)
+        {
+            return false;
+        }
+
+        var tokens = selection.SequenceOfReferences?.InnerText?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        var ranges = xlWorksheet.SelectedRanges.ToList();
+        if (tokens.Length != ranges.Count)
+            return false;
+
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            var address = ranges[i].RangeAddress;
+            var area = new Area(Point.FromAddress(address.FirstAddress), Point.FromAddress(address.LastAddress));
+            if (!Area.TryParse(tokens[i], out var loaded) || !loaded.Equals(area))
+                return false;
+        }
+
+        return true;
+    }
+
     private static void SetBooleanViewProperties(SheetView sheetView, XLWorksheet xlWorksheet)
     {
+        // A value the file spelled out stays, default or not (#722).
         var view = xlWorksheet.SheetView;
-        sheetView.TabSelected = view.TabSelected ? true : null;
-        sheetView.RightToLeft = view.RightToLeft ? true : null;
-        sheetView.ShowFormulas = view.ShowFormulas ? true : null;
-        sheetView.ShowGridLines = view.ShowGridLines ? null : false;
-        sheetView.ShowOutlineSymbols = view.ShowOutlineSymbols ? null : false;
-        sheetView.ShowRowColHeaders = view.ShowRowColHeaders ? null : false;
-        sheetView.ShowRuler = view.ShowRuler ? null : false;
-        sheetView.ShowWhiteSpace = view.ShowWhiteSpace ? null : false;
-        sheetView.ShowZeros = view.ShowZeros ? null : false;
+        sheetView.TabSelected = SchemaDefault.Bool(sheetView.TabSelected, view.TabSelected, false);
+        sheetView.RightToLeft = SchemaDefault.Bool(sheetView.RightToLeft, view.RightToLeft, false);
+        sheetView.ShowFormulas = SchemaDefault.Bool(sheetView.ShowFormulas, view.ShowFormulas, false);
+        sheetView.ShowGridLines = SchemaDefault.Bool(sheetView.ShowGridLines, view.ShowGridLines, true);
+        sheetView.ShowOutlineSymbols = SchemaDefault.Bool(sheetView.ShowOutlineSymbols, view.ShowOutlineSymbols, true);
+        sheetView.ShowRowColHeaders = SchemaDefault.Bool(sheetView.ShowRowColHeaders, view.ShowRowColHeaders, true);
+        sheetView.ShowRuler = SchemaDefault.Bool(sheetView.ShowRuler, view.ShowRuler, true);
+        sheetView.ShowWhiteSpace = SchemaDefault.Bool(sheetView.ShowWhiteSpace, view.ShowWhiteSpace, true);
+        sheetView.ShowZeros = SchemaDefault.Bool(sheetView.ShowZeros, view.ShowZeros, true);
     }
 
     private static Pane? SetupPane(SheetView sheetView, XLSheetViewContentManager svcm, XLWorksheet xlWorksheet)
@@ -197,13 +242,28 @@ internal static class SheetViewWriter
         _ => PaneStateValues.Frozen,
     };
 
+    /// <summary>
+    /// Writes the top-left cell unless it is A1. A file that spelled out A1 keeps it (#722).
+    /// </summary>
     private static void SetTopLeftCell(SheetView sheetView, XLWorksheet xlWorksheet)
     {
-        if (!xlWorksheet.SheetView.TopLeftCellAddress.IsValid
-            || xlWorksheet.SheetView.TopLeftCellAddress == new XLAddress(1, 1, fixedRow: false, fixedColumn: false))
+        var address = xlWorksheet.SheetView.TopLeftCellAddress;
+        if (!address.IsValid)
+        {
+            sheetView.TopLeftCell = null;
+            return;
+        }
+
+        var text = address.ToString();
+        if (sheetView.TopLeftCell?.Value == text)
+            return;
+
+        // Two statements: a conditional expression has the type string, and its null would convert
+        // to a StringValue holding no text rather than to no attribute.
+        if (address == new XLAddress(1, 1, fixedRow: false, fixedColumn: false))
             sheetView.TopLeftCell = null;
         else
-            sheetView.TopLeftCell = xlWorksheet.SheetView.TopLeftCellAddress.ToString();
+            sheetView.TopLeftCell = text;
     }
 
     private static void SetupSelections(SheetView sheetView, XLSheetViewContentManager svcm,
@@ -254,24 +314,31 @@ internal static class SheetViewWriter
     private static string SelectedRangesText(XLWorksheet xlWorksheet) =>
         string.Join(" ", SelectedRanges(xlWorksheet).Distinct());
 
+    /// <summary>
+    /// Writes each zoom scale that is not 100. A scale the file spelled out as 100, as Excel often
+    /// writes <c>zoomScaleNormal</c>, stays (#722).
+    /// </summary>
     private static void SetZoomScales(SheetView sheetView, XLWorksheet xlWorksheet)
     {
-        sheetView.ZoomScale = xlWorksheet.SheetView.ZoomScale == 100
-            ? null
-            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScale));
-
-        sheetView.ZoomScaleNormal = xlWorksheet.SheetView.ZoomScaleNormal == 100
-            ? null
-            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScaleNormal));
-
-        sheetView.ZoomScalePageLayoutView = xlWorksheet.SheetView.ZoomScalePageLayoutView == 100
-            ? null
-            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScalePageLayoutView));
-
-        sheetView.ZoomScaleSheetLayoutView = xlWorksheet.SheetView.ZoomScaleSheetLayoutView == 100
-            ? null
-            : (uint)Math.Max(10, Math.Min(400, xlWorksheet.SheetView.ZoomScaleSheetLayoutView));
+        var view = xlWorksheet.SheetView;
+        sheetView.ZoomScale = ZoomScale(sheetView.ZoomScale, view.ZoomScale);
+        sheetView.ZoomScaleNormal = ZoomScale(sheetView.ZoomScaleNormal, view.ZoomScaleNormal);
+        sheetView.ZoomScalePageLayoutView = ZoomScale(sheetView.ZoomScalePageLayoutView, view.ZoomScalePageLayoutView);
+        sheetView.ZoomScaleSheetLayoutView = ZoomScale(sheetView.ZoomScaleSheetLayoutView, view.ZoomScaleSheetLayoutView);
     }
+
+    private static UInt32Value? ZoomScale(UInt32Value? loaded, int scale) =>
+        SchemaDefault.UInt(loaded, (uint)Math.Clamp(scale, 10, 400), 100);
+
+    /// <summary>
+    /// Is the sheet's width the one the load read from <paramref name="loaded"/>? The load converts
+    /// <c>defaultColWidth</c> through the width of the font's digits, which the save does not undo,
+    /// so the file's value is kept while the width is still the one it loaded as (#722).
+    /// </summary>
+    private static bool IsWidthLoadedFrom(DoubleValue? loaded, XLWorksheet xlWorksheet) =>
+        loaded is { HasValue: true }
+        && Math.Abs(XLHelper.ConvertWidthToNoC(loaded.Value, xlWorksheet.Style.Font, xlWorksheet.Workbook)
+                    - xlWorksheet.ColumnWidth) < XLHelper.Epsilon;
 
     internal static void WriteSheetFormatProperties(
         Worksheet worksheet,
@@ -285,7 +352,8 @@ internal static class SheetViewWriter
         cm.SetElement(XLWorksheetContents.SheetFormatProperties,
             worksheet.SheetFormatProperties);
 
-        worksheet.SheetFormatProperties.DefaultRowHeight = xlWorksheet.RowHeight.SaveRound();
+        var sheetFormat = worksheet.SheetFormatProperties;
+        sheetFormat.DefaultRowHeight = SchemaDefault.Measure(sheetFormat.DefaultRowHeight, xlWorksheet.RowHeight.SaveRound());
 
         if (xlWorksheet.RowHeightChanged)
             worksheet.SheetFormatProperties.CustomHeight = true;
@@ -296,7 +364,10 @@ internal static class SheetViewWriter
         // through XLColumnSettings, so the width rule has two callers and no stored copy.
         var worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
         if (xlWorksheet.ColumnWidthChanged)
-            worksheet.SheetFormatProperties.DefaultColumnWidth = worksheetColumnWidth;
+        {
+            if (!IsWidthLoadedFrom(sheetFormat.DefaultColumnWidth, xlWorksheet))
+                sheetFormat.DefaultColumnWidth = SchemaDefault.Measure(sheetFormat.DefaultColumnWidth, worksheetColumnWidth);
+        }
         else
             worksheet.SheetFormatProperties.DefaultColumnWidth = null;
 

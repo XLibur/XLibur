@@ -26,6 +26,9 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //               dotmemory
     //   properties  loops the XLBench open -> amend two document properties -> save round trip,
     //               for attaching a profiler; optionally takes a duration in seconds
+    //   keepsurvey  loads, saves and reloads every workbook in XLibur.Tests/Resource (or a given
+    //               folder), and counts the sheets whose part the save kept (#702), why the others
+    //               were written again, and the cell values that changed; --sheets lists each sheet
     // Every other mode attaches dotMemory and targets the load path.
     // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
     // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.
@@ -45,6 +48,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
         case "firstedit": FirstEditProfile.Run(args); break;
         case "properties": PropertiesRoundTripProfile.Run(args); break;
+        case "keepsurvey": KeepPartSurvey.Run(args); break;
         default: MemoryProfile.Run(args); break;
     }
 

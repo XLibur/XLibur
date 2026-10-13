@@ -1,4 +1,5 @@
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
 using XLibur.Utils;
@@ -24,7 +25,7 @@ internal static class SheetProtectionWriter
             cm.SetElement(XLWorksheetContents.SheetProtection, sheetProtection);
 
             var protection = xlWorksheet.Protection;
-            sheetProtection.Sheet = OpenXmlHelper.GetBooleanValue(protection.IsProtected, false);
+            sheetProtection.Sheet = SchemaDefault.Bool(sheetProtection.Sheet, protection.IsProtected, false);
 
             sheetProtection.Password = null;
             sheetProtection.AlgorithmName = null;
@@ -46,56 +47,43 @@ internal static class SheetProtectionWriter
                 sheetProtection.SaltValue = protection.Base64EncodedSalt;
             }
 
+            // Each attribute is set when the element is protected, that is, not allowed. A value the
+            // file spelled out stays, default or not (#722).
+            var allowed = protection.AllowedElements;
+
             // default value of "1"
-            sheetProtection.FormatCells =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.FormatCells), true);
-            sheetProtection.FormatColumns =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.FormatColumns), true);
-            sheetProtection.FormatRows =
-                OpenXmlHelper.GetBooleanValue(!protection.AllowedElements.HasFlag(XLSheetProtectionElements.FormatRows),
-                    true);
-            sheetProtection.InsertColumns =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.InsertColumns), true);
-            sheetProtection.InsertRows =
-                OpenXmlHelper.GetBooleanValue(!protection.AllowedElements.HasFlag(XLSheetProtectionElements.InsertRows),
-                    true);
-            sheetProtection.InsertHyperlinks =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.InsertHyperlinks), true);
-            sheetProtection.DeleteColumns =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.DeleteColumns), true);
-            sheetProtection.DeleteRows =
-                OpenXmlHelper.GetBooleanValue(!protection.AllowedElements.HasFlag(XLSheetProtectionElements.DeleteRows),
-                    true);
-            sheetProtection.Sort =
-                OpenXmlHelper.GetBooleanValue(!protection.AllowedElements.HasFlag(XLSheetProtectionElements.Sort),
-                    true);
-            sheetProtection.AutoFilter =
-                OpenXmlHelper.GetBooleanValue(!protection.AllowedElements.HasFlag(XLSheetProtectionElements.AutoFilter),
-                    true);
-            sheetProtection.PivotTables =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.PivotTables), true);
-            sheetProtection.Scenarios =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.EditScenarios), true);
+            sheetProtection.FormatCells = Protects(sheetProtection.FormatCells, XLSheetProtectionElements.FormatCells, true);
+            sheetProtection.FormatColumns = Protects(sheetProtection.FormatColumns, XLSheetProtectionElements.FormatColumns, true);
+            sheetProtection.FormatRows = Protects(sheetProtection.FormatRows, XLSheetProtectionElements.FormatRows, true);
+            sheetProtection.InsertColumns = Protects(sheetProtection.InsertColumns, XLSheetProtectionElements.InsertColumns, true);
+            sheetProtection.InsertRows = Protects(sheetProtection.InsertRows, XLSheetProtectionElements.InsertRows, true);
+            sheetProtection.InsertHyperlinks = Protects(sheetProtection.InsertHyperlinks, XLSheetProtectionElements.InsertHyperlinks, true);
+            sheetProtection.DeleteColumns = Protects(sheetProtection.DeleteColumns, XLSheetProtectionElements.DeleteColumns, true);
+            sheetProtection.DeleteRows = Protects(sheetProtection.DeleteRows, XLSheetProtectionElements.DeleteRows, true);
+            sheetProtection.Sort = Protects(sheetProtection.Sort, XLSheetProtectionElements.Sort, true);
+            sheetProtection.AutoFilter = Protects(sheetProtection.AutoFilter, XLSheetProtectionElements.AutoFilter, true);
+            sheetProtection.PivotTables = Protects(sheetProtection.PivotTables, XLSheetProtectionElements.PivotTables, true);
+            sheetProtection.Scenarios = Protects(sheetProtection.Scenarios, XLSheetProtectionElements.EditScenarios, true);
 
             // default value of "0"
-            sheetProtection.Objects =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.EditObjects), false);
-            sheetProtection.SelectLockedCells =
-                OpenXmlHelper.GetBooleanValue(
-                    !protection.AllowedElements.HasFlag(XLSheetProtectionElements.SelectLockedCells), false);
-            sheetProtection.SelectUnlockedCells = OpenXmlHelper.GetBooleanValue(
-                !protection.AllowedElements.HasFlag(XLSheetProtectionElements.SelectUnlockedCells), false);
+            sheetProtection.Objects = Protects(sheetProtection.Objects, XLSheetProtectionElements.EditObjects, false);
+            sheetProtection.SelectLockedCells = Protects(sheetProtection.SelectLockedCells, XLSheetProtectionElements.SelectLockedCells, false);
+            sheetProtection.SelectUnlockedCells = Protects(sheetProtection.SelectUnlockedCells, XLSheetProtectionElements.SelectUnlockedCells, false);
+
+            BooleanValue? Protects(BooleanValue? loaded, XLSheetProtectionElements element, bool schemaDefault) =>
+                SchemaDefault.Bool(loaded, !allowed.HasFlag(element), schemaDefault);
         }
         else
         {
+            // A <sheetProtection> that does not protect the sheet, as LibreOffice writes one, stays as
+            // the file had it. It loads as an unprotected sheet again (#722).
+            var loaded = worksheet.Elements<SheetProtection>().FirstOrDefault();
+            if (loaded is not null && !OpenXmlHelper.GetBooleanValueAsBool(loaded.Sheet, false))
+            {
+                cm.SetElement(XLWorksheetContents.SheetProtection, loaded);
+                return;
+            }
+
             worksheet.RemoveAllChildren<SheetProtection>();
             cm.SetElement(XLWorksheetContents.SheetProtection, null);
         }

@@ -260,7 +260,8 @@ public class SchemaDefaultMarkupTests
         using var saved = LoadAndSave(source, wb => wb.Worksheet("Data").SetTabColor(XLColor.Red));
 
         var col = Descendant(Root(saved), "col");
-        await Assert.That(Attributes(col)).IsEqualTo("min=1 max=16384 width=20.710938 customWidth=1");
+        // The width keeps the digits the file wrote it with (#722).
+        await Assert.That(Attributes(col)).IsEqualTo("min=1 max=16384 width=20.7109375 customWidth=1");
     }
 
     [Test]

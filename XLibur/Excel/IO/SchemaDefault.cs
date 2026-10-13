@@ -1,3 +1,4 @@
+using System;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
@@ -54,6 +55,35 @@ internal static class SchemaDefault
 
         return value.Equals(schemaDefault) ? null : new EnumValue<T>(value);
     }
+
+    /// <summary>The value to set a number attribute to.</summary>
+    /// <param name="loaded">The attribute as the element holds it now.</param>
+    /// <param name="value">The value the model holds.</param>
+    /// <returns><paramref name="loaded"/> when it holds <paramref name="value"/>, else a new attribute
+    /// value. A file can spell a number with more digits than it takes to tell it apart, such as
+    /// <c>0.78749999999999998</c> for 0.7875, and that spelling stays while the number is the same
+    /// (#722).</returns>
+    internal static DoubleValue Double(DoubleValue? loaded, double value) =>
+        loaded is { HasValue: true } && loaded.Value.Equals(value) ? loaded : new DoubleValue(value);
+
+    /// <summary>
+    /// The value to set a measurement such as a width or a height to, which a save writes to six
+    /// decimals.
+    /// </summary>
+    /// <param name="loaded">The attribute as the element holds it now.</param>
+    /// <param name="value">The value to write, already rounded to six decimals.</param>
+    /// <returns><paramref name="loaded"/> when it rounds to <paramref name="value"/>, else a new
+    /// attribute value. Excel writes a width with more digits than a save keeps, such as
+    /// <c>14.85546875</c>, and the file's spelling stays while the width is the same (#722).</returns>
+    internal static DoubleValue Measure(DoubleValue? loaded, double value) =>
+        SameMeasure(loaded, value) ? loaded! : new DoubleValue(value);
+
+    /// <summary>
+    /// Does <paramref name="loaded"/> round to <paramref name="value"/>, the precision a save writes
+    /// a measurement with?
+    /// </summary>
+    internal static bool SameMeasure(DoubleValue? loaded, double value) =>
+        loaded is { HasValue: true } && Math.Abs(Math.Round(loaded.Value, 6) - value) < XLHelper.Epsilon;
 
     /// <summary>Does the element have neither an attribute nor a child?</summary>
     internal static bool IsEmpty(OpenXmlElement element) => !element.HasAttributes && !element.HasChildren;
