@@ -64,7 +64,8 @@ internal static class WorkbookStylesPartWriter
             context.SharedNumberFormats.Add(nf.Key, nf.Value);
 
         ResolveFonts(stylesheet, context.SharedFonts);
-        var allSharedFills = ResolveFills(stylesheet, sharedFills);
+        var allSharedFills = ResolveFills(stylesheet, sharedFills, out var reservedFillsReplaced);
+        context.ReservedFillsReplaced = reservedFillsReplaced;
         var allSharedBorders = ResolveBorders(stylesheet, sharedBorders);
 
         BuildSharedStyleMappings(context, xlStyles, allSharedNumberFormats, allSharedFills, allSharedBorders);
@@ -130,7 +131,7 @@ internal static class WorkbookStylesPartWriter
         var allSharedNumberFormats = ResolveNumberFormats(stylesheet, customNumberFormats, 0);
 
         ResolveFonts(stylesheet, sharedFonts);
-        var allSharedFills = ResolveFills(stylesheet, sharedFills);
+        var allSharedFills = ResolveFills(stylesheet, sharedFills, out _);
         var allSharedBorders = ResolveBorders(stylesheet, sharedBorders);
 
         // A single cellStyleXf holding the default format; every cellXf points at it via FormatId 0.
@@ -967,8 +968,14 @@ internal static class WorkbookStylesPartWriter
         return convertedBorder.Equals(xlBorder.Key);
     }
 
+    /// <param name="stylesheet">The stylesheet the fills are resolved into.</param>
+    /// <param name="sharedFills">The fills the workbook's styles use.</param>
+    /// <param name="reservedFillsReplaced">
+    /// Set when position 0 or 1 did not hold none or gray125, and now does. A cell format already in
+    /// the stylesheet that names that position then no longer means what it did.
+    /// </param>
     private static Dictionary<XLFillValue, FillInfo> ResolveFills(Stylesheet stylesheet,
-        Dictionary<XLFillValue, FillInfo> sharedFills)
+        Dictionary<XLFillValue, FillInfo> sharedFills, out bool reservedFillsReplaced)
     {
         stylesheet.Fills ??= new Fills();
 
@@ -976,8 +983,8 @@ internal static class WorkbookStylesPartWriter
 
         // Pattern idx 0 and idx 1 are hardcoded to Excel with values None (0) and Gray125. Excel will ignore
         // values from the file. Every file has had these values inside to keep the first available idx at 2.
-        ResolveFillWithPattern(fills, 0, PatternValues.None);
-        ResolveFillWithPattern(fills, 1, PatternValues.Gray125);
+        reservedFillsReplaced = ResolveFillWithPattern(fills, 0, PatternValues.None);
+        reservedFillsReplaced |= ResolveFillWithPattern(fills, 1, PatternValues.Gray125);
 
         var allSharedFills = new Dictionary<XLFillValue, FillInfo>();
         foreach (var fillInfo in sharedFills.Values)
@@ -1009,13 +1016,17 @@ internal static class WorkbookStylesPartWriter
         return allSharedFills;
     }
 
-    private static void ResolveFillWithPattern(Fills fills, int index, PatternValues patternValues)
+    /// <summary>
+    /// Puts a fill of <paramref name="patternValues"/> at <paramref name="index"/>. Returns whether
+    /// it had to: the position was empty or held another fill.
+    /// </summary>
+    private static bool ResolveFillWithPattern(Fills fills, int index, PatternValues patternValues)
     {
         var fill = (Fill?)fills.ElementAtOrDefault(index);
         if (fill is null)
         {
             fills.InsertAt(new Fill { PatternFill = new PatternFill { PatternType = patternValues } }, index);
-            return;
+            return true;
         }
 
         var fillHasExpectedValue =
@@ -1024,9 +1035,10 @@ internal static class WorkbookStylesPartWriter
             fill.PatternFill.BackgroundColor is null;
 
         if (fillHasExpectedValue)
-            return;
+            return false;
 
         fill.PatternFill = new PatternFill { PatternType = patternValues };
+        return true;
     }
 
     private static Fill GetNewFill(FillInfo fillInfo, bool differentialFillFormat)

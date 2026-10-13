@@ -70,9 +70,9 @@ public class KeepSheetDataTests
     }
 
     [Test]
-    public async Task Only_the_first_save_keeps_the_cells()
+    public async Task A_second_save_keeps_the_cells_the_first_kept()
     {
-        // The markup the load kept describes the part only until the first save replaces it.
+        // The second save starts from the part the first one wrote, with the cells it kept (#719).
         using var source = Source(_ => { });
         using var wb = new XLWorkbook(source);
         using var first = new MemoryStream();
@@ -82,7 +82,7 @@ public class KeepSheetDataTests
         wb.SaveAs(second);
 
         await Assert.That(first.Sheet1Xml()).Contains(Kept);
-        await Assert.That(second.Sheet1Xml()).DoesNotContain(Kept);
+        await Assert.That(second.Sheet1Xml()).Contains(Kept);
         await AssertValues(second);
     }
 
@@ -245,6 +245,29 @@ public class KeepSheetDataTests
         await Assert.That(xml).Contains("<s:v>1.50</s:v>");
         await Assert.That(RowsInMainNamespace(xml)).IsEqualTo(2);
         await AssertValues(saved);
+    }
+
+    [Test]
+    public async Task Cells_whose_fill_the_save_moves_off_a_reserved_position_keep_their_fill()
+    {
+        // The file puts its own fills at positions 0 and 1, which Excel reserves for none and
+        // gray125. The save puts those back and moves the file's fills along, so a cell format of
+        // the file that names position 0 or 1 now names none or gray125. Kept cells would name it.
+        using var source = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\StyleReferenceFiles\FillAtReservedPosition-MoveFill-Input.xlsx"));
+        using var wb = new XLWorkbook(source);
+        using var first = new MemoryStream();
+        wb.SaveAs(first);
+        using var second = new MemoryStream();
+        wb.SaveAs(second);
+
+        foreach (var saved in new[] { first, second })
+        {
+            using var reloaded = new XLWorkbook(new MemoryStream(saved.ToArray()));
+            var ws = reloaded.Worksheet(1);
+            await Assert.That(ws.Cell("A1").Style.Fill.PatternType).IsEqualTo(XLFillPatternValues.DarkGray);
+            await Assert.That(ws.Cell("B1").Style.Fill.PatternType).IsEqualTo(XLFillPatternValues.LightGrid);
+        }
     }
 
     /// <summary>

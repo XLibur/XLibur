@@ -53,6 +53,7 @@ internal sealed class LoadedSheetData : IDisposable
     internal static bool CanKeepCells(XLWorksheet xlWorksheet, SaveOptions options, SaveContext context) =>
         !options.RewriteUnchangedSheets
         && context.StylesheetWasLoaded
+        && !context.ReservedFillsReplaced
         && CellsCanBeKept(xlWorksheet)
         && context.SharedStringsAtFileIndices(xlWorksheet.Workbook.SharedStringTable);
 

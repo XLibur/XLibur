@@ -119,7 +119,7 @@ public class LoadSaveFastPathTests
     }
 
     [Test]
-    public async Task The_part_kept_from_the_load_serves_one_save_only()
+    public async Task The_part_kept_from_the_load_is_replaced_by_the_part_the_save_left()
     {
         using var package = SaveStructuredWorkbook();
         using var wb = new XLWorkbook(package);
@@ -128,8 +128,9 @@ public class LoadSaveFastPathTests
         using var first = new MemoryStream();
         wb.SaveAs(first);
 
-        // The save has taken it: the next save starts from the part the first one wrote.
-        await Assert.That(ws.TakePartWithoutSheetData()).IsNull();
+        // The next save starts from the part the first one left, so that is the part kept (#719).
+        // Taking it here leaves the second save to write the part in full.
+        await Assert.That(ws.TakePartWithoutSheetData()).IsNotNull();
 
         ws.PageSetup.PageOrientation = XLPageOrientation.Portrait;
         wb.Worksheet(1).Cell("E5").Value = 42;

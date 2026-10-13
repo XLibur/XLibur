@@ -140,8 +140,10 @@ public class KeepUnchangedPartTests
     }
 
     [Test]
-    public async Task Only_the_first_save_keeps_the_part()
+    public async Task A_second_save_keeps_the_part_the_first_kept()
     {
+        // #719: the second save starts from the first one's output, where the part is still the
+        // one the load read.
         using var source = Source(_ => { });
         using var wb = new XLWorkbook(source);
         using var first = new MemoryStream();
@@ -151,7 +153,7 @@ public class KeepUnchangedPartTests
         wb.SaveAs(second);
 
         await Assert.That(IsAsTheFileHadIt(first, Sheet1)).IsTrue();
-        await Assert.That(IsAsTheFileHadIt(second, Sheet1)).IsFalse();
+        await Assert.That(IsAsTheFileHadIt(second, Sheet1)).IsTrue();
         await AssertValues(second);
     }
 
