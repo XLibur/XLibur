@@ -26,6 +26,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //               dotmemory
     //   properties  loops the XLBench open -> amend two document properties -> save round trip,
     //               for attaching a profiler; optionally takes a duration in seconds
+    //   sharedwrite sizes and allocation of a save with and without shared formulas (#692)
     //   keepsurvey  loads, saves and reloads every workbook in XLibur.Tests/Resource (or a given
     //               folder), and counts the sheets whose part the save kept (#702), why the others
     //               were written again, and the cell values that changed; --sheets lists each sheet
@@ -44,6 +45,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         case "loadalloc": LoadDecompositionProfile.Run(); break;
         case "dirtyread": DirtyFormulaReadProfile.Run(); break;
         case "sharedread": SharedFormulaReadProfile.Run(); break;
+        case "sharedwrite": SharedFormulaWriteBenchmarks.Profile(); break;
         case "hyperlinks": HyperlinkScalingProfile.Run(); break;
         case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
         case "firstedit": FirstEditProfile.Run(args); break;
