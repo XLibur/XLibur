@@ -315,29 +315,20 @@ internal static class SheetDataLocator
             var found = content[searchFrom..].IndexOf(endTag);
             if (found < 0)
             {
-                if (isLast || !IsPlainContent(content, name))
-                    return ScanResult.Refused;
-
                 // An end tag or a refused pattern cut off by the end of the content starts in its
                 // last bytes, and none is longer than the end tag.
-                at = Math.Max(0, content.Length - (endTag.Length - 1));
-                carried = content.Length - at;
-                return ScanResult.NeedMore;
+                var resumeAt = Math.Max(0, content.Length - (endTag.Length - 1));
+                return NeedMoreUnlessRefused(content, name, isLast, resumeAt, content.Length - resumeAt,
+                    out at, out carried);
             }
 
             var close = searchFrom + found;
-            var gt = close + endTag.Length;
-            while (gt < content.Length && IsWhitespace(content[gt]))
-                gt++;
+            var gt = SkipWhitespace(content, close + endTag.Length);
 
             if (gt == content.Length)
             {
-                if (isLast || !IsPlainContent(content[..close], name))
-                    return ScanResult.Refused;
-
-                at = close;
-                carried = endTag.Length;
-                return ScanResult.NeedMore;
+                return NeedMoreUnlessRefused(content[..close], name, isLast, close, endTag.Length,
+                    out at, out carried);
             }
 
             if (content[gt] == (byte)'>')
@@ -355,6 +346,39 @@ internal static class SheetDataLocator
             // A longer name that starts with this one, whose start tag the content check refuses.
             searchFrom = close + 1;
         }
+    }
+
+    /// <summary>
+    /// Ends a <see cref="FindEndTag"/> search that ran out of content: refused when the content is
+    /// the last of the part or what it holds so far is not plain, otherwise more is needed, from
+    /// <paramref name="resumeAt"/> on.
+    /// </summary>
+    /// <param name="checkedContent">The content searched so far, which has to be plain.</param>
+    /// <param name="name">The qualified name of the element.</param>
+    /// <param name="isLast">Does the content run to the end of the part?</param>
+    /// <param name="resumeAt">The index the content of the next call starts from.</param>
+    /// <param name="carry">How many bytes from <paramref name="resumeAt"/> on the next call needs.</param>
+    /// <param name="at"><paramref name="resumeAt"/> when more is needed, else 0.</param>
+    /// <param name="carried"><paramref name="carry"/> when more is needed, else 0.</param>
+    private static ScanResult NeedMoreUnlessRefused(ReadOnlySpan<byte> checkedContent, ReadOnlySpan<byte> name,
+        bool isLast, int resumeAt, int carry, out int at, out int carried)
+    {
+        at = carried = 0;
+        if (isLast || !IsPlainContent(checkedContent, name))
+            return ScanResult.Refused;
+
+        at = resumeAt;
+        carried = carry;
+        return ScanResult.NeedMore;
+    }
+
+    /// <summary>Returns the index of the first byte at or after <paramref name="from"/> that is not whitespace.</summary>
+    private static int SkipWhitespace(ReadOnlySpan<byte> xml, int from)
+    {
+        while (from < xml.Length && IsWhitespace(xml[from]))
+            from++;
+
+        return from;
     }
 
     private static bool ContainsStartTag(ReadOnlySpan<byte> content, ReadOnlySpan<byte> name)

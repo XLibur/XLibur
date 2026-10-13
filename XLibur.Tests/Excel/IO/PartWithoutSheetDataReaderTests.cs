@@ -36,6 +36,7 @@ public class PartWithoutSheetDataReaderTests
         "<sheetData />",
         "<sheetData></sheetData>",
         $"<sheetData>{Rows}</sheetData><!-- after --><mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells>",
+        $"<sheetPr codeName=\"sheetData\"/><sheetView name=\"x:sheetData \">sheetData x:sheetData</sheetView><sheetData>{Rows}</sheetData>",
 
         // Refused, as the locator refuses them.
         "<!-- <sheetData> --><sheetData/>",
@@ -107,8 +108,25 @@ public class PartWithoutSheetDataReaderTests
         var body = Encoding.Unicode.GetBytes($"<worksheet xmlns=\"{Main}\"><sheetData/></worksheet>");
 
         var copy = PartWithoutSheetDataReader.TryCopy(new MemoryStream(body), out _);
+        var withMark = PartWithoutSheetDataReader.TryCopy(
+            new MemoryStream([.. Encoding.Unicode.GetPreamble(), .. body]), out _);
 
         await Assert.That(copy).IsNull();
+        await Assert.That(withMark).IsNull();
+    }
+
+    [Test]
+    public async Task Keeps_a_utf8_byte_order_mark()
+    {
+        var sheetData = $"<sheetData>{Rows}</sheetData>";
+        byte[] xml = [.. Encoding.UTF8.GetPreamble(), .. Part(string.Empty, sheetData, 0)];
+
+        var copy = PartWithoutSheetDataReader.TryCopy(new MemoryStream(xml), windowLength: 16, out _);
+
+        await Assert.That(copy).IsNotNull();
+        await Assert.That(copy!.AsSpan(0, 3).SequenceEqual(Encoding.UTF8.GetPreamble())).IsTrue();
+        await Assert.That(Encoding.UTF8.GetString(copy, 3, copy.Length - 3))
+            .IsEqualTo(Encoding.UTF8.GetString(xml, 3, xml.Length - 3).Replace(sheetData, "<sheetData/>"));
     }
 
     /// <summary>
