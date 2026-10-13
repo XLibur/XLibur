@@ -105,4 +105,11 @@ public class SaveOptions
     public string? Password { get; set; }
 
     public bool ValidatePackage { get; set; }
+
+    /// <summary>
+    /// Write back, as shared formulas, the shared formulas that a load brought in, limited to the
+    /// cells that still hold them (ADR 0003, #692). Defaults to <c>true</c>. <c>false</c> writes a
+    /// formula of its own in every cell, as XLibur did before; tests and benchmarks compare the two.
+    /// </summary>
+    internal bool WriteSharedFormulas { get; set; } = true;
 }
