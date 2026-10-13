@@ -613,9 +613,9 @@ public partial class XLWorkbook
             // an index that does not move: a sheet whose cells this save does not change can then
             // keep them as the file had them (#702, #721).
             var values = cell.Worksheet.Internals.CellsCollection.ValueSlice;
-            var current = values.GetCellValue(cell.SheetPoint);
-            if (current.Type != XLDataType.Number || current.GetNumber() != i)
-                values.SetCellValue(cell.SheetPoint, (double)i);
+            XLCellValue richValueIndex = (double)i;
+            if (!values.GetCellValue(cell.SheetPoint).Equals(richValueIndex))
+                values.SetCellValue(cell.SheetPoint, richValueIndex);
         }
     }
 
