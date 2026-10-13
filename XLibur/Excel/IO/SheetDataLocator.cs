@@ -42,6 +42,31 @@ internal static class SheetDataLocator
         internal bool IsEmptyElement => StartTagEnd == End;
     }
 
+    /// <summary>What <see cref="LocateStartTag"/> found in the start of a part.</summary>
+    internal enum StartTagResult
+    {
+        /// <summary>The start tag is located.</summary>
+        Found,
+
+        /// <summary>The bytes so far hold no complete start tag, and nothing that rules one out.</summary>
+        NeedMore,
+
+        /// <summary>The part is not in a shape this can read exactly, however it goes on.</summary>
+        Refused,
+    }
+
+    /// <summary>Where the start tag of <c>&lt;sheetData&gt;</c> sits in the part.</summary>
+    /// <param name="Start">Index of the <c>&lt;</c> opening the start tag.</param>
+    /// <param name="End">Index just past the <c>&gt;</c> closing the start tag.</param>
+    /// <param name="NameStart">Index of the element's qualified name inside the start tag.</param>
+    /// <param name="NameLength">Byte length of the qualified name, prefix included.</param>
+    /// <param name="Prefix">The namespace prefix, or an empty string for none.</param>
+    internal readonly record struct StartTag(int Start, int End, int NameStart, int NameLength, string Prefix)
+    {
+        /// <summary>Whether the tag is an empty-element tag, <c>&lt;sheetData/&gt;</c>.</summary>
+        internal bool IsEmptyElement(ReadOnlySpan<byte> xml) => xml[End - 2] == (byte)'/';
+    }
+
     /// <summary>
     /// Locates <c>&lt;sheetData&gt;</c>, or returns false when the part is not in a shape this can
     /// read exactly.
@@ -50,47 +75,84 @@ internal static class SheetDataLocator
     {
         location = default;
 
-        var bodyStart = SkipPreamble(xml);
-        if (bodyStart < 0)
+        // On the whole part, a start tag that needs more bytes is not there.
+        if (LocateStartTag(xml, out var tag) != StartTagResult.Found)
             return false;
 
-        if (!TryFindStartTag(xml, bodyStart, out var start, out var nameStart, out var nameLength))
-            return false;
-
-        // Everything ahead of the element has to be plain elements, or the match above could sit
-        // inside a comment or a CDATA section.
-        if (ContainsNonElementMarkup(xml[bodyStart..start]))
-            return false;
-
-        var name = xml.Slice(nameStart, nameLength);
-        var tagEnd = FindTagEnd(xml, nameStart + nameLength);
-        if (tagEnd < 0)
-            return false;
-
-        var colon = name.IndexOf((byte)':');
-        var prefix = colon < 0 ? string.Empty : Encoding.UTF8.GetString(name[..colon]);
-
-        if (xml[tagEnd - 1] == (byte)'/')
+        if (tag.IsEmptyElement(xml))
         {
-            location = new Location(start, tagEnd + 1, tagEnd + 1, nameStart, nameLength, prefix);
+            location = new Location(tag.Start, tag.End, tag.End, tag.NameStart, tag.NameLength, tag.Prefix);
             return true;
         }
 
-        if (!TryFindEndTag(xml, tagEnd + 1, name, out var end))
+        if (!TryFindEndTag(xml, tag.End, xml.Slice(tag.NameStart, tag.NameLength), out var end))
             return false;
 
-        location = new Location(start, end, tagEnd + 1, nameStart, nameLength, prefix);
+        location = new Location(tag.Start, end, tag.End, tag.NameStart, tag.NameLength, tag.Prefix);
         return true;
     }
 
     /// <summary>
+    /// Locates the start tag of <c>&lt;sheetData&gt;</c> in <paramref name="xml"/>, which can be
+    /// only the start of the part, by the same rules as <see cref="TryLocate"/>.
+    /// </summary>
+    /// <remarks>
+    /// Says <see cref="StartTagResult.NeedMore"/> rather than refusing when the bytes run out first,
+    /// so a caller reading a stream can read on and ask again with more of it.
+    /// </remarks>
+    internal static StartTagResult LocateStartTag(ReadOnlySpan<byte> xml, out StartTag tag)
+    {
+        tag = default;
+
+        var bodyStart = SkipPreamble(xml);
+        if (bodyStart < 0)
+            return bodyStart == NeedMoreBytes ? StartTagResult.NeedMore : StartTagResult.Refused;
+
+        var found = FindStartTag(xml, bodyStart, out var start, out var nameStart, out var nameLength);
+        if (found != StartTagResult.Found)
+            return found;
+
+        // Everything ahead of the element has to be plain elements, or the match above could sit
+        // inside a comment or a CDATA section.
+        if (ContainsNonElementMarkup(xml[bodyStart..start]))
+            return StartTagResult.Refused;
+
+        var tagEnd = FindTagEnd(xml, nameStart + nameLength);
+        if (tagEnd < 0)
+            return tagEnd == NeedMoreBytes ? StartTagResult.NeedMore : StartTagResult.Refused;
+
+        var name = xml.Slice(nameStart, nameLength);
+        var colon = name.IndexOf((byte)':');
+        var prefix = colon < 0 ? string.Empty : Encoding.UTF8.GetString(name[..colon]);
+
+        tag = new StartTag(start, tagEnd + 1, nameStart, nameLength, prefix);
+        return StartTagResult.Found;
+    }
+
+    /// <summary>
+    /// Is <paramref name="content"/>, some of the content of <c>&lt;sheetData&gt;</c>, free of what
+    /// <see cref="TryLocate"/> refuses between the start and the end tag: a comment, CDATA section or
+    /// processing instruction, or a nested element of the same name?
+    /// </summary>
+    /// <param name="content">The bytes to check.</param>
+    /// <param name="name">The qualified name of the element, as its start tag spells it.</param>
+    internal static bool IsPlainContent(ReadOnlySpan<byte> content, ReadOnlySpan<byte> name) =>
+        !ContainsNonElementMarkup(content) && !ContainsStartTag(content, name);
+
+    /// <summary>
+    /// Returned by the helpers below in place of an index when the bytes ran out before they could
+    /// decide.
+    /// </summary>
+    private const int NeedMoreBytes = -2;
+
+    /// <summary>
     /// Returns the index the markup starts at, past a UTF-8 byte order mark and the XML declaration,
-    /// or -1 for anything other than UTF-8.
+    /// -1 for anything other than UTF-8, or <see cref="NeedMoreBytes"/> when the bytes end first.
     /// </summary>
     private static int SkipPreamble(ReadOnlySpan<byte> xml)
     {
         if (xml.Length < 4)
-            return -1;
+            return NeedMoreBytes;
 
         // UTF-16 and UTF-32, with or without a byte order mark: in either, one of the first four
         // bytes is 0x00 or the mark itself.
@@ -104,7 +166,7 @@ internal static class SheetDataLocator
 
         var declarationLength = rest.IndexOf("?>"u8);
         if (declarationLength < 0)
-            return -1;
+            return NeedMoreBytes;
 
         return IsUtf8Declaration(rest[..declarationLength]) ? pos + declarationLength + 2 : -1;
     }
@@ -132,7 +194,7 @@ internal static class SheetDataLocator
     /// <summary>
     /// Finds the first start tag whose local name is <c>sheetData</c>, with or without a prefix.
     /// </summary>
-    private static bool TryFindStartTag(ReadOnlySpan<byte> xml, int from, out int start, out int nameStart,
+    private static StartTagResult FindStartTag(ReadOnlySpan<byte> xml, int from, out int start, out int nameStart,
         out int nameLength)
     {
         ReadOnlySpan<byte> localName = "sheetData"u8;
@@ -142,13 +204,16 @@ internal static class SheetDataLocator
         {
             var found = xml[from..].IndexOf(localName);
             if (found < 0)
-                return false;
+                return StartTagResult.NeedMore;
 
             var local = from + found;
             var afterName = local + localName.Length;
             from = local + 1;
 
-            if (afterName >= xml.Length || !IsNameTerminator(xml[afterName]))
+            if (afterName >= xml.Length)
+                return StartTagResult.NeedMore;
+
+            if (!IsNameTerminator(xml[afterName]))
                 continue;
 
             if (!TryFindTagOpen(xml, local, out start))
@@ -156,7 +221,7 @@ internal static class SheetDataLocator
 
             nameStart = start + 1;
             nameLength = afterName - nameStart;
-            return nameLength <= MaxQualifiedNameLength;
+            return nameLength <= MaxQualifiedNameLength ? StartTagResult.Found : StartTagResult.Refused;
         }
     }
 
@@ -251,7 +316,8 @@ internal static class SheetDataLocator
 
     /// <summary>
     /// Returns the index of the <c>&gt;</c> that closes the tag, skipping any inside a quoted
-    /// attribute value, where the character is legal.
+    /// attribute value, where the character is legal; -1 at a <c>&lt;</c>, which cannot be in a
+    /// tag, or <see cref="NeedMoreBytes"/> when the bytes end first.
     /// </summary>
     private static int FindTagEnd(ReadOnlySpan<byte> xml, int from)
     {
@@ -278,7 +344,7 @@ internal static class SheetDataLocator
             }
         }
 
-        return -1;
+        return NeedMoreBytes;
     }
 
     private static bool ContainsNonElementMarkup(ReadOnlySpan<byte> region) =>

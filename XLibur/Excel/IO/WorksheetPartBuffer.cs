@@ -18,8 +18,9 @@ namespace XLibur.Excel.IO;
 /// once, and the markup around them is cut out by <see cref="SheetDataLocator"/> and kept, which
 /// serves both the structural pass and the first save.
 /// <para>
-/// Only parts up to <see cref="MaxBufferedLength"/> are buffered. A larger part keeps the
-/// streaming path, which never holds the whole part in memory.
+/// Only parts up to <see cref="MaxBufferedLength"/> are buffered. A larger part is streamed and
+/// never held whole: <see cref="PartWithoutSheetDataReader"/> makes the same copy without the cells
+/// from a stream (#723).
 /// </para>
 /// </remarks>
 internal sealed class WorksheetPartBuffer : IDisposable
