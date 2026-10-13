@@ -8,7 +8,7 @@ This is on by default, and `SaveOptions.WriteSharedFormulas = false` turns it of
 
 Two alternatives were rejected:
 
-- **Write no shared formulas.** The measurements below show that the files are 10–12% smaller and Excel opens them 28% faster. After the next XLibur load, the first recalculation allocates 24–25% less. The save costs the same.
+- **Write no shared formulas.** The measurements below show that with shared formulas the files are 9.6–10.7% smaller and Excel opens them 28% faster. An XLibur load of them takes 6–15% longer, but the first recalculation after it allocates 24–25% less. The save costs the same.
 - **Also find new shared formulas at save.** Excel itself does not do this. It writes a shared formula only for a block it filled or copied, and writes formulas entered one by one as formulas of their own, even when their R1C1 text is the same. To find new groups, XLibur would have to convert every formula to R1C1, which is about one parse per formula (232 B for `SUM(D5:H5)`, #686), to save bytes in files that Excel never writes that way.
 
 ## The rules a written shared formula keeps

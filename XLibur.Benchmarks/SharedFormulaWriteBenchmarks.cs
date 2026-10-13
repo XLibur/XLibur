@@ -53,7 +53,7 @@ public class SharedFormulaWriteBenchmarks
         {
             "FillDown50k" => BuildFillDown(50_000),
             "Orders10k" => BuildOrders(10_000),
-            _ => throw new ArgumentOutOfRangeException(nameof(Fixture), Fixture, null)
+            _ => throw new InvalidOperationException($"Unknown fixture '{Fixture}'.")
         };
 
         _output = Save(_input, Shared);
@@ -183,7 +183,7 @@ public class SharedFormulaWriteBenchmarks
 
         for (var row = 2; row <= rows + 1; row++)
         {
-            orders.Cell(row, 1).Value = new DateTime(2026, 1, 1).AddDays(row * 7 % 365);
+            orders.Cell(row, 1).Value = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(row * 7 % 365);
             orders.Cell(row, 2).Value = $"P{row * 13 % 50 + 1:000}";
             orders.Cell(row, 3).Value = row * 17 % 40 + 1;
             orders.Cell(row, 4).FormulaA1 = $"VLOOKUP(B{row},Products!$A$2:$C$51,2,FALSE)";

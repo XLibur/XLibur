@@ -113,8 +113,11 @@ public class SaveOptions
     /// <remarks>
     /// Excel saves a formula that was filled or copied as a shared formula: the first cell holds the
     /// formula text, and each later cell holds only a reference to it. By default a save keeps that
-    /// form for every cell whose formula has not changed or moved since the load. The file is smaller,
-    /// and Excel and XLibur read it faster. Formulas that a caller writes are never saved as shared.
+    /// form for every cell whose formula has not changed or moved since the load. The file is about
+    /// 10% smaller, and Excel opens it faster. XLibur loads it 6–15% more slowly, but a load followed
+    /// by a recalculation allocates less and takes the same time or less, because each cell of a shared
+    /// formula is evaluated through one parsed formula. Formulas that a caller writes are never saved
+    /// as shared.
     /// <para>
     /// Set this to <c>false</c> to write the formula text in every cell, as XLibur did before. Do
     /// that for a reader that reads the text of each cell's formula and does not expand shared

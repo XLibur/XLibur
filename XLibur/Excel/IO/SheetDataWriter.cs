@@ -35,7 +35,7 @@ internal static class SheetDataWriter
 
         var tableTotalCells = CollectTableTotalCells(xlWorksheet);
         var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
-        var sharedFormulas = options.WriteSharedFormulas ? SharedFormulaPlan.Create(xlWorksheet) : null;
+        var sharedFormulas = CollectSharedFormulas(xlWorksheet, options);
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var rowState = new RowWriterState();
@@ -105,6 +105,12 @@ internal static class SheetDataWriter
 
         xml.WriteEndElement(); // SheetData
     }
+
+    /// <summary>
+    /// The shared formulas to write back, or <c>null</c> when the save writes none (ADR 0003).
+    /// </summary>
+    private static SharedFormulaPlan? CollectSharedFormulas(XLWorksheet xlWorksheet, SaveOptions options)
+        => options.WriteSharedFormulas ? SharedFormulaPlan.Create(xlWorksheet) : null;
 
     private static HashSet<Point>? CollectTableTotalCells(XLWorksheet xlWorksheet)
     {

@@ -160,18 +160,22 @@ internal sealed class SharedFormulaPlan
     internal static bool IsShareable(string formulaA1)
     {
         var text = formulaA1.AsSpan();
-        for (var i = 0; i < text.Length; i++)
+        var i = 0;
+        while (i < text.Length)
         {
             switch (text[i])
             {
                 case '"':
-                    i = EndOfStringLiteral(text, i);
+                    i = EndOfStringLiteral(text, i) + 1;
                     break;
                 case '#':
-                    i += ErrorLiteralLength(text, i) - 1;
+                    i += ErrorLiteralLength(text, i);
                     break;
                 case '!' or '[':
                     return false;
+                default:
+                    i++;
+                    break;
             }
         }
 
@@ -181,15 +185,19 @@ internal sealed class SharedFormulaPlan
     /// <summary>The index of the quote that closes the string literal opened at <paramref name="start"/>.</summary>
     private static int EndOfStringLiteral(ReadOnlySpan<char> text, int start)
     {
-        for (var i = start + 1; i < text.Length; i++)
+        var i = start + 1;
+        while (i < text.Length)
         {
             if (text[i] != '"')
+            {
+                i++;
                 continue;
+            }
 
             // A doubled quote is a quote inside the literal.
             if (i + 1 < text.Length && text[i + 1] == '"')
             {
-                i++;
+                i += 2;
                 continue;
             }
 
