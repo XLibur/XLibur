@@ -28,6 +28,10 @@ _Avoid_: stale, pending, uncalculated
 **Circular reference**:
 A formula that depends on its own value, either directly or through other formulas.
 
+**Shared formula**:
+One formula text that a file stores once for a block of cells, as Excel saves a formula that was filled or copied. The first cell, the master, holds the text, the block's `ref` and its `si`. Each later cell holds only the `si`, and its formula is the master's moved by the offset between the two cells. XLibur writes back only the shared formulas a load brought in (ADR 0003).
+_Avoid_: shared group (in prose), formula group
+
 ### Results and failures
 
 **Error value**:
