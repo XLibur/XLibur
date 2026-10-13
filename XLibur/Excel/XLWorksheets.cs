@@ -307,9 +307,12 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
         if (!XLHelper.SheetComparer.Equals(oldSheetName, newSheetName))
             EnsureNameIsFree(newSheetName, nameof(newSheetName));
 
+        // Not through Add, which tells the calc engine a sheet was added, and so marks every formula
+        // dirty. The engine hears of the rename below, and marks them only when one could read
+        // differently (#720).
         _worksheets.Remove(oldSheetName);
         sheetName = newSheetName;
-        Add(newSheetName, sheet);
+        _worksheets.Add(newSheetName, sheet);
 
         foreach (var listener in GetWorkbookListeners())
             listener.OnSheetRenamed(oldSheetName, newSheetName);
@@ -321,10 +324,11 @@ internal sealed class XLWorksheets : IXLWorksheets, IEnumerable<XLWorksheet>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// One order serves both events. The calc engine comes first: on a rename it renames its
-    /// dependency tree, and on a delete it drops the tree and marks every formula dirty. Neither
-    /// reads the formula text that the holders after it change, so the engine and the holders
-    /// commute on both events.
+    /// One order serves both events. The calc engine comes first: on a delete it drops its dependency
+    /// tree and marks every formula dirty, and on a rename it drops the tree and marks them dirty
+    /// only when the text of a formula or a defined name names either sheet name. A holder after it
+    /// rewrites the old name to the new one, so that text names one of the two either way, and the
+    /// engine and the holders commute on both events.
     /// </para>
     /// <para>
     /// Each holder changes only its own text, and none of them reads another's, so the holders

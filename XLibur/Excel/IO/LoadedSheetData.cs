@@ -55,7 +55,7 @@ internal sealed class LoadedSheetData : IDisposable
     internal static bool CanKeepCells(XLWorksheet xlWorksheet, SaveOptions options, SaveContext context) =>
         !options.RewriteUnchangedSheets
         && context.StylesheetWasLoaded
-        && CellsCanBeKept(xlWorksheet)
+        && CellsCanBeKept(xlWorksheet, options, context)
         && context.SharedStringsAtFileIndices(xlWorksheet.Workbook.SharedStringTable);
 
     /// <summary>
@@ -117,21 +117,34 @@ internal sealed class LoadedSheetData : IDisposable
     /// Would the save write the sheet's cells as the file had them, and can it keep them?
     /// </summary>
     /// <remarks>
-    /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns;
-    /// cell images and dynamic arrays, whose <c>vm</c> and <c>cm</c> indices point into metadata the
-    /// save writes again; tables with a totals row, whose labels the writer takes from the table;
-    /// and pivot tables.
+    /// Excluded, as #702 lists them: cell images and dynamic arrays, whose <c>vm</c> and <c>cm</c>
+    /// indices point into metadata the save writes again; tables with a totals row, whose labels the
+    /// writer takes from the table; and pivot tables.
+    /// <para>
+    /// Formulas are not excluded (#720). The calc engine owns their text and cached values and changes
+    /// both without setting a cell: a rename or a shift rewrites the text in place, and a calculation
+    /// writes the value. <see cref="XLWorksheet.CellsChangedSinceLoad"/> counts both, and a dirty
+    /// formula whose cached value the save would recalculate or drop. A kept formula keeps the form the
+    /// file wrote it in, such as a shared formula, which the load reads as the same formula in each cell.
+    /// </para>
+    /// <para>
+    /// A save with <see cref="SaveOptions.EvaluateFormulasBeforeSaving"/> calculates the sheet's dirty
+    /// formulas here, before it compares, rather than as it writes the cells. A calculation that gives
+    /// every formula the value it had is then no change.
+    /// </para>
     /// </remarks>
-    private static bool CellsCanBeKept(XLWorksheet sheet)
+    private static bool CellsCanBeKept(XLWorksheet sheet, SaveOptions options, SaveContext context)
     {
         var cells = sheet.Internals.CellsCollection;
-        if (!cells.FormulaSlice.IsEmpty
-            || sheet.PivotTables.Any<IXLPivotTable>()
+        if (sheet.PivotTables.Any<IXLPivotTable>()
             || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow)
             || HasCellMetadata(cells.MiscSlice))
         {
             return false;
         }
+
+        if (options.EvaluateFormulasBeforeSaving)
+            SheetDataWriter.EvaluateDirtyFormulas(sheet, context);
 
         return !sheet.CellsChangedSinceLoad();
     }

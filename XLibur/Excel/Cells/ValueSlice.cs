@@ -152,6 +152,42 @@ internal sealed class ValueSlice : ISlice
     }
 
     /// <summary>
+    /// Writes the result of a formula, unless the cell already holds exactly that value.
+    /// </summary>
+    /// <remarks>
+    /// A recalculation that gives a formula the value it had then leaves <see cref="Version"/> alone,
+    /// so a loaded sheet whose formulas recalculate to the values the file had still counts as
+    /// unchanged, and a save can keep its cells (#720). The value must match in type as well:
+    /// a date the load typed by the cell's format and recalculated as a number is written.
+    /// </remarks>
+    internal void SetFormulaResult(Point point, XLCellValue cellValue)
+    {
+        if (!Holds(point, cellValue))
+            SetCellValue(point, cellValue);
+    }
+
+    /// <summary>
+    /// Does the cell at <paramref name="point"/> hold <paramref name="cellValue"/>, with the same type
+    /// and, for a number, the same bits? A text must be plain, not rich.
+    /// </summary>
+    private bool Holds(Point point, XLCellValue cellValue)
+    {
+        ref readonly var original = ref _values[point];
+        if (original.Type != cellValue.Type)
+            return false;
+
+        if (cellValue.Type == XLDataType.Text)
+        {
+            var id = (int)original.Value;
+            return _sst.GetRichText(id) is null
+                   && string.Equals(_sst[id], cellValue.GetText(), StringComparison.Ordinal);
+        }
+
+        return BitConverter.DoubleToInt64Bits(original.Value)
+               == BitConverter.DoubleToInt64Bits(GetNonTextSliceValue(cellValue));
+    }
+
+    /// <summary>
     /// Get the numeric representation of a non-text value, as it is stored in the slice.
     /// </summary>
     private static double GetNonTextSliceValue(XLCellValue cellValue)

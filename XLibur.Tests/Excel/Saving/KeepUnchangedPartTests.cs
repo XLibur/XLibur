@@ -119,13 +119,15 @@ public class KeepUnchangedPartTests
     }
 
     [Test]
-    public async Task A_sheet_with_a_formula_writes_the_part()
+    public async Task An_unchanged_sheet_with_a_formula_keeps_its_part()
     {
+        // Formulas no longer exclude a sheet (#720). KeepFormulaSheetTests covers what changes them.
         using var source = Source(ws => ws.Cell("C2").FormulaA1 = "A2*2");
 
         using var saved = LoadAndSave(source);
 
-        await Assert.That(IsAsTheFileHadIt(saved, Sheet1)).IsFalse();
+        await Assert.That(IsAsTheFileHadIt(saved, Sheet1)).IsTrue();
+        await AssertValues(saved);
     }
 
     [Test]

@@ -417,7 +417,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     point,
                     recursive: false,
                     recalculateSheetId: null);
-                valueSlice.SetCellValue(point, result.ToCellValue());
+                valueSlice.SetFormulaResult(point, result.ToCellValue());
             }
             else if (formula.Type == FormulaType.Array)
             {
@@ -434,7 +434,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                         var cellValue = result[rowIdx, colIdx];
                         var row = range.FirstPoint.Row + rowIdx;
                         var column = range.FirstPoint.Column + colIdx;
-                        valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
+                        valueSlice.SetFormulaResult(new Point(row, column), cellValue.ToCellValue());
                     }
                 }
             }
@@ -687,7 +687,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 appliedPoint,
                 recursive: false,
                 recalculateSheetId: recalculateSheetId);
-            valueSlice.SetCellValue(appliedPoint, single.ToCellValue());
+            valueSlice.SetFormulaResult(appliedPoint, single.ToCellValue());
         }
         else if (formula.Type == FormulaType.Array)
         {
@@ -709,7 +709,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     var cellValue = result[rowIdx, colIdx];
                     var row = range.FirstPoint.Row + rowIdx;
                     var column = range.FirstPoint.Column + colIdx;
-                    valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
+                    valueSlice.SetFormulaResult(new Point(row, column), cellValue.ToCellValue());
                 }
             }
         }
@@ -1096,10 +1096,84 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private static ScalarValue ToCellContentValue(AnyValue value, CalcContext ctx)
         => value.ReduceToScalar(ctx);
 
+    /// <summary>
+    /// A sheet was renamed. Every formula is marked dirty, as after a structural edit, when a formula
+    /// or a defined name could give a different result: its text names the old or the new name, or
+    /// calls <c>INDIRECT</c>, which can find a sheet by a name in a cell. A rename that none of them
+    /// names changes no result, so it leaves the cached values clean, and a save can keep the cells
+    /// of a sheet with formulas (#720).
+    /// </summary>
+    /// <remarks>
+    /// The engine hears of a rename before the holders rewrite their text, so a formula that names
+    /// the old name still does. Either way the dependency tree, which holds sheet names, is dropped;
+    /// the next edit builds it again from the rewritten text. The calculation chain and the spill
+    /// footprints hold sheet ids, which a rename does not change.
+    /// </remarks>
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {
-        if (_dependencyTree is not null)
-            _dependencyTree.RenameSheet(oldSheetName, newSheetName);
+        if (Workbook is null || _loading)
+            return;
+
+        if (AnyTextMayReadSheet(Workbook, oldSheetName, newSheetName))
+        {
+            Purge(Workbook.WorksheetsInternal);
+            return;
+        }
+
+        _needsDependencyTree |= _dependencyTree is not null;
+        _dependencyTree = null;
+    }
+
+    /// <summary>
+    /// Does the text of a formula or a defined name in <paramref name="workbook"/> contain either sheet
+    /// name, as written bare or quoted, or call <c>INDIRECT</c>? Matching text is enough: a name that
+    /// only matches inside another word costs a purge that was not needed, never a missed one.
+    /// </summary>
+    private static bool AnyTextMayReadSheet(XLWorkbook workbook, string oldSheetName, string newSheetName)
+    {
+        string[] needles =
+        [
+            oldSheetName,
+            oldSheetName.Replace("'", "''", StringComparison.Ordinal),
+            newSheetName,
+            newSheetName.Replace("'", "''", StringComparison.Ordinal),
+            "INDIRECT",
+        ];
+
+        foreach (var definedName in workbook.DefinedNamesInternal)
+        {
+            if (ContainsAny(definedName.RefersTo, needles))
+                return true;
+        }
+
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            foreach (var definedName in sheet.DefinedNames)
+            {
+                if (ContainsAny(definedName.RefersTo, needles))
+                    return true;
+            }
+
+            using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+            while (enumerator.MoveNext())
+            {
+                if (ContainsAny(enumerator.Current.A1, needles))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsAny(string text, string[] needles)
+    {
+        foreach (var needle in needles)
+        {
+            if (text.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 }
 
