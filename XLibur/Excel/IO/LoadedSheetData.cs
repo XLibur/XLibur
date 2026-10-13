@@ -118,12 +118,17 @@ internal sealed class LoadedSheetData : IDisposable
     /// </summary>
     /// <remarks>
     /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns;
-    /// cell images and dynamic arrays, whose <c>vm</c> and <c>cm</c> indices point into metadata the
-    /// save writes again; and tables with a totals row, whose labels the writer takes from the table.
+    /// cell images, whose <c>vm</c> indices point into metadata the save writes again; and tables
+    /// with a totals row, whose labels the writer takes from the table.
     /// <para>
     /// A pivot table is not excluded (#721). Neither the load nor the save writes its values into
     /// the cells: XLibur does not lay a pivot table out, so its area holds what the file had, and a
     /// change to the pivot table is written to its own part.
+    /// </para>
+    /// <para>
+    /// Nor is a <c>cm</c> index (#721). Only the load sets one, and the save writes it as loaded. The
+    /// cell metadata it points into is the file's metadata part, to which a save only appends a
+    /// block (for dynamic arrays), so every loaded index still names the block it named.
     /// </para>
     /// </remarks>
     private static bool CellsCanBeKept(XLWorksheet sheet)
@@ -131,7 +136,7 @@ internal sealed class LoadedSheetData : IDisposable
         var cells = sheet.Internals.CellsCollection;
         if (!cells.FormulaSlice.IsEmpty
             || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow)
-            || HasCellMetadata(cells.MiscSlice))
+            || HasValueMetadata(cells.MiscSlice))
         {
             return false;
         }
@@ -139,13 +144,13 @@ internal sealed class LoadedSheetData : IDisposable
         return !sheet.CellsChangedSinceLoad();
     }
 
-    private static bool HasCellMetadata(Slice<XLMiscSliceContent> misc)
+    private static bool HasValueMetadata(Slice<XLMiscSliceContent> misc)
     {
         var enumerator = new Slice<XLMiscSliceContent>.Enumerator(misc, Area.Full);
         while (enumerator.MoveNext())
         {
             ref readonly var content = ref enumerator.Current;
-            if (content.CellMetaIndex is not null || content.ValueMetaIndex is not null || content.CellImage is not null)
+            if (content.ValueMetaIndex is not null || content.CellImage is not null)
                 return true;
         }
 
