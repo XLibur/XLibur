@@ -39,6 +39,25 @@ public class PropertiesRoundTripBenchmarks
         return output.Length;
     }
 
+    /// <summary>
+    /// The same round trip, saved twice with no change between, as a caller who saves as they go
+    /// does. The second save starts from the first one's output (#719).
+    /// </summary>
+    [Benchmark]
+    public long OpenAmendPropertiesAndSaveTwice()
+    {
+        using var wb = new XLWorkbook(new MemoryStream(_propertiesBytes));
+
+        wb.Properties.Title = PropertiesFixture.Title;
+        wb.Properties.Category = PropertiesFixture.Category;
+
+        using var first = new MemoryStream();
+        wb.SaveAs(first);
+        using var second = new MemoryStream();
+        wb.SaveAs(second);
+        return first.Length + second.Length;
+    }
+
     /// <summary>Parse only, to split the round trip between load and save.</summary>
     [Benchmark]
     public int Open()

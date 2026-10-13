@@ -145,9 +145,34 @@ public partial class XLWorkbook
             wbPart.DeletePart(calChainPart);
     }
 
+    /// <summary>
+    /// The last save that wrote all its parts, until <see cref="KeepWhatTheSaveWrote"/> takes it.
+    /// </summary>
+    private SaveContext? _unkeptSave;
+
+    /// <summary>
+    /// Keeps what the last save wrote for the next save to compare against (#719): each worksheet
+    /// part minus its cells, the cells as saved, and the index each text was written at. Called once
+    /// the destination of the save is what the next save copies, and not before: a save that fails
+    /// after writing its parts, such as when the destination cannot be written, leaves the next save
+    /// copying the old source, which these would not describe.
+    /// </summary>
+    private void KeepWhatTheSaveWrote()
+    {
+        var save = _unkeptSave;
+        _unkeptSave = null;
+        if (save is null)
+            return;
+
+        SharedStringTable.RecordSavedIndices(save.SstMap);
+        foreach (var (sheet, markup, cells) in save.PartsForNextSave)
+            sheet.KeepSavedPart(markup, cells);
+    }
+
     // Adds child parts and generates content of the specified part.
     private void CreateParts(SpreadsheetDocument document, SaveOptions options)
     {
+        _unkeptSave = null;
         var context = new SaveContext();
         var workbookPart = document.WorkbookPart ?? document.AddWorkbookPart();
         var worksheets = WorksheetsInternal;
@@ -197,6 +222,8 @@ public partial class XLWorkbook
 
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
+
+        _unkeptSave = context;
     }
 
     /// <summary>

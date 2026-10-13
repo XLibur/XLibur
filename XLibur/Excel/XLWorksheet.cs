@@ -206,8 +206,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     internal string? RelId { get; set; }
 
     /// <summary>
-    /// The worksheet part as loaded, with <c>&lt;sheetData&gt;</c> emptied, and the <see cref="RelId"/>
-    /// it was read under. Null when the sheet was not loaded, was streamed, or has been saved since.
+    /// The worksheet part as loaded, or as the last save left it (#719), with <c>&lt;sheetData&gt;</c>
+    /// emptied, and the <see cref="RelId"/> it was read or written under. Null when the sheet was not
+    /// loaded, was streamed, or a save is writing it or failed to.
     /// </summary>
     private (byte[] Markup, string? RelId)? _partWithoutSheetData;
 
@@ -222,8 +223,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     /// <remarks>
     /// Valid once. A save writes a new part and makes its destination the source of the next save,
-    /// so the markup kept from the load no longer describes the part that save will find. Null also
-    /// when the sheet now points at a different part than the one it was loaded from.
+    /// so the markup kept from the load no longer describes the part that save will find; the save
+    /// keeps the markup of the part it leaves instead (<see cref="KeepSavedPart"/>). Null also when
+    /// the sheet now points at a different part than the one it was loaded from.
     /// </remarks>
     internal byte[]? TakePartWithoutSheetData()
     {
@@ -233,8 +235,26 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     /// <summary>
-    /// The cells as the file had them. Null when the sheet was not loaded, was loaded from a
-    /// template, or its part was too large to keep (see <see cref="RecordLoadedCells"/>).
+    /// Keeps the part a save has just written or left as it was, minus its cells, and the cells as
+    /// saved, once the destination of that save is the source of the next one (#719). The next save
+    /// compares against these as the first save compares against what the load kept.
+    /// </summary>
+    /// <param name="markup">The part as the save left it, with <c>&lt;sheetData&gt;</c> emptied.</param>
+    /// <param name="cells">
+    /// The cells as saved, or null when the save kept cells that had not changed since they were
+    /// recorded, so the record still describes them.
+    /// </param>
+    internal void KeepSavedPart(byte[] markup, SheetDataBaseline? cells)
+    {
+        _partWithoutSheetData = (markup, RelId);
+        if (cells is not null)
+            _loadedCells = cells;
+    }
+
+    /// <summary>
+    /// The cells as the file had them, or as the last save wrote them (<see cref="KeepSavedPart"/>).
+    /// Null when the sheet was not loaded, was loaded from a template, or its part was too large to
+    /// keep (see <see cref="RecordLoadedCells"/>).
     /// </summary>
     private SheetDataBaseline? _loadedCells;
 
@@ -265,7 +285,8 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     internal void ForgetLoadedCells() => _loadedCells = null;
 
     /// <summary>
-    /// Would a save write the sheet's <c>&lt;sheetData&gt;</c> differently from how the load read it?
+    /// Would a save write the sheet's <c>&lt;sheetData&gt;</c> differently from how the load read it,
+    /// or from how the last save wrote it?
     /// </summary>
     /// <remarks>
     /// <c>true</c> also when there is nothing to compare with: a sheet that was not loaded, was

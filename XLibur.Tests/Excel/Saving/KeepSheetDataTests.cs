@@ -70,9 +70,9 @@ public class KeepSheetDataTests
     }
 
     [Test]
-    public async Task Only_the_first_save_keeps_the_cells()
+    public async Task A_second_save_keeps_the_cells_the_first_kept()
     {
-        // The markup the load kept describes the part only until the first save replaces it.
+        // The second save starts from the part the first one wrote, with the cells it kept (#719).
         using var source = Source(_ => { });
         using var wb = new XLWorkbook(source);
         using var first = new MemoryStream();
@@ -82,7 +82,7 @@ public class KeepSheetDataTests
         wb.SaveAs(second);
 
         await Assert.That(first.Sheet1Xml()).Contains(Kept);
-        await Assert.That(second.Sheet1Xml()).DoesNotContain(Kept);
+        await Assert.That(second.Sheet1Xml()).Contains(Kept);
         await AssertValues(second);
     }
 

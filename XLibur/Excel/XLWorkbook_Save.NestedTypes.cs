@@ -91,6 +91,14 @@ public partial class XLWorkbook
         public bool StylesheetWasLoaded { get; set; }
 
         /// <summary>
+        /// Each worksheet part this save wrote or left as it was, with the part minus its cells and
+        /// the cells as saved, for the next save to compare against (#719). The cells are null when
+        /// the sheet's record of them still holds. The workbook takes these only once the destination
+        /// of this save is the source of the next one (<see cref="KeepWhatTheSaveWrote"/>).
+        /// </summary>
+        internal List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> PartsForNextSave { get; } = [];
+
+        /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
         /// metadata type. When <c>null</c>, no dynamic array formulas are present.
         /// </summary>
