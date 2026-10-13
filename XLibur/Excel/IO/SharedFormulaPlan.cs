@@ -48,12 +48,22 @@ internal enum SharedFormulaRole
 /// cells, and wraps a reference that runs off the sheet. XLibur writes <c>#REF!</c> there instead, so
 /// a cell whose text has <c>#REF!</c> is written as a formula of its own.</item>
 /// <item>Excel refuses a shared formula that has a reference to a sheet (also 3D and external) or a
-/// structured reference, and never writes one. A formula whose text has <c>!</c> or <c>[</c> is
-/// written as a formula of its own in every cell.</item>
+/// structured reference, and never writes one. A formula whose text has <c>!</c> or <c>[</c> outside
+/// a string literal and an error literal is written as a formula of its own in every cell
+/// (<see cref="IsShareable"/>).</item>
+/// <item>An array formula inside a shared formula's <c>ref</c> keeps its own formula; Excel opens
+/// that too.</item>
 /// </list>
 /// </remarks>
 internal sealed class SharedFormulaPlan
 {
+    /// <summary>The error literals that end in <c>!</c>, which would otherwise read as a sheet reference.</summary>
+    private static readonly string[] ErrorLiterals =
+    [
+        "#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NUM!", "#SPILL!", "#CALC!", "#FIELD!", "#BLOCKED!",
+        "#CONNECT!", "#BUSY!", "#UNKNOWN!", "#PYTHON!", "#EXTERNAL!",
+    ];
+
     private readonly Dictionary<SharedFormulaGroup, Group> _groups;
     private int _nextIndex;
 
@@ -138,10 +148,75 @@ internal sealed class SharedFormulaPlan
 
     /// <summary>
     /// Whether Excel opens this text as a shared formula. Excel refuses a reference to a sheet, which
-    /// a 3D and an external reference also have, and a structured reference. The test is on characters,
-    /// so a string literal with either character is written as a formula of its own in every cell too.
+    /// a 3D and an external reference also have, and a structured reference. In formula text those
+    /// are the only places a <c>!</c> or a <c>[</c> appears, apart from a string literal and an error
+    /// literal such as <c>#DIV/0!</c>, which Excel does share and which are skipped here.
     /// </summary>
-    private static bool IsShareable(string formulaA1) => formulaA1.AsSpan().IndexOfAny('!', '[') < 0;
+    /// <remarks>
+    /// A whole table is written <c>Table1[]</c> in a file, so it has a bracket too. Text that is not
+    /// skipped and has either character is written as a formula of its own in every cell, which costs
+    /// bytes and never makes a file Excel refuses.
+    /// </remarks>
+    internal static bool IsShareable(string formulaA1)
+    {
+        var text = formulaA1.AsSpan();
+        for (var i = 0; i < text.Length; i++)
+        {
+            switch (text[i])
+            {
+                case '"':
+                    i = EndOfStringLiteral(text, i);
+                    break;
+                case '#':
+                    i += ErrorLiteralLength(text, i) - 1;
+                    break;
+                case '!' or '[':
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The index of the quote that closes the string literal opened at <paramref name="start"/>.</summary>
+    private static int EndOfStringLiteral(ReadOnlySpan<char> text, int start)
+    {
+        for (var i = start + 1; i < text.Length; i++)
+        {
+            if (text[i] != '"')
+                continue;
+
+            // A doubled quote is a quote inside the literal.
+            if (i + 1 < text.Length && text[i + 1] == '"')
+            {
+                i++;
+                continue;
+            }
+
+            return i;
+        }
+
+        return text.Length;
+    }
+
+    /// <summary>
+    /// The length of the error literal that ends in <c>!</c> at <paramref name="start"/>, or 1 when
+    /// there is none there. A <c>#</c> inside a name, such as an unquoted sheet name, does not start one.
+    /// </summary>
+    private static int ErrorLiteralLength(ReadOnlySpan<char> text, int start)
+    {
+        if (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] is '_' or '.' or '\'' or '\\'))
+            return 1;
+
+        var rest = text[start..];
+        foreach (var literal in ErrorLiterals)
+        {
+            if (rest.StartsWith(literal, StringComparison.OrdinalIgnoreCase))
+                return literal.Length;
+        }
+
+        return 1;
+    }
 
     /// <summary>
     /// One shared formula of the sheet: its master, the area its cells span, and its <c>si</c>

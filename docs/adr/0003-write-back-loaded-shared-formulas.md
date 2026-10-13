@@ -4,11 +4,12 @@ A save writes each shared formula that a load brought in back as a shared formul
 
 A cell still holds its shared formula while its formula text and its position are the ones the load gave it (`XLCellFormula.TryGetShared`). Formula text in R1C1 depends on nothing else, so such a cell holds the same formula as every other cell of the group, and the save neither parses nor converts any formula to find out. An edit, a move, a row or column shift, a copy and a rewrite by a sheet rename each drop the group from the cell, and the cell is then written with its own text. Evaluation already relies on the same rule to read each cell of a shared formula through one tree (#686).
 
-Three alternatives were rejected:
+This is on by default, and `SaveOptions.WriteSharedFormulas = false` turns it off. Every reader that was tested reads the output, and a save writes back only the groups that its input file already had, so the output is no harder to read than the input. The switch is for a pipeline that reads the text of each cell's `<f>` element after XLibur saves, and that worked only because XLibur used to expand every shared formula.
 
-- **Write no shared formulas.** The measurements below show that the files are 10–12% smaller, Excel opens them 28% faster, and the next XLibur load recalculates with 24–25% less allocation. The save costs the same.
+Two alternatives were rejected:
+
+- **Write no shared formulas.** The measurements below show that the files are 10–12% smaller and Excel opens them 28% faster. After the next XLibur load, the first recalculation allocates 24–25% less. The save costs the same.
 - **Also find new shared formulas at save.** Excel itself does not do this. It writes a shared formula only for a block it filled or copied, and writes formulas entered one by one as formulas of their own, even when their R1C1 text is the same. To find new groups, XLibur would have to convert every formula to R1C1, which is about one parse per formula (232 B for `SUM(D5:H5)`, #686), to save bytes in files that Excel never writes that way.
-- **A public `SaveOptions` switch.** Every reader that was tested reads the output. A save writes back only the groups that its input file already had, so the output is no harder to read than the input. `SaveOptions.WriteSharedFormulas` exists, but it is internal, so that tests and benchmarks can compare the two forms. It can become public if a reader is found that needs it.
 
 ## The rules a written shared formula keeps
 
@@ -28,7 +29,9 @@ What Excel 16 does was measured over COM, with hand-made files opened by `Workbo
 | `si` not from 0, with gaps, out of order, or 4,000,000 | opens it |
 | Two groups whose `ref` ranges overlap | opens it |
 | A follower with text, even text that disagrees with the master | opens it, and reads the master's formula |
-| A defined name, a mixed range such as `SUM($A$1:A1)`, `ROW()` or `#REF!` in a shared formula | opens it |
+| A defined name, a mixed range such as `SUM($A$1:A1)`, `ROW()`, `#REF!` or `#DIV/0!` in a shared formula | opens it |
+| A bare table name (`SUM(TblA)+A1`) in a shared formula | opens it, and shows `#NAME?`. It shows the same for this text in a formula that is not shared, because a file writes a whole table as `TblA[]` |
+| An array formula inside a shared formula's `ref` | opens it, and keeps the array formula |
 
 What Excel writes as shared, measured from files that Excel saved:
 
@@ -44,7 +47,7 @@ From those, the writer (`SharedFormulaPlan`) writes a group as follows:
 - `ref` is the smallest area that holds the master and every cell written as a follower. Each follower is checked to be inside it.
 - `si` is numbered from 0 on each sheet, in the order the masters are written.
 - A cell whose text has `#REF!` is written on its own. Excel would wrap a reference there instead.
-- A group whose text has `!` or `[` is written on its own in every cell, because Excel refuses a sheet reference or a structured reference in a shared formula. The test is on characters, so a string literal with either character also turns sharing off. That costs bytes, not correctness.
+- A group whose text has `!` or `[` is written on its own in every cell, because Excel refuses a sheet reference or a structured reference in a shared formula. String literals and error literals such as `#DIV/0!` are skipped, because either can hold these characters and Excel shares both. The scan reads characters and does not parse. Where it is wrong, it only turns sharing off, which costs bytes and never makes a file that Excel refuses.
 - A group that has only one cell left is written on its own.
 
 ## Measurements
@@ -99,7 +102,6 @@ BenchmarkDotNet, on fixtures that `SharedFormulaWriteBenchmarks` builds in the s
 | | | yes | 159.77 ms | 3.46 ms | 31.34 MB |
 | | Orders10k | no | 77.31 ms | 1.39 ms | 22.60 MB |
 | | | yes | 81.73 ms | 1.60 ms | 23.85 MB |
-
 | LoadOutputAndRecalculate | FillDown50k | no | 352.5 ms | 7.00 ms | 91.60 MB |
 | | | yes | 269.4 ms | 5.38 ms | 80.33 MB |
 | | Orders10k | no | 3,879.8 ms | 76.70 ms | 107.35 MB |
@@ -125,5 +127,7 @@ A load and a save of a file from Excel keep its shared formulas, and only the ce
 Formulas that a caller writes are never shared. A file that XLibur creates from nothing still has a formula of its own in every cell.
 
 A rename of a sheet that a shared formula refers to drops the group, but such a group is never written as shared anyway. A row inserted above a group moves every cell of it and writes each on its own, although the moved block would still be a valid shared formula. Keeping a group through a uniform move would need the group's anchor to move with it, and is left for later.
+
+A later cell whose reference runs off the sheet shows a known gap in the loader, which this decision does not fix. Excel wraps the reference, so a master `A1048576*2` makes the next cell `A1*2`. XLibur reads that cell as `#REF!*2`. The writer now writes such a cell on its own, so a save keeps what XLibur read.
 
 If #720 keeps an unchanged formula sheet as the file had it, that sheet's shared formulas are kept with it. This decision covers the sheets that the save writes again.

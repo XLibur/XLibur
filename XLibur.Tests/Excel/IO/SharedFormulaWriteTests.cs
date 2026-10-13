@@ -285,13 +285,68 @@ public class SharedFormulaWriteTests
     [Test]
     public async Task A_structured_reference_is_written_on_its_own()
     {
-        // The test is on characters, so a string literal with a bracket keeps the formula unshared too.
-        using var wb = LoadWithSharedColumn("\"[\"&amp;A{0}");
+        using var wb = LoadWithSharedColumn("SUM(T[Val])+A{0}");
 
         var f = FormulaElements(Save(wb));
 
-        await Assert.That(f["B1"]).IsEqualTo("<x:f>\"[\"&amp;A1</x:f>");
-        await Assert.That(f["B2"]).IsEqualTo("<x:f>\"[\"&amp;A2</x:f>");
+        await Assert.That(f["B1"]).IsEqualTo("<x:f>SUM(T[Val])+A1</x:f>");
+        await Assert.That(f["B2"]).IsEqualTo("<x:f>SUM(T[Val])+A2</x:f>");
+    }
+
+    /// <summary>
+    /// Excel shares a formula with an error literal such as <c>#DIV/0!</c>, or with <c>!</c> or
+    /// <c>[</c> inside a string literal; neither is a sheet or a structured reference.
+    /// </summary>
+    [Test]
+    public async Task An_error_literal_or_a_string_literal_keeps_the_formula_shared()
+    {
+        using var wb = LoadWithSharedColumn("IF(A{0}=0,#DIV/0!,\"[!\"&amp;A{0})");
+
+        var saved = Save(wb);
+
+        var f = FormulaElements(saved);
+        await Assert.That(f["B1"]).IsEqualTo("<x:f t=\"shared\" ref=\"B1:B10\" si=\"0\">IF(A1=0,#DIV/0!,\"[!\"&amp;A1)</x:f>");
+        await Assert.That(f["B2"]).IsEqualTo("<x:f t=\"shared\" si=\"0\" />");
+        await AssertReadsBack(saved, Enumerable.Range(1, 10).ToDictionary(r => $"B{r}", r => (string?)$"IF(A{r}=0,#DIV/0!,\"[!\"&A{r})"));
+    }
+
+    [Test]
+    [Arguments("A1*2", true)]
+    [Arguments("IF(A1=0,#DIV/0!,A1)", true)]
+    [Arguments("IFERROR(A1,#value!)+#NULL!", true)]
+    [Arguments("\"a!b[c\"&A1", true)]
+    [Arguments("\"say \"\"hi!\"\"\"&A1", true)]
+    [Arguments("MyName*A1", true)]
+    [Arguments("Sheet2!A1", false)]
+    [Arguments("'My Sheet'!A1", false)]
+    [Arguments("SUM(Alpha:Beta!A1)", false)]
+    [Arguments("[1]Sheet1!A1", false)]
+    [Arguments("SUM(Table1[Val])", false)]
+    [Arguments("SUM(Table1[])", false)]
+    [Arguments("Sheet#REF!A1", false)]
+    [Arguments("\"unterminated !", true)]
+    public async Task Text_that_Excel_refuses_in_a_shared_formula_is_found(string formulaA1, bool shareable)
+    {
+        await Assert.That(SharedFormulaPlan.IsShareable(formulaA1)).IsEqualTo(shareable);
+    }
+
+    /// <summary>
+    /// An array formula written inside a loaded shared formula keeps its own formula, and the shared
+    /// formula keeps its <c>ref</c> around it, which Excel opens.
+    /// </summary>
+    [Test]
+    public async Task An_array_formula_inside_the_ref_keeps_its_own_formula()
+    {
+        using var wb = LoadWithSharedColumn();
+        wb.Worksheet(1).Range("B5:B6").FormulaArrayA1 = "A5:A6*3";
+
+        var saved = Save(wb);
+
+        var f = FormulaElements(saved);
+        await Assert.That(f["B1"]).IsEqualTo("<x:f t=\"shared\" ref=\"B1:B10\" si=\"0\">A1*2</x:f>");
+        await Assert.That(f["B5"]).IsEqualTo("<x:f t=\"array\" ref=\"B5:B6\">A5:A6*3</x:f>");
+        await Assert.That(f["B7"]).IsEqualTo("<x:f t=\"shared\" si=\"0\" />");
+        await AssertValidSharedFormulas(saved);
     }
 
     /// <summary>

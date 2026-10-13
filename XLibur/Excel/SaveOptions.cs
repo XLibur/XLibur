@@ -107,9 +107,19 @@ public class SaveOptions
     public bool ValidatePackage { get; set; }
 
     /// <summary>
-    /// Write back, as shared formulas, the shared formulas that a load brought in, limited to the
-    /// cells that still hold them (ADR 0003, #692). Defaults to <c>true</c>. <c>false</c> writes a
-    /// formula of its own in every cell, as XLibur did before; tests and benchmarks compare the two.
+    /// Write back the shared formulas that a load brought in, limited to the cells that still hold
+    /// them. Defaults to <c>true</c>.
     /// </summary>
-    internal bool WriteSharedFormulas { get; set; } = true;
+    /// <remarks>
+    /// Excel saves a formula that was filled or copied as a shared formula: the first cell holds the
+    /// formula text, and each later cell holds only a reference to it. By default a save keeps that
+    /// form for every cell whose formula has not changed or moved since the load. The file is smaller,
+    /// and Excel and XLibur read it faster. Formulas that a caller writes are never saved as shared.
+    /// <para>
+    /// Set this to <c>false</c> to write the formula text in every cell, as XLibur did before. Do
+    /// that for a reader that reads the text of each cell's formula and does not expand shared
+    /// formulas.
+    /// </para>
+    /// </remarks>
+    public bool WriteSharedFormulas { get; set; } = true;
 }
