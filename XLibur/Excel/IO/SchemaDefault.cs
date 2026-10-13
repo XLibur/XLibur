@@ -62,9 +62,13 @@ internal static class SchemaDefault
     /// <returns><paramref name="loaded"/> when it holds <paramref name="value"/>, else a new attribute
     /// value. A file can spell a number with more digits than it takes to tell it apart, such as
     /// <c>0.78749999999999998</c> for 0.7875, and that spelling stays while the number is the same
-    /// (#722).</returns>
+    /// (#722). The numbers are compared bit for bit: the loaded spelling stays only when it reads as
+    /// exactly the model's number.</returns>
     internal static DoubleValue Double(DoubleValue? loaded, double value) =>
-        loaded is { HasValue: true } && loaded.Value.Equals(value) ? loaded : new DoubleValue(value);
+        loaded is { HasValue: true }
+        && BitConverter.DoubleToInt64Bits(loaded.Value) == BitConverter.DoubleToInt64Bits(value)
+            ? loaded
+            : new DoubleValue(value);
 
     /// <summary>
     /// The value to set a measurement such as a width or a height to, which a save writes to six

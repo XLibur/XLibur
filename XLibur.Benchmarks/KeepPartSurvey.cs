@@ -46,7 +46,7 @@ namespace XLibur.Benchmarks;
 /// </para>
 /// <para>
 /// The producer of a file is read from its <c>docProps/app.xml</c>: Excel, XLibur or ClosedXML, or
-/// other (see <see cref="Producer"/>).
+/// other (see <see cref="ProducerOf"/>).
 /// </para>
 /// </remarks>
 public static class KeepPartSurvey
@@ -137,7 +137,7 @@ public static class KeepPartSurvey
         using (workbook)
         {
             var exclusions = workbook.Worksheets.Cast<XLWorksheet>()
-                .ToDictionary(ws => ws.Name, Exclusions, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(ws => ws.Name, ExclusionsOf, StringComparer.OrdinalIgnoreCase);
 
             byte[] saved;
             using (var output = new MemoryStream())
@@ -218,7 +218,7 @@ public static class KeepPartSurvey
     /// <summary>
     /// The exclusions from the fast path that the model shows, as <c>LoadedSheetData</c> lists them.
     /// </summary>
-    private static string Exclusions(XLWorksheet sheet)
+    private static string ExclusionsOf(XLWorksheet sheet)
     {
         var reasons = new List<string>();
         var cells = sheet.Internals.CellsCollection;
@@ -256,12 +256,12 @@ public static class KeepPartSurvey
     {
         var reloadedCells = new Dictionary<string, (XLCellValue Value, string Formula)>();
         foreach (var cell in reloaded.CellsUsed(XLCellsUsedOptions.Contents))
-            reloadedCells[cell.Address.ToString()!] = (cell.CachedValue, Formula(cell));
+            reloadedCells[cell.Address.ToString()] = (cell.CachedValue, Formula(cell));
 
         var mismatches = 0;
         foreach (var cell in saved.CellsUsed(XLCellsUsedOptions.Contents))
         {
-            if (!reloadedCells.Remove(cell.Address.ToString()!, out var other)
+            if (!reloadedCells.Remove(cell.Address.ToString(), out var other)
                 || !other.Value.Equals(cell.CachedValue)
                 || other.Formula != Formula(cell))
             {
@@ -297,7 +297,7 @@ public static class KeepPartSurvey
         List<string> partNames;
         using (var package = SpreadsheetDocument.Open(new MemoryStream(original, writable: false), false))
         {
-            producer = Producer(package);
+            producer = ProducerOf(package);
             partNames = WorksheetParts(package).Values
                 .Select(part => part.Uri.OriginalString.TrimStart('/'))
                 .ToList();
@@ -342,7 +342,7 @@ public static class KeepPartSurvey
     private static byte[]? WithMarker(byte[] xml)
     {
         var span = xml.AsSpan();
-        if (span.StartsWith("﻿"u8))
+        if (span is [0xEF, 0xBB, 0xBF, ..])
             span = span[3..];
         else if (span.Length >= 2 && (span[0] == 0xFF || span[0] == 0xFE || span[0] == 0))
             return null;
@@ -377,7 +377,7 @@ public static class KeepPartSurvey
     /// OpenXML SDK, which spells the root of the part <c>&lt;ap:Properties&gt;</c>. Excel declares
     /// the namespace as the default.
     /// </summary>
-    private static string Producer(SpreadsheetDocument package)
+    private static string ProducerOf(SpreadsheetDocument package)
     {
         var part = package.ExtendedFilePropertiesPart;
         if (part is null)
@@ -444,42 +444,9 @@ public static class KeepPartSurvey
         }
 
         foreach (var producer in Producers)
-        {
-            var misses = sheets.Where(s => s.Producer == producer && s.Outcome != Outcome.KeptWhole).ToList();
-            if (misses.Count == 0)
-                continue;
+            ReportMisses(producer, sheets.Where(s => s.Producer == producer && s.Outcome != Outcome.KeptWhole).ToList());
 
-            Console.WriteLine();
-            Console.WriteLine($"Not kept whole, {producer}: {misses.Count}");
-            foreach (var category in misses.GroupBy(s => s.Category)
-                         .OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
-            {
-                var example = category.First();
-                var detail = example.Detail.Length > 0 ? $" ({Truncate(example.Detail, 120)})" : string.Empty;
-                Console.WriteLine($"{category.Count(),6}  {category.Key}");
-                Console.WriteLine($"        e.g. {example.File} [{example.Sheet}]{detail}");
-            }
-        }
-
-        // For the issues that lift an exclusion: how many excluded sheets would then be kept whole,
-        // because the rest of their markup already matches?
-        var excluded = sheets.Where(s => s.Exclusions.Length > 0).ToList();
-        if (excluded.Count > 0)
-        {
-            Console.WriteLine();
-            Console.WriteLine("Excluded sheets by exclusion: markup equal / markup differs");
-            foreach (var reason in excluded.SelectMany(s => s.Exclusions.Split(", ")).Distinct().Order(StringComparer.Ordinal))
-            {
-                foreach (var producer in Producers)
-                {
-                    var group = excluded.Where(s => s.Producer == producer && s.Exclusions.Split(", ").Contains(reason)).ToList();
-                    if (group.Count == 0)
-                        continue;
-                    var equal = group.Count(s => !s.Category.StartsWith("markup: ", StringComparison.Ordinal));
-                    Console.WriteLine($"  {reason,-26} {producer,-18} {equal,5} / {group.Count - equal}");
-                }
-            }
-        }
+        ReportExclusions(sheets.Where(s => s.Exclusions.Length > 0).ToList());
 
         if (failures.Count > 0)
         {
@@ -487,6 +454,47 @@ public static class KeepPartSurvey
             Console.WriteLine("Failed to save or reload:");
             foreach (var failure in failures)
                 Console.WriteLine("  " + failure);
+        }
+    }
+
+    /// <summary>The sheets of one producer not kept whole, by category, with an example of each.</summary>
+    private static void ReportMisses(string producer, List<SheetResult> misses)
+    {
+        if (misses.Count == 0)
+            return;
+
+        Console.WriteLine();
+        Console.WriteLine($"Not kept whole, {producer}: {misses.Count}");
+        foreach (var category in misses.GroupBy(s => s.Category)
+                     .OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var example = category.First();
+            var detail = example.Detail.Length > 0 ? $" ({Truncate(example.Detail, 120)})" : string.Empty;
+            Console.WriteLine($"{category.Count(),6}  {category.Key}");
+            Console.WriteLine($"        e.g. {example.File} [{example.Sheet}]{detail}");
+        }
+    }
+
+    /// <summary>
+    /// For the issues that lift an exclusion: how many excluded sheets would then be kept whole,
+    /// because the rest of their markup already matches?
+    /// </summary>
+    private static void ReportExclusions(List<SheetResult> excluded)
+    {
+        if (excluded.Count == 0)
+            return;
+
+        Console.WriteLine();
+        Console.WriteLine("Excluded sheets by exclusion: markup equal / markup differs");
+        var reasons = excluded.SelectMany(s => s.Exclusions.Split(", ")).Distinct().Order(StringComparer.Ordinal);
+        foreach (var (reason, producer) in reasons.SelectMany(reason => Producers.Select(producer => (reason, producer))))
+        {
+            var group = excluded.Where(s => s.Producer == producer && s.Exclusions.Split(", ").Contains(reason)).ToList();
+            if (group.Count == 0)
+                continue;
+
+            var equal = group.Count(s => !s.Category.StartsWith("markup: ", StringComparison.Ordinal));
+            Console.WriteLine($"  {reason,-26} {producer,-18} {equal,5} / {group.Count - equal}");
         }
     }
 
@@ -563,41 +571,46 @@ public static class KeepPartSurvey
         {
             var left = Tokens(file);
             var right = Tokens(save);
-            for (var i = 0; ; i++)
+            var common = Math.Min(left.Count, right.Count);
+            for (var i = 0; i < common; i++)
             {
-                var l = i < left.Count ? left[i] : null;
-                var r = i < right.Count ? right[i] : null;
-                if (l is null || r is null)
-                {
-                    if (l is null && r is null)
-                        return ("none found", string.Empty);
-                    var extra = l ?? r!;
-                    return ($"{extra.Path} {(l is null ? "added" : "dropped")}", string.Empty);
-                }
-
-                if (l.Kind != r.Kind)
-                {
-                    if (r.Kind == Kind.Start)
-                        return ($"{r.Path} added", string.Empty);
-                    if (l.Kind == Kind.Start)
-                        return ($"{l.Path} dropped", string.Empty);
-                    return ($"{(l.Kind == Kind.Text ? l.Path : r.Path)} text", string.Empty);
-                }
-
-                switch (l.Kind)
-                {
-                    case Kind.Start when l.Name != r.Name:
-                        return ($"{Parent(l.Path)}: save writes <{LocalName(r.Path)}> where the file has <{LocalName(l.Path)}>",
-                            string.Empty);
-                    case Kind.Start:
-                        var attributeDifference = AttributeDifference(l, r);
-                        if (attributeDifference is not null)
-                            return attributeDifference.Value;
-                        break;
-                    case Kind.Text when l.Text != r.Text:
-                        return ($"{l.Path} text", $"file={l.Text}, save={r.Text}");
-                }
+                if (TokenDifference(left[i], right[i]) is { } difference)
+                    return difference;
             }
+
+            if (left.Count == right.Count)
+                return ("none found", string.Empty);
+
+            return left.Count > common
+                ? ($"{left[common].Path} dropped", string.Empty)
+                : ($"{right[common].Path} added", string.Empty);
+        }
+
+        /// <summary>How <paramref name="save"/> differs from <paramref name="file"/>, or null.</summary>
+        private static (string, string)? TokenDifference(Token file, Token save)
+        {
+            if (file.Kind != save.Kind)
+                return KindDifference(file, save);
+
+            return file.Kind switch
+            {
+                Kind.Start when file.Name != save.Name => (
+                    $"{Parent(file.Path)}: save writes <{LocalName(save.Path)}> where the file has <{LocalName(file.Path)}>",
+                    string.Empty),
+                Kind.Start => AttributeDifference(file, save),
+                Kind.Text when file.Text != save.Text => ($"{file.Path} text", $"file={file.Text}, save={save.Text}"),
+                _ => null,
+            };
+        }
+
+        /// <summary>One document has an element or text where the other has something else.</summary>
+        private static (string, string) KindDifference(Token file, Token save)
+        {
+            if (save.Kind == Kind.Start)
+                return ($"{save.Path} added", string.Empty);
+            if (file.Kind == Kind.Start)
+                return ($"{file.Path} dropped", string.Empty);
+            return ($"{(file.Kind == Kind.Text ? file.Path : save.Path)} text", string.Empty);
         }
 
         private static (string, string)? AttributeDifference(Token file, Token save)

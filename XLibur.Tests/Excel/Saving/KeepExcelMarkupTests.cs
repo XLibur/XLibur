@@ -123,6 +123,22 @@ public class KeepExcelMarkupTests
     }
 
     [Test]
+    public async Task A_margin_keeps_its_digits_only_while_it_is_the_same_number()
+    {
+        using var source = Source(ExcelSheet.Replace("header=\"0.3\"", "header=\"0.51180555555555496\"", StringComparison.Ordinal));
+
+        // A change elsewhere writes the part, and the margins with it.
+        using var unchanged = LoadAndSave(source, wb => wb.Worksheet("Data").SetTabColor(XLColor.Red));
+        using var changed = LoadAndSave(source, wb => wb.Worksheet("Data").PageSetup.Margins.Header = 0.5);
+
+        await Assert.That(Margins(unchanged).Attribute("header")!.Value).IsEqualTo("0.51180555555555496");
+        await Assert.That(Margins(changed).Attribute("header")!.Value).IsEqualTo("0.5");
+
+        static XElement Margins(Stream package) =>
+            Root(package).Elements().Single(e => e.Name.LocalName == "pageMargins");
+    }
+
+    [Test]
     public async Task A_changed_width_is_written()
     {
         using var source = Source(ExcelSheet.Replace("<sheetData>", GappedColumns, StringComparison.Ordinal));
