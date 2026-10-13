@@ -678,7 +678,7 @@ public partial class XLWorkbook
     {
         try
         {
-            return stream.Length > WorksheetPartBuffer.MaxBufferedLength;
+            return WorksheetPartBuffer.IsTooLarge(stream.Length);
         }
         catch (NotSupportedException)
         {

@@ -30,6 +30,7 @@ public class PartWithoutSheetDataReaderTests
         $"<sheetData>{Rows}</sheetData>",
         $"<sheetData foo=\"a>b\" bar='/>'>{Rows}</sheetData>",
         $"<sheetData>{Rows}</sheetData \t\r\n>",
+        $"<sheetData>{Rows}</sheetData{new string(' ', 600)}>",
         $"<sheetData>{Rows}</sheetDataX></sheetData>",
         "<sheetData/>",
         "<sheetData />",

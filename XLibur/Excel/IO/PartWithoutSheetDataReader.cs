@@ -11,13 +11,13 @@ namespace XLibur.Excel.IO;
 /// </summary>
 /// <remarks>
 /// The copy is the one <see cref="WorksheetPartBuffer.CopyWithoutSheetData"/> makes of a part it
-/// buffers, byte for byte, and <c>&lt;sheetData&gt;</c> is placed by the same rules
-/// (<see cref="SheetDataLocator"/>): any part the locator would refuse is refused here too.
+/// buffers, byte for byte. <c>&lt;sheetData&gt;</c> is placed by <see cref="SheetDataLocator"/>'s own
+/// searches, fed a stretch of the part at a time, so any part the locator would refuse is refused
+/// here too.
 /// <para>
-/// The cells are scanned in windows, by byte search, not tokenised. Each window starts with the last
-/// bytes of the one before, enough that a pattern split between two reads, such as the end tag, is
-/// found whole in the next window. A pattern found twice that way is one that refuses the part, so
-/// finding it twice does no harm.
+/// The cells are scanned in windows, by byte search, not tokenised. Each window starts with the bytes
+/// of the one before that <see cref="SheetDataLocator.FindEndTag"/> asks to see again, enough that a
+/// pattern split between two reads, such as the end tag, is found whole.
 /// </para>
 /// </remarks>
 internal static class PartWithoutSheetDataReader
@@ -31,15 +31,9 @@ internal static class PartWithoutSheetDataReader
     private const int DefaultWindowLength = 64 * 1024;
 
     /// <summary>
-    /// The most whitespace accepted between the name of the end tag and its <c>&gt;</c>, so the bytes
-    /// carried from one window to the next stay bounded.
-    /// </summary>
-    private const int MaxEndTagWhitespace = 256;
-
-    /// <summary>
     /// Reads <paramref name="part"/> to its end and returns the copy, or null when
     /// <see cref="SheetDataLocator"/> would not place <c>&lt;sheetData&gt;</c> exactly, or when the
-    /// copy would be longer than <see cref="MaxCopyLength"/>.
+    /// copy would be longer than <see cref="MaxCopyLength"/>. Stops reading as soon as it refuses.
     /// </summary>
     /// <param name="part">The inflated part, read from its start.</param>
     /// <param name="prefix">The prefix <c>&lt;sheetData&gt;</c> is written with, empty for none.</param>
@@ -73,9 +67,12 @@ internal static class PartWithoutSheetDataReader
                 copy.Write(xml[..(tag.End - 1)]);
                 copy.Write("/>"u8);
 
-                ReadOnlySpan<byte> name = xml.Slice(tag.NameStart, tag.NameLength).ToArray();
-                window = ArrayPool<byte>.Shared.Rent(windowLength + name.Length + 2 + MaxEndTagWhitespace);
-                if (!TrySkipContent(part, xml[tag.End..], atEnd, name, window, copy))
+                Span<byte> endTag = stackalloc byte[tag.NameLength + 2];
+                SheetDataLocator.WriteEndTag(xml.Slice(tag.NameStart, tag.NameLength), endTag);
+
+                // Room for a window and the bytes carried into it, never longer than the end tag.
+                window = ArrayPool<byte>.Shared.Rent(windowLength + endTag.Length);
+                if (!TrySkipContent(part, xml[tag.End..], atEnd, endTag, window, copy))
                     return null;
             }
 
@@ -125,10 +122,10 @@ internal static class PartWithoutSheetDataReader
             atEnd = read < wanted;
 
             var result = SheetDataLocator.LocateStartTag(head.AsSpan(0, headLength), out tag);
-            if (result == SheetDataLocator.StartTagResult.Found)
+            if (result == SheetDataLocator.ScanResult.Found)
                 return true;
 
-            if (result == SheetDataLocator.StartTagResult.Refused || atEnd)
+            if (result == SheetDataLocator.ScanResult.Refused || atEnd)
                 return false;
         }
     }
@@ -140,103 +137,31 @@ internal static class PartWithoutSheetDataReader
     /// <param name="part">The part, read up to the end of <paramref name="first"/>.</param>
     /// <param name="first">The content the head already holds, past the start tag.</param>
     /// <param name="atEnd">Has the part been read to its end?</param>
-    /// <param name="name">The qualified name of the element.</param>
-    /// <param name="window">The buffer to read into; longer than a window by the most carried.</param>
+    /// <param name="endTag"><c>&lt;/</c> and the qualified name of the element.</param>
+    /// <param name="window">The buffer to read into, a window plus <paramref name="endTag"/> long.</param>
     /// <param name="copy">The copy so far.</param>
-    private static bool TrySkipContent(Stream part, ReadOnlySpan<byte> first, bool atEnd, ReadOnlySpan<byte> name,
+    private static bool TrySkipContent(Stream part, ReadOnlySpan<byte> first, bool atEnd, ReadOnlySpan<byte> endTag,
         byte[] window, MemoryStream copy)
     {
         var span = first;
         while (true)
         {
-            switch (FindEndTag(span, name, atEnd, out var at))
+            switch (SheetDataLocator.FindEndTag(span, endTag, atEnd, out var at, out var carried))
             {
-                case Scan.Found:
+                case SheetDataLocator.ScanResult.Found:
                     copy.Write(span[at..]);
                     return copy.Length <= MaxCopyLength;
-                case Scan.Refused:
+                case SheetDataLocator.ScanResult.Refused:
                     return false;
             }
 
-            // Carry the bytes from 'at' into the next window, which may be the window itself.
-            var carried = span.Length - at;
-            span[at..].CopyTo(window);
+            // Carry what the search asks to see again into the next window. The span can be the
+            // window itself, which a span copy allows.
+            span.Slice(at, carried).CopyTo(window);
             var wanted = window.Length - carried;
             var read = part.ReadAtLeast(window.AsSpan(carried), wanted, throwOnEndOfStream: false);
             atEnd = read < wanted;
             span = window.AsSpan(0, carried + read);
-        }
-    }
-
-    private enum Scan
-    {
-        Found,
-        NeedMore,
-        Refused,
-    }
-
-    /// <summary>
-    /// Looks for the end tag of <c>&lt;sheetData&gt;</c> in <paramref name="span"/>, a stretch of its
-    /// content, refusing content <see cref="SheetDataLocator.IsPlainContent"/> refuses.
-    /// </summary>
-    /// <param name="span">Content of the element, possibly followed by its end tag and more.</param>
-    /// <param name="name">The qualified name of the element.</param>
-    /// <param name="isLast">Is <paramref name="span"/> the end of the part?</param>
-    /// <param name="at">
-    /// When found, the index just past the end tag. When more is needed, the index the next window
-    /// has to start from.
-    /// </param>
-    private static Scan FindEndTag(ReadOnlySpan<byte> span, ReadOnlySpan<byte> name, bool isLast, out int at)
-    {
-        at = 0;
-        Span<byte> endTag = stackalloc byte[name.Length + 2];
-        endTag[0] = (byte)'<';
-        endTag[1] = (byte)'/';
-        name.CopyTo(endTag[2..]);
-
-        var searchFrom = 0;
-        while (true)
-        {
-            var found = span[searchFrom..].IndexOf(endTag);
-            if (found < 0)
-            {
-                if (isLast || !SheetDataLocator.IsPlainContent(span, name))
-                    return Scan.Refused;
-
-                // An end tag or a refused pattern split by the window's end starts in its last
-                // bytes; every pattern is at most as long as the end tag.
-                at = Math.Max(0, span.Length - (endTag.Length - 1));
-                return Scan.NeedMore;
-            }
-
-            var close = searchFrom + found;
-            var gt = close + endTag.Length;
-            while (gt < span.Length && IsWhitespace(span[gt]))
-                gt++;
-
-            if (gt == span.Length)
-            {
-                if (isLast || gt - close > endTag.Length + MaxEndTagWhitespace
-                           || !SheetDataLocator.IsPlainContent(span[..close], name))
-                {
-                    return Scan.Refused;
-                }
-
-                at = close;
-                return Scan.NeedMore;
-            }
-
-            if (span[gt] == (byte)'>')
-            {
-                if (!SheetDataLocator.IsPlainContent(span[..close], name))
-                    return Scan.Refused;
-
-                at = gt + 1;
-                return Scan.Found;
-            }
-
-            // A longer name that starts with this one; the content check refuses its start tag.
-            searchFrom = close + 1;
         }
     }
 
@@ -255,6 +180,4 @@ internal static class PartWithoutSheetDataReader
             copy.Write(buffer, 0, read);
         }
     }
-
-    private static bool IsWhitespace(byte b) => b is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n';
 }

@@ -45,6 +45,12 @@ internal sealed class WorksheetPartBuffer : IDisposable
     internal SheetDataLocator.Location SheetData { get; }
 
     /// <summary>
+    /// Is a part of <paramref name="declaredLength"/> bytes, inflated, too large to buffer? Such a
+    /// part is split from a stream instead (<see cref="PartWithoutSheetDataReader"/>).
+    /// </summary>
+    internal static bool IsTooLarge(long declaredLength) => declaredLength > MaxBufferedLength;
+
+    /// <summary>
     /// Reads and splits the part, or returns null when it is too large, when its stream does not
     /// match the length the package declares, or when <see cref="SheetDataLocator"/> cannot place
     /// the cells exactly.
@@ -63,7 +69,7 @@ internal sealed class WorksheetPartBuffer : IDisposable
             return null;
         }
 
-        if (declaredLength <= 0 || declaredLength > MaxBufferedLength)
+        if (declaredLength <= 0 || IsTooLarge(declaredLength))
             return null;
 
         // One byte of headroom, so a stream that runs past its declared length is caught rather
