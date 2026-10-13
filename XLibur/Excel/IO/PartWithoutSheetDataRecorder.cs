@@ -120,19 +120,7 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
             }
             else if (b == (byte)'>')
             {
-                var previous = i > 0 ? buffer[i - 1] : _previous;
-                if (previous == (byte)'/')
-                {
-                    _copy.Write(buffer[..(i + 1)]);
-                }
-                else
-                {
-                    _copy.Write(buffer[..i]);
-                    _copy.Write("/>"u8);
-                }
-
-                _startTagCopied = true;
-                _mode = Mode.Skip;
+                CopyUpToTagClose(buffer, i);
                 return;
             }
         }
@@ -140,6 +128,27 @@ internal sealed class PartWithoutSheetDataRecorder : Stream
         _copy.Write(buffer);
         if (!buffer.IsEmpty)
             _previous = buffer[^1];
+    }
+
+    /// <summary>
+    /// Copies <paramref name="buffer"/> up to the <c>&gt;</c> at <paramref name="close"/> that closes
+    /// the start tag, as an empty element, and stops copying.
+    /// </summary>
+    private void CopyUpToTagClose(ReadOnlySpan<byte> buffer, int close)
+    {
+        var previous = close > 0 ? buffer[close - 1] : _previous;
+        if (previous == (byte)'/')
+        {
+            _copy.Write(buffer[..(close + 1)]);
+        }
+        else
+        {
+            _copy.Write(buffer[..close]);
+            _copy.Write("/>"u8);
+        }
+
+        _startTagCopied = true;
+        _mode = Mode.Skip;
     }
 
     /// <summary>
