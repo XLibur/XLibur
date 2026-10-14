@@ -49,6 +49,7 @@ internal static class ConditionalFormatReader
                 conditionalFormat.Values.Add(new XLFormula { _value = fr.Text.Value!, IsFormula = false });
 
             LoadTop10OrTimePeriod(fr, conditionalFormat);
+            LoadAboveAverage(fr, conditionalFormat);
             LoadScaleBarOrIconSet(fr, conditionalFormat);
 
             AddLoadedConditionalFormat(conditionalFormatting, ws, context, conditionalFormat);
@@ -144,6 +145,20 @@ internal static class ConditionalFormatReader
                 ? fr.TimePeriod.Value.ToXLibur()
                 : XLTimePeriod.Yesterday;
         }
+    }
+
+    /// <summary>
+    /// The attributes that say which values an above- or below-average rule formats. A missing attribute
+    /// takes its schema default: above the average, not equal to it, and no standard deviation (#743).
+    /// </summary>
+    private static void LoadAboveAverage(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
+    {
+        if (conditionalFormat.ConditionalFormatType != XLConditionalFormatType.AboveAverage)
+            return;
+
+        conditionalFormat.AboveAverage = OpenXmlHelper.GetBooleanValueAsBool(fr.AboveAverage, true);
+        conditionalFormat.EqualAverage = OpenXmlHelper.GetBooleanValueAsBool(fr.EqualAverage, false);
+        conditionalFormat.StdDev = fr.StdDev is { HasValue: true } stdDev ? stdDev.Value : null;
     }
 
     private static void LoadScaleBarOrIconSet(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)

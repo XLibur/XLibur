@@ -44,6 +44,9 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                    && xx.Operator == yy.Operator
                    && xx.Bottom == yy.Bottom
                    && xx.Percent == yy.Percent
+                   && xx.AboveAverage == yy.AboveAverage
+                   && xx.EqualAverage == yy.EqualAverage
+                   && xx.StdDev == yy.StdDev
                    && xx.ReverseIconOrder == yy.ReverseIconOrder
                    && xx.StopIfTrue == yy.StopIfTrue
                    && xx.ShowIconOnly == yy.ShowIconOnly
@@ -102,6 +105,9 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                 hashCode = (hashCode * 397) ^ (int)xx.Operator;
                 hashCode = (hashCode * 397) ^ xx.Bottom.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.Percent.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.AboveAverage.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.EqualAverage.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.StdDev.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ReverseIconOrder.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ShowIconOnly.GetHashCode();
                 hashCode = (hashCode * 397) ^ xx.ShowBarOnly.GetHashCode();
@@ -550,6 +556,25 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public bool Percent { get; set; }
 
+    /// <summary>
+    /// For an <see cref="XLConditionalFormatType.AboveAverage"/> rule, whether it formats the values above
+    /// the average (the rule's <c>aboveAverage</c> attribute, <c>true</c> by default) rather than those below.
+    /// </summary>
+    internal bool AboveAverage { get; set; } = true;
+
+    /// <summary>
+    /// For an <see cref="XLConditionalFormatType.AboveAverage"/> rule, whether a value equal to the average
+    /// is formatted too (the rule's <c>equalAverage</c> attribute, <c>false</c> by default).
+    /// </summary>
+    internal bool EqualAverage { get; set; }
+
+    /// <summary>
+    /// For an <see cref="XLConditionalFormatType.AboveAverage"/> rule, the number of standard deviations above
+    /// or below the average a value must lie (the rule's <c>stdDev</c> attribute), or <c>null</c> when the rule
+    /// compares with the average itself.
+    /// </summary>
+    internal int? StdDev { get; set; }
+
     public bool ReverseIconOrder { get; set; }
 
     public bool ShowIconOnly { get; set; }
@@ -595,6 +620,13 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         Operator = other.Operator;
         Bottom = other.Bottom;
         Percent = other.Percent;
+        if (other is XLConditionalFormat xlOther)
+        {
+            AboveAverage = xlOther.AboveAverage;
+            EqualAverage = xlOther.EqualAverage;
+            StdDev = xlOther.StdDev;
+        }
+
         ReverseIconOrder = other.ReverseIconOrder;
         ShowIconOnly = other.ShowIconOnly;
         ShowBarOnly = other.ShowBarOnly;
