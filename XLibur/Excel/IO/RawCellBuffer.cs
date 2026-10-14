@@ -27,7 +27,7 @@ internal sealed class RawCellBuffer
 {
     /// <summary>
     /// Room for the longest cell this writes: the tags, a 10-character reference, a style id, the
-    /// three optional metadata attributes and a G15 number, with margin.
+    /// three optional metadata attributes and a number of up to 24 characters, with margin.
     /// </summary>
     private const int MaxCellLength = 256;
 
@@ -133,7 +133,7 @@ internal sealed class RawCellBuffer
                 AppendNumber(value.GetUnifiedNumber());
                 break;
             case XLDataType.DateTime:
-                AppendNumber(CellXmlWriter.ToSerialDateTime(value.GetDateTime(), use1904DateSystem));
+                AppendNumber(CellXmlWriter.ToFileSerialDateTime(value.GetUnifiedNumber(), use1904DateSystem));
                 break;
             case XLDataType.Boolean:
                 Append(value.GetBoolean() ? TrueValue : FalseValue);
@@ -188,13 +188,15 @@ internal sealed class RawCellBuffer
     }
 
     /// <summary>
-    /// The same "G15" invariant text <c>XmlWriterExtensions.WriteNumberValue(double)</c> writes.
+    /// The same text <see cref="CellXmlWriter.WriteNumberValue"/> writes: the shortest that reads
+    /// back as the same <c>double</c>.
     /// </summary>
     private void AppendNumber(double value)
     {
-        if (!value.TryFormat(_buffer.AsSpan(_length), out var written, "G15", CultureInfo.InvariantCulture))
+        if (!value.TryFormat(_buffer.AsSpan(_length), out var written, CellXmlWriter.NumberFormat,
+                CultureInfo.InvariantCulture))
         {
-            Append(value.ToString("G15", CultureInfo.InvariantCulture));
+            Append(value.ToString(CellXmlWriter.NumberFormat, CultureInfo.InvariantCulture));
             return;
         }
 

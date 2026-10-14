@@ -11,10 +11,18 @@ namespace XLibur.Extensions;
 internal static class XmlWriterExtensions
 {
     /// <summary>
-    /// Enough for any <c>double</c> in "G15" form (longest is 22 chars, e.g.
-    /// <c>-1.23456789012345E-308</c>) and for any <c>int</c>/<c>uint</c>.
+    /// Enough for any <c>double</c> in "G15" or "R" form (the longest is 24 chars, e.g.
+    /// <c>-2.2250738585072014E-308</c>) and for any <c>int</c>/<c>uint</c>.
     /// </summary>
     private const int NumberBufferLength = 32;
+
+    /// <summary>
+    /// The format of a value that a load must read back as the same <c>double</c>: the shortest
+    /// text that round-trips, up to the 17 significant digits Excel itself writes. A cell's number
+    /// and a pivot cache record need it; "G15" drops the 16th and 17th digits (#741). An integer or
+    /// a short decimal is spelled as in "G15".
+    /// </summary>
+    internal const string RoundTripNumberFormat = "R";
 
     [ThreadStatic] private static char[]? _tNumberBuffer;
 
@@ -45,6 +53,13 @@ internal static class XmlWriterExtensions
         {
             w.WriteStartAttribute(attrName);
             w.WriteNumberValue(value);
+            w.WriteEndAttribute();
+        }
+
+        public void WriteAttribute(string attrName, double value, string format)
+        {
+            w.WriteStartAttribute(attrName);
+            w.WriteNumberValue(value, format);
             w.WriteEndAttribute();
         }
 
@@ -119,14 +134,24 @@ internal static class XmlWriterExtensions
         /// <see cref="ObjectExtensions.ToInvariantString{T}"/>, but formatted into a reusable
         /// buffer instead of allocating a string per value.
         /// </summary>
-        public void WriteNumberValue(double value)
+        /// <remarks>
+        /// For measures and settings such as a width, a height or a tint. A value whose double a
+        /// load must read back unchanged takes <see cref="RoundTripNumberFormat"/> instead.
+        /// </remarks>
+        public void WriteNumberValue(double value) => w.WriteNumberValue(value, "G15");
+
+        /// <summary>
+        /// Write a double in the invariant <paramref name="format"/>, formatted into a reusable
+        /// buffer instead of allocating a string per value.
+        /// </summary>
+        public void WriteNumberValue(double value, string format)
         {
             var buffer = _tNumberBuffer ??= new char[NumberBufferLength];
-            if (!value.TryFormat(buffer, out var charsWritten, "G15", CultureInfo.InvariantCulture))
+            if (!value.TryFormat(buffer, out var charsWritten, format, CultureInfo.InvariantCulture))
             {
-                // Unreachable for double with "G15" (longest output is ~22 chars), but a silent
+                // Unreachable for "G15" and "R" (the longest output is 24 chars), but a silent
                 // empty attribute would corrupt the file, so fall back rather than trust it.
-                w.WriteString(value.ToString("G15", CultureInfo.InvariantCulture));
+                w.WriteString(value.ToString(format, CultureInfo.InvariantCulture));
                 return;
             }
 

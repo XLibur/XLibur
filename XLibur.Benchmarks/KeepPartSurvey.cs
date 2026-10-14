@@ -20,10 +20,12 @@ namespace XLibur.Benchmarks;
 /// and why. It also reloads each saved workbook and counts the cells whose value or formula changed.
 /// </summary>
 /// <remarks>
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile keepsurvey [folder] [--sheets] [--dump dir]
+/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile keepsurvey [folder] [--sheets] [--rewrite] [--dump dir]
 /// <para>
 /// The folder defaults to <c>XLibur.Tests/Resource</c>. <c>--sheets</c> adds one tab-separated
-/// line per worksheet after the summary. <c>--dump</c> writes the markup of each sheet not kept
+/// line per worksheet after the summary. <c>--rewrite</c> saves with
+/// <see cref="SaveOptions.RewriteUnchangedSheets"/>, so every sheet is written from the model and
+/// the mismatch count covers the whole writer. <c>--dump</c> writes the markup of each sheet not kept
 /// whole, without its cells, as the file had it (<c>.file.xml</c>) and as the save wrote it
 /// (<c>.save.xml</c>), for a diff.
 /// </para>
@@ -67,6 +69,7 @@ public static class KeepPartSurvey
     {
         var options = args.Skip(2).ToList();
         var showSheets = options.Remove("--sheets");
+        var saveOptions = new SaveOptions { RewriteUnchangedSheets = options.Remove("--rewrite") };
         var dump = options.IndexOf("--dump");
         if (dump >= 0 && dump + 1 < options.Count)
         {
@@ -90,7 +93,7 @@ public static class KeepPartSurvey
             var name = Path.GetRelativePath(folder, file).Replace('\\', '/');
             try
             {
-                sheets.AddRange(Survey(name, File.ReadAllBytes(file), out var loaded));
+                sheets.AddRange(Survey(name, File.ReadAllBytes(file), saveOptions, out var loaded));
                 if (!loaded)
                     notLoaded++;
             }
@@ -109,7 +112,7 @@ public static class KeepPartSurvey
     /// Loads, saves and reloads one workbook. Returns no sheets, with <paramref name="loaded"/>
     /// false, when the source does not load; a source that loads but does not save or reload throws.
     /// </summary>
-    private static List<SheetResult> Survey(string file, byte[] original, out bool loaded)
+    private static List<SheetResult> Survey(string file, byte[] original, SaveOptions saveOptions, out bool loaded)
     {
         loaded = false;
         byte[] source;
@@ -142,7 +145,7 @@ public static class KeepPartSurvey
             byte[] saved;
             using (var output = new MemoryStream())
             {
-                workbook.SaveAs(output);
+                workbook.SaveAs(output, saveOptions);
                 saved = output.ToArray();
             }
 
