@@ -212,8 +212,10 @@ internal static class WorksheetSheetDataReader
     /// </remarks>
     private static void SkipToTag(XmlReader reader)
     {
-        while (reader.NodeType is not (XmlNodeType.Element or XmlNodeType.EndElement) && reader.Read())
+        while (reader.NodeType is not (XmlNodeType.Element or XmlNodeType.EndElement))
         {
+            if (!reader.Read())
+                return;
         }
     }
 
