@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -14,41 +15,53 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class RichDataReader
 {
-    // Relationship types used to find the parts
-    private const string RichValueRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue";
-    private const string RichValueStructureRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure";
-    private const string RichValueRelRelType = "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel";
-
     /// <summary>
     /// Load rich data parts from the workbook part. If successful, populates
     /// <see cref="LoadContext.RichValueImages"/> with vm-to-CellImage mapping.
     /// </summary>
     internal static void LoadRichData(WorkbookPart workbookPart, XLWorkbook workbook, LoadContext context)
     {
-        // Find rich data parts by relationship type
-        var richValuePart = FindPartByRelType(workbookPart, RichValueRelType);
-        var richValueStructurePart = FindPartByRelType(workbookPart, RichValueStructureRelType);
-        var richValueRelPart = FindPartByRelType(workbookPart, RichValueRelRelType);
+        // Find rich data parts by relationship type. Excel relates the rich value relationship
+        // part by its 2022 type; XLibur used the 2017 one before #739.
+        var richValuePart = FindPartByRelType(workbookPart, RichDataWriter.RichValueRelType);
+        var richValueStructurePart = FindPartByRelType(workbookPart, RichDataWriter.RichValueStructureRelType);
+        var richValueRelPart = FindPartByRelType(workbookPart, RichDataWriter.RichValueRelRelType)
+                               ?? FindPartByRelType(workbookPart, RichDataWriter.LegacyRichValueRelRelType);
 
-        // If any of the required parts are missing, skip
-        if (richValuePart is null || richValueStructurePart is null || richValueRelPart is null)
+        if (richValuePart is null)
             return;
 
-        // 1. Parse structure to find _localImage structure index
-        var localImageStructureIndex = FindLocalImageStructureIndex(richValueStructurePart);
-        if (localImageStructureIndex < 0)
+        // 1. Parse structures to find each _localImage structure and the positions of its keys
+        var localImageStructures = richValueStructurePart is null
+            ? new Dictionary<int, LocalImageLayout>()
+            : FindLocalImageStructures(richValueStructurePart);
+
+        // 2. Parse rdrichvalue.xml to build rv index -> (rel index, alt text)
+        var richValues = ParseRichValues(richValuePart, localImageStructures);
+        if (richValues.Count == 0)
             return;
 
-        // 2. Parse richValueRel to get image relationship IDs in order
-        var imageRelIds = ParseRichValueRel(richValueRelPart);
+        // 3. Parse richValueRel to get image relationship IDs in order
+        var imageRelIds = richValueRelPart is null ? [] : ParseRichValueRel(richValueRelPart);
 
-        // 3. Load image bytes from relationship targets into the workbook store
+        // The save rewrites the rich data parts from the images it knows and drops every other
+        // rich value. Unless each rich value is a local image whose relationship resolves, the
+        // workbook's rich data is left as the file has it, and so are its cells, and no image
+        // can be added: the rewrite would drop the other rich values and leave their cells'
+        // vm indexes naming the new images, or nothing.
+        if (richValueRelPart is null ||
+            !richValues.TrueForAll(rv => rv is { } v && v.RelIndex >= 0 && v.RelIndex < imageRelIds.Count &&
+                                         richValueRelPart.TryGetPartById(imageRelIds[v.RelIndex], out _)))
+        {
+            workbook.KeepsLoadedRichData = true;
+            return;
+        }
+
+        // 4. Load image bytes from relationship targets into the workbook store
         var relIndexToImageStoreIndex = LoadImages(richValueRelPart, imageRelIds, workbook);
-
-        // 4. Parse rdrichvalue.xml to build rv index -> (imageStoreIndex, altText)
-        var rvEntries = ParseRichValues(richValuePart, localImageStructureIndex, relIndexToImageStoreIndex);
-        if (rvEntries.Count == 0)
-            return;
+        var rvEntries = richValues
+            .Select(rv => (XLCellImage?)new XLCellImage(relIndexToImageStoreIndex[rv!.Value.RelIndex], rv.Value.AltText))
+            .ToList();
 
         // 5. Parse metadata.xml to map vm (1-based) -> rv index (0-based)
         var vmToRvIndex = ParseValueMetadata(workbookPart);
@@ -116,27 +129,65 @@ internal static class RichDataReader
     }
 
     /// <summary>
-    /// Find the 0-based index of the _localImage structure in rdrichvaluestructure.xml.
+    /// The positions, among the values of a rich value, of a local image's keys.
     /// </summary>
-    private static int FindLocalImageStructureIndex(OpenXmlPart part)
+    /// <param name="RelKey">Position of the image's index into richValueRel.xml.</param>
+    /// <param name="TextKey">Position of the alt text, or -1 if the structure has none.</param>
+    private readonly record struct LocalImageLayout(int RelKey, int TextKey);
+
+    /// <summary>
+    /// Find every _localImage structure in rdrichvaluestructure.xml, by 0-based structure index.
+    /// Excel writes one structure per set of keys, e.g. one with alt text and one without, so a
+    /// workbook can have several.
+    /// </summary>
+    private static Dictionary<int, LocalImageLayout> FindLocalImageStructures(OpenXmlPart part)
     {
+        var structures = new Dictionary<int, LocalImageLayout>();
+
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
         using var reader = PartXmlReader.CreateVerbatim(stream);
 
         var structureIndex = 0;
         while (reader.Read())
         {
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "s")
-            {
-                var typeAttr = reader.GetAttribute("t");
-                if (typeAttr == "_localImage")
-                    return structureIndex;
+            if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "s")
+                continue;
 
-                structureIndex++;
-            }
+            if (reader.GetAttribute("t") == "_localImage" && ReadLocalImageLayout(reader) is { } layout)
+                structures[structureIndex] = layout;
+
+            structureIndex++;
         }
 
-        return -1;
+        return structures;
+    }
+
+    private static LocalImageLayout? ReadLocalImageLayout(XmlReader reader)
+    {
+        var relKey = -1;
+        var textKey = -1;
+        var keyIndex = 0;
+        using var structureReader = reader.ReadSubtree();
+        while (structureReader.Read())
+        {
+            if (structureReader.NodeType != XmlNodeType.Element || structureReader.LocalName != "k")
+                continue;
+
+            switch (structureReader.GetAttribute("n"))
+            {
+                // Excel's name, and the one XLibur wrote before #739.
+                case "_rvRel:LocalImageIdentifier" or "_rvRel:LocalImageFileUri":
+                    relKey = keyIndex;
+                    break;
+                case "Text" or "text":
+                    textKey = keyIndex;
+                    break;
+            }
+
+            keyIndex++;
+        }
+
+        return relKey >= 0 ? new LocalImageLayout(relKey, textKey) : null;
     }
 
     /// <summary>
@@ -164,14 +215,14 @@ internal static class RichDataReader
     }
 
     /// <summary>
-    /// Parse rdrichvalue.xml. Returns a list indexed by rv index, with null for non-image entries.
+    /// Parse rdrichvalue.xml. Returns a list indexed by rv index, with null for entries that are
+    /// not local images.
     /// </summary>
-    private static List<XLCellImage?> ParseRichValues(
+    private static List<(int RelIndex, string AltText)?> ParseRichValues(
         OpenXmlPart part,
-        int localImageStructureIndex,
-        Dictionary<int, int> relIndexToImageStoreIndex)
+        Dictionary<int, LocalImageLayout> localImageStructures)
     {
-        var entries = new List<XLCellImage?>();
+        var entries = new List<(int RelIndex, string AltText)?>();
 
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
         using var reader = PartXmlReader.CreateVerbatim(stream);
@@ -183,14 +234,14 @@ internal static class RichDataReader
 
             var sAttr = reader.GetAttribute("s");
             if (sAttr is null || !int.TryParse(sAttr, out var structureIndex) ||
-                structureIndex != localImageStructureIndex)
+                !localImageStructures.TryGetValue(structureIndex, out var layout))
             {
                 entries.Add(null);
                 continue;
             }
 
             var values = ReadRvChildValues(reader);
-            entries.Add(BuildCellImageFromValues(values, relIndexToImageStoreIndex));
+            entries.Add(ReadLocalImage(values, layout));
         }
 
         return entries;
@@ -200,28 +251,27 @@ internal static class RichDataReader
     {
         var values = new List<string>();
         using var rvReader = reader.ReadSubtree();
-        while (rvReader.Read())
+        while (!rvReader.EOF)
         {
+            // ReadElementContentAsString leaves the reader on the node after the element, which is
+            // the next <v>. A Read() after it skipped that value, so the alt text never loaded.
             if (rvReader.NodeType == XmlNodeType.Element && rvReader.LocalName == "v")
-            {
                 values.Add(rvReader.ReadElementContentAsString());
-            }
+            else
+                rvReader.Read();
         }
 
         return values;
     }
 
-    private static XLCellImage? BuildCellImageFromValues(List<string> values,
-        Dictionary<int, int> relIndexToImageStoreIndex)
+    private static (int RelIndex, string AltText)? ReadLocalImage(List<string> values, LocalImageLayout layout)
     {
-        if (values.Count >= 1 && int.TryParse(values[0], out var relIndex) &&
-            relIndexToImageStoreIndex.TryGetValue(relIndex, out var imageStoreIndex))
-        {
-            var altText = values.Count >= 3 ? values[2] : string.Empty;
-            return new XLCellImage(imageStoreIndex, altText);
-        }
+        if (layout.RelKey >= values.Count ||
+            !int.TryParse(values[layout.RelKey], NumberStyles.Integer, CultureInfo.InvariantCulture, out var relIndex))
+            return null;
 
-        return null;
+        var altText = layout.TextKey >= 0 && layout.TextKey < values.Count ? values[layout.TextKey] : string.Empty;
+        return (relIndex, altText);
     }
 
     /// <summary>

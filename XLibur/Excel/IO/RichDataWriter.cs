@@ -12,20 +12,43 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class RichDataWriter
 {
-    // Relationship types
-    private const string RichValueRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue";
-    private const string RichValueStructureRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure";
-    private const string RichValueRelRelType = "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel";
-    private const string RichValueTypesRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes";
+    // Relationship types, content types, namespaces and key names are the ones Excel writes for a
+    // picture placed in a cell (#739). Excel refuses to open the file if the structure part is in
+    // the richdata2 namespace or names its image key otherwise, and shows #FIELD! in the cell if
+    // the rich value relationship part is related by its 2017 type.
+    internal const string RichValueRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue";
+    internal const string RichValueStructureRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure";
+    internal const string RichValueRelRelType = "http://schemas.microsoft.com/office/2022/10/relationships/richValueRel";
+    internal const string RichValueTypesRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes";
+
+    /// <summary>
+    /// The type XLibur related its rich value relationship part by before #739. Excel does not
+    /// read it, but a file written then still names its images through it.
+    /// </summary>
+    internal const string LegacyRichValueRelRelType = "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel";
 
     // Content types
     private const string RichValueContentType = "application/vnd.ms-excel.rdrichvalue+xml";
     private const string RichValueStructureContentType = "application/vnd.ms-excel.rdrichvaluestructure+xml";
-    private const string RichValueRelContentType = "application/vnd.ms-excel.richValueRel+xml";
+    private const string RichValueRelContentType = "application/vnd.ms-excel.richvaluerel+xml";
     private const string RichValueTypesContentType = "application/vnd.ms-excel.rdrichvaluetypes+xml";
 
     // XML namespaces (RvrNs has no OpenXmlConst entry yet)
     private const string RvrNs = "http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel";
+
+    /// <summary>The key of a local image's index into the rich value relationship part.</summary>
+    private const string LocalImageIdentifierKey = "_rvRel:LocalImageIdentifier";
+
+    /// <summary>
+    /// Keys whose flags Excel declares in every rdRichValueTypes part it writes, with the flags
+    /// set on each: <c>ExcludeFromFile</c> for <c>_Self</c> only, <c>ExcludeFromCalcComparison</c>
+    /// for all.
+    /// </summary>
+    private static readonly string[] GlobalFlaggedKeys =
+    [
+        "_Self", "_DisplayString", "_Flags", "_Format", "_SubLabel", "_Attribution", "_Icon", "_Display",
+        "_CanonicalPropertyNames", "_ClassificationId",
+    ];
 
     /// <summary>
     /// Entry for a single rich value (one per cell with in-cell image).
@@ -118,6 +141,7 @@ internal static class RichDataWriter
             RichValueRelType,
             RichValueStructureRelType,
             RichValueRelRelType,
+            LegacyRichValueRelRelType,
             RichValueTypesRelType,
         };
 
@@ -193,11 +217,11 @@ internal static class RichDataWriter
             w.WriteStartElement("rv", OpenXmlConst.RichDataNs);
             w.WriteAttributeString("s", "0"); // structure index 0 = _localImage
 
-            // Key 0: _rvRel:LocalImageFileUri (rel index)
+            // Key 0: _rvRel:LocalImageIdentifier (rel index)
             w.WriteElementString("v", OpenXmlConst.RichDataNs, relIndex.ToString());
             // Key 1: CalcOrigin
             w.WriteElementString("v", OpenXmlConst.RichDataNs, "5");
-            // Key 2: text (alt text)
+            // Key 2: Text (alt text)
             w.WriteElementString("v", OpenXmlConst.RichDataNs, entry.AltText);
 
             w.WriteEndElement(); // rv
@@ -207,44 +231,49 @@ internal static class RichDataWriter
     }
 
     /// <summary>
-    /// rdrichvaluestructure.xml - defines the _localImage structure schema.
+    /// rdrichvaluestructure.xml - defines the _localImage structure schema. Unlike the types part,
+    /// it is in the <c>richdata</c> namespace, as the rich values are.
+    /// <code>
+    /// &lt;rvStructures xmlns="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata" count="1"&gt;
+    ///   &lt;s t="_localImage"&gt;
+    ///     &lt;k n="_rvRel:LocalImageIdentifier" t="i"/&gt;&lt;k n="CalcOrigin" t="i"/&gt;&lt;k n="Text" t="s"/&gt;
+    ///   &lt;/s&gt;
+    /// &lt;/rvStructures&gt;
+    /// </code>
     /// </summary>
     private static void WriteRichValueStructureXml(OpenXmlPart part)
     {
         using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
-        w.WriteStartElement("rvStructures", OpenXmlConst.RichData2Ns);
+        w.WriteStartElement("rvStructures", OpenXmlConst.RichDataNs);
         w.WriteAttributeString("count", "1");
 
-        w.WriteStartElement("s", OpenXmlConst.RichData2Ns);
+        w.WriteStartElement("s", OpenXmlConst.RichDataNs);
         w.WriteAttributeString("t", "_localImage");
 
-        // Key 0: _rvRel:LocalImageFileUri
-        w.WriteStartElement("k", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("n", "_rvRel:LocalImageFileUri");
-        w.WriteAttributeString("t", "i");
-        w.WriteEndElement(); // k
-
+        // Key 0: index of the image in richValueRel.xml
+        WriteStructureKey(w, LocalImageIdentifierKey, "i");
         // Key 1: CalcOrigin
-        w.WriteStartElement("k", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("n", "CalcOrigin");
-        w.WriteAttributeString("t", "i");
-        w.WriteEndElement(); // k
-
-        // Key 2: text (alt text)
-        w.WriteStartElement("k", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("n", "text");
-        w.WriteAttributeString("t", "s");
-        w.WriteEndElement(); // k
+        WriteStructureKey(w, "CalcOrigin", "i");
+        // Key 2: alt text
+        WriteStructureKey(w, "Text", "s");
 
         w.WriteEndElement(); // s
 
         w.WriteEndElement(); // rvStructures
     }
 
+    private static void WriteStructureKey(XmlWriter w, string name, string type)
+    {
+        w.WriteStartElement("k", OpenXmlConst.RichDataNs);
+        w.WriteAttributeString("n", name);
+        w.WriteAttributeString("t", type);
+        w.WriteEndElement(); // k
+    }
+
     /// <summary>
-    /// rdRichValueTypes.xml - global key flags (static content).
+    /// rdRichValueTypes.xml - global key flags (static content), as Excel writes them.
     /// </summary>
     private static void WriteRichValueTypesXml(OpenXmlPart part)
     {
@@ -257,26 +286,31 @@ internal static class RichDataWriter
 
         w.WriteStartElement("keyFlags", OpenXmlConst.RichData2Ns);
 
-        // _rvRel:LocalImageFileUri key flag
-        w.WriteStartElement("key", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("name", "_rvRel:LocalImageFileUri");
+        foreach (var key in GlobalFlaggedKeys)
+        {
+            w.WriteStartElement("key", OpenXmlConst.RichData2Ns);
+            w.WriteAttributeString("name", key);
 
-        w.WriteStartElement("flag", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("name", "ExcludeFromFile");
-        w.WriteAttributeString("value", "1");
-        w.WriteEndElement(); // flag
+            if (key == "_Self")
+                WriteKeyFlag(w, "ExcludeFromFile");
 
-        w.WriteStartElement("flag", OpenXmlConst.RichData2Ns);
-        w.WriteAttributeString("name", "ExcludeFromCalcComparison");
-        w.WriteAttributeString("value", "1");
-        w.WriteEndElement(); // flag
+            WriteKeyFlag(w, "ExcludeFromCalcComparison");
 
-        w.WriteEndElement(); // key
+            w.WriteEndElement(); // key
+        }
 
         w.WriteEndElement(); // keyFlags
 
         w.WriteEndElement(); // global
 
         w.WriteEndElement(); // rvTypesInfo
+    }
+
+    private static void WriteKeyFlag(XmlWriter w, string name)
+    {
+        w.WriteStartElement("flag", OpenXmlConst.RichData2Ns);
+        w.WriteAttributeString("name", name);
+        w.WriteAttributeString("value", "1");
+        w.WriteEndElement(); // flag
     }
 }

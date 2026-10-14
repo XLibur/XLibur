@@ -213,7 +213,7 @@ public class XLCellImageTests
         var richDataParts = document.WorkbookPart!.Parts
             .Select(p => p.OpenXmlPart)
             .Where(p => p.ContentType.StartsWith("application/vnd.ms-excel.rdrichvalue", StringComparison.Ordinal)
-                        || p.ContentType == "application/vnd.ms-excel.richValueRel+xml")
+                        || p.ContentType == "application/vnd.ms-excel.richvaluerel+xml")
             .ToList();
 
         await Assert.That(richDataParts.Count).IsEqualTo(4);

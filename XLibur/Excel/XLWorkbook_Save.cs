@@ -434,6 +434,7 @@ public partial class XLWorkbook
         if (cellMetadataPart?.Metadata is not null)
         {
             SetDynamicArrayMetaFromExisting(cellMetadataPart.Metadata, context);
+            PutMetadataChildrenInSchemaOrder(cellMetadataPart.Metadata);
             return;
         }
 
@@ -607,6 +608,9 @@ public partial class XLWorkbook
         if (cellsWithImages.Count == 0)
             return;
 
+        // SetCellImage refuses first; this catches an image that came in another way, e.g. a copy.
+        ThrowIfCellImagesCannotBeWritten();
+
         // Build rich value entries (one per cell)
         var entries = new List<RichDataWriter.RichValueEntry>(cellsWithImages.Count);
         foreach (var (_, image) in cellsWithImages)
@@ -645,13 +649,45 @@ public partial class XLWorkbook
             if (!values.GetCellValue(cell.SheetPoint).Equals(richValueIndex))
                 values.SetCellValue(cell.SheetPoint, richValueIndex);
         }
+
+        PutMetadataChildrenInSchemaOrder(metadata);
     }
+
+    /// <summary>
+    /// Puts the children of <c>metadata.xml</c> in the order <c>CT_Metadata</c> requires. The
+    /// writers append a <c>futureMetadata</c>, <c>cellMetadata</c> or <c>valueMetadata</c> to
+    /// whatever the part already holds, so a loaded part, or a part with both dynamic arrays and
+    /// in-cell images, got a <c>futureMetadata</c> after a <c>cellMetadata</c> or
+    /// <c>valueMetadata</c>, and Excel refused to open the file (#739).
+    /// </summary>
+    private static void PutMetadataChildrenInSchemaOrder(Metadata metadata)
+    {
+        var children = metadata.ChildElements.ToList();
+        var ordered = children.OrderBy(MetadataChildRank).ToList(); // stable: keeps same-kind order
+        if (children.SequenceEqual(ordered))
+            return;
+
+        metadata.RemoveAllChildren();
+        foreach (var child in ordered)
+            metadata.AppendChild(child);
+    }
+
+    private static int MetadataChildRank(OpenXmlElement element) => element switch
+    {
+        MetadataTypes => 0,
+        MetadataStrings => 1,
+        MdxMetadata => 2,
+        FutureMetadata => 3,
+        CellMetadata => 4,
+        ValueMetadata => 5,
+        _ => 6, // extLst, the last child
+    };
 
     private static Metadata EnsureMetadataPart(WorkbookPart workbookPart, SaveContext context)
     {
         var cellMetadataPart = workbookPart.CellMetadataPart;
         if (cellMetadataPart is not null)
-            return cellMetadataPart.Metadata ?? new Metadata();
+            return cellMetadataPart.Metadata ??= new Metadata(); // attached, so the records are saved
 
         cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
             context.RelIdGenerator.GetNext(RelType.Workbook));
