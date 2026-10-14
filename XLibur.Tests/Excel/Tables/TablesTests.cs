@@ -374,6 +374,145 @@ public class TablesTests
         await Assert.That(table.DataRange.LastCell().GetText()).IsEqualTo("C");
     }
 
+    // https://github.com/XLibur/XLibur/issues/750
+    [Test]
+    public async Task Load_and_save_leave_the_cells_of_a_table_without_header_row_alone()
+    {
+        using var original = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet");
+            ws.Cell("A1").SetValue("Name");
+            ws.Cell("B1").SetValue("Amount");
+            ws.Cell("B2").SetValue(1);
+            ws.Cell("A3").SetValue("x");
+            ws.Cell("B3").SetValue(2);
+            ws.Range("A1:B3").CreateTable("Data").SetShowHeaderRow(false);
+
+            // A table of one row, with a cell below it that the load must not push down.
+            ws.Cell("D1").SetValue("Key");
+            ws.Cell("E1").SetValue("Value");
+            ws.Cell("E2").SetValue(5);
+            ws.Range("D1:E2").CreateTable("Single").SetShowHeaderRow(false);
+            ws.Cell("D3").SetValue("below");
+
+            wb.SaveAs(original);
+        }
+
+        using var loaded = new XLWorkbook(original);
+        await AssertCellsKept(loaded.Worksheet("Sheet"));
+
+        using var saved = new MemoryStream();
+        loaded.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        await AssertCellsKept(reloaded.Worksheet("Sheet"));
+
+        static async Task AssertCellsKept(IXLWorksheet ws)
+        {
+            var data = ws.Table("Data");
+            await Assert.That(data.ShowHeaderRow).IsFalse();
+            await Assert.That(data.RangeAddress.ToString()).IsEqualTo("A2:B3");
+            await Assert.That(data.Fields.Select(f => f.Name)).IsEquivalentTo(["Name", "Amount"]);
+
+            var single = ws.Table("Single");
+            await Assert.That(single.ShowHeaderRow).IsFalse();
+            await Assert.That(single.RangeAddress.ToString()).IsEqualTo("D2:E2");
+
+            await Assert.That(ws.Cell("A1").Value.IsBlank).IsTrue();
+            await Assert.That(ws.Cell("B1").Value.IsBlank).IsTrue();
+            await Assert.That(ws.Cell("A2").Value.IsBlank).IsTrue();
+            await Assert.That(ws.Cell("B2").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("A3").Value).IsEqualTo("x");
+            await Assert.That(ws.Cell("D2").Value.IsBlank).IsTrue();
+            await Assert.That(ws.Cell("E2").Value).IsEqualTo(5);
+            await Assert.That(ws.Cell("D3").Value).IsEqualTo("below");
+            await Assert.That(ws.Cell("D4").Value.IsBlank).IsTrue();
+        }
+    }
+
+    // https://github.com/XLibur/XLibur/issues/750
+    [Test]
+    public async Task Load_save_and_reload_keep_the_cells_of_tables_without_header_row()
+    {
+        var path = TestHelper.GetResourcePath(@"Other\GoogleSheets\2619_exported-broken2.xlsx");
+        using var fileStream = TestHelper.GetStreamFromResource(path);
+        using var file = new XLWorkbook(fileStream);
+        using var loadedStream = TestHelper.GetStreamFromResource(path);
+        using var loaded = new XLWorkbook(loadedStream);
+        using var saved = new MemoryStream();
+        loaded.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+
+        // What the package itself holds, read without XLibur: each table's ref, and the cells of the
+        // sheet that have a value.
+        var tableRefs = new Dictionary<string, string>();
+        var cellsWithValue = new HashSet<string>();
+        using (var rawStream = TestHelper.GetStreamFromResource(path))
+        using (var document = SpreadsheetDocument.Open(rawStream, false))
+        {
+            var workbookPart = document.WorkbookPart!;
+            var sheet = workbookPart.Workbook!.Descendants<Sheet>().Single(s => s.Name == "Absagen");
+            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
+            foreach (var tablePart in worksheetPart.TableDefinitionParts)
+                tableRefs.Add(tablePart.Table!.Name!.Value!, tablePart.Table.Reference!.Value!);
+
+            foreach (var cell in worksheetPart.Worksheet!.Descendants<Cell>())
+            {
+                if (cell.CellValue is not null || cell.InlineString is not null)
+                    cellsWithValue.Add(cell.CellReference!.Value!);
+            }
+        }
+
+        var fileSheet = file.Worksheet("Absagen");
+        var reloadedSheet = reloaded.Worksheet("Absagen");
+        await Assert.That(fileSheet.Tables.Count()).IsEqualTo(56);
+        await Assert.That(tableRefs.Count).IsEqualTo(56);
+        foreach (var (name, reference) in tableRefs)
+        {
+            foreach (var sheet in new[] { fileSheet, reloadedSheet })
+            {
+                var table = sheet.Table(name);
+                await Assert.That(table.ShowHeaderRow).IsFalse();
+                await Assert.That(table.RangeAddress.ToString()).IsEqualTo(reference);
+            }
+
+            // A cell of the table is blank after the round trip exactly when the file has no value
+            // for it, and otherwise holds what the load read.
+            foreach (var cell in fileSheet.Range(reference)!.Cells())
+            {
+                var address = cell.Address.ToString()!;
+                var reloadedValue = reloadedSheet.Cell(address)!.Value;
+                await Assert.That(reloadedValue.IsBlank).IsEqualTo(!cellsWithValue.Contains(address));
+                await Assert.That(reloadedValue).IsEqualTo(cell.Value);
+            }
+        }
+    }
+
+    [Test]
+    public async Task Header_row_can_be_shown_on_a_loaded_table_without_header_row()
+    {
+        using var original = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet");
+            ws.Cell("A2").SetValue("Name");
+            ws.Cell("B2").SetValue("Amount");
+            ws.Cell("B3").SetValue(1);
+            ws.Range("A2:B3").CreateTable("Data").SetShowHeaderRow(false);
+            wb.SaveAs(original);
+        }
+
+        using var loaded = new XLWorkbook(original);
+        var table = loaded.Worksheet("Sheet").Table("Data");
+        table.SetShowHeaderRow(true);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A2:B3");
+        await Assert.That(table.HeadersRow()!.Cell(1).GetText()).IsEqualTo("Name");
+        await Assert.That(table.HeadersRow()!.Cell(2).GetText()).IsEqualTo("Amount");
+        await Assert.That(table.DataRange!.FirstCell().Value.IsBlank).IsTrue();
+        await Assert.That(table.DataRange.LastCell().Value).IsEqualTo(1);
+    }
+
     [Test]
     [Arguments("Amount")]
     [Arguments("AMOUNT")]

@@ -721,6 +721,30 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return Table(range, TableNameGenerator.GetNewTableName(Workbook), addToTables, setAutofilter);
     }
 
+    /// <summary>
+    /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
+    /// declares it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
+    /// the first row of such a table holds data, not field names, and a table of one row gets no
+    /// row inserted below it (#750).
+    /// </summary>
+    internal XLTable LoadTableWithoutHeaderRow(XLRange range, string name)
+    {
+        var rangeKey = new XLRangeKey(XLRangeType.Table, range.RangeAddress);
+        var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
+
+        // Before the table joins Tables, which names empty header cells after the fields.
+        table.HydrateShowHeaderRow(false);
+
+        if (table.Name != name)
+            table.Name = name;
+
+        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
+        if (!Tables.Contains(name))
+            Tables.Add(table);
+
+        return table;
+    }
+
     public IXLTable Table(XLRange range, string name, bool addToTables, bool setAutofilter = true, bool validateOverlap = true)
     {
         if (validateOverlap)

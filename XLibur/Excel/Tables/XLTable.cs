@@ -612,8 +612,8 @@ internal sealed class XLTable : XLRange, IXLTable
         if (setAutofilter)
             InitializeAutoFilter();
 
-        if (RowCount() == 1)
-            InsertRowsBelow(1);
+        // No row is inserted for a table of one row: Table(XLRange, ...) has already made room for
+        // the data row below a header, and a table loaded without a header row is one row of data.
     }
 
     public void InitializeAutoFilter()
@@ -624,6 +624,11 @@ internal sealed class XLTable : XLRange, IXLTable
     internal void OnAddedToTables()
     {
         _uniqueNames = [];
+
+        // The first row of a table without a header row holds data, and its empty cells stay empty.
+        if (!_showHeaderRow)
+            return;
+
         var co = 1;
         foreach (var c in Row(1).Cells())
         {

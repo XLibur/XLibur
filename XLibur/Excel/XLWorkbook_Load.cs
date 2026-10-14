@@ -816,19 +816,23 @@ public partial class XLWorkbook
         if (string.IsNullOrWhiteSpace(tableName))
             throw new InvalidDataException("The table name is missing.");
 
-        var xlTable = (XLTable)ws.Table(ws.Range(reference)!, tableName, addToTables: true, setAutofilter: false, validateOverlap: false);
-        xlTable.RelId = relId;
-
+        var range = ws.Range(reference)!;
+        XLTable xlTable;
         if (dTable.HeaderRowCount is not null && dTable.HeaderRowCount == 0)
         {
-            xlTable.HydrateShowHeaderRow(false);
+            // Not through ws.Table, which makes the first row a header: it names the row's empty
+            // cells after the fields, and puts a row below a table of one row (#750).
+            xlTable = ws.LoadTableWithoutHeaderRow(range, tableName);
             xlTable.AddFields(dTable.TableColumns!.Cast<TableColumn>()
                 .Select(t => DrawingPartReader.GetTableColumnName(t.Name!.Value!)));
         }
         else
         {
+            xlTable = (XLTable)ws.Table(range, tableName, addToTables: true, setAutofilter: false, validateOverlap: false);
             xlTable.InitializeAutoFilter();
         }
+
+        xlTable.RelId = relId;
 
         if (dTable.TotalsRowCount is not null && dTable.TotalsRowCount.Value > 0)
             xlTable.HydrateShowTotalsRow(true);
