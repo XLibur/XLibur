@@ -78,10 +78,7 @@ public class LoadingTests
             // TODO: unpark all files
             var parkedForLater = new[]
             {
-                "TryToLoad.LO.xlsx.column-style-autofilter.xlsx",
                 "TryToLoad.LO.xlsx.formats.xlsx",
-                "TryToLoad.LO.xlsx.pivot_table.shared-group-field.xlsx",
-                "TryToLoad.LO.xlsx.pivot_table.shared-nested-dategroup.xlsx",
                 "TryToLoad.LO.xlsx.pivottable_bool_field_filter.xlsx",
                 "TryToLoad.LO.xlsx.pivottable_date_field_filter.xlsx",
                 "TryToLoad.LO.xlsx.pivottable_double_field_filter.xlsx",
@@ -91,12 +88,9 @@ public class LoadingTests
                 "TryToLoad.LO.xlsx.pivottable_tabular_mode.xlsx",
                 "TryToLoad.LO.xlsx.pivot_table_first_header_row.xlsx",
                 "TryToLoad.LO.xlsx.tdf100709.xlsx",
-                "TryToLoad.LO.xlsx.tdf89139_pivot_table.xlsx",
-                "TryToLoad.LO.xlsx.universal-content-strict.xlsx",
                 "TryToLoad.LO.xlsx.universal-content.xlsx",
                 "TryToLoad.LO.xlsx.xf_default_values.xlsx",
                 "TryToLoad.LO.xlsm.pass.CVE-2016-0122-1.xlsm",
-                "TryToLoad.LO.xlsm.tdf111974.xlsm",
                 "TryToLoad.LO.xlsm.vba-user-function.xlsm",
             };
 
