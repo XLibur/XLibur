@@ -120,17 +120,30 @@ public class WorkbookPartReloadTests
     }
 
     [Test]
-    public async Task A_strict_workbook_saved_to_a_file_loads_again()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_strict_workbook_loaded_from_a_file_saves_a_file_that_loads_again(bool saveAsAnotherFile)
     {
-        // The file overload opens its copy of the package by path rather than by stream.
-        using var file = new TemporaryFile();
-        using (var wb = TestHelper.LoadWorkbook(StrictWorkbook))
-            wb.SaveAs(file.Path);
+        // A workbook loaded from a path is saved through the overload that opens the package by path,
+        // whether Save writes the file it came from or SaveAs a copy of it.
+        using var source = new TemporaryFile();
+        using var copy = new TemporaryFile();
+        using (var resource = TestHelper.OpenResource(StrictWorkbook))
+            await File.WriteAllBytesAsync(source.Path, resource.ToArray());
 
-        using (var saved = new MemoryStream(File.ReadAllBytes(file.Path)))
+        var target = saveAsAnotherFile ? copy.Path : source.Path;
+        using (var wb = new XLWorkbook(source.Path))
+        {
+            if (saveAsAnotherFile)
+                wb.SaveAs(target);
+            else
+                wb.Save();
+        }
+
+        using (var saved = new MemoryStream(await File.ReadAllBytesAsync(target)))
             await Assert.That(DanglingRelationships(saved)).IsEmpty();
 
-        using var reloaded = new XLWorkbook(file.Path);
+        using var reloaded = new XLWorkbook(target);
         await Assert.That(reloaded.Worksheets.Count).IsEqualTo(2);
     }
 

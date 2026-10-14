@@ -31,9 +31,7 @@ internal static class WorkbookPartWriter
         workbook.Sheets ??= new Sheets();
 
         var worksheets = xlWorkbook.WorksheetsInternal;
-        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
-            s => s.Remove());
-        RemoveSheetsWithoutRelId(workbook.Sheets);
+        RemoveSheetsNotKept(workbook.Sheets, worksheets.Deleted);
 
         UpdateExistingSheets(workbook, xlWorkbook);
         AppendNewSheets(workbook, xlWorkbook, context);
@@ -111,7 +109,8 @@ internal static class WorkbookPartWriter
     }
 
     /// <summary>
-    /// Removes each <c>&lt;sheet&gt;</c> the loaded file declared with an empty or missing <c>r:id</c>.
+    /// Removes each <c>&lt;sheet&gt;</c> of a deleted worksheet, and each the loaded file declared with
+    /// an empty or missing <c>r:id</c>.
     /// </summary>
     /// <remarks>
     /// Some producers, LibreOffice among them, declare a sheet with <c>r:id=""</c>. Nothing backs it,
@@ -119,11 +118,15 @@ internal static class WorkbookPartWriter
     /// <see cref="AppendNewSheets"/> under a new relationship id, with the part the save writes for
     /// it. Left in place, the old element declared the sheet's name a second time, and XLibur refused
     /// to load the file it had saved (#743). A deleted sheet of this kind has no relationship id to
-    /// put in <see cref="XLWorksheets.Deleted"/>, so this is also what removes its declaration.
+    /// put in <paramref name="deletedRelIds"/>, so the empty <c>r:id</c> is also what removes its
+    /// declaration.
     /// </remarks>
-    private static void RemoveSheetsWithoutRelId(Sheets sheets)
+    private static void RemoveSheetsNotKept(Sheets sheets, ICollection<string> deletedRelIds)
     {
-        foreach (var sheet in sheets.Elements<Sheet>().Where(s => string.IsNullOrEmpty(s.Id?.Value)).ToList())
+        var notKept = sheets.Elements<Sheet>()
+            .Where(s => s.Id?.Value is not { Length: > 0 } relId || deletedRelIds.Contains(relId))
+            .ToList();
+        foreach (var sheet in notKept)
             sheet.Remove();
     }
 
