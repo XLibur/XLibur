@@ -94,6 +94,44 @@ public class XLPivotCacheTests
     }
 
     /// <summary>
+    /// A calculated field is no source column, but a refresh keeps it, after the columns. Before,
+    /// its index stayed marked as calculated, so a column refreshed into that position took its
+    /// formula and lost its records.
+    /// </summary>
+    [Test]
+    public async Task Refresh_KeepsCalculatedFieldAfterTheSourceColumns()
+    {
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\PivotTable\pivottable_customfield.xlsx"));
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(stream))
+        {
+            var ws = wb.Worksheet("data");
+            ws.Cell("D1").Value = "extra";
+            ws.Range("D2:D38").Value = 1;
+
+            var pivotCache = (XLPivotCache)wb.PivotCaches.Single();
+            pivotCache.SetSourceRange(ws.Range("A1:D38"));
+            pivotCache.Refresh();
+
+            await Assert.That(pivotCache.FieldNames).IsEquivalentTo(
+                ["datum", "weekdag", "verbruik", "extra", "Field1"], CollectionOrdering.Matching);
+            await Assert.That(pivotCache.IsCalculatedField(3)).IsFalse();
+            await Assert.That(pivotCache.GetCalculatedFieldFormula(4)).IsEqualTo("verbruik*2");
+            await Assert.That(pivotCache.DatabaseFieldCount).IsEqualTo(4);
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var reloadedCache = (XLPivotCache)reloaded.PivotCaches.Single();
+        await Assert.That(reloadedCache.FieldNames).IsEquivalentTo(
+            ["datum", "weekdag", "verbruik", "extra", "Field1"], CollectionOrdering.Matching);
+        await Assert.That(reloadedCache.GetCalculatedFieldFormula(4)).IsEqualTo("verbruik*2");
+        await Assert.That(reloadedCache.GetFieldValues(3).Count).IsEqualTo(37);
+    }
+
+    /// <summary>
     /// The <c>cacheId</c> a pivot table part writes is a position in the workbook's
     /// <c>pivotCaches</c> element, not a property of the cache, so the two have to agree.
     /// With more than one cache in play a mix-up points each pivot table at the wrong source

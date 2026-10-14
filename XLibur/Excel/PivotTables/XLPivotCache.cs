@@ -30,6 +30,13 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly HashSet<int> _nonDatabaseFieldIndexes = new();
 
+    /// <summary>
+    /// The <c>fieldGroup</c> element of a grouped field, as read, keyed by field index. XLibur
+    /// does not model grouping, but keeps it so the fields and records it writes still agree with
+    /// it and a pivot table showing the groups is not left pointing at items that are gone.
+    /// </summary>
+    private readonly Dictionary<int, string> _fieldGroupXml = new();
+
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)
     {
         _workbook = workbook;
@@ -93,9 +100,23 @@ internal sealed class XLPivotCache : IXLPivotCache
 
         Debug.Assert(sheet is not null && foundArea is not null);
         var oldFieldNames = _fieldNames.ToList();
+
+        // A calculated field is no source column, so the refresh would lose it. Keep it, after the
+        // columns, which is where Excel writes it.
+        var calculatedFields = _calculatedFieldFormulas
+            .OrderBy(calculatedField => calculatedField.Key)
+            .Select(calculatedField => (Name: _fieldNames[calculatedField.Key], Values: _values[calculatedField.Key], Formula: calculatedField.Value))
+            .ToList();
+
         _fieldIndexes.Clear();
         _fieldNames.Clear();
         _values.Clear();
+
+        // Every index below names a field of the old list. The grouping fields are not source columns
+        // either, and the groups of the others index shared items that are about to be rebuilt.
+        _calculatedFieldFormulas.Clear();
+        _nonDatabaseFieldIndexes.Clear();
+        _fieldGroupXml.Clear();
 
         var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
         var area = foundArea.Value;
@@ -106,6 +127,16 @@ internal sealed class XLPivotCache : IXLPivotCache
             var fieldRecords = new XLPivotCacheValues(valueSlice, column, area);
 
             AddField(AdjustedFieldName(header), fieldRecords);
+        }
+
+        foreach (var (name, values, formula) in calculatedFields)
+        {
+            // Field names are unique. A source column that now has the name keeps it.
+            if (ContainsField(name))
+                continue;
+
+            AddField(name, values);
+            SetCalculatedField(_fieldNames.Count - 1, formula);
         }
 
         UpdatePivotTables(oldFieldNames);
@@ -226,6 +257,22 @@ internal sealed class XLPivotCache : IXLPivotCache
     internal void SetNonDatabaseField(int fieldIndex)
     {
         _nonDatabaseFieldIndexes.Add(fieldIndex);
+    }
+
+    /// <summary>
+    /// Keep the <c>fieldGroup</c> element of a grouped field, so the save writes it back.
+    /// </summary>
+    internal void SetFieldGroupXml(int fieldIndex, string fieldGroupXml)
+    {
+        _fieldGroupXml[fieldIndex] = fieldGroupXml;
+    }
+
+    /// <summary>
+    /// The <c>fieldGroup</c> element of a grouped field, or null if the field is not grouped.
+    /// </summary>
+    internal string? GetFieldGroupXml(int fieldIndex)
+    {
+        return _fieldGroupXml.TryGetValue(fieldIndex, out var fieldGroupXml) ? fieldGroupXml : null;
     }
 
     /// <summary>

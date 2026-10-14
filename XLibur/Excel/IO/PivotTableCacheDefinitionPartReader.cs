@@ -271,6 +271,11 @@ internal static class PivotTableCacheDefinitionPartReader
                 // DatabaseField=false but no formula. It also has no records.
                 pivotCache.SetNonDatabaseField(fieldIndex);
             }
+
+            // Not modelled, but kept: a grouping field is nothing without its group, and the items
+            // of a pivot field over a grouped field index the group items, not the shared items.
+            if (cacheField.FieldGroup is { } fieldGroup)
+                pivotCache.SetFieldGroupXml(fieldIndex, fieldGroup.OuterXml);
         }
     }
 
