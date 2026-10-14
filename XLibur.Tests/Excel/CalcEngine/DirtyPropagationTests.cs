@@ -83,14 +83,12 @@ internal class DirtyPropagationTests
     }
 
     /// <summary>
-    /// A live rename goes through <c>XLWorksheets.Rename</c>, which re-keys the sheet by removing
-    /// and re-adding it — the same path a newly added sheet takes — so it also fires
-    /// <c>XLCalcEngine.OnAddedSheet</c>, which purges the whole dependency tree and marks every
-    /// formula in the workbook dirty. That blanket invalidation is a separate, coarser mechanism
-    /// than the one this spec fixes, and it happens to make every formula on the sheet dirty
-    /// regardless of whether the rename actually touched its text — so this test is expected to
-    /// pass both before and after the fix. <see cref="Formula_marked_dirty_by_a_text_rewrite_does_not_prune_a_later_edit"/>
-    /// isolates the walk from that purge and is the test that actually goes red beforehand.
+    /// A live rename goes through <c>XLWorksheets.Rename</c>. Until #720 it re-keyed the sheet by
+    /// removing and re-adding it, which fired <c>XLCalcEngine.OnAddedSheet</c> and purged the whole
+    /// dependency tree, marking every formula dirty, so this test passed both before and after the
+    /// fix of this spec. Since #720 a rename marks dirty only the formulas it rewrites and what reads
+    /// them. <see cref="Formula_marked_dirty_by_a_text_rewrite_does_not_prune_a_later_edit"/>
+    /// isolates the walk and is the test that actually goes red beforehand.
     /// </summary>
     [Test]
     public async Task Sheet_rename_does_not_prune_a_later_edit()

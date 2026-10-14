@@ -140,8 +140,12 @@ internal static class SheetDataWriter
     /// An array formula is held by every cell of its range, so the same instance is collected more
     /// than once; the second dirty check makes the repeats free, and also skips whatever a fallback
     /// to full recalculation already cleaned.
+    /// <para>
+    /// A save that can keep the sheet's cells calls this first, to learn whether the calculation
+    /// changed a cached value (#720). The call here then finds nothing dirty.
+    /// </para>
     /// </remarks>
-    private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet, SaveContext context)
+    internal static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet, SaveContext context)
     {
         List<(Point Point, XLCellFormula Formula)>? dirty = null;
         using (var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full))

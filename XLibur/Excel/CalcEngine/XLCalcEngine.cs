@@ -417,7 +417,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     point,
                     recursive: false,
                     recalculateSheetId: null);
-                valueSlice.SetCellValue(point, result.ToCellValue());
+                valueSlice.SetFormulaResult(point, result.ToCellValue());
             }
             else if (formula.Type == FormulaType.Array)
             {
@@ -434,7 +434,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                         var cellValue = result[rowIdx, colIdx];
                         var row = range.FirstPoint.Row + rowIdx;
                         var column = range.FirstPoint.Column + colIdx;
-                        valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
+                        valueSlice.SetFormulaResult(new Point(row, column), cellValue.ToCellValue());
                     }
                 }
             }
@@ -687,7 +687,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 appliedPoint,
                 recursive: false,
                 recalculateSheetId: recalculateSheetId);
-            valueSlice.SetCellValue(appliedPoint, single.ToCellValue());
+            valueSlice.SetFormulaResult(appliedPoint, single.ToCellValue());
         }
         else if (formula.Type == FormulaType.Array)
         {
@@ -709,7 +709,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                     var cellValue = result[rowIdx, colIdx];
                     var row = range.FirstPoint.Row + rowIdx;
                     var column = range.FirstPoint.Column + colIdx;
-                    valueSlice.SetCellValue(new Point(row, column), cellValue.ToCellValue());
+                    valueSlice.SetFormulaResult(new Point(row, column), cellValue.ToCellValue());
                 }
             }
         }
@@ -1096,10 +1096,157 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private static ScalarValue ToCellContentValue(AnyValue value, CalcContext ctx)
         => value.ReduceToScalar(ctx);
 
+    /// <summary>
+    /// A sheet was renamed. Every formula is marked dirty, as after a structural edit, when a formula
+    /// or a defined name could give a different result: its text names the new name, which it read
+    /// as a missing sheet until now, or calls <c>INDIRECT</c>, which finds a sheet by a name in a
+    /// text. Otherwise no result changes, so the cached values stay clean, and a save can keep the
+    /// cells of a sheet with formulas (#720).
+    /// </summary>
+    /// <remarks>
+    /// A formula that names the old name reads the same cells once the holders after the engine
+    /// have rewritten its text. The rewrite marks that formula dirty and counts as an edit of its
+    /// sheet (<see cref="FormulaSlice.RecordInPlaceEdit"/>), so that sheet is written by a save.
+    /// Calculated again, the formula can still get a new result, as a volatile one such as
+    /// <c>RAND()</c> does, so whatever reads it is marked dirty too, once every holder has rewritten
+    /// its text (<see cref="OnSheetRenameApplied"/>). Formulas that read none of them stay clean.
+    /// <para>
+    /// The dependency tree holds sheet names, so it is dropped either way, and built again from the
+    /// rewritten text when something is marked dirty. Until #720 the tree was dropped and every
+    /// formula marked dirty on every rename. The calculation chain and the spill footprints hold
+    /// sheet ids, which a rename does not change.
+    /// </para>
+    /// </remarks>
     void IWorkbookListener.OnSheetRenamed(string oldSheetName, string newSheetName)
     {
-        if (_dependencyTree is not null)
-            _dependencyTree.RenameSheet(oldSheetName, newSheetName);
+        _renamedFormulaAreas = null;
+        if (Workbook is null || _loading)
+            return;
+
+        // No tree and no need of one: no formula is clean, so there is nothing to mark dirty.
+        if (_dependencyTree is null && !_needsDependencyTree)
+            return;
+
+        var renamedFormulaAreas = new List<(XLWorksheet Sheet, Area Area)>();
+        if (AnyTextMayReadSheet(Workbook, newSheetName, oldSheetName, renamedFormulaAreas))
+        {
+            Purge(Workbook.WorksheetsInternal);
+            return;
+        }
+
+        _needsDependencyTree = true;
+        _dependencyTree = null;
+        if (renamedFormulaAreas.Count > 0)
+            _renamedFormulaAreas = renamedFormulaAreas;
+    }
+
+    /// <summary>
+    /// The areas of the formulas whose text named a sheet being renamed, which the holders after the
+    /// engine rewrite. Set by <see cref="IWorkbookListener.OnSheetRenamed"/> and taken by
+    /// <see cref="OnSheetRenameApplied"/>.
+    /// </summary>
+    private List<(XLWorksheet Sheet, Area Area)>? _renamedFormulaAreas;
+
+    /// <summary>
+    /// Every holder has heard of a sheet rename and rewritten its text. Marks dirty the formulas that
+    /// read a formula the rename rewrote, through the dependency tree as an edit of that formula's
+    /// cells would. The tree is built from the rewritten text, so a formula that reads a rewritten
+    /// one through a defined name, which the rename rewrote too, or through a spilled cell is found.
+    /// </summary>
+    internal void OnSheetRenameApplied()
+    {
+        var renamedFormulaAreas = _renamedFormulaAreas;
+        _renamedFormulaAreas = null;
+        if (renamedFormulaAreas is null)
+            return;
+
+        foreach (var (sheet, area) in renamedFormulaAreas)
+            MarkDirty(sheet, area);
+    }
+
+    /// <summary>
+    /// Does the text of a formula or a defined name in <paramref name="workbook"/> contain
+    /// <paramref name="sheetName"/>, as written bare or quoted, or call <c>INDIRECT</c>? Matching
+    /// text is enough: a name that only matches inside another word costs a purge that was not
+    /// needed, never a missed one.
+    /// </summary>
+    /// <param name="workbook">The workbook to search.</param>
+    /// <param name="sheetName">The new name of the renamed sheet.</param>
+    /// <param name="oldSheetName">The old name of the renamed sheet.</param>
+    /// <param name="renamedFormulaAreas">
+    /// Takes the area of each formula whose text contains <paramref name="oldSheetName"/>, as the
+    /// dependency tree registers it. Matching text here costs a walk that was not needed, never a
+    /// missed one. Complete only when the method returns <c>false</c>.
+    /// </param>
+    private static bool AnyTextMayReadSheet(XLWorkbook workbook, string sheetName, string oldSheetName,
+        List<(XLWorksheet Sheet, Area Area)> renamedFormulaAreas)
+    {
+        string[] needles = [..SheetNameNeedles(sheetName), "INDIRECT"];
+        var oldNeedles = SheetNameNeedles(oldSheetName);
+
+        foreach (var definedName in workbook.DefinedNamesInternal)
+        {
+            if (ContainsAny(definedName.RefersTo, needles))
+                return true;
+        }
+
+        foreach (var sheet in workbook.WorksheetsInternal)
+        {
+            foreach (var definedName in sheet.DefinedNames)
+            {
+                if (ContainsAny(definedName.RefersTo, needles))
+                    return true;
+            }
+
+            if (AnyFormulaMayReadSheet(sheet, needles, oldNeedles, renamedFormulaAreas))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The formula part of <see cref="AnyTextMayReadSheet"/> for one <paramref name="sheet"/>: does the
+    /// text of one of its formulas contain one of <paramref name="needles"/>? Adds the area of each
+    /// formula whose text contains one of <paramref name="oldNeedles"/> to
+    /// <paramref name="renamedFormulaAreas"/>.
+    /// </summary>
+    private static bool AnyFormulaMayReadSheet(XLWorksheet sheet, string[] needles, string[] oldNeedles,
+        List<(XLWorksheet Sheet, Area Area)> renamedFormulaAreas)
+    {
+        using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            var formula = enumerator.Current;
+            if (ContainsAny(formula.A1, needles))
+                return true;
+
+            if (ContainsAny(formula.A1, oldNeedles)
+                && DependencyTree.TryGetFormulaArea(formula, enumerator.Point, out var area))
+            {
+                renamedFormulaAreas.Add((sheet, area));
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>A sheet name as formula text writes it: bare, or quoted with its quotes doubled.</summary>
+    private static string[] SheetNameNeedles(string sheetName)
+    {
+        var quoted = sheetName.Replace("'", "''", StringComparison.Ordinal);
+        return quoted == sheetName ? [sheetName] : [sheetName, quoted];
+    }
+
+    private static bool ContainsAny(string text, string[] needles)
+    {
+        foreach (var needle in needles)
+        {
+            if (text.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 }
 

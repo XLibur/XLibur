@@ -87,13 +87,14 @@ public class KeepSheetDataTests
     }
 
     [Test]
-    public async Task A_sheet_with_a_formula_is_written_from_the_model()
+    public async Task An_unchanged_sheet_with_a_formula_keeps_its_cells()
     {
+        // Formulas no longer exclude a sheet (#720). KeepFormulaSheetTests covers what changes them.
         using var source = Source(ws => ws.Cell("C2").FormulaA1 = "A2*2");
 
         using var saved = LoadAndSave(source);
 
-        await Assert.That(saved.Sheet1Xml()).DoesNotContain(Kept);
+        await Assert.That(saved.Sheet1Xml()).Contains(Kept);
         await AssertValues(saved);
     }
 

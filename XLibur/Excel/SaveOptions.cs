@@ -73,9 +73,11 @@ public class SaveOptions
     /// whole sheet is kept as the file had it, down to the bytes. Set this to <c>true</c> to have every
     /// sheet written as XLibur writes it, for example to normalise a file.
     /// <para>
-    /// A sheet's cells are copied only when nothing a save writes into them has changed, the sheet
-    /// has no formulas, pivot tables, tables with a totals row, cell images or dynamic arrays, and
-    /// every shared string the file had is written back at its index.
+    /// A sheet's cells are copied only when nothing a save writes into them has changed, including
+    /// the text and cached value of each formula, the sheet has no pivot tables, tables with a totals
+    /// row, cell images or dynamic arrays, and every shared string the file had is written back at its
+    /// index. A sheet with formulas is written from the model when <see cref="WriteSharedFormulas"/> is
+    /// off, since its kept cells would keep the file's shared formulas.
     /// </para>
     /// </remarks>
     public bool RewriteUnchangedSheets { get; set; }
