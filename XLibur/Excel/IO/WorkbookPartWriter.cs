@@ -31,8 +31,7 @@ internal static class WorkbookPartWriter
         workbook.Sheets ??= new Sheets();
 
         var worksheets = xlWorkbook.WorksheetsInternal;
-        workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id!)).ToList().ForEach(
-            s => s.Remove());
+        RemoveSheetsNotKept(workbook.Sheets, worksheets.Deleted);
 
         UpdateExistingSheets(workbook, xlWorkbook);
         AppendNewSheets(workbook, xlWorkbook, context);
@@ -107,6 +106,28 @@ internal static class WorkbookPartWriter
         {
             workbook.WorkbookProtection = null;
         }
+    }
+
+    /// <summary>
+    /// Removes each <c>&lt;sheet&gt;</c> of a deleted worksheet, and each the loaded file declared with
+    /// an empty or missing <c>r:id</c>.
+    /// </summary>
+    /// <remarks>
+    /// Some producers, LibreOffice among them, declare a sheet with <c>r:id=""</c>. Nothing backs it,
+    /// so the load makes it an empty worksheet, as Excel does. That worksheet is declared again by
+    /// <see cref="AppendNewSheets"/> under a new relationship id, with the part the save writes for
+    /// it. Left in place, the old element declared the sheet's name a second time, and XLibur refused
+    /// to load the file it had saved (#743). A deleted sheet of this kind has no relationship id to
+    /// put in <paramref name="deletedRelIds"/>, so the empty <c>r:id</c> is also what removes its
+    /// declaration.
+    /// </remarks>
+    private static void RemoveSheetsNotKept(Sheets sheets, ICollection<string> deletedRelIds)
+    {
+        var notKept = sheets.Elements<Sheet>()
+            .Where(s => s.Id?.Value is not { Length: > 0 } relId || deletedRelIds.Contains(relId))
+            .ToList();
+        foreach (var sheet in notKept)
+            sheet.Remove();
     }
 
     private static void UpdateExistingSheets(Workbook workbook, XLWorkbook xlWorkbook)

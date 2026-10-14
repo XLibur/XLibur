@@ -56,7 +56,7 @@ public partial class XLWorkbook
         if (!string.IsNullOrWhiteSpace(directoryName)) Directory.CreateDirectory(directoryName);
 
         var package = File.Exists(filePath)
-            ? SpreadsheetDocument.Open(filePath, true)
+            ? OpenForEdit(filePath, static path => SpreadsheetDocument.Open(path, true))
             : SpreadsheetDocument.Create(filePath, spreadsheetDocumentType);
 
         using (package)
@@ -94,7 +94,7 @@ public partial class XLWorkbook
     {
         var package = newStream
             ? SpreadsheetDocument.Create(stream, spreadsheetDocumentType)
-            : SpreadsheetDocument.Open(stream, true);
+            : OpenForEdit(stream, static s => SpreadsheetDocument.Open(s, true));
 
         using (package)
         {
@@ -102,6 +102,33 @@ public partial class XLWorkbook
             CreateParts(package, options);
             if (options.ValidatePackage) Validate(package);
         }
+    }
+
+    /// <summary>
+    /// Opens the copy of the loaded package that the save edits. A Strict package is first written
+    /// back once unchanged, so the save edits a package whose relationships are transitional.
+    /// </summary>
+    /// <remarks>
+    /// The SDK reads a Strict relationship type as its transitional counterpart, and remembers each
+    /// relationship it translated. When the package is closed it removes each of those and creates it
+    /// again with the transitional type — whether or not the part it targets still exists. A part the
+    /// save deleted, such as a calcChain with no formulas left to list, so kept its relationship, and
+    /// the saved package named a part it did not hold (#743). Closed before any edit, the package has
+    /// nothing deleted for the SDK to bring back, and opened again it has no Strict relationship left.
+    /// <para>
+    /// The check costs a package that is not Strict nothing: the SDK asks the same question of every
+    /// part when it closes the package, and the parts it loads to answer it stay loaded. A Strict
+    /// package is rewritten one more time, which the SDK already does in full on every close of one.
+    /// </para>
+    /// </remarks>
+    private static SpreadsheetDocument OpenForEdit<TSource>(TSource source, Func<TSource, SpreadsheetDocument> open)
+    {
+        var package = open(source);
+        if (!package.StrictRelationshipFound)
+            return package;
+
+        package.Dispose();
+        return open(source);
     }
 
     // http://blogs.msdn.com/b/vsod/archive/2010/02/05/how-to-delete-a-worksheet-from-excel-using-open-xml-sdk-2-0.aspx
