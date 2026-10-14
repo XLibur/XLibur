@@ -30,6 +30,13 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly HashSet<int> _nonDatabaseFieldIndexes = new();
 
+    /// <summary>
+    /// The <c>fieldGroup</c> element of a grouped field, as read, keyed by field index. XLibur
+    /// does not model grouping, but keeps it so the fields and records it writes still agree with
+    /// it and a pivot table showing the groups is not left pointing at items that are gone.
+    /// </summary>
+    private readonly Dictionary<int, string> _fieldGroupXml = new();
+
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)
     {
         _workbook = workbook;
@@ -96,6 +103,11 @@ internal sealed class XLPivotCache : IXLPivotCache
         _fieldIndexes.Clear();
         _fieldNames.Clear();
         _values.Clear();
+
+        // A refresh rebuilds the fields from the source columns alone. The grouping fields are not
+        // among them, and the groups of the others index shared items that have just been rebuilt.
+        _nonDatabaseFieldIndexes.RemoveWhere(fieldIndex => !_calculatedFieldFormulas.ContainsKey(fieldIndex));
+        _fieldGroupXml.Clear();
 
         var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
         var area = foundArea.Value;
@@ -226,6 +238,22 @@ internal sealed class XLPivotCache : IXLPivotCache
     internal void SetNonDatabaseField(int fieldIndex)
     {
         _nonDatabaseFieldIndexes.Add(fieldIndex);
+    }
+
+    /// <summary>
+    /// Keep the <c>fieldGroup</c> element of a grouped field, so the save writes it back.
+    /// </summary>
+    internal void SetFieldGroupXml(int fieldIndex, string fieldGroupXml)
+    {
+        _fieldGroupXml[fieldIndex] = fieldGroupXml;
+    }
+
+    /// <summary>
+    /// The <c>fieldGroup</c> element of a grouped field, or null if the field is not grouped.
+    /// </summary>
+    internal string? GetFieldGroupXml(int fieldIndex)
+    {
+        return _fieldGroupXml.TryGetValue(fieldIndex, out var fieldGroupXml) ? fieldGroupXml : null;
     }
 
     /// <summary>

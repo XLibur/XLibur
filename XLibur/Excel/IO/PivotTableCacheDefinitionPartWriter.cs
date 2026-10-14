@@ -299,13 +299,28 @@ internal static class PivotTableCacheDefinitionPartWriter
 
         if (cacheField == null)
         {
-            cacheField = new CacheField
-            {
-                Name = cacheFieldName,
-                SharedItems = new SharedItems()
-            };
+            cacheField = new CacheField { Name = cacheFieldName };
             cacheFields.AppendChild(cacheField);
         }
+
+        // A grouping field (the months of a date field, or items grouped by hand) has no records,
+        // and the reader of the records part counts on this attribute to know it.
+        var isGroupingField = pivotCache.IsNonDatabaseField(fieldIdx);
+        if (isGroupingField)
+            cacheField.DatabaseField = false;
+
+        // Excel writes no shared items for a grouping field: its items are the group items.
+        if (isGroupingField && fieldValues.SharedCount == 0)
+            cacheField.SharedItems?.Remove();
+        else
+            WriteSharedItems(cacheField, fieldValues, xlSharedItems);
+
+        if (pivotCache.GetFieldGroupXml(fieldIdx) is { } fieldGroupXml)
+            cacheField.FieldGroup = new FieldGroup(fieldGroupXml);
+    }
+
+    private static void WriteSharedItems(CacheField cacheField, XLPivotCacheValues fieldValues, XLPivotCacheSharedItems xlSharedItems)
+    {
         cacheField.SharedItems ??= new SharedItems();
         var sharedItems = cacheField.SharedItems;
         sharedItems.RemoveAllChildren();
