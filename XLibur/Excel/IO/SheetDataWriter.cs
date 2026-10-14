@@ -140,8 +140,8 @@ internal static class SheetDataWriter
     /// A totals-row cell without a formula goes through <see cref="WriteTotalLabelCellDirect"/>. That
     /// writes the cell's shared string, as for any other cell, when the field has a label. When the
     /// field has none it writes nothing at all, and it cannot write a value that is not a shared
-    /// string. A formula takes the formula path either way, so the method stands on its own for a
-    /// sheet with formulas; today's only caller has already refused those.
+    /// string. A formula takes the formula path either way, so a formula in a totals row, such as a
+    /// <c>SUBTOTAL</c>, does not refuse the sheet.
     /// </remarks>
     internal static bool WritesTotalsRowsAsValues(XLWorksheet xlWorksheet)
     {
@@ -178,8 +178,12 @@ internal static class SheetDataWriter
     /// An array formula is held by every cell of its range, so the same instance is collected more
     /// than once; the second dirty check makes the repeats free, and also skips whatever a fallback
     /// to full recalculation already cleaned.
+    /// <para>
+    /// A save that can keep the sheet's cells calls this first, to learn whether the calculation
+    /// changed a cached value (#720). The call here then finds nothing dirty.
+    /// </para>
     /// </remarks>
-    private static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet, SaveContext context)
+    internal static void EvaluateDirtyFormulas(XLWorksheet xlWorksheet, SaveContext context)
     {
         List<(Point Point, XLCellFormula Formula)>? dirty = null;
         using (var enumerator = xlWorksheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(Area.Full))

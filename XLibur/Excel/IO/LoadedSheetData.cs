@@ -54,7 +54,7 @@ internal sealed class LoadedSheetData : IDisposable
         !options.RewriteUnchangedSheets
         && context.StylesheetWasLoaded
         && !context.ReservedFillsReplaced
-        && CellsCanBeKept(xlWorksheet)
+        && CellsCanBeKept(xlWorksheet, options, context)
         && context.SharedStringsAtFileIndices(xlWorksheet.Workbook.SharedStringTable);
 
     /// <summary>
@@ -116,8 +116,7 @@ internal sealed class LoadedSheetData : IDisposable
     /// Would the save write the sheet's cells as the file had them, and can it keep them?
     /// </summary>
     /// <remarks>
-    /// Excluded, as #702 lists them: formulas, whose text and cached values the calc engine owns.
-    /// And a table's totals row, but only where the writer would write a cell in it otherwise than
+    /// Excluded: a table's totals row, but only where the writer would write a cell in it otherwise than
     /// as a value (<see cref="SheetDataWriter.WritesTotalsRowsAsValues"/>): it writes a label cell
     /// by the table's field, and leaves out the cell of a field with no label (#721). The check is
     /// made against the table as the save finds it, so it holds whatever changed the table since the
@@ -139,12 +138,31 @@ internal sealed class LoadedSheetData : IDisposable
     /// cell whose <c>vm</c> or value a rewrite would write differently, and a sheet whose numbers
     /// all stayed keeps cells that name the metadata and rich values this save writes.
     /// </para>
+    /// <para>
+    /// Nor are formulas (#720). The calc engine owns their text and cached values and changes
+    /// both without setting a cell: a rename or a shift rewrites the text in place, and a calculation
+    /// writes the value. <see cref="XLWorksheet.CellsChangedSinceLoad"/> counts both, and a dirty
+    /// formula whose cached value the save would recalculate or drop. A kept formula keeps the form the
+    /// file wrote it in, such as a shared formula, which the load reads as the same formula in each cell.
+    /// So a save with <see cref="SaveOptions.WriteSharedFormulas"/> off, which promises the text of each
+    /// formula in its own cell, writes the cells of a sheet with formulas from the model.
+    /// </para>
+    /// <para>
+    /// A save with <see cref="SaveOptions.EvaluateFormulasBeforeSaving"/> calculates the sheet's dirty
+    /// formulas here, before it compares, rather than as it writes the cells. A calculation that gives
+    /// every formula the value it had is then no change.
+    /// </para>
     /// </remarks>
-    private static bool CellsCanBeKept(XLWorksheet sheet)
+    private static bool CellsCanBeKept(XLWorksheet sheet, SaveOptions options, SaveContext context)
     {
+        if (!options.WriteSharedFormulas && !sheet.Internals.CellsCollection.FormulaSlice.IsEmpty)
+            return false;
+
+        if (options.EvaluateFormulasBeforeSaving)
+            SheetDataWriter.EvaluateDirtyFormulas(sheet, context);
+
         // Cheapest first: the totals check builds a cell for each used cell of every totals row.
-        return sheet.Internals.CellsCollection.FormulaSlice.IsEmpty
-               && !sheet.CellsChangedSinceLoad()
+        return !sheet.CellsChangedSinceLoad()
                && SheetDataWriter.WritesTotalsRowsAsValues(sheet);
     }
 

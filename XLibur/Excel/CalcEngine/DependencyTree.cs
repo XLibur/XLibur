@@ -143,7 +143,7 @@ internal sealed class DependencyTree
     /// Gets the area a formula found at <paramref name="point"/> is registered under, or returns
     /// <c>false</c> when the formula isn't registered from that cell.
     /// </summary>
-    private static bool TryGetFormulaArea(XLCellFormula formula, Point point, out Area area)
+    internal static bool TryGetFormulaArea(XLCellFormula formula, Point point, out Area area)
     {
         if (formula.IsDynamicArray)
         {
@@ -290,36 +290,6 @@ internal sealed class DependencyTree
         _sheetTrees.Add(sheet.Name, new SheetDependencyTree());
     }
 
-    internal void RenameSheet(string oldSheetName, string newSheetName)
-    {
-        // In place, because each array belongs to the tree. A formula that reads both the old name
-        // and a missing sheet that has the new name then holds the same area twice. RemoveFormula
-        // finds nothing to remove for the second copy, so that does no harm.
-        foreach (var precedentAreas in _dependencies.Values)
-        {
-            for (var i = 0; i < precedentAreas.Length; ++i)
-            {
-                var precedentArea = precedentAreas[i];
-                if (XLHelper.SheetComparer.Equals(precedentArea.Name, oldSheetName))
-                    precedentAreas[i] = new SheetArea(newSheetName, precedentArea.Area);
-            }
-        }
-
-        foreach (var formula in _unknownPrecedents.Keys.ToList())
-        {
-            var formulaArea = _unknownPrecedents[formula];
-            if (XLHelper.SheetComparer.Equals(formulaArea.Name, oldSheetName))
-                _unknownPrecedents[formula] = new SheetArea(newSheetName, formulaArea.Area);
-        }
-
-        var renamedSheetTree = _sheetTrees[oldSheetName];
-        _sheetTrees.Remove(oldSheetName);
-        _sheetTrees.Add(newSheetName, renamedSheetTree);
-
-        foreach (var sheetTree in _sheetTrees.Values)
-            sheetTree.RenameSheet(oldSheetName, newSheetName);
-    }
-
     /// <summary>
     /// <para>
     /// Monotonically increasing walk id, handed out one per <see cref="MarkDirty"/> call and
@@ -332,8 +302,8 @@ internal sealed class DependencyTree
     /// </para>
     /// <para>
     /// The counter is process-wide rather than per-tree because the stamps outlive any single
-    /// tree: <c>XLCalcEngine.Purge</c> discards and rebuilds the whole dependency tree on a sheet
-    /// add or rename and on every row/column insert or delete, but the <see cref="XLCellFormula"/>
+    /// tree: the engine discards and rebuilds the whole dependency tree on a sheet add or rename
+    /// and on every row/column insert or delete, but the <see cref="XLCellFormula"/>
     /// objects holding the stamps are not recreated. A per-tree counter would restart at zero and
     /// hand a surviving formula an id it is already stamped with, so the first walk after each
     /// rebuild would prune at its first hop. One interlocked increment per walk — not per node —
@@ -621,25 +591,6 @@ internal sealed class DependencyTree
             _others.RemoveAt(_others.Count - 1);
             return false;
         }
-
-        internal void RenameSheet(string oldSheetName, string newSheetName)
-        {
-            _first = Renamed(_first, oldSheetName, newSheetName);
-            if (_others is null)
-                return;
-
-            for (var i = 0; i < _others.Count; ++i)
-                _others[i] = Renamed(_others[i], oldSheetName, newSheetName);
-        }
-
-        private static Dependent Renamed(Dependent dependent, string oldSheetName, string newSheetName)
-        {
-            if (!XLHelper.SheetComparer.Equals(dependent.FormulaArea.Name, oldSheetName))
-                return dependent;
-
-            var renamedArea = new SheetArea(newSheetName, dependent.FormulaArea.Area);
-            return new Dependent(renamedArea, dependent.Formula);
-        }
     }
 
     /// <summary>
@@ -859,17 +810,6 @@ internal sealed class DependencyTree
                 _tree.Delete(precedentArea);
                 _precedentAreas.Remove(precedentRange);
             }
-        }
-
-        internal void RenameSheet(string oldSheetName, string newSheetName)
-        {
-            // Area dependents instances are shared among _precedentAreas and _tree, so it is
-            // enough to change _precedentAreas.
-            foreach (var areaDependents in _precedentAreas.Values)
-                areaDependents.RenameSheet(oldSheetName, newSheetName);
-
-            foreach (var cellDependents in _precedentCells.Values)
-                cellDependents.RenameSheet(oldSheetName, newSheetName);
         }
 
         private static bool IsCell(Area range) => range.FirstPoint == range.LastPoint;

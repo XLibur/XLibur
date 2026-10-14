@@ -23,16 +23,20 @@ namespace XLibur.Excel;
 /// <list type="bullet">
 /// <item>The <see cref="ISlice.Version"/> of each cell slice. <see cref="FormulaSlice.Version"/> also
 /// counts formulas edited in place, such as by a sheet rename or an array formula shifted by an insert
-/// on another sheet.</item>
+/// on another sheet. The value slice's version counts a recalculated cached value only when the value
+/// differs (<see cref="ValueSlice.SetFormulaResult"/>), so a recalculation that gives the values the
+/// file had is no change (#720).</item>
 /// <item>The attributes the writer gives each row. Rows have many setters and no change counter, so
 /// they are compared as they are, not through a version.</item>
 /// <item>The styles a cell with no style of its own inherits: the sheet's, and those of its row and
 /// column.</item>
 /// <item>The workbook's date system, which sets the serial number a date is written as.</item>
 /// </list>
-/// Formulas get one more check, at save. A formula that is dirty then has its cached value
-/// recalculated or dropped by the save. Editing another sheet can make it dirty without writing to
-/// this one.
+/// Formulas get one more check, at save. A formula that is dirty then and holds a cached value has
+/// that value recalculated or dropped by the save. Editing another sheet can make it dirty without
+/// writing to this one, and so can a structural edit anywhere in the workbook, which marks every
+/// formula dirty. A formula that is dirty with no cached value is written as the file had it, without
+/// one.
 /// </para>
 /// <para>
 /// Not tracked: labels in a table's totals row, which the writer takes from the table, so the save
@@ -105,7 +109,7 @@ internal sealed class SheetDataBaseline
         if (sheet.StyleValue != _sheetStyle || sheet.Workbook.Use1904DateSystem != _use1904DateSystem)
             return false;
 
-        return RowsMatch(sheet) && ColumnsMatch(sheet) && !HasDirtyFormula(cells.FormulaSlice);
+        return RowsMatch(sheet) && ColumnsMatch(sheet) && !HasStaleCachedValue(cells);
     }
 
     private static RowAttributes[] CaptureRows(XLWorksheet sheet)
@@ -181,15 +185,26 @@ internal sealed class SheetDataBaseline
         return matched == _columns.Length;
     }
 
-    private static bool HasDirtyFormula(FormulaSlice formulas)
+    /// <summary>
+    /// Does a dirty formula hold a cached value? The save would recalculate that value or write the
+    /// formula without it, where the file has it.
+    /// </summary>
+    /// <remarks>
+    /// Called once the slice versions match, so each cell holds the value it held when the baseline
+    /// was captured. A formula that is dirty with no value had none then either, as the loader
+    /// leaves a formula whose cell has no <c>&lt;v&gt;</c>, and the save writes it without one too.
+    /// A save that calculates it first writes a value, which changes the value slice's version.
+    /// </remarks>
+    private static bool HasStaleCachedValue(XLCellsCollection cells)
     {
+        var formulas = cells.FormulaSlice;
         if (formulas.IsEmpty)
             return false;
 
         using var enumerator = formulas.GetForwardEnumerator(Area.Full);
         while (enumerator.MoveNext())
         {
-            if (enumerator.Current.IsDirty())
+            if (enumerator.Current.IsDirty() && cells.ValueSlice.GetCellValue(enumerator.Point).Type != XLDataType.Blank)
                 return true;
         }
 

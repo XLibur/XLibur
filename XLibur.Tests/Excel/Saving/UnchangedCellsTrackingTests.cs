@@ -254,15 +254,126 @@ public class UnchangedCellsTrackingTests
     }
 
     [Test]
-    public async Task Renaming_a_sheet_leaves_a_sheet_without_formulas_unchanged()
+    public async Task Renaming_a_sheet_that_no_formula_names_leaves_the_sheets_unchanged()
     {
         using var wb = LoadSource();
 
-        // A rename marks every formula dirty, so it does change Data, whose formulas the save would
-        // then write without their cached values.
+        // A rename rewrites only the formulas that name the sheet, and marks only those dirty (#720).
         wb.Worksheet("Unused").Name = "Renamed";
 
         await Assert.That(Changed(Sheet(wb, "Other"))).IsFalse();
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Renaming_a_sheet_leaves_a_formula_sheet_that_does_not_name_it_unchanged()
+    {
+        using var wb = LoadSource(addToUnused: ws =>
+        {
+            ws.Cell("A1").Value = "Unused";
+            ws.Cell("B1").FormulaA1 = "LEN(A1)";
+        });
+
+        // Data names Other, so its formulas are rewritten, but nothing that reads them changes.
+        wb.Worksheet("Other").Name = "Renamed";
+
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsTrue();
+        await Assert.That(Changed(Sheet(wb, "Unused"))).IsFalse();
+        await Assert.That(Sheet(wb, "Unused").Cell("B1").Value).IsEqualTo(6);
+    }
+
+    [Test]
+    [Arguments("IFERROR(Missing!A1,-1)")]
+    [Arguments("IFERROR(INDIRECT(\"Missing!A1\"),-1)")]
+    public async Task Renaming_a_sheet_to_a_name_a_formula_reads_recalculates_it(string formula)
+    {
+        using var wb = LoadSource(addToUnused: ws => ws.Cell("B1").FormulaA1 = formula);
+        var unused = Sheet(wb, "Unused");
+        await Assert.That(unused.Cell("B1").CachedValue).IsEqualTo(-1);
+
+        // The formula read a missing sheet until now, so its result changes.
+        wb.Worksheet("Other").Name = "Missing";
+
+        await Assert.That(unused.Cell("B1").Value).IsEqualTo(1);
+        await Assert.That(Changed(unused)).IsTrue();
+    }
+
+    [Test]
+    public async Task Deleting_a_sheet_that_a_formula_names_changes_the_sheet_holding_the_formula()
+    {
+        using var wb = LoadSource();
+        var formulaVersion = FormulaVersion(Sheet(wb, "Data"));
+
+        // Every reference to the deleted sheet becomes #REF!, in place.
+        wb.Worksheet("Other").Delete();
+
+        await Assert.That(FormulaVersion(Sheet(wb, "Data"))).IsNotEqualTo(formulaVersion);
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsTrue();
+    }
+
+    [Test]
+    public async Task Inserting_columns_that_an_array_formula_names_changes_the_sheet_holding_the_formula()
+    {
+        using var wb = LoadSource();
+        var formulaVersion = FormulaVersion(Sheet(wb, "Data"));
+
+        // Moves Other!A1:A2, which the array formula in Data!F1:F2 reads, to B1:B2. The array's text
+        // is rewritten in place.
+        wb.Worksheet("Other").Column(1).InsertColumnsBefore(1);
+
+        await Assert.That(FormulaVersion(Sheet(wb, "Data"))).IsNotEqualTo(formulaVersion);
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsTrue();
+    }
+
+    [Test]
+    public async Task Adding_a_sheet_changes_a_sheet_whose_formulas_hold_cached_values()
+    {
+        using var wb = LoadSource();
+
+        // Adding a sheet marks every formula dirty, and a save that does not calculate them writes
+        // them without the cached values the file has.
+        wb.AddWorksheet("Added");
+
+        await Assert.That(Changed(Sheet(wb, "Data"))).IsTrue();
+        await Assert.That(Changed(Sheet(wb, "Other"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Recalculating_to_the_values_the_file_had_leaves_the_sheet_unchanged()
+    {
+        using var wb = LoadSource();
+        var ws = Sheet(wb, "Data");
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(2);
+        await Assert.That(Changed(ws)).IsFalse();
+    }
+
+    [Test]
+    public async Task Recalculating_to_a_new_value_changes_the_sheet()
+    {
+        using var wb = LoadSource(ws => ws.Cell("H1").FormulaA1 = "RAND()");
+        var ws = Sheet(wb, "Data");
+
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(Changed(ws)).IsTrue();
+    }
+
+    [Test]
+    public async Task A_formula_loaded_without_a_cached_value_leaves_the_sheet_unchanged_until_it_is_calculated()
+    {
+        using var wb = LoadSource(evaluate: false);
+        var ws = Sheet(wb, "Data");
+
+        // The file has no cached values, so the formulas load dirty. A save writes them without one,
+        // as the file has them.
+        await Assert.That(Changed(ws)).IsFalse();
+
+        _ = ws.Cell("D1").Value;
+
+        await Assert.That(Changed(ws)).IsTrue();
     }
 
     [Test]
@@ -324,9 +435,13 @@ public class UnchangedCellsTrackingTests
     /// <summary>
     /// Saves a workbook with values, styles, rows with attributes, a styled column and formulas that
     /// read another sheet, and loads it again. The formulas are evaluated before the save, so they
-    /// load clean.
+    /// load clean, unless <paramref name="evaluate"/> is false.
     /// </summary>
-    private static XLWorkbook LoadSource()
+    /// <param name="addToData">Adds more to the Data sheet before the save.</param>
+    /// <param name="evaluate">Whether the save writes the formulas' cached values.</param>
+    /// <param name="addToUnused">Adds to the Unused sheet, otherwise empty, before the save.</param>
+    private static XLWorkbook LoadSource(Action<IXLWorksheet>? addToData = null, bool evaluate = true,
+        Action<IXLWorksheet>? addToUnused = null)
     {
         // Not disposed: a loaded workbook saves by copying the stream it was loaded from.
         var stream = new MemoryStream();
@@ -334,7 +449,8 @@ public class UnchangedCellsTrackingTests
         {
             var ws = wb.AddWorksheet("Data");
             var other = wb.AddWorksheet("Other");
-            wb.AddWorksheet("Unused");
+            var unused = wb.AddWorksheet("Unused");
+            addToUnused?.Invoke(unused);
 
             other.Cell("A1").Value = 1;
             other.Cell("A2").Value = 2;
@@ -348,8 +464,9 @@ public class UnchangedCellsTrackingTests
             ws.Row(6).Height = 30;
             ws.Column(2).Style.Fill.BackgroundColor = XLColor.LightBlue;
             ws.Cell("B3").Value = 7;
+            addToData?.Invoke(ws);
 
-            wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+            wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = evaluate });
         }
 
         stream.Position = 0;
