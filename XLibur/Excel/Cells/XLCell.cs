@@ -961,6 +961,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public IXLCell SetCellImage(Stream imageStream, XLPictureFormat format, string altText = "")
     {
+        Worksheet.Workbook.ThrowIfCellImagesCannotBeWritten();
         var store = Worksheet.Workbook.InCellImages;
         var imageIndex = store.Add(imageStream, format);
         CellImage = new XLCellImage(imageIndex, altText);

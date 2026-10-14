@@ -125,6 +125,28 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal XLInCellImageStore InCellImages { get; } = new();
 
+    /// <summary>
+    /// The loaded workbook has rich values that the load did not take over as in-cell images,
+    /// such as data types, so its rich data parts and the <c>vm</c> indexes of its cells are saved
+    /// as the file had them. The save can only write the rich data of in-cell images, so an image
+    /// cannot be added to such a workbook without losing the other rich values.
+    /// </summary>
+    internal bool KeepsLoadedRichData { get; set; }
+
+    /// <summary>
+    /// Throws if an in-cell image cannot be written to this workbook. See
+    /// <see cref="KeepsLoadedRichData"/>.
+    /// </summary>
+    internal void ThrowIfCellImagesCannotBeWritten()
+    {
+        if (KeepsLoadedRichData)
+        {
+            throw new NotSupportedException(
+                "The workbook has rich values that are not in-cell images, such as data types. " +
+                "XLibur keeps them as loaded, but cannot write them together with new in-cell images.");
+        }
+    }
+
     #region Nested Type : XLLoadSource
 
     // ReSharper disable once InconsistentNaming

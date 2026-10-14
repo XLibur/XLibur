@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -238,12 +239,7 @@ public class CellImageExcelFormatTests
     {
         // The save writes the rich data parts from the images it knows. Had it taken B2's image,
         // it would have dropped C3's rich value, and C3's vm would have named nothing.
-        using var source = SaveWithTwoImages();
-        const string RichValues = """<rv s="0"><v>0</v><v>5</v><v>first</v></rv><rv s="1"><v>other</v></rv>""";
-        RewriteRichData(source,
-            """<s t="_localImage"><k n="_rvRel:LocalImageIdentifier" t="i"/><k n="CalcOrigin" t="i"/><k n="Text" t="s"/></s>""" +
-            """<s t="_someOtherType"><k n="Name" t="s"/></s>""",
-            RichValues);
+        using var source = MixedRichValues(out var richValues);
 
         using var wb = new XLWorkbook(source);
         await Assert.That(wb.Worksheet(1).Cell("B2").HasCellImage).IsFalse();
@@ -252,12 +248,89 @@ public class CellImageExcelFormatTests
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
 
+        await AssertRichDataAsLoaded(saved, richValues);
+    }
+
+    [Test]
+    public async Task An_image_cannot_be_added_to_a_workbook_whose_rich_data_is_kept_as_loaded()
+    {
+        // The save can only write the rich data of in-cell images. Adding one rewrote the parts
+        // from the new image alone: C3's rich value was dropped, and B2's vm named the new image.
+        // The workbook refuses the image, and is then saved as it was loaded.
+        using var source = MixedRichValues(out var richValues);
+        using var wb = new XLWorkbook(source);
+        var cell = wb.Worksheet(1).Cell("E5");
+
+        await Assert.That(() =>
+        {
+            using var png = new MemoryStream(XLCellImageTests.CreateTestPng());
+            cell.SetCellImage(png, XLPictureFormat.Png, "added");
+        }).Throws<NotSupportedException>();
+        await Assert.That(cell.HasCellImage).IsFalse();
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        await AssertRichDataAsLoaded(saved, richValues);
+    }
+
+    [Test]
+    public async Task A_copied_image_in_a_workbook_whose_rich_data_is_kept_as_loaded_fails_the_save()
+    {
+        using var other = new XLWorkbook();
+        var image = other.AddWorksheet().Cell("A1");
+        using (var png = new MemoryStream(XLCellImageTests.CreateTestPng()))
+            image.SetCellImage(png, XLPictureFormat.Png, "copied");
+
+        using var source = MixedRichValues(out _);
+        using var wb = new XLWorkbook(source);
+        wb.Worksheet(1).Cell("E5").CopyFrom(image);
+        using var saved = new MemoryStream();
+
+        await Assert.That(() => wb.SaveAs(saved)).Throws<NotSupportedException>();
+    }
+
+    [Test]
+    public async Task An_image_cannot_be_added_to_a_workbook_with_only_other_rich_values()
+    {
+        using var source = SaveWithTwoImages();
+        RewriteRichData(source,
+            """<s t="_someOtherType"><k n="Name" t="s"/></s>""",
+            """<rv s="0"><v>one</v></rv><rv s="0"><v>two</v></rv>""");
+        using var wb = new XLWorkbook(source);
+
+        await Assert.That(() =>
+        {
+            using var png = new MemoryStream(XLCellImageTests.CreateTestPng());
+            wb.Worksheet(1).Cell("E5").SetCellImage(png, XLPictureFormat.Png);
+        }).Throws<NotSupportedException>();
+    }
+
+    /// <summary>
+    /// A package whose B2 holds a local image and whose C3 holds a rich value of another type.
+    /// </summary>
+    private static MemoryStream MixedRichValues(out string richValues)
+    {
+        var source = SaveWithTwoImages();
+        richValues = """<rv s="0"><v>0</v><v>5</v><v>first</v></rv><rv s="1"><v>other</v></rv>""";
+        RewriteRichData(source,
+            """<s t="_localImage"><k n="_rvRel:LocalImageIdentifier" t="i"/><k n="CalcOrigin" t="i"/><k n="Text" t="s"/></s>""" +
+            """<s t="_someOtherType"><k n="Name" t="s"/></s>""",
+            richValues);
+        return source;
+    }
+
+    /// <summary>
+    /// The cells of <see cref="MixedRichValues"/> keep their vm indexes, and its rich values are
+    /// saved as loaded.
+    /// </summary>
+    private static async Task AssertRichDataAsLoaded(MemoryStream saved, string richValues)
+    {
         saved.Position = 0;
         using var document = SpreadsheetDocument.Open(saved, false);
         var cells = SheetCells(document);
         await Assert.That(cells["B2"].Attribute("vm")?.Value).IsEqualTo("1");
         await Assert.That(cells["C3"].Attribute("vm")?.Value).IsEqualTo("2");
-        await Assert.That(ReadRichValues(document)).Contains(RichValues);
+        await Assert.That(ReadRichValues(document)).Contains(richValues);
     }
 
     /// <summary>

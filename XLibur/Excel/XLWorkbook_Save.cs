@@ -608,6 +608,9 @@ public partial class XLWorkbook
         if (cellsWithImages.Count == 0)
             return;
 
+        // SetCellImage refuses first; this catches an image that came in another way, e.g. a copy.
+        ThrowIfCellImagesCannotBeWritten();
+
         // Build rich value entries (one per cell)
         var entries = new List<RichDataWriter.RichValueEntry>(cellsWithImages.Count);
         foreach (var (_, image) in cellsWithImages)

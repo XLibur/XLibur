@@ -105,6 +105,9 @@ public interface IXLCell
     /// <param name="imageStream">Stream containing image data.</param>
     /// <param name="format">Image format.</param>
     /// <param name="altText">Alt text for accessibility.</param>
+    /// <exception cref="NotSupportedException">The workbook was loaded with rich values that are
+    /// not in-cell images, such as data types. XLibur keeps them as loaded, but cannot write them
+    /// together with new in-cell images.</exception>
     IXLCell SetCellImage(Stream imageStream, XLPictureFormat format, string altText = "");
 
     /// <summary>

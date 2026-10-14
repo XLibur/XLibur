@@ -28,29 +28,34 @@ internal static class RichDataReader
         var richValueRelPart = FindPartByRelType(workbookPart, RichDataWriter.RichValueRelRelType)
                                ?? FindPartByRelType(workbookPart, RichDataWriter.LegacyRichValueRelRelType);
 
-        // If any of the required parts are missing, skip
-        if (richValuePart is null || richValueStructurePart is null || richValueRelPart is null)
+        if (richValuePart is null)
             return;
 
         // 1. Parse structures to find each _localImage structure and the positions of its keys
-        var localImageStructures = FindLocalImageStructures(richValueStructurePart);
-        if (localImageStructures.Count == 0)
-            return;
+        var localImageStructures = richValueStructurePart is null
+            ? new Dictionary<int, LocalImageLayout>()
+            : FindLocalImageStructures(richValueStructurePart);
 
-        // 2. Parse richValueRel to get image relationship IDs in order
-        var imageRelIds = ParseRichValueRel(richValueRelPart);
-
-        // 3. Parse rdrichvalue.xml to build rv index -> (rel index, alt text)
+        // 2. Parse rdrichvalue.xml to build rv index -> (rel index, alt text)
         var richValues = ParseRichValues(richValuePart, localImageStructures);
         if (richValues.Count == 0)
             return;
 
+        // 3. Parse richValueRel to get image relationship IDs in order
+        var imageRelIds = richValueRelPart is null ? [] : ParseRichValueRel(richValueRelPart);
+
         // The save rewrites the rich data parts from the images it knows and drops every other
         // rich value. Unless each rich value is a local image whose relationship resolves, the
-        // workbook's rich data is left as the file has it, and so are its cells.
-        if (!richValues.TrueForAll(rv => rv is { } v && v.RelIndex >= 0 && v.RelIndex < imageRelIds.Count &&
+        // workbook's rich data is left as the file has it, and so are its cells, and no image
+        // can be added: the rewrite would drop the other rich values and leave their cells'
+        // vm indexes naming the new images, or nothing.
+        if (richValueRelPart is null ||
+            !richValues.TrueForAll(rv => rv is { } v && v.RelIndex >= 0 && v.RelIndex < imageRelIds.Count &&
                                          richValueRelPart.TryGetPartById(imageRelIds[v.RelIndex], out _)))
+        {
+            workbook.KeepsLoadedRichData = true;
             return;
+        }
 
         // 4. Load image bytes from relationship targets into the workbook store
         var relIndexToImageStoreIndex = LoadImages(richValueRelPart, imageRelIds, workbook);
