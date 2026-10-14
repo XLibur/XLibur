@@ -159,6 +159,44 @@ internal sealed class XLTableField : IXLTableField
     /// </remarks>
     internal void LoadTotalsRowLabel(string label) => totalsRowLabel = label;
 
+    /// <summary>
+    /// Sets the totals function the load read from the table part, and leaves a formula the totals
+    /// cell already holds as the file has it (#749).
+    /// </summary>
+    /// <remarks>
+    /// The setter of <see cref="TotalsRowFunction"/> writes the function's formula into the cell. Over
+    /// a loaded formula that is a change: the formula is then dirty, so a save writes it without its
+    /// cached value, and its text is XLibur's spelling, not the file's (<c>Table1[[Purchase price]]</c>
+    /// for <c>Table1[Purchase price]</c>, <c>[Photo?]</c> for <c>Table1[Photo?]</c>). A cell with no
+    /// formula still gets the function's formula, as it did before.
+    /// </remarks>
+    internal void LoadTotalsRowFunction(XLTotalsRowFunction function)
+    {
+        if (TotalsCellHasFormula())
+            totalsRowFunction = function;
+        else
+            TotalsRowFunction = function;
+    }
+
+    /// <summary>
+    /// Sets the custom totals formula the load read from the table part, and leaves a formula the
+    /// totals cell already holds as the file has it (#749). See <see cref="LoadTotalsRowFunction"/>.
+    /// </summary>
+    internal void LoadTotalsRowFormula(string formulaA1)
+    {
+        if (TotalsCellHasFormula())
+        {
+            totalsRowFunction = XLTotalsRowFunction.Custom;
+            totalsRowLabel = null;
+        }
+        else
+        {
+            TotalsRowFormulaA1 = formulaA1;
+        }
+    }
+
+    private bool TotalsCellHasFormula() => _table.TotalsRow()!.Cell(Index + 1).HasFormula;
+
     public void Delete()
     {
         Delete(true);

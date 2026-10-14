@@ -874,16 +874,16 @@ public partial class XLWorkbook
     private static void LoadTotalsRowField(TableColumn tableColumn, XLTable xlTable)
     {
         var tableColumnName = DrawingPartReader.GetTableColumnName(tableColumn.Name!.Value!);
-        var field = xlTable.Field(tableColumnName);
+        var field = (XLTableField)xlTable.Field(tableColumnName);
 
         if (tableColumn.TotalsRowFunction is not null)
-            field.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToXLibur();
+            field.LoadTotalsRowFunction(tableColumn.TotalsRowFunction.Value.ToXLibur());
 
         if (tableColumn.TotalsRowFormula is not null)
-            field.TotalsRowFormulaA1 = tableColumn.TotalsRowFormula.Text;
+            field.LoadTotalsRowFormula(tableColumn.TotalsRowFormula.Text);
 
         if (tableColumn.TotalsRowLabel?.Value is { } label)
-            ((XLTableField)field).LoadTotalsRowLabel(label);
+            field.LoadTotalsRowLabel(label);
     }
 
     private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)
