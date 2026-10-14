@@ -22,6 +22,26 @@
 
 ## Unreleased
 
+### ⚡ Performance
+
+- **A later save keeps an unchanged sheet as the first save did.** Before, only the first save after a load could leave a sheet's part alone or copy its cells; every later save wrote every sheet again. Each successful save now records what it left, so the next save can keep it too. A save that fails partway records nothing, and the next one writes those sheets in full. Loading a workbook, changing two document properties and saving it twice takes 5.6 ms instead of 12.3 ms ([#719](https://github.com/XLibur/XLibur/issues/719)).
+
+- **A save writes back the shared formulas the file had.** Excel saves a filled-down or copied formula once, in its first cell, and has each later cell refer to it. XLibur wrote the full text into every cell. It now keeps that form for every cell whose formula has not changed or moved since the load; a formula the caller writes is never saved as shared. On two test workbooks, the file is 9.6–10.7% smaller and Excel opens it about 28% faster. XLibur loads it 6–15% more slowly, but a load followed by a recalculation allocates 12–16% less and takes the same time or less ([#692](https://github.com/XLibur/XLibur/issues/692), ADR 0003). Set the new `SaveOptions.WriteSharedFormulas` to `false` to write the text in every cell, as before, for a reader that does not expand shared formulas.
+
+- **A sheet part larger than 16 MB is left alone on save when the sheet has not changed.** The load copies the markup around the cells from a stream instead of keeping the part in memory. On a workbook with one 24 MB sheet, opening it, changing two document properties and saving takes 250 ms instead of 829 ms, and allocates 34 MB instead of 54 MB. The open alone takes 228 ms instead of 327 ms ([#723](https://github.com/XLibur/XLibur/issues/723)).
+
+- **About half of the sheets Excel writes now keep their part on save, up from about a quarter.** The save now writes back Excel's own spelling of settings the model still holds, where it used to respell them: zoom scales of 100, `topLeftCell="A1"`, sheet-view and sheet-protection flags written out at their defaults, selections, `sqref` lists, page-setup values such as `horizontalDpi`, the style index of a loaded column, and gaps between `<col>` ranges. It declares `x14ac` only when a row uses it. Of the 393 Excel-written sheets in the test resources, 208 keep their part, where 109 did ([#722](https://github.com/XLibur/XLibur/issues/722)).
+
+- **A sheet with formulas is kept on save when its formulas have not changed.** Before, any formula made the save write the sheet's cells again. Now the sheet keeps its part, or its cells, unless a formula's text or cached value changed since the load. With `SaveOptions.EvaluateFormulasBeforeSaving`, a sheet is still kept when every formula comes out with the value it had. Kept cells keep the file's form of each formula: shared formulas, array formulas and data tables. Of the 55 Excel-written sheets with formulas in the test resources, 42 are kept, where none were ([#720](https://github.com/XLibur/XLibur/issues/720)). Renaming a sheet no longer marks every formula in the workbook for recalculation. It recalculates the formulas whose text named the old name, and those that read them, unless a formula or a defined name names the new name or a formula calls `INDIRECT`; then every formula is recalculated, as before.
+
+- **A sheet with a pivot table, cell metadata (`cm`), an in-cell image, or a table's totals row can be kept on save.** A pivot table writes nothing into its cells. Loaded `cm` indices still name the file's metadata, to which a save only appends. An image cell is written again only when the save renumbers its image. A totals row is kept when every cell in it holds its field's label as a shared string, or a formula. On the test resources, 98 more sheets keep their part or their cells, almost all of them pivot sheets ([#721](https://github.com/XLibur/XLibur/issues/721)).
+
+### 🐛 Bug Fixes
+
+- **A save no longer changes the fill of cells that use fills 0 or 1 of a file that put its own fills there.** Excel reserves those two positions for no fill and gray125, and the save puts those back. A sheet whose cells the first save after a load kept from the file still pointed at positions 0 and 1, so a dark-gray fill was saved as no fill and a red light-grid fill as gray125 ([#740](https://github.com/XLibur/XLibur/issues/740)). When the save replaces a fill at those positions, it now writes the cells of every sheet from the model.
+
+- **A totals-row label that starts with an apostrophe keeps it when the workbook is loaded.** Excel saves a label typed as `''Total` as `'Total`, both in the cell and in the table. The load set the label again through the same property a caller uses, which takes a leading apostrophe as a quote prefix and drops it, so the cell was saved as `Total` ([#721](https://github.com/XLibur/XLibur/issues/721)). The load no longer sets a label the cell already holds.
+
 ## v0.700.0 - 2026-10-05
 
 ### ⚠️ Breaking Changes
