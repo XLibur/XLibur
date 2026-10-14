@@ -130,11 +130,13 @@ internal static class DataValidationWriter
 
             var dataValidations = worksheet.Elements<DataValidations>().First();
             cm.SetElement(XLWorksheetContents.DataValidations, dataValidations);
+            var loadedSqrefs = new SqrefSpellings(dataValidations.Elements<DataValidation>()
+                .Select(v => v.SequenceOfReferences?.InnerText));
             dataValidations.RemoveAllChildren<DataValidation>();
 
             foreach (var (dv, minValue, maxValue) in dataValidationsStandard)
             {
-                var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+                var sequence = loadedSqrefs.Spell(string.Join(" ", dv.Ranges.Select(x => x.RangeAddress)));
 
                 // Built from the model, so there is nothing loaded to keep: a default is left out.
                 var dataValidation = new DataValidation

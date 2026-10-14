@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -6,6 +7,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ContentManagers;
+using XLibur.Excel.Coordinates;
 using XLibur.Excel.Exceptions;
 using XLibur.Excel.Tables;
 using static XLibur.Excel.IO.OpenXmlConst;
@@ -228,7 +230,10 @@ internal static class WorksheetPartWriter
         // needs a declared namespace. To avoid writing namespace to each <x:row> element during streaming, write it to
         // every sheet part ahead of time. The namespace has to be marked as ignorable, because OpenXML SDK validator will
         // refuse to validate it because it's an optional extension (see ISO29500 part 3).
-        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs))
+        // A loaded part gets them only when a row has the attribute, so a file that had no use for
+        // them is not given them (#722).
+        if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs)
+            && (partIsEmpty || HasRowWithDyDescent(xlWorksheet)))
         {
             worksheet.AddNamespaceDeclaration("x14ac", X14Ac2009SsNs);
             if (worksheet.NamespaceDeclarations.All(ns => ns.Value != MarkupCompatibilityNs))
@@ -265,7 +270,7 @@ internal static class WorksheetPartWriter
         SheetViewWriter.WriteSheetFormatProperties(worksheet, cm, xlWorksheet,
             maxOutlineColumn, maxOutlineRow);
 
-        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, context.SharedStyles);
+        ColumnWriter.WriteColumns(worksheet, cm, xlWorksheet, context.SharedStyles, partIsEmpty);
 
         #region SheetData
 
@@ -312,6 +317,44 @@ internal static class WorksheetPartWriter
         return worksheet;
     }
 
+    private static bool HasRowWithDyDescent(XLWorksheet xlWorksheet)
+    {
+        foreach (var row in xlWorksheet.Internals.RowsCollection.Values)
+        {
+            if (row.DyDescent is not null)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Does <paramref name="mergeCells"/> hold the sheet's merged ranges, each once, in any order,
+    /// with a count that matches?
+    /// </summary>
+    private static bool MergesAsLoaded(MergeCells mergeCells, XLWorksheet xlWorksheet)
+    {
+        var merged = xlWorksheet.Internals.MergedRanges;
+        var loaded = mergeCells.Elements<MergeCell>().ToList();
+        // A count the file spelled so it does not parse is written again rather than read.
+        if (loaded.Count != merged.Count
+            || mergeCells.Count is { } count && (!count.HasValue || count.Value != loaded.Count))
+            return false;
+
+        var areas = new HashSet<Area>();
+        foreach (var range in merged)
+            areas.Add(Area.FromRangeAddress(range.RangeAddress));
+
+        foreach (var mergeCell in loaded)
+        {
+            if (mergeCell.Reference?.Value is not { } reference || !Area.TryParse(reference, out var area)
+                                                                || !areas.Remove(area))
+                return false;
+        }
+
+        return areas.Count == 0;
+    }
+
     private static void WriteMergeCells(Worksheet worksheet, XLWorksheetContentManager cm, XLWorksheet xlWorksheet)
     {
         if ((xlWorksheet).Internals.MergedRanges.Count > 0)
@@ -324,6 +367,11 @@ internal static class WorksheetPartWriter
 
             var mergeCells = worksheet.Elements<MergeCells>().First();
             cm.SetElement(XLWorksheetContents.MergeCells, mergeCells);
+
+            // The file's merges stay in the order it wrote them while they are the sheet's (#722).
+            if (MergesAsLoaded(mergeCells, xlWorksheet))
+                return;
+
             mergeCells.RemoveAllChildren<MergeCell>();
 
             foreach (var mergeCell in xlWorksheet.Internals.MergedRanges
