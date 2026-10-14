@@ -172,10 +172,16 @@ internal sealed class XLTableField : IXLTableField
     /// </remarks>
     internal void LoadTotalsRowFunction(XLTotalsRowFunction function)
     {
-        if (TotalsCellHasFormula())
-            totalsRowFunction = function;
-        else
+        if (!TotalsCellHasFormula())
+        {
             TotalsRowFunction = function;
+            return;
+        }
+
+        // Clears the label as the setter does. A label the table part gives is loaded after this.
+        totalsRowFunction = function;
+        if (function is not (XLTotalsRowFunction.None or XLTotalsRowFunction.Custom))
+            totalsRowLabel = null;
     }
 
     /// <summary>

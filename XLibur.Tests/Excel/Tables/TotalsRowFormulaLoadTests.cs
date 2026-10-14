@@ -75,6 +75,21 @@ public class TotalsRowFormulaLoadTests
     }
 
     [Test]
+    public async Task A_totals_formula_loaded_without_a_cached_value_is_calculated()
+    {
+        // The load keeps the formula; one with no cached value still loads dirty, as any formula does.
+        using var source = Source(field => field.TotalsRowFunction = XLTotalsRowFunction.Sum);
+        source.RewriteSheet1(xml => Regex.Replace(xml, "(<x:c r=\"B4\"[^>]*>.*?</x:f>)<x:v>[^<]*</x:v>", "$1"));
+        await Assert.That(source.Sheet1Xml()).Contains("SUBTOTAL(109,[Amount])</x:f></x:c>");
+
+        using var wb = new XLWorkbook(source);
+        var cell = wb.Worksheet("Data").Cell("B4");
+
+        await Assert.That(cell.NeedsRecalculation).IsTrue();
+        await Assert.That(cell.Value).IsEqualTo(3.5);
+    }
+
+    [Test]
     [Arguments("Purchase\n price")]
     [Arguments("Estimated\ncurrent value")]
     [Arguments("Photo?")]
