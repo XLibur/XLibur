@@ -684,7 +684,7 @@ public partial class XLWorkbook
     {
         var cellMetadataPart = workbookPart.CellMetadataPart;
         if (cellMetadataPart is not null)
-            return cellMetadataPart.Metadata ?? new Metadata();
+            return cellMetadataPart.Metadata ??= new Metadata(); // attached, so the records are saved
 
         cellMetadataPart = workbookPart.AddNewPart<CellMetadataPart>(
             context.RelIdGenerator.GetNext(RelType.Workbook));

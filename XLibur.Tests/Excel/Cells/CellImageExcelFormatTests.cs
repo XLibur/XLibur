@@ -28,6 +28,7 @@ public class CellImageExcelFormatTests
     private const string RichValueRelRelType = "http://schemas.microsoft.com/office/2022/10/relationships/richValueRel";
     private const string RichValueRelContentType = "application/vnd.ms-excel.richvaluerel+xml";
     private const string RichValueStructureRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure";
+    private const string RichValueRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue";
     private const string ExcelFile = @"Other\Cells\ExcelCellImage.xlsx";
 
     [Test]
@@ -186,6 +187,113 @@ public class CellImageExcelFormatTests
         await Assert.That(ws.Cell("B2").Value.IsBlank).IsTrue();
         await Assert.That(((XLCell)ws.Cell("C3")).CellImage?.AltText).IsEqualTo("second");
     }
+
+    [Test]
+    public async Task Load_reads_a_file_XLibur_wrote_before_the_fix_and_saves_it_in_Excels_form()
+    {
+        // XLiburLegacyCellImage.xlsx was saved by XLibur before #739: richValueRel related by
+        // the 2017 type, the structure in richdata2 with key _rvRel:LocalImageFileUri.
+        using var wb = TestHelper.LoadWorkbook(@"Other\Cells\XLiburLegacyCellImage.xlsx");
+        var image = ((XLCell)wb.Worksheet("S").Cell("B2")).CellImage;
+        await Assert.That(image).IsNotNull();
+        await Assert.That(image!.AltText).IsEqualTo("alt text one");
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        saved.Position = 0;
+        using var document = SpreadsheetDocument.Open(saved, false);
+
+        await Assert.That(RichValueRelParts(document).Count).IsEqualTo(1);
+        var legacy = document.WorkbookPart!.Parts.Count(p =>
+            p.OpenXmlPart.RelationshipType == "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel");
+        await Assert.That(legacy).IsEqualTo(0);
+        await Assert.That(ReadStructure(document).Name.NamespaceName).IsEqualTo(RichDataNs);
+    }
+
+    [Test]
+    public async Task Load_reads_images_of_every_local_image_structure_by_key_name()
+    {
+        // Excel writes one structure per set of keys: here B2's image has no alt text and C3's
+        // has, so their rich values use different structures.
+        using var source = SaveWithTwoImages();
+        RewriteRichData(source,
+            """<s t="_localImage"><k n="_rvRel:LocalImageIdentifier" t="i"/><k n="CalcOrigin" t="i"/></s>""" +
+            """<s t="_localImage"><k n="CalcOrigin" t="i"/><k n="Text" t="s"/><k n="_rvRel:LocalImageIdentifier" t="i"/></s>""",
+            """<rv s="0"><v>0</v><v>5</v></rv><rv s="1"><v>5</v><v>second</v><v>1</v></rv>""");
+
+        using var wb = new XLWorkbook(source);
+        var ws = wb.Worksheet(1);
+
+        var b2 = ((XLCell)ws.Cell("B2")).CellImage;
+        var c3 = ((XLCell)ws.Cell("C3")).CellImage;
+        await Assert.That(b2).IsNotNull();
+        await Assert.That(b2!.AltText).IsEqualTo(string.Empty);
+        await Assert.That(c3).IsNotNull();
+        await Assert.That(c3!.AltText).IsEqualTo("second");
+        await Assert.That(c3.WorkbookImageIndex).IsNotEqualTo(b2.WorkbookImageIndex);
+    }
+
+    [Test]
+    public async Task A_rich_value_that_is_not_a_local_image_leaves_the_rich_data_as_the_file_had_it()
+    {
+        // The save writes the rich data parts from the images it knows. Had it taken B2's image,
+        // it would have dropped C3's rich value, and C3's vm would have named nothing.
+        using var source = SaveWithTwoImages();
+        const string RichValues = """<rv s="0"><v>0</v><v>5</v><v>first</v></rv><rv s="1"><v>other</v></rv>""";
+        RewriteRichData(source,
+            """<s t="_localImage"><k n="_rvRel:LocalImageIdentifier" t="i"/><k n="CalcOrigin" t="i"/><k n="Text" t="s"/></s>""" +
+            """<s t="_someOtherType"><k n="Name" t="s"/></s>""",
+            RichValues);
+
+        using var wb = new XLWorkbook(source);
+        await Assert.That(wb.Worksheet(1).Cell("B2").HasCellImage).IsFalse();
+        await Assert.That(wb.InCellImages.Count).IsEqualTo(0);
+        wb.Worksheet(1).Cell("D4").Value = 7;
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        saved.Position = 0;
+        using var document = SpreadsheetDocument.Open(saved, false);
+        var cells = SheetCells(document);
+        await Assert.That(cells["B2"].Attribute("vm")?.Value).IsEqualTo("1");
+        await Assert.That(cells["C3"].Attribute("vm")?.Value).IsEqualTo("2");
+        await Assert.That(ReadRichValues(document)).Contains(RichValues);
+    }
+
+    /// <summary>
+    /// Replaces the structures and rich values of a package written by <see cref="SaveWithTwoImages"/>.
+    /// </summary>
+    private static void RewriteRichData(MemoryStream package, string structures, string richValues)
+    {
+        package.Position = 0;
+        using (var document = SpreadsheetDocument.Open(package, true))
+        {
+            var structureCount = structures.Split("<s ").Length - 1;
+            var richValueCount = richValues.Split("<rv ").Length - 1;
+            Feed(PartByRelType(document, RichValueStructureRelType),
+                $"""<rvStructures xmlns="{RichDataNs}" count="{structureCount}">{structures}</rvStructures>""");
+            Feed(PartByRelType(document, RichValueRelType),
+                $"""<rvData xmlns="{RichDataNs}" count="{richValueCount}">{richValues}</rvData>""");
+        }
+
+        package.Position = 0;
+
+        static void Feed(OpenXmlPart part, string xml)
+        {
+            using var content = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+            part.FeedData(content);
+        }
+    }
+
+    private static string ReadRichValues(SpreadsheetDocument document)
+    {
+        using var stream = PartByRelType(document, RichValueRelType).GetStream(FileMode.Open, FileAccess.Read);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    private static OpenXmlPart PartByRelType(SpreadsheetDocument document, string relType) =>
+        document.WorkbookPart!.Parts.Single(p => p.OpenXmlPart.RelationshipType == relType).OpenXmlPart;
 
     private static MemoryStream SaveWithTwoImages()
     {
