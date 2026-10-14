@@ -50,6 +50,10 @@
 
 - **A table's totals-row cell keeps the value it holds.** The save wrote a totals cell without a formula from the field's label, not from the cell. A cell under a field with no label was saved empty, and a number or an inline string threw on save. The load also put the label into the cell, so a 5 under the label "Total" loaded as "Total" ([#742](https://github.com/XLibur/XLibur/issues/742)). Setting a field's `TotalsRowFunction` to a built-in function, or its `TotalsRowFormulaA1` or `TotalsRowFormulaR1C1`, now clears its `TotalsRowLabel`, because Excel repairs a table whose label does not match its totals cell.
 
+- **A table's totals-row formula keeps its cached value through a load and save.** The load wrote the totals function's own formula over the one in the cell. That changed the formula's text, for example `Table1[Purchase price]` to `Table1[[Purchase price]]`, and marked it for recalculation, so a save that does not evaluate formulas wrote it with no value. The load now keeps the cell's formula and value as the file has them ([#749](https://github.com/XLibur/XLibur/issues/749)).
+
+- **Loading a table without a header row no longer writes into it.** The load created such a table as if its first row were a header, then turned the header off. That wrote header text such as "Column1" into the empty cells of the first data row. For a table of one row it also inserted a row below, which pushed the cells in its columns, and the tables below it, down a row. The load now creates the table over exactly the range the file gives ([#750](https://github.com/XLibur/XLibur/issues/750)).
+
 ## v0.700.0 - 2026-10-05
 
 ### ⚠️ Breaking Changes
