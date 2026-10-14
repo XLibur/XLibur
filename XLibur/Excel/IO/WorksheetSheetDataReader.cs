@@ -1117,10 +1117,13 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     private static void Adjust1904DateSystem(XLCellsCollection cellsCollection, Point cellAddress)
     {
+        // The model counts dates in the 1900 date system. The serial is moved by arithmetic, not by
+        // way of a DateTime, which would round it to the millisecond (#741).
         var cellValue = cellsCollection.ValueSlice.GetCellValue(cellAddress);
         if (cellValue.Type == XLDataType.DateTime)
         {
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, cellValue.GetDateTime().AddDays(1462));
+            var serial = CellXmlWriter.FromFileSerialDateTime(cellValue.GetUnifiedNumber(), use1904DateSystem: true);
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, XLCellValue.FromSerialDateTime(serial));
         }
     }
 
@@ -1233,9 +1236,10 @@ internal static class WorksheetSheetDataReader
         // from — a cell holding 1e308 formatted as a date is well-formed OOXML, and Excel keeps it
         // as a number and renders ####. Typing it DateTime anyway loaded without complaint and
         // then threw ArgumentException("Not a legal OleAut date.") out of SaveAs, because
-        // CellXmlWriter asks for GetDateTime() on the way out and DateTime.FromOADate refuses.
-        // A file that loads must save, so the range is checked here, with the same predicate
-        // XLCellValue.TryConvert already uses (D39).
+        // CellXmlWriter asked for GetDateTime() on the way out and DateTime.FromOADate refuses.
+        // The writer now writes the serial itself, but GetDateTime() on such a cell would still
+        // throw, so the range is checked here, with the same predicate XLCellValue.TryConvert
+        // already uses (D39).
         if (numberDataType is XLDataType.DateTime or XLDataType.TimeSpan && !number.IsValidOADateNumber())
             numberDataType = XLDataType.Number;
 
@@ -1346,6 +1350,13 @@ internal static class WorksheetSheetDataReader
     ];
 
     /// <summary>
+    /// The largest mantissa every integer up to which a double holds exactly (2^53). A mantissa no
+    /// larger, divided by an exact power of ten, is rounded once, so the result is the double
+    /// nearest the decimal, as <see cref="double.TryParse(string, out double)"/> gives.
+    /// </summary>
+    private const long MaxExactMantissa = 1L << 53;
+
+    /// <summary>
     /// Fast-path double parser for OOXML numeric cell values. Handles the common forms
     /// produced by Excel: optional minus, digits with optional decimal point.
     /// Falls back to <see cref="double.TryParse(string, NumberStyles, IFormatProvider, out double)"/>
@@ -1384,7 +1395,10 @@ internal static class WorksheetSheetDataReader
 
         // Must have consumed at least one digit and ALL characters.
         // Any remaining chars (exponent, whitespace, etc.) → fall back.
-        if (totalDigits == 0 || i != len || totalDigits > 18)
+        // A mantissa above 2^53 is rounded once on its way to a double and again by the division,
+        // which can land one bit off the nearest double: Excel's 9420.1999999999989 loaded as
+        // 9420.199999999999 (#741). Excel writes up to 17 significant digits, so those fall back.
+        if (totalDigits == 0 || i != len || totalDigits > 18 || mantissa > MaxExactMantissa)
             return double.TryParse(s, XLHelper.NumberStyle, XLHelper.ParseCulture, out result);
 
         result = AssembleDouble(mantissa, fractionDigits, negative);

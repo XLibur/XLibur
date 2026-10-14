@@ -11,8 +11,8 @@ namespace XLibur.Extensions;
 internal static class XmlWriterExtensions
 {
     /// <summary>
-    /// Enough for any <c>double</c> in "G15" form (longest is 22 chars, e.g.
-    /// <c>-1.23456789012345E-308</c>) and for any <c>int</c>/<c>uint</c>.
+    /// Enough for any <c>double</c> in "G15" or "R" form (the longest is 24 chars, e.g.
+    /// <c>-2.2250738585072014E-308</c>) and for any <c>int</c>/<c>uint</c>.
     /// </summary>
     private const int NumberBufferLength = 32;
 
@@ -119,14 +119,20 @@ internal static class XmlWriterExtensions
         /// <see cref="ObjectExtensions.ToInvariantString{T}"/>, but formatted into a reusable
         /// buffer instead of allocating a string per value.
         /// </summary>
-        public void WriteNumberValue(double value)
+        public void WriteNumberValue(double value) => w.WriteNumberValue(value, "G15");
+
+        /// <summary>
+        /// Write a double in the invariant <paramref name="format"/>, formatted into a reusable
+        /// buffer instead of allocating a string per value.
+        /// </summary>
+        public void WriteNumberValue(double value, string format)
         {
             var buffer = _tNumberBuffer ??= new char[NumberBufferLength];
-            if (!value.TryFormat(buffer, out var charsWritten, "G15", CultureInfo.InvariantCulture))
+            if (!value.TryFormat(buffer, out var charsWritten, format, CultureInfo.InvariantCulture))
             {
-                // Unreachable for double with "G15" (longest output is ~22 chars), but a silent
+                // Unreachable for "G15" and "R" (the longest output is 24 chars), but a silent
                 // empty attribute would corrupt the file, so fall back rather than trust it.
-                w.WriteString(value.ToString("G15", CultureInfo.InvariantCulture));
+                w.WriteString(value.ToString(format, CultureInfo.InvariantCulture));
                 return;
             }
 

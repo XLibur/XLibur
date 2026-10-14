@@ -26,6 +26,20 @@ internal static class CellXmlWriter
     internal const int Date1904OffsetDays = 1462;
 
     /// <summary>
+    /// The format of a number in a cell's <c>&lt;v&gt;</c>: the shortest text that reads back as the
+    /// same <c>double</c>. Excel writes up to 17 significant digits there (<c>27.999999999999996</c>
+    /// for <c>=2.8/0.1</c>); "G15" stopped at 15 and changed the value (#741). An integer or a short
+    /// decimal is spelled as before.
+    /// </summary>
+    internal const string NumberFormat = "R";
+
+    /// <summary>
+    /// The highest serial date before the 1900 date system's phantom 29 February 1900. Below it a
+    /// serial is one day less than the OLE Automation date of the same day.
+    /// </summary>
+    private const int LastSerialBeforePhantomLeapDay = 60;
+
+    /// <summary>
     /// Enough to hold the longest cell reference (<c>XFD1048576</c>) as chars.
     /// </summary>
     internal const int CellRefBufferLength = 10;
@@ -164,7 +178,7 @@ internal static class CellXmlWriter
     internal static void WriteNumberValue(XmlWriter w, double value)
     {
         w.WriteStartElement("v", Main2006SsNs);
-        w.WriteNumberValue(value);
+        w.WriteNumberValue(value, NumberFormat);
         w.WriteEndElement();
     }
 
@@ -209,7 +223,7 @@ internal static class CellXmlWriter
                 WriteNumberValue(w, cellValue.GetNumber());
                 break;
             case XLDataType.DateTime:
-                WriteNumberValue(w, ToSerialDateTime(cellValue.GetDateTime(), use1904DateSystem));
+                WriteNumberValue(w, ToFileSerialDateTime(cellValue.GetUnifiedNumber(), use1904DateSystem));
                 break;
             case XLDataType.Boolean:
                 WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
@@ -223,14 +237,39 @@ internal static class CellXmlWriter
     }
 
     /// <summary>
-    /// Convert a date to its Excel serial number, shifting it into the 1904 date system when
-    /// the workbook uses one.
+    /// The serial a file holds for a date whose serial in the model, which always counts in the
+    /// 1900 date system, is <paramref name="serial"/>.
     /// </summary>
-    internal static double ToSerialDateTime(DateTime date, bool use1904DateSystem)
+    /// <remarks>
+    /// The serial is written as it is, not by way of a <see cref="DateTime"/>:
+    /// <see cref="DateTime.FromOADate"/> rounds to the millisecond, so a loaded serial such as
+    /// 42536.5128889537 was saved as 42536.5128889583 (#741).
+    /// <para>
+    /// The 1904 date system counts days from 1 January 1904, serial 0, and has no phantom
+    /// 29 February 1900, so it is the OLE Automation date less 1462 days. For a 1904 serial from
+    /// 32768 to 64073 (1993 to 2079) both serials are in the same binary exponent range, and the
+    /// subtraction is exact; elsewhere it may move the last bit.
+    /// </para>
+    /// </remarks>
+    internal static double ToFileSerialDateTime(double serial, bool use1904DateSystem)
     {
-        if (use1904DateSystem)
-            date = date.AddDays(-Date1904OffsetDays);
+        if (!use1904DateSystem)
+            return serial;
 
-        return date.ToSerialDateTime();
+        var oleDate = serial > LastSerialBeforePhantomLeapDay ? serial : serial + 1;
+        return oleDate - Date1904OffsetDays;
+    }
+
+    /// <summary>
+    /// The serial in the model, counted in the 1900 date system, of a date a file holds as
+    /// <paramref name="fileSerial"/>. The inverse of <see cref="ToFileSerialDateTime"/>.
+    /// </summary>
+    internal static double FromFileSerialDateTime(double fileSerial, bool use1904DateSystem)
+    {
+        if (!use1904DateSystem)
+            return fileSerial;
+
+        var oleDate = fileSerial + Date1904OffsetDays;
+        return oleDate > LastSerialBeforePhantomLeapDay ? oleDate : oleDate - 1;
     }
 }
