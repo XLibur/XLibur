@@ -22,6 +22,7 @@ internal static class XLCFConverters
         {XLConditionalFormatType.IsDuplicate, new XLCFUniqueConverter()},
         {XLConditionalFormatType.Expression, new XLCFCellIsConverter()},
         {XLConditionalFormatType.Top10, new XLCFTopConverter()},
+        {XLConditionalFormatType.AboveAverage, new XLCFAboveAverageConverter()},
         {XLConditionalFormatType.DataBar, new XLCFDataBarConverter()},
         {XLConditionalFormatType.IconSet, new XLCFIconSetConverter()},
         {XLConditionalFormatType.TimePeriod, new XLCFDatesOccurringConverter()}

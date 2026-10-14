@@ -48,7 +48,7 @@ internal static class ConditionalFormatReader
             if (!string.IsNullOrWhiteSpace(fr.Text))
                 conditionalFormat.Values.Add(new XLFormula { _value = fr.Text.Value!, IsFormula = false });
 
-            LoadTop10OrTimePeriod(fr, conditionalFormat);
+            LoadTypeAttributes(fr, conditionalFormat);
             LoadScaleBarOrIconSet(fr, conditionalFormat);
 
             AddLoadedConditionalFormat(conditionalFormatting, ws, context, conditionalFormat);
@@ -127,23 +127,49 @@ internal static class ConditionalFormatReader
         conditionalFormat.Values.Add(GetFormula(formula.Text));
     }
 
-    private static void LoadTop10OrTimePeriod(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
+    /// <summary>
+    /// The attributes that only a top-10, time-period or above-average rule has.
+    /// </summary>
+    private static void LoadTypeAttributes(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
     {
-        if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.Top10)
+        switch (conditionalFormat.ConditionalFormatType)
         {
-            if (fr.Percent != null)
-                conditionalFormat.Percent = fr.Percent.Value;
-            if (fr.Bottom != null)
-                conditionalFormat.Bottom = fr.Bottom.Value;
-            if (fr.Rank != null)
-                conditionalFormat.Values.Add(GetFormula(fr.Rank.Value.ToString()));
+            case XLConditionalFormatType.Top10:
+                LoadTop10(fr, conditionalFormat);
+                break;
+            case XLConditionalFormatType.TimePeriod:
+                conditionalFormat.TimePeriod = fr.TimePeriod != null
+                    ? fr.TimePeriod.Value.ToXLibur()
+                    : XLTimePeriod.Yesterday;
+                break;
+            case XLConditionalFormatType.AboveAverage:
+                LoadAboveAverage(fr, conditionalFormat);
+                break;
+            default:
+                // No other type has any of these attributes.
+                break;
         }
-        else if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.TimePeriod)
-        {
-            conditionalFormat.TimePeriod = fr.TimePeriod != null
-                ? fr.TimePeriod.Value.ToXLibur()
-                : XLTimePeriod.Yesterday;
-        }
+    }
+
+    private static void LoadTop10(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
+    {
+        if (fr.Percent != null)
+            conditionalFormat.Percent = fr.Percent.Value;
+        if (fr.Bottom != null)
+            conditionalFormat.Bottom = fr.Bottom.Value;
+        if (fr.Rank != null)
+            conditionalFormat.Values.Add(GetFormula(fr.Rank.Value.ToString()));
+    }
+
+    /// <summary>
+    /// The attributes that say which values an above- or below-average rule formats. A missing attribute
+    /// takes its schema default: above the average, not equal to it, and no standard deviation (#743).
+    /// </summary>
+    private static void LoadAboveAverage(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
+    {
+        conditionalFormat.AboveAverage = OpenXmlHelper.GetBooleanValueAsBool(fr.AboveAverage, true);
+        conditionalFormat.EqualAverage = OpenXmlHelper.GetBooleanValueAsBool(fr.EqualAverage, false);
+        conditionalFormat.StdDev = fr.StdDev is { HasValue: true } stdDev ? stdDev.Value : null;
     }
 
     private static void LoadScaleBarOrIconSet(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
