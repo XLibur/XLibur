@@ -13,8 +13,9 @@ namespace XLibur.Excel;
 /// It is captured as soon as the load has read the cells. Later steps of the load can write to a
 /// cell: loading a table names its empty header cells after the fields. Those count as changes, since
 /// the file's cells do not hold them. The misc slice is the exception. Comments, threaded comments
-/// and in-cell images are loaded into it after the cells, and none of them is written into the cells'
-/// markup, so its version is taken again when the load ends (<see cref="RecordAnnotations"/>).
+/// and in-cell images are loaded into it after the cells. The first two are not written into the
+/// cells' markup, and an image is written as the <c>vm</c> index its cell was read with, so the
+/// version is taken again when the load ends (<see cref="RecordAnnotations"/>).
 /// <para>
 /// It errs towards reporting a change: setting a cell to the value it already holds counts, and so
 /// does materialising a column, which gives the cells of each existing row a style of their own. The
@@ -38,9 +39,11 @@ namespace XLibur.Excel;
 /// one.
 /// </para>
 /// <para>
-/// Not tracked, because the tiers of #702 exclude these sheets: labels in a table's totals row, which
-/// the writer takes from the table; and the <c>cm</c> index of a dynamic array, which is
-/// workbook-wide. A sparkline added to a blank cell can add an empty <c>&lt;row&gt;</c> element and
+/// Not tracked: labels in a table's totals row, which the writer takes from the table, so the save
+/// checks the tables as it finds them instead (<c>SheetDataWriter.WritesTotalsRowsAsValues</c>); and,
+/// because the tiers of #702 exclude these sheets, the <c>cm</c> index the save gives a dynamic-array formula
+/// that has none, which is workbook-wide (a sheet with a formula is excluded). A <c>cm</c> index
+/// the load read is in the misc slice and written as loaded. A sparkline added to a blank cell can add an empty <c>&lt;row&gt;</c> element and
 /// is not tracked either; it changes no cell.
 /// </para>
 /// </remarks>
@@ -83,8 +86,9 @@ internal sealed class SheetDataBaseline
 
     /// <summary>
     /// Takes in the comments, threaded comments and in-cell images the load added to the misc slice
-    /// after the cells were captured. A cell image is written into the cells as <c>vm</c>, but a save
-    /// never keeps the cells of a sheet that has one.
+    /// after the cells were captured. A cell image is written into the cells as <c>vm</c> and a rich
+    /// value index; the save sets both before it writes a sheet, so a change it makes to either shows
+    /// up as a change here.
     /// </summary>
     internal void RecordAnnotations(XLWorksheet sheet) => _miscVersion = sheet.Internals.CellsCollection.MiscSlice.Version;
 

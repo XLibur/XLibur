@@ -74,9 +74,9 @@ public class SaveOptions
     /// sheet written as XLibur writes it, for example to normalise a file.
     /// <para>
     /// A sheet's cells are copied only when nothing a save writes into them has changed, including
-    /// the text and cached value of each formula, the sheet has no pivot tables, tables with a totals
-    /// row, cell images or dynamic arrays, and every shared string the file had is written back at its
-    /// index. A sheet with formulas is written from the model when <see cref="WriteSharedFormulas"/> is
+    /// the text and cached value of each formula, every cell in a table's totals row holds its field's
+    /// label or a formula, and every shared string the file had is written back at its index. A sheet
+    /// with formulas is written from the model when <see cref="WriteSharedFormulas"/> is
     /// off, since its kept cells would keep the file's shared formulas.
     /// </para>
     /// </remarks>

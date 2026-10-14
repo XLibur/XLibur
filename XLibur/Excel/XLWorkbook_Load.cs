@@ -882,8 +882,8 @@ public partial class XLWorkbook
         if (tableColumn.TotalsRowFormula is not null)
             field.TotalsRowFormulaA1 = tableColumn.TotalsRowFormula.Text;
 
-        if (tableColumn.TotalsRowLabel is not null)
-            field.TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
+        if (tableColumn.TotalsRowLabel?.Value is { } label)
+            ((XLTableField)field).LoadTotalsRowLabel(label);
     }
 
     private static void LoadTableStyleInfo(Table dTable, XLTable xlTable)

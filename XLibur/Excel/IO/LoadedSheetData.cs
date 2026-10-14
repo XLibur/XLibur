@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using XLibur.Excel.Coordinates;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
 
@@ -118,11 +116,30 @@ internal sealed class LoadedSheetData : IDisposable
     /// Would the save write the sheet's cells as the file had them, and can it keep them?
     /// </summary>
     /// <remarks>
-    /// Excluded, as #702 lists them: cell images and dynamic arrays, whose <c>vm</c> and <c>cm</c>
-    /// indices point into metadata the save writes again; tables with a totals row, whose labels the
-    /// writer takes from the table; and pivot tables.
+    /// Excluded: a table's totals row, but only where the writer would write a cell in it otherwise than
+    /// as a value (<see cref="SheetDataWriter.WritesTotalsRowsAsValues"/>): it writes a label cell
+    /// by the table's field, and leaves out the cell of a field with no label (#721). The check is
+    /// made against the table as the save finds it, so it holds whatever changed the table since the
+    /// load; a change to the cells themselves is seen by <see cref="XLWorksheet.CellsChangedSinceLoad"/>.
     /// <para>
-    /// Formulas are not excluded (#720). The calc engine owns their text and cached values and changes
+    /// A pivot table is not excluded (#721). Neither the load nor the save writes its values into
+    /// the cells: XLibur does not lay a pivot table out, so its area holds what the file had, and a
+    /// change to the pivot table is written to its own part.
+    /// </para>
+    /// <para>
+    /// Nor is a <c>cm</c> index (#721). Only the load sets one, and the save writes it as loaded. The
+    /// cell metadata it points into is the file's metadata part, to which a save only appends a
+    /// block (for dynamic arrays), so every loaded index still names the block it named.
+    /// </para>
+    /// <para>
+    /// Nor is a cell image (#721). The save numbers the images of the workbook again, and gives each
+    /// image cell its <c>vm</c> index and rich value index, before it writes any sheet. It changes a
+    /// cell only where the number moves, so <see cref="XLWorksheet.CellsChangedSinceLoad"/> sees every
+    /// cell whose <c>vm</c> or value a rewrite would write differently, and a sheet whose numbers
+    /// all stayed keeps cells that name the metadata and rich values this save writes.
+    /// </para>
+    /// <para>
+    /// Nor are formulas (#720). The calc engine owns their text and cached values and changes
     /// both without setting a cell: a rename or a shift rewrites the text in place, and a calculation
     /// writes the value. <see cref="XLWorksheet.CellsChangedSinceLoad"/> counts both, and a dirty
     /// formula whose cached value the save would recalculate or drop. A kept formula keeps the form the
@@ -138,32 +155,15 @@ internal sealed class LoadedSheetData : IDisposable
     /// </remarks>
     private static bool CellsCanBeKept(XLWorksheet sheet, SaveOptions options, SaveContext context)
     {
-        var cells = sheet.Internals.CellsCollection;
-        if (sheet.PivotTables.Any<IXLPivotTable>()
-            || sheet.Tables.Any<IXLTable>(table => table.ShowTotalsRow)
-            || HasCellMetadata(cells.MiscSlice)
-            || (!options.WriteSharedFormulas && !cells.FormulaSlice.IsEmpty))
-        {
+        if (!options.WriteSharedFormulas && !sheet.Internals.CellsCollection.FormulaSlice.IsEmpty)
             return false;
-        }
 
         if (options.EvaluateFormulasBeforeSaving)
             SheetDataWriter.EvaluateDirtyFormulas(sheet, context);
 
-        return !sheet.CellsChangedSinceLoad();
-    }
-
-    private static bool HasCellMetadata(Slice<XLMiscSliceContent> misc)
-    {
-        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(misc, Area.Full);
-        while (enumerator.MoveNext())
-        {
-            ref readonly var content = ref enumerator.Current;
-            if (content.CellMetaIndex is not null || content.ValueMetaIndex is not null || content.CellImage is not null)
-                return true;
-        }
-
-        return false;
+        // Cheapest first: the totals check builds a cell for each used cell of every totals row.
+        return !sheet.CellsChangedSinceLoad()
+               && SheetDataWriter.WritesTotalsRowsAsValues(sheet);
     }
 
     /// <summary>

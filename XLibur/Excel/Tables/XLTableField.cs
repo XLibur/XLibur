@@ -129,6 +129,41 @@ internal sealed class XLTableField : IXLTableField
         }
     }
 
+    /// <summary>
+    /// Sets the label the load read from the table part. A totals cell that already holds the label
+    /// as plain text is left as it is, so loading the label is not a change to the cells, and a save
+    /// can keep them as the file had them (#702, #721). Writing the label again would set the cell
+    /// to the value it holds, which the record of the loaded cells counts as a change.
+    /// </summary>
+    /// <remarks>
+    /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, drops rich text, and adjusts
+    /// the style for the text. A cell that any of those would change takes the setter. Only for a
+    /// table with a totals row.
+    /// <para>
+    /// The setter also strips a leading quote, as any value set through the API does, taking it as
+    /// the quote prefix. A cell that already holds the label under the quote prefix keeps its
+    /// quote: Excel writes a label typed as <c>''Total</c> as the text <c>'Total</c> with
+    /// <c>quotePrefix</c>, and the same text in the table part, so the quote is part of the label.
+    /// </para>
+    /// </remarks>
+    internal void LoadTotalsRowLabel(string label)
+    {
+        var point = ((XLCell)TotalsCell!).SheetPoint;
+        var cells = _table.Worksheet.Internals.CellsCollection;
+        if (_table.Worksheet.GetStyleForValue(label, point) is not null
+            || cells.FormulaSlice.Get(point) is not null
+            || cells.ValueSlice.GetRichText(point) is not null
+            || cells.ValueSlice.GetCellValue(point) is not { Type: XLDataType.Text } value
+            || value.GetText() != label)
+        {
+            TotalsRowLabel = label;
+            return;
+        }
+
+        totalsRowFunction = XLTotalsRowFunction.None;
+        totalsRowLabel = label;
+    }
+
     public void Delete()
     {
         Delete(true);

@@ -637,7 +637,13 @@ public partial class XLWorkbook
             // The rv index as a number. It is the save's own bookkeeping, not an edit, so it is
             // written to the value slice directly: the cell's setter marks formulas dirty, and a
             // formula whose precedents are unknown then lost its cached value on every save.
-            cell.Worksheet.Internals.CellsCollection.ValueSlice.SetCellValue(cell.SheetPoint, (double)i);
+            // A cell that already holds it is left alone, as the setter of ValueMetaIndex leaves
+            // an index that does not move: a sheet whose cells this save does not change can then
+            // keep them as the file had them (#702, #721).
+            var values = cell.Worksheet.Internals.CellsCollection.ValueSlice;
+            XLCellValue richValueIndex = (double)i;
+            if (!values.GetCellValue(cell.SheetPoint).Equals(richValueIndex))
+                values.SetCellValue(cell.SheetPoint, richValueIndex);
         }
     }
 
