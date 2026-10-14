@@ -100,13 +100,22 @@ internal sealed class XLPivotCache : IXLPivotCache
 
         Debug.Assert(sheet is not null && foundArea is not null);
         var oldFieldNames = _fieldNames.ToList();
+
+        // A calculated field is no source column, so the refresh would lose it. Keep it, after the
+        // columns, which is where Excel writes it.
+        var calculatedFields = _calculatedFieldFormulas
+            .OrderBy(calculatedField => calculatedField.Key)
+            .Select(calculatedField => (Name: _fieldNames[calculatedField.Key], Values: _values[calculatedField.Key], Formula: calculatedField.Value))
+            .ToList();
+
         _fieldIndexes.Clear();
         _fieldNames.Clear();
         _values.Clear();
 
-        // A refresh rebuilds the fields from the source columns alone. The grouping fields are not
-        // among them, and the groups of the others index shared items that have just been rebuilt.
-        _nonDatabaseFieldIndexes.RemoveWhere(fieldIndex => !_calculatedFieldFormulas.ContainsKey(fieldIndex));
+        // Every index below names a field of the old list. The grouping fields are not source columns
+        // either, and the groups of the others index shared items that are about to be rebuilt.
+        _calculatedFieldFormulas.Clear();
+        _nonDatabaseFieldIndexes.Clear();
         _fieldGroupXml.Clear();
 
         var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
@@ -118,6 +127,16 @@ internal sealed class XLPivotCache : IXLPivotCache
             var fieldRecords = new XLPivotCacheValues(valueSlice, column, area);
 
             AddField(AdjustedFieldName(header), fieldRecords);
+        }
+
+        foreach (var (name, values, formula) in calculatedFields)
+        {
+            // Field names are unique. A source column that now has the name keeps it.
+            if (ContainsField(name))
+                continue;
+
+            AddField(name, values);
+            SetCalculatedField(_fieldNames.Count - 1, formula);
         }
 
         UpdatePivotTables(oldFieldNames);
