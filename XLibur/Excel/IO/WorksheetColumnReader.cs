@@ -53,7 +53,10 @@ internal static class WorksheetColumnReader
             ? int.Parse(wsDefaultColumn.Style.InnerText!)
             : -1;
         if (styleIndexDefault >= 0)
+        {
             StyleDecoder.ApplyStyle(ws, styleIndexDefault, styles);
+            RecordLoadedStyle(ws, styleIndexDefault, styles, ws.StyleValue);
+        }
 
         foreach (var col in columns.Elements<Column>())
         {
@@ -62,6 +65,20 @@ internal static class WorksheetColumnReader
 
             LoadColumn(col, ws, styles);
         }
+    }
+
+    /// <summary>
+    /// Records the style the load read from <paramref name="styleIndex"/>, so a save can write the
+    /// index back while the column keeps that style (#722). Only an index the styles part has.
+    /// </summary>
+    /// <param name="ws">The sheet being loaded.</param>
+    /// <param name="styleIndex">The index a <c>&lt;col&gt;</c> named.</param>
+    /// <param name="styles">The workbook's styles.</param>
+    /// <param name="style">The style just applied from <paramref name="styleIndex"/>.</param>
+    private static void RecordLoadedStyle(XLWorksheet ws, int styleIndex, StylesheetData styles, XLStyleValue style)
+    {
+        if (styles.Stylesheet?.CellFormats is { } cellFormats && styleIndex < cellFormats.ChildElements.Count)
+            ws.Internals.ColumnsCollection.RecordLoadedStyle((uint)styleIndex, style);
     }
 
     /// <summary>
@@ -108,6 +125,7 @@ internal static class WorksheetColumnReader
         if (styleIndex >= 0)
         {
             StyleDecoder.ApplyStyle(xlColumns, styleIndex, styles);
+            RecordLoadedStyle(ws, styleIndex, styles, xlColumns.Cast<XLColumn>().First().StyleValue);
         }
         else
         {

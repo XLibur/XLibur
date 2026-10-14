@@ -115,12 +115,13 @@ internal static class PageSetupWriter
 
         var pageMargins = worksheet.Elements<PageMargins>().First();
         cm.SetElement(XLWorksheetContents.PageMargins, pageMargins);
-        pageMargins.Left = xlWorksheet.PageSetup.Margins.Left;
-        pageMargins.Right = xlWorksheet.PageSetup.Margins.Right;
-        pageMargins.Top = xlWorksheet.PageSetup.Margins.Top;
-        pageMargins.Bottom = xlWorksheet.PageSetup.Margins.Bottom;
-        pageMargins.Header = xlWorksheet.PageSetup.Margins.Header;
-        pageMargins.Footer = xlWorksheet.PageSetup.Margins.Footer;
+        var margins = xlWorksheet.PageSetup.Margins;
+        pageMargins.Left = SchemaDefault.Double(pageMargins.Left, margins.Left);
+        pageMargins.Right = SchemaDefault.Double(pageMargins.Right, margins.Right);
+        pageMargins.Top = SchemaDefault.Double(pageMargins.Top, margins.Top);
+        pageMargins.Bottom = SchemaDefault.Double(pageMargins.Bottom, margins.Bottom);
+        pageMargins.Header = SchemaDefault.Double(pageMargins.Header, margins.Header);
+        pageMargins.Footer = SchemaDefault.Double(pageMargins.Footer, margins.Footer);
     }
 
     internal static void WritePageSetup(
@@ -170,15 +171,24 @@ internal static class PageSetupWriter
         // Otherwise the number is not used, and whatever the file had stays as it was.
     }
 
+    /// <summary>
+    /// A resolution is written when it is positive. The load reads one past <see cref="int.MaxValue"/>,
+    /// such as the <c>4294967294</c> some files have, as a negative number, and the file's value
+    /// stays while the model holds what it was read as (#722). A 0 is still left out: the schema
+    /// does not allow it.
+    /// </summary>
+    private static UInt32Value? Dpi(UInt32Value? loaded, int dpi)
+    {
+        if (loaded is { HasValue: true, Value: > 0 } && unchecked((int)loaded.Value) == dpi)
+            return loaded;
+
+        return dpi > 0 ? (uint)dpi : null;
+    }
+
     private static void SetPageSetupDpiAndScale(PageSetup pageSetup, XLWorksheet xlWorksheet)
     {
-        pageSetup.HorizontalDpi = xlWorksheet.PageSetup.HorizontalDpi > 0
-            ? (uint)xlWorksheet.PageSetup.HorizontalDpi
-            : null;
-
-        pageSetup.VerticalDpi = xlWorksheet.PageSetup.VerticalDpi > 0
-            ? (uint)xlWorksheet.PageSetup.VerticalDpi
-            : null;
+        pageSetup.HorizontalDpi = Dpi(pageSetup.HorizontalDpi, xlWorksheet.PageSetup.HorizontalDpi);
+        pageSetup.VerticalDpi = Dpi(pageSetup.VerticalDpi, xlWorksheet.PageSetup.VerticalDpi);
 
         if (xlWorksheet.PageSetup.Scale > 0)
         {
@@ -188,7 +198,10 @@ internal static class PageSetupWriter
         }
         else
         {
-            pageSetup.Scale = null;
+            // A sheet fitted to pages keeps the scale the file had, as Excel keeps it for when the
+            // fit is turned off. The load reads it and lets the fit win, as it did before (#722).
+            var fitsToPages = xlWorksheet.PageSetup.PagesWide > 0 || xlWorksheet.PageSetup.PagesTall > 0;
+            pageSetup.Scale = fitsToPages ? pageSetup.Scale : null;
 
             if (xlWorksheet.PageSetup.PagesWide >= 0 && xlWorksheet.PageSetup.PagesWide != 1)
                 pageSetup.FitToWidth = (uint)xlWorksheet.PageSetup.PagesWide;
