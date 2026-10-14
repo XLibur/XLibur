@@ -116,11 +116,10 @@ internal sealed class LoadedSheetData : IDisposable
     /// Would the save write the sheet's cells as the file had them, and can it keep them?
     /// </summary>
     /// <remarks>
-    /// Excluded: a table's totals row, but only where the writer would write a cell in it otherwise than
-    /// as a value (<see cref="SheetDataWriter.WritesTotalsRowsAsValues"/>): it writes a label cell
-    /// by the table's field, and leaves out the cell of a field with no label (#721). The check is
-    /// made against the table as the save finds it, so it holds whatever changed the table since the
-    /// load; a change to the cells themselves is seen by <see cref="XLWorksheet.CellsChangedSinceLoad"/>.
+    /// A table's totals row is not excluded (#742). The load leaves its cells as the file has them,
+    /// whatever label the table part gives a field, and the writer writes a totals cell with no
+    /// formula as any other cell, from its value. A label set through the API is written into the
+    /// cell, which <see cref="XLWorksheet.CellsChangedSinceLoad"/> sees.
     /// <para>
     /// A pivot table is not excluded (#721). Neither the load nor the save writes its values into
     /// the cells: XLibur does not lay a pivot table out, so its area holds what the file had, and a
@@ -161,9 +160,7 @@ internal sealed class LoadedSheetData : IDisposable
         if (options.EvaluateFormulasBeforeSaving)
             SheetDataWriter.EvaluateDirtyFormulas(sheet, context);
 
-        // Cheapest first: the totals check builds a cell for each used cell of every totals row.
-        return !sheet.CellsChangedSinceLoad()
-               && SheetDataWriter.WritesTotalsRowsAsValues(sheet);
+        return !sheet.CellsChangedSinceLoad();
     }
 
     /// <summary>

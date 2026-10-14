@@ -4,21 +4,18 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
-using XLibur.Excel.IO;
 using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Saving;
 
 /// <summary>
 /// A sheet whose table has a totals row keeps its part, or its cells, on the first save of a loaded
-/// workbook when the sheet has not changed and the writer would write the totals row as values
-/// (#702, #721).
+/// workbook when the sheet has not changed (#702, #721).
 /// </summary>
 /// <remarks>
-/// The writer writes a totals-row cell by its table field: the cell's shared string when the field
-/// has a label, nothing when it has none, and a shared string even for a value that is not one. The
-/// save keeps the cells only when that comes to the same as writing each cell's value, judged
-/// against the tables as the save finds them.
+/// The writer writes a totals-row cell with no formula as any other cell, from its value, and the
+/// load leaves the cell as the file has it, whatever the field's label (#742). A label or totals
+/// function set through the API is written into the cell, so the save sees a change.
 /// </remarks>
 public class KeepTotalsRowSheetTests
 {
@@ -140,48 +137,62 @@ public class KeepTotalsRowSheetTests
     }
 
     [Test]
-    public async Task A_totals_cell_whose_field_has_no_label_makes_the_save_write_the_sheet()
+    public async Task An_unchanged_sheet_with_a_totals_cell_whose_field_has_no_label_keeps_its_part()
     {
-        // The table part gives the field no label, though its totals cell holds text. The writer
-        // leaves such a cell out, so it cannot keep the file's.
+        // The table part gives the field no label, though its totals cell holds text. Until #742 the
+        // writer left such a cell out, so the save wrote the sheet; it now writes the cell's value.
         using var source = Source(label: "Total");
         source.RewritePart(TablePart(source), xml => Regex.Replace(xml, " totalsRowLabel=\"Total\"", string.Empty));
 
         using var saved = source.LoadAndSave();
 
-        await Assert.That(saved.IsWrittenFromModel(Sheet1)).IsTrue();
+        await Assert.That(saved.IsKeptWhole(Sheet1)).IsTrue();
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Data").Cell("A4").GetText()).IsEqualTo("Total");
+        await Assert.That(reloaded.Worksheet("Data").Table("Sales").Field("Name").TotalsRowLabel).IsNull();
     }
 
     [Test]
-    public async Task A_totals_cell_that_differs_from_its_label_makes_the_save_write_the_sheet()
+    public async Task An_unchanged_sheet_with_a_totals_cell_that_differs_from_its_label_keeps_its_part()
     {
-        // The load writes the table's label into the cell, so the cells are no longer the file's.
+        // Until #742 the load wrote the table's label into the cell, so the save wrote the sheet. The
+        // load now leaves the cell as the file has it, as Excel shows it, and the save keeps both.
         using var source = Source(label: "Total");
         source.RewritePart(TablePart(source), xml => xml.Replace("totalsRowLabel=\"Total\"", "totalsRowLabel=\"Sum\"",
             StringComparison.Ordinal));
 
         using var saved = source.LoadAndSave();
 
-        await Assert.That(saved.IsWrittenFromModel(Sheet1)).IsTrue();
-        await AssertTotals(saved, "Sum");
+        await Assert.That(saved.IsKeptWhole(Sheet1)).IsTrue();
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Data").Cell("A4").GetText()).IsEqualTo("Total");
+        await Assert.That(reloaded.Worksheet("Data").Table("Sales").Field("Name").TotalsRowLabel).IsEqualTo("Sum");
     }
 
     [Test]
-    public async Task An_inline_string_label_is_not_kept()
+    public async Task An_unchanged_sheet_with_an_inline_string_label_keeps_its_part()
     {
-        // The writer writes a label as a shared string, so it cannot keep the file's inline string.
-        // Only the decision is checked: the writer cannot write such a label at all yet, and throws.
+        // Until #742 the writer wrote a label as a shared string, and threw for an inline string, so
+        // the save wrote the sheet. It now writes the cell's value, and keeps the file's cells. The
+        // shared string the cell no longer uses goes too, and Other's text moves up into its index: a
+        // text no cell uses ahead of a used one refuses the cells of every sheet.
         using var source = Source(label: "Total");
         source.RewriteSheet1(xml => Regex.Replace(xml, "<x:c r=\"A4\"([^>]*) t=\"s\"><x:v>\\d+</x:v></x:c>",
             "<x:c r=\"A4\"$1 t=\"inlineStr\"><x:is><x:t>Total</x:t></x:is></x:c>"));
+        source.RewritePart("xl/sharedStrings.xml", xml => xml.Replace("<x:si><x:t>Total</x:t></x:si>", string.Empty,
+            StringComparison.Ordinal));
+        source.RewritePart("xl/worksheets/sheet2.xml", xml => xml.Replace("<x:v>5</x:v>", "<x:v>4</x:v>",
+            StringComparison.Ordinal));
         await Assert.That(source.Sheet1Xml()).Contains("inlineStr");
-        source.Position = 0;
+        await Assert.That(source.ReadPart("xl/sharedStrings.xml")).DoesNotContain(">Total<");
 
-        using var wb = new XLWorkbook(source);
-        var ws = (XLWorksheet)wb.Worksheet("Data");
+        using var saved = source.LoadAndSave();
 
-        await Assert.That(ws.CellsChangedSinceLoad()).IsFalse();
-        await Assert.That(SheetDataWriter.WritesTotalsRowsAsValues(ws)).IsFalse();
+        await Assert.That(saved.IsKeptWhole(Sheet1)).IsTrue();
+        await Assert.That(saved.Sheet1Xml()).Contains("inlineStr");
+        await AssertTotals(saved, "Total");
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Other").Cell("A1").GetText()).IsEqualTo("Other");
     }
 
     /// <summary>

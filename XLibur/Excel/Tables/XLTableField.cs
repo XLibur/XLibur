@@ -94,6 +94,7 @@ internal sealed class XLTableField : IXLTableField
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
+            totalsRowLabel = null;
             _table.TotalsRow()!.Cell(Index + 1).FormulaA1 = value;
         }
     }
@@ -104,16 +105,24 @@ internal sealed class XLTableField : IXLTableField
         set
         {
             totalsRowFunction = XLTotalsRowFunction.Custom;
+            totalsRowLabel = null;
             _table.TotalsRow()!.Cell(Index + 1).FormulaR1C1 = value;
         }
     }
 
+    /// <remarks>
+    /// A function replaces the field's label, as in Excel: the totals cell then holds the function's
+    /// formula, and the table part would otherwise give the field a label the cell does not hold.
+    /// </remarks>
     public XLTotalsRowFunction TotalsRowFunction
     {
         get => totalsRowFunction;
         set
         {
             totalsRowFunction = value;
+            if (value != XLTotalsRowFunction.None)
+                totalsRowLabel = null;
+
             UpdateTableFieldTotalsRowFormula();
         }
     }
@@ -130,36 +139,20 @@ internal sealed class XLTableField : IXLTableField
     }
 
     /// <summary>
-    /// Sets the label the load read from the table part. A totals cell that already holds the label
-    /// as plain text is left as it is, so loading the label is not a change to the cells, and a save
-    /// can keep them as the file had them (#702, #721). Writing the label again would set the cell
-    /// to the value it holds, which the record of the loaded cells counts as a change.
+    /// Sets the label the load read from the table part, and leaves the totals cell as the file has
+    /// it (#742). Loading the label is then not a change to the cells, and a save can keep them as
+    /// the file had them (#702, #721).
     /// </summary>
     /// <remarks>
-    /// The setter of <see cref="TotalsRowLabel"/> also clears a formula, drops rich text, and adjusts
-    /// the style for the text. A cell that any of those would change takes the setter. Only for a
-    /// table with a totals row.
-    /// <para>
-    /// The setter also strips a leading quote, as any value set through the API does, taking it as
-    /// the quote prefix. A cell that already holds the label under the quote prefix keeps its
-    /// quote: Excel writes a label typed as <c>''Total</c> as the text <c>'Total</c> with
-    /// <c>quotePrefix</c>, and the same text in the table part, so the quote is part of the label.
-    /// </para>
+    /// Excel shows the cell, not the label (checked over COM): a totals cell left blank under a label
+    /// opens blank. The setter of <see cref="TotalsRowLabel"/> would instead replace whatever the
+    /// cell holds, such as a number, with the label. It would also strip a leading quote, as any value
+    /// set through the API does, though Excel writes a label typed as <c>''Total</c> as the text
+    /// <c>'Total</c> with <c>quotePrefix</c>, and the same text in the table part, so the quote is
+    /// part of the label.
     /// </remarks>
     internal void LoadTotalsRowLabel(string label)
     {
-        var point = ((XLCell)TotalsCell!).SheetPoint;
-        var cells = _table.Worksheet.Internals.CellsCollection;
-        if (_table.Worksheet.GetStyleForValue(label, point) is not null
-            || cells.FormulaSlice.Get(point) is not null
-            || cells.ValueSlice.GetRichText(point) is not null
-            || cells.ValueSlice.GetCellValue(point) is not { Type: XLDataType.Text } value
-            || value.GetText() != label)
-        {
-            TotalsRowLabel = label;
-            return;
-        }
-
         totalsRowFunction = XLTotalsRowFunction.None;
         totalsRowLabel = label;
     }
