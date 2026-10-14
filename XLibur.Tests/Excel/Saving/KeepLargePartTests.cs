@@ -181,8 +181,8 @@ public class KeepLargePartTests
     /// <see cref="Declaration"/>.
     /// </summary>
     /// <remarks>
-    /// Not whitespace: an <see cref="System.Xml.XmlReader"/> reports a run of whitespace longer than
-    /// its buffer as text, even when told to ignore whitespace, and the cell reader stops there.
+    /// A part padded with whitespace instead is covered by <c>SheetDataWhitespaceLoadingTests</c>
+    /// (#738).
     /// </remarks>
     private static byte[] BuildPaddedSource(int padding, string beforePadding = "")
     {
