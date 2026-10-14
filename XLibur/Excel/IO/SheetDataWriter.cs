@@ -285,9 +285,6 @@ internal static class SheetDataWriter
             return;
         }
 
-        // A cell in a table's totals row with no formula is written as any other cell: its value is
-        // what Excel shows, whatever label the table part gives the field (#742).
-
         // Value and share-string flag were already resolved by the caller (and reused for the
         // blank-and-empty check), so no second ValueSlice traversal is needed here.
         if (cellValue.Type != XLDataType.Blank)

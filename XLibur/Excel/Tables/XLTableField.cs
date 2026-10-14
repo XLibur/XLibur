@@ -113,6 +113,8 @@ internal sealed class XLTableField : IXLTableField
     /// <remarks>
     /// A function replaces the field's label, as in Excel: the totals cell then holds the function's
     /// formula, and the table part would otherwise give the field a label the cell does not hold.
+    /// <see cref="XLTotalsRowFunction.Custom"/> leaves the cell, and so the label, until a formula
+    /// is set (<see cref="TotalsRowFormulaA1"/>).
     /// </remarks>
     public XLTotalsRowFunction TotalsRowFunction
     {
@@ -120,7 +122,7 @@ internal sealed class XLTableField : IXLTableField
         set
         {
             totalsRowFunction = value;
-            if (value != XLTotalsRowFunction.None)
+            if (value is not (XLTotalsRowFunction.None or XLTotalsRowFunction.Custom))
                 totalsRowLabel = null;
 
             UpdateTableFieldTotalsRowFormula();
@@ -150,12 +152,12 @@ internal sealed class XLTableField : IXLTableField
     /// set through the API does, though Excel writes a label typed as <c>''Total</c> as the text
     /// <c>'Total</c> with <c>quotePrefix</c>, and the same text in the table part, so the quote is
     /// part of the label.
+    /// <para>
+    /// A totals function the load read for the same column is kept, as is its formula in the cell, so
+    /// a table part that gives a column both is written back as it was.
+    /// </para>
     /// </remarks>
-    internal void LoadTotalsRowLabel(string label)
-    {
-        totalsRowFunction = XLTotalsRowFunction.None;
-        totalsRowLabel = label;
-    }
+    internal void LoadTotalsRowLabel(string label) => totalsRowLabel = label;
 
     public void Delete()
     {

@@ -127,6 +127,42 @@ public class TotalsRowCellTests
         await Assert.That(ws.Table("Sales").Field("Name").TotalsRowFunction).IsEqualTo(XLTotalsRowFunction.Count);
     }
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_column_with_both_a_totals_function_and_a_label_keeps_both(bool rewrite)
+    {
+        // Excel does not write both, but other producers can. The load keeps the function and its
+        // formula, which the label used to replace, and the save writes the table part back as it was.
+        using var source = Source(label: "Total", function: XLTotalsRowFunction.Count);
+        source.RewritePart(TablePart(source), xml => xml.Replace("totalsRowFunction=\"count\"",
+            "totalsRowFunction=\"count\" totalsRowLabel=\"Total\"", StringComparison.Ordinal));
+        await Assert.That(source.ReadPart(TablePart(source))).Contains("totalsRowLabel=\"Total\"");
+
+        using var saved = source.LoadAndSave(options: Options(rewrite));
+
+        using var wb = new XLWorkbook(saved);
+        var ws = wb.Worksheet("Data");
+        var field = ws.Table("Sales").Field("Name");
+        await Assert.That(ws.Cell("A4").FormulaA1).Contains("SUBTOTAL(103");
+        await Assert.That(field.TotalsRowFunction).IsEqualTo(XLTotalsRowFunction.Count);
+        await Assert.That(field.TotalsRowLabel).IsEqualTo("Total");
+    }
+
+    [Test]
+    public async Task Choosing_a_custom_totals_function_keeps_the_label_until_a_formula_is_set()
+    {
+        using var source = Source(label: "Total");
+        using var wb = new XLWorkbook(source);
+        var field = wb.Worksheet("Data").Table("Sales").Field("Name");
+
+        field.TotalsRowFunction = XLTotalsRowFunction.Custom;
+        await Assert.That(field.TotalsRowLabel).IsEqualTo("Total");
+
+        field.TotalsRowFormulaA1 = "COUNTA([Name])";
+        await Assert.That(field.TotalsRowLabel).IsNull();
+    }
+
     private static SaveOptions Options(bool rewrite) => new() { RewriteUnchangedSheets = rewrite };
 
     /// <summary>
@@ -141,9 +177,11 @@ public class TotalsRowCellTests
 
     /// <summary>
     /// Sheet Data holds the table Sales over A1:B4: Name and Amount, ("a", 1.5) and ("b", 2), and a
-    /// totals row whose Name cell A4 has <paramref name="label"/> as the field's label and as its text.
+    /// totals row whose Name cell A4 has <paramref name="label"/> as the field's label and as its text,
+    /// or, given a <paramref name="function"/>, that function and its formula in place of the label.
     /// </summary>
-    private static MemoryStream Source(string label, string? comment = null)
+    private static MemoryStream Source(string label, string? comment = null,
+        XLTotalsRowFunction function = XLTotalsRowFunction.None)
     {
         var stream = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -159,6 +197,9 @@ public class TotalsRowCellTests
             var table = ws.Range("A1:B3").CreateTable("Sales");
             table.ShowTotalsRow = true;
             table.Field("Name").TotalsRowLabel = label;
+            if (function != XLTotalsRowFunction.None)
+                table.Field("Name").TotalsRowFunction = function;
+
             if (comment is not null)
                 ws.Cell("A4").CreateComment().AddText(comment);
 
