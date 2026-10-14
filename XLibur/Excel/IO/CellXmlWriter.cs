@@ -28,16 +28,16 @@ internal static class CellXmlWriter
     /// <summary>
     /// The format of a number in a cell's <c>&lt;v&gt;</c>: the shortest text that reads back as the
     /// same <c>double</c>. Excel writes up to 17 significant digits there (<c>27.999999999999996</c>
-    /// for <c>=2.8/0.1</c>); "G15" stopped at 15 and changed the value (#741). An integer or a short
-    /// decimal is spelled as before.
+    /// for <c>=2.8/0.1</c>); "G15" stopped at 15 and changed the value (#741).
     /// </summary>
-    internal const string NumberFormat = "R";
+    internal const string NumberFormat = XmlWriterExtensions.RoundTripNumberFormat;
 
     /// <summary>
-    /// The highest serial date before the 1900 date system's phantom 29 February 1900. Below it a
-    /// serial is one day less than the OLE Automation date of the same day.
+    /// The first serial date after the 1900 date system's phantom 29 February 1900 (serial 60), as
+    /// <see cref="DoubleExtensions"/> takes it. From here on a serial is the OLE Automation date of
+    /// the same day; before the phantom day it is one less.
     /// </summary>
-    private const int LastSerialBeforePhantomLeapDay = 60;
+    private const int FirstSerialAfterPhantomLeapDay = 61;
 
     /// <summary>
     /// Enough to hold the longest cell reference (<c>XFD1048576</c>) as chars.
@@ -248,7 +248,8 @@ internal static class CellXmlWriter
     /// The 1904 date system counts days from 1 January 1904, serial 0, and has no phantom
     /// 29 February 1900, so it is the OLE Automation date less 1462 days. For a 1904 serial from
     /// 32768 to 64073 (1993 to 2079) both serials are in the same binary exponent range, and the
-    /// subtraction is exact; elsewhere it may move the last bit.
+    /// subtraction is exact; elsewhere it may move the last bit, at most about 7e-12 of a day (under
+    /// a microsecond). Keeping that bit would take keeping the file's serial in the model.
     /// </para>
     /// </remarks>
     internal static double ToFileSerialDateTime(double serial, bool use1904DateSystem)
@@ -256,13 +257,14 @@ internal static class CellXmlWriter
         if (!use1904DateSystem)
             return serial;
 
-        var oleDate = serial > LastSerialBeforePhantomLeapDay ? serial : serial + 1;
+        var oleDate = serial >= FirstSerialAfterPhantomLeapDay ? serial : serial + 1;
         return oleDate - Date1904OffsetDays;
     }
 
     /// <summary>
     /// The serial in the model, counted in the 1900 date system, of a date a file holds as
-    /// <paramref name="fileSerial"/>. The inverse of <see cref="ToFileSerialDateTime"/>.
+    /// <paramref name="fileSerial"/>. The inverse of <see cref="ToFileSerialDateTime"/> for every
+    /// serial but those of the phantom 29 February 1900, which no 1904 serial can name.
     /// </summary>
     internal static double FromFileSerialDateTime(double fileSerial, bool use1904DateSystem)
     {
@@ -270,6 +272,6 @@ internal static class CellXmlWriter
             return fileSerial;
 
         var oleDate = fileSerial + Date1904OffsetDays;
-        return oleDate > LastSerialBeforePhantomLeapDay ? oleDate : oleDate - 1;
+        return oleDate >= FirstSerialAfterPhantomLeapDay ? oleDate : oleDate - 1;
     }
 }

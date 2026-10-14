@@ -65,14 +65,11 @@ public static class KeepPartSurvey
     /// <summary>Where to write the markup of each sheet not kept whole, or null.</summary>
     private static string? _dumpFolder;
 
-    /// <summary>Write every sheet from the model (<see cref="SaveOptions.RewriteUnchangedSheets"/>).</summary>
-    private static bool _rewrite;
-
     public static void Run(string[] args)
     {
         var options = args.Skip(2).ToList();
         var showSheets = options.Remove("--sheets");
-        _rewrite = options.Remove("--rewrite");
+        var saveOptions = new SaveOptions { RewriteUnchangedSheets = options.Remove("--rewrite") };
         var dump = options.IndexOf("--dump");
         if (dump >= 0 && dump + 1 < options.Count)
         {
@@ -96,7 +93,7 @@ public static class KeepPartSurvey
             var name = Path.GetRelativePath(folder, file).Replace('\\', '/');
             try
             {
-                sheets.AddRange(Survey(name, File.ReadAllBytes(file), out var loaded));
+                sheets.AddRange(Survey(name, File.ReadAllBytes(file), saveOptions, out var loaded));
                 if (!loaded)
                     notLoaded++;
             }
@@ -115,7 +112,7 @@ public static class KeepPartSurvey
     /// Loads, saves and reloads one workbook. Returns no sheets, with <paramref name="loaded"/>
     /// false, when the source does not load; a source that loads but does not save or reload throws.
     /// </summary>
-    private static List<SheetResult> Survey(string file, byte[] original, out bool loaded)
+    private static List<SheetResult> Survey(string file, byte[] original, SaveOptions saveOptions, out bool loaded)
     {
         loaded = false;
         byte[] source;
@@ -148,7 +145,7 @@ public static class KeepPartSurvey
             byte[] saved;
             using (var output = new MemoryStream())
             {
-                workbook.SaveAs(output, new SaveOptions { RewriteUnchangedSheets = _rewrite });
+                workbook.SaveAs(output, saveOptions);
                 saved = output.ToArray();
             }
 
@@ -288,7 +285,8 @@ public static class KeepPartSurvey
                 || !other.Value.Equals(cell.CachedValue)
                 || other.Formula != Formula(cell))
             {
-                mismatches++;            }
+                mismatches++;
+            }
         }
 
         return mismatches + reloadedCells.Count;

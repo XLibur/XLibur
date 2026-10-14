@@ -1122,8 +1122,13 @@ internal static class WorksheetSheetDataReader
         var cellValue = cellsCollection.ValueSlice.GetCellValue(cellAddress);
         if (cellValue.Type == XLDataType.DateTime)
         {
-            var serial = CellXmlWriter.FromFileSerialDateTime(cellValue.GetUnifiedNumber(), use1904DateSystem: true);
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, XLCellValue.FromSerialDateTime(serial));
+            var fileSerial = cellValue.GetUnifiedNumber();
+            var serial = CellXmlWriter.FromFileSerialDateTime(fileSerial, use1904DateSystem: true);
+
+            // A file serial near the end of the date range is past it once moved. Like any number
+            // no date can be made from, it stays a number (D39), and is written back as it was.
+            var value = serial.IsValidOADateNumber() ? XLCellValue.FromSerialDateTime(serial) : fileSerial;
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, value);
         }
     }
 

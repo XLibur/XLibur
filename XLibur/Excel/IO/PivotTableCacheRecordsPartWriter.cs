@@ -40,7 +40,8 @@ internal static class PivotTableCacheRecordsPartWriter
                         break;
                     case XLPivotCacheValueType.Number:
                         xml.WriteStartElement("n");
-                        xml.WriteAttribute("v", value.GetNumber());
+                        // As a cell writes it, so the record matches its source cell (#741).
+                        xml.WriteAttribute("v", value.GetNumber(), XmlWriterExtensions.RoundTripNumberFormat);
                         xml.WriteEndElement();
                         break;
                     case XLPivotCacheValueType.Boolean:

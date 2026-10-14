@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Excel.IO;
 using XLibur.Excel.Streaming;
 using XLibur.Tests.Utils;
 
@@ -119,6 +120,30 @@ public class CellNumberRoundTripTests
     }
 
     /// <summary>
+    /// A pivot cache record holds the number of its source cell, written as the cell is.
+    /// </summary>
+    [Test]
+    public async Task A_pivot_cache_record_writes_the_digits_a_number_needs()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var data = wb.AddWorksheet("Data");
+            data.Cell("A1").Value = "Name";
+            data.Cell("B1").Value = "Amount";
+            data.Cell("A2").Value = "a";
+            data.Cell("B2").Value = 27.999999999999996;
+            var pivots = wb.AddWorksheet("Pivots");
+            var pt = pivots.PivotTables.Add("pvt", pivots.Cell("A1"), data.Range("A1:B2"));
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Amount");
+            wb.SaveAs(ms);
+        }
+
+        await Assert.That(ms.ReadPart(ms.PartNames().Single(n => n.Contains("pivotCacheRecords", StringComparison.Ordinal)))).Contains("v=\"27.999999999999996\"");
+    }
+
+    /// <summary>
     /// A number formatted as a date or time loads as a <see cref="XLDataType.DateTime"/> or
     /// <see cref="XLDataType.TimeSpan"/>. Its serial must be written back as the file had it: neither
     /// cut to 15 digits (40982.56313888889) nor moved to the nearest millisecond (42536.5128889537).
@@ -192,6 +217,54 @@ public class CellNumberRoundTripTests
         }
 
         await Assert.That(Values(written)).IsEquivalentTo([serial.ToString(CultureInfo.InvariantCulture)]);
+    }
+
+    /// <summary>
+    /// A 1904 serial is a date only when the 1900 serial it moves to is one. Past the end of the
+    /// range it stays a number, and is written back as the file had it.
+    /// </summary>
+    [Test]
+    public async Task A_1904_serial_past_the_date_range_once_moved_stays_a_number()
+    {
+        using var source = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.Use1904DateSystem = true;
+            var cell = wb.AddWorksheet("S").Cell("A1");
+            cell.Value = 2958000;
+            cell.Style.NumberFormat.Format = "yyyy-mm-dd";
+            wb.SaveAs(source);
+        }
+
+        using var resaved = new MemoryStream();
+        using (var wb = new XLWorkbook(source))
+        {
+            var cell = wb.Worksheet(1).Cell("A1");
+            await Assert.That(cell.DataType).IsEqualTo(XLDataType.Number);
+            await Assert.That(cell.Value.GetNumber()).IsEqualTo(2958000);
+            wb.SaveAs(resaved, new SaveOptions { RewriteUnchangedSheets = true });
+        }
+
+        await Assert.That(Values(resaved)).IsEquivalentTo(["2958000"]);
+    }
+
+    /// <summary>
+    /// The conversions between the model's 1900 serial and a 1904 file serial undo each other, also
+    /// for dates before 1 March 1900, where the 1900 serial is one less than the OLE date.
+    /// </summary>
+    [Test]
+    [Arguments(1d)]
+    [Arguments(59d)]
+    [Arguments(59.5)]
+    [Arguments(61d)]
+    [Arguments(61.25)]
+    [Arguments(1462d)]
+    [Arguments(44000.75)]
+    public async Task The_1904_serial_conversions_undo_each_other(double serial)
+    {
+        var fileSerial = CellXmlWriter.ToFileSerialDateTime(serial, use1904DateSystem: true);
+        await Assert.That(CellXmlWriter.FromFileSerialDateTime(fileSerial, use1904DateSystem: true)).IsEqualTo(serial);
+        await Assert.That(CellXmlWriter.ToFileSerialDateTime(serial, use1904DateSystem: false)).IsEqualTo(serial);
     }
 
     /// <summary>
