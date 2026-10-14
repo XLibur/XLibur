@@ -68,6 +68,66 @@ public class SheetDataWhitespaceLoadingTests
         using var source = Source();
         source.RewriteSheet1(xml => Pad(xml, placement, new string(' ', length), path));
 
+        // Each path is the one the test means: the byte search finds the cells only when buffered.
+        await Assert.That(SheetDataLocator.TryLocate(source.PartBytes(Sheet1), out _))
+            .IsEqualTo(path == ReadPath.Buffered);
+
+        source.Position = 0;
+        using var wb = new XLWorkbook(source);
+
+        await AssertAllCells(wb);
+    }
+
+    /// <summary>
+    /// Inside <c>&lt;is&gt;</c>, the reader hands the subtree to the OpenXML SDK, which has to pass
+    /// over the whitespace between runs as well.
+    /// </summary>
+    [Test]
+    [MatrixDataSource]
+    public async Task Whitespace_in_an_inline_string_loses_no_text(
+        [Matrix(1, 5000, 100_000)] int length,
+        [Matrix(false, true)] bool richText)
+    {
+        var run = new string(' ', length);
+        var content = richText
+            ? $"<x:r><x:t>t</x:t></x:r>{run}<x:r><x:rPr><x:b/></x:rPr><x:t>wo</x:t></x:r>"
+            : "<x:t>two</x:t>";
+        var cell = $"<x:c r=\"A2\" t=\"inlineStr\">{run}<x:is>{run}{content}{run}</x:is>{run}</x:c>";
+        using var source = Source();
+        source.RewriteSheet1(xml => Regex.Replace(xml, "<x:c r=\"A2\"[^>]*>.*?</x:c>", _ => cell));
+
+        using var wb = new XLWorkbook(source);
+
+        await AssertAllCells(wb);
+        var a2 = wb.Worksheet("Sheet1").Cell("A2");
+        await Assert.That(a2.HasRichText).IsEqualTo(richText);
+        if (richText)
+        {
+            await Assert.That(a2.GetRichText().Count).IsEqualTo(2);
+            await Assert.That(a2.GetRichText().Last().Bold).IsTrue();
+        }
+    }
+
+    /// <summary>
+    /// The elements of the part outside <c>&lt;sheetData&gt;</c> are read by the OpenXML SDK, which
+    /// passes over a long run of whitespace between them.
+    /// </summary>
+    [Test]
+    [Arguments(1)]
+    [Arguments(5000)]
+    [Arguments(100_000)]
+    public async Task Whitespace_between_columns_and_merges_loses_neither(int length)
+    {
+        var run = new string(' ', length);
+        using var source = Source();
+        source.RewriteSheet1(xml =>
+        {
+            foreach (var tag in new[] { "<x:col ", "</x:cols>", "<x:mergeCell ", "</x:mergeCells>" })
+                xml = InsertBefore(xml, tag, run);
+
+            return xml;
+        });
+
         using var wb = new XLWorkbook(source);
 
         await AssertAllCells(wb);
