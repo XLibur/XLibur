@@ -164,19 +164,49 @@ internal static class WorksheetSheetDataReader
     // path in XLWorkbook_Load, which reads them before this runs, so column styles are available.
     //
     // Positioning contract: each LoadXxxXml enters positioned on the element's start node and
-    // returns positioned on the node immediately after that element's end tag.
+    // returns positioned on the node immediately after that element's end tag. That node need not
+    // be a tag: callers move past anything else with SkipToTag before they look at it (#738).
     // ---------------------------------------------------------------------------------------
 
     /// <summary>
     /// Reads all <c>&lt;row&gt;</c> children of <c>&lt;sheetData&gt;</c> from a raw
-    /// <see cref="XmlReader"/>. The reader must be positioned on the first <c>&lt;row&gt;</c>
-    /// start element (or on <c>&lt;/sheetData&gt;</c> when there are no rows).
+    /// <see cref="XmlReader"/>. The reader must be positioned on the first child of
+    /// <c>&lt;sheetData&gt;</c>, or on <c>&lt;/sheetData&gt;</c> when it has none, and returns on
+    /// <c>&lt;/sheetData&gt;</c>.
     /// </summary>
+    /// <remarks>
+    /// A child that is not a row is skipped, subtree and all, and the rows after it are read.
+    /// </remarks>
     internal static void LoadSheetDataRows(XmlReader reader, in SheetDataReadContext context,
         ref SheetDataReadState state)
     {
-        while (IsMainElement(reader, "row"))
-            LoadRowXml(reader, in context, ref state);
+        SkipToTag(reader);
+        while (reader.NodeType == XmlNodeType.Element)
+        {
+            if (IsMainElement(reader, "row"))
+                LoadRowXml(reader, in context, ref state);
+            else
+                reader.Skip();
+
+            SkipToTag(reader);
+        }
+    }
+
+    /// <summary>
+    /// Moves the reader past every node that is not a start or end tag, or to the end of the input.
+    /// </summary>
+    /// <remarks>
+    /// The reader is told to ignore whitespace, but it still reports a run of whitespace longer than
+    /// its buffer (about 4,096 characters) as a text node (#738). A loop that stopped at the first
+    /// node that was not the element it expected dropped every row or cell after such a run without
+    /// an error. Text that is not whitespace has no place between these elements either, and is
+    /// passed over the same way.
+    /// </remarks>
+    private static void SkipToTag(XmlReader reader)
+    {
+        while (reader.NodeType is not (XmlNodeType.Element or XmlNodeType.EndElement) && reader.Read())
+        {
+        }
     }
 
     /// <summary>
@@ -298,12 +328,17 @@ internal static class WorksheetSheetDataReader
 
         reader.Read(); // Move into the row's children (first <c> or </row>).
 
-        while (IsMainElement(reader, "c"))
-            LoadCellXml(reader, in context, rowIndex, ref state);
-
-        // A row can also contain extLst; skip any remaining children.
+        // A row can also contain extLst, which is skipped, as is any other child that is not a cell.
+        SkipToTag(reader);
         while (reader.NodeType == XmlNodeType.Element)
-            reader.Skip();
+        {
+            if (IsMainElement(reader, "c"))
+                LoadCellXml(reader, in context, rowIndex, ref state);
+            else
+                reader.Skip();
+
+            SkipToTag(reader);
+        }
 
         reader.Read(); // Move past </row>.
     }
@@ -432,11 +467,15 @@ internal static class WorksheetSheetDataReader
         XLWorksheet ws, XLCellsCollection cellsCollection, uint? cellMetaIndex)
 #pragma warning restore S107
     {
-        // Positioned on the first child of <c> (an Element) or on </c> (an EndElement).
+        // Positioned on the first child of <c> or on </c>. Each child is looked for in schema order,
+        // past any node between it and the one before.
+        SkipToTag(reader);
         var formula = IsMainElement(reader, "f")
             ? SetCellFormulaXml(reader, context.ValueBuffer, ws, cellAddress, context.SharedFormulas, cellMetaIndex,
                 context.DynamicArrayCmIndexes)
             : null;
+
+        SkipToTag(reader);
 
         // A formula result string is stored in <v>, never in the shared string table. That is true
         // of the formula's own cell and equally of a cell carrying only a cached result: the spilled
@@ -452,6 +491,7 @@ internal static class WorksheetSheetDataReader
         if (formula is not null && cellValueWasSet)
             formula.MarkClean();
 
+        SkipToTag(reader);
         if (IsMainElement(reader, "is"))
             LoadInlineStringXml(reader, dataType, cellsCollection, cellAddress, ws);
 
@@ -459,8 +499,12 @@ internal static class WorksheetSheetDataReader
             Adjust1904DateSystem(cellsCollection, cellAddress);
 
         // Ensure we land on </c>: skip any unrecognized trailing child elements.
+        SkipToTag(reader);
         while (reader.NodeType == XmlNodeType.Element)
+        {
             reader.Skip();
+            SkipToTag(reader);
+        }
     }
 
     /// <summary>
