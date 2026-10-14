@@ -153,6 +153,14 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             {
                 var modified = original;
                 modified.CellImage = value;
+
+                // The vm index of an image cell names the image's value metadata. The save numbers
+                // it again for each image it writes, but not for a cell whose image is gone, which
+                // then kept an index past the end of the value metadata, so Excel refused the file,
+                // or one that now named another cell's image (#739).
+                if (value is null)
+                    modified.ValueMetaIndex = null;
+
                 _cellsCollection.MiscSlice.Set(_point, in modified);
             }
         }
@@ -963,7 +971,14 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public void RemoveCellImage()
     {
+        if (CellImage is null)
+            return;
+
         CellImage = null;
+
+        // An image cell holds the index of its rich value, or #VALUE! as Excel writes it. Neither
+        // is a value of the cell's own, and with the image gone it would show.
+        SliceCellValue = Blank.Value;
     }
 
     public IXLDataValidation GetDataValidation()

@@ -108,7 +108,8 @@ public interface IXLCell
     IXLCell SetCellImage(Stream imageStream, XLPictureFormat format, string altText = "");
 
     /// <summary>
-    /// Remove the in-cell image from this cell.
+    /// Remove the in-cell image from this cell. The cell is left blank. Does nothing if the cell
+    /// has no in-cell image.
     /// </summary>
     void RemoveCellImage();
 

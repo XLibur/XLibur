@@ -14,21 +14,18 @@ namespace XLibur.Excel.IO;
 /// </summary>
 internal static class RichDataReader
 {
-    // Relationship types used to find the parts
-    private const string RichValueRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue";
-    private const string RichValueStructureRelType = "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure";
-    private const string RichValueRelRelType = "http://schemas.microsoft.com/office/2017/06/relationships/richValueRel";
-
     /// <summary>
     /// Load rich data parts from the workbook part. If successful, populates
     /// <see cref="LoadContext.RichValueImages"/> with vm-to-CellImage mapping.
     /// </summary>
     internal static void LoadRichData(WorkbookPart workbookPart, XLWorkbook workbook, LoadContext context)
     {
-        // Find rich data parts by relationship type
-        var richValuePart = FindPartByRelType(workbookPart, RichValueRelType);
-        var richValueStructurePart = FindPartByRelType(workbookPart, RichValueStructureRelType);
-        var richValueRelPart = FindPartByRelType(workbookPart, RichValueRelRelType);
+        // Find rich data parts by relationship type. Excel relates the rich value relationship
+        // part by its 2022 type; XLibur used the 2017 one before #739.
+        var richValuePart = FindPartByRelType(workbookPart, RichDataWriter.RichValueRelType);
+        var richValueStructurePart = FindPartByRelType(workbookPart, RichDataWriter.RichValueStructureRelType);
+        var richValueRelPart = FindPartByRelType(workbookPart, RichDataWriter.RichValueRelRelType)
+                               ?? FindPartByRelType(workbookPart, RichDataWriter.LegacyRichValueRelRelType);
 
         // If any of the required parts are missing, skip
         if (richValuePart is null || richValueStructurePart is null || richValueRelPart is null)
@@ -200,12 +197,14 @@ internal static class RichDataReader
     {
         var values = new List<string>();
         using var rvReader = reader.ReadSubtree();
-        while (rvReader.Read())
+        while (!rvReader.EOF)
         {
+            // ReadElementContentAsString leaves the reader on the node after the element, which is
+            // the next <v>. A Read() after it skipped that value, so the alt text never loaded.
             if (rvReader.NodeType == XmlNodeType.Element && rvReader.LocalName == "v")
-            {
                 values.Add(rvReader.ReadElementContentAsString());
-            }
+            else
+                rvReader.Read();
         }
 
         return values;

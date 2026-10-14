@@ -137,7 +137,7 @@ public class KeepCellImageSheetTests
 
     /// <summary>
     /// Gives <paramref name="cell"/> an image told apart from the others by its length: the test
-    /// image followed by <paramref name="tag"/> zero bytes. The load does not read alt text back.
+    /// image followed by <paramref name="tag"/> zero bytes.
     /// </summary>
     private static void SetImage(IXLCell cell, int tag)
     {
