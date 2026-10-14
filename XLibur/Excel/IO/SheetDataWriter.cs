@@ -5,7 +5,6 @@ using System.Xml;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Rows;
-using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using static XLibur.Excel.IO.OpenXmlConst;
 using static XLibur.Excel.XLWorkbook;
@@ -33,7 +32,6 @@ internal static class SheetDataWriter
         if (options.EvaluateFormulasBeforeSaving)
             EvaluateDirtyFormulas(xlWorksheet, context);
 
-        var tableTotalCells = CollectTableTotalCells(xlWorksheet);
         var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
         var sharedFormulas = CollectSharedFormulas(xlWorksheet, options);
 
@@ -46,7 +44,6 @@ internal static class SheetDataWriter
             CellRef = new char[CellXmlWriter.CellRefBufferLength],
             SaveContext = context,
             SaveOptions = options,
-            TableTotalCells = tableTotalCells,
             CachedResultFormulas = cachedResultFormulas,
             SharedFormulas = sharedFormulas,
             Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
@@ -111,63 +108,6 @@ internal static class SheetDataWriter
     /// </summary>
     private static SharedFormulaPlan? CollectSharedFormulas(XLWorksheet xlWorksheet, SaveOptions options)
         => options.WriteSharedFormulas ? SharedFormulaPlan.Create(xlWorksheet) : null;
-
-    private static HashSet<Point>? CollectTableTotalCells(XLWorksheet xlWorksheet)
-    {
-        if (xlWorksheet.Tables.Count == 0)
-            return null;
-
-        HashSet<Point>? cells = null;
-        foreach (var table in xlWorksheet.Tables)
-        {
-            if (!table.ShowTotalsRow)
-                continue;
-
-            cells ??= [];
-            foreach (var cell in table.TotalsRow()!.CellsUsed())
-                cells.Add(((XLCell)cell).SheetPoint);
-        }
-
-        return cells;
-    }
-
-    /// <summary>
-    /// Does the writer write every cell in the totals rows of the sheet's tables as it writes any
-    /// other cell holding the same value? Only then can a save keep the cells as the file had them
-    /// (#702, #721).
-    /// </summary>
-    /// <remarks>
-    /// A totals-row cell without a formula goes through <see cref="WriteTotalLabelCellDirect"/>. That
-    /// writes the cell's shared string, as for any other cell, when the field has a label. When the
-    /// field has none it writes nothing at all, and it cannot write a value that is not a shared
-    /// string. A formula takes the formula path either way, so a formula in a totals row, such as a
-    /// <c>SUBTOTAL</c>, does not refuse the sheet.
-    /// </remarks>
-    internal static bool WritesTotalsRowsAsValues(XLWorksheet xlWorksheet)
-    {
-        var totalCells = CollectTableTotalCells(xlWorksheet);
-        if (totalCells is null)
-            return true;
-
-        var cellsCollection = xlWorksheet.Internals.CellsCollection;
-        var cachedResultFormulas = CollectCachedResultFormulas(xlWorksheet);
-        foreach (var point in totalCells)
-        {
-            if (cellsCollection.FormulaSlice.Get(point) is not null)
-                continue;
-
-            var value = cellsCollection.ValueSlice.GetCellValueAndShareString(point, out var shareString);
-            var field = FindTableFieldAt(xlWorksheet, point);
-            if (value.Type != XLDataType.Text || !shareString
-                || field is null || string.IsNullOrWhiteSpace(field.TotalsRowLabel)
-                || IsCachedResultCell(cachedResultFormulas, point))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     /// <summary>
     /// Evaluate every dirty formula on the sheet, so the grid the write pass walks is the final one.
@@ -345,12 +285,6 @@ internal static class SheetDataWriter
             return;
         }
 
-        if (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point))
-        {
-            WriteTotalLabelCellDirect(xml, ref ctx, point, cellStyleId);
-            return;
-        }
-
         // Value and share-string flag were already resolved by the caller (and reused for the
         // blank-and-empty check), so no second ValueSlice traversal is needed here.
         if (cellValue.Type != XLDataType.Blank)
@@ -368,8 +302,8 @@ internal static class SheetDataWriter
 
     /// <summary>
     /// Appends a plain value cell to <paramref name="rawCells"/>, or returns false for any cell
-    /// <see cref="WriteCellAtPoint"/> writes some other way: a formula, a table's totals label, a
-    /// spilled or array result, a blank, or text that is not shared.
+    /// <see cref="WriteCellAtPoint"/> writes some other way: a formula, a spilled or array result, a
+    /// blank, or text that is not shared.
     /// </summary>
     private static bool TryAppendRawCell(RawCellBuffer rawCells, ref CellWriteContext ctx, Point point,
         uint cellStyleId, XLCellValue cellValue, bool shareString)
@@ -380,7 +314,6 @@ internal static class SheetDataWriter
 
         var cellsCollection = ctx.CellsCollection;
         if (cellsCollection.FormulaSlice.Get(point) is not null
-            || (ctx.TableTotalCells is not null && ctx.TableTotalCells.Contains(point))
             || IsCachedResultCell(ctx.CachedResultFormulas, point))
         {
             return false;
@@ -570,58 +503,6 @@ internal static class SheetDataWriter
                 CellXmlWriter.WriteNonTextValue(w, cellValue, use1904DateSystem);
                 break;
         }
-    }
-
-    /// <summary>
-    /// Write a totals-row label cell directly from slice data. The cell is in
-    /// <see cref="CellWriteContext.TableTotalCells"/> but has no formula — it carries either
-    /// a label (e.g. "Total") or nothing.
-    /// </summary>
-    private static void WriteTotalLabelCellDirect(XmlWriter xml, ref CellWriteContext ctx,
-        Point point, uint cellStyleId)
-    {
-        var cellsCollection = ctx.CellsCollection;
-        var xlWorksheet = cellsCollection.Worksheet;
-
-        var field = FindTableFieldAt(xlWorksheet, point);
-        if (field is null || string.IsNullOrWhiteSpace(field.TotalsRowLabel))
-            return;
-
-        var memorySstId = cellsCollection.ValueSlice.GetShareStringId(point);
-        var sharedStringId = ctx.SaveContext.GetSharedStringId(memorySstId, point);
-
-        Span<char> cellRefSpan = ctx.CellRef;
-        var cellRefLen = point.Format(cellRefSpan);
-        ref readonly var misc = ref cellsCollection.MiscSlice[point];
-
-        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, "s", cellStyleId, in misc);
-        CellXmlWriter.WriteSharedStringValue(xml, sharedStringId);
-        xml.WriteEndElement(); // cell
-    }
-
-    /// <summary>
-    /// The field, in the first table containing <paramref name="point"/>, whose column holds it.
-    /// </summary>
-    private static XLTableField? FindTableFieldAt(XLWorksheet xlWorksheet, Point point)
-    {
-        foreach (var table in xlWorksheet.Tables)
-        {
-            if (table.Area.Contains(point))
-                return FindTableFieldInColumn(table, point.Column);
-        }
-
-        return null;
-    }
-
-    private static XLTableField? FindTableFieldInColumn(XLTable table, int column)
-    {
-        foreach (var f in table.Fields)
-        {
-            if (f.Column.ColumnNumber() == column)
-                return (XLTableField)f;
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -826,7 +707,6 @@ internal static class SheetDataWriter
         public char[] CellRef;
         public SaveContext SaveContext;
         public SaveOptions SaveOptions;
-        public HashSet<Point>? TableTotalCells;
         public List<XLCellFormula>? CachedResultFormulas;
         public SharedFormulaPlan? SharedFormulas;
         public bool Use1904DateSystem;
