@@ -443,26 +443,48 @@ public class TablesTests
         loaded.SaveAs(saved);
         using var reloaded = new XLWorkbook(saved);
 
+        // What the package itself holds, read without XLibur: each table's ref, and the cells of the
+        // sheet that have a value.
+        var tableRefs = new Dictionary<string, string>();
+        var cellsWithValue = new HashSet<string>();
+        using (var rawStream = TestHelper.GetStreamFromResource(path))
+        using (var document = SpreadsheetDocument.Open(rawStream, false))
+        {
+            var workbookPart = document.WorkbookPart!;
+            var sheet = workbookPart.Workbook!.Descendants<Sheet>().Single(s => s.Name == "Absagen");
+            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
+            foreach (var tablePart in worksheetPart.TableDefinitionParts)
+                tableRefs.Add(tablePart.Table!.Name!.Value!, tablePart.Table.Reference!.Value!);
+
+            foreach (var cell in worksheetPart.Worksheet!.Descendants<Cell>())
+            {
+                if (cell.CellValue is not null || cell.InlineString is not null)
+                    cellsWithValue.Add(cell.CellReference!.Value!);
+            }
+        }
+
         var fileSheet = file.Worksheet("Absagen");
         var reloadedSheet = reloaded.Worksheet("Absagen");
-
-        // As the file has them: the load neither moves a table nor names the cells of its first row.
-        await Assert.That(fileSheet.Table("Table_8").RangeAddress.ToString()).IsEqualTo("I939:AE940");
-        await Assert.That(fileSheet.Table("Table_1").RangeAddress.ToString()).IsEqualTo("I902:V902");
-        await Assert.That(reloadedSheet.Cell("I939").Value.IsBlank).IsTrue();
-
-        var tables = fileSheet.Tables.ToList();
-        await Assert.That(tables.Count).IsEqualTo(56);
-        foreach (var table in tables)
+        await Assert.That(fileSheet.Tables.Count()).IsEqualTo(56);
+        await Assert.That(tableRefs.Count).IsEqualTo(56);
+        foreach (var (name, reference) in tableRefs)
         {
-            await Assert.That(table.ShowHeaderRow).IsFalse();
+            foreach (var sheet in new[] { fileSheet, reloadedSheet })
+            {
+                var table = sheet.Table(name);
+                await Assert.That(table.ShowHeaderRow).IsFalse();
+                await Assert.That(table.RangeAddress.ToString()).IsEqualTo(reference);
+            }
 
-            var reloadedTable = reloadedSheet.Table(table.Name);
-            await Assert.That(reloadedTable.ShowHeaderRow).IsFalse();
-            await Assert.That(reloadedTable.RangeAddress.ToString()).IsEqualTo(table.RangeAddress.ToString());
-
-            foreach (var cell in table.Cells())
-                await Assert.That(reloadedSheet.Cell(cell.Address.ToString()).Value).IsEqualTo(cell.Value);
+            // A cell of the table is blank after the round trip exactly when the file has no value
+            // for it, and otherwise holds what the load read.
+            foreach (var cell in fileSheet.Range(reference)!.Cells())
+            {
+                var address = cell.Address.ToString()!;
+                var reloadedValue = reloadedSheet.Cell(address)!.Value;
+                await Assert.That(reloadedValue.IsBlank).IsEqualTo(!cellsWithValue.Contains(address));
+                await Assert.That(reloadedValue).IsEqualTo(cell.Value);
+            }
         }
     }
 

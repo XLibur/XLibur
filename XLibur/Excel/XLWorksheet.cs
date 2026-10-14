@@ -738,7 +738,8 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         if (table.Name != name)
             table.Name = name;
 
-        if (!Tables.Contains(table))
+        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
+        if (!Tables.Contains(name))
             Tables.Add(table);
 
         return table;
