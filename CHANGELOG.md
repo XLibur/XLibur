@@ -54,6 +54,16 @@
 
 - **Loading a table without a header row no longer writes into it.** The load created such a table as if its first row were a header, then turned the header off. That wrote header text such as "Column1" into the empty cells of the first data row. For a table of one row it also inserted a row below, which pushed the cells in its columns, and the tables below it, down a row. The load now creates the table over exactly the range the file gives ([#750](https://github.com/XLibur/XLibur/issues/750)).
 
+- **Saving a workbook with an above- or below-average conditional format no longer throws `NotImplementedException`.** The save had no writer for these rules, and the load also dropped the settings that tell them apart (`aboveAverage`, `equalAverage` and `stdDev`), so a below-average rule would have come back as an above-average one. The load now keeps them and the save writes them back, so each rule keeps formatting the same cells ([#743](https://github.com/XLibur/XLibur/issues/743)).
+
+- **A workbook with a sheet declared without a relationship id, as LibreOffice writes some, saves a file that loads again.** The load gives such a sheet a part, as Excel does, but the save declared the sheet a second time beside the old declaration, so the reload refused the duplicate name. Each such sheet is now declared once, in its place ([#743](https://github.com/XLibur/XLibur/issues/743)).
+
+- **A Strict OOXML workbook saves a file that loads again.** The OpenXML SDK puts back, on close, every relationship it translated from Strict when the file opened, even one whose part the save deleted, such as an empty calcChain or a deleted sheet. A Strict package is now rewritten in the transitional form before XLibur edits it, so nothing is left to put back ([#743](https://github.com/XLibur/XLibur/issues/743)). `Save()` on a loaded Strict file therefore writes the file back as transitional.
+
+#### Pivot tables
+
+- **A pivot cache with grouped fields saves a file that loads again.** These are items grouped by hand, or dates grouped by months, quarters or years. Each grouping level adds a cache field that has no records, and the save wrote it as an ordinary field, so the reload expected one more value in every record. The save also dropped the groups. Grouping fields are now written as such, and their groups are kept ([#743](https://github.com/XLibur/XLibur/issues/743)). A cache refresh also keeps calculated fields, after the source columns, where before a source column could take a calculated field's place and lose its records.
+
 ## v0.700.0 - 2026-10-05
 
 ### ⚠️ Breaking Changes
