@@ -56,8 +56,10 @@ public class AboveAverageConditionalFormatTests
     }
 
     /// <summary>
-    /// The save writes an average rule's <c>aboveAverage</c> and <c>equalAverage</c> only when the file
-    /// had them, as Excel and LibreOffice do: only when they differ from the schema default.
+    /// The save writes an average rule's <c>aboveAverage</c> and <c>equalAverage</c> only when they differ
+    /// from the schema default, and adds no formula. The fixture writes them the same way, so the saved
+    /// rules carry exactly the fixture's attributes. A file that spells out a default value is saved
+    /// without it, which means the same.
     /// </summary>
     [Test]
     public async Task The_save_writes_an_average_rule_with_the_attributes_the_file_has()
@@ -99,7 +101,8 @@ public class AboveAverageConditionalFormatTests
     [Test]
     public async Task A_load_keeps_which_values_each_average_rule_formats()
     {
-        using var wb = new XLWorkbook(TestHelper.OpenResource(Folder + Fixture));
+        using var source = TestHelper.OpenResource(Folder + Fixture);
+        using var wb = new XLWorkbook(source);
 
         var rules = AverageRules(wb.Worksheet("Sheet1"));
 
@@ -136,7 +139,8 @@ public class AboveAverageConditionalFormatTests
     [Test]
     public async Task Two_average_rules_that_format_different_values_are_not_equal()
     {
-        using var wb = new XLWorkbook(TestHelper.OpenResource(Folder + Fixture));
+        using var source = TestHelper.OpenResource(Folder + Fixture);
+        using var wb = new XLWorkbook(source);
         var rules = wb.Worksheet("Sheet1").ConditionalFormats.Cast<XLConditionalFormat>()
             .Where(cf => cf.ConditionalFormatType == XLConditionalFormatType.AboveAverage)
             .ToList();
@@ -149,7 +153,8 @@ public class AboveAverageConditionalFormatTests
     [Test]
     public async Task The_saved_file_passes_validation()
     {
-        using var wb = new XLWorkbook(TestHelper.OpenResource(Folder + Fixture));
+        using var source = TestHelper.OpenResource(Folder + Fixture);
+        using var wb = new XLWorkbook(source);
 
         using var saved = TestHelper.SaveValidated(wb);
 

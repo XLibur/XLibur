@@ -620,13 +620,10 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         Operator = other.Operator;
         Bottom = other.Bottom;
         Percent = other.Percent;
-        if (other is XLConditionalFormat xlOther)
-        {
-            AboveAverage = xlOther.AboveAverage;
-            EqualAverage = xlOther.EqualAverage;
-            StdDev = xlOther.StdDev;
-        }
-
+        var xlOther = (XLConditionalFormat)other;
+        AboveAverage = xlOther.AboveAverage;
+        EqualAverage = xlOther.EqualAverage;
+        StdDev = xlOther.StdDev;
         ReverseIconOrder = other.ReverseIconOrder;
         ShowIconOnly = other.ShowIconOnly;
         ShowBarOnly = other.ShowBarOnly;
