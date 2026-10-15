@@ -723,7 +723,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     /// <summary>
     /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
-    /// declares it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
+    /// declares it or as a copy of such a table has it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
     /// the first row of such a table holds data, not field names, and a table of one row gets no
     /// row inserted below it (#750).
     /// </summary>
@@ -1595,10 +1595,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         return affected;
     }
-    private void CheckRangeNotOverlappingOtherEntities(XLRange range)
+    internal void CheckRangeNotOverlappingOtherEntities(XLRange range)
     {
         // Check that the range doesn't overlap with any existing tables
-        var firstOverlappingTable = Tables.FirstOrDefault<XLTable>(t => t.RangeUsed()!.Intersects(range));
+        var firstOverlappingTable = FirstTableIntersecting(range);
         if (firstOverlappingTable != null)
             throw new InvalidOperationException(
                 $"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
@@ -1608,6 +1608,14 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             throw new InvalidOperationException(
                 $"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} overlaps with the worksheet's autofilter.");
     }
+
+    /// <summary>
+    /// The first table whose range, empty cells included, intersects <paramref name="range"/>. Not
+    /// the table's used cells: those miss its empty rows, and a table without a header row can have
+    /// none at all (#756).
+    /// </summary>
+    internal XLTable? FirstTableIntersecting(IXLRangeBase range) =>
+        Tables.FirstOrDefault<XLTable>(t => t.Intersects(range));
 
     private IXLRange GetRangeForSort()
     {
