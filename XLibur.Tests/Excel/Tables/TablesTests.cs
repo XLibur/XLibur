@@ -488,6 +488,133 @@ public class TablesTests
         }
     }
 
+    // https://github.com/XLibur/XLibur/issues/756
+    [Test]
+    public async Task Copying_a_sheet_keeps_its_tables_without_header_row_as_they_are()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Source");
+        AddTablesWithoutHeaderRow(ws);
+
+        var copy = ws.CopyTo("Copy");
+
+        await AssertTablesWithoutHeaderRowKept(copy);
+
+        // Saved from a workbook of its own, where the save keeps the tables' names.
+        using var other = new XLWorkbook();
+        ws.CopyTo(other, "Copy");
+        using var saved = new MemoryStream();
+        other.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        await AssertTablesWithoutHeaderRowKept(reloaded.Worksheet("Copy"));
+    }
+
+    // https://github.com/XLibur/XLibur/issues/756
+    [Test]
+    public async Task Copying_a_loaded_sheet_keeps_its_tables_without_header_row_as_they_are()
+    {
+        var path = TestHelper.GetResourcePath(@"Other\GoogleSheets\2619_exported-broken2.xlsx");
+        using var stream = TestHelper.GetStreamFromResource(path);
+        using var wb = new XLWorkbook(stream);
+        var source = wb.Worksheet("Absagen");
+
+        var copy = source.CopyTo("Copy");
+
+        await Assert.That(copy.Tables.Count()).IsEqualTo(56);
+        foreach (var table in source.Tables)
+        {
+            var copied = copy.Table(table.Name);
+            await Assert.That(copied.ShowHeaderRow).IsFalse();
+            await Assert.That(copied.RangeAddress.ToString()).IsEqualTo(table.RangeAddress.ToString());
+            await Assert.That(copied.Fields.Select(f => f.Name)).IsEquivalentTo(table.Fields.Select(f => f.Name));
+        }
+
+        foreach (var cell in source.RangeUsed()!.Cells())
+            await Assert.That(copy.Cell(cell.Address.ToString()!)!.Value).IsEqualTo(cell.Value);
+
+        await Assert.That(copy.RangeUsed()!.RangeAddress.ToString()).IsEqualTo(source.RangeUsed()!.RangeAddress.ToString());
+    }
+
+    // https://github.com/XLibur/XLibur/issues/756
+    [Test]
+    public async Task Copying_a_table_without_header_row_writes_no_header_and_inserts_no_row()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Source");
+        AddTablesWithoutHeaderRow(ws);
+        var target = wb.AddWorksheet("Target");
+        target.Cell("D3").SetValue("below");
+        // Under a cell that is empty in the source, so the copy must clear it.
+        target.Cell("A2").SetValue("stale");
+
+        ws.Table("Data").CopyTo(target);
+        ws.Table("Single").CopyTo(target);
+
+        await AssertTablesWithoutHeaderRowKept(target);
+    }
+
+    // https://github.com/XLibur/XLibur/issues/756
+    [Test]
+    public async Task Copying_a_table_over_the_empty_rows_of_another_table_throws_and_writes_nothing()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Source");
+        AddTablesWithoutHeaderRow(ws);
+        var target = wb.AddWorksheet("Target");
+        target.Cell("B1").SetValue("H1");
+        target.Cell("C1").SetValue("H2");
+        // Only its header row is used, which is above the copy; its empty rows are under it.
+        target.Range("B1:C6").CreateTable("Other");
+        target.Cell("A3").SetValue("kept");
+
+        await Assert.That(() => ws.Table("Data").CopyTo(target)).Throws<InvalidOperationException>();
+
+        await Assert.That(target.Tables.Select(t => t.Name)).IsEquivalentTo(["Other"]);
+        await Assert.That(target.Cell("A3").Value).IsEqualTo("kept");
+    }
+
+    /// <summary>
+    /// A table without a header row whose first data row is empty, and one of a single row with a
+    /// cell below it, for the copy tests of #756.
+    /// </summary>
+    private static void AddTablesWithoutHeaderRow(IXLWorksheet ws)
+    {
+        ws.Cell("A1").SetValue("Name");
+        ws.Cell("B1").SetValue("Amount");
+        ws.Cell("A3").SetValue("x");
+        ws.Cell("B3").SetValue(2);
+        ws.Cell("B4").SetValue(3);
+        ws.Range("A1:B4").CreateTable("Data").SetShowHeaderRow(false);
+
+        ws.Cell("D1").SetValue("Key");
+        ws.Cell("E1").SetValue("Value");
+        ws.Cell("E2").SetValue(5);
+        ws.Range("D1:E2").CreateTable("Single").SetShowHeaderRow(false);
+        ws.Cell("D3").SetValue("below");
+    }
+
+    private static async Task AssertTablesWithoutHeaderRowKept(IXLWorksheet ws)
+    {
+        var data = ws.Table("Data");
+        await Assert.That(data.ShowHeaderRow).IsFalse();
+        await Assert.That(data.RangeAddress.ToString()).IsEqualTo("A2:B4");
+        await Assert.That(data.Fields.Select(f => f.Name)).IsEquivalentTo(["Name", "Amount"]);
+
+        var single = ws.Table("Single");
+        await Assert.That(single.ShowHeaderRow).IsFalse();
+        await Assert.That(single.RangeAddress.ToString()).IsEqualTo("D2:E2");
+        await Assert.That(single.Fields.Select(f => f.Name)).IsEquivalentTo(["Key", "Value"]);
+
+        foreach (var address in new[] { "A1", "B1", "A2", "B2", "A4", "D1", "E1", "D2", "D4" })
+            await Assert.That(ws.Cell(address).Value.IsBlank).IsTrue();
+
+        await Assert.That(ws.Cell("A3").Value).IsEqualTo("x");
+        await Assert.That(ws.Cell("B3").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("B4").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("E2").Value).IsEqualTo(5);
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo("below");
+    }
+
     [Test]
     public async Task Header_row_can_be_shown_on_a_loaded_table_without_header_row()
     {

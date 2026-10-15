@@ -932,13 +932,27 @@ internal sealed class XLTable : XLRange, IXLTable
             throw new InvalidOperationException("Cannot copy table to the worksheet it already belongs to.");
 
         var targetRange = targetSheet.Range(RangeAddress.WithoutWorksheet());
+
+        // Before any cell is written, so a copy that is refused leaves the target as it was.
+        targetSheet.CheckRangeNotOverlappingOtherEntities(targetRange);
+
+        // The whole table, not its used range: the copy clears the target first, and the first row
+        // or column of a table without a header row can be empty (#756).
         if (copyData)
-            RangeUsed()!.CopyTo(targetRange);
-        else
+            AsRange().CopyTo(targetRange);
+        else if (ShowHeaderRow)
             HeadersRow()!.CopyTo(targetRange.FirstRow()!);
 
-        var tableName = Name;
-        var newTable = (XLTable)targetSheet.Table(targetRange, tableName, true);
+        XLTable newTable;
+        if (ShowHeaderRow)
+            newTable = (XLTable)targetSheet.Table(targetRange, Name, true, validateOverlap: false);
+        else
+        {
+            // Not through Table, which makes the first row a header: it names the row's empty cells
+            // after the fields, and puts a row below a table of one row (#756).
+            newTable = targetSheet.LoadTableWithoutHeaderRow(targetRange, Name);
+            newTable.AddFields(Fields.Select(f => f.Name));
+        }
 
         newTable.RelId = null;
         newTable.EmphasizeFirstColumn = EmphasizeFirstColumn;
