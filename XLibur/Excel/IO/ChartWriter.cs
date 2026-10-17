@@ -111,10 +111,12 @@ internal static class ChartWriter
         var package = PackageExtensions.GetPackage(worksheetPart.OpenXmlPackage);
 #pragma warning restore OOXML0001
 
+        // Parts created here bypass AddNewPart, so they take the save's level explicitly.
+        var compression = worksheetPart.OpenXmlPackage.CompressionOption;
         var packagePart = package.CreatePart(
             partUri,
             "application/vnd.ms-office.chartex+xml",
-            CompressionOption.Normal);
+            compression);
 
         // Write chart XML
         var chartSpace = BuildExtendedChartSpace(xlChart);
@@ -134,7 +136,7 @@ internal static class ChartWriter
             chartRelId);
 
         // Excel requires chart style and color files for extended charts
-        WriteExtendedChartStyleAndColor(package, packagePart, chartNumber);
+        WriteExtendedChartStyleAndColor(package, packagePart, chartNumber, compression);
 
         AppendExtendedAnchor(worksheetDrawing, xlChart, chartRelId);
 
@@ -153,7 +155,8 @@ internal static class ChartWriter
     private static void WriteExtendedChartStyleAndColor(
         IPackage package,
         IPackagePart chartPart,
-        int chartIndex)
+        int chartIndex,
+        CompressionOption compression)
 #pragma warning restore OOXML0001
     {
         var colorsUri = new Uri($"/xl/charts/colors{chartIndex}.xml", UriKind.Relative);
@@ -162,7 +165,7 @@ internal static class ChartWriter
         // Create color style part
         var colorsPart = package.CreatePart(colorsUri,
             "application/vnd.ms-office.chartcolorstyle+xml",
-            CompressionOption.Normal);
+            compression);
         using (var stream = colorsPart.GetStream(FileMode.Create, FileAccess.Write))
         {
             var asm = typeof(ChartWriter).Assembly;
@@ -173,7 +176,7 @@ internal static class ChartWriter
         // Create chart style part
         var stylePart = package.CreatePart(styleUri,
             "application/vnd.ms-office.chartstyle+xml",
-            CompressionOption.Normal);
+            compression);
         using (var stream = stylePart.GetStream(FileMode.Create, FileAccess.Write))
         {
             var asm = typeof(ChartWriter).Assembly;

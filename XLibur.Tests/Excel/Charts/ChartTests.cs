@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Packaging;
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using XLibur.Excel;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
@@ -48,6 +49,32 @@ public class ChartTests
             .Select(p => p.Uri.ToString())
             .OrderBy(u => u, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    [Test]
+    public async Task Extended_chart_parts_follow_the_save_compression_level()
+    {
+        // An extended chart and its style and colour parts are created outside AddNewPart, so they
+        // have to ask for the save's level themselves. At NoCompression each entry is stored as is.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "Start"; ws.Cell("B1").Value = 1000;
+            ws.Cell("A2").Value = "Add"; ws.Cell("B2").Value = 500;
+            var chart = ws.Charts.Add(XLChartType.Waterfall);
+            chart.Series.Add("Amount", "Data!$B$1:$B$2", "Data!$A$1:$A$2");
+
+            wb.SaveAs(ms, new SaveOptions { CompressionLevel = CompressionLevel.NoCompression });
+        }
+
+        ms.Position = 0;
+        using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        foreach (var name in new[] { "xl/charts/chartEx1.xml", "xl/charts/colors1.xml", "xl/charts/style1.xml" })
+        {
+            var entry = zip.GetEntry(name)!;
+            await Assert.That(entry.CompressedLength).IsEqualTo(entry.Length).Because(name);
+        }
     }
 
     [Test]
