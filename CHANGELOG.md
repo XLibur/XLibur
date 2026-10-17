@@ -62,6 +62,8 @@
 
 - **A Strict OOXML workbook saves a file that loads again.** The OpenXML SDK puts back, on close, every relationship it translated from Strict when the file opened, even one whose part the save deleted, such as an empty calcChain or a deleted sheet. A Strict package is now rewritten in the transitional form before XLibur edits it, so nothing is left to put back ([#743](https://github.com/XLibur/XLibur/issues/743)). `Save()` on a loaded Strict file therefore writes the file back as transitional.
 
+- **Waterfall, funnel, sunburst, treemap and box-and-whisker charts follow `SaveOptions.CompressionLevel`.** The save created each such chart, and its style and colour parts, at the default level whatever the option asked for. A standard chart already followed it ([#688](https://github.com/XLibur/XLibur/issues/688)).
+
 #### Pivot tables
 
 - **A pivot cache with grouped fields saves a file that loads again.** These are items grouped by hand, or dates grouped by months, quarters or years. Each grouping level adds a cache field that has no records, and the save wrote it as an ordinary field, so the reload expected one more value in every record. The save also dropped the groups. Grouping fields are now written as such, and their groups are kept ([#743](https://github.com/XLibur/XLibur/issues/743)). A cache refresh also keeps calculated fields, after the source columns, where before a source column could take a calculated field's place and lose its records.
