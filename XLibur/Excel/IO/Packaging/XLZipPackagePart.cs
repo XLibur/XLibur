@@ -41,20 +41,20 @@ internal sealed class XLZipPackagePart : PackagePart
         _isAtLevel = isAtLevel;
     }
 
-    protected override Stream? GetStreamCore(FileMode streamFileMode, FileAccess streamFileAccess)
+    protected override Stream? GetStreamCore(FileMode mode, FileAccess access)
     {
         if (_entry is null)
             return null;
 
-        var write = streamFileMode == FileMode.Create || streamFileAccess != FileAccess.Read;
+        var write = mode == FileMode.Create || access != FileAccess.Read;
         if (!_isAtLevel && write)
         {
             // A part replaced to be created afresh has nothing to keep.
-            _entry = _package.ReplaceEntry(_entry, _level, keepContent: streamFileMode != FileMode.Create);
+            _entry = _package.ReplaceEntry(_entry, _level, keepContent: mode != FileMode.Create);
             _isAtLevel = true;
             _wasRead = false;
         }
-        else if (streamFileMode == FileMode.Create)
+        else if (mode == FileMode.Create)
         {
             using var stream = _entry.Open();
             stream.SetLength(0);
@@ -66,8 +66,8 @@ internal sealed class XLZipPackagePart : PackagePart
             _wasRead = true;
         }
 
-        var canRead = streamFileAccess != FileAccess.Write;
-        var canWrite = streamFileAccess != FileAccess.Read;
+        var canRead = access != FileAccess.Write;
+        var canWrite = access != FileAccess.Read;
         return new ZipWrappingStream(_entry.Open(), canRead, canWrite);
     }
 

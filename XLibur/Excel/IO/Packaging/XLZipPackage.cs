@@ -450,26 +450,30 @@ internal sealed class XLZipPackage : Package
 
             while (reader.Read())
             {
-                if (reader.NodeType != XmlNodeType.Element || reader.Depth != 1 || reader.NamespaceURI != TypesNamespaceUri)
-                    continue;
+                if (reader.NodeType == XmlNodeType.Element && reader.Depth == 1 && reader.NamespaceURI == TypesNamespaceUri)
+                    ReadEntry(reader);
+            }
+        }
 
-                var contentType = reader.GetAttribute(ContentTypeAttributeName);
-                if (contentType is null)
-                    continue;
+        /// <summary>Reads one <c>Default</c> or <c>Override</c> element; skips any other.</summary>
+        private void ReadEntry(XmlReader reader)
+        {
+            var contentType = reader.GetAttribute(ContentTypeAttributeName);
+            if (contentType is null)
+                return;
 
-                if (reader.LocalName == DefaultTagName)
-                {
-                    var extension = reader.GetAttribute(ExtensionAttributeName);
-                    if (!string.IsNullOrEmpty(extension))
-                        _defaults[extension] = contentType;
-                }
-                else if (reader.LocalName == OverrideTagName)
-                {
-                    var partName = reader.GetAttribute(PartNameAttributeName);
-                    if (!string.IsNullOrEmpty(partName)
-                        && TryNormalizedName(new Uri(partName, UriKind.Relative), out var normalizedName))
-                        _overrides[normalizedName] = (partName, contentType);
-                }
+            if (reader.LocalName == DefaultTagName)
+            {
+                var extension = reader.GetAttribute(ExtensionAttributeName);
+                if (!string.IsNullOrEmpty(extension))
+                    _defaults[extension] = contentType;
+            }
+            else if (reader.LocalName == OverrideTagName)
+            {
+                var partName = reader.GetAttribute(PartNameAttributeName);
+                if (!string.IsNullOrEmpty(partName)
+                    && TryNormalizedName(new Uri(partName, UriKind.Relative), out var normalizedName))
+                    _overrides[normalizedName] = (partName, contentType);
             }
         }
 
@@ -501,16 +505,19 @@ internal sealed class XLZipPackage : Package
 
         internal void AddItemForAtomicPart(Uri partUri, string normalizedName, string zipItemName)
         {
-            if (!_items.TryGetValue(normalizedName, out var zipItemNames))
-                _items.Add(normalizedName, zipItemNames = []);
+            AddTo(_items, normalizedName, zipItemName);
+            AddTo(_extensions, ExtensionOf(partUri.OriginalString), normalizedName);
+        }
 
-            zipItemNames.Add(zipItemName);
+        private static void AddTo(Dictionary<string, List<string>> lists, string key, string value)
+        {
+            if (!lists.TryGetValue(key, out var list))
+            {
+                list = [];
+                lists.Add(key, list);
+            }
 
-            var extension = ExtensionOf(partUri.OriginalString);
-            if (!_extensions.TryGetValue(extension, out var normalizedNames))
-                _extensions.Add(extension, normalizedNames = []);
-
-            normalizedNames.Add(normalizedName);
+            list.Add(value);
         }
 
         internal void Delete(string normalizedName)
