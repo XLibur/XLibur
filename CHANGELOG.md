@@ -66,6 +66,10 @@
 
 - **A pivot cache with grouped fields saves a file that loads again.** These are items grouped by hand, or dates grouped by months, quarters or years. Each grouping level adds a cache field that has no records, and the save wrote it as an ordinary field, so the reload expected one more value in every record. The save also dropped the groups. Grouping fields are now written as such, and their groups are kept ([#743](https://github.com/XLibur/XLibur/issues/743)). A cache refresh also keeps calculated fields, after the source columns, where before a source column could take a calculated field's place and lose its records.
 
+### Changed
+
+- **`SaveOptions.CompressionLevel` now applies when a loaded workbook is saved.** Before, it reached only the parts a save created, so a workbook loaded from a file or stream, or saved once already, kept every existing part at the level the file gave it: `NoCompression`, `Fastest` and `SmallestSize` produced the same bytes as `Optimal`. Every part the save writes now goes in at the requested level ([#688](https://github.com/XLibur/XLibur/issues/688)). Parts the save carries over unchanged keep their compression: a sheet whose part it keeps whole, the theme, a VBA project, custom XML, and charts it did not change. The package relationships and the core properties are stored uncompressed, as a new workbook's save already stores them. On a workbook of 8,000 numbers, loading it, changing one cell and saving it takes 6.5 ms at `Fastest`, against 9.0 ms before at any level and 8.5 ms now at `Optimal`. A save that writes a loaded sheet's part allocates about 0.5 MB more for it, because the part goes into a new zip entry. To do this, XLibur opens the package it saves into through its own port of .NET's `ZipPackage`; see `THIRD-PARTY-NOTICES.md`.
+
 ## v0.700.0 - 2026-10-05
 
 ### ⚠️ Breaking Changes

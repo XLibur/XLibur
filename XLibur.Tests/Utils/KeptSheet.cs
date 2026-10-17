@@ -12,8 +12,8 @@ namespace XLibur.Tests.Utils;
 /// <remarks>
 /// <see cref="Mark"/> spells the part's XML declaration as no save writes it, and the number 1.5 as
 /// <c>1.50</c>, which XLibur writes as <c>1.5</c>. A part that still has the declaration was kept
-/// whole; one that still has <c>1.50</c> had at least its cells kept. A rewritten zip entry keeps
-/// its compression method, so the entry itself shows nothing.
+/// whole; one that still has <c>1.50</c> had at least its cells kept. How the zip entry is
+/// compressed shows nothing: the test files and the save both use the default level.
 /// </remarks>
 internal static class KeptSheet
 {

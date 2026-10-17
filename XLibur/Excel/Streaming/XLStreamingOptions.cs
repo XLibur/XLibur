@@ -48,10 +48,9 @@ public sealed class XLStreamingOptions
     /// file for a faster write, which is often the right call for a large export.
     /// </summary>
     /// <remarks>
-    /// <see cref="SaveOptions.CompressionLevel"/> is the equivalent for an ordinary save. The two
-    /// reach it differently: the streaming writer configures its own zip, while
-    /// <see cref="XLWorkbook"/> passes the setting through <c>System.IO.Packaging</c>, which
-    /// applies it only to parts that save creates.
+    /// <see cref="SaveOptions.CompressionLevel"/> is the equivalent for an ordinary save, and applies
+    /// to every part that save writes. The streaming writer writes every part of its package, so the
+    /// level applies to all of them.
     /// </remarks>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
 }
