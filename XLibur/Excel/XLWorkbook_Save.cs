@@ -15,6 +15,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.IO;
+using XLibur.Excel.IO.Packaging;
 using XLibur.Extensions;
 using Path = System.IO.Path;
 
@@ -55,21 +56,17 @@ public partial class XLWorkbook
         var directoryName = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrWhiteSpace(directoryName)) Directory.CreateDirectory(directoryName);
 
-        var package = File.Exists(filePath)
-            ? OpenForEdit(filePath, static path => SpreadsheetDocument.Open(path, true))
-            : SpreadsheetDocument.Create(filePath, spreadsheetDocumentType);
-
-        using (package)
+        if (File.Exists(filePath))
         {
-            if (package.DocumentType != spreadsheetDocumentType)
-            {
-                package.ChangeDocumentType(spreadsheetDocumentType);
-            }
-
-            package.CompressionOption = ToCompressionOption(options.CompressionLevel);
-            CreateParts(package, options);
-            if (options.ValidatePackage) Validate(package);
+            using var stream = File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            EditPackage(stream, spreadsheetDocumentType, options);
+            return;
         }
+
+        using var package = SpreadsheetDocument.Create(filePath, spreadsheetDocumentType);
+        package.CompressionOption = ToCompressionOption(options.CompressionLevel);
+        CreateParts(package, options);
+        if (options.ValidatePackage) Validate(package);
     }
 
     /// <summary>
@@ -92,15 +89,48 @@ public partial class XLWorkbook
     private void CreatePackage(Stream stream, bool newStream, SpreadsheetDocumentType spreadsheetDocumentType,
         SaveOptions options)
     {
-        var package = newStream
-            ? SpreadsheetDocument.Create(stream, spreadsheetDocumentType)
-            : OpenForEdit(stream, static s => SpreadsheetDocument.Open(s, true));
-
-        using (package)
+        if (!newStream)
         {
-            package.CompressionOption = ToCompressionOption(options.CompressionLevel);
-            CreateParts(package, options);
-            if (options.ValidatePackage) Validate(package);
+            EditPackage(stream, null, options);
+            return;
+        }
+
+        using var package = SpreadsheetDocument.Create(stream, spreadsheetDocumentType);
+        package.CompressionOption = ToCompressionOption(options.CompressionLevel);
+        CreateParts(package, options);
+        if (options.ValidatePackage) Validate(package);
+    }
+
+    /// <summary>
+    /// Saves into the existing package in <paramref name="stream"/>: the copy of the loaded package,
+    /// or the origin itself for <see cref="Save()"/>. Changes its document type to
+    /// <paramref name="spreadsheetDocumentType"/> when one is given.
+    /// </summary>
+    /// <remarks>
+    /// The package is opened through <see cref="XLZipPackage"/> rather than the SDK's own, so that each
+    /// part the save writes is stored at <see cref="SaveOptions.CompressionLevel"/>. The SDK's package
+    /// applies the level only to parts it creates (#688). The SDK does not close a package it was
+    /// given, so the package is closed here, after the document.
+    /// </remarks>
+    private void EditPackage(Stream stream, SpreadsheetDocumentType? spreadsheetDocumentType, SaveOptions options)
+    {
+        var level = options.CompressionLevel;
+        var (zip, package) = OpenForEdit(stream, level);
+        try
+        {
+            using (package)
+            {
+                if (spreadsheetDocumentType is { } type && package.DocumentType != type)
+                    package.ChangeDocumentType(type);
+
+                package.CompressionOption = ToCompressionOption(level);
+                CreateParts(package, options);
+                if (options.ValidatePackage) Validate(package);
+            }
+        }
+        finally
+        {
+            zip.Close();
         }
     }
 
@@ -121,14 +151,29 @@ public partial class XLWorkbook
     /// package is rewritten one more time, which the SDK already does in full on every close of one.
     /// </para>
     /// </remarks>
-    private static SpreadsheetDocument OpenForEdit<TSource>(TSource source, Func<TSource, SpreadsheetDocument> open)
+    private static (XLZipPackage Zip, SpreadsheetDocument Package) OpenForEdit(Stream stream, CompressionLevel level)
     {
-        var package = open(source);
-        if (!package.StrictRelationshipFound)
-            return package;
+        var opened = Open(stream, level);
+        if (!opened.Package.StrictRelationshipFound)
+            return opened;
 
-        package.Dispose();
-        return open(source);
+        opened.Package.Dispose();
+        opened.Zip.Close();
+        return Open(stream, level);
+
+        static (XLZipPackage Zip, SpreadsheetDocument Package) Open(Stream stream, CompressionLevel level)
+        {
+            var zip = new XLZipPackage(stream, level);
+            try
+            {
+                return (zip, SpreadsheetDocument.Open(zip));
+            }
+            catch
+            {
+                zip.Close();
+                throw;
+            }
+        }
     }
 
     // http://blogs.msdn.com/b/vsod/archive/2010/02/05/how-to-delete-a-worksheet-from-excel-using-open-xml-sdk-2-0.aspx

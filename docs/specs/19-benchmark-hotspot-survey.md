@@ -655,6 +655,14 @@ suggests — the entire template-export workload, which is the one where save ti
 the one Spec 18 exists for, can never use the option at all. The remark has been rewritten to say so
 with the numbers.
 
+> **Superseded on 2026-10-17 by [#688](https://github.com/XLibur/XLibur/issues/688).** The project
+> reversed this decision: `SaveOptions.CompressionLevel` now applies to every part a save writes,
+> whether the workbook is new or loaded. A save of a loaded workbook opens the package through
+> XLibur's `XLZipPackage`, a port of `ZipPackage` that stores each part it writes at the requested
+> level, except the package relationships and core properties, which stay uncompressed as in every
+> new package. Parts the save carries over unchanged keep the compression they had. The table above
+> records the behaviour before that change.
+
 It also invalidated the first version of this probe, which re-saved one workbook per level and duly
 reported byte-identical output at all four. The flat template row in an earlier draft of this
 section was the same artefact — a loaded fixture — and not evidence that small workbooks do not

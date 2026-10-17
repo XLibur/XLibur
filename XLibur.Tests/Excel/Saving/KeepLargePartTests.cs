@@ -17,8 +17,8 @@ namespace XLibur.Tests.Excel.Saving;
 /// </summary>
 /// <remarks>
 /// The large sheet's part spells its XML declaration as XLibur never does, so the saved part has that
-/// declaration only when the save left the part as it was. A rewritten zip entry keeps its
-/// compression method, so how the entry is stored proves nothing.
+/// declaration only when the save left the part as it was. How the entry is stored proves nothing:
+/// the source and the save both use the default level.
 /// </remarks>
 public class KeepLargePartTests
 {

@@ -10,28 +10,25 @@ public class SaveOptions
     }
 
     /// <summary>
-    /// How hard to compress the parts written to the package. Defaults to
+    /// How hard to compress the parts the save writes. Defaults to
     /// <see cref="CompressionLevel.Optimal"/>; <see cref="CompressionLevel.Fastest"/> trades a
     /// larger file for a quicker save.
     /// </summary>
     /// <remarks>
-    /// <b>Applies only to parts this save creates.</b> A zip entry's compression is fixed when the
-    /// entry is created, so a workbook that was loaded from a file or stream — or one already saved
-    /// once, since it adopts its destination as its origin — keeps every <i>existing</i> part at the
-    /// level it was first written with. That includes parts XLibur rewrites itself: a reopened
-    /// <c>sheet1.xml</c> keeps its original entry, so new sheet data goes in at the old level.
+    /// The level applies to every part the save writes, whether the workbook is new or was loaded
+    /// from a file or stream. A save of a loaded workbook leaves the parts it does not write as the
+    /// file had them, compressed as they were: a sheet whose part it keeps whole (see
+    /// <see cref="RewriteUnchangedSheets"/>), the theme, a VBA project, custom XML, and charts it
+    /// did not change. The package relationships (<c>_rels/.rels</c>) and the core properties are
+    /// always stored uncompressed, as every save of a new workbook stores them. Set
+    /// <see cref="RewriteUnchangedSheets"/> to <c>true</c> to have every sheet written at this level.
     /// <para>
-    /// Parts the save genuinely adds are a different matter and <i>do</i> honour the setting: the
-    /// level is applied to the package before parts are written, so a worksheet, table or image
-    /// that did not exist in the template gets the requested compression. A template-driven export
-    /// therefore lands somewhere in between — new parts at the chosen level, everything inherited
-    /// from the template unchanged — and the more the output is reused from the template, the less
-    /// the setting can reach.
-    /// </para>
-    /// <para>
-    /// Consequently only a workbook built from scratch and saved for the first time has the setting
-    /// applied throughout. Measurements are in <c>docs/specs/19-benchmark-hotspot-survey.md</c>,
-    /// area 3.
+    /// Use <see cref="CompressionLevel.Fastest"/> when save time matters more than file size. On a
+    /// workbook of 8,000 numbers, loading it, changing one cell and saving it takes about a quarter
+    /// less time than at <see cref="CompressionLevel.Optimal"/>; a part it writes comes out 65–90%
+    /// larger in XLibur's measurements. <see cref="CompressionLevel.SmallestSize"/> rarely pays: it
+    /// takes about twice the time for a few percent less, and some content comes out larger than at
+    /// <see cref="CompressionLevel.Optimal"/>.
     /// </para>
     /// </remarks>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
