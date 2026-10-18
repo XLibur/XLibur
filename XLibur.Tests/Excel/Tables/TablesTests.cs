@@ -330,6 +330,51 @@ public class TablesTests
     }
 
     [Test]
+    [Arguments(1, true, false, "A1:B9")]
+    [Arguments(3, true, false, "A1:B9")]
+    [Arguments(3, false, false, "A1:B9")]
+    [Arguments(5, false, false, "A1:B9")]
+    [Arguments(1, true, true, "A1:B10")]
+    [Arguments(5, false, true, "A1:B10")]
+    public async Task Inserting_rows_at_a_table_row_grows_the_table_by_the_inserted_count(
+        int dataRow, bool above, bool totalsRow, string expectedRange)
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRows(wb);
+        table.ShowTotalsRow = totalsRow;
+        var row = table.DataRange!.Row(dataRow);
+
+        if (above)
+            row.InsertRowsAbove(3);
+        else
+            row.InsertRowsBelow(3);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo(expectedRange);
+    }
+
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserting_rows_at_the_data_range_grows_the_table_by_the_inserted_count(bool above)
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRows(wb);
+
+        if (above)
+            table.DataRange!.InsertRowsAbove(3);
+        else
+            table.DataRange!.InsertRowsBelow(3);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1:B9");
+    }
+
+    private static IXLTable CreateTableOfFiveRows(XLWorkbook wb)
+    {
+        var rows = Enumerable.Range(1, 5).Select(i => new { Id = i, Name = $"Row {i}" });
+        return wb.AddWorksheet("Sheet1").Cell("A1").InsertTable(rows, "Data");
+    }
+
+    [Test]
     public async Task TableShowHeader()
     {
         using var wb = new XLWorkbook();

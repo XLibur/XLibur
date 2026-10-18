@@ -64,6 +64,8 @@
 
 - **Waterfall, funnel, sunburst, treemap and box-and-whisker charts follow `SaveOptions.CompressionLevel`.** The save created each such chart, and its style and colour parts, at the default level whatever the option asked for. A standard chart already followed it ([#688](https://github.com/XLibur/XLibur/issues/688)).
 
+- **Inserting rows at a table row grows the table by the number of rows inserted.** `IXLTableRow.InsertRowsAbove` and `InsertRowsBelow`, and `InsertRowsAbove` on a table's `DataRange`, grew the table by twice that number when the new rows went inside it, so the table ended with blank rows and was saved with them ([#772](https://github.com/XLibur/XLibur/issues/772)). The worksheet shift of the insert already grew the table, and the insert then grew it again. Now the insert grows the table only when the new rows go below its last row, where the shift does not reach.
+
 #### Pivot tables
 
 - **A pivot cache with grouped fields saves a file that loads again.** These are items grouped by hand, or dates grouped by months, quarters or years. Each grouping level adds a cache field that has no records, and the save wrote it as an ordinary field, so the reload expected one more value in every record. The save also dropped the groups. Grouping fields are now written as such, and their groups are kept ([#743](https://github.com/XLibur/XLibur/issues/743)). A cache refresh also keeps calculated fields, after the source columns, where before a source column could take a calculated field's place and lose its records.

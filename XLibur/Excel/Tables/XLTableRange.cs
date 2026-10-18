@@ -220,12 +220,12 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
 
     public new IXLTableRows InsertRowsAbove(int numberOfRows)
     {
-        return XLHelper.InsertRowsWithoutEvents(base.InsertRowsAbove, this, numberOfRows, !Table.ShowTotalsRow);
+        return XLHelper.InsertRowsWithoutEvents(base.InsertRowsAbove, this, numberOfRows);
     }
 
     public new IXLTableRows InsertRowsBelow(int numberOfRows)
     {
-        return XLHelper.InsertRowsWithoutEvents(base.InsertRowsBelow, this, numberOfRows, !Table.ShowTotalsRow);
+        return XLHelper.InsertRowsWithoutEvents(base.InsertRowsBelow, this, numberOfRows);
     }
 
     public new IXLRangeColumn Column(string columnLetter)
