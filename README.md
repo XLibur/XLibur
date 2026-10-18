@@ -105,18 +105,7 @@ Published results are available at
 
 Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Should I use this?
-
-**Consider XLibur if** you want any of the following over ClosedXML 0.105:
-
-- **Reduced memory usage and performance gains** - particularly for workbooks with many formatted
-  cells. See the [published benchmarks](https://jafin.github.io/XLBench/charts.html).
-- **Bug fixes** - several outstanding community issues resolved that are still pending upstream.
-- **Community contributions** - several community PRs and enhancement requests have been merged into
-  this codebase.
-- **Additional Features with no equivalent in 0.105**, listed below.
-
-### Features beyond ClosedXML 0.105
+### Features
 
 | Feature | Documentation |
 |---|---|
@@ -128,10 +117,6 @@ Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTIN
 | Threaded comments, read and written as conversations rather than flattened | [Comments and hyperlinks](https://xlibur.github.io/XLibur/comments-and-hyperlinks) |
 | A swappable font engine, so you pick a license that suits you | [Fonts](https://xlibur.github.io/XLibur/fonts) |
 | Report generation from `.xlsx` templates | [Report templating](https://xlibur.github.io/XLibur/report-templating) |
-
-**Continue with ClosedXML if:**
-
-- You need netstandard2.0 or .NET Framework 4.7.2 support. XLibur targets .NET 8 and above.
 
 ## License
 
