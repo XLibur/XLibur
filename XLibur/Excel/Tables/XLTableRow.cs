@@ -97,12 +97,12 @@ internal sealed class XLTableRow : XLRangeRow, IXLTableRow
 
     public new IXLTableRows InsertRowsAbove(int numberOfRows)
     {
-        return XLHelper.InsertTableRows(base.InsertRowsAbove, _tableRange, numberOfRows);
+        return _tableRange.InsertTableRows(base.InsertRowsAbove, numberOfRows);
     }
 
     public new IXLTableRows InsertRowsBelow(int numberOfRows)
     {
-        return XLHelper.InsertTableRows(base.InsertRowsBelow, _tableRange, numberOfRows);
+        return _tableRange.InsertTableRows(base.InsertRowsBelow, numberOfRows);
     }
 
     public new void Delete()

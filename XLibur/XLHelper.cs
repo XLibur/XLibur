@@ -382,33 +382,6 @@ public static partial class XLHelper
         return (parts[0], parts[1]);
     }
 
-    /// <summary>
-    /// Inserts rows at a table row or table range and grows the table to cover them.
-    /// </summary>
-    /// <remarks>
-    /// The insert shifts the worksheet, and that shift already grows the table when the new rows
-    /// land inside it (above or between data rows, or above the totals row). Only rows inserted
-    /// below the table's last row are left outside it, and <see cref="Tables.XLTable.ExpandToCoverRow"/>
-    /// grows the table only for those.
-    /// </remarks>
-    internal static IXLTableRows InsertTableRows(Func<int, bool, IXLRangeRows> insertFunc,
-        XLTableRange tableRange, int numberOfRows)
-    {
-        var ws = tableRange.Worksheet;
-        var rows = new XLTableRows(ws.Style);
-        var inserted = insertFunc(numberOfRows, false);
-        var lastInsertedRow = 0;
-        inserted.ForEach(r =>
-        {
-            rows.Add(new XLTableRow(tableRange, (XLRangeRow)r));
-            lastInsertedRow = Math.Max(lastInsertedRow, r.RowNumber());
-        });
-
-        tableRange.Table.ExpandToCoverRow(lastInsertedRow);
-
-        return rows;
-    }
-
     private static readonly Regex A1RegexRelative = A1RegexRelativeCompiled(); // A:A
 
     private static string Evaluator(Match match, int row, string column)

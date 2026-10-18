@@ -220,12 +220,37 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
 
     public new IXLTableRows InsertRowsAbove(int numberOfRows)
     {
-        return XLHelper.InsertTableRows(base.InsertRowsAbove, this, numberOfRows);
+        return InsertTableRows(base.InsertRowsAbove, numberOfRows);
     }
 
     public new IXLTableRows InsertRowsBelow(int numberOfRows)
     {
-        return XLHelper.InsertTableRows(base.InsertRowsBelow, this, numberOfRows);
+        return InsertTableRows(base.InsertRowsBelow, numberOfRows);
+    }
+
+    /// <summary>
+    /// Inserts rows with <paramref name="insertFunc"/>, at this range or at one of its rows, and
+    /// grows the table to cover them.
+    /// </summary>
+    /// <remarks>
+    /// The insert shifts the worksheet, and that shift already grows the table when the new rows
+    /// land inside it (above or between data rows, or above the totals row). Only rows inserted
+    /// below the table's last row are left outside it, and <see cref="XLTable.ExpandToCoverRow"/>
+    /// grows the table only for those.
+    /// </remarks>
+    internal IXLTableRows InsertTableRows(Func<int, bool, IXLRangeRows> insertFunc, int numberOfRows)
+    {
+        var rows = new XLTableRows(Worksheet.Style);
+        var lastInsertedRow = 0;
+        foreach (var inserted in insertFunc(numberOfRows, false))
+        {
+            rows.Add(new XLTableRow(this, (XLRangeRow)inserted));
+            lastInsertedRow = Math.Max(lastInsertedRow, inserted.RowNumber());
+        }
+
+        _table.ExpandToCoverRow(lastInsertedRow);
+
+        return rows;
     }
 
     public new IXLRangeColumn Column(string columnLetter)
