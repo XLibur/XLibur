@@ -269,6 +269,30 @@ public class UsedAndUnusedCellsTests
         await Assert.That(actual!.Address.ToString()).IsEqualTo("A2");
     }
 
+    /// <summary>
+    /// A row whose cells all lie in the first 32 columns is stored narrow, and the column mask for
+    /// a range used a 32-bit shift that wrapped for a start column past AF. A range starting at AI
+    /// (index 34) kept the row's bits from index 2, so its used cells were C1 to AF1, none of them
+    /// in the range. Found through #773, whose check reads the used cells of XFB:XFD.
+    /// </summary>
+    [Test]
+    [Arguments("AI1:AZ1")]
+    [Arguments("AG1:AH1")]
+    [Arguments("XFB1:XFD1")]
+    [Arguments("XFB:XFD")]
+    public async Task UsedCellsOfARangeStartingPastColumnAFStayInsideIt(string rangeAddress)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Range("C1:AF1").Value = "outside";
+
+        var range = ws.Range(rangeAddress)!;
+
+        await Assert.That(range.CellsUsed().Select(c => c.Address.ToString())).IsEmpty();
+        await Assert.That(range.FirstCellUsed()).IsNull();
+        await Assert.That(range.LastCellUsed()).IsNull();
+    }
+
     [Test]
     public async Task ApplyingDataValidationMakesCellNotEmpty()
     {
