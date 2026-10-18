@@ -288,14 +288,16 @@ public class InsertingRangesTests
     /// ShiftRowHeights walks from the last used row down to the insert point and writes each
     /// height to <c>ro + numberOfRows</c> without clamping, so a sheet whose last used row sits
     /// within that many rows of the sheet edge addressed row 1,048,577 and threw. The line is
-    /// pushed off the sheet, so its height is dropped rather than clamped onto the last row.
+    /// pushed off the sheet, so its height is dropped rather than clamped onto the last row. The
+    /// value sits as close to the edge as the insert allows, because a value it would push off
+    /// the sheet refuses the insert (#773).
     /// </summary>
     [Test]
     public async Task InsertingRowsNearTheSheetEdgeDoesNotThrow()
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet");
-        ws.Cell(XLHelper.MaxRowNumber, 1).Value = 1;
+        ws.Cell(XLHelper.MaxRowNumber - 5, 1).Value = 1;
         ws.Row(1000).Height = 40;
 
         await Assert.That(() => ws.Range(1000, 1, 1000, XLHelper.MaxColumnNumber).InsertRowsAbove(5))
@@ -311,12 +313,216 @@ public class InsertingRangesTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sheet");
-        ws.Cell(1, XLHelper.MaxColumnNumber).Value = 1;
+        ws.Cell(1, XLHelper.MaxColumnNumber - 5).Value = 1;
         ws.Column(100).Width = 40;
 
         await Assert.That(() => ws.Range(1, 100, XLHelper.MaxRowNumber, 100).InsertColumnsBefore(5))
             .ThrowsNothing();
 
         await Assert.That(ws.Column(105).Width).IsEqualTo(40).Within(XLHelper.Epsilon);
+    }
+
+    /// <summary>
+    /// Excel refuses an insert that would push a non-empty cell past the sheet's last row, and
+    /// changes nothing (#773). The insert used to drop the cell.
+    /// </summary>
+    [Test]
+    public async Task InsertingRowsThatWouldPushAValueOffTheSheetThrowsAndChangesNothing()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(XLHelper.MaxRowNumber, 1).Value = "last";
+        ws.Cell(XLHelper.MaxRowNumber - 1, 1).Value = "second last";
+        ws.Cell(10, 1).Value = "moves";
+
+        await Assert.That(() => ws.Row(10).InsertRowsAbove(1)).Throws<InvalidOperationException>();
+
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber, 1).GetText()).IsEqualTo("last");
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber - 1, 1).GetText()).IsEqualTo("second last");
+        await Assert.That(ws.Cell(10, 1).GetText()).IsEqualTo("moves");
+    }
+
+    /// <summary>
+    /// A refused insert leaves the rows and columns as they were too: their heights, widths and
+    /// styles. The worksheet row and column inserts shifted those before the insert refused.
+    /// </summary>
+    [Test]
+    [Arguments(true, true)]
+    [Arguments(true, false)]
+    [Arguments(false, true)]
+    [Arguments(false, false)]
+    public async Task ARefusedInsertLeavesRowHeightsAndColumnWidthsAsTheyWere(bool rows, bool before)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        if (rows)
+        {
+            ws.Cell(XLHelper.MaxRowNumber, 1).Value = "last";
+            ws.Row(10).Height = 40;
+            ws.Row(11).Height = 30;
+            var row = ws.Row(10);
+            await Assert.That(() => _ = before ? row.InsertRowsAbove(1) : row.InsertRowsBelow(1))
+                .Throws<InvalidOperationException>();
+            await Assert.That(ws.Row(10).Height).IsEqualTo(40).Within(XLHelper.Epsilon);
+            await Assert.That(ws.Row(11).Height).IsEqualTo(30).Within(XLHelper.Epsilon);
+            await Assert.That(ws.Row(12).Height).IsEqualTo(ws.RowHeight).Within(XLHelper.Epsilon);
+        }
+        else
+        {
+            ws.Cell(1, XLHelper.MaxColumnNumber).Value = "last";
+            ws.Column(10).Width = 40;
+            ws.Column(11).Width = 30;
+            var column = ws.Column(10);
+            await Assert.That(() => _ = before ? column.InsertColumnsBefore(1) : column.InsertColumnsAfter(1))
+                .Throws<InvalidOperationException>();
+            await Assert.That(ws.Column(10).Width).IsEqualTo(40).Within(XLHelper.Epsilon);
+            await Assert.That(ws.Column(11).Width).IsEqualTo(30).Within(XLHelper.Epsilon);
+            await Assert.That(ws.Column(12).Width).IsEqualTo(ws.ColumnWidth).Within(XLHelper.Epsilon);
+        }
+    }
+
+    public enum LastRowContent
+    {
+        Formula,
+        Comment,
+        Fill,
+        Merge,
+    }
+
+    /// <summary>What Excel (checked over COM) counts as non-empty on the last row.</summary>
+    [Test]
+    [Arguments(LastRowContent.Formula)]
+    [Arguments(LastRowContent.Comment)]
+    [Arguments(LastRowContent.Fill)]
+    [Arguments(LastRowContent.Merge)]
+    public async Task InsertingRowsThatWouldPushANonEmptyCellOffTheSheetThrows(LastRowContent content)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var last = ws.Cell(XLHelper.MaxRowNumber, 1);
+        switch (content)
+        {
+            case LastRowContent.Formula:
+                last.FormulaA1 = "\"\"";
+                break;
+            case LastRowContent.Comment:
+                last.CreateComment().AddText("note");
+                break;
+            case LastRowContent.Fill:
+                last.Style.Fill.SetBackgroundColor(XLColor.Red);
+                break;
+            case LastRowContent.Merge:
+                ws.Range(XLHelper.MaxRowNumber - 1, 1, XLHelper.MaxRowNumber, 1).Merge();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(content));
+        }
+
+        await Assert.That(() => ws.Row(10).InsertRowsAbove(1)).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// A cell insert shifts only the columns it spans, so a value further right on the last row
+    /// does not block it. Excel agrees.
+    /// </summary>
+    [Test]
+    public async Task InsertingCellsIsBlockedOnlyByCellsInTheColumnsThatShift()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(XLHelper.MaxRowNumber, 3).Value = "stays";
+        ws.Cell(XLHelper.MaxRowNumber, 1).Value = "blocks";
+
+        await Assert.That(() => ws.Range("B10:B10").InsertRowsAbove(1)).ThrowsNothing();
+        await Assert.That(() => ws.Range("A10:B10").InsertRowsAbove(1)).Throws<InvalidOperationException>();
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber, 3).GetText()).IsEqualTo("stays");
+        await Assert.That(ws.Cell(XLHelper.MaxRowNumber, 1).GetText()).IsEqualTo("blocks");
+    }
+
+    /// <summary>
+    /// There is no row below the sheet's last row. The insert used to clamp onto that row and
+    /// insert inside the range it was asked to insert below.
+    /// </summary>
+    [Test]
+    public async Task InsertingRowsBelowTheLastRowThrows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        await Assert.That(() => ws.Range(XLHelper.MaxRowNumber, 1, XLHelper.MaxRowNumber, 2).InsertRowsBelow(1))
+            .Throws<InvalidOperationException>();
+        await Assert.That(() => ws.Row(XLHelper.MaxRowNumber).InsertRowsBelow(1))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>Column-axis twin of <see cref="InsertingRowsBelowTheLastRowThrows"/>.</summary>
+    [Test]
+    public async Task InsertingColumnsAfterTheLastColumnThrows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        await Assert.That(() => ws.Column(XLHelper.MaxColumnNumber).InsertColumnsAfter(1))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// Two rows push off only the last two rows, so a value one row higher moves to the last row.
+    /// Excel agrees.
+    /// </summary>
+    [Test]
+    public async Task InsertingTwoRowsIsBlockedOnlyByTheLastTwoRows()
+    {
+        using var wb = new XLWorkbook();
+        var blocked = wb.AddWorksheet("Blocked");
+        blocked.Cell(XLHelper.MaxRowNumber - 1, 1).Value = "second last";
+        var free = wb.AddWorksheet("Free");
+        free.Cell(XLHelper.MaxRowNumber - 2, 1).Value = "third last";
+
+        await Assert.That(() => blocked.Row(10).InsertRowsAbove(2)).Throws<InvalidOperationException>();
+        await Assert.That(() => free.Row(10).InsertRowsAbove(2)).ThrowsNothing();
+        await Assert.That(free.Cell(XLHelper.MaxRowNumber, 1).GetText()).IsEqualTo("third last");
+    }
+
+    [Test]
+    public async Task InsertingColumnsThatWouldPushAFillOffTheSheetThrows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(1, XLHelper.MaxColumnNumber).Style.Fill.SetBackgroundColor(XLColor.Red);
+
+        await Assert.That(() => ws.Column(10).InsertColumnsBefore(1)).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// The inserted rows must themselves fit on the sheet. Rows below the insert point that are
+    /// empty do not make room for rows that would land past the last row.
+    /// </summary>
+    [Test]
+    public async Task InsertingMoreRowsThanFitBelowTheInsertPointThrows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(XLHelper.MaxRowNumber - 2, 1).Value = "above the insert point";
+
+        await Assert.That(() => ws.Row(XLHelper.MaxRowNumber - 1).InsertRowsAbove(3))
+            .Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => ws.Row(XLHelper.MaxRowNumber - 1).InsertRowsAbove(2)).ThrowsNothing();
+    }
+
+    /// <summary>
+    /// Column-axis twin of
+    /// <see cref="InsertingRowsThatWouldPushAValueOffTheSheetThrowsAndChangesNothing"/>.
+    /// </summary>
+    [Test]
+    public async Task InsertingColumnsThatWouldPushAValueOffTheSheetThrowsAndChangesNothing()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(1, XLHelper.MaxColumnNumber).Value = "last";
+
+        await Assert.That(() => ws.Column(10).InsertColumnsBefore(1)).Throws<InvalidOperationException>();
+
+        await Assert.That(ws.Cell(1, XLHelper.MaxColumnNumber).GetText()).IsEqualTo("last");
     }
 }

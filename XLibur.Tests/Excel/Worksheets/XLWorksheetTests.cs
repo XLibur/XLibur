@@ -1174,8 +1174,12 @@ public class XLWorksheetTests
         await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(originalCount);
     }
 
+    /// <summary>
+    /// A cell the insert would shift past the last column refuses the insert, as in Excel, and
+    /// stays where it is. The insert used to purge it (#773).
+    /// </summary>
     [Test]
-    public async Task CellsShiftedTooFarRightArePurged()
+    public async Task CellsThatWouldBeShiftedTooFarRightRefuseTheInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1183,15 +1187,15 @@ public class XLWorksheetTests
         ws.Cell(1, XLHelper.MaxColumnNumber).SetValue(1);
         ws.Cell(2, XLHelper.MaxColumnNumber).SetValue(1);
 
-        a1.InsertCellsBefore(1);
+        await Assert.That(() => a1.InsertCellsBefore(1)).Throws<InvalidOperationException>();
+        await Assert.That(() => ws.Column(1).InsertColumnsBefore(1)).Throws<InvalidOperationException>();
 
-        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(2);
-        ws.Column(1).InsertColumnsBefore(1);
-        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(1);
+        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(3);
     }
 
+    /// <summary>Row-axis twin of <see cref="CellsThatWouldBeShiftedTooFarRightRefuseTheInsert"/>.</summary>
     [Test]
-    public async Task CellsShiftedTooFarDownArePurged()
+    public async Task CellsThatWouldBeShiftedTooFarDownRefuseTheInsert()
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
@@ -1199,11 +1203,10 @@ public class XLWorksheetTests
         ws.Cell(XLHelper.MaxRowNumber, 1).SetValue(1);
         ws.Cell(XLHelper.MaxRowNumber, 2).SetValue(1);
 
-        a1.InsertCellsAbove(1);
+        await Assert.That(() => a1.InsertCellsAbove(1)).Throws<InvalidOperationException>();
+        await Assert.That(() => ws.Row(1).InsertRowsAbove(1)).Throws<InvalidOperationException>();
 
-        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(2);
-        ws.Row(1).InsertRowsAbove(1);
-        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(1);
+        await Assert.That(((XLWorksheet)ws).Internals.CellsCollection.GetCells().Count()).IsEqualTo(3);
     }
 
     [Test]

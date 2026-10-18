@@ -13,6 +13,7 @@ using XLibur.Excel.Exceptions;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Tables;
 
@@ -366,6 +367,161 @@ public class TablesTests
             table.DataRange!.InsertRowsBelow(3);
 
         await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1:B9");
+    }
+
+    /// <summary>
+    /// Without a header row the insert above the first data row starts at the table's first row,
+    /// so the worksheet shift moves the whole table down. The insert then left it moved, with the
+    /// returned rows above it (#774). It acts like Excel's <c>ListRows.Add(1)</c> instead: the
+    /// table grows and the new rows are its first rows.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserting_rows_above_the_first_row_of_a_headerless_table_grows_it(bool atRow)
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRows(wb);
+        table.ShowHeaderRow = false;
+
+        var rows = atRow
+            ? table.DataRange!.Row(1).InsertRowsAbove(3)
+            : table.DataRange!.InsertRowsAbove(3);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A2:B9");
+        await Assert.That(rows.Select(r => r.RowNumber())).IsEquivalentTo([2, 3, 4], CollectionOrdering.Matching);
+        await Assert.That(table.DataRange!.Row(4).Cell(1).GetDouble()).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// A worksheet row insert at the first row of a headerless table moves the table, as Excel's
+    /// does. Only the table's own insert grows it.
+    /// </summary>
+    [Test]
+    public async Task Inserting_worksheet_rows_at_the_first_row_of_a_headerless_table_moves_it()
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRows(wb);
+        table.ShowHeaderRow = false;
+
+        table.Worksheet.Row(2).InsertRowsAbove(3);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A5:B9");
+    }
+
+    /// <summary>
+    /// A table on the sheet's last row has no room to grow. The insert used to drop its last data
+    /// rows and leave it <c>#REF!</c>, so that every save threw (#773). Excel refuses the insert
+    /// and changes nothing.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserting_rows_into_a_table_on_the_last_row_throws_and_changes_nothing(bool above)
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRowsAtTheBottom(wb, freeRowsBelow: 0);
+
+        if (above)
+            await Assert.That(() => table.DataRange!.Row(1).InsertRowsAbove(3)).Throws<InvalidOperationException>();
+        else
+            await Assert.That(() => table.DataRange!.LastRow()!.InsertRowsBelow(3)).Throws<InvalidOperationException>();
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048571:B1048576");
+        await Assert.That(table.DataRange!.LastRow()!.Cell(1).GetDouble()).IsEqualTo(5);
+        await Assert.That(() => wb.SaveAs(new MemoryStream())).ThrowsNothing();
+    }
+
+    /// <summary>
+    /// Three rows below a table one row short of the room they need: the insert below the table
+    /// cannot place its last row, so it refuses before it changes anything.
+    /// </summary>
+    [Test]
+    public async Task Inserting_more_rows_below_a_table_than_fit_on_the_sheet_throws_and_changes_nothing()
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRowsAtTheBottom(wb, freeRowsBelow: 2);
+
+        await Assert.That(() => table.DataRange!.LastRow()!.InsertRowsBelow(3)).Throws<ArgumentOutOfRangeException>();
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048569:B1048574");
+    }
+
+    /// <summary>
+    /// Inserting above the first data row with one row short of room pushes the last data row
+    /// off the sheet, so the insert refuses. The table used to lose that row and become <c>#REF!</c>.
+    /// </summary>
+    [Test]
+    public async Task Inserting_more_rows_above_a_table_than_fit_on_the_sheet_throws_and_changes_nothing()
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRowsAtTheBottom(wb, freeRowsBelow: 2);
+
+        await Assert.That(() => table.DataRange!.Row(1).InsertRowsAbove(3)).Throws<InvalidOperationException>();
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048569:B1048574");
+        await Assert.That(table.DataRange!.LastRow()!.Cell(1).GetDouble()).IsEqualTo(5);
+    }
+
+    /// <summary>Three rows fit exactly, so the table grows to the sheet's last row.</summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserting_rows_into_a_table_that_exactly_fit_grows_it_to_the_last_row(bool above)
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRowsAtTheBottom(wb, freeRowsBelow: 3);
+
+        if (above)
+            table.DataRange!.Row(1).InsertRowsAbove(3);
+        else
+            table.DataRange!.LastRow()!.InsertRowsBelow(3);
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048568:B1048576");
+        // The last of the original data rows is the table's last row, or the one above the new rows.
+        await Assert.That(table.DataRange!.Row(above ? 8 : 5).Cell(1).GetDouble()).IsEqualTo(5);
+    }
+
+    /// <summary>
+    /// Appending to a table on the sheet's last row has nowhere to put the rows. Excel's
+    /// <c>ListRows.Add()</c> refuses there, and so does <c>AppendData</c>.
+    /// </summary>
+    [Test]
+    public async Task Appending_data_to_a_table_on_the_last_row_throws_and_changes_nothing()
+    {
+        using var wb = new XLWorkbook();
+        var table = CreateTableOfFiveRowsAtTheBottom(wb, freeRowsBelow: 0);
+
+        await Assert.That(() => table.AppendData(new[] { new { Id = 6, Name = "Row 6" } }))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048571:B1048576");
+        await Assert.That(table.DataRange!.LastRow()!.Cell(1).GetDouble()).IsEqualTo(5);
+    }
+
+    /// <summary>
+    /// A table's empty data rows on the last row still block a worksheet insert. Excel refuses it,
+    /// because it would move cells in a table.
+    /// </summary>
+    [Test]
+    public async Task Inserting_rows_that_would_push_an_empty_table_row_off_the_sheet_throws()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        ws.Cell(XLHelper.MaxRowNumber - 5, 1).Value = "Id";
+        ws.Cell(XLHelper.MaxRowNumber - 5, 2).Value = "Name";
+        var table = ws.Range(XLHelper.MaxRowNumber - 5, 1, XLHelper.MaxRowNumber, 2).CreateTable("Data");
+
+        await Assert.That(() => ws.Row(10).InsertRowsAbove(1)).Throws<InvalidOperationException>();
+
+        await Assert.That(table.RangeAddress.ToString()).IsEqualTo("A1048571:B1048576");
+    }
+
+    private static IXLTable CreateTableOfFiveRowsAtTheBottom(XLWorkbook wb, int freeRowsBelow)
+    {
+        var rows = Enumerable.Range(1, 5).Select(i => new { Id = i, Name = $"Row {i}" });
+        var headerRow = XLHelper.MaxRowNumber - 5 - freeRowsBelow;
+        return wb.AddWorksheet("Sheet1").Cell(headerRow, 1).InsertTable(rows, "Data");
     }
 
     private static IXLTable CreateTableOfFiveRows(XLWorkbook wb)

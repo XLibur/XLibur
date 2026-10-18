@@ -784,20 +784,26 @@ internal sealed class XLTable : XLRange, IXLTable
     }
 
     /// <summary>
-    /// Moves the table's last row down to <paramref name="rowNumber"/> when that row lies below
-    /// the table. A row already inside the table leaves the table as it is.
+    /// Moves the table's first row up to <paramref name="firstRow"/> when that row lies above the
+    /// table, and its last row down to <paramref name="lastRow"/> when that row lies below it.
+    /// Rows already inside the table leave the table as it is.
     /// </summary>
-    internal void ExpandToCoverRow(int rowNumber)
+    internal void ExpandToCoverRows(int firstRow, int lastRow)
     {
-        if (rowNumber <= RangeAddress.LastAddress.RowNumber)
+        var first = RangeAddress.FirstAddress;
+        var last = RangeAddress.LastAddress;
+        if (firstRow >= first.RowNumber && lastRow <= last.RowNumber)
             return;
 
         RangeAddress = new XLRangeAddress(
-            RangeAddress.FirstAddress,
-            new XLAddress(Worksheet, rowNumber,
-                RangeAddress.LastAddress.ColumnNumber,
-                RangeAddress.LastAddress.FixedRow,
-                RangeAddress.LastAddress.FixedColumn));
+            new XLAddress(Worksheet, Math.Min(firstRow, first.RowNumber),
+                first.ColumnNumber,
+                first.FixedRow,
+                first.FixedColumn),
+            new XLAddress(Worksheet, Math.Max(lastRow, last.RowNumber),
+                last.ColumnNumber,
+                last.FixedRow,
+                last.FixedColumn));
     }
 
     public override XLRangeColumn Column(int columnNumber)
