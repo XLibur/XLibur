@@ -783,11 +783,18 @@ internal sealed class XLTable : XLRange, IXLTable
         return this;
     }
 
-    public void ExpandTableRows(int rows)
+    /// <summary>
+    /// Moves the table's last row down to <paramref name="rowNumber"/> when that row lies below
+    /// the table. A row already inside the table leaves the table as it is.
+    /// </summary>
+    internal void ExpandToCoverRow(int rowNumber)
     {
+        if (rowNumber <= RangeAddress.LastAddress.RowNumber)
+            return;
+
         RangeAddress = new XLRangeAddress(
             RangeAddress.FirstAddress,
-            new XLAddress(Worksheet, RangeAddress.LastAddress.RowNumber + rows,
+            new XLAddress(Worksheet, rowNumber,
                 RangeAddress.LastAddress.ColumnNumber,
                 RangeAddress.LastAddress.FixedRow,
                 RangeAddress.LastAddress.FixedColumn));

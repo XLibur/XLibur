@@ -388,9 +388,10 @@ public static partial class XLHelper
     /// <remarks>
     /// The insert shifts the worksheet, and that shift already grows the table when the new rows
     /// land inside it (above or between data rows, or above the totals row). Only rows inserted
-    /// below the table's last row are left outside it, so only then is the table expanded here.
+    /// below the table's last row are left outside it, and <see cref="Tables.XLTable.ExpandToCoverRow"/>
+    /// grows the table only for those.
     /// </remarks>
-    internal static IXLTableRows InsertRowsWithoutEvents(Func<int, bool, IXLRangeRows> insertFunc,
+    internal static IXLTableRows InsertTableRows(Func<int, bool, IXLRangeRows> insertFunc,
         XLTableRange tableRange, int numberOfRows)
     {
         var ws = tableRange.Worksheet;
@@ -403,9 +404,7 @@ public static partial class XLHelper
             lastInsertedRow = Math.Max(lastInsertedRow, r.RowNumber());
         });
 
-        var table = tableRange.Table;
-        if (lastInsertedRow > table.RangeAddress.LastAddress.RowNumber)
-            table.ExpandTableRows(numberOfRows);
+        tableRange.Table.ExpandToCoverRow(lastInsertedRow);
 
         return rows;
     }
