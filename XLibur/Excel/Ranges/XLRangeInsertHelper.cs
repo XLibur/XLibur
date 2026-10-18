@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using XLibur.Excel.Coordinates;
 
 namespace XLibur.Excel;
@@ -28,9 +29,7 @@ internal static class XLRangeInsertHelper
         where TAxis : struct, IGridAxis
     {
         var axis = default(TAxis);
-        if (count <= 0 || count > axis.MaxIndex)
-            throw new ArgumentOutOfRangeException(countParamName,
-                $"Number of {axis.LineNoun} to insert must be a positive number no more than {axis.MaxIndex}");
+        EnsureInsertFits<TAxis>(range, count, countParamName);
 
         XLFormulaShiftPass.Run(range.Worksheet.Workbook, range.AsRange(), axis.ShiftsRows, count);
 
@@ -66,6 +65,95 @@ internal static class XLRangeInsertHelper
             return null;
 
         return rangeToReturn;
+    }
+
+    /// <summary>
+    /// What makes a cell non-empty for <see cref="EnsureInsertFits{TAxis}"/>. Excel
+    /// (checked over COM) refuses for a value, a formula, a comment or a fill.
+    /// <see cref="IsPushedOffCell"/> then drops the cells whose only format is their row's or column's.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="XLCellsUsedOptions.NormalFormats"/> counts every format, so this is stricter than
+    /// Excel in one case: Excel lets an insert push off a cell whose only format is a number format.
+    /// </remarks>
+    private const XLCellsUsedOptions PushedOffContent =
+        XLCellsUsedOptions.AllContents | XLCellsUsedOptions.NormalFormats;
+
+    /// <summary>
+    /// Throws when <paramref name="count"/> lines cannot be inserted at <paramref name="range"/>:
+    /// the count is out of range, the inserted lines would not fit on the sheet, or the insert
+    /// would push a non-empty cell past the sheet's last row (or column). Excel refuses such an
+    /// insert and changes nothing. The shift used to drop those cells, and a table it cut became
+    /// <c>#REF!</c> and could not be saved (#773).
+    /// </summary>
+    /// <remarks>
+    /// The insert runs this before it changes anything, so a refused insert leaves the workbook as
+    /// it was. A caller that changes other state before the insert, as the worksheet row and column
+    /// inserts do with their line collections, runs it first as well. Only the lines the range
+    /// spans on the cross axis shift, so only those are checked: a cell insert at <c>A10:B10</c> is
+    /// not blocked by a value in column C.
+    /// </remarks>
+    internal static void EnsureInsertFits<TAxis>(XLRangeBase range, int count, string countParamName)
+        where TAxis : struct, IGridAxis
+    {
+        var axis = default(TAxis);
+        if (count <= 0 || count > axis.MaxIndex)
+            throw new ArgumentOutOfRangeException(countParamName,
+                $"Number of {axis.LineNoun} to insert must be a positive number no more than {axis.MaxIndex}");
+
+        var first = range.RangeAddress.FirstAddress;
+        var last = range.RangeAddress.LastAddress;
+
+        // The block must fit before the lines past it are checked: otherwise the lines that would
+        // be pushed off start above the insert point, and those do not move at all.
+        var firstIndex = axis.IndexOf(first);
+        if (firstIndex + count - 1 > axis.MaxIndex)
+            throw new ArgumentOutOfRangeException(countParamName,
+                $"Cannot insert {count} {axis.LineNoun} starting at {firstIndex}: "
+                + "they would run past the end of the worksheet.");
+
+        var pushedOff = axis.RangeFor(range.Worksheet,
+            axis.MaxIndex - count + 1, axis.MaxIndex, axis.CrossOf(first), axis.CrossOf(last));
+
+        if (HasContentToPushOff(pushedOff))
+            throw new InvalidOperationException(
+                $"Cannot insert {count} {axis.LineNoun} because it would push non-empty cells "
+                + "off the end of the worksheet.");
+    }
+
+    private static bool HasContentToPushOff(XLRange pushedOff)
+    {
+        if (pushedOff.CellsUsed(PushedOffContent, IsPushedOffCell).Any())
+            return true;
+
+        // An empty merged range, or a table's empty data rows, have no cells to find, but Excel
+        // still refuses to push them off.
+        var worksheet = pushedOff.Worksheet;
+        if (worksheet.Internals.MergedRanges.GetIntersectedRanges(pushedOff.RangeAddress).Any())
+            return true;
+
+        foreach (var table in worksheet.Tables)
+        {
+            if (table.RangeAddress.Intersects(pushedOff.RangeAddress))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Is a cell that <see cref="PushedOffContent"/> finds one Excel counts? Excel (checked over COM)
+    /// ignores a format on a whole row or column, so a cell that only inherits one does not count.
+    /// </summary>
+    /// <remarks>
+    /// That also keeps the check's answer the same across a line collection shift: the worksheet
+    /// row and column inserts check before they shift the line styles, and the range insert checks
+    /// again after. A line style shifted onto the last line used to refuse the second check.
+    /// </remarks>
+    private static bool IsPushedOffCell(IXLCell cell)
+    {
+        var xlCell = (XLCell)cell;
+        return !xlCell.IsEmpty(XLCellsUsedOptions.AllContents) || xlCell.HasOwnFormat();
     }
 
     /// <summary>Carries each line's height (rows) or width (columns) forward by <paramref name="count"/>.</summary>

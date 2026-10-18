@@ -555,6 +555,27 @@ internal sealed partial class Slice<TElement>
     }
 
     /// <summary>
+    /// The bits of a narrow row's bitmap that fall in [<paramref name="startCol"/>, <paramref name="endCol"/>].
+    /// </summary>
+    /// <remarks>
+    /// C# takes a 32-bit shift count modulo 32, so <c>1u &lt;&lt; startCol</c> for a start past the
+    /// bitmap wraps round: a range starting at XFB (index 16,381) kept bits 29 to 31, and its used
+    /// cells included AD to AF (#773). A narrow row has nothing at or past index 32, so such a range
+    /// selects nothing.
+    /// </remarks>
+    private static uint NarrowColumnMask(int startCol, int endCol)
+    {
+        if (startCol > 31)
+            return 0;
+
+        var mask = endCol < 31 ? (1u << (endCol + 1)) - 1 : ~0u;
+        if (startCol > 0)
+            mask &= ~((1u << startCol) - 1);
+
+        return mask;
+    }
+
+    /// <summary>
     /// Forward column enumerator that works with both narrow (flat array) and wide (Lut) row storage.
     /// </summary>
     private struct ColumnEnumerator
@@ -571,13 +592,7 @@ internal sealed partial class Slice<TElement>
             _isWide = false;
             _idx = -1;
             _lutEnumerator = default;
-
-            // Mask bitmap to [startCol, endCol]
-            var mask = endCol < 31 ? (1u << (endCol + 1)) - 1 : ~0u;
-            if (startCol > 0)
-                mask &= ~((1u << startCol) - 1);
-
-            _remainingBits = bitmap & mask;
+            _remainingBits = bitmap & NarrowColumnMask(startCol, endCol);
         }
 
         internal ColumnEnumerator(Lut<TElement> lut, int startCol, int endCol)
@@ -642,12 +657,7 @@ internal sealed partial class Slice<TElement>
             _isWide = false;
             _idx = -1;
             _lutEnumerator = default;
-
-            var mask = endCol < 31 ? (1u << (endCol + 1)) - 1 : ~0u;
-            if (startCol > 0)
-                mask &= ~((1u << startCol) - 1);
-
-            _remainingBits = bitmap & mask;
+            _remainingBits = bitmap & NarrowColumnMask(startCol, endCol);
         }
 
         internal ReverseColumnEnumerator(Lut<TElement> lut, int startCol, int endCol)

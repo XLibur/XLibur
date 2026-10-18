@@ -172,6 +172,8 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     public new IXLRows InsertRowsBelow(int numberOfRows)
     {
         var rowNum = RowNumber();
+        // Checked before the row collection shifts, so a refused insert leaves it alone (#773).
+        EnsureInsertFits<RowAxis>(numberOfRows, after: true, nameof(numberOfRows));
         Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum + 1, numberOfRows);
         var asRange = Worksheet.Row(rowNum).AsRange();
         asRange.InsertRowsBelowVoid(true, numberOfRows);
@@ -207,6 +209,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             return Worksheet.Row(rowNum - 1).InsertRowsBelow(numberOfRows);
         }
 
+        EnsureInsertFits<RowAxis>(numberOfRows, after: false, nameof(numberOfRows));
         Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum, numberOfRows);
         var asRange = Worksheet.Row(rowNum).AsRange();
         asRange.InsertRowsAboveVoid(true, numberOfRows);

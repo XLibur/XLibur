@@ -234,21 +234,26 @@ internal sealed class XLTableRange : XLRange, IXLTableRange
     /// </summary>
     /// <remarks>
     /// The insert shifts the worksheet, and that shift already grows the table when the new rows
-    /// land inside it (above or between data rows, or above the totals row). Only rows inserted
-    /// below the table's last row are left outside it, and <see cref="XLTable.ExpandToCoverRow"/>
-    /// grows the table only for those.
+    /// land inside it (above or between data rows, or above the totals row). Two cases are left
+    /// outside it, and <see cref="XLTable.ExpandToCoverRows"/> grows the table only for those:
+    /// rows inserted below the table's last row, and rows inserted above the first row of a table
+    /// without a header row. The insert there starts at the table's first row, so the shift moves
+    /// the whole table down past the new rows (#774). Excel's <c>ListRows.Add(1)</c> grows the
+    /// table instead, and so does this.
     /// </remarks>
     internal IXLTableRows InsertTableRows(Func<int, bool, IXLRangeRows> insertFunc, int numberOfRows)
     {
         var rows = new XLTableRows(Worksheet.Style);
+        var firstInsertedRow = int.MaxValue;
         var lastInsertedRow = 0;
         foreach (var inserted in insertFunc(numberOfRows, false))
         {
             rows.Add(new XLTableRow(this, (XLRangeRow)inserted));
+            firstInsertedRow = Math.Min(firstInsertedRow, inserted.RowNumber());
             lastInsertedRow = Math.Max(lastInsertedRow, inserted.RowNumber());
         }
 
-        _table.ExpandToCoverRow(lastInsertedRow);
+        _table.ExpandToCoverRows(firstInsertedRow, lastInsertedRow);
 
         return rows;
     }

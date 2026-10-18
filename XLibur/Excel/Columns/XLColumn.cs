@@ -126,6 +126,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     public new IXLColumns InsertColumnsAfter(int numberOfColumns)
     {
         var columnNum = ColumnNumber();
+        // Checked before the column collection shifts, so a refused insert leaves it alone (#773).
+        EnsureInsertFits<ColumnAxis>(numberOfColumns, after: true, nameof(numberOfColumns));
         Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum + 1, numberOfColumns);
         Worksheet.Column(columnNum).InsertColumnsAfterVoid(true, numberOfColumns);
         var newColumns = Worksheet.Columns(columnNum + 1, columnNum + numberOfColumns);
@@ -141,6 +143,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             return Worksheet.Column(columnNum - 1).InsertColumnsAfter(numberOfColumns);
         }
 
+        EnsureInsertFits<ColumnAxis>(numberOfColumns, after: false, nameof(numberOfColumns));
         Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum, numberOfColumns);
         Worksheet.Column(columnNum).InsertColumnsBeforeVoid(true, numberOfColumns);
 

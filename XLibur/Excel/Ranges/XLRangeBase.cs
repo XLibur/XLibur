@@ -1041,22 +1041,40 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     /// <summary>
     /// The block of the same size immediately after this range on <typeparamref name="TAxis"/>.
     /// Inserting <em>after</em> a range is inserting <em>before</em> that block, which is how both
-    /// the after and below paths reach the single insert implementation. Every edge is clamped to
-    /// the sheet, so a range at the far edge collapses onto it rather than addressing past it.
+    /// the after and below paths reach the single insert implementation. The far edges are clamped
+    /// to the sheet, so a block that would run past it is cut short; the insert reads only its
+    /// first line.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The range ends on the sheet's last row (or
+    /// column), so there is no line after it. The insert used to clamp onto that last line and
+    /// insert inside the range (#773).</exception>
     private XLRange NextBlock<TAxis>()
         where TAxis : struct, IGridAxis
     {
         var axis = default(TAxis);
         var first = RangeAddress.FirstAddress;
 
-        var firstIndex = Math.Min(axis.IndexOf(first) + axis.IndexCount(this), axis.MaxIndex);
+        if (axis.IndexOf(RangeAddress.LastAddress) == axis.MaxIndex)
+            throw new InvalidOperationException(
+                $"Cannot insert {axis.LineNoun} after the range: it already reaches the end of the "
+                + $"worksheet ({axis.MaxIndex}).");
+
+        var firstIndex = axis.IndexOf(first) + axis.IndexCount(this);
         var lastIndex = Math.Min(firstIndex + axis.IndexCount(this) - 1, axis.MaxIndex);
         var firstCross = axis.CrossOf(first);
         var lastCross = Math.Min(firstCross + axis.CrossCount(this) - 1, axis.MaxCross);
 
         return axis.RangeFor(Worksheet, firstIndex, lastIndex, firstCross, lastCross);
     }
+
+    /// <summary>
+    /// Runs the checks of an insert of <paramref name="count"/> lines before this range, or after
+    /// it when <paramref name="after"/> is set, without inserting anything. For a caller that changes
+    /// other state ahead of the insert, so that a refused insert leaves that state alone too.
+    /// </summary>
+    internal void EnsureInsertFits<TAxis>(int count, bool after, string countParamName)
+        where TAxis : struct, IGridAxis
+        => XLRangeInsertHelper.EnsureInsertFits<TAxis>(after ? NextBlock<TAxis>() : this, count, countParamName);
 
     public IXLRangeRows InsertRowsAbove(int numberOfRows)
     {
