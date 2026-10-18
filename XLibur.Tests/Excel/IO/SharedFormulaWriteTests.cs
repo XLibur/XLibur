@@ -394,7 +394,10 @@ public class SharedFormulaWriteTests
         await Assert.That(f["C2"]).IsEqualTo("<x:f t=\"shared\" si=\"0\" />");
         await AssertReadsBack(saved, new Dictionary<string, string?>
         {
-            ["C1"] = "B1*2", ["B2"] = "A2*2", ["C2"] = "B2*2", ["C3"] = "B3*2"
+            ["C1"] = "B1*2",
+            ["B2"] = "A2*2",
+            ["C2"] = "B2*2",
+            ["C3"] = "B3*2"
         });
     }
 
