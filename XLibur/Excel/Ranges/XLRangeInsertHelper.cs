@@ -70,6 +70,7 @@ internal static class XLRangeInsertHelper
     /// <summary>
     /// What makes a cell non-empty for <see cref="EnsureInsertFits{TAxis}"/>. Excel
     /// (checked over COM) refuses for a value, a formula, a comment or a fill.
+    /// <see cref="IsPushedOffCell"/> then drops the cells whose only format is their row's or column's.
     /// </summary>
     /// <remarks>
     /// <see cref="XLCellsUsedOptions.NormalFormats"/> counts every format, so this is stricter than
@@ -122,7 +123,7 @@ internal static class XLRangeInsertHelper
 
     private static bool HasContentToPushOff(XLRange pushedOff)
     {
-        if (pushedOff.CellsUsed(PushedOffContent).Any())
+        if (pushedOff.CellsUsed(PushedOffContent, IsPushedOffCell).Any())
             return true;
 
         // An empty merged range, or a table's empty data rows, have no cells to find, but Excel
@@ -138,6 +139,21 @@ internal static class XLRangeInsertHelper
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Is a cell that <see cref="PushedOffContent"/> finds one Excel counts? Excel (checked over COM)
+    /// ignores a format on a whole row or column, so a cell that only inherits one does not count.
+    /// </summary>
+    /// <remarks>
+    /// That also keeps the check's answer the same across a line collection shift: the worksheet
+    /// row and column inserts check before they shift the line styles, and the range insert checks
+    /// again after. A line style shifted onto the last line used to refuse the second check.
+    /// </remarks>
+    private static bool IsPushedOffCell(IXLCell cell)
+    {
+        var xlCell = (XLCell)cell;
+        return !xlCell.IsEmpty(XLCellsUsedOptions.AllContents) || xlCell.HasOwnFormat();
     }
 
     /// <summary>Carries each line's height (rows) or width (columns) forward by <paramref name="count"/>.</summary>

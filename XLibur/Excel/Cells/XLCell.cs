@@ -1132,6 +1132,16 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return StyleValue == Worksheet.StyleValue;
     }
 
+    /// <summary>
+    /// Does the cell store a format other than the worksheet's? Unlike <see cref="IsFormatEmpty"/>,
+    /// a format the cell only inherits from its row or column does not count.
+    /// </summary>
+    internal bool HasOwnFormat()
+    {
+        var ownStyle = _cellsCollection.StyleSlice[_point];
+        return ownStyle is not null && (ownStyle.IncludeQuotePrefix || !ownStyle.Equals(Worksheet.StyleValue));
+    }
+
     #endregion Styles
 
     public void DeleteComment()

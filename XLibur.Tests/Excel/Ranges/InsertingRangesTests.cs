@@ -381,6 +381,61 @@ public class InsertingRangesTests
         }
     }
 
+    /// <summary>
+    /// A format on the whole last row (or column) does not block an insert: Excel (checked over
+    /// COM) inserts and drops it. Only a cell that stores a format does.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task AFormatOnTheWholeLastLineDoesNotBlockTheInsert(bool rows)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        if (rows)
+        {
+            ws.Row(XLHelper.MaxRowNumber).Style.Fill.BackgroundColor = XLColor.Red;
+            ws.Cell("A20").Value = "moved";
+            ws.Row(10).InsertRowsAbove(1);
+            await Assert.That(ws.Cell("A21").GetText()).IsEqualTo("moved");
+        }
+        else
+        {
+            ws.Column(XLHelper.MaxColumnNumber).Style.Fill.BackgroundColor = XLColor.Red;
+            ws.Cell("T1").Value = "moved";
+            ws.Column(10).InsertColumnsBefore(1);
+            await Assert.That(ws.Cell("U1").GetText()).IsEqualTo("moved");
+        }
+    }
+
+    /// <summary>
+    /// The worksheet row and column inserts check before they shift the line styles, and the
+    /// range insert checks again after. A line style shifted onto the last line must not make the
+    /// second check refuse what the first allowed: that refusal left the line styles shifted.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task ALineStyleShiftedOntoTheLastLineDoesNotBlockTheInsert(bool rows)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        if (rows)
+        {
+            ws.Row(XLHelper.MaxRowNumber - 1).Style.Fill.BackgroundColor = XLColor.Red;
+            ws.Cell(XLHelper.MaxRowNumber, 1).Style = ws.Style;
+            ws.Row(10).InsertRowsAbove(1);
+            await Assert.That(ws.Row(XLHelper.MaxRowNumber).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        }
+        else
+        {
+            ws.Column(XLHelper.MaxColumnNumber - 1).Style.Fill.BackgroundColor = XLColor.Red;
+            ws.Cell(1, XLHelper.MaxColumnNumber).Style = ws.Style;
+            ws.Column(10).InsertColumnsBefore(1);
+            await Assert.That(ws.Column(XLHelper.MaxColumnNumber).Style.Fill.BackgroundColor).IsEqualTo(XLColor.Red);
+        }
+    }
+
     public enum LastRowContent
     {
         Formula,
