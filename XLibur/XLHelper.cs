@@ -382,21 +382,6 @@ public static partial class XLHelper
         return (parts[0], parts[1]);
     }
 
-    internal static IXLTableRows InsertRowsWithoutEvents(Func<int, bool, IXLRangeRows> insertFunc,
-        XLTableRange tableRange, int numberOfRows,
-        bool expandTable)
-    {
-        var ws = tableRange.Worksheet;
-        var rows = new XLTableRows(ws.Style);
-        var inserted = insertFunc(numberOfRows, false);
-        inserted.ForEach(r => rows.Add(new XLTableRow(tableRange, (XLRangeRow)r)));
-
-        if (expandTable)
-            tableRange.Table.ExpandTableRows(numberOfRows);
-
-        return rows;
-    }
-
     private static readonly Regex A1RegexRelative = A1RegexRelativeCompiled(); // A:A
 
     private static string Evaluator(Match match, int row, string column)
