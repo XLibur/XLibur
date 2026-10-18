@@ -121,62 +121,62 @@ public class SaveCompressionLevelTests
         switch (path)
         {
             case SavePath.SaveAsStream:
-            {
-                using var source = new MemoryStream(Source.Value);
-                using var wb = new XLWorkbook(source);
-                edit(wb);
-                using var output = new MemoryStream();
-                wb.SaveAs(output, options);
-                return output.ToArray();
-            }
+                {
+                    using var source = new MemoryStream(Source.Value);
+                    using var wb = new XLWorkbook(source);
+                    edit(wb);
+                    using var output = new MemoryStream();
+                    wb.SaveAs(output, options);
+                    return output.ToArray();
+                }
             case SavePath.SaveAsFile:
-            {
-                using var file = new TemporaryFile();
-                using (var source = new MemoryStream(Source.Value))
-                using (var wb = new XLWorkbook(source))
                 {
-                    edit(wb);
-                    wb.SaveAs(file.Path, options);
-                }
+                    using var file = new TemporaryFile();
+                    using (var source = new MemoryStream(Source.Value))
+                    using (var wb = new XLWorkbook(source))
+                    {
+                        edit(wb);
+                        wb.SaveAs(file.Path, options);
+                    }
 
-                return File.ReadAllBytes(file.Path);
-            }
+                    return File.ReadAllBytes(file.Path);
+                }
             case SavePath.SaveInPlaceFromFile:
-            {
-                using var file = new TemporaryFile();
-                File.WriteAllBytes(file.Path, Source.Value);
-                using (var wb = new XLWorkbook(file.Path))
                 {
-                    edit(wb);
-                    wb.Save(options);
-                }
+                    using var file = new TemporaryFile();
+                    File.WriteAllBytes(file.Path, Source.Value);
+                    using (var wb = new XLWorkbook(file.Path))
+                    {
+                        edit(wb);
+                        wb.Save(options);
+                    }
 
-                return File.ReadAllBytes(file.Path);
-            }
+                    return File.ReadAllBytes(file.Path);
+                }
             case SavePath.SaveInPlaceFromStream:
-            {
-                using var stream = new MemoryStream();
-                stream.Write(Source.Value);
-                stream.Position = 0;
-                using (var wb = new XLWorkbook(stream))
                 {
-                    edit(wb);
-                    wb.Save(options);
-                }
+                    using var stream = new MemoryStream();
+                    stream.Write(Source.Value);
+                    stream.Position = 0;
+                    using (var wb = new XLWorkbook(stream))
+                    {
+                        edit(wb);
+                        wb.Save(options);
+                    }
 
-                return stream.ToArray();
-            }
+                    return stream.ToArray();
+                }
             case SavePath.SecondSave:
-            {
-                using var source = new MemoryStream(Source.Value);
-                using var wb = new XLWorkbook(source);
-                using var first = new MemoryStream();
-                wb.SaveAs(first);
-                edit(wb);
-                using var second = new MemoryStream();
-                wb.SaveAs(second, options);
-                return second.ToArray();
-            }
+                {
+                    using var source = new MemoryStream(Source.Value);
+                    using var wb = new XLWorkbook(source);
+                    using var first = new MemoryStream();
+                    wb.SaveAs(first);
+                    edit(wb);
+                    using var second = new MemoryStream();
+                    wb.SaveAs(second, options);
+                    return second.ToArray();
+                }
             default:
                 throw new ArgumentOutOfRangeException(nameof(path), path, null);
         }

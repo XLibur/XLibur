@@ -1181,7 +1181,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     private static bool AnyTextMayReadSheet(XLWorkbook workbook, string sheetName, string oldSheetName,
         List<(XLWorksheet Sheet, Area Area)> renamedFormulaAreas)
     {
-        string[] needles = [..SheetNameNeedles(sheetName), "INDIRECT"];
+        string[] needles = [.. SheetNameNeedles(sheetName), "INDIRECT"];
         var oldNeedles = SheetNameNeedles(oldSheetName);
 
         foreach (var definedName in workbook.DefinedNamesInternal)

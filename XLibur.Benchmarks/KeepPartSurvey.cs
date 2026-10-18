@@ -225,7 +225,10 @@ public static class KeepPartSurvey
             var (category, detail) = MarkupDifference.First(sourceMarkup, savedMarkup);
             return result with
             {
-                Outcome = outcome, Category = "markup: " + category, Detail = detail, Markup = Markup.Differs,
+                Outcome = outcome,
+                Category = "markup: " + category,
+                Detail = detail,
+                Markup = Markup.Differs,
             };
         }
 

@@ -84,7 +84,8 @@ internal static class WorksheetPartWriter
     /// </para>
     /// </remarks>
     private static bool WritesAsLoaded(Worksheet worksheet, byte[] loadedMarkup)
-    {        using var regenerated = new MemoryStream();
+    {
+        using var regenerated = new MemoryStream();
         using (var xml = PartXmlWriter.Create(regenerated, closeOutput: false))
         {
             WriteRootStartTag(xml, worksheet);

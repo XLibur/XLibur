@@ -211,7 +211,7 @@ public class SheetViewDefaultPolarityTests
 
     private static string SheetViewTag(MemoryStream package)
     {
-        var match = Regex.Match(package.Sheet1Xml(),"<(?:[A-Za-z_][\\w.-]*:)?sheetView\\b[^>]*>");
+        var match = Regex.Match(package.Sheet1Xml(), "<(?:[A-Za-z_][\\w.-]*:)?sheetView\\b[^>]*>");
         return match.Success ? match.Value : string.Empty;
     }
 
