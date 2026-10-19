@@ -110,8 +110,22 @@ internal sealed class XLKeptAnchor
     /// </summary>
     private sealed record LineLayout(double DefaultSize, (int Offset, double Size)[] Exceptions)
     {
-        public bool Matches(LineLayout other) =>
-            DefaultSize.Equals(other.DefaultSize) && Exceptions.AsSpan().SequenceEqual(other.Exceptions);
+        public bool Matches(LineLayout other)
+        {
+            if (!SameSize(DefaultSize, other.DefaultSize) || Exceptions.Length != other.Exceptions.Length)
+                return false;
+
+            for (var i = 0; i < Exceptions.Length; i++)
+            {
+                if (Exceptions[i].Offset != other.Exceptions[i].Offset ||
+                    !SameSize(Exceptions[i].Size, other.Exceptions[i].Size))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool SameSize(double left, double right) => Math.Abs(left - right) < XLHelper.Epsilon;
 
         public static LineLayout Measure<TLine>(IDictionary<int, TLine> lines, int first, int last,
             double defaultSize, Func<TLine, double> sizeOf)
@@ -123,7 +137,7 @@ internal sealed class XLKeptAnchor
                     continue;
 
                 var size = sizeOf(line);
-                if (!size.Equals(defaultSize))
+                if (!SameSize(size, defaultSize))
                     exceptions.Add((number - first, size));
             }
 
