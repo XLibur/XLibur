@@ -16,7 +16,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     public XLPictures(XLWorksheet worksheet)
     {
         _worksheet = worksheet;
-        Deleted = new HashSet<string>();
+        Deleted = new List<(int Id, string RelId)>();
         DeletedFromGroups = new List<(int Id, string? RelId)>();
         PendingGroups = new List<XLPendingGroup>();
     }
@@ -27,8 +27,11 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         get => _pictures.Count;
     }
 
-    /// <summary>Rel ids of deleted top-level pictures, whose whole anchor is removed on save.</summary>
-    internal ICollection<string> Deleted { get; private set; }
+    /// <summary>
+    /// Deleted top-level pictures, whose whole anchor is removed on save. Keyed by drawing id plus
+    /// rel id, because pictures that share an image part have the same rel id.
+    /// </summary>
+    internal ICollection<(int Id, string RelId)> Deleted { get; private set; }
 
     /// <summary>
     /// Deleted pictures that lived inside a group shape. Keyed by drawing id (to locate the exact
@@ -117,7 +120,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             if (picture.IsInGroup)
                 DeletedFromGroups.Add((picture.Id, picture.RelId));
             else if (!string.IsNullOrEmpty(picture.RelId))
-                Deleted.Add(picture.RelId);
+                Deleted.Add((picture.Id, picture.RelId));
 
             _pictures.Remove(picture);
         }

@@ -28,7 +28,8 @@ internal static class PictureWriter
         if (worksheetPart.DrawingsPart != null)
             ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures);
 
-        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context);
+        var written = new List<(XLPicture Picture, Xdr.NonVisualDrawingProperties Properties)>();
+        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context, written);
 
         // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
         // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
@@ -36,6 +37,11 @@ internal static class PictureWriter
         if (xlWorksheet.Pictures.Count > 0 && groupedPictureCount == 0 &&
             !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
             RebaseNonVisualDrawingPropertiesIds(worksheetPart);
+
+        // The next save edits what this one wrote and finds each picture's anchor by its drawing
+        // id, so the model takes the id the drawing now holds.
+        foreach (var (picture, properties) in written)
+            picture.KeepSavedId((int)properties.Id!.Value);
 
         if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
         {
@@ -55,20 +61,18 @@ internal static class PictureWriter
     /// </summary>
     private static void ProcessDeletedPicturesAndGroups(DrawingsPart drawingsPart, XLPictures xlPictures)
     {
-        foreach (var removedPicture in xlPictures.Deleted)
+        if (xlPictures.Deleted.Count > 0 && drawingsPart.WorksheetDrawing is { } worksheetDrawing)
         {
-            var anchor = GetAnchorFromImageId(drawingsPart, removedPicture);
+            // The anchor found holds the picture itself, never a group shape, so a group and its
+            // other shapes are never removed with it.
+            foreach (var (id, relId) in xlPictures.Deleted)
+            {
+                FindPictureAnchor(worksheetDrawing, id, relId)?.Remove();
 
-            // Deleting a picture that lives in a group would otherwise dismantle the whole
-            // group (and its sibling shapes). Removing a single picture from a group is not
-            // supported yet, so leave the group — and its image part — intact.
-            if (anchor is not null && anchor.Descendants<Xdr.GroupShape>().Any())
-                continue;
-
-            if (anchor is not null)
-                drawingsPart.WorksheetDrawing!.RemoveChild(anchor);
-
-            drawingsPart.DeletePart(removedPicture);
+                // Other pictures may still show the image: Excel shares one part between copies.
+                if (drawingsPart.HasPartWithId(relId))
+                    DeleteImagePartIfUnreferenced(drawingsPart, worksheetDrawing, relId);
+            }
         }
 
         xlPictures.Deleted.Clear();
@@ -95,7 +99,8 @@ internal static class PictureWriter
     /// Write every picture's anchor: free-floating pictures get a fresh anchor, grouped pictures are
     /// inserted into or updated within their group. Returns the number of grouped pictures handled.
     /// </summary>
-    private static int WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context)
+    private static int WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context,
+        List<(XLPicture Picture, Xdr.NonVisualDrawingProperties Properties)> written)
     {
         var groupedPictures = new List<XLPicture>();
         foreach (var pic in xlWorksheet.Pictures)
@@ -104,7 +109,7 @@ internal static class PictureWriter
             if (xlPic.IsInGroup)
                 groupedPictures.Add(xlPic);
             else
-                AddPictureAnchor(worksheetPart, pic, context);
+                written.Add((xlPic, AddPictureAnchor(worksheetPart, pic, context)));
         }
 
         foreach (var groupedPicture in groupedPictures)
@@ -188,7 +193,12 @@ internal static class PictureWriter
             worksheetDrawing.AddNamespaceDeclaration("r", RelationshipsNs);
     }
 
-    private static void AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture, SaveContext context)
+    /// <summary>
+    /// Write a free-floating picture's anchor, editing or replacing its own anchor from the loaded
+    /// drawing. Returns the drawing properties written, whose id the picture takes after the save.
+    /// </summary>
+    private static Xdr.NonVisualDrawingProperties AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture,
+        SaveContext context)
     {
         var pic = (XLPicture)picture;
         var drawingsPart = worksheetPart.DrawingsPart ??
@@ -210,19 +220,12 @@ internal static class PictureWriter
         pic.ImageStream.Position = 0;
         imagePart.FeedData(pic.ImageStream);
 
-        // Clear current anchors
-        var existingAnchor = GetAnchorFromImageId(drawingsPart, pic.RelId!);
-
-        // Never overwrite an anchor that hosts a group shape (xdr:grpSp): replacing it with a
-        // single regenerated picture would discard the other pictures/connectors/shapes in the
-        // group. Such pictures are not loaded into the model (see DrawingPartReader.LoadDrawings),
-        // so this is a defensive guard to keep grouped drawings intact on save.
-        if (existingAnchor is not null && existingAnchor.Descendants<Xdr.GroupShape>().Any())
-            return;
+        // The anchor holds the picture itself, never a group shape, so a group is never overwritten.
+        var existingAnchor = FindPictureAnchor(worksheetDrawing, pic.Id, pic.RelId);
 
         if (pic.KeptAnchor is { } kept && existingAnchor is Xdr.TwoCellAnchor twoCellAnchor &&
             TryWriteKeptAnchor(twoCellAnchor, kept, pic, drawingsPart.GetIdOfPart(imagePart)))
-            return;
+            return twoCellAnchor.GetFirstChild<Xdr.Picture>()!.NonVisualPictureProperties!.NonVisualDrawingProperties!;
 
         var wb = pic.Worksheet.Workbook;
         var extentsCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
@@ -235,9 +238,10 @@ internal static class PictureWriter
 
         // The same xdr:pic whichever anchor form ends up holding it: the anchor decides where the
         // drawing goes, never what it is.
+        var properties = new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name };
         var pictureElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
-                new Xdr.NonVisualDrawingProperties { Id = nvpId, Name = pic.Name },
+                properties,
                 new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
             ),
             new Xdr.BlipFill(
@@ -277,6 +281,29 @@ internal static class PictureWriter
             worksheetDrawing.ReplaceChild(anchor, existingAnchor);
         else
             worksheetDrawing.Append(anchor);
+
+        return properties;
+    }
+
+    /// <summary>
+    /// The top-level anchor that holds the picture with drawing id <paramref name="id"/> and image
+    /// link <paramref name="relId"/>, or <c>null</c>. The link alone is not enough: pictures that
+    /// share an image part, as a copied picture does in Excel, all have the same link (issue #781).
+    /// </summary>
+    private static OpenXmlElement? FindPictureAnchor(Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
+    {
+        if (string.IsNullOrEmpty(relId))
+            return null;
+
+        foreach (var anchor in worksheetDrawing.ChildElements)
+        {
+            if (anchor.GetFirstChild<Xdr.Picture>() is { } picture &&
+                picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == (uint)id &&
+                picture.BlipFill?.Blip?.Embed?.Value == relId)
+                return anchor;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -393,9 +420,7 @@ internal static class PictureWriter
     {
         foreach (var member in pending.Members)
         {
-            var anchor = string.IsNullOrEmpty(member.RelId)
-                ? null
-                : GetAnchorFromImageId(drawingsPart, member.RelId);
+            var anchor = FindPictureAnchor(drawingsPart.WorksheetDrawing!, member.Id, member.RelId);
             var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
             if (anchor is null || picElement is null)
                 continue;
