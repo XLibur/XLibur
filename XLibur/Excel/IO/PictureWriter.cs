@@ -220,6 +220,10 @@ internal static class PictureWriter
         if (existingAnchor is not null && existingAnchor.Descendants<Xdr.GroupShape>().Any())
             return;
 
+        if (pic.KeptAnchor is { } kept && existingAnchor is Xdr.TwoCellAnchor twoCellAnchor &&
+            TryWriteKeptAnchor(twoCellAnchor, kept, pic, drawingsPart.GetIdOfPart(imagePart)))
+            return;
+
         var wb = pic.Worksheet.Workbook;
         var extentsCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
         var extentsCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
@@ -273,6 +277,46 @@ internal static class PictureWriter
             worksheetDrawing.ReplaceChild(anchor, existingAnchor);
         else
             worksheetDrawing.Append(anchor);
+    }
+
+    /// <summary>
+    /// Write a picture the caller has not placed back into the two-cell anchor it was loaded from,
+    /// rather than regenerating it. See <see cref="XLKeptAnchor"/> for why the model cannot.
+    /// </summary>
+    /// <remarks>
+    /// The anchor is edited, not replaced, as a slicer's is: only each marker's column and row, which
+    /// a row or column edit may have moved, and the picture's name and image link, which the model
+    /// owns. The cell offsets, <c>a:xfrm</c> and anything Excel added that XLibur does not model stay
+    /// as the file had them. Returns <c>false</c> when the anchor is not the one that was loaded, or
+    /// when the rows and columns under it were resized so the kept markers would no longer place the
+    /// picture where Excel showed it; the caller then regenerates it.
+    /// </remarks>
+    private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, XLKeptAnchor kept, XLPicture pic, string embedId)
+    {
+        if (!kept.IsLayoutUnchanged ||
+            anchor.EditAs?.Value != kept.Placement.ToOpenXml() ||
+            anchor.FromMarker is not { } from ||
+            anchor.ToMarker is not { } to ||
+            anchor.GetFirstChild<Xdr.Picture>() is not { } picture)
+            return false;
+
+        WriteMarkerCell(from, kept.From);
+        WriteMarkerCell(to, kept.To);
+
+        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties is { } properties)
+            properties.Name = pic.Name;
+
+        if (picture.BlipFill?.Blip is { } blip)
+            blip.Embed = embedId;
+
+        return true;
+    }
+
+    /// <summary>Writes a marker's column and row, zero-based, leaving its offsets alone.</summary>
+    private static void WriteMarkerCell(Xdr.MarkerType marker, XLMarker cell)
+    {
+        marker.ColumnId = new Xdr.ColumnId((cell.ColumnNumber - 1).ToInvariantString());
+        marker.RowId = new Xdr.RowId((cell.RowNumber - 1).ToInvariantString());
     }
 
     /// <summary>

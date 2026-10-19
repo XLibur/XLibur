@@ -94,6 +94,9 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
 
         foreach (var picture in worksheet.Pictures.OfType<XLPicture>())
         {
+            if (picture.KeptAnchor is { } kept)
+                MoveKeptAnchor<TAxis>(kept, edit);
+
             // A free-floating picture is placed in pixels from the sheet's corner and has no cell to
             // follow — the same case as an absolutely anchored chart. Its markers are still built
             // against A1 as a carrier, so moving them would move a picture that should not move.
@@ -107,6 +110,33 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
             if (picture.Placement == XLPicturePlacement.MoveAndSize)
                 Move<TAxis>(picture.Markers[XLMarkerPosition.BottomRight], edit);
         }
+    }
+
+    /// <summary>
+    /// Moves the loaded two-cell anchor of a picture the caller has not placed, the way Excel moves
+    /// the picture for its <c>editAs</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>editAs="absolute"</c> does not follow the grid, so neither corner moves.
+    /// <c>editAs="oneCell"</c> follows its top-left cell and keeps its size, so the bottom-right
+    /// corner takes the top-left corner's shift rather than its own: rows inserted under the picture
+    /// would otherwise stretch it, which is what only <c>twoCell</c> does. The same rule moves a
+    /// slicer's frame (<c>DrawingFrameXml.MoveAnchor</c>).
+    /// </remarks>
+    private static void MoveKeptAnchor<TAxis>(XLKeptAnchor kept, in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        if (kept.Placement == XLPicturePlacement.FreeFloating)
+            return;
+
+        var before = kept.From.Anchor;
+        Move<TAxis>(kept.From, edit);
+        var after = kept.From.Anchor;
+
+        var to = kept.To.Anchor;
+        kept.To.Anchor = new Point(
+            Math.Clamp(to.Row + after.Row - before.Row, 1, XLHelper.MaxRowNumber),
+            Math.Clamp(to.Column + after.Column - before.Column, 1, XLHelper.MaxColumnNumber));
     }
 
     /// <summary>

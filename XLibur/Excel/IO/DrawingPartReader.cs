@@ -563,7 +563,9 @@ internal static class DrawingPartReader
         if (twoCellAnchor.EditAs == null || !twoCellAnchor.EditAs.HasValue ||
             twoCellAnchor.EditAs.Value == Xdr.EditAsValues.TwoCell)
         {
+            // MoveAndSize keeps both markers, so the model says this anchor back by itself.
             picture.MoveTo(from.Cell, from.Offset, to.Cell, to.Offset);
+            return;
         }
         else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.Absolute)
         {
@@ -581,6 +583,15 @@ internal static class DrawingPartReader
         {
             picture.MoveTo(from.Cell, from.Offset);
         }
+        else
+        {
+            return;
+        }
+
+        // Neither placement can say this anchor back: Excel sizes it from the markers dropped
+        // above, not from the xfrm the model was given. Set last, because placing the picture
+        // drops it.
+        picture.KeptAnchor = new XLKeptAnchor(ws, picture.Placement, from, to);
     }
 
     private static void LoadShapeColors<T>(IXLDrawing<T> drawing, XElement shape)
