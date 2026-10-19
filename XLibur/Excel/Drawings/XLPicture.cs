@@ -14,6 +14,7 @@ internal sealed class XLPicture : IXLPicture
     private int _height;
     private int _id;
     private string _name = string.Empty;
+    private XLPicturePlacement _placement;
     private int _width;
 
     internal XLPicture(XLWorksheet worksheet, Stream stream)
@@ -75,6 +76,7 @@ internal sealed class XLPicture : IXLPicture
                 throw new ArgumentException(
                     $"Cannot set the height when placement is '{Placement}'. Change the placement to FreeFloating or Move first.");
             _height = value;
+            KeptAnchor = null;
         }
     }
 
@@ -102,6 +104,7 @@ internal sealed class XLPicture : IXLPicture
                     $"Cannot set the left-hand offset when placement is '{Placement}'. Change the placement to FreeFloating first.");
 
             Markers[XLMarkerPosition.TopLeft] = new XLMarker(Worksheet.Cell(1, 1), new Point(value, Top));
+            KeptAnchor = null;
         }
     }
 
@@ -129,7 +132,15 @@ internal sealed class XLPicture : IXLPicture
 
     public int OriginalWidth { get; private set; }
 
-    public XLPicturePlacement Placement { get; set; }
+    public XLPicturePlacement Placement
+    {
+        get => _placement;
+        set
+        {
+            _placement = value;
+            KeptAnchor = null;
+        }
+    }
 
     public int Top
     {
@@ -141,6 +152,7 @@ internal sealed class XLPicture : IXLPicture
                     $"Cannot set the top offset when placement is '{Placement}'. Change the placement to FreeFloating first.");
 
             Markers[XLMarkerPosition.TopLeft] = new XLMarker(Worksheet.Cell(1, 1), new Point(Left, value));
+            KeptAnchor = null;
         }
     }
 
@@ -166,6 +178,7 @@ internal sealed class XLPicture : IXLPicture
                 throw new ArgumentException(
                     $"Cannot set the width when placement is '{Placement}'. Change the placement to FreeFloating or Move first.");
             _width = value;
+            KeptAnchor = null;
         }
     }
 
@@ -174,6 +187,13 @@ internal sealed class XLPicture : IXLPicture
     internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
     internal string? RelId { get; set; }
+
+    /// <summary>
+    /// The loaded two-cell anchor, when the model cannot say it back. Set by the loader after it has
+    /// placed the picture, and dropped by any edit of the placement, size or position. See
+    /// <see cref="XLKeptAnchor"/>.
+    /// </summary>
+    internal XLKeptAnchor? KeptAnchor { get; set; }
 
     /// <summary>
     /// When set, this picture lives inside a drawing group shape (<c>xdr:grpSp</c>).

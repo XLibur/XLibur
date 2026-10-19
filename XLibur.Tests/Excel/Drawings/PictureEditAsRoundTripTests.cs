@@ -1,0 +1,215 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using XLibur.Excel;
+using XLibur.Excel.Drawings;
+using XLibur.Tests.Utils;
+
+namespace XLibur.Tests.Excel.Drawings;
+
+/// <summary>
+/// A picture Excel anchors as <c>xdr:twoCellAnchor</c> with <c>editAs="oneCell"</c> or
+/// <c>editAs="absolute"</c> keeps that anchor through a load and save (issue #780).
+/// </summary>
+/// <remarks>
+/// Excel places and sizes every two-cell anchor from its <c>from</c>/<c>to</c> markers, whatever
+/// <c>editAs</c> says; <c>editAs</c> only decides how the picture follows a later grid edit. The
+/// fixture's <c>a:xfrm</c> says 8×8 px while the markers span B8 to D12, which is what XLibur and
+/// ClosedXML write, so a writer that sizes the anchor from <c>xfrm</c> shrinks the picture to 8 px.
+/// </remarks>
+public class PictureEditAsRoundTripTests
+{
+    private const string Drawing1 = "xl/drawings/drawing1.xml";
+
+    [Test]
+    [Arguments("oneCell")]
+    [Arguments("absolute")]
+    public async Task An_untouched_picture_keeps_its_two_cell_anchor_and_edit_as(string editAs)
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12(editAs), _ => { });
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains($"<xdr:twoCellAnchor editAs=\"{editAs}\">");
+        await Assert.That(drawing).DoesNotContain("oneCellAnchor");
+        await Assert.That(drawing).DoesNotContain("absoluteAnchor");
+        await Assert.That(Markers(drawing)).IsEqualTo("from 1,7 to 3,11");
+    }
+
+    [Test]
+    [Arguments("oneCell")]
+    [Arguments("absolute")]
+    public async Task An_untouched_picture_keeps_its_shape_properties(string editAs)
+    {
+        // The real offset and size, as Excel writes them, so a regenerated xdr:pic would differ.
+        const string ExcelXfrm = "<a:xfrm><a:off x=\"609600\" y=\"1280160\" /><a:ext cx=\"1219200\" cy=\"731520\" /></a:xfrm>";
+        using var source = PictureFromB8ToD12(editAs)
+            .RewritePart(Drawing1, xml => Regex.Replace(xml, "<a:xfrm>.*?</a:xfrm>", ExcelXfrm));
+        var before = Xfrm(source.ReadPart(Drawing1));
+        await Assert.That(before).IsEqualTo(ExcelXfrm);
+
+        using var saved = LoadAndSave(source, _ => { });
+
+        await Assert.That(Xfrm(saved.ReadPart(Drawing1))).IsEqualTo(before);
+    }
+
+    [Test]
+    [Arguments("oneCell", XLPicturePlacement.Move)]
+    [Arguments("absolute", XLPicturePlacement.FreeFloating)]
+    public async Task A_kept_anchor_reloads_with_the_same_placement(string editAs, XLPicturePlacement placement)
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12(editAs), _ => { });
+
+        using var wb = new XLWorkbook(saved);
+        await Assert.That(wb.Worksheet(1).Picture("Logo").Placement).IsEqualTo(placement);
+    }
+
+    [Test]
+    public async Task Inserting_rows_above_a_one_cell_picture_moves_both_corners()
+    {
+        // Excel moves an editAs="oneCell" picture down and keeps its size, so both markers move by
+        // the rows inserted above it.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Row(3).InsertRowsAbove(3));
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
+        await Assert.That(Markers(drawing)).IsEqualTo("from 1,10 to 3,14");
+    }
+
+    [Test]
+    public async Task Inserting_rows_inside_a_one_cell_picture_keeps_its_span()
+    {
+        // Rows inserted under the picture do not stretch it: the to marker moves by the from
+        // marker's shift, which here is none.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Row(10).InsertRowsAbove(2));
+
+        await Assert.That(Markers(saved.ReadPart(Drawing1))).IsEqualTo("from 1,7 to 3,11");
+    }
+
+    [Test]
+    public async Task Inserting_columns_left_of_a_one_cell_picture_moves_both_corners()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Column(1).InsertColumnsBefore(2));
+
+        await Assert.That(Markers(saved.ReadPart(Drawing1))).IsEqualTo("from 3,7 to 5,11");
+    }
+
+    [Test]
+    public async Task Inserting_rows_above_an_absolute_picture_does_not_move_it()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"), ws => ws.Row(3).InsertRowsAbove(3));
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:twoCellAnchor editAs=\"absolute\">");
+        await Assert.That(Markers(drawing)).IsEqualTo("from 1,7 to 3,11");
+    }
+
+    [Test]
+    public async Task Renaming_an_untouched_picture_keeps_its_anchor()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Picture("Logo").Name = "Brand");
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
+        await Assert.That(drawing).Contains("name=\"Brand\"");
+        await Assert.That(drawing).DoesNotContain("name=\"Logo\"");
+    }
+
+    [Test]
+    public async Task Moving_the_picture_writes_the_anchor_from_the_model()
+    {
+        // Once the caller places the picture, the model decides the anchor: MoveTo(cell) is a
+        // one-cell anchor at the new cell.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Picture("Logo").MoveTo(ws.Cell("F2")));
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:oneCellAnchor>");
+        await Assert.That(drawing).DoesNotContain("editAs");
+        await Assert.That(drawing).Contains("<xdr:from><xdr:col>5</xdr:col>");
+    }
+
+    [Test]
+    public async Task Changing_the_placement_writes_the_anchor_from_the_model()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"),
+            ws => ws.Picture("Logo").Placement = XLPicturePlacement.Move);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:oneCellAnchor>");
+        await Assert.That(drawing).DoesNotContain("editAs");
+    }
+
+    [Test]
+    public async Task Resizing_the_picture_writes_the_anchor_from_the_model()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Picture("Logo").Width = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:oneCellAnchor>");
+        await Assert.That(drawing).Contains($"cx=\"{40 * 9525}\"");
+    }
+
+    [Test]
+    public async Task A_second_save_keeps_the_anchor()
+    {
+        using var source = PictureFromB8ToD12("oneCell");
+        using var wb = new XLWorkbook(source);
+        using var first = new MemoryStream();
+        using var second = new MemoryStream();
+        wb.SaveAs(first);
+        wb.SaveAs(second);
+
+        var drawing = second.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
+        await Assert.That(Markers(drawing)).IsEqualTo("from 1,7 to 3,11");
+    }
+
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
+
+    /// <summary>
+    /// An 8×8 px picture anchored B8 to D12 the way Excel anchors an inserted picture: a two-cell
+    /// anchor whose <c>editAs</c> says how it follows the grid. This is the repro of ClosedXML #2895.
+    /// </summary>
+    private static MemoryStream PictureFromB8ToD12(string editAs)
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            ws.AddPicture(new MemoryStream(Png), "Logo").MoveTo(ws.Cell("B8"), ws.Cell("D12"));
+            wb.SaveAs(package);
+        }
+
+        return package.RewritePart(Drawing1,
+            xml => xml.Replace("<xdr:twoCellAnchor>", $"<xdr:twoCellAnchor editAs=\"{editAs}\">"));
+    }
+
+    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
+    {
+        using (source)
+        {
+            var saved = new MemoryStream();
+            using var wb = new XLWorkbook(source);
+            edit(wb.Worksheet(1));
+            wb.SaveAs(saved);
+            return saved;
+        }
+    }
+
+    /// <summary>The zero-based column and row of the anchor's two markers, e.g. <c>from 1,7 to 3,11</c>.</summary>
+    private static string Markers(string drawing)
+    {
+        static string Marker(string drawing, string name)
+        {
+            var m = Regex.Match(drawing,
+                $@"<xdr:{name}><xdr:col>(\d+)</xdr:col><xdr:colOff>-?\d+</xdr:colOff><xdr:row>(\d+)</xdr:row>");
+            return m.Success ? $"{m.Groups[1].Value},{m.Groups[2].Value}" : "none";
+        }
+
+        return $"from {Marker(drawing, "from")} to {Marker(drawing, "to")}";
+    }
+
+    private static string Xfrm(string drawing) => Regex.Match(drawing, "<a:xfrm>.*?</a:xfrm>").Value;
+}
