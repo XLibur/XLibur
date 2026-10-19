@@ -128,6 +128,34 @@ public class PictureAnchorSizeTests
     }
 
     [Test]
+    public async Task Resizing_a_row_inside_a_one_cell_picture_keeps_the_size_it_was_shown_at()
+    {
+        // Excel keeps a oneCell picture 96 x 57.6 pt when row 9 under it is made 40 pt high. The
+        // kept markers would now stretch it, so the anchor is written from the model, whose size
+        // must be the 128 x 80 px box and not the 8 px xfrm.
+        using var saved = LoadAndSave(Case("issue", "oneCell"), ws => ws.Row(9).Height = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:oneCellAnchor>");
+        await Assert.That(drawing).Contains("<xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>7</xdr:row>");
+        await Assert.That(drawing).Contains($"<xdr:ext cx=\"{128 * 9525}\" cy=\"{80 * 9525}\" />");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_above_an_absolute_picture_keeps_where_it_was_shown()
+    {
+        // Excel keeps an absolute picture at 48, 100.8 pt when row 3 above it is made 40 pt high.
+        // The anchor written from the model must hold the box's position and size, not the xfrm's
+        // 0,0 and 8 px.
+        using var saved = LoadAndSave(Case("issue", "absolute"), ws => ws.Row(3).Height = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:absoluteAnchor>");
+        await Assert.That(drawing).Contains($"<xdr:pos x=\"{64 * 9525}\" y=\"{140 * 9525}\" />");
+        await Assert.That(drawing).Contains($"<xdr:ext cx=\"{128 * 9525}\" cy=\"{80 * 9525}\" />");
+    }
+
+    [Test]
     public async Task Scaling_the_picture_scales_the_size_it_was_shown_at()
     {
         using var saved = LoadAndSave(Case("issue", "oneCell"), ws => ws.Picture("Logo").Scale(0.5));
