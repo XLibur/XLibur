@@ -151,6 +151,94 @@ public class PictureEditAsRoundTripTests
     }
 
     [Test]
+    public async Task An_explicit_two_cell_picture_still_stretches_with_inserted_rows()
+    {
+        // editAs="twoCell" is the default spelled out; the model says it back, so nothing is kept
+        // and both corners move with the grid.
+        using var saved = LoadAndSave(PictureFromB8ToD12("twoCell"), ws => ws.Row(10).InsertRowsAbove(2));
+
+        await Assert.That(Markers(saved.ReadPart(Drawing1))).IsEqualTo("from 1,7 to 3,13");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_inside_a_one_cell_picture_writes_the_anchor_from_the_model()
+    {
+        // The kept markers would stretch the picture over the taller row; Excel keeps its size.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Row(9).Height = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:oneCellAnchor>");
+        await Assert.That(drawing).DoesNotContain("editAs");
+    }
+
+    [Test]
+    public async Task Resizing_a_column_inside_a_one_cell_picture_writes_the_anchor_from_the_model()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Column("C").Width = 30);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:oneCellAnchor>");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_above_a_one_cell_picture_keeps_its_anchor()
+    {
+        // A one-cell picture hangs off its top-left cell, so rows above it change neither its
+        // markers nor its size.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws => ws.Row(2).Height = 40);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_below_a_picture_keeps_its_anchor()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"), ws => ws.Row(20).Height = 40);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:twoCellAnchor editAs=\"absolute\">");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_above_an_absolute_picture_writes_the_anchor_from_the_model()
+    {
+        // The kept markers would move the picture down with the taller row; Excel leaves it where
+        // it was.
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"), ws => ws.Row(1).Height = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:absoluteAnchor>");
+        await Assert.That(drawing).DoesNotContain("editAs");
+    }
+
+    [Test]
+    public async Task Hiding_a_column_left_of_an_absolute_picture_writes_the_anchor_from_the_model()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"), ws => ws.Column("A").Hide());
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:absoluteAnchor>");
+    }
+
+    [Test]
+    public async Task Changing_the_default_row_height_writes_the_anchor_from_the_model()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute"), ws => ws.RowHeight = 30);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:absoluteAnchor>");
+    }
+
+    [Test]
+    public async Task Inserting_taller_rows_inside_a_one_cell_picture_writes_the_anchor_from_the_model()
+    {
+        // Keeping the span would put a 40 pt row inside the picture, so it would stretch.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell"), ws =>
+        {
+            ws.Row(10).InsertRowsAbove(1);
+            ws.Row(10).Height = 40;
+        });
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:oneCellAnchor>");
+    }
+
+    [Test]
     public async Task A_second_save_keeps_the_anchor()
     {
         using var source = PictureFromB8ToD12("oneCell");
