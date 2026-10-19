@@ -287,12 +287,14 @@ internal static class PictureWriter
     /// The anchor is edited, not replaced, as a slicer's is: only each marker's column and row, which
     /// a row or column edit may have moved, and the picture's name and image link, which the model
     /// owns. The cell offsets, <c>a:xfrm</c> and anything Excel added that XLibur does not model stay
-    /// as the file had them. Returns <c>false</c> when the anchor is not the one that was loaded, and
-    /// the caller regenerates it.
+    /// as the file had them. Returns <c>false</c> when the anchor is not the one that was loaded, or
+    /// when the rows and columns under it were resized so the kept markers would no longer place the
+    /// picture where Excel showed it; the caller then regenerates it.
     /// </remarks>
     private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, XLKeptAnchor kept, XLPicture pic, string embedId)
     {
-        if (anchor.EditAs?.Value != kept.Placement.ToOpenXml() ||
+        if (!kept.IsLayoutUnchanged ||
+            anchor.EditAs?.Value != kept.Placement.ToOpenXml() ||
             anchor.FromMarker is not { } from ||
             anchor.ToMarker is not { } to ||
             anchor.GetFirstChild<Xdr.Picture>() is not { } picture)
