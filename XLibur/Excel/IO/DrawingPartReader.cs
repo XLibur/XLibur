@@ -560,6 +560,18 @@ internal static class DrawingPartReader
         var from = LoadMarker(ws, twoCellAnchor.FromMarker!);
         var to = LoadMarker(ws, twoCellAnchor.ToMarker!);
 
+        // Excel sizes every two-cell anchor from its markers, whatever editAs says, and ignores
+        // a:xfrm, which other writers leave at offset 0,0 and the native size (#782). The size is
+        // set while the picture is still free-floating, before a placement below forbids it. A box
+        // with no visible width or height (all of it hidden, or to before from) keeps the xfrm size
+        // read before, which a later edit can still write back.
+        var box = AnchorBox.Measure(ws, twoCellAnchor.FromMarker!, twoCellAnchor.ToMarker!);
+        if (box.Width > 0)
+            picture.Width = box.Width;
+
+        if (box.Height > 0)
+            picture.Height = box.Height;
+
         if (twoCellAnchor.EditAs == null || !twoCellAnchor.EditAs.HasValue ||
             twoCellAnchor.EditAs.Value == Xdr.EditAsValues.TwoCell)
         {
@@ -567,15 +579,7 @@ internal static class DrawingPartReader
         }
         else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.Absolute)
         {
-            var shapeProperties = twoCellAnchor.Descendants<Xdr.ShapeProperties>().FirstOrDefault();
-            if (shapeProperties != null)
-            {
-                var spPr = shapeProperties;
-                picture.MoveTo(
-                    ConvertFromEnglishMetricUnits(spPr.Transform2D!.Offset!.X!, ws.Workbook.DpiX),
-                    ConvertFromEnglishMetricUnits(spPr.Transform2D.Offset.Y!, ws.Workbook.DpiY)
-                );
-            }
+            picture.MoveTo(box.Left, box.Top);
         }
         else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.OneCell)
         {
