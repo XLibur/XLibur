@@ -19,8 +19,12 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     private readonly Dictionary<string, int> _nameUses = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, int> _idUses = [];
 
-    // The highest id, or null when it must be read again because the picture holding it changed.
+    // The highest id, and the highest id below it, or null when not known. The one below is the
+    // highest once the picture holding the highest gives it up, as a loaded picture does: it takes
+    // the next free id, the highest, when it is created, then the file's. Without it each loaded
+    // picture lost the highest, and the next one read every id to find it again (#804).
     private int? _highestId;
+    private int? _belowHighestId;
 
     public XLPictures(XLWorksheet worksheet)
     {
@@ -348,16 +352,20 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     /// <summary>
     /// Whether <paramref name="name"/>, in any case, is the name of a shape the drawing keeps, or of a
-    /// picture of this collection other than <paramref name="renamed"/>.
+    /// picture of this collection other than <paramref name="changing"/>.
     /// </summary>
-    internal bool IsNameTaken(string name, XLPicture? renamed = null) =>
+    /// <param name="name">The name to check.</param>
+    /// <param name="changing">The picture that is to take the name, or <c>null</c> for a new one.</param>
+    internal bool IsNameTaken(string name, XLPicture? changing = null) =>
         _keptShapeNames.Contains(name) ||
         _nameUses.GetValueOrDefault(name) >
-        (renamed is { IsInCollection: true } && string.Equals(renamed.Name, name, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+        (changing is { IsInCollection: true } && string.Equals(changing.Name, name, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
 
-    /// <summary>Whether a picture of this collection other than <paramref name="picture"/> has the id <paramref name="id"/>.</summary>
-    internal bool IsIdTaken(int id, XLPicture picture) =>
-        _idUses.GetValueOrDefault(id) > (picture.IsInCollection && picture.Id == id ? 1 : 0);
+    /// <summary>Whether a picture of this collection other than <paramref name="changing"/> has the id <paramref name="id"/>.</summary>
+    /// <param name="id">The id to check.</param>
+    /// <param name="changing">The picture that is to take the id.</param>
+    internal bool IsIdTaken(int id, XLPicture changing) =>
+        _idUses.GetValueOrDefault(id) > (changing.IsInCollection && changing.Id == id ? 1 : 0);
 
     /// <summary>
     /// The id a new picture takes: one more than the highest id of any picture in
@@ -376,13 +384,39 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     }
 
     /// <summary>The highest id of a picture of this collection, or <c>null</c> when it is empty.</summary>
-    private int? HighestId => _idUses.Count == 0 ? null : _highestId ??= _idUses.Keys.Max();
+    private int? HighestId => _idUses.Count == 0 ? null : _highestId ??= ReadHighestId();
+
+    /// <summary>How many times the highest id was found by reading every id. A probe for tests.</summary>
+    internal int HighestIdReads { get; private set; }
+
+    /// <summary>Reads every id for the highest, and the highest below it. The collection is not empty.</summary>
+    private int ReadHighestId()
+    {
+        HighestIdReads++;
+        int? highest = null;
+        int? below = null;
+        foreach (var id in _idUses.Keys)
+        {
+            if (highest is not { } h || id > h)
+            {
+                below = highest;
+                highest = id;
+            }
+            else if (below is not { } b || id > b)
+            {
+                below = id;
+            }
+        }
+
+        _belowHighestId = below;
+        return highest.GetValueOrDefault();
+    }
 
     /// <summary>Called by <paramref name="picture"/> when its name changes from <paramref name="oldName"/>.</summary>
     internal void OnRenamed(XLPicture picture, string oldName)
     {
         Release(_nameUses, oldName);
-        Take(_nameUses, picture.Name);
+        TakeName(picture.Name);
     }
 
     /// <summary>Called by <paramref name="picture"/> when its id changes from <paramref name="oldId"/>.</summary>
@@ -396,7 +430,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     {
         _pictures.Add(picture);
         picture.IsInCollection = true;
-        Take(_nameUses, picture.Name);
+        TakeName(picture.Name);
         TakeId(picture.Id);
     }
 
@@ -408,25 +442,63 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         ReleaseId(picture.Id);
     }
 
+    /// <summary>A picture not yet named, being created, has the empty name, which takes nothing.</summary>
+    private void TakeName(string name)
+    {
+        if (name.Length != 0)
+            Take(_nameUses, name);
+    }
+
     private void TakeId(int id)
     {
-        Take(_idUses, id);
-        if (_highestId < id)
+        if (!Take(_idUses, id))
+            return;
+
+        if (_idUses.Count == 1)
+        {
             _highestId = id;
+            _belowHighestId = null;
+            return;
+        }
+
+        // A highest not known is read when it is next asked for.
+        if (_highestId is not { } highest)
+            return;
+
+        if (id > highest)
+        {
+            _belowHighestId = highest;
+            _highestId = id;
+        }
+        else if (_belowHighestId < id || _idUses.Count == 2)
+        {
+            // With two ids, the one below the highest is this one.
+            _belowHighestId = id;
+        }
     }
 
     private void ReleaseId(int id)
     {
-        if (Release(_idUses, id) && _highestId == id)
-            _highestId = null;
-    }
-
-    private static void Take<TKey>(Dictionary<TKey, int> uses, TKey key) where TKey : notnull
-    {
-        if (key is string { Length: 0 })
+        if (!Release(_idUses, id))
             return;
 
-        uses[key] = uses.GetValueOrDefault(key) + 1;
+        if (id == _highestId)
+        {
+            _highestId = _belowHighestId;
+            _belowHighestId = null;
+        }
+        else if (id == _belowHighestId)
+        {
+            _belowHighestId = null;
+        }
+    }
+
+    /// <summary>Takes one use of <paramref name="key"/>; returns whether it is the first.</summary>
+    private static bool Take<TKey>(Dictionary<TKey, int> uses, TKey key) where TKey : notnull
+    {
+        var count = uses.GetValueOrDefault(key);
+        uses[key] = count + 1;
+        return count == 0;
     }
 
     /// <summary>Releases one use of <paramref name="key"/>; returns whether no use of it is left.</summary>
@@ -449,9 +521,9 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// Throws when <paramref name="name"/> is taken (see <see cref="IsNameTaken"/>). A named <c>Add</c>
     /// checks before it creates the picture, so a taken name leaves the collection as it was (#806).
     /// </summary>
-    internal void ThrowIfNameTaken(string name, XLPicture? renamed = null)
+    internal void ThrowIfNameTaken(string name, XLPicture? changing = null)
     {
-        if (IsNameTaken(name, renamed))
+        if (IsNameTaken(name, changing))
             throw new ArgumentException($"The picture name '{name}' already exists.");
     }
 

@@ -145,6 +145,67 @@ public class PictureIdAndNameTests
     }
 
     [Test]
+    public async Task A_load_reads_each_sheets_picture_ids_for_the_highest_at_most_once()
+    {
+        // Each loaded picture first takes the next free id, then the file's. Before the fix, giving
+        // up the next free id, the highest, lost the highest, and each picture after it read every
+        // id again to find it: a load of n pictures read n² ids.
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            foreach (var sheet in new[] { wb.AddWorksheet(), wb.AddWorksheet() })
+            {
+                for (var i = 0; i < 10; i++)
+                    sheet.AddPicture(new MemoryStream(Png)).MoveTo(sheet.Cell(i * 5 + 1, 1));
+            }
+
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        using var loaded = new XLWorkbook(saved);
+        foreach (var sheet in loaded.Worksheets)
+        {
+            var pictures = (XLPictures)sheet.Pictures;
+            await Assert.That(pictures.Count).IsEqualTo(10);
+            await Assert.That(pictures.HighestIdReads).IsLessThanOrEqualTo(1);
+        }
+
+        // The highest is still right: the save numbers each drawing's pictures from 1, so each
+        // sheet holds 1 to 10.
+        await Assert.That(loaded.Worksheet(1).AddPicture(new MemoryStream(Png)).Id).IsEqualTo(11);
+    }
+
+    [Test]
+    public async Task A_new_picture_takes_the_id_after_the_highest_through_any_run_of_changes()
+    {
+        // Adds, deletes and new ids in a fixed random order. After each, a new picture takes one
+        // more than the highest id the sheet's pictures hold, read from the pictures themselves.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var random = new Random(804);
+        for (var step = 0; step < 300; step++)
+        {
+            var pictures = ws.Pictures.Cast<XLPicture>().ToList();
+            var choice = random.Next(3);
+            if (choice == 0 || pictures.Count < 2)
+            {
+                var expected = pictures.Select(p => p.Id).DefaultIfEmpty(0).Max() + 1;
+                await Assert.That(ws.AddPicture(new MemoryStream(Png)).Id).IsEqualTo(expected);
+            }
+            else if (choice == 1)
+            {
+                pictures[random.Next(pictures.Count)].Delete();
+            }
+            else
+            {
+                var free = Enumerable.Range(1, 40).Except(pictures.Select(p => p.Id)).ToList();
+                pictures[random.Next(pictures.Count)].Id = free[random.Next(free.Count)];
+            }
+        }
+    }
+
+    [Test]
     public async Task Pictures_grouped_in_a_save_that_removes_a_grouped_picture_are_written_with_their_new_names()
     {
         // The save removes Picture 2 from the loaded group, then builds the new group, then writes

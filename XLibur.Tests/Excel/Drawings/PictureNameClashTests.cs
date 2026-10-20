@@ -17,13 +17,13 @@ public class PictureNameClashTests
     [Test]
     public async Task Pictures_Add_stream_with_a_taken_name_adds_no_picture()
     {
-        await AssertClashAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), "logo"));
+        await AssertRejectedNameAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), "logo"));
     }
 
     [Test]
     public async Task Pictures_Add_stream_and_format_with_a_taken_name_adds_no_picture()
     {
-        await AssertClashAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), XLPictureFormat.Png, "LOGO"));
+        await AssertRejectedNameAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), XLPictureFormat.Png, "LOGO"));
     }
 
     [Test]
@@ -32,7 +32,7 @@ public class PictureNameClashTests
         var file = PngFile();
         try
         {
-            await AssertClashAddsNoPicture(ws => ws.Pictures.Add(file, "Logo"));
+            await AssertRejectedNameAddsNoPicture(ws => ws.Pictures.Add(file, "Logo"));
         }
         finally
         {
@@ -43,13 +43,13 @@ public class PictureNameClashTests
     [Test]
     public async Task AddPicture_stream_with_a_taken_name_adds_no_picture()
     {
-        await AssertClashAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), "logo"));
+        await AssertRejectedNameAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), "logo"));
     }
 
     [Test]
     public async Task AddPicture_stream_and_format_with_a_taken_name_adds_no_picture()
     {
-        await AssertClashAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), XLPictureFormat.Png, "LOGO"));
+        await AssertRejectedNameAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), XLPictureFormat.Png, "LOGO"));
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class PictureNameClashTests
         var file = PngFile();
         try
         {
-            await AssertClashAddsNoPicture(ws => ws.AddPicture(file, "Logo"));
+            await AssertRejectedNameAddsNoPicture(ws => ws.AddPicture(file, "Logo"));
         }
         finally
         {
@@ -69,9 +69,9 @@ public class PictureNameClashTests
     [Test]
     public async Task A_whitespace_name_adds_no_picture()
     {
-        await AssertClashAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), "   "));
-        await AssertClashAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), XLPictureFormat.Png, " "));
-        await AssertClashAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), "\t"));
+        await AssertRejectedNameAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), "   "));
+        await AssertRejectedNameAddsNoPicture(ws => ws.Pictures.Add(new MemoryStream(Png), XLPictureFormat.Png, " "));
+        await AssertRejectedNameAddsNoPicture(ws => ws.AddPicture(new MemoryStream(Png), "\t"));
     }
 
     [Test]
@@ -87,7 +87,11 @@ public class PictureNameClashTests
         await Assert.That(ws.AddPicture(new MemoryStream(Png)).Name).IsEqualTo("Picture 2");
     }
 
-    private static async Task AssertClashAddsNoPicture(Func<IXLWorksheet, IXLPicture> addSecond)
+    /// <summary>
+    /// Beside a picture named "Logo", <paramref name="addSecond"/> throws, because the name it gives
+    /// is taken or blank, and leaves "Logo" the sheet's only picture.
+    /// </summary>
+    private static async Task AssertRejectedNameAddsNoPicture(Func<IXLWorksheet, IXLPicture> addSecond)
     {
         using var saved = new MemoryStream();
         using (var wb = new XLWorkbook())
