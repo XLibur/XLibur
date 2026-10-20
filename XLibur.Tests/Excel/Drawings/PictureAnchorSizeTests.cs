@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -71,6 +72,37 @@ public class PictureAnchorSizeTests
 
         await Assert.That(picture.Placement).IsEqualTo(XLPicturePlacement.FreeFloating);
         await Assert.That($"{picture.Left},{picture.Top}").IsEqualTo($"{left},{top}");
+    }
+
+    [Test]
+    // A range to the last column is the sheet's default: B and C are 114 px each, as Excel converts
+    // a width of 12.7109375 at a digit width of 9 px, not 115 px.
+    [Arguments("rangeDefault", 228)]
+    // B and C state the same width as the range after them: 82 px each, not 83.
+    [Arguments("rangeExplicit", 164)]
+    // B and C state 12.710625, 114 px, which is not the 115 px default of defaultColWidth="12.78"
+    // although the model holds the same width for both.
+    [Arguments("explicitAtDefault", 228)]
+    // C onwards is 0 wide, so the box is column B alone.
+    [Arguments("rangeZero", 114)]
+    // A width of 0 that is not hidden is drawn as 0 px, the same as a hidden column.
+    [Arguments("zeroWidth", 80)]
+    // Excel takes the digit width from the first font of the stylesheet, Calibri 11 here, although
+    // the default cell format uses Arial 20: 115 px columns.
+    [Arguments("cellFont", 230)]
+    // ... and although the Normal style uses Arial 20.
+    [Arguments("normalStyleFont", 230)]
+    // baseColWidth="12" is 12 digits and padding, rounded up to a multiple of 8 px: 120 px.
+    [Arguments("cellFontBaseWidth", 240)]
+    // No stated width is baseColWidth 8: 80 px.
+    [Arguments("cellFontNoWidth", 160)]
+    public async Task A_picture_measures_its_columns_as_excel_draws_them(string fixture, int width)
+    {
+        // Measured in Excel at 120 DPI. Only the width: the rows of these sheets are at a default
+        // height the file does not state, which Excel derives from the font.
+        var picture = Load(StatedColumnsCase(fixture), AtExcelDpi);
+
+        await Assert.That(picture.Width).IsEqualTo(width);
     }
 
     [Test]
@@ -225,6 +257,71 @@ public class PictureAnchorSizeTests
         }, "B8", default, "D12", default),
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
+
+    private const string StatedRowHeight = "<x:sheetFormatPr defaultRowHeight=\"15\" />";
+
+    /// <summary>
+    /// The B8:D12 <c>oneCell</c> picture of <c>issue</c>, on a sheet whose <c>sheetFormatPr</c>,
+    /// <c>cols</c> and fonts are written as Excel or another writer may state them.
+    /// </summary>
+    private static MemoryStream StatedColumnsCase(string name) => name switch
+    {
+        "rangeDefault" => WithColumns(StatedRowHeight,
+            "<x:col min=\"1\" max=\"16384\" width=\"12.7109375\" customWidth=\"1\" />"),
+        "rangeExplicit" => WithColumns(StatedRowHeight,
+            "<x:col min=\"2\" max=\"3\" width=\"9.140625\" customWidth=\"1\" />" +
+            "<x:col min=\"4\" max=\"16384\" width=\"9.140625\" customWidth=\"1\" />"),
+        "explicitAtDefault" => WithColumns("<x:sheetFormatPr defaultColWidth=\"12.78\" defaultRowHeight=\"15\" />",
+            "<x:col min=\"2\" max=\"3\" width=\"12.710625\" customWidth=\"1\" />"),
+        "rangeZero" => WithColumns(StatedRowHeight,
+            "<x:col min=\"2\" max=\"2\" width=\"12.7109375\" customWidth=\"1\" />" +
+            "<x:col min=\"3\" max=\"16384\" width=\"0\" customWidth=\"1\" />"),
+        "zeroWidth" => WithColumns(StatedRowHeight, "<x:col min=\"3\" max=\"3\" width=\"0\" customWidth=\"1\" />"),
+        "cellFont" => WithArialCellFormat(WithColumns(
+            "<x:sheetFormatPr defaultColWidth=\"12.78\" defaultRowHeight=\"15\" />", null)),
+        "normalStyleFont" => WithArialNormalStyle(WithColumns(
+            "<x:sheetFormatPr defaultColWidth=\"12.78\" defaultRowHeight=\"15\" />", null)),
+        "cellFontBaseWidth" => WithArialCellFormat(WithColumns(
+            "<x:sheetFormatPr baseColWidth=\"12\" defaultRowHeight=\"15\" />", null)),
+        "cellFontNoWidth" => WithArialCellFormat(WithColumns(StatedRowHeight, null)),
+        _ => throw new ArgumentOutOfRangeException(nameof(name)),
+    };
+
+    private static MemoryStream WithColumns(string sheetFormat, string? columns) =>
+        Case("issue", "oneCell").RewriteSheet1(xml => xml
+            .Replace("<x:sheetFormatPr defaultRowHeight=\"15\" />", sheetFormat)
+            .Replace("<x:sheetData", columns is null ? "<x:sheetData" : $"<x:cols>{columns}</x:cols><x:sheetData"));
+
+    private const string Calibri11 =
+        "<x:font><x:sz val=\"11\" /><x:color rgb=\"FF000000\" /><x:name val=\"Calibri\" /><x:family val=\"2\" /></x:font>";
+
+    private const string Arial20 =
+        "<x:font><x:sz val=\"20\" /><x:color rgb=\"FF000000\" /><x:name val=\"Arial\" /><x:family val=\"2\" /></x:font>";
+
+    /// <summary>The first font is Calibri 11, the default cell format Arial 20.</summary>
+    private static MemoryStream WithArialCellFormat(MemoryStream package) => package.RewritePart("xl/styles.xml",
+        xml => WithStyles(xml,
+            "<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+            "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" /></x:cellXfs>",
+            "<x:cellStyles count=\"1\"><x:cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\" /></x:cellStyles>"));
+
+    /// <summary>The first font is Calibri 11, the Normal style (the second style format) Arial 20.</summary>
+    private static MemoryStream WithArialNormalStyle(MemoryStream package) => package.RewritePart("xl/styles.xml",
+        xml => WithStyles(xml,
+            "<x:cellStyleXfs count=\"2\"><x:xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" />" +
+            "<x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+            "<x:cellXfs count=\"2\"><x:xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" />" +
+            "<x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"1\" /></x:cellXfs>",
+            "<x:cellStyles count=\"2\"><x:cellStyle name=\"Plain\" xfId=\"0\" />" +
+            "<x:cellStyle name=\"Normal\" xfId=\"1\" builtinId=\"0\" /></x:cellStyles>"));
+
+    private static string WithStyles(string xml, string cellStyleXfs, string cellXfs, string cellStyles)
+    {
+        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{Calibri11}{Arial20}</x:fonts>");
+        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs);
+        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs);
+        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles);
+    }
 
     /// <summary>
     /// Rows of 18 pt and columns 12 characters wide by default, with column C 20 characters wide and

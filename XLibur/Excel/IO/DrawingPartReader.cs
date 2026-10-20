@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -52,18 +53,25 @@ internal static class DrawingPartReader
         { "mm", 72.0 / 25.4 }
     };
 
-    internal static void LoadDrawings(WorksheetPart wsPart, XLWorksheet ws)
+    internal static void LoadDrawings(WorksheetPart wsPart, XLWorksheet ws, LoadContext context)
     {
         if (wsPart.DrawingsPart == null)
             return;
 
         var drawingsPart = wsPart.DrawingsPart;
 
+        // One grid for every two-cell anchor on the sheet, built only if the sheet has one.
+        var columnWidths = context.SheetColumnWidths;
+        var grid = new Lazy<AnchorGrid>(
+            () => new AnchorGrid(ws, columnWidths, context.MaxDigitWidth(ws.Workbook)),
+            LazyThreadSafetyMode.None);
+
         foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
-            LoadDrawingAnchor(anchor, drawingsPart, ws);
+            LoadDrawingAnchor(anchor, drawingsPart, ws, grid);
     }
 
-    private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws)
+    private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws,
+        Lazy<AnchorGrid> grid)
     {
         // Pictures nested inside a top-level group shape (xdr:grpSp) are laid out in the
         // group's child coordinate space. Load each of them as an editable picture that
@@ -87,7 +95,7 @@ internal static class DrawingPartReader
 
         var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
         LoadPictureTransform(picture, anchor, ws);
-        LoadPicturePlacement(picture, anchor, ws);
+        LoadPicturePlacement(picture, anchor, ws, grid);
     }
 
     internal static int ConvertFromEnglishMetricUnits(long emu, double resolution)
@@ -535,7 +543,7 @@ internal static class DrawingPartReader
     }
 
     private static void LoadPicturePlacement(XLPicture picture,
-        OpenXmlElement anchor, XLWorksheet ws)
+        OpenXmlElement anchor, XLWorksheet ws, Lazy<AnchorGrid> grid)
     {
         if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
         {
@@ -551,11 +559,12 @@ internal static class DrawingPartReader
         }
         else if (anchor is Xdr.TwoCellAnchor twoCellAnchor)
         {
-            LoadTwoCellAnchorPlacement(picture, twoCellAnchor, ws);
+            LoadTwoCellAnchorPlacement(picture, twoCellAnchor, ws, grid.Value);
         }
     }
 
-    private static void LoadTwoCellAnchorPlacement(XLPicture picture, Xdr.TwoCellAnchor twoCellAnchor, XLWorksheet ws)
+    private static void LoadTwoCellAnchorPlacement(XLPicture picture, Xdr.TwoCellAnchor twoCellAnchor, XLWorksheet ws,
+        AnchorGrid grid)
     {
         var from = LoadMarker(ws, twoCellAnchor.FromMarker!);
         var to = LoadMarker(ws, twoCellAnchor.ToMarker!);
@@ -565,7 +574,7 @@ internal static class DrawingPartReader
         // set while the picture is still free-floating, before a placement below forbids it. A box
         // with no visible width or height (all of it hidden, or to before from) keeps the xfrm size
         // read before, which a later edit can still write back.
-        var box = AnchorBox.Measure(ws, twoCellAnchor.FromMarker!, twoCellAnchor.ToMarker!);
+        var box = AnchorBox.Measure(grid, twoCellAnchor.FromMarker!, twoCellAnchor.ToMarker!);
         if (box.Width > 0)
             picture.Width = box.Width;
 

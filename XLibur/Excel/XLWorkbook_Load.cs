@@ -525,6 +525,7 @@ public partial class XLWorkbook
 
             StyleDecoder.ApplyStyle(ws, 0, styles);
 
+            context.SheetColumnWidths = new StatedColumnWidths();
             LoadWorksheetElements(worksheetPart, ws, sharedStrings, context);
 
             // Before anything else writes a cell: loading a table, for one, names empty header cells
@@ -538,7 +539,7 @@ public partial class XLWorkbook
 
             LoadTables(worksheetPart, ws);
 
-            DrawingPartReader.LoadDrawings(worksheetPart, ws);
+            DrawingPartReader.LoadDrawings(worksheetPart, ws, context);
 
             ChartReader.LoadCharts(worksheetPart, ws);
 
