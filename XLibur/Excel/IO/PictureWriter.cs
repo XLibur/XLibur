@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
@@ -115,9 +114,8 @@ internal static class PictureWriter
     {
         var groupedPictures = new List<XLPicture>();
         var fedImages = new Dictionary<string, MemoryStream>();
+        var layout = GridLayout.OnFirstUse(xlWorksheet);
 
-        // One layout for every kept anchor on the sheet to compare with, built only if it has one (#785).
-        var layout = new Lazy<GridLayout>(() => GridLayout.Of(xlWorksheet), LazyThreadSafetyMode.None);
         foreach (var pic in xlWorksheet.Pictures)
         {
             var xlPic = (XLPicture)pic;

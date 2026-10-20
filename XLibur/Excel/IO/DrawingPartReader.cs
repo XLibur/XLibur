@@ -67,8 +67,7 @@ internal static class DrawingPartReader
             () => new AnchorGrid(ws, columnWidths, ws.Workbook.MaxDigitWidth),
             LazyThreadSafetyMode.None);
 
-        // One layout for every kept anchor on the sheet, built only if the sheet has one (#785).
-        var layout = new Lazy<GridLayout>(() => GridLayout.Of(ws), LazyThreadSafetyMode.None);
+        var layout = GridLayout.OnFirstUse(ws);
 
         foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
             LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);

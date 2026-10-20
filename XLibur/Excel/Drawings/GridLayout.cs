@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace XLibur.Excel.Drawings;
 
@@ -26,7 +27,17 @@ internal sealed class GridLayout
             static row => row.IsHidden ? 0 : row.Height),
         LineLayout.Of(worksheet.Internals.ColumnsCollection, worksheet.ColumnWidth,
             static column => column.IsHidden ? 0 : column.Width));
+
+    /// <summary>
+    /// The layout <paramref name="worksheet"/> has when it is first asked for: one for every kept
+    /// anchor on the sheet, taken only if the sheet has one (#785).
+    /// </summary>
+    internal static Lazy<GridLayout> OnFirstUse(XLWorksheet worksheet) =>
+        new(() => Of(worksheet), LazyThreadSafetyMode.None);
 }
+
+/// <summary>The rows or the columns <see cref="First"/> to <see cref="Last"/>, both included.</summary>
+internal readonly record struct LineRun(int First, int Last);
 
 /// <summary>
 /// The sizes of the rows or the columns of a sheet: the sheet's default, and each line that differs
@@ -80,20 +91,21 @@ internal sealed class LineLayout
     }
 
     /// <summary>
-    /// Whether lines <paramref name="first"/> to <paramref name="last"/> of this layout have the sizes
-    /// that lines <paramref name="beforeFirst"/> to <paramref name="beforeLast"/> had in
-    /// <paramref name="before"/>, line for line from the first. Lines past the end of the shorter
-    /// run must be of the default size.
+    /// Whether the lines of <paramref name="run"/> in this layout have the sizes the lines of
+    /// <paramref name="beforeRun"/> had in <paramref name="before"/>, line for line from the first.
+    /// Lines past the end of the shorter run must be of the default size.
     /// </summary>
-    internal bool HasSameSizes(int first, int last, LineLayout before, int beforeFirst, int beforeLast)
+    internal bool HasSameSizes(LineRun run, LineLayout before, LineRun beforeRun)
     {
         if (!SameSize(_defaultSize, before._defaultSize))
             return false;
 
+        var first = run.First;
+        var beforeFirst = beforeRun.First;
         var index = FirstAtOrAfter(first);
-        var end = FirstAtOrAfter(last + 1);
+        var end = FirstAtOrAfter(run.Last + 1);
         var beforeIndex = before.FirstAtOrAfter(beforeFirst);
-        var beforeEnd = before.FirstAtOrAfter(beforeLast + 1);
+        var beforeEnd = before.FirstAtOrAfter(beforeRun.Last + 1);
         if (end - index != beforeEnd - beforeIndex)
             return false;
 

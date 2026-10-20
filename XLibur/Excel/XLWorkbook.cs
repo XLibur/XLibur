@@ -119,7 +119,7 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal double DpiY { get; }
 
-    private IXLFontBase _firstFont = new XLFont(XLFontValue.Default.Key);
+    private IXLFontBase? _firstFont;
 
     private int? _maxDigitWidth;
 
@@ -131,16 +131,21 @@ public partial class XLWorkbook : IXLWorkbook
     /// <remarks>
     /// A workbook created in memory, or loaded from a stylesheet with no fonts, has the default font:
     /// the save writes that font first, whatever <see cref="Style"/> holds. A loaded stylesheet keeps
-    /// its fonts in order when it is saved, so its first font stays first.
+    /// its fonts in order when it is saved, so its first font stays first. Only the load sets it, once
+    /// (<see cref="SetFirstFont"/>).
     /// </remarks>
-    internal IXLFontBase FirstFont
+    internal IXLFontBase FirstFont => _firstFont ??= new XLFont(XLFontValue.Default.Key);
+
+    /// <summary>
+    /// Sets <see cref="FirstFont"/> to the first font of the stylesheet being loaded. It is set once,
+    /// before any column is measured, so <see cref="MaxDigitWidth"/> never holds another font's width.
+    /// </summary>
+    internal void SetFirstFont(IXLFontBase firstFont)
     {
-        get => _firstFont;
-        set
-        {
-            _firstFont = value;
-            _maxDigitWidth = null;
-        }
+        if (_firstFont is not null || _maxDigitWidth is not null)
+            throw new InvalidOperationException("The first font is set once, by the load, before any column is measured.");
+
+        _firstFont = firstFont;
     }
 
     /// <summary>
