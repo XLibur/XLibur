@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Drawings;
@@ -77,6 +78,11 @@ internal static class GroupedPictureWriter
     /// child <c>off</c>/<c>ext</c> to the member's absolute sheet geometry (identity child space) and removing
     /// the now-empty top-level anchor.
     /// </summary>
+    /// <remarks>
+    /// A picture in <c>mc:AlternateContent</c>, as a 3D model's fallback render is, moves with the
+    /// wrapper and the model in its <c>mc:Choice</c>, which is how Excel groups a 3D model:
+    /// <c>xdr:grpSp</c> holding the <c>mc:AlternateContent</c> (#794).
+    /// </remarks>
     private static void MoveMembersIntoGroup(DrawingsPart drawingsPart, XLPendingGroup pending,
         Xdr.GroupShape groupShape, uint groupId)
     {
@@ -86,21 +92,33 @@ internal static class GroupedPictureWriter
                 { Anchor: var anchor, Picture: var picElement })
                 continue;
 
-            var wb = member.Worksheet.Workbook;
-            var transform = picElement.ShapeProperties?.Transform2D;
-            if (transform is not null)
-            {
-                // Identity child space: child coordinates are the member's absolute sheet EMU.
-                transform.Offset ??= new Offset();
-                transform.Offset.X = DrawingUnits.PixelsToEmu(member.Left, wb.DpiX);
-                transform.Offset.Y = DrawingUnits.PixelsToEmu(member.Top, wb.DpiY);
-                transform.Extents ??= new Extents();
-                transform.Extents.Cx = DrawingUnits.PixelsToEmu(member.Width, wb.DpiX);
-                transform.Extents.Cy = DrawingUnits.PixelsToEmu(member.Height, wb.DpiY);
-            }
+            // A picture that is a branch of mc:AlternateContent is one form of a drawing, such as a
+            // 3D model's render, so the whole wrapper goes into the group, as Excel puts it (#794).
+            var wrapper = DrawingAnchorContent.WrapperOf(picElement);
+            var drawing = (OpenXmlElement?)wrapper ?? picElement;
 
-            picElement.Remove();
-            groupShape.Append(picElement);
+            // Identity child space: child coordinates are the member's absolute sheet EMU. In a group
+            // each drawing is placed by its own transform, so every form of the drawing is placed:
+            // Excel writes a 3D model's frame with a zero transform when its anchor places it.
+            var wb = member.Worksheet.Workbook;
+            var offset = new Offset
+            {
+                X = DrawingUnits.PixelsToEmu(member.Left, wb.DpiX),
+                Y = DrawingUnits.PixelsToEmu(member.Top, wb.DpiY),
+            };
+            var extents = new Extents
+            {
+                Cx = DrawingUnits.PixelsToEmu(member.Width, wb.DpiX),
+                Cy = DrawingUnits.PixelsToEmu(member.Height, wb.DpiY),
+            };
+            IEnumerable<OpenXmlElement> forms = wrapper is null
+                ? [picElement]
+                : wrapper.ChildElements.SelectMany(branch => branch.ChildElements);
+            foreach (var form in forms)
+                PlaceInGroup(form, offset, extents);
+
+            drawing.Remove();
+            groupShape.Append(drawing);
             anchor.Remove();
 
             member.GroupInfo = new XLPictureGroup
@@ -116,6 +134,26 @@ internal static class GroupedPictureWriter
                 LoadedLeftPx = member.Left,
                 LoadedTopPx = member.Top,
             };
+        }
+    }
+
+    /// <summary>
+    /// Give one form of a member its box in the group's child space: a picture's <c>a:xfrm</c>, or
+    /// the <c>xdr:xfrm</c> of a graphic frame, which is how a 3D model is written. A form with no
+    /// transform is left as it is.
+    /// </summary>
+    private static void PlaceInGroup(OpenXmlElement form, Offset offset, Extents extents)
+    {
+        switch (form)
+        {
+            case Xdr.Picture { ShapeProperties.Transform2D: { } transform }:
+                transform.Offset = (Offset)offset.CloneNode(true);
+                transform.Extents = (Extents)extents.CloneNode(true);
+                break;
+            case Xdr.GraphicFrame { Transform: { } transform }:
+                transform.Offset = (Offset)offset.CloneNode(true);
+                transform.Extents = (Extents)extents.CloneNode(true);
+                break;
         }
     }
 
@@ -329,7 +367,8 @@ internal static class GroupedPictureWriter
 
     /// <summary>
     /// Remove pictures that were deleted from inside a group. Only the matching <c>xdr:pic</c>
-    /// element is removed (located by drawing id) — the group and its remaining pictures, connectors
+    /// element is removed (located by drawing id), with the <c>mc:AlternateContent</c> it is a branch
+    /// of, if any — the group and its remaining pictures, connectors
     /// and shapes are left intact. The image part is deleted only when no other blip still references
     /// it. The group's bounding box is kept fixed.
     /// </summary>
@@ -348,8 +387,10 @@ internal static class GroupedPictureWriter
 
             if (FindGroupedPictureById(worksheetDrawing, id) is { } picture)
             {
-                released.AddRange(PictureContentWriter.RelationshipIds(picture));
-                picture.Remove();
+                // A 3D model's render goes with its wrapper, so the model goes too (#794).
+                var drawing = (OpenXmlElement?)DrawingAnchorContent.WrapperOf(picture) ?? picture;
+                released.AddRange(PictureContentWriter.RelationshipIds(drawing));
+                drawing.Remove();
             }
         }
 
