@@ -606,12 +606,10 @@ public static partial class XLHelper
     /// Convert width (as a multiple of MDWs) into a NoCs (number displayed in Excel).
     /// </summary>
     /// <param name="width">Width in MDWs to convert.</param>
-    /// <param name="font">Font used to determine MDW.</param>
-    /// <param name="workbook">Workbook</param>
+    /// <param name="mdw">Maximum digit width in whole pixels.</param>
     /// <returns>Width as a number of NoC.</returns>
-    internal static double ConvertWidthToNoC(double width, IXLFont font, XLWorkbook workbook)
+    internal static double ConvertWidthToNoC(double width, int mdw)
     {
-        var mdw = GetMdw(font, workbook);
         var pixelsWidth = WidthToPixels(width, mdw);
         var columnWidth = PixelToNoC(pixelsWidth, mdw);
         return columnWidth;

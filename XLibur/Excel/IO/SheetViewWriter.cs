@@ -344,12 +344,12 @@ internal static class SheetViewWriter
 
     /// <summary>
     /// Is the sheet's width the one the load read from <paramref name="loaded"/>? The load converts
-    /// <c>defaultColWidth</c> through the width of the font's digits, which the save does not undo,
-    /// so the file's value is kept while the width is still the one it loaded as (#722).
+    /// <c>defaultColWidth</c> through the width of the first font's digits, which the save does not
+    /// undo, so the file's value is kept while the width is still the one it loaded as (#722, #786).
     /// </summary>
     private static bool IsWidthLoadedFrom(DoubleValue? loaded, XLWorksheet xlWorksheet) =>
         loaded is { HasValue: true }
-        && Math.Abs(XLHelper.ConvertWidthToNoC(loaded.Value, xlWorksheet.Style.Font, xlWorksheet.Workbook)
+        && Math.Abs(XLHelper.ConvertWidthToNoC(loaded.Value, xlWorksheet.Workbook.MaxDigitWidth)
                     - xlWorksheet.ColumnWidth) < XLHelper.Epsilon;
 
     internal static void WriteSheetFormatProperties(

@@ -107,13 +107,12 @@ internal static class WorksheetElementReader
 
         ws.RowHeightChanged = sfp.CustomHeight is not null && sfp.CustomHeight.Value;
 
+        // Both are in digits of the first font, whatever font the sheet has (#786).
         if (sfp.DefaultColumnWidth is not null)
-            ws.ColumnWidth = XLHelper.ConvertWidthToNoC(sfp.DefaultColumnWidth.Value,
-                ws.Style.Font, workbook);
+            ws.ColumnWidth = XLHelper.ConvertWidthToNoC(sfp.DefaultColumnWidth.Value, workbook.MaxDigitWidth);
         else if (sfp.BaseColumnWidth is not null)
         {
-            ws.ColumnWidth = XLWorkbook.CalculateColumnWidth(sfp.BaseColumnWidth.Value,
-                ws.Style.Font, workbook);
+            ws.ColumnWidth = XLWorkbook.CalculateColumnWidth(sfp.BaseColumnWidth.Value, workbook.MaxDigitWidth);
 
             // The width follows from baseColWidth, which the sheet keeps. Writing it out as well
             // would add a defaultColWidth the file did not have (#709).

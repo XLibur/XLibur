@@ -63,7 +63,7 @@ internal static class DrawingPartReader
         // One grid for every two-cell anchor on the sheet, built only if the sheet has one.
         var columnWidths = context.SheetColumnWidths;
         var grid = new Lazy<AnchorGrid>(
-            () => new AnchorGrid(ws, columnWidths, context.MaxDigitWidth(ws.Workbook)),
+            () => new AnchorGrid(ws, columnWidths, ws.Workbook.MaxDigitWidth),
             LazyThreadSafetyMode.None);
 
         foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
