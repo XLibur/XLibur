@@ -24,14 +24,6 @@ internal static class GroupedPictureWriter
     private static bool IsDegenerateScale(double scale) => Math.Abs(scale) < DegenerateScaleEpsilon;
 
     /// <summary>
-    /// Update a picture that lives inside a group shape in place: re-feed its (possibly replaced)
-    /// image data and, if the picture was resized, write the new size back into its child-space
-    /// extent. The surrounding group — its other pictures, connectors and shapes — is left
-    /// untouched. The picture is matched to its <c>xdr:pic</c> element by drawing id, because the
-    /// save DOM is an independent re-parse of the package and object references from load don't
-    /// survive.
-    /// </summary>
-    /// <summary>
     /// Build the groups requested via <c>XLPictures.Group(...)</c>. For each pending group a new
     /// group shape is created in an absolute anchor matching its bounding box, and every member's
     /// existing top-level <c>xdr:pic</c> is moved into it (its child <c>off</c>/<c>ext</c> set to the
@@ -230,6 +222,14 @@ internal static class GroupedPictureWriter
         return null;
     }
 
+    /// <summary>
+    /// Update a picture that lives inside a group shape in place: re-feed its (possibly replaced)
+    /// image data and, if the picture was resized, write the new size back into its child-space
+    /// extent. The surrounding group — its other pictures, connectors and shapes — is left
+    /// untouched. The picture is matched to its <c>xdr:pic</c> element by drawing id, because the
+    /// save DOM is an independent re-parse of the package and object references from load don't
+    /// survive.
+    /// </summary>
     internal static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
