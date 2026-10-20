@@ -259,7 +259,8 @@ public partial class XLWorkbook
             .FirstOrDefault(x => x.BuiltinId is not null && x.BuiltinId.Value == 0);
         if (normalStyle != null)
         {
-            var normalStyleKey = StyleDecoder.Decode((int)normalStyle.FormatId!.Value,
+            // A cell style's xfId indexes cellStyleXfs, not cellXfs (#799).
+            var normalStyleKey = StyleDecoder.DecodeCellStyleFormat((int)normalStyle.FormatId!.Value,
                 context.Styles, ((XLStyle)Style).Key);
             Style = new XLStyle(null!, normalStyleKey);
         }
