@@ -524,7 +524,7 @@ public class LoadingTests
         using (var wb = new XLWorkbook(stream))
         {
             var defaultColumnWidth = wb.ColumnWidth;
-            var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.Style.Font, wb);
+            var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.MaxDigitWidth).RoundToInt();
             // Column width depends on font metrics (Calibri on Windows vs Carlito on Linux)
             await Assert.That(defaultColumnWidth).IsEqualTo(8.43).Within(1.5);
             await Assert.That(pixelWidth).IsEqualTo(64).Within(20);
@@ -534,7 +534,7 @@ public class LoadingTests
         using (var wb = new XLWorkbook(stream))
         {
             var defaultColumnWidth = wb.ColumnWidth;
-            var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.Style.Font, wb);
+            var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.MaxDigitWidth).RoundToInt();
             // Column width depends on font metrics (Calibri on Windows vs Carlito on Linux)
             await Assert.That(defaultColumnWidth).IsEqualTo(8.5).Within(1.5);
             await Assert.That(pixelWidth).IsEqualTo(56).Within(20);
@@ -571,7 +571,7 @@ public class LoadingTests
         using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\SheetDefaultColumnWidth.xlsx"));
         using var wb = new XLWorkbook(stream);
         var ws = wb.Worksheet(1);
-        double pixelWidth = XLHelper.NoCToPixels(ws.Column(1).Width, ws.Style.Font, wb);
+        double pixelWidth = XLHelper.NoCToPixels(ws.Column(1).Width, wb.MaxDigitWidth).RoundToInt();
         // Column widths depend on font metrics (Calibri on Windows vs Carlito on Linux)
         await Assert.That(ws.ColumnWidth).IsEqualTo(19.75).Within(2.0);
         await Assert.That(pixelWidth).IsEqualTo(163).Within(25);

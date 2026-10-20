@@ -574,19 +574,6 @@ public static partial class XLHelper
         => GetMdw(workbook.FontEngine, font, workbook.DpiX);
 
     /// <summary>
-    /// Convert size in number of characters to pixels.
-    /// </summary>
-    /// <param name="noc">Width</param>
-    /// <param name="font">Font used to determine mdw.</param>
-    /// <param name="workbook">Workbook for dpi and graphic engine.</param>
-    /// <returns>Width in pixels.</returns>
-    internal static int NoCToPixels(double noc, IXLFont font, XLWorkbook workbook)
-    {
-        var mdw = GetMdw(font, workbook);
-        return NoCToPixels(noc, mdw).RoundToInt();
-    }
-
-    /// <summary>
     /// Convert width to pixels.
     /// </summary>
     /// <param name="width">Width from the source file, not NoC that is displayed in Excel as a width.</param>
