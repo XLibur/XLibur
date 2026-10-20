@@ -288,7 +288,8 @@ internal static class PictureWriter
             return pictureElement;
         }
 
-        if (found.Picture.Parent == found.Anchor)
+        // FindPicture finds a picture only as the anchor's child or a branch of the anchor's wrapper.
+        if (DrawingAnchorContent.WrapperOf(found.Picture) is null)
         {
             worksheetDrawing.ReplaceChild(anchor, found.Anchor);
             return pictureElement;
@@ -447,10 +448,11 @@ internal static class PictureWriter
     /// share an image part, as a copied picture does in Excel, all have the same link (issue #781).
     /// </summary>
     /// <remarks>
-    /// The picture is looked for anywhere in the anchor, as the loader finds it, and not only as its
-    /// child: Excel puts it inside <c>mc:AlternateContent</c> when the drawing also has a newer form.
-    /// An anchor that holds a group shape is skipped, because its pictures are written in place
-    /// (<see cref="UpdateGroupedPicture"/>) and the anchor holds the group's other shapes too.
+    /// The picture is found where the loader reads it (<see cref="DrawingAnchorContent.IsAnchorPicture"/>):
+    /// the anchor's child, or a branch of the <c>mc:AlternateContent</c> Excel puts it in when the
+    /// drawing also has a newer form. A picture in a group shape is never found, because grouped
+    /// pictures are written in place (<see cref="UpdateGroupedPicture"/>) and the group's anchor
+    /// holds its other shapes too.
     /// </remarks>
     private static (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(
         Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
@@ -460,13 +462,11 @@ internal static class PictureWriter
 
         foreach (var anchor in worksheetDrawing.ChildElements.OfType<OpenXmlCompositeElement>())
         {
-            if (anchor.Elements<Xdr.GroupShape>().Any())
-                continue;
-
             foreach (var picture in anchor.Descendants<Xdr.Picture>())
             {
                 if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == (uint)id &&
-                    picture.BlipFill?.Blip?.Embed?.Value == relId)
+                    picture.BlipFill?.Blip?.Embed?.Value == relId &&
+                    DrawingAnchorContent.IsAnchorPicture(picture, anchor))
                     return (anchor, picture);
             }
         }

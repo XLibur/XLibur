@@ -14,6 +14,20 @@ namespace XLibur.Excel.IO.DrawingML;
 internal static class DrawingAnchorContent
 {
     /// <summary>
+    /// Whether <paramref name="picture"/> is the drawing <paramref name="anchor"/> places: its child,
+    /// or a branch of the <c>mc:AlternateContent</c> that is its child. The loader reads such a
+    /// picture as the anchor's own, sized and placed by the anchor, and the save writes it back.
+    /// </summary>
+    /// <remarks>
+    /// A picture any deeper, as in a group inside the wrapper, is not: the anchor places the group,
+    /// and the picture is sized in the group's own coordinates. XLibur leaves it as the file has it,
+    /// as it does a 3D model inside a group, which is how Excel 16.0 writes a grouped model:
+    /// <c>xdr:grpSp</c> holding the <c>mc:AlternateContent</c>.
+    /// </remarks>
+    internal static bool IsAnchorPicture(Xdr.Picture picture, OpenXmlElement anchor) =>
+        picture.Parent == anchor || WrapperOf(picture)?.Parent == anchor;
+
+    /// <summary>
     /// The <c>mc:AlternateContent</c> that <paramref name="picture"/> is a branch of, or <c>null</c>
     /// when the picture is not directly in an <c>mc:Choice</c> or <c>mc:Fallback</c>.
     /// </summary>

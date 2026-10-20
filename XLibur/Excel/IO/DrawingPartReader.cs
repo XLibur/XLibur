@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Extensions;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -86,6 +87,12 @@ internal static class DrawingPartReader
             LoadGroupedPictures(group, drawingsPart, ws);
             return;
         }
+
+        // A picture deeper in the anchor than its wrapper's branches, as in a group inside the
+        // wrapper, is left as the file has it (#787).
+        if (anchor.Descendants<Xdr.Picture>().FirstOrDefault() is { } first &&
+            !DrawingAnchorContent.IsAnchorPicture(first, anchor))
+            return;
 
         var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
 
