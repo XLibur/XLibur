@@ -244,6 +244,17 @@ public class PictureAnchorSizeTests
             .Contains($"<xdr:ext cx=\"{250 * 7620}\" cy=\"{125 * 7620}\" />");
     }
 
+    [Test]
+    public async Task Moving_a_picture_in_an_aptos_narrow_workbook_keeps_its_width_at_96_dpi()
+    {
+        // The 200 px the box measures at 96 DPI (above), by the rule: Excel on this machine runs at
+        // 120 DPI and cannot be measured at 96. The height is left unpinned, as above. 9525 EMU is a
+        // pixel at 96 DPI.
+        using var saved = LoadAndSave(AptosNarrowPicture(), ws => ws.Picture("Picture 2").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains($"<xdr:ext cx=\"{200 * 9525}\" ");
+    }
+
     private static MemoryStream AptosNarrowPicture()
     {
         using var resource = TestHelper.GetStreamFromResource(

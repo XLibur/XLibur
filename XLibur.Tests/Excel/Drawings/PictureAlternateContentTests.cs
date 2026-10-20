@@ -120,6 +120,16 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task Moving_the_3d_model_to_a_cell_keeps_its_width_at_96_dpi()
+    {
+        // The 197 px the box measures at 96 DPI (above), by the rule: Excel on this machine runs at
+        // 120 DPI and cannot be measured at 96. The height is left unpinned, as above.
+        using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(Extent(saved)).StartsWith($"{197 * 9525}x");
+    }
+
+    [Test]
     public async Task Moving_the_picture_between_cells_keeps_its_two_cell_anchor_in_place()
     {
         // MoveTo(from, to) keeps the two-cell form, so the anchor is the one Excel wrote, edited.
