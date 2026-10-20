@@ -200,7 +200,9 @@ public class SixLaborsFontEngine : IXLFontEngine
 
     private Font LoadFont(MetricId metricId)
     {
+        // A missing font is measured with one that measures like it, if there is one.
         if (!_fontCollection.Value.TryGet(metricId.Name, out var fontFamily) &&
+            !TryGetSubstitute(metricId.Name, out fontFamily) &&
             !_fontCollection.Value.TryGet(_fallbackFont, out fontFamily))
         {
             if (_embeddedFontName is not null)
@@ -216,6 +218,18 @@ public class SixLaborsFontEngine : IXLFontEngine
         }
 
         return fontFamily.CreateFont(FontMetricSize, metricId.Style);
+    }
+
+    private bool TryGetSubstitute(string name, out FontFamily fontFamily)
+    {
+        foreach (var substitute in MetricCompatibleFonts.For(name))
+        {
+            if (_fontCollection.Value.TryGet(substitute, out fontFamily))
+                return true;
+        }
+
+        fontFamily = default;
+        return false;
     }
 
     private double CalculateMaxDigitWidth(MetricId metricId)
