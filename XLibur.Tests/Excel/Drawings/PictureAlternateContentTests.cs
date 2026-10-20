@@ -293,6 +293,21 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task Moving_and_resizing_a_grouped_3d_model_moves_both_forms()
+    {
+        // Once grouped and saved, the model is written in place in its group. Both forms of it are
+        // one drawing, so the model's frame moves and resizes with its fallback picture (#794).
+        using var saved = GroupedWithLogo(ws =>
+        {
+            var model = ws.Picture("3D Model 1").MoveTo(120, 60);
+            model.Width = 240;
+        });
+
+        await Assert.That(GroupedTransforms(saved)).IsEqualTo(
+            $"graphicFrame {Box(120, 60, 240, 150)} | pic {Box(120, 60, 240, 150)}");
+    }
+
+    [Test]
     public async Task Deleting_a_grouped_3d_model_deletes_the_model()
     {
         // The model was grouped in this session, so its picture is still loaded and can be deleted.
