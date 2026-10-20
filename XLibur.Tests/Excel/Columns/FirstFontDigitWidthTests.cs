@@ -36,6 +36,11 @@ namespace XLibur.Tests.Excel.Columns;
 /// <item><c>normalStyleFont</c>: the first font is Calibri 11, the Normal style uses Calibri 20, and
 /// the cells Calibri 11. Excel reports Calibri 11 as the Normal style's font, and columns are
 /// measured in 9 px digits.</item>
+/// <item><c>noCellStyles</c> and <c>noNormalStyle</c>: the first font is Calibri 20, which nothing
+/// uses, and there is no Normal style (no <c>cellStyles</c>, or no <c>builtinId="0"</c> in it).
+/// Columns are measured in 17 px digits (#790).</item>
+/// <item><c>noFonts</c>: a stylesheet of fills and borders only. Excel uses its own default font,
+/// whose digit is 9 px (#790).</item>
 /// </list>
 /// </remarks>
 public class FirstFontDigitWidthTests
@@ -65,6 +70,40 @@ public class FirstFontDigitWidthTests
         // Excel shows a width to two decimals.
         await Assert.That(ws.ColumnWidth).IsEqualTo(excelStandardWidth).Within(0.005);
         await Assert.That(ws.Column(2).Width).IsEqualTo(excelStandardWidth).Within(0.005);
+    }
+
+    [Test]
+    // The first font is Calibri 20, which nothing uses, and the stylesheet has no Normal style:
+    // either no cellStyles at all, or a cellStyles with no builtinId="0". Excel opened both files
+    // without a repair, reported StandardWidth 8.29 and drew column B 152 px wide: 8 of its 17 px
+    // digits (147 px), rounded up to a multiple of 8 px. Excel reports Calibri 20 as the Normal
+    // style's font in both. Before #788 the load kept the in-memory default width, 8.43, when the
+    // stylesheet had no Normal style (#790).
+    [Arguments("noCellStyles")]
+    [Arguments("noNormalStyle")]
+    public async Task A_stylesheet_with_no_Normal_style_has_a_default_width_in_digits_of_the_first_font(string fonts)
+    {
+        using var wb = new XLWorkbook(Fixture(fonts, "none"), AtExcelDpi);
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(ws.ColumnWidth).IsEqualTo(8.29).Within(0.005);
+        await Assert.That(ws.Column(2).Width).IsEqualTo(8.29).Within(0.005);
+    }
+
+    [Test]
+    public async Task A_stylesheet_with_no_fonts_has_a_default_width_in_digits_of_the_default_font()
+    {
+        // Excel opens a stylesheet with no <fonts> only when it has no cell formats either; one with
+        // cell formats but no fonts it opens only by repairing it. Either way it uses its own default
+        // font, Aptos Narrow 11 in this build, reports StandardWidth 8.11 and draws column B 80 px
+        // wide: 8 of its 9 px digits (72 px), rounded up to a multiple of 8 px. The load falls back
+        // to the library's default font, Calibri 11, because the save writes that font first, and its
+        // digit is 9 px wide as well, so the width is Excel's (#790).
+        using var wb = new XLWorkbook(Fixture("noFonts", "none"), AtExcelDpi);
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(ws.ColumnWidth).IsEqualTo(8.11).Within(0.005);
+        await Assert.That(ws.Column(2).Width).IsEqualTo(8.11).Within(0.005);
     }
 
     [Test]
@@ -247,6 +286,21 @@ public class FirstFontDigitWidthTests
                 "<x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"1\" /></x:cellXfs>",
                 "<x:cellStyles count=\"2\"><x:cellStyle name=\"Plain\" xfId=\"0\" />" +
                 "<x:cellStyle name=\"Normal\" xfId=\"1\" builtinId=\"0\" /></x:cellStyles>")),
+            "noCellStyles" => package.RewritePart("xl/styles.xml", xml => WithStyles(xml, Calibri20 + Calibri11,
+                "<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" /></x:cellXfs>",
+                "")),
+            "noNormalStyle" => package.RewritePart("xl/styles.xml", xml => WithStyles(xml, Calibri20 + Calibri11,
+                "<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" /></x:cellXfs>",
+                "<x:cellStyles count=\"1\"><x:cellStyle name=\"Plain\" xfId=\"0\" /></x:cellStyles>")),
+            // Fills and borders only, the stylesheet Excel opened without a repair.
+            "noFonts" => package.RewritePart("xl/styles.xml", _ =>
+                "<x:styleSheet xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<x:fills count=\"2\"><x:fill><x:patternFill patternType=\"none\" /></x:fill>" +
+                "<x:fill><x:patternFill patternType=\"gray125\" /></x:fill></x:fills>" +
+                "<x:borders count=\"1\"><x:border><x:left /><x:right /><x:top /><x:bottom /><x:diagonal /></x:border></x:borders>" +
+                "</x:styleSheet>"),
             _ => throw new ArgumentOutOfRangeException(nameof(fonts)),
         };
     }
