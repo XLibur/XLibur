@@ -140,6 +140,20 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task The_3d_model_name_is_free_again_once_the_picture_is_renamed()
+    {
+        // The frame and the fallback picture are one drawing with one name, which the picture holds:
+        // no other shape keeps it once the picture lets it go (#796).
+        using var wb = LoadFixture();
+        var ws = wb.Worksheet(1);
+        ws.Picture("3D Model 1").Name = "Model";
+
+        var other = ws.AddPicture(new MemoryStream(Png), "3D Model 1");
+
+        await Assert.That(other.Name).IsEqualTo("3D Model 1");
+    }
+
+    [Test]
     public async Task A_second_save_keeps_the_3d_model_and_finds_it_again()
     {
         // The second save edits what the first wrote, so it must find the picture by the id the first

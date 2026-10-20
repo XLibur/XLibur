@@ -174,6 +174,21 @@ public class PictureTests
     }
 
     [Test]
+    public async Task TestDefaultPictureNameSkipsANameTakenInAnotherCase()
+    {
+        // Picture names ignore case, as the Name setter does, so "picture 2" takes "Picture 2" (#796).
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png")!;
+        ws.AddPicture(stream, XLPictureFormat.Png, "picture 2");
+        stream.Position = 0;
+        var next = ws.AddPicture(stream, XLPictureFormat.Png);
+
+        await Assert.That(next.Name).IsEqualTo("Picture 3");
+    }
+
+    [Test]
     public async Task TestDefaultIds()
     {
         using var wb = new XLWorkbook();
