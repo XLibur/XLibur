@@ -221,7 +221,7 @@ public class DefaultFontEngine : IXLFontEngine
         // A missing font is measured with one that measures like it, if there is one; else with the
         // specified fallback font. On Windows, unknown fonts should use MS Sans Serif
         if (!_fontCollection.Value.TryGet(metricId.Name, out var fontFamily) &&
-            !TryGetSubstitute(metricId.Name, out fontFamily) &&
+            !MetricCompatibleFonts.TryGetSubstitute(metricId.Name, _fontCollection.Value.TryGet, out fontFamily) &&
             !_fontCollection.Value.TryGet(_fallbackFont, out fontFamily))
         {
             // If not present, e.g., it's unlikely to be present on Linux, use embedded font as an ultimate fallback.
@@ -229,18 +229,6 @@ public class DefaultFontEngine : IXLFontEngine
         }
 
         return fontFamily.CreateFont(FontMetricSize, metricId.Style);
-    }
-
-    private bool TryGetSubstitute(string name, out FontFamily fontFamily)
-    {
-        foreach (var substitute in MetricCompatibleFonts.For(name))
-        {
-            if (_fontCollection.Value.TryGet(substitute, out fontFamily))
-                return true;
-        }
-
-        fontFamily = default;
-        return false;
     }
 
     private static void AddEmbeddedFont(FontCollection fontCollection)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace XLibur.Fonts;
 
@@ -33,4 +34,24 @@ internal static class MetricCompatibleFonts
     /// </summary>
     internal static IReadOnlyList<string> For(string familyName) =>
         Substitutes.TryGetValue(familyName, out var substitutes) ? substitutes : [];
+
+    /// <summary>
+    /// The first of the families <see cref="For"/> gives that <paramref name="tryGetFamily"/>, the
+    /// engine's own lookup, finds.
+    /// </summary>
+    internal static bool TryGetSubstitute<TFamily>(string familyName, TryGetFamily<TFamily> tryGetFamily,
+        [MaybeNullWhen(false)] out TFamily family)
+    {
+        foreach (var substitute in For(familyName))
+        {
+            if (tryGetFamily(substitute, out family))
+                return true;
+        }
+
+        family = default;
+        return false;
+    }
+
+    /// <summary>An engine's lookup of a font family by its name.</summary>
+    internal delegate bool TryGetFamily<TFamily>(string familyName, [MaybeNullWhen(false)] out TFamily family);
 }
