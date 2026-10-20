@@ -142,6 +142,59 @@ public class GroupedPictureTests
     }
 
     [Test]
+    public async Task RenamingGroupedPictureIsSaved()
+    {
+        // Issue #795: a picture inside a group shape was saved with its old name.
+        using var output = new MemoryStream();
+        using (var stream = OpenFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 1").Name = "Harbour";
+            wb.SaveAs(output);
+        }
+
+        // The picture's cNvPr carries the new name; its sibling in the group keeps its own.
+        output.Position = 0;
+        using (var package = SpreadsheetDocument.Open(output, false))
+        {
+            var group = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing!
+                .Descendants<Xdr.GroupShape>().Single();
+            var names = group.Descendants<Xdr.Picture>()
+                .Select(p => p.NonVisualPictureProperties!.NonVisualDrawingProperties!.Name!.Value!)
+                .ToList();
+            await Assert.That(names).IsEquivalentTo(new[] { "Harbour", "Picture 2" });
+        }
+
+        // XLibur reloads it, still in the group, under the new name.
+        output.Position = 0;
+        using (var wb = new XLWorkbook(output))
+        {
+            var renamed = wb.Worksheet("Map").Pictures.Single(p => p.Name == "Harbour");
+            await Assert.That(renamed.IsInGroup).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task RenamingDeeplyNestedPictureIsSaved()
+    {
+        using var output = new MemoryStream();
+        using (var stream = OpenNestedFixture())
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.Worksheet("Map").Pictures.Single(p => p.Name == "Picture 2").Name = "Lighthouse";
+            wb.SaveAs(output);
+        }
+
+        output.Position = 0;
+        using var package = SpreadsheetDocument.Open(output, false);
+        var names = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing!
+            .Descendants<Xdr.Picture>()
+            .Select(p => p.NonVisualPictureProperties!.NonVisualDrawingProperties!.Name!.Value!)
+            .ToList();
+        await Assert.That(names).IsEquivalentTo(new[] { "Picture 1", "Lighthouse" });
+    }
+
+    [Test]
     public async Task GroupedPictureLeftTopReflectSheetPosition()
     {
         using var stream = OpenFixture();
