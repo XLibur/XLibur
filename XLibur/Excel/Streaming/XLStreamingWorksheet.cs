@@ -14,6 +14,12 @@ namespace XLibur.Excel.Streaming;
 /// </summary>
 public sealed class XLStreamingWorksheet
 {
+    /// <summary>
+    /// The digit width a streamed column width is padded for: Calibri 11, the font the streamed
+    /// styles start with, at 96 DPI. The streaming writer measures no font and has no DPI (#803).
+    /// </summary>
+    private const int StreamingDigitWidth = 7;
+
     private readonly XLStreamingWorkbook _workbook;
     private readonly char[] _cellRef = new char[CellXmlWriter.CellRefBufferLength];
     private readonly Dictionary<(int First, int Last), XLStreamingColumn> _columns = [];
@@ -551,7 +557,7 @@ public sealed class XLStreamingWorksheet
             var settings = XLColumnSettings.Resolve(
                 (uint)column.FirstColumn, (uint)column.LastColumn,
                 column.Style is null ? null : _workbook.Styles.GetOrAdd(column.Style),
-                column.Width, column.Hidden, column.Collapsed, column.OutlineLevel);
+                column.Width, column.Hidden, column.Collapsed, column.OutlineLevel, StreamingDigitWidth);
 
             WriteColumn(xml, in settings);
         }

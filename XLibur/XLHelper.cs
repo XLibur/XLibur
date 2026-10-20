@@ -557,6 +557,39 @@ public static partial class XLHelper
     }
 
     /// <summary>
+    /// The <c>&lt;col width&gt;</c> of a column that shows <paramref name="noc"/> digits: the width
+    /// with its padding, in digits of <paramref name="mdw"/>. The padding is
+    /// <c>2 * ceil(mdw / 4) + 1</c> px, 5/7 of a digit at 96 DPI and 7/9 at 120 DPI, and below one
+    /// digit it scales with the width. Not rounded to whole pixels, unlike Excel (#803).
+    /// </summary>
+    /// <param name="noc">Width as Excel shows it, in number of characters.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
+    internal static double NoCToFileWidth(double noc, int mdw) => NoCToPixels(noc, mdw) / mdw;
+
+    /// <summary>
+    /// The width Excel shows for a <c>&lt;col width&gt;</c> of <paramref name="width"/>: the inverse
+    /// of <see cref="NoCToFileWidth"/>. Unlike <see cref="ConvertWidthToNoC"/> it does not snap to
+    /// whole pixels (#803).
+    /// </summary>
+    /// <remarks>
+    /// Rounded to the six decimals a save writes a width with, so a width of up to six decimals
+    /// that XLibur saved loads as exactly the width that was set: 20 at 120 DPI is saved as
+    /// 20.777778, which is 20.0000003 less its padding.
+    /// </remarks>
+    /// <param name="width">Width from the source file, padding included.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
+    internal static double FileWidthToNoC(double width, int mdw)
+    {
+        var pp = 2 * (int)Math.Ceiling(mdw / 4.0) + 1;
+        var px = width * mdw;
+        var noc = px >= mdw + pp
+            ? (px - pp) / mdw
+            : px / (mdw + pp);
+
+        return Math.Round(noc, 6);
+    }
+
+    /// <summary>
     /// Maximum digit width (MDW) of a font in whole pixels. MDW is the unit of OOXML column widths
     /// (ECMA-376 Part 1, 18.3.1.13), so Calibri 11pt at 96 DPI is 7 pixels.
     /// </summary>

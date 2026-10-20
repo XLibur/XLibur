@@ -16,6 +16,7 @@ using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.IO;
 using XLibur.Excel.IO.Packaging;
+using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using Path = System.IO.Path;
 
@@ -454,17 +455,26 @@ public partial class XLWorkbook
 
         WorkbookPartWriter.GenerateContent(workbookPart, this, options, context);
 
+        // Call all table headers to make sure their names are filled, before the styles and the
+        // texts of the cells are collected.
+        Worksheets.ForEach(w => w.Tables.ForEach(t => _ = ((XLTable)t).FieldNames.Count));
+
+        // The parts are added in this order so a new package keeps its relationship ids.
         var sharedStringTablePart = workbookPart.SharedStringTablePart ??
                                     workbookPart.AddNewPart<SharedStringTablePart>(
                                         context.RelIdGenerator.GetNext(RelType.Workbook));
-        SharedStringTableWriter.GenerateSharedStringTablePartContent(this, sharedStringTablePart, context);
 
         context.StylesheetWasLoaded = workbookPart.WorkbookStylesPart?.Stylesheet is not null;
         var workbookStylesPart = workbookPart.WorkbookStylesPart ??
                                  workbookPart.AddNewPart<WorkbookStylesPart>(
                                      context.RelIdGenerator.GetNext(RelType.Workbook));
         workbookStylesPart.Stylesheet ??= new Stylesheet();
+
+        // The styles go first: they give the fonts their ids, and a text's phonetic properties
+        // name their font by its id (#801). Written first, the texts registered that font before
+        // the default font, which then lost index 0 (#802).
         WorkbookStylesPartWriter.GenerateContent(workbookStylesPart.Stylesheet, this, context);
+        SharedStringTableWriter.GenerateSharedStringTablePartContent(this, sharedStringTablePart, context);
     }
 
     /// <summary>
