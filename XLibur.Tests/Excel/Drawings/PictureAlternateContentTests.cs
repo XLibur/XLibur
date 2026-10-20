@@ -246,17 +246,19 @@ public class PictureAlternateContentTests
     public async Task A_3d_model_grouped_with_a_picture_keeps_the_model_and_loads_the_picture()
     {
         // Excel puts the wrapper inside the group: anchor > grpSp > [mc:AlternateContent, pic]. The
-        // picture loads as a grouped picture; the model inside the group is left as Excel wrote it.
+        // picture loads as a grouped picture; the model inside the group is left as Excel wrote it,
+        // and a rename of the picture reaches the picture alone (#795).
         using var source = Resource("picture-3d-model-grouped.xlsx");
         using var wb = new XLWorkbook(source);
         await Assert.That(string.Join(", ", wb.Worksheet(1).Pictures.Select(p => p.Name))).IsEqualTo("Picture 3");
+        wb.Worksheet(1).Picture("Picture 3").Name = "Photo";
 
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
 
         await Assert.That(Shape(saved)).IsEqualTo("twoCellAnchor > grpSp 5 'Group 4'");
         await Assert.That(GroupMembers(saved)).IsEqualTo(
-            "AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1', pic 4 'Picture 3'");
+            "AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1', pic 4 'Photo'");
         await Assert.That(Relationships(saved)).Contains("model3d ../media/model3d1.glb");
     }
 

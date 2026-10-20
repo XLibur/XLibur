@@ -266,12 +266,9 @@ public partial class XLWorkbook
         }
 
         // Excel measures the default width of a column in digits of the first font, not the Normal
-        // style's (#786).
+        // style's (#786). ColumnWidth follows from it, measured when it is first asked for (#798).
         if (s?.Fonts?.GetFirstChild<Font>() is { } firstFont)
             SetFirstFont(new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key)));
-
-        if (s is not null)
-            ColumnWidth = CalculateColumnWidth(8, MaxDigitWidth);
 
         // We loop through the sheets in 2 passes: first just to add the sheets and second to add all the data for the sheets.
         // We do this mainly because it skips a very costly calculation invalidation step, but it also make things more consistent,

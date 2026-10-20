@@ -33,14 +33,7 @@ internal static class PictureContentWriter
     internal static void WritePictureNameAndImage(OpenXmlElement anchor, Xdr.Picture picture, string name,
         string embedId)
     {
-        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is { } id)
-        {
-            foreach (var properties in anchor.Descendants<Xdr.NonVisualDrawingProperties>())
-            {
-                if (properties.Id?.Value == id)
-                    properties.Name = name;
-            }
-        }
+        WritePictureName(anchor, picture, name);
 
         if (picture.BlipFill?.Blip is not { } blip)
             return;
@@ -54,6 +47,22 @@ internal static class PictureContentWriter
         {
             if (image.LocalName == "blip" && EmbedOf(image) == previous)
                 image.SetAttribute(new OpenXmlAttribute("r", "embed", RelationshipsNs, embedId));
+        }
+    }
+
+    /// <summary>
+    /// Writes the picture's name to every drawing in <paramref name="anchor"/> with the picture's id:
+    /// the picture itself, and the other branches of an <c>mc:AlternateContent</c> it is one form of.
+    /// </summary>
+    internal static void WritePictureName(OpenXmlElement anchor, Xdr.Picture picture, string name)
+    {
+        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is not { } id)
+            return;
+
+        foreach (var properties in anchor.Descendants<Xdr.NonVisualDrawingProperties>())
+        {
+            if (properties.Id?.Value == id)
+                properties.Name = name;
         }
     }
 
