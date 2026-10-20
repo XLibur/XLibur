@@ -221,13 +221,14 @@ internal static class PictureWriter
         // Found by the image link the picture was loaded with, before the picture can take a part
         // of its own below. The anchor holds the picture itself, never a group shape, so a group is
         // never overwritten.
-        var existingAnchor = FindPictureAnchor(worksheetDrawing, pic.Id, pic.RelId);
+        var existing = FindPicture(worksheetDrawing, pic.Id, pic.RelId);
 
         var imagePart = FeedImagePart(drawingsPart, pic, context, fedImages);
+        var embedId = drawingsPart.GetIdOfPart(imagePart);
 
-        if (pic.KeptAnchor is { } kept && existingAnchor is Xdr.TwoCellAnchor twoCellAnchor &&
-            TryWriteKeptAnchor(twoCellAnchor, kept, pic, drawingsPart.GetIdOfPart(imagePart)))
-            return twoCellAnchor.GetFirstChild<Xdr.Picture>()!;
+        if (pic.KeptAnchor is { } kept && existing is { Anchor: Xdr.TwoCellAnchor twoCellAnchor } &&
+            TryWriteKeptAnchor(twoCellAnchor, existing.Value.Picture, kept, pic, embedId))
+            return existing.Value.Picture;
 
         var wb = pic.Worksheet.Workbook;
         var extentsCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
@@ -243,7 +244,7 @@ internal static class PictureWriter
             new Xdr.BlipFill(
                 new Blip
                 {
-                    Embed = drawingsPart.GetIdOfPart(imagePart),
+                    Embed = embedId,
                     CompressionState = BlipCompressionValues.Print
                 },
                 new Stretch(new FillRectangle())
@@ -273,12 +274,96 @@ internal static class PictureWriter
             },
             pictureElement);
 
-        if (existingAnchor is not null)
-            worksheetDrawing.ReplaceChild(anchor, existingAnchor);
-        else
+        if (existing is not { } found)
+        {
             worksheetDrawing.Append(anchor);
+            return pictureElement;
+        }
 
-        return pictureElement;
+        if (found.Picture.Parent == found.Anchor)
+        {
+            worksheetDrawing.ReplaceChild(anchor, found.Anchor);
+            return pictureElement;
+        }
+
+        // The picture is one branch of mc:AlternateContent, as the render of a 3D model is. The
+        // wrapper and its other branches are the drawing; the regenerated anchor only says where
+        // it goes.
+        WriteAnchorPosition(worksheetDrawing, found.Anchor, anchor);
+        WritePictureNameAndImage(found.Anchor, found.Picture, pic.Name, embedId);
+        return found.Picture;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="existing"/> the position of the regenerated <paramref name="generated"/>
+    /// and keeps everything else it holds: the drawing, in whatever wrapper Excel put it, and the
+    /// client data.
+    /// </summary>
+    /// <remarks>
+    /// The anchor is edited in place when it keeps its form. When the placement changed it, as a
+    /// <c>MoveTo(cell)</c> makes a one-cell anchor out of a two-cell one, the generated anchor takes
+    /// the existing anchor's place and its contents.
+    /// </remarks>
+    private static void WriteAnchorPosition(Xdr.WorksheetDrawing worksheetDrawing,
+        OpenXmlCompositeElement existing, OpenXmlCompositeElement generated)
+    {
+        var position = generated.ChildElements.Where(IsAnchorPosition).ToList();
+        foreach (var element in position)
+            element.Remove();
+
+        if (existing.GetType() == generated.GetType())
+        {
+            foreach (var element in existing.ChildElements.Where(IsAnchorPosition).ToList())
+                element.Remove();
+
+            for (var i = position.Count - 1; i >= 0; i--)
+                existing.PrependChild(position[i]);
+
+            if (existing is Xdr.TwoCellAnchor twoCellAnchor)
+                twoCellAnchor.EditAs = ((Xdr.TwoCellAnchor)generated).EditAs;
+
+            return;
+        }
+
+        generated.RemoveAllChildren();
+        foreach (var element in position)
+            generated.AppendChild(element);
+
+        foreach (var element in existing.ChildElements.Where(e => !IsAnchorPosition(e)).ToList())
+        {
+            element.Remove();
+            generated.AppendChild(element);
+        }
+
+        worksheetDrawing.ReplaceChild(generated, existing);
+    }
+
+    /// <summary>The markers, position and extent that say where an anchor puts its drawing.</summary>
+    private static bool IsAnchorPosition(OpenXmlElement element) =>
+        element is Xdr.FromMarker or Xdr.ToMarker or Xdr.Position or Xdr.Extent;
+
+    /// <summary>
+    /// Writes the name and image link the model owns into a picture written back into its anchor.
+    /// </summary>
+    /// <remarks>
+    /// The name goes to every drawing in the anchor with the picture's id. Excel gives each branch
+    /// of <c>mc:AlternateContent</c> the same id and name, as one drawing in two forms, so a 3D
+    /// model renamed through its fallback picture is renamed in the form Excel shows.
+    /// </remarks>
+    private static void WritePictureNameAndImage(OpenXmlElement anchor, Xdr.Picture picture, string name,
+        string embedId)
+    {
+        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is { } id)
+        {
+            foreach (var properties in anchor.Descendants<Xdr.NonVisualDrawingProperties>())
+            {
+                if (properties.Id?.Value == id)
+                    properties.Name = name;
+            }
+        }
+
+        if (picture.BlipFill?.Blip is { } blip)
+            blip.Embed = embedId;
     }
 
     /// <summary>
@@ -341,12 +426,20 @@ internal static class PictureWriter
     /// An anchor that holds a group shape is skipped, because its pictures are written in place
     /// (<see cref="UpdateGroupedPicture"/>) and the anchor holds the group's other shapes too.
     /// </remarks>
-    private static OpenXmlElement? FindPictureAnchor(Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
+    private static OpenXmlElement? FindPictureAnchor(Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId) =>
+        FindPicture(worksheetDrawing, id, relId)?.Anchor;
+
+    /// <summary>
+    /// The picture with drawing id <paramref name="id"/> and image link <paramref name="relId"/>, and
+    /// the top-level anchor that holds it, or <c>null</c>. See <see cref="FindPictureAnchor"/>.
+    /// </summary>
+    private static (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(
+        Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
     {
         if (string.IsNullOrEmpty(relId))
             return null;
 
-        foreach (var anchor in worksheetDrawing.ChildElements)
+        foreach (var anchor in worksheetDrawing.ChildElements.OfType<OpenXmlCompositeElement>())
         {
             if (anchor.Elements<Xdr.GroupShape>().Any())
                 continue;
@@ -355,7 +448,7 @@ internal static class PictureWriter
             {
                 if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == (uint)id &&
                     picture.BlipFill?.Blip?.Embed?.Value == relId)
-                    return anchor;
+                    return (anchor, picture);
             }
         }
 
@@ -374,24 +467,18 @@ internal static class PictureWriter
     /// when the rows and columns under it were resized so the kept markers would no longer place the
     /// picture where Excel showed it; the caller then regenerates it.
     /// </remarks>
-    private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, XLKeptAnchor kept, XLPicture pic, string embedId)
+    private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, Xdr.Picture picture, XLKeptAnchor kept,
+        XLPicture pic, string embedId)
     {
         if (!kept.IsLayoutUnchanged ||
             anchor.EditAs?.Value != kept.Placement.ToOpenXml() ||
             anchor.FromMarker is not { } from ||
-            anchor.ToMarker is not { } to ||
-            anchor.GetFirstChild<Xdr.Picture>() is not { } picture)
+            anchor.ToMarker is not { } to)
             return false;
 
         WriteMarkerCell(from, kept.From);
         WriteMarkerCell(to, kept.To);
-
-        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties is { } properties)
-            properties.Name = pic.Name;
-
-        if (picture.BlipFill?.Blip is { } blip)
-            blip.Embed = embedId;
-
+        WritePictureNameAndImage(anchor, picture, pic.Name, embedId);
         return true;
     }
 
@@ -751,12 +838,31 @@ internal static class PictureWriter
             drawingsPart.DeletePart(relId);
     }
 
+    /// <summary>Renumbers every drawing id from 1, in document order.</summary>
+    /// <remarks>
+    /// The branches of an <c>mc:AlternateContent</c> are one drawing in two forms, and Excel gives
+    /// them one id: a 3D model's frame and its fallback picture are both id 2. They keep one id
+    /// between them, so the picture XLibur loads from the fallback still names the frame by its id.
+    /// </remarks>
     private static void RebaseNonVisualDrawingPropertiesIds(WorksheetPart worksheetPart)
     {
         var worksheetDrawing = worksheetPart.DrawingsPart!.WorksheetDrawing;
 
         uint id = 1;
+        var branchIds = new Dictionary<(AlternateContent Wrapper, uint OldId), uint>();
         foreach (var nvdpr in worksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>())
+        {
+            if (nvdpr.Ancestors<AlternateContent>().FirstOrDefault() is { } wrapper &&
+                nvdpr.Id?.Value is { } oldId)
+            {
+                if (!branchIds.TryGetValue((wrapper, oldId), out var newId))
+                    branchIds[(wrapper, oldId)] = newId = id++;
+
+                nvdpr.Id = newId;
+                continue;
+            }
+
             nvdpr.Id = id++;
+        }
     }
 }
