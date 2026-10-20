@@ -181,6 +181,35 @@ public class StreamingWriteTests
     }
 
     [Test]
+    public async Task TheNormalStyleAndTheDefaultCellFormatPointAtTheDefaultFont()
+    {
+        // The streaming writer starts from a fresh stylesheet, so the default font is the first font
+        // written and the Normal style's font id 0 is the default style's own font (#792). A bold
+        // style is used first, to check that it does not take index 0.
+        using var ms = new MemoryStream();
+        using (var wb = XLStreamingWorkbook.Create(ms))
+        {
+            var bold = wb.CreateStyle();
+            bold.Font.Bold = true;
+            var sheet = wb.AddWorksheet("Styled");
+            sheet.AppendRow(["Bold"], bold);
+            sheet.AppendRow(["Plain"]);
+            wb.Finish();
+        }
+
+        ms.Position = 0;
+        using var package = SpreadsheetDocument.Open(ms, false);
+        var stylesheet = package.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var normal = stylesheet.CellStyleFormats!.Elements<DocumentFormat.OpenXml.Spreadsheet.CellFormat>().Single();
+        var defaultCellFormat = stylesheet.CellFormats!.Elements<DocumentFormat.OpenXml.Spreadsheet.CellFormat>().First();
+        var firstFont = stylesheet.Fonts!.Elements<DocumentFormat.OpenXml.Spreadsheet.Font>().First();
+
+        await Assert.That(normal.FontId!.Value).IsEqualTo(0U);
+        await Assert.That(defaultCellFormat.FontId!.Value).IsEqualTo(0U);
+        await Assert.That(firstFont.Bold).IsNull();
+    }
+
+    [Test]
     public async Task DistinctStylesGetDistinctIdsInInternOrder()
     {
         using var ms = new MemoryStream();
