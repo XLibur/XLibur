@@ -255,7 +255,6 @@ public partial class XLWorkbook
 
         context.Styles = new StylesheetData(s, numberingFormats, s?.Fills, s?.Borders, s?.Fonts, differentialFormats);
 
-        // If the loaded workbook has a changed "Normal" style, it might affect the default width of a column.
         var normalStyle = s?.CellStyles?.Elements<CellStyle>()
             .FirstOrDefault(x => x.BuiltinId is not null && x.BuiltinId.Value == 0);
         if (normalStyle != null)
@@ -263,8 +262,15 @@ public partial class XLWorkbook
             var normalStyleKey = StyleDecoder.Decode((int)normalStyle.FormatId!.Value,
                 context.Styles, ((XLStyle)Style).Key);
             Style = new XLStyle(null!, normalStyleKey);
-            ColumnWidth = CalculateColumnWidth(8, Style.Font, this);
         }
+
+        // Excel measures the default width of a column in digits of the first font, not the Normal
+        // style's (#786).
+        if (s?.Fonts?.GetFirstChild<Font>() is { } firstFont)
+            FirstFont = new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key));
+
+        if (s is not null)
+            ColumnWidth = CalculateColumnWidth(8, MaxDigitWidth);
 
         // We loop through the sheets in 2 passes: first just to add the sheets and second to add all the data for the sheets.
         // We do this mainly because it skips a very costly calculation invalidation step, but it also make things more consistent,
@@ -1227,12 +1233,11 @@ public partial class XLWorkbook
 
     /// <summary>
     /// Calculate expected column width as a number displayed in the column in Excel from
-    /// the number of characters that should fit into the width and a font.
+    /// the number of characters that should fit into the width and the maximum digit width in pixels.
     /// </summary>
-    internal static double CalculateColumnWidth(double charWidth, IXLFont font, XLWorkbook workbook)
+    internal static double CalculateColumnWidth(double charWidth, int mdw)
     {
         // Convert width as a number of characters and translate it into a given number of pixels.
-        var mdw = XLHelper.GetMdw(font, workbook);
         var defaultColWidthPx = XLHelper.NoCToPixels(charWidth, mdw).RoundToInt();
 
         // Excel then rounds this number up to the nearest multiple of 8 pixels so that

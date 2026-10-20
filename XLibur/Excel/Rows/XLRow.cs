@@ -338,7 +338,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
             var alignment = cellStyle.Alignment;
             var wrapWidthPx = alignment is { WrapText: true, TextRotation: 0 }
-                ? GetWrapWidthPx(cell.Address.ColumnNumber, alignment.Indent, engine, dpi)
+                ? GetWrapWidthPx(cell.Address.ColumnNumber, alignment.Indent)
                 : 0;
 
             double contentHeightPx;
@@ -366,14 +366,14 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// the grid line, so it compares directly with <see cref="XLColumn.GetCellWidthPx"/>.
     /// Returns 0 or less when the text can't be wrapped.
     /// </summary>
-    private int GetWrapWidthPx(int columnNumber, int indent, IXLFontEngine engine, Dpi dpi)
+    private int GetWrapWidthPx(int columnNumber, int indent)
     {
         var columnWidth = Worksheet.Internals.ColumnsCollection.TryGetValue(columnNumber, out var column)
             ? column.Width
             : Worksheet.ColumnWidth;
 
-        // Column widths are in characters of the workbook font, the same as XLColumn.AdjustToContents.
-        var mdw = XLHelper.GetMdw(engine, Worksheet.Workbook.Style.Font, dpi.X);
+        // Column widths are in digits of the first font, the same as XLColumn.AdjustToContents (#786).
+        var mdw = Worksheet.Workbook.MaxDigitWidth;
         var columnWidthPx = (int)Math.Round(XLHelper.NoCToPixels(columnWidth, mdw));
 
         // Each indent level is one character wide.

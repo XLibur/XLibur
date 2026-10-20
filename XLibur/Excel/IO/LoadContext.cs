@@ -105,26 +105,11 @@ internal sealed class LoadContext
 
     private StyleValueCache? _styleCache;
 
-    private int? _maxDigitWidth;
-
     /// <summary>
     /// The column widths the worksheet being loaded states, for its drawings to be measured
     /// against (<see cref="AnchorGrid"/>). Replaced for each worksheet.
     /// </summary>
     internal StatedColumnWidths SheetColumnWidths { get; set; } = new();
-
-    /// <summary>
-    /// The maximum digit width Excel lays the columns out with, in pixels at the workbook's DPI: that
-    /// of the first font of the stylesheet, which Excel uses whatever font the Normal style or the
-    /// default cell format has. Measured in Excel over COM (#782). The workbook's own font when the
-    /// stylesheet has no fonts.
-    /// </summary>
-    internal int MaxDigitWidth(XLWorkbook workbook)
-    {
-        return _maxDigitWidth ??= Styles.Fonts?.GetFirstChild<Font>() is { } firstFont
-            ? XLHelper.GetMdw(new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key)), workbook)
-            : XLHelper.GetMdw(workbook.Style.Font, workbook);
-    }
 
     /// <summary>
     /// The stylesheet and its sub-collections, populated once from the workbook styles part.
