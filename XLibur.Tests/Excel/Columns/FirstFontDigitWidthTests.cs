@@ -81,6 +81,32 @@ public class FirstFontDigitWidthTests
         await Assert.That(saved.Sheet1Xml()).Contains("defaultColWidth=\"12.78\"");
     }
 
+    [Test]
+    [Arguments("firstFont", "20")]
+    [Arguments("cellFont", "11")]
+    [Arguments("normalStyleFont", "11")]
+    public async Task A_saved_stylesheet_keeps_its_first_font_first(string fonts, string firstFontSize)
+    {
+        // The columns of the saved file are measured in the same digits as the loaded file's, so a
+        // reload reads the same width, and so does Excel.
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(Fixture(fonts, "none"), AtExcelDpi))
+        {
+            wb.Worksheet(1).Cell("A1").Value = "edited";
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(FirstFont(saved)).Contains($"<x:sz val=\"{firstFontSize}\" />").And.Contains("<x:name val=\"Calibri\" />");
+
+        using var reloaded = new XLWorkbook(saved, AtExcelDpi);
+        await Assert.That(reloaded.Worksheet(1).ColumnWidth).IsEqualTo(fonts == "firstFont" ? 8.29 : 8.11).Within(0.005);
+    }
+
+    private static string FirstFont(Stream saved) =>
+        Regex.Match(saved.ReadPart("xl/styles.xml"), "<x:font>.*?</x:font>", RegexOptions.None, RegexTimeout).Value;
+
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     private const string AutofitText = "The quick brown fox jumps";
 
     private const string WrappedText = "aaaa bbbb cccc dddd eeee ffff gggg hhhh";
