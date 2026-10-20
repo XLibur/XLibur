@@ -222,11 +222,13 @@ public partial class XLWorkbook
     /// <see cref="KeepWhatTheSaveWrote"/> takes it. Only that, not the whole save, so a save that
     /// fails afterwards leaves little behind.
     /// </summary>
-    private (int[] SstMap, List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> Parts)? _unkeptSave;
+    private (int[] SstMap, List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> Parts,
+        List<(Drawings.XLPicture Picture, int Id, string RelId)> PictureIds)? _unkeptSave;
 
     /// <summary>
     /// Keeps what the last save wrote for the next save to compare against (#719): each worksheet
-    /// part minus its cells, the cells as saved, and the index each text was written at. Called once
+    /// part minus its cells, the cells as saved, the index each text was written at, and the drawing
+    /// id and image link each picture was written under (#781). Called once
     /// the destination of the save is what the next save copies, and not before: a save that fails
     /// after writing its parts, such as when the destination cannot be written, leaves the next save
     /// copying the old source, which these would not describe.
@@ -240,6 +242,9 @@ public partial class XLWorkbook
         SharedStringTable.RecordSavedIndices(save.SstMap);
         foreach (var (sheet, markup, cells) in save.Parts)
             sheet.KeepSavedPart(markup, cells);
+
+        foreach (var (picture, id, relId) in save.PictureIds)
+            picture.KeepSavedIds(id, relId);
     }
 
     // Adds child parts and generates content of the specified part.
@@ -296,7 +301,7 @@ public partial class XLWorkbook
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
 
-        _unkeptSave = (context.SstMap, context.PartsForNextSave);
+        _unkeptSave = (context.SstMap, context.PartsForNextSave, context.PictureIdsForNextSave);
     }
 
     /// <summary>

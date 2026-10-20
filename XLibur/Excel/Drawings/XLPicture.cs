@@ -93,11 +93,16 @@ internal sealed class XLPicture : IXLPicture
     }
 
     /// <summary>
-    /// Take the drawing id the save wrote for this picture. A save renumbers the drawing, and the
-    /// next save finds the picture's anchor by this id. The check in <see cref="Id"/> is skipped:
+    /// Take the drawing id and image link a save wrote for this picture, once that save has
+    /// succeeded. A save renumbers the drawing, and can give a picture an image part of its own, and
+    /// the next save finds the picture's anchor by both. The check in <see cref="Id"/> is skipped:
     /// the pictures take their new ids one at a time, so two of them can briefly hold the same one.
     /// </summary>
-    internal void KeepSavedId(int id) => _id = id;
+    internal void KeepSavedIds(int id, string relId)
+    {
+        _id = id;
+        RelId = relId;
+    }
 
     public MemoryStream ImageStream { get; private set; } = null!;
 

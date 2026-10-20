@@ -1,5 +1,7 @@
+using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using XLibur.Excel;
@@ -50,6 +52,74 @@ public class SharedImagePartRoundTripTests
 
         await Assert.That(Anchors(second)).IsEqualTo(Lines(Picture1Anchor, Picture2Anchor, Picture3Anchor));
         await AssertOneSharedImagePart(second);
+    }
+
+    [Test]
+    public async Task A_save_that_fails_leaves_the_next_save_finding_each_picture_on_its_own_anchor()
+    {
+        // The encrypted save writes the drawing, renumbering its ids, then fails to create the file
+        // over a directory. The next save copies the source again, which still has the old ids.
+        using var wb = LoadFixture();
+        using var saved = new MemoryStream();
+        var directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            Action failedSave = () => wb.SaveAs(directory, new XLibur.Excel.SaveOptions { Password = "secret" });
+            await Assert.That(failedSave).Throws<Exception>();
+
+            wb.SaveAs(saved);
+        }
+        finally
+        {
+            Directory.Delete(directory);
+        }
+
+        await Assert.That(Anchors(saved)).IsEqualTo(Lines(Picture1Anchor, Picture2Anchor, Picture3Anchor));
+    }
+
+    [Test]
+    public async Task A_picture_inside_alternate_content_is_written_back_into_its_own_anchor()
+    {
+        // Excel wraps a drawing in mc:AlternateContent when it also has a newer form, as a 3D model
+        // has, so the xdr:pic is not a direct child of its anchor.
+        using var source = AlternateContentFixture();
+        using var wb = new XLWorkbook(source);
+        await Assert.That(wb.Worksheet(1).Pictures.Count).IsEqualTo(1);
+
+        using var first = new MemoryStream();
+        using var second = new MemoryStream();
+        wb.SaveAs(first);
+        wb.SaveAs(second);
+
+        var drawing = XDocument.Parse(second.ReadPart(Drawing1));
+        await Assert.That(drawing.Root!.Elements().Count()).IsEqualTo(1);
+        await Assert.That(drawing.Descendants(XdrNs + "pic").Count()).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Changing_the_image_of_one_copy_changes_that_picture_only()
+    {
+        // The three pictures share one image part. A copy whose image was changed takes a part of
+        // its own, so the change neither reaches the other copies nor is overwritten by them.
+        using var wb = LoadFixture();
+        var picture2 = wb.Worksheet(1).Picture("Picture 2");
+        var original = picture2.ImageStream.ToArray();
+        var changed = original.Concat(new byte[] { 1, 2, 3 }).ToArray();
+        picture2.ImageStream.SetLength(0);
+        picture2.ImageStream.Write(changed);
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        using var reloaded = new XLWorkbook(saved);
+        var images = reloaded.Worksheet(1).Pictures
+            .Select(p => $"{p.Name} {(p.ImageStream.ToArray().SequenceEqual(changed) ? "changed" : p.ImageStream.ToArray().SequenceEqual(original) ? "original" : "other")}")
+            .ToArray();
+        await Assert.That(Lines(images)).IsEqualTo(Lines(
+            "Picture 1 original",
+            "Picture 2 changed",
+            "Picture 3 original"));
+        await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(2);
     }
 
     [Test]
@@ -135,6 +205,26 @@ public class SharedImagePartRoundTripTests
 
     private static XLWorkbook LoadFixture() =>
         new(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\ExcelProducedWorkbookWithImages.xlsx")));
+
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
+
+    /// <summary>One picture whose <c>xdr:pic</c> sits in the <c>mc:Choice</c> of an <c>mc:AlternateContent</c>.</summary>
+    private static MemoryStream AlternateContentFixture()
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            ws.AddPicture(new MemoryStream(Png), "Logo").MoveTo(ws.Cell("B2"));
+            wb.SaveAs(package);
+        }
+
+        return package.RewritePart(Drawing1, xml => Regex.Replace(xml, "<xdr:pic>.*</xdr:pic>", match =>
+            "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\">" +
+            "<mc:Choice xmlns:a14=\"http://schemas.microsoft.com/office/drawing/2010/main\" Requires=\"a14\">" +
+            match.Value + "</mc:Choice><mc:Fallback /></mc:AlternateContent>", RegexOptions.Singleline));
+    }
 
     /// <summary>Every picture embeds the same image, and the package holds that image once.</summary>
     private static async Task AssertOneSharedImagePart(Stream saved)

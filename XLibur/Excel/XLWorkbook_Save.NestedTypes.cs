@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Drawings;
 using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
@@ -104,6 +105,15 @@ public partial class XLWorkbook
         /// of this save is the source of the next one (<see cref="KeepWhatTheSaveWrote"/>).
         /// </summary>
         internal List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> PartsForNextSave { get; } = [];
+
+        /// <summary>
+        /// Each free-floating picture this save wrote, with the drawing id and image link it was
+        /// written under. A save renumbers the drawing ids, and the next save finds a picture's anchor
+        /// by both, so the picture takes them, but only once the destination of this save is the
+        /// source of the next one (<see cref="KeepWhatTheSaveWrote"/>). A save that fails leaves the
+        /// old ones, which are what the old source still has (#781).
+        /// </summary>
+        internal List<(XLPicture Picture, int Id, string RelId)> PictureIdsForNextSave { get; } = [];
 
         /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)
