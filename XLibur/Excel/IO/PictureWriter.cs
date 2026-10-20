@@ -29,11 +29,12 @@ internal static class PictureWriter
         WorksheetPart worksheetPart,
         SaveContext context)
     {
+        var ids = new DrawingIds();
         if (worksheetPart.DrawingsPart != null)
-            ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures);
+            ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures, ids);
 
         var written = new List<(XLPicture Picture, Xdr.Picture Element)>();
-        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context, written);
+        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context, written, ids);
 
         // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
         // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
@@ -68,7 +69,7 @@ internal static class PictureWriter
     /// remove deleted (non-grouped) pictures, remove pictures deleted from inside groups in place,
     /// and build any newly requested groups so their members appear as ordinary grouped pictures.
     /// </summary>
-    private static void ProcessDeletedPicturesAndGroups(DrawingsPart drawingsPart, XLPictures xlPictures)
+    private static void ProcessDeletedPicturesAndGroups(DrawingsPart drawingsPart, XLPictures xlPictures, DrawingIds ids)
     {
         if (xlPictures.Deleted.Count > 0 && drawingsPart.WorksheetDrawing is { } worksheetDrawing)
         {
@@ -78,7 +79,7 @@ internal static class PictureWriter
             foreach (var (id, relId) in xlPictures.Deleted)
             {
                 released.Add(relId);
-                if (DrawingIds.FindPicture(worksheetDrawing, id, relId) is { } found)
+                if (ids.FindPicture(worksheetDrawing, id, relId) is { } found)
                 {
                     released.AddRange(PictureContentWriter.RelationshipIds(found.Anchor));
                     found.Anchor.Remove();
@@ -103,7 +104,7 @@ internal static class PictureWriter
         // members as ordinary grouped pictures.
         if (xlPictures.PendingGroups.Count > 0)
         {
-            GroupedPictureWriter.CreateGroups(drawingsPart, xlPictures.PendingGroups);
+            GroupedPictureWriter.CreateGroups(drawingsPart, xlPictures.PendingGroups, ids);
             xlPictures.PendingGroups.Clear();
         }
     }
@@ -113,7 +114,7 @@ internal static class PictureWriter
     /// inserted into or updated within their group. Returns the number of grouped pictures handled.
     /// </summary>
     private static int WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context,
-        List<(XLPicture Picture, Xdr.Picture Element)> written)
+        List<(XLPicture Picture, Xdr.Picture Element)> written, DrawingIds ids)
     {
         var groupedPictures = new List<XLPicture>();
         var fedImages = new Dictionary<string, MemoryStream>();
@@ -125,13 +126,13 @@ internal static class PictureWriter
             if (xlPic.IsInGroup)
                 groupedPictures.Add(xlPic);
             else
-                written.Add((xlPic, PictureAnchorWriter.AddPictureAnchor(worksheetPart, pic, context, fedImages, layout)));
+                written.Add((xlPic, PictureAnchorWriter.AddPictureAnchor(worksheetPart, pic, context, fedImages, layout, ids)));
         }
 
         foreach (var groupedPicture in groupedPictures)
         {
             if (groupedPicture.GroupInfo!.IsNew)
-                GroupedPictureWriter.InsertGroupedPicture(worksheetPart, groupedPicture, context);
+                GroupedPictureWriter.InsertGroupedPicture(worksheetPart, groupedPicture, context, ids);
             else
                 GroupedPictureWriter.UpdateGroupedPicture(worksheetPart, groupedPicture);
         }

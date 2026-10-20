@@ -30,7 +30,7 @@ internal static class GroupedPictureWriter
     /// member's absolute sheet position/size, since the group uses an identity child coordinate
     /// space). The members' now-empty top-level anchors are removed.
     /// </summary>
-    internal static void CreateGroups(DrawingsPart drawingsPart, ICollection<XLPendingGroup> pendingGroups)
+    internal static void CreateGroups(DrawingsPart drawingsPart, ICollection<XLPendingGroup> pendingGroups, DrawingIds ids)
     {
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
         if (worksheetDrawing is null)
@@ -38,7 +38,7 @@ internal static class GroupedPictureWriter
 
         foreach (var pending in pendingGroups)
         {
-            var groupId = DrawingIds.NextDrawingId(worksheetDrawing);
+            var groupId = ids.NextDrawingId(worksheetDrawing);
 
             var groupShape = new Xdr.GroupShape(
                 new Xdr.NonVisualGroupShapeProperties(
@@ -55,7 +55,7 @@ internal static class GroupedPictureWriter
                 )
             );
 
-            MoveMembersIntoGroup(drawingsPart, pending, groupShape, groupId);
+            MoveMembersIntoGroup(drawingsPart, pending, groupShape, groupId, ids);
 
             // Propagate the new group id to every member sharing this group's key — including
             // pictures added to the group before its first save, which carry a null group id and
@@ -78,11 +78,11 @@ internal static class GroupedPictureWriter
     /// the now-empty top-level anchor.
     /// </summary>
     private static void MoveMembersIntoGroup(DrawingsPart drawingsPart, XLPendingGroup pending,
-        Xdr.GroupShape groupShape, uint groupId)
+        Xdr.GroupShape groupShape, uint groupId, DrawingIds ids)
     {
         foreach (var member in pending.Members)
         {
-            if (DrawingIds.FindPicture(drawingsPart.WorksheetDrawing!, member.Id, member.RelId) is not
+            if (ids.FindPicture(drawingsPart.WorksheetDrawing!, member.Id, member.RelId) is not
                 { Anchor: var anchor, Picture: var picElement })
                 continue;
 
@@ -142,7 +142,7 @@ internal static class GroupedPictureWriter
     /// requested sheet geometry via the inverse group transform, and appends it to the group element.
     /// The model is then reset so a subsequent save treats it as an existing grouped picture.
     /// </summary>
-    internal static void InsertGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, SaveContext context)
+    internal static void InsertGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, SaveContext context, DrawingIds ids)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
         var group = pic.GroupInfo;
@@ -155,7 +155,7 @@ internal static class GroupedPictureWriter
         if (groupElement is null)
             return;
 
-        var newId = DrawingIds.NextDrawingId(worksheetDrawing);
+        var newId = ids.NextDrawingId(worksheetDrawing);
 
         var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
         var imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);

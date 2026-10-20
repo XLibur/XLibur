@@ -36,7 +36,7 @@ internal static class PictureAnchorWriter
     /// the save. A kept anchor is compared with <paramref name="layout"/>, the sheet's layout now.
     /// </summary>
     internal static Xdr.Picture AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture,
-        SaveContext context, Dictionary<string, MemoryStream> fedImages, Lazy<GridLayout> layout)
+        SaveContext context, Dictionary<string, MemoryStream> fedImages, Lazy<GridLayout> layout, DrawingIds ids)
     {
         var pic = (XLPicture)picture;
         var drawingsPart = worksheetPart.DrawingsPart ??
@@ -51,7 +51,7 @@ internal static class PictureAnchorWriter
         // Found by the image link the picture was loaded with, before the picture can take a part
         // of its own below. The anchor holds the picture itself, never a group shape, so a group is
         // never overwritten.
-        var existing = DrawingIds.FindPicture(worksheetDrawing, pic.Id, pic.RelId);
+        var existing = ids.FindPicture(worksheetDrawing, pic.Id, pic.RelId);
 
         var imagePart = PictureContentWriter.FeedImagePart(drawingsPart, pic, context, fedImages);
         var embedId = drawingsPart.GetIdOfPart(imagePart);
@@ -64,11 +64,16 @@ internal static class PictureAnchorWriter
         var extentsCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
         var extentsCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
 
+        // FindPicture finds a picture only as the anchor's child or a branch of the anchor's wrapper.
+        // A branch is kept, below, and the regenerated picture only carries the position, so it takes
+        // no drawing id.
+        var keepsBranch = existing is { } loaded && DrawingAnchorContent.WrapperOf(loaded.Picture) is not null;
+
         // The same xdr:pic whichever anchor form ends up holding it: the anchor decides where the
         // drawing goes, never what it is.
         var pictureElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
-                new Xdr.NonVisualDrawingProperties { Id = DrawingIds.NextDrawingId(worksheetDrawing), Name = pic.Name },
+                new Xdr.NonVisualDrawingProperties { Id = keepsBranch ? 0u : ids.NextDrawingId(worksheetDrawing), Name = pic.Name },
                 new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
             ),
             new Xdr.BlipFill(
@@ -110,8 +115,7 @@ internal static class PictureAnchorWriter
             return pictureElement;
         }
 
-        // FindPicture finds a picture only as the anchor's child or a branch of the anchor's wrapper.
-        if (DrawingAnchorContent.WrapperOf(found.Picture) is null)
+        if (!keepsBranch)
         {
             worksheetDrawing.ReplaceChild(anchor, found.Anchor);
             return pictureElement;
