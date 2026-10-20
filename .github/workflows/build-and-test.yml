@@ -6,7 +6,50 @@ on:
   pull_request:
     branches: [main]
 
+# Three jobs run side by side. Run in sequence they took 8-10 minutes, and two of the steps did not
+# need to be in line with the build:
+# - `checks`: `dotnet format` builds the whole solution again on its own (2-2.5 minutes), and it
+#   only ever warns. The vulnerable-package check needs only a restore.
+# - `build-and-test`: SonarCloud analyses what is compiled, and the tests run on net10.0 only, so
+#   this job builds net10.0 alone. Coverage must be collected between `sonarscanner begin` and
+#   `end`, so every suite that reports coverage stays in this job.
+# - `build-all-frameworks`: builds every target framework, without Sonar, so a compile error on any
+#   one of them still fails the run, and runs the suites on net8.0, which nothing else does.
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Check formatting
+        run: |
+          if ! dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic; then
+            echo "::warning::Code formatting issues detected. Run 'dotnet format XLibur.slnx' locally to fix."
+          fi
+
+      - name: Check vulnerable packages
+        run: |
+          OUTPUT=$(dotnet list XLibur.slnx package --vulnerable --include-transitive --format json)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | jq -e '.projects[] | select(.frameworks)' > /dev/null 2>&1; then
+            echo "::error::Vulnerable packages detected"
+            exit 1
+          fi
+
   build-and-test:
     runs-on: ubuntu-latest
     env:
@@ -44,23 +87,11 @@ jobs:
         if: env.SONAR_TOKEN != ''
         run: dotnet tool install --global dotnet-sonarscanner
 
+      # Every restore, build and test in this job passes -p:TargetFrameworks=net10.0. The restore
+      # must get it too: a project restored for other frameworks than it is built for is no longer
+      # seen as a test project, and `dotnet test` reports it as a VSTest project or finds none.
       - name: Restore dependencies
-        run: dotnet restore XLibur.slnx
-
-      - name: Check formatting
-        run: |
-          if ! dotnet format XLibur.slnx --verify-no-changes --verbosity diagnostic; then
-            echo "::warning::Code formatting issues detected. Run 'dotnet format XLibur.slnx' locally to fix."
-          fi
-
-      - name: Check vulnerable packages
-        run: |
-          OUTPUT=$(dotnet list XLibur.slnx package --vulnerable --include-transitive --format json)
-          echo "$OUTPUT"
-          if echo "$OUTPUT" | jq -e '.projects[] | select(.frameworks)' > /dev/null 2>&1; then
-            echo "::error::Vulnerable packages detected"
-            exit 1
-          fi
+        run: dotnet restore XLibur.slnx -p:TargetFrameworks=net10.0
 
       - name: Begin SonarCloud analysis
         if: env.SONAR_TOKEN != ''
@@ -85,7 +116,7 @@ jobs:
           /d:sonar.issue.ignore.multicriteria.e1.resourceKey=**/*
 
       - name: Build
-        run: dotnet build XLibur.slnx --configuration Release --no-restore
+        run: dotnet build XLibur.slnx --configuration Release --no-restore -p:TargetFrameworks=net10.0
 
       # The suites run on TUnit / Microsoft.Testing.Platform. global.json opts `dotnet test`
       # into the MTP runner, so coverage and TRX options are passed straight through rather
@@ -102,6 +133,7 @@ jobs:
           --configuration Release
           --no-build
           --framework net10.0
+          -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename test-results.trx
           --coverage --coverage-output-format xml --coverage-output coverage.xml
 
@@ -111,6 +143,7 @@ jobs:
           --configuration Release
           --no-build
           --framework net10.0
+          -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename report-test-results.trx
           --coverage --coverage-output-format xml --coverage-output report-coverage.xml
 
@@ -120,6 +153,7 @@ jobs:
           --configuration Release
           --no-build
           --framework net10.0
+          -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename fonts-test-results.trx
 
       - name: Test Fonts.SkiaSharp
@@ -128,6 +162,7 @@ jobs:
           --configuration Release
           --no-build
           --framework net10.0
+          -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename fonts-skiasharp-test-results.trx
 
       - name: End SonarCloud analysis
@@ -145,3 +180,64 @@ jobs:
             **/TestResults/*.trx
             **/TestResults/coverage.xml
             **/TestResults/report-coverage.xml
+
+  build-all-frameworks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore XLibur.slnx
+
+      - name: Build
+        run: dotnet build XLibur.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test XLibur.Tests/XLibur.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --report-trx --report-trx-filename test-results.trx
+
+      - name: Test Report
+        run: >
+          dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --report-trx --report-trx-filename report-test-results.trx
+
+      - name: Test Fonts.SixLabors
+        run: >
+          dotnet test XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --report-trx --report-trx-filename fonts-test-results.trx
+
+      - name: Test Fonts.SkiaSharp
+        run: >
+          dotnet test XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --report-trx --report-trx-filename fonts-skiasharp-test-results.trx
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results-net8.0
+          path: '**/TestResults/*.trx'
