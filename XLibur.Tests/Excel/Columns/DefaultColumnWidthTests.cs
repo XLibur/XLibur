@@ -1,10 +1,10 @@
 using System;
-using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Graphics;
 using XLibur.Tests.Utils;
+using static XLibur.Tests.Excel.Columns.ColumnWidthDpi;
 
 namespace XLibur.Tests.Excel.Columns;
 
@@ -26,7 +26,7 @@ public class DefaultColumnWidthTests
     [Arguments(96, 8.43)]
     public async Task A_new_workbook_has_the_default_width_of_its_DPI(int dpi, double expected)
     {
-        using var wb = new XLWorkbook(new LoadOptions { Dpi = new Point(dpi, dpi) });
+        using var wb = new XLWorkbook(At(dpi));
         var ws = wb.AddWorksheet();
 
         await Assert.That(wb.ColumnWidth).IsEqualTo(expected).Within(0.005);
@@ -107,8 +107,6 @@ public class DefaultColumnWidthTests
 
         await Assert.That(saved.Sheet1Xml()).Contains("<x:sheetFormatPr defaultRowHeight=\"15\" />");
     }
-
-    private static readonly LoadOptions AtExcelDpi = new() { Dpi = new Point(120, 120) };
 
     /// <summary>
     /// The test font engine, counting how often the maximum digit width is measured.

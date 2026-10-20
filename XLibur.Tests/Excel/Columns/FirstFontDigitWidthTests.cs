@@ -1,9 +1,9 @@
 using System;
-using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
+using static XLibur.Tests.Excel.Columns.ColumnWidthDpi;
 
 namespace XLibur.Tests.Excel.Columns;
 
@@ -44,8 +44,6 @@ namespace XLibur.Tests.Excel.Columns;
 /// </remarks>
 public class FirstFontDigitWidthTests
 {
-    private static readonly LoadOptions AtExcelDpi = new() { Dpi = new Point(120, 120) };
-
     [Test]
     // defaultColWidth="12.78" is 217 px of 17 px digits: 12.12 characters.
     [Arguments("firstFont", "defaultColWidth", 12.12)]
