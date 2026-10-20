@@ -116,12 +116,18 @@ internal sealed class AnchorGrid
 
         var runs = new List<(int First, int Last, int Px)>(stated.Columns.Count);
         foreach (var (min, max, width, hidden) in stated.Columns)
-        {
-            var px = hidden ? 0 : width is { } w ? WidthToPixels(w, mdw) : defaultPx;
-            runs.Add((min, max, px));
-        }
+            runs.Add((min, max, StatedColumnPx(width, hidden, defaultPx, mdw)));
 
         return new PixelAxis(defaultPx, XLHelper.MaxColumnNumber, runs);
+    }
+
+    /// <summary>A hidden column is 0 px; one with no stated width takes the sheet default.</summary>
+    private static int StatedColumnPx(double? width, bool hidden, int defaultPx, int mdw)
+    {
+        if (hidden)
+            return 0;
+
+        return width is { } w ? WidthToPixels(w, mdw) : defaultPx;
     }
 
     private static PixelAxis RowAxis(XLWorksheet ws, double dpiY)
