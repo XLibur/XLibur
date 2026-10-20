@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
@@ -110,13 +111,16 @@ internal static class PictureWriter
     {
         var groupedPictures = new List<XLPicture>();
         var fedImages = new Dictionary<string, MemoryStream>();
+
+        // One layout for every kept anchor on the sheet to compare with, built only if it has one (#785).
+        var layout = new Lazy<GridLayout>(() => GridLayout.Of(xlWorksheet), LazyThreadSafetyMode.None);
         foreach (var pic in xlWorksheet.Pictures)
         {
             var xlPic = (XLPicture)pic;
             if (xlPic.IsInGroup)
                 groupedPictures.Add(xlPic);
             else
-                written.Add((xlPic, AddPictureAnchor(worksheetPart, pic, context, fedImages)));
+                written.Add((xlPic, AddPictureAnchor(worksheetPart, pic, context, fedImages, layout)));
         }
 
         foreach (var groupedPicture in groupedPictures)
@@ -203,10 +207,10 @@ internal static class PictureWriter
     /// <summary>
     /// Write a free-floating picture's anchor, editing or replacing its own anchor from the loaded
     /// drawing. Returns the picture written, whose drawing id and image link the picture takes after
-    /// the save.
+    /// the save. A kept anchor is compared with <paramref name="layout"/>, the sheet's layout now.
     /// </summary>
     private static Xdr.Picture AddPictureAnchor(WorksheetPart worksheetPart, IXLPicture picture,
-        SaveContext context, Dictionary<string, MemoryStream> fedImages)
+        SaveContext context, Dictionary<string, MemoryStream> fedImages, Lazy<GridLayout> layout)
     {
         var pic = (XLPicture)picture;
         var drawingsPart = worksheetPart.DrawingsPart ??
@@ -226,7 +230,7 @@ internal static class PictureWriter
         var imagePart = FeedImagePart(drawingsPart, pic, context, fedImages);
 
         if (pic.KeptAnchor is { } kept && existingAnchor is Xdr.TwoCellAnchor twoCellAnchor &&
-            TryWriteKeptAnchor(twoCellAnchor, kept, pic, drawingsPart.GetIdOfPart(imagePart)))
+            TryWriteKeptAnchor(twoCellAnchor, kept, layout.Value, pic, drawingsPart.GetIdOfPart(imagePart)))
             return twoCellAnchor.GetFirstChild<Xdr.Picture>()!;
 
         var wb = pic.Worksheet.Workbook;
@@ -374,9 +378,10 @@ internal static class PictureWriter
     /// when the rows and columns under it were resized so the kept markers would no longer place the
     /// picture where Excel showed it; the caller then regenerates it.
     /// </remarks>
-    private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, XLKeptAnchor kept, XLPicture pic, string embedId)
+    private static bool TryWriteKeptAnchor(Xdr.TwoCellAnchor anchor, XLKeptAnchor kept, GridLayout layout,
+        XLPicture pic, string embedId)
     {
-        if (!kept.IsLayoutUnchanged ||
+        if (!kept.IsLayoutUnchanged(layout) ||
             anchor.EditAs?.Value != kept.Placement.ToOpenXml() ||
             anchor.FromMarker is not { } from ||
             anchor.ToMarker is not { } to ||
