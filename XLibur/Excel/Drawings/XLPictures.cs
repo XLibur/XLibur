@@ -14,6 +14,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     private long _nextGroupKey = 1;
     private HashSet<string> _keptShapeNames = new(StringComparer.OrdinalIgnoreCase);
 
+    // The pictures holding each name and each id, kept as the pictures change so that adding a
+    // picture does not read every picture (#804). A file can give two pictures one name or one id.
+    private readonly Dictionary<string, int> _nameUses = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, int> _idUses = [];
+
+    // The highest id, or null when it must be read again because the picture holding it changed.
+    private int? _highestId;
+
     public XLPictures(XLWorksheet worksheet)
     {
         _worksheet = worksheet;
@@ -47,7 +55,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     public IXLPicture Add(Stream stream)
     {
         var picture = new XLPicture(_worksheet, stream);
-        _pictures.Add(picture);
+        Attach(picture);
         picture.Name = GetNextPictureName();
         return picture;
     }
@@ -64,7 +72,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     public IXLPicture Add(Stream stream, XLPictureFormat format)
     {
         var picture = new XLPicture(_worksheet, stream, format);
-        _pictures.Add(picture);
+        Attach(picture);
         picture.Name = GetNextPictureName();
         return picture;
     }
@@ -83,7 +91,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         ArgumentException.ThrowIfNullOrEmpty(imageFile);
         using var fs = File.OpenRead(imageFile);
         var picture = new XLPicture(_worksheet, fs);
-        _pictures.Add(picture);
+        Attach(picture);
         picture.Name = GetNextPictureName();
         return picture;
     }
@@ -126,7 +134,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
             else if (!string.IsNullOrEmpty(picture.RelId))
                 Deleted.Add((picture.Id, picture.RelId));
 
-            _pictures.Remove(picture);
+            Detach(picture);
         }
     }
 
@@ -176,7 +184,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     internal IXLPicture Add(Stream stream, string name, int id)
     {
         var picture = new XLPicture(_worksheet, stream);
-        _pictures.Add(picture);
+        Attach(picture);
         picture.SetName(name);
         picture.Id = id;
         return picture;
@@ -344,8 +352,98 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// </summary>
     internal bool IsNameTaken(string name, XLPicture? renamed = null) =>
         _keptShapeNames.Contains(name) ||
-        (_pictures.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } picture &&
-         picture != renamed);
+        _nameUses.GetValueOrDefault(name) >
+        (renamed is { IsInCollection: true } && string.Equals(renamed.Name, name, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+
+    /// <summary>Whether a picture of this collection other than <paramref name="picture"/> has the id <paramref name="id"/>.</summary>
+    internal bool IsIdTaken(int id, XLPicture picture) =>
+        _idUses.GetValueOrDefault(id) > (picture.IsInCollection && picture.Id == id ? 1 : 0);
+
+    /// <summary>
+    /// The id a new picture takes: one more than the highest id of any picture in
+    /// <paramref name="workbook"/>, or 1 when it has none.
+    /// </summary>
+    internal static int NextFreeId(XLWorkbook workbook)
+    {
+        var highest = 0;
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            if (((XLPictures)worksheet.Pictures).HighestId is { } id)
+                highest = Math.Max(highest, id);
+        }
+
+        return highest + 1;
+    }
+
+    /// <summary>The highest id of a picture of this collection, or <c>null</c> when it is empty.</summary>
+    private int? HighestId => _idUses.Count == 0 ? null : _highestId ??= _idUses.Keys.Max();
+
+    /// <summary>Called by <paramref name="picture"/> when its name changes from <paramref name="oldName"/>.</summary>
+    internal void OnRenamed(XLPicture picture, string oldName)
+    {
+        Release(_nameUses, oldName);
+        Take(_nameUses, picture.Name);
+    }
+
+    /// <summary>Called by <paramref name="picture"/> when its id changes from <paramref name="oldId"/>.</summary>
+    internal void OnIdChanged(XLPicture picture, int oldId)
+    {
+        ReleaseId(oldId);
+        TakeId(picture.Id);
+    }
+
+    private void Attach(XLPicture picture)
+    {
+        _pictures.Add(picture);
+        picture.IsInCollection = true;
+        Take(_nameUses, picture.Name);
+        TakeId(picture.Id);
+    }
+
+    private void Detach(XLPicture picture)
+    {
+        _pictures.Remove(picture);
+        picture.IsInCollection = false;
+        Release(_nameUses, picture.Name);
+        ReleaseId(picture.Id);
+    }
+
+    private void TakeId(int id)
+    {
+        Take(_idUses, id);
+        if (_highestId < id)
+            _highestId = id;
+    }
+
+    private void ReleaseId(int id)
+    {
+        if (Release(_idUses, id) && _highestId == id)
+            _highestId = null;
+    }
+
+    private static void Take<TKey>(Dictionary<TKey, int> uses, TKey key) where TKey : notnull
+    {
+        if (key is string { Length: 0 })
+            return;
+
+        uses[key] = uses.GetValueOrDefault(key) + 1;
+    }
+
+    /// <summary>Releases one use of <paramref name="key"/>; returns whether no use of it is left.</summary>
+    private static bool Release<TKey>(Dictionary<TKey, int> uses, TKey key) where TKey : notnull
+    {
+        if (!uses.TryGetValue(key, out var count))
+            return false;
+
+        if (count > 1)
+        {
+            uses[key] = count - 1;
+            return false;
+        }
+
+        uses.Remove(key);
+        return true;
+    }
 
     /// <summary>
     /// Throws when <paramref name="name"/> is taken (see <see cref="IsNameTaken"/>). A named <c>Add</c>

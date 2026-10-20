@@ -23,6 +23,7 @@ internal sealed class DrawingIds(WorksheetPart worksheetPart)
 {
     private Xdr.WorksheetDrawing? _drawing;
     private Dictionary<(uint Id, string RelId), List<(OpenXmlCompositeElement Anchor, Xdr.Picture Picture)>>? _pictures;
+    private Dictionary<uint, List<Xdr.Picture>>? _groupedPictures;
     private uint? _maxId;
 
     private Xdr.WorksheetDrawing Drawing => _drawing ??= worksheetPart.DrawingsPart!.WorksheetDrawing!;
@@ -65,6 +66,70 @@ internal sealed class DrawingIds(WorksheetPart worksheetPart)
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The first picture in document order, inside a group shape, with drawing id <paramref name="id"/>,
+    /// or <c>null</c>. The save DOM is an independent re-parse, so a grouped picture is matched by id
+    /// rather than object reference.
+    /// </summary>
+    /// <remarks>
+    /// The grouped pictures are indexed by id at the first call, rather than read for each grouped
+    /// picture the save updates or removes (#804). A picture is found only while it is still in the
+    /// drawing, in a group, under the same id: one the save has since removed is not. The save
+    /// moves pictures into new groups after it removes grouped pictures, so building the new groups
+    /// drops the index (<see cref="ForgetGroupedPictures"/>), and the next call indexes them too.
+    /// </remarks>
+    internal Xdr.Picture? FindGroupedPicture(int id)
+    {
+        _groupedPictures ??= IndexGroupedPictures(Drawing);
+        if (!_groupedPictures.TryGetValue((uint)id, out var candidates))
+            return null;
+
+        foreach (var picture in candidates)
+        {
+            if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == (uint)id &&
+                IsGroupedIn(picture, Drawing))
+                return picture;
+        }
+
+        return null;
+    }
+
+    /// <summary>Drops the index of grouped pictures, after the save has moved pictures into a group.</summary>
+    internal void ForgetGroupedPictures() => _groupedPictures = null;
+
+    private static Dictionary<uint, List<Xdr.Picture>> IndexGroupedPictures(Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        var pictures = new Dictionary<uint, List<Xdr.Picture>>();
+        foreach (var picture in worksheetDrawing.Descendants<Xdr.Picture>())
+        {
+            if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is not { } id ||
+                !picture.Ancestors<Xdr.GroupShape>().Any())
+                continue;
+
+            if (!pictures.TryGetValue(id, out var candidates))
+                pictures[id] = candidates = [];
+
+            candidates.Add(picture);
+        }
+
+        return pictures;
+    }
+
+    /// <summary>Whether <paramref name="picture"/> is in a group shape of <paramref name="worksheetDrawing"/>.</summary>
+    private static bool IsGroupedIn(Xdr.Picture picture, Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        var grouped = false;
+        for (var element = picture.Parent; element is not null; element = element.Parent)
+        {
+            if (element == worksheetDrawing)
+                return grouped;
+
+            grouped |= element is Xdr.GroupShape;
+        }
+
+        return false;
     }
 
     /// <summary>
