@@ -24,6 +24,10 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **The packages target .NET 11 (`net11.0`), built with the .NET 11 RC 2 SDK.** XLibur, XLibur.Bundle, the three font engines, XLibur.Report and XLibur.Report.DynamicLinq now ship a `net11.0` build beside `net8.0`, `net9.0` and `net10.0`. Building the repository now needs the .NET 11 RC 2 SDK (`11.0.100-rc.2.26504.105`, pinned in `global.json`). .NET 11 changes `Math.Round(value, digits, MidpointRounding.AwayFromZero)` to round the exact binary value, so it rounds 2.15 to one digit as 2.1. Excel gives 2.2, and so did earlier runtimes. `ROUND` now scales and rounds the value itself, so it gives Excel's result on every runtime.
+
 ## v0.720.0 - 2026-10-20
 
 ### ⚡ Performance
