@@ -23,6 +23,8 @@ public class PictureEditAsRoundTripTests
 {
     private const string Drawing1 = "xl/drawings/drawing1.xml";
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     [Test]
     [Arguments("oneCell")]
     [Arguments("absolute")]
@@ -45,7 +47,7 @@ public class PictureEditAsRoundTripTests
         // The real offset and size, as Excel writes them, so a regenerated xdr:pic would differ.
         const string ExcelXfrm = "<a:xfrm><a:off x=\"609600\" y=\"1280160\" /><a:ext cx=\"1219200\" cy=\"731520\" /></a:xfrm>";
         using var source = PictureFromB8ToD12(editAs)
-            .RewritePart(Drawing1, xml => Regex.Replace(xml, "<a:xfrm>.*?</a:xfrm>", ExcelXfrm));
+            .RewritePart(Drawing1, xml => Regex.Replace(xml, "<a:xfrm>.*?</a:xfrm>", ExcelXfrm, RegexOptions.None, RegexTimeout));
         var before = Xfrm(source.ReadPart(Drawing1));
         await Assert.That(before).IsEqualTo(ExcelXfrm);
 
@@ -286,8 +288,10 @@ public class PictureEditAsRoundTripTests
         using var saved = LoadAndSave(source, ws => ws.Row(20).Height = 40);
 
         var drawing = saved.ReadPart(Drawing1);
-        var kept = Regex.Match(drawing, "<xdr:twoCellAnchor editAs=\"absolute\">.*?</xdr:twoCellAnchor>").Value;
-        var rewritten = Regex.Match(drawing, "<xdr:absoluteAnchor>.*?</xdr:absoluteAnchor>").Value;
+        var kept = Regex.Match(drawing, "<xdr:twoCellAnchor editAs=\"absolute\">.*?</xdr:twoCellAnchor>",
+            RegexOptions.None, RegexTimeout).Value;
+        var rewritten = Regex.Match(drawing, "<xdr:absoluteAnchor>.*?</xdr:absoluteAnchor>",
+            RegexOptions.None, RegexTimeout).Value;
         await Assert.That(kept).Contains("name=\"Above\"");
         await Assert.That(rewritten).Contains("name=\"Below\"");
     }
@@ -375,12 +379,14 @@ public class PictureEditAsRoundTripTests
         static string Marker(string drawing, string name)
         {
             var m = Regex.Match(drawing,
-                $@"<xdr:{name}><xdr:col>(\d+)</xdr:col><xdr:colOff>-?\d+</xdr:colOff><xdr:row>(\d+)</xdr:row>");
+                $@"<xdr:{name}><xdr:col>(\d+)</xdr:col><xdr:colOff>-?\d+</xdr:colOff><xdr:row>(\d+)</xdr:row>",
+                RegexOptions.None, RegexTimeout);
             return m.Success ? $"{m.Groups[1].Value},{m.Groups[2].Value}" : "none";
         }
 
         return $"from {Marker(drawing, "from")} to {Marker(drawing, "to")}";
     }
 
-    private static string Xfrm(string drawing) => Regex.Match(drawing, "<a:xfrm>.*?</a:xfrm>").Value;
+    private static string Xfrm(string drawing) =>
+        Regex.Match(drawing, "<a:xfrm>.*?</a:xfrm>", RegexOptions.None, RegexTimeout).Value;
 }

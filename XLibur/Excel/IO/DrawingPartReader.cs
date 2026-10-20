@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Extensions;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -66,8 +67,7 @@ internal static class DrawingPartReader
             () => new AnchorGrid(ws, columnWidths, ws.Workbook.MaxDigitWidth),
             LazyThreadSafetyMode.None);
 
-        // One layout for every kept anchor on the sheet, built only if the sheet has one (#785).
-        var layout = new Lazy<GridLayout>(() => GridLayout.Of(ws), LazyThreadSafetyMode.None);
+        var layout = GridLayout.OnFirstUse(ws);
 
         foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
             LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);
@@ -86,6 +86,12 @@ internal static class DrawingPartReader
             LoadGroupedPictures(group, drawingsPart, ws);
             return;
         }
+
+        // A picture deeper in the anchor than its wrapper's branches, as in a group inside the
+        // wrapper, is left as the file has it (#787).
+        if (anchor.Descendants<Xdr.Picture>().FirstOrDefault() is { } first &&
+            !DrawingAnchorContent.IsAnchorPicture(first, anchor))
+            return;
 
         var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
 

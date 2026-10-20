@@ -40,6 +40,7 @@ Two consequences:
 | Custom XML | ✅ | n/a | ❌ | `customXml/item*.xml` and props |
 | Slicers | ✅ | ✅ | ✅ | Modelled as of PRD 5; a slicer nobody edits is still passed through untouched |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
+| Drawings in `mc:AlternateContent` (3D models) | ✅ | ✅ | ❌ | Wrapper, both branches and the model part kept; the fallback picture is an `IXLPicture` (#787) |
 
 ### Chartsheets are preserved, not dropped
 
@@ -118,6 +119,25 @@ two halves are gated separately.
 One thing that does change is unrelated to slicers: `<pivotCache cacheId>` is renumbered on save
 (`3` → `0`). The slicer cache binds to the pivot cache through `pivotCacheId` in
 `pivotCacheDefinition1.xml`, not through this attribute, so the link is not affected.
+
+### A 3D model keeps its wrapper through a rewritten drawing
+
+Excel writes a 3D model as one anchor holding an `mc:AlternateContent`: the `am3d:model3d` in an
+`mc:Choice Requires="am3d"`, and an `xdr:pic` of its render in the `mc:Fallback`. Both branches have
+the same drawing id and name, and the render's image part is also the model's `am3d:raster`. The
+drawing part is not passed through, because XLibur models pictures and the fallback is one, so the
+wrapper survives on purpose rather than by default:
+
+- The save edits the anchor in place. A move or resize writes only the markers, position and extent;
+  a rename names both branches; a new image part for the picture takes the raster with it.
+- Deleting the picture deletes the anchor and every relationship it alone used: the model part, the
+  render, and the drawing part once it is empty. A copy that shares them keeps them.
+- A picture is the anchor's own only as its child or a branch of its wrapper. Excel 16.0 puts a
+  grouped model's wrapper inside the group (`xdr:grpSp` > `mc:AlternateContent`), and XLibur leaves
+  that model as the file has it. It leaves a group inside a wrapper alone in the same way.
+
+`RoundTripFidelityTests.A_3d_model_inside_alternate_content_survives_a_round_trip` pins the
+pass-through for both shapes, on Excel-made fixtures; `PictureAlternateContentTests` covers the edits.
 
 ### Comment VML is pruned surgically
 

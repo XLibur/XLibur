@@ -44,8 +44,8 @@ namespace XLibur.Excel.Drawings;
 internal sealed class XLKeptAnchor
 {
     private readonly GridLayout _loadedLayout;
-    private readonly (int First, int Last) _loadedRows;
-    private readonly (int First, int Last) _loadedColumns;
+    private readonly LineRun _loadedRows;
+    private readonly LineRun _loadedColumns;
 
     /// <summary>
     /// Keeps the markers loaded for a picture, and where they lie in <paramref name="loadedLayout"/>,
@@ -84,22 +84,17 @@ internal sealed class XLKeptAnchor
     /// same sizes as before. A row that is resized, hidden or shown, or inserted at another height,
     /// makes it false.
     /// </remarks>
-    internal bool IsLayoutUnchanged(GridLayout current)
-    {
-        var (firstRow, lastRow) = RowRun();
-        var (firstColumn, lastColumn) = ColumnRun();
-        return current.Rows.HasSameSizes(firstRow, lastRow, _loadedLayout.Rows, _loadedRows.First, _loadedRows.Last) &&
-               current.Columns.HasSameSizes(firstColumn, lastColumn, _loadedLayout.Columns,
-                   _loadedColumns.First, _loadedColumns.Last);
-    }
+    internal bool IsLayoutUnchanged(GridLayout current) =>
+        current.Rows.HasSameSizes(RowRun(), _loadedLayout.Rows, _loadedRows) &&
+        current.Columns.HasSameSizes(ColumnRun(), _loadedLayout.Columns, _loadedColumns);
 
     /// <summary>
     /// A one-cell picture's size is the lines from its top-left cell to its bottom-right cell; an
     /// absolute picture's position also takes every line before it, from the sheet's corner.
     /// </summary>
-    private (int First, int Last) RowRun() => (CountsFromCorner ? 1 : From.RowNumber, To.RowNumber);
+    private LineRun RowRun() => new(CountsFromCorner ? 1 : From.RowNumber, To.RowNumber);
 
-    private (int First, int Last) ColumnRun() => (CountsFromCorner ? 1 : From.ColumnNumber, To.ColumnNumber);
+    private LineRun ColumnRun() => new(CountsFromCorner ? 1 : From.ColumnNumber, To.ColumnNumber);
 
     private bool CountsFromCorner => Placement == XLPicturePlacement.FreeFloating;
 }

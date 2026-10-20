@@ -267,7 +267,7 @@ public partial class XLWorkbook
         // Excel measures the default width of a column in digits of the first font, not the Normal
         // style's (#786).
         if (s?.Fonts?.GetFirstChild<Font>() is { } firstFont)
-            FirstFont = new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key));
+            SetFirstFont(new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key)));
 
         if (s is not null)
             ColumnWidth = CalculateColumnWidth(8, MaxDigitWidth);

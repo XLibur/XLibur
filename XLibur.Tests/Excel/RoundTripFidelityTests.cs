@@ -236,6 +236,31 @@ public class RoundTripFidelityTests
     }
 
     [Test]
+    [Arguments(@"Other\Drawings\picture-3d-model.xlsx")]
+    [Arguments(@"Other\Drawings\picture-3d-model-grouped.xlsx")]
+    public async Task A_3d_model_inside_alternate_content_survives_a_round_trip(string fixture)
+    {
+        // Excel writes a 3D model as an mc:AlternateContent: the am3d model in the mc:Choice and a
+        // picture of its render in the mc:Fallback. XLibur models the fallback picture, not the model,
+        // so the drawing part is rewritten; the wrapper, both branches and the model part must survive
+        // it. The second fixture is the model grouped with a picture, the group holding the wrapper.
+        using var original = TestHelper.OpenResource(fixture);
+        var model = original.PartBytes("xl/media/model3d1.glb");
+
+        using var saved = TestHelper.LoadAndSave(fixture);
+
+        var drawing = saved.ReadPart("xl/drawings/drawing1.xml");
+        await Assert.That(drawing).Contains("<mc:AlternateContent");
+        await Assert.That(drawing).Contains("Requires=\"am3d\"");
+        await Assert.That(drawing).Contains("<am3d:model3d");
+        await Assert.That(drawing).Contains("<am3d:raster");
+        await Assert.That(drawing).Contains("<mc:Fallback>");
+        await Assert.That(saved.ReadPart("xl/drawings/_rels/drawing1.xml.rels"))
+            .Contains("relationships/model3d\" Target=\"../media/model3d1.glb\"");
+        await Assert.That(saved.PartBytes("xl/media/model3d1.glb")).IsEquivalentTo(model, CollectionOrdering.Matching);
+    }
+
+    [Test]
     public async Task A_drawing_holding_only_slicers_survives_a_round_trip_byte_for_byte()
     {
         // Both sheets of this fixture carry a drawing whose only content is a slicer frame — no

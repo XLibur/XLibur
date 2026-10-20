@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
@@ -72,14 +71,18 @@ internal static class PictureWriter
         {
             // The anchor found holds the picture itself, never a group shape, so a group and its
             // other shapes are never removed with it.
+            var released = new List<string>();
             foreach (var (id, relId) in xlPictures.Deleted)
             {
-                FindPictureAnchor(worksheetDrawing, id, relId)?.Remove();
-
-                // Other pictures may still show the image: Excel shares one part between copies.
-                if (drawingsPart.HasPartWithId(relId))
-                    DeleteImagePartIfUnreferenced(drawingsPart, worksheetDrawing, relId);
+                released.Add(relId);
+                if (FindPicture(worksheetDrawing, id, relId) is { } found)
+                {
+                    released.AddRange(RelationshipIds(found.Anchor));
+                    found.Anchor.Remove();
+                }
             }
+
+            DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
         }
 
         xlPictures.Deleted.Clear();
@@ -111,9 +114,8 @@ internal static class PictureWriter
     {
         var groupedPictures = new List<XLPicture>();
         var fedImages = new Dictionary<string, MemoryStream>();
+        var layout = GridLayout.OnFirstUse(xlWorksheet);
 
-        // One layout for every kept anchor on the sheet to compare with, built only if it has one (#785).
-        var layout = new Lazy<GridLayout>(() => GridLayout.Of(xlWorksheet), LazyThreadSafetyMode.None);
         foreach (var pic in xlWorksheet.Pictures)
         {
             var xlPic = (XLPicture)pic;
@@ -284,7 +286,8 @@ internal static class PictureWriter
             return pictureElement;
         }
 
-        if (found.Picture.Parent == found.Anchor)
+        // FindPicture finds a picture only as the anchor's child or a branch of the anchor's wrapper.
+        if (DrawingAnchorContent.WrapperOf(found.Picture) is null)
         {
             worksheetDrawing.ReplaceChild(anchor, found.Anchor);
             return pictureElement;
@@ -352,7 +355,10 @@ internal static class PictureWriter
     /// <remarks>
     /// The name goes to every drawing in the anchor with the picture's id. Excel gives each branch
     /// of <c>mc:AlternateContent</c> the same id and name, as one drawing in two forms, so a 3D
-    /// model renamed through its fallback picture is renamed in the form Excel shows.
+    /// model renamed through its fallback picture is renamed in the form Excel shows. The image
+    /// link goes to every image in the wrapper that showed the picture's image: a 3D model's
+    /// <c>am3d:raster</c> is the render its fallback picture shows, so the two stay on one part.
+    /// The shape properties of the other branches are left as Excel wrote them.
     /// </remarks>
     private static void WritePictureNameAndImage(OpenXmlElement anchor, Xdr.Picture picture, string name,
         string embedId)
@@ -366,9 +372,24 @@ internal static class PictureWriter
             }
         }
 
-        if (picture.BlipFill?.Blip is { } blip)
-            blip.Embed = embedId;
+        if (picture.BlipFill?.Blip is not { } blip)
+            return;
+
+        var previous = blip.Embed?.Value;
+        blip.Embed = embedId;
+        if (previous is null || previous == embedId || DrawingAnchorContent.WrapperOf(picture) is not { } wrapper)
+            return;
+
+        foreach (var image in wrapper.Descendants())
+        {
+            if (image.LocalName == "blip" && EmbedOf(image) == previous)
+                image.SetAttribute(new OpenXmlAttribute("r", "embed", RelationshipsNs, embedId));
+        }
     }
+
+    /// <summary>The <c>r:embed</c> of an image element, whatever namespace the element is in.</summary>
+    private static string? EmbedOf(OpenXmlElement image) =>
+        image.GetAttributes().FirstOrDefault(a => a.LocalName == "embed" && a.NamespaceUri == RelationshipsNs).Value;
 
     /// <summary>
     /// The image part <paramref name="pic"/> is written with, holding its image. Each part is fed
@@ -420,23 +441,17 @@ internal static class PictureWriter
         stream.TryGetBuffer(out var buffer) ? buffer.AsSpan() : stream.ToArray();
 
     /// <summary>
-    /// The top-level anchor that holds the picture with drawing id <paramref name="id"/> and image
-    /// link <paramref name="relId"/>, or <c>null</c>. The link alone is not enough: pictures that
+    /// The picture with drawing id <paramref name="id"/> and image link <paramref name="relId"/>, and
+    /// the top-level anchor that holds it, or <c>null</c>. The link alone is not enough: pictures that
     /// share an image part, as a copied picture does in Excel, all have the same link (issue #781).
     /// </summary>
     /// <remarks>
-    /// The picture is looked for anywhere in the anchor, as the loader finds it, and not only as its
-    /// child: Excel puts it inside <c>mc:AlternateContent</c> when the drawing also has a newer form.
-    /// An anchor that holds a group shape is skipped, because its pictures are written in place
-    /// (<see cref="UpdateGroupedPicture"/>) and the anchor holds the group's other shapes too.
+    /// The picture is found where the loader reads it (<see cref="DrawingAnchorContent.IsAnchorPicture"/>):
+    /// the anchor's child, or a branch of the <c>mc:AlternateContent</c> Excel puts it in when the
+    /// drawing also has a newer form. A picture in a group shape is never found, because grouped
+    /// pictures are written in place (<see cref="UpdateGroupedPicture"/>) and the group's anchor
+    /// holds its other shapes too.
     /// </remarks>
-    private static OpenXmlElement? FindPictureAnchor(Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId) =>
-        FindPicture(worksheetDrawing, id, relId)?.Anchor;
-
-    /// <summary>
-    /// The picture with drawing id <paramref name="id"/> and image link <paramref name="relId"/>, and
-    /// the top-level anchor that holds it, or <c>null</c>. See <see cref="FindPictureAnchor"/>.
-    /// </summary>
     private static (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(
         Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
     {
@@ -445,13 +460,11 @@ internal static class PictureWriter
 
         foreach (var anchor in worksheetDrawing.ChildElements.OfType<OpenXmlCompositeElement>())
         {
-            if (anchor.Elements<Xdr.GroupShape>().Any())
-                continue;
-
             foreach (var picture in anchor.Descendants<Xdr.Picture>())
             {
                 if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == (uint)id &&
-                    picture.BlipFill?.Blip?.Embed?.Value == relId)
+                    picture.BlipFill?.Blip?.Embed?.Value == relId &&
+                    DrawingAnchorContent.IsAnchorPicture(picture, anchor))
                     return (anchor, picture);
             }
         }
@@ -560,9 +573,8 @@ internal static class PictureWriter
     {
         foreach (var member in pending.Members)
         {
-            var anchor = FindPictureAnchor(drawingsPart.WorksheetDrawing!, member.Id, member.RelId);
-            var picElement = anchor?.Descendants<Xdr.Picture>().FirstOrDefault();
-            if (anchor is null || picElement is null)
+            if (FindPicture(drawingsPart.WorksheetDrawing!, member.Id, member.RelId) is not
+                { Anchor: var anchor, Picture: var picElement })
                 continue;
 
             var wb = member.Worksheet.Workbook;
@@ -823,24 +835,67 @@ internal static class PictureWriter
         if (worksheetDrawing is null)
             return;
 
+        var released = new List<string>();
         foreach (var (id, relId) in removed)
         {
-            FindGroupedPictureById(worksheetDrawing, id)?.Remove();
+            if (relId is not null)
+                released.Add(relId);
 
-            // Drop the image part only if nothing else references it any more.
+            if (FindGroupedPictureById(worksheetDrawing, id) is { } picture)
+            {
+                released.AddRange(RelationshipIds(picture));
+                picture.Remove();
+            }
+        }
+
+        DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
+    }
+
+    /// <summary>
+    /// Every relationship id <paramref name="element"/> refers to, by any attribute in the
+    /// relationships namespace: the image of a picture's <c>a:blip</c>, and whatever Excel added
+    /// that XLibur does not model, such as a 3D model's part and its render's <c>am3d:blip</c>.
+    /// </summary>
+    private static IEnumerable<string> RelationshipIds(OpenXmlElement element) =>
+        element.Descendants().Prepend(element)
+            .SelectMany(e => e.GetAttributes())
+            .Where(a => a.NamespaceUri == RelationshipsNs && !string.IsNullOrEmpty(a.Value))
+            .Select(a => a.Value!);
+
+    /// <summary>
+    /// Drops each of the drawing part's relationships in <paramref name="released"/> that nothing left
+    /// in <paramref name="worksheetDrawing"/> refers to, once the drawings that referred to it have
+    /// been removed.
+    /// </summary>
+    /// <remarks>
+    /// Others may still refer to it: Excel shares one image part, and one 3D model part, between
+    /// copies. Only this drawing's relationship is dropped; the SDK deletes the part it targets only
+    /// when no other part, such as another sheet's drawing, still reaches it.
+    /// </remarks>
+    private static void DeleteUnreferencedRelationships(DrawingsPart drawingsPart,
+        Xdr.WorksheetDrawing worksheetDrawing, List<string> released)
+    {
+        if (released.Count == 0)
+            return;
+
+        var stillReferenced = RelationshipIds(worksheetDrawing).ToHashSet(StringComparer.Ordinal);
+        foreach (var relId in released.Distinct(StringComparer.Ordinal))
+        {
+            if (stillReferenced.Contains(relId))
+                continue;
+
             if (drawingsPart.HasPartWithId(relId))
-                DeleteImagePartIfUnreferenced(drawingsPart, worksheetDrawing, relId);
+                drawingsPart.DeletePart(relId);
+            else if (HasReferenceRelationship(drawingsPart, relId))
+                drawingsPart.DeleteReferenceRelationship(relId);
         }
     }
 
-    private static void DeleteImagePartIfUnreferenced(DrawingsPart drawingsPart,
-        Xdr.WorksheetDrawing worksheetDrawing, string relId)
-    {
-        var stillReferenced = worksheetDrawing.Descendants<Blip>()
-            .Any(b => b.Embed?.Value == relId);
-        if (!stillReferenced)
-            drawingsPart.DeletePart(relId);
-    }
+    /// <summary>Whether the part has a relationship <paramref name="relId"/> to no part: a hyperlink, an external target or media.</summary>
+    private static bool HasReferenceRelationship(DrawingsPart drawingsPart, string relId) =>
+        drawingsPart.ExternalRelationships.Any(r => r.Id == relId) ||
+        drawingsPart.HyperlinkRelationships.Any(r => r.Id == relId) ||
+        drawingsPart.DataPartReferenceRelationships.Any(r => r.Id == relId);
 
     /// <summary>Renumbers every drawing id from 1, in document order.</summary>
     /// <remarks>

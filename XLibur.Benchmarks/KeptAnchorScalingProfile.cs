@@ -36,6 +36,9 @@ public static class KeptAnchorScalingProfile
     private static readonly int[] RowCounts = [12_500, 25_000, 50_000];
     private static readonly string[] EditAs = ["twoCell", "oneCell", "absolute"];
 
+    // The drawing of 1,000 anchors is counted in well under a second.
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(10);
+
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
 
@@ -113,7 +116,7 @@ public static class KeptAnchorScalingProfile
             entry.Delete();
             var rewritten = zip.CreateEntry("xl/drawings/drawing1.xml");
             using var writer = new StreamWriter(rewritten.Open());
-            writer.Write(xml.Replace("<xdr:twoCellAnchor>", $"<xdr:twoCellAnchor editAs=\"{editAs}\">"));
+            writer.Write(xml.Replace("<xdr:twoCellAnchor>", $"<xdr:twoCellAnchor editAs=\"{editAs}\">", StringComparison.Ordinal));
         }
 
         return stream.ToArray();
@@ -143,6 +146,6 @@ public static class KeptAnchorScalingProfile
         saved.Position = 0;
         using var zip = new ZipArchive(saved, ZipArchiveMode.Read, leaveOpen: true);
         using var reader = new StreamReader(zip.GetEntry("xl/drawings/drawing1.xml")!.Open());
-        return Regex.Matches(reader.ReadToEnd(), $"<xdr:twoCellAnchor editAs=\"{editAs}\">").Count;
+        return Regex.Count(reader.ReadToEnd(), $"<xdr:twoCellAnchor editAs=\"{editAs}\">", RegexOptions.None, RegexTimeout);
     }
 }
