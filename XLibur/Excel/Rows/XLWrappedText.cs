@@ -21,10 +21,11 @@ internal static class XLWrappedText
     /// <param name="glyphs">Glyphs of the text, as produced by <see cref="XLCellGlyphHelper"/>.</param>
     /// <param name="breaks">Break kind of each glyph in <paramref name="glyphs"/>.</param>
     /// <param name="availableWidthPx">Width of the cell in pixels, including padding and the grid line.</param>
-    /// <param name="scaledMdw">Maximum digit width of the cell font, used for cell padding.</param>
-    internal static double GetHeight(List<GlyphBox> glyphs, List<GlyphBreak> breaks, int availableWidthPx, double scaledMdw)
+    /// <param name="cellMdw">Maximum digit width of the cell font, used for cell padding.</param>
+    /// <param name="columnMdw">Maximum digit width of the column, used for cell padding.</param>
+    internal static double GetHeight(List<GlyphBox> glyphs, List<GlyphBreak> breaks, int availableWidthPx, int cellMdw, int columnMdw)
     {
-        var layout = new Layout(glyphs, breaks, availableWidthPx, scaledMdw);
+        var layout = new Layout(glyphs, breaks, availableWidthPx, cellMdw, columnMdw);
         var textHeight = 0d;
         var paragraphStart = 0;
         for (var i = 0; i <= glyphs.Count; i++)
@@ -39,12 +40,12 @@ internal static class XLWrappedText
         return textHeight;
     }
 
-    private readonly struct Layout(List<GlyphBox> glyphs, List<GlyphBreak> breaks, int availableWidthPx, double scaledMdw)
+    private readonly struct Layout(List<GlyphBox> glyphs, List<GlyphBreak> breaks, int availableWidthPx, int cellMdw, int columnMdw)
     {
         private bool Fits(double lineWidthPx)
         {
             var textWidthPx = (int)Math.Ceiling(lineWidthPx);
-            return XLColumn.GetCellWidthPx(textWidthPx, scaledMdw) <= availableWidthPx;
+            return XLColumn.GetCellWidthPx(textWidthPx, cellMdw, columnMdw) <= availableWidthPx;
         }
 
         /// <summary>

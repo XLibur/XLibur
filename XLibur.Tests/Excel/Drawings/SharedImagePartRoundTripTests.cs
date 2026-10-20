@@ -123,6 +123,44 @@ public class SharedImagePartRoundTripTests
     }
 
     [Test]
+    public async Task Changing_two_copies_to_the_same_image_puts_them_on_one_new_part()
+    {
+        // The first changed copy takes a new part. The second, changed to the same bytes in a
+        // stream of its own, finds that part by its bytes and shows it too.
+        using var wb = LoadFixture();
+        var ws = wb.Worksheet(1);
+        var original = ws.Picture("Picture 2").ImageStream.ToArray();
+        var changed = original.Concat(new byte[] { 1, 2, 3 }).ToArray();
+        foreach (var name in new[] { "Picture 2", "Picture 3" })
+        {
+            var image = ws.Picture(name).ImageStream;
+            image.SetLength(0);
+            image.Write(changed);
+        }
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        // The image link of Picture 1, 2 and 3, in anchor order.
+        var embeds = XDocument.Parse(saved.ReadPart(Drawing1))
+            .Descendants(ANs + "blip")
+            .Select(b => (string?)b.Attribute(RNs + "embed"))
+            .ToArray();
+        await Assert.That(embeds[1]).IsNotEqualTo(embeds[0]);
+        await Assert.That(embeds[2]).IsEqualTo(embeds[1]);
+        await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(2);
+
+        using var reloaded = new XLWorkbook(saved);
+        var images = reloaded.Worksheet(1).Pictures
+            .Select(p => $"{p.Name} {(p.ImageStream.ToArray().SequenceEqual(changed) ? "changed" : "original")}")
+            .ToArray();
+        await Assert.That(Lines(images)).IsEqualTo(Lines(
+            "Picture 1 original",
+            "Picture 2 changed",
+            "Picture 3 changed"));
+    }
+
+    [Test]
     public async Task A_saved_workbook_reloads_with_every_picture()
     {
         using var wb = LoadFixture();

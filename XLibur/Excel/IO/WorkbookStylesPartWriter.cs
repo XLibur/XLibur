@@ -18,34 +18,21 @@ internal static class WorkbookStylesPartWriter
     internal static void GenerateContent(Stylesheet stylesheet, XLWorkbook workbook,
         SaveContext context)
     {
-        var defaultStyle = DefaultStyleValue;
-
-        if (!context.SharedFonts.ContainsKey(defaultStyle.Font))
-            context.SharedFonts.Add(defaultStyle.Font, new FontInfo { FontId = 0, Font = defaultStyle.Font });
-
         stylesheet.CellStyles ??= new CellStyles();
 
         var defaultFormatId = ResolveDefaultFormatId(stylesheet);
 
-        context.SharedStyles.Add(defaultStyle,
-            new StyleInfo
-            {
-                StyleId = defaultFormatId,
-                Style = defaultStyle,
-                FontId = 0,
-                FillId = 0,
-                BorderId = 0,
-                IncludeQuotePrefix = false,
-                NumberFormatId = 0
-            });
+        var (workbookStyles, pivotCustomFormats) = CollectWorkbookStyles(workbook);
+        var xlStyles = WithDefaultStyleFirst(stylesheet, workbookStyles);
 
-        var (xlStyles, pivotCustomFormats) = CollectWorkbookStyles(workbook);
-
-        uint fontCount = 1;
+        uint fontCount = 0;
         uint fillCount = 3;
         uint borderCount = 1;
 
-        foreach (var font in xlStyles.Select(s => s.Font).Distinct()
+        // The default font comes before the styles' fonts, used or not, so a new stylesheet gets it
+        // at index 0 and its columns are measured in the default font's digits. Only a phonetic font
+        // the shared strings registered comes before it.
+        foreach (var font in xlStyles.Select(s => s.Font).Prepend(DefaultStyleValue.Font).Distinct()
                      .Where(f => !context.SharedFonts.ContainsKey(f)))
         {
             context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
@@ -198,6 +185,31 @@ internal static class WorkbookStylesPartWriter
     }
 
     /// <summary>
+    /// The workbook's styles, led by the default style when the stylesheet is new or something
+    /// uses it.
+    /// </summary>
+    /// <remarks>
+    /// In a new stylesheet the default style comes first, so its <c>cellXf</c> is index 0. A loaded
+    /// stylesheet keeps its order, so index 0 there can hold another font or border than the
+    /// default style's. The default style's ids are looked up like every other style's, never
+    /// assumed to be 0 (#792), and it is written only when a cell, row, column or sheet uses it:
+    /// otherwise it would add an unused <c>cellXf</c> to the file.
+    /// </remarks>
+    private static List<XLStyleValue> WithDefaultStyleFirst(Stylesheet stylesheet,
+        HashSet<XLStyleValue> workbookStyles)
+    {
+        var defaultStyle = DefaultStyleValue;
+        var stylesheetIsNew = stylesheet.CellFormats is null || !stylesheet.CellFormats.HasChildren;
+
+        var styles = new List<XLStyleValue>(workbookStyles.Count + 1);
+        if (stylesheetIsNew || workbookStyles.Contains(defaultStyle))
+            styles.Add(defaultStyle);
+
+        styles.AddRange(workbookStyles.Where(s => !s.Equals(defaultStyle)));
+        return styles;
+    }
+
+    /// <summary>
     /// Determine the default workbook style by looking for the style with builtInId = 0.
     /// </summary>
     private static uint ResolveDefaultFormatId(Stylesheet stylesheet)
@@ -266,7 +278,7 @@ internal static class WorkbookStylesPartWriter
     }
 
     private static HashSet<XLNumberFormatValue> CollectCustomNumberFormats(
-        HashSet<XLStyleValue> xlStyles,
+        List<XLStyleValue> xlStyles,
         HashSet<string> pivotCustomFormats)
     {
         var customNumberFormats = xlStyles
@@ -290,7 +302,7 @@ internal static class WorkbookStylesPartWriter
     /// </summary>
     private static void BuildSharedStyleMappings(
         SaveContext context,
-        HashSet<XLStyleValue> xlStyles,
+        List<XLStyleValue> xlStyles,
         Dictionary<XLNumberFormatValue, NumberFormatInfo> sharedNumberFormats,
         Dictionary<XLFillValue, FillInfo> sharedFills,
         Dictionary<XLBorderValue, BorderInfo> sharedBorders)

@@ -69,6 +69,58 @@ public class PictureTests
         await Assert.That(textboxText).IsEqualTo("TEXTBOX");
     }
 
+    [Test]
+    public async Task Deleting_a_picture_drops_the_hyperlink_it_refers_to()
+    {
+        // A picture's hyperlink is a relationship of the drawing part that targets no part. It goes
+        // with the picture, and the picture beside it keeps its image.
+        using var source = CreateXlsxWithLinkedPicture();
+        using var wb = new XLWorkbook(source);
+        wb.Worksheets.First().Pictures.Delete("Linked");
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        using var doc = SpreadsheetDocument.Open(saved, false);
+        var drawingsPart = doc.WorkbookPart!.WorksheetParts.First().DrawingsPart!;
+        await Assert.That(drawingsPart.HyperlinkRelationships.Count()).IsEqualTo(0);
+        await Assert.That(drawingsPart.ImageParts.Count()).IsEqualTo(1);
+        var names = drawingsPart.WorksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>()
+            .Select(p => p.Name?.Value);
+        await Assert.That(string.Join(", ", names)).IsEqualTo("Plain");
+    }
+
+    /// <summary>
+    /// Two pictures, "Linked" and "Plain". Linked has an <c>a:hlinkClick</c> whose relationship is an
+    /// external hyperlink of the drawing part.
+    /// </summary>
+    private static MemoryStream CreateXlsxWithLinkedPicture()
+    {
+        var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            using var image = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("XLibur.Tests.Resource.Images.ImageHandling.png")!;
+            var bytes = new MemoryStream();
+            image.CopyTo(bytes);
+            ws.AddPicture(new MemoryStream(bytes.ToArray()), "Linked").MoveTo(ws.Cell("B2"));
+            ws.AddPicture(new MemoryStream(bytes.ToArray()), "Plain").MoveTo(ws.Cell("H2"));
+            wb.SaveAs(ms);
+        }
+
+        using (var doc = SpreadsheetDocument.Open(ms, true))
+        {
+            var drawingsPart = doc.WorkbookPart!.WorksheetParts.First().DrawingsPart!;
+            var link = drawingsPart.AddHyperlinkRelationship(new System.Uri("https://example.com/"), true);
+            var linked = drawingsPart.WorksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>()
+                .Single(p => p.Name?.Value == "Linked");
+            linked.AppendChild(new A.HyperlinkOnClick { Id = link.Id });
+        }
+
+        ms.Position = 0;
+        return ms;
+    }
+
     /// <summary>
     /// Creates a minimal xlsx with a single picture whose cNvPr name attribute is empty string.
     /// </summary>
