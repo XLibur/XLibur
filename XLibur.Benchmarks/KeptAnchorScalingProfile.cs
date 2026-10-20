@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
@@ -13,6 +14,9 @@ namespace XLibur.Benchmarks;
 /// <c>"absolute"</c>) scales with the number of pictures plus the number of rows, or with their product.
 ///
 /// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile keptanchors</c>
+///
+/// <c>profile keptanchors 2000 12500</c> measures one sheet of 2,000 pictures on 12,500 rows instead,
+/// so the cost can be compared against the number of pictures (#797).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -42,9 +46,13 @@ public static class KeptAnchorScalingProfile
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
 
-    public static void Run()
+    public static void Run(string[] args)
     {
         SixLaborsV1FontBootstrap.Register();
+
+        // args[0] is "profile" and args[1] the mode.
+        var pictures = args.Length > 2 ? int.Parse(args[2], CultureInfo.InvariantCulture) : Pictures;
+        int[] rowCounts = args.Length > 3 ? [int.Parse(args[3], CultureInfo.InvariantCulture)] : RowCounts;
 
         // Warm the load and save paths so the first measured case does not absorb JIT.
         var warmup = Fixture(500, 50);
@@ -52,22 +60,22 @@ public static class KeptAnchorScalingProfile
             LoadAndSave(WithEditAs(warmup, editAs), 50, editAs);
 
         Console.WriteLine();
-        Console.WriteLine($"Load and save of {Pictures:N0} pictures on a sheet whose every row has a set height.");
+        Console.WriteLine($"Load and save of {pictures:N0} pictures on a sheet whose every row has a set height.");
         Console.WriteLine("Best of three single passes. twoCell keeps no anchor and is the baseline.");
         Console.WriteLine();
         Console.WriteLine("  |   rows | editAs   | load ms | save ms |");
         Console.WriteLine("  |--------|----------|---------|---------|");
 
-        foreach (var rows in RowCounts)
+        foreach (var rows in rowCounts)
         {
-            var fixture = Fixture(rows, Pictures);
+            var fixture = Fixture(rows, pictures);
             foreach (var editAs in EditAs)
             {
                 var source = WithEditAs(fixture, editAs);
                 double bestLoad = double.MaxValue, bestSave = double.MaxValue;
                 for (var run = 0; run < 3; run++)
                 {
-                    var (load, save) = LoadAndSave(source, Pictures, editAs);
+                    var (load, save) = LoadAndSave(source, pictures, editAs);
                     bestLoad = Math.Min(bestLoad, load);
                     bestSave = Math.Min(bestSave, save);
                 }
@@ -81,7 +89,7 @@ public static class KeptAnchorScalingProfile
     /// A sheet of <paramref name="rows"/> rows, each 20 pt tall, with <paramref name="pictures"/>
     /// pictures spread evenly down it, each anchored over three columns and four rows.
     /// </summary>
-    private static byte[] Fixture(int rows, int pictures)
+    internal static byte[] Fixture(int rows, int pictures)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Sheet1");
@@ -102,7 +110,7 @@ public static class KeptAnchorScalingProfile
     }
 
     /// <summary>The fixture with every anchor's <c>editAs</c> set, as Excel writes an inserted picture.</summary>
-    private static byte[] WithEditAs(byte[] fixture, string editAs)
+    internal static byte[] WithEditAs(byte[] fixture, string editAs)
     {
         using var stream = new MemoryStream();
         stream.Write(fixture);
