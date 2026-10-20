@@ -555,7 +555,7 @@ public sealed class XLStreamingWorksheet
             // same order - only its position relative to the width computation moved, and the
             // width rule does not touch the style table.
             var settings = XLColumnSettings.Resolve(
-                (uint)column.FirstColumn, (uint)column.LastColumn,
+                ((uint)column.FirstColumn, (uint)column.LastColumn),
                 column.Style is null ? null : _workbook.Styles.GetOrAdd(column.Style),
                 column.Width, column.Hidden, column.Collapsed, column.OutlineLevel, StreamingDigitWidth);
 

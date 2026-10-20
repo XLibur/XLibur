@@ -79,7 +79,7 @@ internal static class ColumnWriter
         // itself, and handing it an already-resolved width rounds twice.
         var mdw = xlWorksheet.Workbook.MaxDigitWidth;
         var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId,
-            XLColumnSettings.Resolve(1, 1, worksheetStyleId, xlWorksheet.ColumnWidth,
+            XLColumnSettings.Resolve((1, 1), worksheetStyleId, xlWorksheet.ColumnWidth,
                 hidden: false, collapsed: false, outlineLevel: 0, mdw),
             BackFillsColumns: partIsEmpty || worksheetStyleId != 0, mdw);
 
@@ -206,7 +206,7 @@ internal static class ColumnWriter
 
         // The raw width, not GetColumnWidth(col.Width).SaveRound() - Resolve applies that itself.
         var settings = XLColumnSettings.Resolve(
-            (uint)columnNumber, (uint)columnNumber,
+            ((uint)columnNumber, (uint)columnNumber),
             LoadedStyleId(ctx, xlWorksheet, (uint)columnNumber, col.StyleValue) ?? sharedStyles[col.StyleValue].StyleId,
             col.Width, col.IsHidden, col.Collapsed, col.OutlineLevel, ctx.MaxDigitWidth);
 

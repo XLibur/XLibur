@@ -47,8 +47,9 @@ internal readonly struct XLColumnSettings
     /// </summary>
     internal bool CustomWidth { get; init; }
 
-    /// <param name="min">First column the settings apply to, 1-based.</param>
-    /// <param name="max">Last column the settings apply to, 1-based and inclusive.</param>
+    /// <param name="span">
+    /// <c>min</c> and <c>max</c>: the first and last column the settings apply to, 1-based and inclusive.
+    /// </param>
     /// <param name="styleId">The column's own style id, or <c>null</c> for none.</param>
     /// <param name="rawWidth">
     /// The column width as the model holds it, <em>before</em> <see cref="ColumnWriter.GetColumnWidth"/>
@@ -60,12 +61,12 @@ internal readonly struct XLColumnSettings
     /// <param name="outlineLevel">Outline level, 0 for none.</param>
     /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
     internal static XLColumnSettings Resolve(
-        uint min, uint max, uint? styleId, double? rawWidth,
+        (uint Min, uint Max) span, uint? styleId, double? rawWidth,
         bool hidden, bool collapsed, int outlineLevel, int mdw)
         => new()
         {
-            Min = min,
-            Max = max,
+            Min = span.Min,
+            Max = span.Max,
             StyleId = styleId,
             Width = rawWidth is { } w ? ColumnWriter.GetColumnWidth(w, mdw).SaveRound() : null,
             CustomWidth = rawWidth is not null,
