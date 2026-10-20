@@ -47,15 +47,21 @@ internal static class WorksheetElementReader
             state.PageSetupProperties = pageSetupProperties;
         }
         else if (elementType == typeof(SheetFormatProperties))
-            LoadSheetFormatProperties((SheetFormatProperties)reader.LoadCurrentElement()!, ws,
-                context.Workbook);
+        {
+            var sheetFormat = (SheetFormatProperties)reader.LoadCurrentElement()!;
+            LoadSheetFormatProperties(sheetFormat, ws, context.Workbook);
+            context.Load.SheetColumnWidths.Read(sheetFormat);
+        }
         else if (elementType == typeof(MergeCells))
             LoadMergeCellsStreaming(reader, ws);
         else if (elementType == typeof(SheetViews))
             LoadSheetViews((SheetViews)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(Columns))
-            WorksheetColumnReader.LoadColumns(context.Styles, ws,
-                (Columns)reader.LoadCurrentElement()!);
+        {
+            var columns = (Columns)reader.LoadCurrentElement()!;
+            WorksheetColumnReader.LoadColumns(context.Styles, ws, columns);
+            context.Load.SheetColumnWidths.Read(columns);
+        }
         else if (elementType == typeof(AutoFilter))
             LoadAutoFilter((AutoFilter)reader.LoadCurrentElement()!, ws,
                 context.Styles.DifferentialFormats);
