@@ -50,8 +50,9 @@ internal class ColumnRangeAndDxfMapTests
         await Assert.That(ws.Column(1).IsHidden).IsFalse();
         await Assert.That(ws.Column(1).OutlineLevel).IsEqualTo(0);
 
-        // The width the range states still becomes the sheet default, as before.
-        await Assert.That(ws.ColumnWidth).IsEqualTo(20D - XLConstants.ColumnWidthOffset);
+        // The width the range states still becomes the sheet default, as before, less the padding:
+        // 5 px of a 7 px digit, Calibri 11 at 96 DPI, to the six decimals the load keeps (#803).
+        await Assert.That(ws.ColumnWidth).IsEqualTo(19.285714);
     }
 
     /// <summary>
@@ -75,7 +76,8 @@ internal class ColumnRangeAndDxfMapTests
         using var wb = new XLWorkbook(ms);
         var ws = wb.Worksheet("S");
 
-        await Assert.That(ws.ColumnWidth).IsEqualTo(20D - XLConstants.ColumnWidthOffset);
+        // Less the padding of a 7 px digit, 5/7 (#803).
+        await Assert.That(ws.ColumnWidth).IsEqualTo(19.285714);
 
         // The range was not expanded: nothing is materialised before anything asks for a column.
         // Checked before the reads below, which materialise one column each by themselves.

@@ -72,11 +72,11 @@ public class DefaultColumnWidthTests
     {
         // Before #798 a new sheet took the workbook's width but did not count it as changed, so the
         // save left defaultColWidth out and a reload, or Excel, read the default width instead.
-        // At 96 DPI, because the save adds a padding of 5/7 of a digit to every width, which only
-        // 96 DPI reads back exactly: Excel 16.0 at 120 DPI showed the 20 saved at 120 DPI as 19.89
-        // (defaultColWidth="20.710625", 186 px).
+        // At 120 DPI the padding is 7 px of a 9 px digit: the 20 is saved as 20.777778, which Excel
+        // 16.0 at 120 DPI shows as 20 (187 px). Before #803 the save added the 96 DPI padding,
+        // 0.710625, and Excel showed 19.89 (defaultColWidth="20.710625", 186 px).
         using var saved = new MemoryStream();
-        using (var wb = new XLWorkbook(At96Dpi))
+        using (var wb = new XLWorkbook(AtExcelDpi))
         {
             wb.AddWorksheet("Before");
             wb.ColumnWidth = 20;
@@ -84,9 +84,11 @@ public class DefaultColumnWidthTests
             wb.SaveAs(saved);
         }
 
-        using var reloaded = new XLWorkbook(saved, At96Dpi);
+        await Assert.That(saved.ReadPart("xl/worksheets/sheet2.xml")).Contains("defaultColWidth=\"20.777778\"");
+
+        using var reloaded = new XLWorkbook(saved, AtExcelDpi);
         await Assert.That(reloaded.Worksheet("After").ColumnWidth).IsEqualTo(20).Within(0.005);
-        await Assert.That(reloaded.Worksheet("Before").ColumnWidth).IsEqualTo(8.43).Within(0.005);
+        await Assert.That(reloaded.Worksheet("Before").ColumnWidth).IsEqualTo(8.11).Within(0.005);
     }
 
     [Test]
@@ -107,8 +109,6 @@ public class DefaultColumnWidthTests
     }
 
     private static readonly LoadOptions AtExcelDpi = new() { Dpi = new Point(120, 120) };
-
-    private static readonly LoadOptions At96Dpi = new() { Dpi = new Point(96, 96) };
 
     /// <summary>
     /// The test font engine, counting how often the maximum digit width is measured.

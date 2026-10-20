@@ -45,7 +45,7 @@ internal static class WorksheetColumnReader
             // The width stays on the range, which is written back. It is not a defaultColWidth the
             // file had, so it does not count as a change to the sheet's own (#709).
             var columnWidthChanged = ws.ColumnWidthChanged;
-            ws.ColumnWidth = wsDefaultColumn.Width - XLConstants.ColumnWidthOffset;
+            ws.ColumnWidth = XLHelper.FileWidthToNoC(wsDefaultColumn.Width.Value, ws.Workbook.MaxDigitWidth);
             ws.ColumnWidthChanged = columnWidthChanged;
         }
 
@@ -103,8 +103,9 @@ internal static class WorksheetColumnReader
         var xlColumns = (XLColumns)ws.Columns((int)col.Min!.Value, (int)col.Max!.Value);
         if (col.Width != null)
         {
-            var width = col.Width - XLConstants.ColumnWidthOffset;
-            xlColumns.Width = width;
+            // The padding the save adds, taken off again: worked out from the digit width, so a
+            // width Excel wrote at the workbook's DPI loads as Excel shows it (#803).
+            xlColumns.Width = XLHelper.FileWidthToNoC(col.Width.Value, ws.Workbook.MaxDigitWidth);
         }
         else
             xlColumns.Width = ws.ColumnWidth;

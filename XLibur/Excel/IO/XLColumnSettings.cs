@@ -58,15 +58,16 @@ internal readonly struct XLColumnSettings
     /// <param name="hidden">Whether the column is hidden.</param>
     /// <param name="collapsed">Whether the outline group the column belongs to is collapsed.</param>
     /// <param name="outlineLevel">Outline level, 0 for none.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
     internal static XLColumnSettings Resolve(
         uint min, uint max, uint? styleId, double? rawWidth,
-        bool hidden, bool collapsed, int outlineLevel)
+        bool hidden, bool collapsed, int outlineLevel, int mdw)
         => new()
         {
             Min = min,
             Max = max,
             StyleId = styleId,
-            Width = rawWidth is { } w ? ColumnWriter.GetColumnWidth(w).SaveRound() : null,
+            Width = rawWidth is { } w ? ColumnWriter.GetColumnWidth(w, mdw).SaveRound() : null,
             CustomWidth = rawWidth is not null,
             Hidden = hidden,
             Collapsed = collapsed,

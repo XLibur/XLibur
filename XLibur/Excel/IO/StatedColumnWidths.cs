@@ -12,8 +12,8 @@ namespace XLibur.Excel.IO;
 /// The model cannot give these back. A sheet default from <c>defaultColWidth</c> or
 /// <c>baseColWidth</c> is held in characters, converted with the font of the default cell format,
 /// while a default from a <c>&lt;col&gt;</c> range that runs to the last column, and the width of
-/// every column the file sized, is held as the file's width less
-/// <see cref="XLConstants.ColumnWidthOffset"/>. A column the file sized to its sheet's default holds
+/// every column the file sized, is held as the file's width less its padding, without snapping to
+/// whole pixels (<see cref="XLHelper.FileWidthToNoC"/>). A column the file sized to its sheet's default holds
 /// the same width as one the file did not size at all. Each form converts to pixels differently.
 /// </remarks>
 internal sealed class StatedColumnWidths
