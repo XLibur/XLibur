@@ -31,7 +31,8 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
     //               folder), and counts the sheets whose part the save kept (#702), why the others
     //               were written again, and the cell values that changed; --sheets lists each sheet
     //   keptanchors load and save of 1,000 pictures with a kept oneCell or absolute anchor against
-    //               the number of sized rows on the sheet (#785)
+    //               the number of sized rows on the sheet (#785); [pictures] [rows] measures one
+    //               sheet of that size instead, to compare against the number of pictures (#797)
     // Every other mode attaches dotMemory and targets the load path.
     // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
     // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.
@@ -49,7 +50,7 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
         case "sharedread": SharedFormulaReadProfile.Run(); break;
         case "sharedwrite": SharedFormulaWriteBenchmarks.Profile(); break;
         case "hyperlinks": HyperlinkScalingProfile.Run(); break;
-        case "keptanchors": KeptAnchorScalingProfile.Run(); break;
+        case "keptanchors": KeptAnchorScalingProfile.Run(args); break;
         case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
         case "firstedit": FirstEditProfile.Run(args); break;
         case "properties": PropertiesRoundTripProfile.Run(args); break;
