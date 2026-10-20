@@ -84,7 +84,9 @@ internal sealed class XLPicture : IXLPicture
             if (Collection.IsIdTaken(value, this))
                 throw new ArgumentException($"The picture ID '{value}' already exists.");
 
-            SetId(value);
+            var oldId = _id;
+            _id = value;
+            OnIdChanged(oldId);
         }
     }
 
@@ -97,11 +99,10 @@ internal sealed class XLPicture : IXLPicture
     /// </summary>
     internal bool IsInCollection { get; set; }
 
-    private void SetId(int value)
+    /// <summary>Tell <see cref="Collection"/> that <see cref="Id"/> was <paramref name="oldId"/>.</summary>
+    private void OnIdChanged(int oldId)
     {
-        var oldId = _id;
-        _id = value;
-        if (IsInCollection && oldId != value)
+        if (IsInCollection && oldId != _id)
             Collection.OnIdChanged(this, oldId);
     }
 
@@ -113,7 +114,9 @@ internal sealed class XLPicture : IXLPicture
     /// </summary>
     internal void KeepSavedIds(int id, string relId)
     {
-        SetId(id);
+        var oldId = _id;
+        _id = id;
+        OnIdChanged(oldId);
         RelId = relId;
     }
 
@@ -149,7 +152,9 @@ internal sealed class XLPicture : IXLPicture
                 throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.",
                     nameof(value));
 
-            ChangeName(value);
+            var oldName = _name;
+            _name = value;
+            OnRenamed(oldName);
         }
     }
 
@@ -390,13 +395,14 @@ internal sealed class XLPicture : IXLPicture
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.", nameof(value));
 
-        ChangeName(value);
-    }
-
-    private void ChangeName(string value)
-    {
         var oldName = _name;
         _name = value;
+        OnRenamed(oldName);
+    }
+
+    /// <summary>Tell <see cref="Collection"/> that <see cref="Name"/> was <paramref name="oldName"/>.</summary>
+    private void OnRenamed(string oldName)
+    {
         if (IsInCollection)
             Collection.OnRenamed(this, oldName);
     }
