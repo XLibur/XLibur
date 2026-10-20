@@ -34,6 +34,9 @@ public class PictureAlternateContentTests
 
     private static readonly XNamespace XdrNs = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
     private static readonly XNamespace McNs = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+    private static readonly XNamespace ANs = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    private static readonly XNamespace Am3dNs = "http://schemas.microsoft.com/office/drawing/2017/model3d";
+    private static readonly XNamespace RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
     [Test]
     public async Task The_3d_model_loads_as_its_fallback_picture()
@@ -188,6 +191,24 @@ public class PictureAlternateContentTests
         await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task Changing_the_image_of_one_copy_of_a_3d_model_moves_its_render_with_it()
+    {
+        // The changed copy takes an image part of its own (#781). The model's am3d:raster is the same
+        // render as the fallback picture, so it moves to the new part too, and the other copy keeps both
+        // on the part they shared.
+        using var saved = LoadAndSave(Duplicated(), ws =>
+        {
+            var picture = ws.Picture("3D Model 2");
+            var changed = picture.ImageStream.ToArray().Concat(new byte[] { 1, 2, 3 }).ToArray();
+            picture.ImageStream.SetLength(0);
+            picture.ImageStream.Write(changed);
+        });
+
+        await Assert.That(Renders(saved)).IsEqualTo(
+            "3D Model 1: raster image1.png, fallback image1.png | 3D Model 2: raster image2.png, fallback image2.png");
+    }
+
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
 
@@ -225,6 +246,24 @@ public class PictureAlternateContentTests
         }
 
         return saved;
+    }
+
+    /// <summary>
+    /// For each anchor of the saved drawing, the image file its model's <c>am3d:raster</c> and its
+    /// fallback picture show, e.g. <c>3D Model 1: raster image1.png, fallback image1.png</c>.
+    /// </summary>
+    private static string Renders(Stream saved)
+    {
+        var targets = XDocument.Parse(saved.ReadPart("xl/drawings/_rels/drawing1.xml.rels")).Root!.Elements()
+            .ToDictionary(r => (string)r.Attribute("Id")!, r => ((string)r.Attribute("Target")!).Split('/')[^1]);
+        var anchors = XDocument.Parse(saved.ReadPart(Drawing1)).Root!.Elements().Select(anchor =>
+        {
+            var name = (string?)anchor.Descendants(XdrNs + "cNvPr").First().Attribute("name");
+            var raster = anchor.Descendants(Am3dNs + "blip").Single().Attribute(RNs + "embed")!.Value;
+            var fallback = anchor.Descendants(ANs + "blip").Single().Attribute(RNs + "embed")!.Value;
+            return $"{name}: raster {targets[raster]}, fallback {targets[fallback]}";
+        });
+        return string.Join(" | ", anchors);
     }
 
     /// <summary>

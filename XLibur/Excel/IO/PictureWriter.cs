@@ -356,7 +356,10 @@ internal static class PictureWriter
     /// <remarks>
     /// The name goes to every drawing in the anchor with the picture's id. Excel gives each branch
     /// of <c>mc:AlternateContent</c> the same id and name, as one drawing in two forms, so a 3D
-    /// model renamed through its fallback picture is renamed in the form Excel shows.
+    /// model renamed through its fallback picture is renamed in the form Excel shows. The image
+    /// link goes to every image in the wrapper that showed the picture's image: a 3D model's
+    /// <c>am3d:raster</c> is the render its fallback picture shows, so the two stay on one part.
+    /// The shape properties of the other branches are left as Excel wrote them.
     /// </remarks>
     private static void WritePictureNameAndImage(OpenXmlElement anchor, Xdr.Picture picture, string name,
         string embedId)
@@ -370,9 +373,24 @@ internal static class PictureWriter
             }
         }
 
-        if (picture.BlipFill?.Blip is { } blip)
-            blip.Embed = embedId;
+        if (picture.BlipFill?.Blip is not { } blip)
+            return;
+
+        var previous = blip.Embed?.Value;
+        blip.Embed = embedId;
+        if (previous is null || previous == embedId || DrawingAnchorContent.WrapperOf(picture) is not { } wrapper)
+            return;
+
+        foreach (var image in wrapper.Descendants())
+        {
+            if (image.LocalName == "blip" && EmbedOf(image) == previous)
+                image.SetAttribute(new OpenXmlAttribute("r", "embed", RelationshipsNs, embedId));
+        }
     }
+
+    /// <summary>The <c>r:embed</c> of an image element, whatever namespace the element is in.</summary>
+    private static string? EmbedOf(OpenXmlElement image) =>
+        image.GetAttributes().FirstOrDefault(a => a.LocalName == "embed" && a.NamespaceUri == RelationshipsNs).Value;
 
     /// <summary>
     /// The image part <paramref name="pic"/> is written with, holding its image. Each part is fed
