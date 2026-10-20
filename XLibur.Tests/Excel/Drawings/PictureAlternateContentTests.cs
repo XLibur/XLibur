@@ -120,6 +120,16 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task Moving_the_3d_model_to_a_cell_keeps_its_width_at_96_dpi()
+    {
+        // The 197 px the box measures at 96 DPI (above), by the rule: Excel on this machine runs at
+        // 120 DPI and cannot be measured at 96. The height is left unpinned, as above.
+        using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(Extent(saved)).StartsWith($"{197 * 9525}x");
+    }
+
+    [Test]
     public async Task Moving_the_picture_between_cells_keeps_its_two_cell_anchor_in_place()
     {
         // MoveTo(from, to) keeps the two-cell form, so the anchor is the one Excel wrote, edited.
@@ -137,6 +147,20 @@ public class PictureAlternateContentTests
 
         await Assert.That(Shape(saved)).IsEqualTo(
             "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron'");
+    }
+
+    [Test]
+    public async Task The_3d_model_name_is_free_again_once_the_picture_is_renamed()
+    {
+        // The frame and the fallback picture are one drawing with one name, which the picture holds:
+        // no other shape keeps it once the picture lets it go (#796).
+        using var wb = LoadFixture();
+        var ws = wb.Worksheet(1);
+        ws.Picture("3D Model 1").Name = "Model";
+
+        var other = ws.AddPicture(new MemoryStream(Png), "3D Model 1");
+
+        await Assert.That(other.Name).IsEqualTo("3D Model 1");
     }
 
     [Test]
@@ -290,6 +314,21 @@ public class PictureAlternateContentTests
 
         await Assert.That(GroupedTransforms(saved)).IsEqualTo(
             $"graphicFrame {Box(100, 50, 200, 150)} | pic {Box(100, 50, 200, 150)}");
+    }
+
+    [Test]
+    public async Task Moving_and_resizing_a_grouped_3d_model_moves_both_forms()
+    {
+        // Once grouped and saved, the model is written in place in its group. Both forms of it are
+        // one drawing, so the model's frame moves and resizes with its fallback picture (#794).
+        using var saved = GroupedWithLogo(ws =>
+        {
+            var model = ws.Picture("3D Model 1").MoveTo(120, 60);
+            model.Width = 240;
+        });
+
+        await Assert.That(GroupedTransforms(saved)).IsEqualTo(
+            $"graphicFrame {Box(120, 60, 240, 150)} | pic {Box(120, 60, 240, 150)}");
     }
 
     [Test]

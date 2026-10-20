@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -35,4 +37,14 @@ internal static class DrawingAnchorContent
         picture.Parent is AlternateContentChoice or AlternateContentFallback
             ? picture.Parent.Parent as AlternateContent
             : null;
+
+    /// <summary>
+    /// Every form of the drawing <paramref name="picture"/> shows: the drawing in each branch of its
+    /// <c>mc:AlternateContent</c>, such as a 3D model's frame and its render, or the picture alone
+    /// when it is not a branch.
+    /// </summary>
+    internal static IEnumerable<OpenXmlElement> FormsOf(Xdr.Picture picture) =>
+        WrapperOf(picture) is { } wrapper
+            ? wrapper.ChildElements.SelectMany(branch => branch.ChildElements)
+            : [picture];
 }

@@ -260,7 +260,7 @@ public abstract class FontEngineContractTests
     }
 
     [Test]
-    public async Task A_missing_Aptos_Narrow_is_measured_with_a_font_that_measures_like_it()
+    public async Task MissingAptosNarrow_UsesMetricCompatibleFont()
     {
         // Excel's default font, Aptos Narrow, is often missing outside Office. Its digits are 1038/2048
         // of an em wide, the same as Carlito's, so an engine that has Carlito measures the digit

@@ -29,7 +29,7 @@ internal static class PictureWriter
         WorksheetPart worksheetPart,
         SaveContext context)
     {
-        var ids = new DrawingIds();
+        var ids = new DrawingIds(worksheetPart);
         if (worksheetPart.DrawingsPart != null)
             ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures, ids);
 
@@ -79,7 +79,7 @@ internal static class PictureWriter
             foreach (var (id, relId) in xlPictures.Deleted)
             {
                 released.Add(relId);
-                if (ids.FindPicture(worksheetDrawing, id, relId) is { } found)
+                if (ids.FindPicture(id, relId) is { } found)
                 {
                     released.AddRange(PictureContentWriter.RelationshipIds(found.Anchor));
                     found.Anchor.Remove();

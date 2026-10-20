@@ -39,7 +39,7 @@ internal static class GroupedPictureWriter
 
         foreach (var pending in pendingGroups)
         {
-            var groupId = ids.NextDrawingId(worksheetDrawing);
+            var groupId = ids.NextDrawingId();
 
             var groupShape = new Xdr.GroupShape(
                 new Xdr.NonVisualGroupShapeProperties(
@@ -56,7 +56,7 @@ internal static class GroupedPictureWriter
                 )
             );
 
-            MoveMembersIntoGroup(drawingsPart, pending, groupShape, groupId, ids);
+            MoveMembersIntoGroup(pending, groupShape, groupId, ids);
 
             // Propagate the new group id to every member sharing this group's key — including
             // pictures added to the group before its first save, which carry a null group id and
@@ -83,12 +83,12 @@ internal static class GroupedPictureWriter
     /// wrapper and the model in its <c>mc:Choice</c>, which is how Excel groups a 3D model:
     /// <c>xdr:grpSp</c> holding the <c>mc:AlternateContent</c> (#794).
     /// </remarks>
-    private static void MoveMembersIntoGroup(DrawingsPart drawingsPart, XLPendingGroup pending,
-        Xdr.GroupShape groupShape, uint groupId, DrawingIds ids)
+    private static void MoveMembersIntoGroup(XLPendingGroup pending, Xdr.GroupShape groupShape, uint groupId,
+        DrawingIds ids)
     {
         foreach (var member in pending.Members)
         {
-            if (ids.FindPicture(drawingsPart.WorksheetDrawing!, member.Id, member.RelId) is not
+            if (ids.FindPicture(member.Id, member.RelId) is not
                 { Anchor: var anchor, Picture: var picElement })
                 continue;
 
@@ -101,20 +101,9 @@ internal static class GroupedPictureWriter
             // each drawing is placed by its own transform, so every form of the drawing is placed:
             // Excel writes a 3D model's frame with a zero transform when its anchor places it.
             var wb = member.Worksheet.Workbook;
-            var offset = new Offset
-            {
-                X = DrawingUnits.PixelsToEmu(member.Left, wb.DpiX),
-                Y = DrawingUnits.PixelsToEmu(member.Top, wb.DpiY),
-            };
-            var extents = new Extents
-            {
-                Cx = DrawingUnits.PixelsToEmu(member.Width, wb.DpiX),
-                Cy = DrawingUnits.PixelsToEmu(member.Height, wb.DpiY),
-            };
-            IEnumerable<OpenXmlElement> forms = wrapper is null
-                ? [picElement]
-                : wrapper.ChildElements.SelectMany(branch => branch.ChildElements);
-            foreach (var form in forms)
+            var offset = (DrawingUnits.PixelsToEmu(member.Left, wb.DpiX), DrawingUnits.PixelsToEmu(member.Top, wb.DpiY));
+            var extents = (DrawingUnits.PixelsToEmu(member.Width, wb.DpiX), DrawingUnits.PixelsToEmu(member.Height, wb.DpiY));
+            foreach (var form in DrawingAnchorContent.FormsOf(picElement))
                 PlaceInGroup(form, offset, extents);
 
             drawing.Remove();
@@ -138,22 +127,36 @@ internal static class GroupedPictureWriter
     }
 
     /// <summary>
-    /// Give one form of a member its box in the group's child space: a picture's <c>a:xfrm</c>, or
-    /// the <c>xdr:xfrm</c> of a graphic frame, which is how a 3D model is written. A form with no
-    /// transform is left as it is.
+    /// Give one form of a grouped drawing its offset, its extents, or both, in the group's child
+    /// space: a picture's <c>a:xfrm</c>, or the <c>xdr:xfrm</c> of a graphic frame, which is how a
+    /// 3D model is written. A part passed as <c>null</c> is left as it is, and so is a form with no
+    /// transform.
     /// </summary>
-    private static void PlaceInGroup(OpenXmlElement form, Offset offset, Extents extents)
+    private static void PlaceInGroup(OpenXmlElement form, (long X, long Y)? offset, (long Cx, long Cy)? extents)
     {
-        switch (form)
+        // Both transforms hold an a:off and then an a:ext.
+        OpenXmlCompositeElement? transform = form switch
         {
-            case Xdr.Picture { ShapeProperties.Transform2D: { } transform }:
-                transform.Offset = (Offset)offset.CloneNode(true);
-                transform.Extents = (Extents)extents.CloneNode(true);
-                break;
-            case Xdr.GraphicFrame { Transform: { } transform }:
-                transform.Offset = (Offset)offset.CloneNode(true);
-                transform.Extents = (Extents)extents.CloneNode(true);
-                break;
+            Xdr.Picture picture => picture.ShapeProperties?.Transform2D,
+            Xdr.GraphicFrame frame => frame.Transform,
+            _ => null,
+        };
+        if (transform is null)
+            return;
+
+        if (offset is { } childOffset)
+        {
+            var off = transform.GetFirstChild<Offset>() ?? transform.PrependChild(new Offset());
+            off.X = childOffset.X;
+            off.Y = childOffset.Y;
+        }
+
+        if (extents is { } childExtents)
+        {
+            var ext = transform.GetFirstChild<Extents>() ??
+                      transform.InsertAfter(new Extents(), transform.GetFirstChild<Offset>());
+            ext.Cx = childExtents.Cx;
+            ext.Cy = childExtents.Cy;
         }
     }
 
@@ -193,7 +196,7 @@ internal static class GroupedPictureWriter
         if (groupElement is null)
             return;
 
-        var newId = ids.NextDrawingId(worksheetDrawing);
+        var newId = ids.NextDrawingId();
 
         var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
         var imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);
@@ -201,15 +204,8 @@ internal static class GroupedPictureWriter
         imagePart.FeedData(pic.ImageStream);
 
         var wb = pic.Worksheet.Workbook;
-        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
-        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
-        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
-        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
-
-        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-        var childX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-        var childY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+        var (childX, childY) = ChildOffset(pic, group, wb);
+        var (childCx, childCy) = ChildExtents(pic, group, wb);
 
         var picElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
@@ -312,17 +308,12 @@ internal static class GroupedPictureWriter
         if (!sizeChanged && !positionChanged)
             return;
 
-        var transform = picElement.ShapeProperties?.Transform2D;
-        if (transform is null)
-            return;
-
+        // Every form of the drawing moves: a grouped 3D model's frame with its fallback picture (#794).
         var wb = pic.Worksheet.Workbook;
-
-        if (sizeChanged)
-            ApplyGroupedChildExtents(transform, pic, group, wb);
-
-        if (positionChanged)
-            ApplyGroupedChildOffset(transform, pic, group, wb);
+        var offset = positionChanged ? ChildOffset(pic, group, wb) : ((long X, long Y)?)null;
+        var extents = sizeChanged ? ChildExtents(pic, group, wb) : ((long Cx, long Cy)?)null;
+        foreach (var form in DrawingAnchorContent.FormsOf(picElement))
+            PlaceInGroup(form, offset, extents);
     }
 
     /// <summary>
@@ -341,33 +332,26 @@ internal static class GroupedPictureWriter
         return null;
     }
 
-    private static void ApplyGroupedChildExtents(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
-    {
-        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
-        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
+    /// <summary>The picture's sheet size, in the group's child coordinate space.</summary>
+    private static (long Cx, long Cy) ChildExtents(XLPicture pic, XLPictureGroup group, XLWorkbook wb) =>
+    (
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX), 0.0, group.ScaleX),
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY), 0.0, group.ScaleY)
+    );
 
-        // Convert the sheet-space size back to the group's child coordinate space.
-        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
+    /// <summary>The picture's sheet position, in the group's child coordinate space.</summary>
+    private static (long X, long Y) ChildOffset(XLPicture pic, XLPictureGroup group, XLWorkbook wb) =>
+    (
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX), group.OffsetX, group.ScaleX),
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY), group.OffsetY, group.ScaleY)
+    );
 
-        transform.Extents ??= new Extents();
-        transform.Extents.Cx = childCx;
-        transform.Extents.Cy = childCy;
-    }
-
-    private static void ApplyGroupedChildOffset(Transform2D transform, XLPicture pic, XLPictureGroup group, XLWorkbook wb)
-    {
-        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
-        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
-
-        // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
-        var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-        var childOffY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
-
-        transform.Offset ??= new Offset();
-        transform.Offset.X = childOffX;
-        transform.Offset.Y = childOffY;
-    }
+    /// <summary>
+    /// One axis of the inverse of the group's composed transform (sheet = offset + child·scale). A
+    /// size has no offset. A degenerate scale keeps the sheet value.
+    /// </summary>
+    private static long ToChildSpace(long sheetEmu, double groupOffset, double scale) =>
+        IsDegenerateScale(scale) ? sheetEmu : (long)Math.Round((sheetEmu - groupOffset) / scale);
 
     /// <summary>
     /// Remove pictures that were deleted from inside a group. Only the matching <c>xdr:pic</c>

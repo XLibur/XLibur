@@ -46,6 +46,27 @@ public class LinkedPictureTests
     }
 
     [Test]
+    public async Task A_new_picture_cannot_be_given_the_linked_picture_name()
+    {
+        // The name is taken, as a loaded picture's name is, in any case.
+        using var wb = new XLWorkbook(Fixture());
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(() => ws.AddPicture(new MemoryStream(Png), "Picture 1")).Throws<ArgumentException>();
+        await Assert.That(() => ws.AddPicture(new MemoryStream(Png), "PICTURE 1")).Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task A_picture_cannot_be_renamed_to_the_linked_picture_name()
+    {
+        using var wb = new XLWorkbook(Fixture());
+        var picture = wb.Worksheet(1).AddPicture(new MemoryStream(Png));
+
+        await Assert.That(() => picture.Name = "picture 1").Throws<ArgumentException>();
+        await Assert.That(picture.Name).IsEqualTo("Picture 2");
+    }
+
+    [Test]
     public async Task A_save_keeps_the_linked_picture_beside_the_new_one_under_its_own_name()
     {
         using var saved = new MemoryStream();

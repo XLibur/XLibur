@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -244,6 +243,17 @@ public class PictureAnchorSizeTests
             .Contains($"<xdr:ext cx=\"{250 * 7620}\" cy=\"{125 * 7620}\" />");
     }
 
+    [Test]
+    public async Task Moving_a_picture_in_an_aptos_narrow_workbook_keeps_its_width_at_96_dpi()
+    {
+        // The 200 px the box measures at 96 DPI (above), by the rule: Excel on this machine runs at
+        // 120 DPI and cannot be measured at 96. The height is left unpinned, as above. 9525 EMU is a
+        // pixel at 96 DPI.
+        using var saved = LoadAndSave(AptosNarrowPicture(), ws => ws.Picture("Picture 2").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains($"<xdr:ext cx=\"{200 * 9525}\" ");
+    }
+
     private static MemoryStream AptosNarrowPicture()
     {
         using var resource = TestHelper.GetStreamFromResource(
@@ -363,13 +373,12 @@ public class PictureAnchorSizeTests
             "<x:cellStyles count=\"2\"><x:cellStyle name=\"Plain\" xfId=\"0\" />" +
             "<x:cellStyle name=\"Normal\" xfId=\"1\" builtinId=\"0\" /></x:cellStyles>"));
 
-    private static string WithStyles(string xml, string cellStyleXfs, string cellXfs, string cellStyles)
-    {
-        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{Calibri11}{Arial20}</x:fonts>");
-        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs);
-        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs);
-        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles);
-    }
+    private static string WithStyles(string xml, string cellStyleXfs, string cellXfs, string cellStyles) =>
+        StylesPart.ReplaceElements(xml,
+            ("fonts", $"<x:fonts count=\"2\">{Calibri11}{Arial20}</x:fonts>"),
+            ("cellStyleXfs", cellStyleXfs),
+            ("cellXfs", cellXfs),
+            ("cellStyles", cellStyles));
 
     /// <summary>
     /// Rows of 18 pt and columns 12 characters wide by default, with column C 20 characters wide and

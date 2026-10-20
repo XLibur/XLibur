@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
@@ -141,10 +140,7 @@ public class FirstFontDigitWidthTests
         await Assert.That(reloaded.Worksheet(1).ColumnWidth).IsEqualTo(fonts == "firstFont" ? 8.29 : 8.11).Within(0.005);
     }
 
-    private static string FirstFont(Stream saved) =>
-        Regex.Match(saved.ReadPart("xl/styles.xml"), "<x:font>.*?</x:font>", RegexOptions.None, RegexTimeout).Value;
-
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+    private static string FirstFont(Stream saved) => StylesPart.FirstElement(saved, "font");
 
     private const string AutofitText = "The quick brown fox jumps";
 
@@ -305,11 +301,10 @@ public class FirstFontDigitWidthTests
         };
     }
 
-    private static string WithStyles(string xml, string fonts, string cellStyleXfs, string cellXfs, string cellStyles)
-    {
-        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{fonts}</x:fonts>", RegexOptions.None, RegexTimeout);
-        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs, RegexOptions.None, RegexTimeout);
-        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs, RegexOptions.None, RegexTimeout);
-        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles, RegexOptions.None, RegexTimeout);
-    }
+    private static string WithStyles(string xml, string fonts, string cellStyleXfs, string cellXfs, string cellStyles) =>
+        StylesPart.ReplaceElements(xml,
+            ("fonts", $"<x:fonts count=\"2\">{fonts}</x:fonts>"),
+            ("cellStyleXfs", cellStyleXfs),
+            ("cellXfs", cellXfs),
+            ("cellStyles", cellStyles));
 }

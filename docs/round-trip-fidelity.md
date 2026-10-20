@@ -134,7 +134,13 @@ wrapper survives on purpose rather than by default:
   render, and the drawing part once it is empty. A copy that shares them keeps them.
 - A picture is the anchor's own only as its child or a branch of its wrapper. Excel 16.0 puts a
   grouped model's wrapper inside the group (`xdr:grpSp` > `mc:AlternateContent`), and XLibur leaves
-  that model as the file has it. It leaves a group inside a wrapper alone in the same way.
+  a model it loads that way as the file has it. It leaves a group inside a wrapper alone in the same
+  way.
+- When XLibur groups a model itself (`Pictures.Group`), it builds the same shape Excel does: the
+  whole `mc:AlternateContent` goes into the new `xdr:grpSp`, and both forms, the model's frame and
+  its fallback picture, get the model's box in the group. A later move or resize of the grouped
+  model writes both forms, and deleting it deletes the wrapper and, once nothing else uses it, the
+  model part (#794).
 
 `RoundTripFidelityTests.A_3d_model_inside_alternate_content_survives_a_round_trip` pins the
 pass-through for both shapes, on Excel-made fixtures; `PictureAlternateContentTests` covers the edits.

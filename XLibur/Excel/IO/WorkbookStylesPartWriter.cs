@@ -122,6 +122,9 @@ internal static class WorkbookStylesPartWriter
         var allSharedBorders = ResolveBorders(stylesheet, sharedBorders);
 
         // A single cellStyleXf holding the default format; every cellXf points at it via FormatId 0.
+        // Its ids of 0 are the default style's own, unlike in the normal path (#792): the streaming
+        // writer always starts from a fresh stylesheet, and orderedStyles[0] is the default style, so
+        // its font and border are the first ResolveFonts and ResolveBorders write, and fill 0 is none.
         stylesheet.CellStyleFormats ??= new CellStyleFormats();
         stylesheet.CellStyleFormats.AppendChild(new CellFormat
         {

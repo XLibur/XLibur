@@ -51,7 +51,7 @@ internal static class PictureAnchorWriter
         // Found by the image link the picture was loaded with, before the picture can take a part
         // of its own below. The anchor holds the picture itself, never a group shape, so a group is
         // never overwritten.
-        var existing = ids.FindPicture(worksheetDrawing, pic.Id, pic.RelId);
+        var existing = ids.FindPicture(pic.Id, pic.RelId);
 
         var imagePart = PictureContentWriter.FeedImagePart(drawingsPart, pic, context, fedImages);
         var embedId = drawingsPart.GetIdOfPart(imagePart);
@@ -73,7 +73,7 @@ internal static class PictureAnchorWriter
         // drawing goes, never what it is.
         var pictureElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
-                new Xdr.NonVisualDrawingProperties { Id = keepsBranch ? 0u : ids.NextDrawingId(worksheetDrawing), Name = pic.Name },
+                new Xdr.NonVisualDrawingProperties { Id = keepsBranch ? 0u : ids.NextDrawingId(), Name = pic.Name },
                 new Xdr.NonVisualPictureDrawingProperties(new PictureLocks { NoChangeAspect = true })
             ),
             new Xdr.BlipFill(
