@@ -8,7 +8,7 @@
 [![SonarCloud Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=XLibur_XLibur&metric=alert_status)](https://sonarcloud.io/dashboard?id=XLibur_XLibur)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-XLibur is a .NET 8/10 library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
+XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
 It provides an intuitive interface over the underlying
 [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
 
@@ -75,10 +75,6 @@ telling you which package to add.
 To use a different engine — including SixLabors 1.x, which matches ClosedXML 0.105's behaviour
 exactly — see [docs/font-architecture.md](docs/font-architecture.md) for the available packages,
 their licenses, and the engine resolution order.
-
-### Note
-
-Note that as time progresses, the migration path may drift, where possible we'll attempt to provide public API parity with upstream where it makes sense so you can easily test either library without major changes.
 
 ## Report templating
 
