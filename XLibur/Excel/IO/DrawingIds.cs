@@ -23,8 +23,8 @@ internal static class DrawingIds
     /// The picture is found where the loader reads it (<see cref="DrawingAnchorContent.IsAnchorPicture"/>):
     /// the anchor's child, or a branch of the <c>mc:AlternateContent</c> Excel puts it in when the
     /// drawing also has a newer form. A picture in a group shape is never found, because grouped
-    /// pictures are written in place (<see cref="PictureWriter.UpdateGroupedPicture"/>) and the group's
-    /// anchor holds its other shapes too.
+    /// pictures are written in place (<see cref="GroupedPictureWriter.UpdateGroupedPicture"/>) and
+    /// the group's anchor holds its other shapes too.
     /// </remarks>
     internal static (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(
         Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
