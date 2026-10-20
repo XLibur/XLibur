@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="..\XLibur.Fonts.Tests.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\XLibur.Tests\Resource\Fonts\TestFont*.ttf" Link="Resource\Fonts\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\resources\fonts\CarlitoBare-Regular.ttf" Link="Resource\Fonts\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

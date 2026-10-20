@@ -209,15 +209,63 @@ public class PictureAnchorSizeTests
         await Assert.That(drawing).Contains("<a:ext cx=\"76200\" cy=\"76200\" />");
     }
 
-    private static IXLPicture Load(MemoryStream package, LoadOptions options) =>
-        new XLWorkbook(package, options).Worksheet(1).Picture("Logo");
+    [Test]
+    public async Task A_picture_in_an_aptos_narrow_workbook_reports_the_size_excel_shows_it_at()
+    {
+        // picture-aptos-narrow.xlsx: Excel 16.0 (build 20430) at 120 DPI, a new workbook (Aptos Narrow
+        // 11, no stated column width, rows of 14.4 pt), Shapes.AddPicture at left 100 pt, top 50 pt,
+        // 150 x 75 pt. Excel writes a oneCell anchor from C4 to F9 and draws columns of 48 pt (80 px:
+        // its ColumnWidth 8.11 is a digit width of 9 px) and rows of 24 px. The box is 250 x 125 px
+        // at 120 DPI, whether or not the machine has Aptos Narrow installed (#793).
+        var picture = Load(AptosNarrowPicture(), AtExcelDpi, "Picture 2");
 
-    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
+        await Assert.That($"{picture.Width}x{picture.Height}").IsEqualTo("250x125");
+    }
+
+    [Test]
+    public async Task A_picture_in_an_aptos_narrow_workbook_measures_its_columns_at_96_dpi()
+    {
+        // At 96 DPI Aptos Narrow 11 has a digit width of 7 px, so a column is 64 px and the three
+        // columns and the offsets of the box are Excel's 150 pt, 200 px. Only the width: the rows
+        // are at a default height the file does not state, which Excel derives from the font.
+        var picture = Load(AptosNarrowPicture(), new LoadOptions(), "Picture 2");
+
+        await Assert.That(picture.Width).IsEqualTo(200);
+    }
+
+    [Test]
+    public async Task Moving_a_picture_in_an_aptos_narrow_workbook_keeps_the_size_excel_shows_it_at()
+    {
+        using var saved = LoadAndSave(AptosNarrowPicture(), AtExcelDpi,
+            ws => ws.Picture("Picture 2").MoveTo(ws.Cell("H2")));
+
+        // 7620 EMU is a pixel at 120 DPI.
+        await Assert.That(saved.ReadPart(Drawing1))
+            .Contains($"<xdr:ext cx=\"{250 * 7620}\" cy=\"{125 * 7620}\" />");
+    }
+
+    private static MemoryStream AptosNarrowPicture()
+    {
+        using var resource = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\Drawings\picture-aptos-narrow.xlsx"));
+        var package = new MemoryStream();
+        resource.CopyTo(package);
+        package.Position = 0;
+        return package;
+    }
+
+    private static IXLPicture Load(MemoryStream package, LoadOptions options, string name = "Logo") =>
+        new XLWorkbook(package, options).Worksheet(1).Picture(name);
+
+    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit) =>
+        LoadAndSave(source, new LoadOptions(), edit);
+
+    private static MemoryStream LoadAndSave(MemoryStream source, LoadOptions options, Action<IXLWorksheet> edit)
     {
         using (source)
         {
             var saved = new MemoryStream();
-            using var wb = new XLWorkbook(source);
+            using var wb = new XLWorkbook(source, options);
             edit(wb.Worksheet(1));
             wb.SaveAs(saved);
             return saved;

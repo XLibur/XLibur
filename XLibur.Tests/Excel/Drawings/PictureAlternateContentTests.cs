@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
+using LoadOptions = XLibur.Excel.LoadOptions;
 
 namespace XLibur.Tests.Excel.Drawings;
 
@@ -85,6 +86,37 @@ public class PictureAlternateContentTests
         await Assert.That(Shape(saved)).IsEqualTo(
             "oneCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
         await Assert.That(Extent(saved)).IsEqualTo($"{40 * 9525}x{20 * 9525}");
+    }
+
+    [Test]
+    public async Task Moving_the_3d_model_to_a_cell_keeps_the_size_excel_shows_it_at()
+    {
+        // Excel, at 120 DPI, shows the model 147.89 pt square over columns of 48 pt (80 px, a digit
+        // width of 9 px for Aptos Narrow 11) and rows of 14.4 pt (24 px). Loaded at that DPI, its box
+        // is 246 px each way, and the one-cell anchor written for the move keeps it (#793). 7620 EMU
+        // is a pixel at 120 DPI.
+        using var saved = LoadAndSave(Fixture(), AtExcelDpi, ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(Extent(saved)).IsEqualTo($"{246 * 7620}x{246 * 7620}");
+    }
+
+    [Test]
+    public async Task Moving_the_3d_model_to_a_position_keeps_the_size_excel_shows_it_at()
+    {
+        using var saved = LoadAndSave(Fixture(), AtExcelDpi, ws => ws.Picture("3D Model 1").MoveTo(30, 40));
+
+        await Assert.That(Extent(saved)).IsEqualTo($"{246 * 7620}x{246 * 7620}");
+    }
+
+    [Test]
+    public async Task The_3d_model_measures_its_columns_at_96_dpi()
+    {
+        // At 96 DPI Aptos Narrow 11 has a digit width of 7 px, so a column is 64 px and the box is
+        // the model's 1878203 EMU, 197 px wide. Only the width: the rows are at a default height the
+        // file does not state, which Excel derives from the font at its own DPI.
+        using var wb = LoadFixture();
+
+        await Assert.That(wb.Worksheet(1).Picture("3D Model 1").Width).IsEqualTo(197);
     }
 
     [Test]
@@ -294,13 +326,18 @@ public class PictureAlternateContentTests
         return package;
     }
 
+    private static readonly LoadOptions AtExcelDpi = new() { Dpi = new System.Drawing.Point(120, 120) };
+
     private static MemoryStream LoadAndSave(Action<IXLWorksheet> edit) => LoadAndSave(Fixture(), edit);
 
-    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
+    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit) =>
+        LoadAndSave(source, new LoadOptions(), edit);
+
+    private static MemoryStream LoadAndSave(MemoryStream source, LoadOptions options, Action<IXLWorksheet> edit)
     {
         var saved = new MemoryStream();
         using (source)
-        using (var wb = new XLWorkbook(source))
+        using (var wb = new XLWorkbook(source, options))
         {
             edit(wb.Worksheet(1));
             wb.SaveAs(saved);
