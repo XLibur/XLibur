@@ -165,9 +165,15 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return false;
     }
 
+    /// <summary>
+    /// Adds a loaded picture under the name and id the file gives it. No name is generated: while a
+    /// drawing loads every name in it is taken (see <see cref="LoadDrawing"/>), so a generated name
+    /// would walk past all of them only to be replaced.
+    /// </summary>
     internal IXLPicture Add(Stream stream, string name, int id)
     {
-        var picture = (XLPicture)Add(stream);
+        var picture = new XLPicture(_worksheet, stream);
+        _pictures.Add(picture);
         picture.SetName(name);
         picture.Id = id;
         return picture;
