@@ -162,7 +162,7 @@ public class GroupedPictureTests
             var names = group.Descendants<Xdr.Picture>()
                 .Select(p => p.NonVisualPictureProperties!.NonVisualDrawingProperties!.Name!.Value!)
                 .ToList();
-            await Assert.That(names).IsEquivalentTo(new[] { "Harbour", "Picture 2" });
+            await Assert.That(names).IsEquivalentTo(new[] { "Harbour", "Picture 2" }, CollectionOrdering.Matching);
         }
 
         // XLibur reloads it, still in the group, under the new name.
@@ -191,7 +191,7 @@ public class GroupedPictureTests
             .Descendants<Xdr.Picture>()
             .Select(p => p.NonVisualPictureProperties!.NonVisualDrawingProperties!.Name!.Value!)
             .ToList();
-        await Assert.That(names).IsEquivalentTo(new[] { "Picture 1", "Lighthouse" });
+        await Assert.That(names).IsEquivalentTo(new[] { "Picture 1", "Lighthouse" }, CollectionOrdering.Matching);
     }
 
     [Test]

@@ -1,7 +1,5 @@
-using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using XLibur.Excel;
@@ -29,8 +27,6 @@ public class DefaultStyleFontIdSaveTests
     private const string NoBorder = "<x:border><x:left /><x:right /><x:top /><x:bottom /><x:diagonal /></x:border>";
 
     private static readonly XNamespace Main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
     [Test]
     // The Normal style names the cells' font, Calibri 11.
@@ -123,21 +119,14 @@ public class DefaultStyleFontIdSaveTests
             wb.SaveAs(package);
         }
 
-        return package.RewritePart("xl/styles.xml", xml =>
-        {
-            xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{Arial20}{Calibri11}</x:fonts>",
-                RegexOptions.None, RegexTimeout);
-            xml = Regex.Replace(xml, "<x:borders.*?</x:borders>", $"<x:borders count=\"2\">{ThinLeft}{NoBorder}</x:borders>",
-                RegexOptions.None, RegexTimeout);
-            xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>",
-                $"<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"{normalStyleFontId}\" fillId=\"0\" borderId=\"1\" /></x:cellStyleXfs>",
-                RegexOptions.None, RegexTimeout);
-            xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>",
-                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" /></x:cellXfs>",
-                RegexOptions.None, RegexTimeout);
-            return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>",
-                "<x:cellStyles count=\"1\"><x:cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\" /></x:cellStyles>",
-                RegexOptions.None, RegexTimeout);
-        });
+        return package.RewriteStyles(
+            ("fonts", $"<x:fonts count=\"2\">{Arial20}{Calibri11}</x:fonts>"),
+            ("borders", $"<x:borders count=\"2\">{ThinLeft}{NoBorder}</x:borders>"),
+            ("cellStyleXfs",
+                $"<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"{normalStyleFontId}\" fillId=\"0\" borderId=\"1\" /></x:cellStyleXfs>"),
+            ("cellXfs",
+                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" /></x:cellXfs>"),
+            ("cellStyles",
+                "<x:cellStyles count=\"1\"><x:cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\" /></x:cellStyles>"));
     }
 }

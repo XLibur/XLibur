@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -374,13 +373,12 @@ public class PictureAnchorSizeTests
             "<x:cellStyles count=\"2\"><x:cellStyle name=\"Plain\" xfId=\"0\" />" +
             "<x:cellStyle name=\"Normal\" xfId=\"1\" builtinId=\"0\" /></x:cellStyles>"));
 
-    private static string WithStyles(string xml, string cellStyleXfs, string cellXfs, string cellStyles)
-    {
-        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{Calibri11}{Arial20}</x:fonts>");
-        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs);
-        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs);
-        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles);
-    }
+    private static string WithStyles(string xml, string cellStyleXfs, string cellXfs, string cellStyles) =>
+        StylesPart.ReplaceElements(xml,
+            ("fonts", $"<x:fonts count=\"2\">{Calibri11}{Arial20}</x:fonts>"),
+            ("cellStyleXfs", cellStyleXfs),
+            ("cellXfs", cellXfs),
+            ("cellStyles", cellStyles));
 
     /// <summary>
     /// Rows of 18 pt and columns 12 characters wide by default, with column C 20 characters wide and

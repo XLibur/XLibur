@@ -1,6 +1,4 @@
-using System;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
@@ -20,8 +18,6 @@ public class NormalStyleLoadTests
 
     private const string Calibri11 =
         "<x:font><x:sz val=\"11\" /><x:color rgb=\"FF000000\" /><x:name val=\"Calibri\" /><x:family val=\"2\" /></x:font>";
-
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
     [Test]
     public async Task The_workbook_style_is_the_Normal_style_format_not_the_cell_format_at_its_index()
@@ -104,13 +100,10 @@ public class NormalStyleLoadTests
             wb.SaveAs(package);
         }
 
-        return package.RewritePart("xl/styles.xml", xml =>
-        {
-            xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{Arial14Bold}{Calibri11}</x:fonts>",
-                RegexOptions.None, RegexTimeout);
-            xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs, RegexOptions.None, RegexTimeout);
-            xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs, RegexOptions.None, RegexTimeout);
-            return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles, RegexOptions.None, RegexTimeout);
-        });
+        return package.RewriteStyles(
+            ("fonts", $"<x:fonts count=\"2\">{Arial14Bold}{Calibri11}</x:fonts>"),
+            ("cellStyleXfs", cellStyleXfs),
+            ("cellXfs", cellXfs),
+            ("cellStyles", cellStyles));
     }
 }
