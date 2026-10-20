@@ -61,7 +61,11 @@ public partial class XLWorkbook : IXLWorkbook
 
     public static double DefaultRowHeight { get; private set; }
 
-    public static double DefaultColumnWidth { get; private set; }
+    /// <summary>
+    /// The default column width of a workbook in Calibri 11 at 96 DPI, 8.43 characters. A workbook's
+    /// own default, <see cref="ColumnWidth"/>, follows its first font and its DPI: at 120 DPI it is 8.11.
+    /// </summary>
+    public static double DefaultColumnWidth => 8.43;
 
     public static IXLPageSetup DefaultPageOptions
     {
@@ -237,7 +241,31 @@ public partial class XLWorkbook : IXLWorkbook
     ///   Gets or sets the default column width for the workbook.
     ///   <para>All new worksheets will use this column width.</para>
     /// </summary>
-    public double ColumnWidth { get; set; }
+    /// <remarks>
+    ///   Until it is set, it is the width Excel gives a column whose file states no width:
+    ///   8 digits of the first font plus padding, rounded up to a multiple of 8 px. It depends on the
+    ///   DPI: Calibri 11 is 8.43 at 96 DPI and 8.11 at 120 DPI (#798).
+    /// </remarks>
+    public double ColumnWidth
+    {
+        get => _columnWidth ?? StandardColumnWidth;
+        set => _columnWidth = value;
+    }
+
+    private double? _columnWidth;
+
+    /// <summary>
+    ///   The <see cref="ColumnWidth"/> set on the workbook, or <c>null</c> while it is the
+    ///   <see cref="StandardColumnWidth"/>.
+    /// </summary>
+    internal double? ExplicitColumnWidth => _columnWidth;
+
+    /// <summary>
+    ///   The width Excel gives a column whose file states no width, in digits of
+    ///   <see cref="FirstFont"/> at <see cref="DpiX"/>. It is measured the first time it is asked for,
+    ///   so creating a workbook measures no font.
+    /// </summary>
+    internal double StandardColumnWidth => CalculateColumnWidth(8, MaxDigitWidth);
 
     /// <summary>
     ///   Gets or sets the default page options for the workbook.
@@ -1093,10 +1121,8 @@ public partial class XLWorkbook : IXLWorkbook
                      ?? (GraphicEngine as IXLFontEngine ?? new GraphicEngineFontAdapter(GraphicEngine));
         Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
         DefaultRowHeight = 15;
-        DefaultColumnWidth = 8.43;
         Style = new XLStyle(null!, DefaultStyle);
         RowHeight = DefaultRowHeight;
-        ColumnWidth = DefaultColumnWidth;
         PageOptions = DefaultPageOptions;
         Outline = DefaultOutline;
         Properties = new XLWorkbookProperties();
