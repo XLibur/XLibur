@@ -66,6 +66,17 @@ using var wb = new XLWorkbook(new LoadOptions { FontEngine = new SkiaSharpFontEn
 
 **Implementation note:** SkiaSharp has no `FontCollection.TryGet(name)` equivalent, so the engine keeps its own `name → SKTypeface` dictionary for stream-loaded fonts and falls through to `SKFontManager.Default` for system fonts. Glyph metrics are read via `SKFont.MeasureText` and `SKFontMetrics`; the `SKTypeface.GetGlyph`/`SKFont.ContainsGlyph` lookup APIs proved unreliable for stream-loaded typefaces and are not used.
 
+### Missing fonts
+
+Every engine looks a font up in the same order: the font itself, then a font that measures like
+it, then the engine's fallback font, then (where the engine has one) the embedded CarlitoBare.
+The fonts that measure like a missing one are listed once, in `XLibur.Fonts.Shared/MetricCompatibleFonts.cs`,
+which each engine compiles in as source. The list has one entry: Aptos Narrow, Excel's default
+font in Microsoft 365, is measured with Calibri, Carlito or CarlitoBare. Windows does not install
+Aptos Narrow (Office keeps it in a font cache of its own), and its digits are as wide as Calibri's,
+so the substitute gives the digit width Excel uses. The fallback, Microsoft Sans Serif, made every
+column of an Aptos Narrow workbook about 10% too wide (#793).
+
 ### Registration
 
 The core cannot reference any font package at compile time (that would create a circular dependency and reintroduce library lock-in). Registration therefore happens at runtime, and there are three layers, checked cheapest-first:
