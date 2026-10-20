@@ -204,15 +204,8 @@ internal static class GroupedPictureWriter
         imagePart.FeedData(pic.ImageStream);
 
         var wb = pic.Worksheet.Workbook;
-        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
-        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
-        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
-        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
-
-        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-        var childX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-        var childY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
+        var (childX, childY) = ChildOffset(pic, group, wb);
+        var (childCx, childCy) = ChildExtents(pic, group, wb);
 
         var picElement = new Xdr.Picture(
             new Xdr.NonVisualPictureProperties(
@@ -339,27 +332,26 @@ internal static class GroupedPictureWriter
         return null;
     }
 
-    private static (long Cx, long Cy) ChildExtents(XLPicture pic, XLPictureGroup group, XLWorkbook wb)
-    {
-        var sheetEmuCx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
-        var sheetEmuCy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
+    /// <summary>The picture's sheet size, in the group's child coordinate space.</summary>
+    private static (long Cx, long Cy) ChildExtents(XLPicture pic, XLPictureGroup group, XLWorkbook wb) =>
+    (
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX), 0.0, group.ScaleX),
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY), 0.0, group.ScaleY)
+    );
 
-        // Convert the sheet-space size back to the group's child coordinate space.
-        var childCx = IsDegenerateScale(group.ScaleX) ? sheetEmuCx : (long)Math.Round(sheetEmuCx / group.ScaleX);
-        var childCy = IsDegenerateScale(group.ScaleY) ? sheetEmuCy : (long)Math.Round(sheetEmuCy / group.ScaleY);
-        return (childCx, childCy);
-    }
+    /// <summary>The picture's sheet position, in the group's child coordinate space.</summary>
+    private static (long X, long Y) ChildOffset(XLPicture pic, XLPictureGroup group, XLWorkbook wb) =>
+    (
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX), group.OffsetX, group.ScaleX),
+        ToChildSpace(DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY), group.OffsetY, group.ScaleY)
+    );
 
-    private static (long X, long Y) ChildOffset(XLPicture pic, XLPictureGroup group, XLWorkbook wb)
-    {
-        var sheetEmuX = DrawingUnits.PixelsToEmu(pic.Left, wb.DpiX);
-        var sheetEmuY = DrawingUnits.PixelsToEmu(pic.Top, wb.DpiY);
-
-        // Invert the composed affine (sheet = offset + child·scale) to get the child a:off.
-        var childOffX = IsDegenerateScale(group.ScaleX) ? sheetEmuX : (long)Math.Round((sheetEmuX - group.OffsetX) / group.ScaleX);
-        var childOffY = IsDegenerateScale(group.ScaleY) ? sheetEmuY : (long)Math.Round((sheetEmuY - group.OffsetY) / group.ScaleY);
-        return (childOffX, childOffY);
-    }
+    /// <summary>
+    /// One axis of the inverse of the group's composed transform (sheet = offset + child·scale). A
+    /// size has no offset. A degenerate scale keeps the sheet value.
+    /// </summary>
+    private static long ToChildSpace(long sheetEmu, double groupOffset, double scale) =>
+        IsDegenerateScale(scale) ? sheetEmu : (long)Math.Round((sheetEmu - groupOffset) / scale);
 
     /// <summary>
     /// Remove pictures that were deleted from inside a group. Only the matching <c>xdr:pic</c>
