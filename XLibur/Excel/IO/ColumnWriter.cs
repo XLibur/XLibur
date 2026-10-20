@@ -307,24 +307,23 @@ internal static class ColumnWriter
 
     private static void UpdateColumn(ColumnWriteContext ctx, Column column)
     {
-        if (!ctx.SheetColumnsByMin.TryGetValue(column.Min!.Value, out var newColumn))
+        if (!ctx.SheetColumnsByMin.TryGetValue(column.Min!.Value, out var existingColumn))
         {
-            newColumn = (Column)column.CloneNode(true);
+            var newColumn = (Column)column.CloneNode(true);
             ctx.Columns.AppendChild(newColumn);
             ctx.SheetColumnsByMin.Add(column.Min.Value, newColumn);
         }
         else
         {
-            UpdateExistingColumn(column, ctx.Columns, ctx.SheetColumnsByMin, ctx.MaxDigitWidth);
+            UpdateExistingColumn(ctx, column, existingColumn);
         }
     }
 
-    private static void UpdateExistingColumn(Column column, Columns columns, Dictionary<uint, Column> sheetColumnsByMin,
-        int mdw)
+    private static void UpdateExistingColumn(ColumnWriteContext ctx, Column column, Column existingColumn)
     {
-        var existingColumn = sheetColumnsByMin[column.Min!.Value];
+        var (columns, sheetColumnsByMin) = (ctx.Columns, ctx.SheetColumnsByMin);
         var newColumn = (Column)existingColumn.CloneNode(true);
-        newColumn.Min = column.Min;
+        newColumn.Min = column.Min!;
         newColumn.Max = column.Max;
 
         // A style="0" the file had stays; the column writes none of its own.
@@ -333,7 +332,7 @@ internal static class ColumnWriter
         // already carries both. The file can spell a width with more digits than a save keeps
         // (#722). The model does not know whether a width was set, only what it is.
         var width = column.Width!.SaveRound();
-        if (!SameWidth(existingColumn.Width, width, mdw))
+        if (!SameWidth(existingColumn.Width, width, ctx.MaxDigitWidth))
         {
             newColumn.Width = width;
             newColumn.CustomWidth = column.CustomWidth;
@@ -346,7 +345,7 @@ internal static class ColumnWriter
             ? (byte)column.OutlineLevel
             : null;
 
-        sheetColumnsByMin.Remove(column.Min.Value);
+        sheetColumnsByMin.Remove(newColumn.Min.Value);
         if (existingColumn.Min! + 1 > existingColumn.Max!)
         {
             columns.RemoveChild(existingColumn);
