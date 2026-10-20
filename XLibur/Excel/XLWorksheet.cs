@@ -110,7 +110,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             new XLRowsCollection(), new XLRanges());
         PageSetup = new XLPageSetup((XLPageSetup)workbook.PageOptions, this);
         Outline = new XLOutline(workbook.Outline);
-        _columnWidth = workbook.ColumnWidth;
+        // A width set on the workbook is not the one Excel works out for a file that states none, so
+        // the sheet writes it (#798).
+        _columnWidth = workbook.ExplicitColumnWidth;
+        ColumnWidthChanged = _columnWidth is not null;
         _rowHeight = workbook.RowHeight;
         RowHeightChanged = Math.Abs(workbook.RowHeight - XLWorkbook.DefaultRowHeight) > XLHelper.Epsilon;
 
@@ -139,7 +142,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     public string? LegacyDrawingId;
 
-    private double _columnWidth;
+    /// <summary>
+    /// The sheet's width, or <c>null</c> while it is the workbook's standard width, which is measured
+    /// only when it is first asked for (#798).
+    /// </summary>
+    private double? _columnWidth;
 
     public XLWorksheetInternals Internals { get; private set; }
 
@@ -337,7 +344,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public double ColumnWidth
     {
-        get => _columnWidth;
+        get => _columnWidth ?? Workbook.StandardColumnWidth;
         set
         {
             ColumnWidthChanged = true;
@@ -823,9 +830,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         // A width the source took from its file, from baseColWidth or a range to the last column,
         // does not count as changed there, because the file's markup carries it. The copy has no
-        // such markup, so it writes any width a new sheet would not have (#709).
+        // such markup, so it writes any width other than the one Excel works out for a sheet that
+        // states none (#709, #798).
         targetSheet.ColumnWidthChanged = ColumnWidthChanged
-                                         || Math.Abs(ColumnWidth - targetSheet.Workbook.ColumnWidth) > XLHelper.Epsilon;
+                                         || Math.Abs(ColumnWidth - targetSheet.Workbook.StandardColumnWidth) > XLHelper.Epsilon;
         targetSheet.RowHeight = RowHeight;
         targetSheet.RowHeightChanged = RowHeightChanged;
         targetSheet.InnerStyle = InnerStyle;

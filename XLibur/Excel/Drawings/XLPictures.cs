@@ -12,6 +12,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     private readonly List<XLPicture> _pictures = [];
     private readonly XLWorksheet _worksheet;
     private long _nextGroupKey = 1;
+    private HashSet<string> _keptShapeNames = new(StringComparer.OrdinalIgnoreCase);
 
     public XLPictures(XLWorksheet worksheet)
     {
@@ -296,16 +297,29 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);
 
+    /// <summary>
+    /// Sets the names of the loaded drawing's shapes that are not pictures of this collection, such as
+    /// a linked picture the loader does not read (issue #796). The save keeps those shapes as the file
+    /// has them, so a new picture is not given one of their names.
+    /// </summary>
+    internal void SetKeptShapeNames(IEnumerable<string> names)
+    {
+        _keptShapeNames = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+    }
+
     private string GetNextPictureName()
     {
         var pictureNumber = Count;
-        while (_pictures.Any(p => p.Name == $"Picture {pictureNumber}"))
+        while (IsNameTaken($"Picture {pictureNumber}"))
         {
             pictureNumber++;
         }
 
         return $"Picture {pictureNumber}";
     }
+
+    private bool IsNameTaken(string name) =>
+        _keptShapeNames.Contains(name) || _pictures.Any(p => p.Name == name);
 }
 
 /// <summary>

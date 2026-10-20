@@ -69,8 +69,47 @@ internal static class DrawingPartReader
 
         var layout = GridLayout.OnFirstUse(ws);
 
-        foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
+        // While the pictures load, every name in the drawing is taken, so a picture the file leaves
+        // unnamed is not named after a shape further on (issue #796).
+        var drawing = drawingsPart.WorksheetDrawing!;
+        var pictures = (XLPictures)ws.Pictures;
+        var nameUses = ShapeNameUses(drawing);
+        pictures.SetKeptShapeNames(nameUses.Keys);
+
+        foreach (var anchor in drawing.ChildElements)
             LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);
+
+        pictures.SetKeptShapeNames(KeptShapeNames(nameUses, pictures));
+    }
+
+    /// <summary>How many shapes of the drawing have each name, at any depth.</summary>
+    private static Dictionary<string, int> ShapeNameUses(Xdr.WorksheetDrawing drawing)
+    {
+        var uses = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var properties in drawing.Descendants<Xdr.NonVisualDrawingProperties>())
+        {
+            if (properties.Name?.Value is { Length: > 0 } name)
+                uses[name] = uses.GetValueOrDefault(name) + 1;
+        }
+
+        return uses;
+    }
+
+    /// <summary>
+    /// The names of the drawing's shapes that did not load as pictures, which the save keeps as the
+    /// file has them: a linked picture, a picture under a wrapper the loader does not read, a text
+    /// box, a chart. Each loaded picture accounts for one use of its name, so a name two shapes share
+    /// is still kept when only one of them loaded.
+    /// </summary>
+    private static IEnumerable<string> KeptShapeNames(Dictionary<string, int> nameUses, XLPictures pictures)
+    {
+        foreach (var picture in pictures)
+        {
+            if (nameUses.TryGetValue(picture.Name, out var count))
+                nameUses[picture.Name] = count - 1;
+        }
+
+        return nameUses.Where(use => use.Value > 0).Select(use => use.Key);
     }
 
     private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws,

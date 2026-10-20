@@ -50,8 +50,9 @@ public class MaxDigitWidthRoundingTests
     public async Task RowAdjustToContents_WrapsAtTheSameMdwAsTheRestOfTheLibrary()
     {
         // Every glyph is 10 px wide, so a 7-letter word is 70 px, 81 px with the cell padding. A
-        // default column (8.43 characters) is 83 px wide with a 9 px MDW and 72 px with an 8 px
-        // one, so the word fits on its line only when 8.5 rounds to 9.
+        // column of 8.43 characters is 83 px wide with a 9 px MDW and 72 px with an 8 px one, so
+        // the word fits on its line only when 8.5 rounds to 9. The width is set, because the
+        // default width follows the MDW (#798): 80 px at 9 px, too narrow for the word.
         var at8_5 = WrappedRowHeight(8.5);
         var at9 = WrappedRowHeight(9);
         var at8 = WrappedRowHeight(8);
@@ -68,6 +69,7 @@ public class MaxDigitWidthRoundingTests
             FontEngine = new FixedMdwFontEngine(probe.FontEngine, engineMdw, fixedGlyphWidth: 10),
         });
         var ws = wb.AddWorksheet();
+        ws.ColumnWidth = 8.43;
         var cell = ws.Cell("A1");
         cell.Value = "aaaaaaa aaaaaaa";
         cell.Style.Alignment.WrapText = true;
