@@ -1,7 +1,6 @@
 using System;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
-using XLibur.Excel.Tables;
 using XLibur.Extensions;
 using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
@@ -14,9 +13,6 @@ internal static class SharedStringTableWriter
     internal static void GenerateSharedStringTablePartContent(XLWorkbook workbook, SharedStringTablePart sharedStringTablePart,
         SaveContext context)
     {
-        // Call all table headers to make sure their names are filled
-        workbook.Worksheets.ForEach(w => w.Tables.ForEach(t => _ = ((XLTable)t).FieldNames.Count));
-
         using var xml = PartXmlWriter.Create(sharedStringTablePart);
 
         xml.WriteStartDocument();

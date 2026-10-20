@@ -66,15 +66,11 @@ internal static class TextSerializer
     private static void WritePhoneticProperties(XmlWriter w, XLImmutableRichText.PhoneticProperties phoneticsProps,
         SaveContext context)
     {
-        var font = phoneticsProps.Font;
-        if (!context.SharedFonts.TryGetValue(font, out FontInfo fi))
-        {
-            fi = new FontInfo { Font = font };
-            context.SharedFonts.Add(font, fi);
-        }
+        // The styles part, written before the texts, registered the font and gave it its id (#801).
+        var fontId = context.SharedFonts[phoneticsProps.Font].FontId;
 
         w.WriteStartElement("phoneticPr", Main2006SsNs);
-        w.WriteAttribute("fontId", fi.FontId);
+        w.WriteAttribute("fontId", fontId);
 
         if (phoneticsProps.Alignment != XLPhoneticAlignment.Left)
             w.WriteAttributeString("alignment", phoneticsProps.Alignment.ToOpenXmlString());
