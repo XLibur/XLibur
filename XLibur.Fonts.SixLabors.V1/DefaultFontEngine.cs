@@ -218,8 +218,10 @@ public class DefaultFontEngine : IXLFontEngine
 
     private Font LoadFont(MetricId metricId)
     {
-        // First, try the specified fallback font. On Windows, unknown fonts should use MS Sans Serif
+        // A missing font is measured with one that measures like it, if there is one; else with the
+        // specified fallback font. On Windows, unknown fonts should use MS Sans Serif
         if (!_fontCollection.Value.TryGet(metricId.Name, out var fontFamily) &&
+            !MetricCompatibleFonts.TryGetSubstitute(metricId.Name, _fontCollection.Value.TryGet, out fontFamily) &&
             !_fontCollection.Value.TryGet(_fallbackFont, out fontFamily))
         {
             // If not present, e.g., it's unlikely to be present on Linux, use embedded font as an ultimate fallback.

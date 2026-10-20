@@ -192,13 +192,22 @@ public class SkiaSharpFontEngine : IXLFontEngine
         if (_useSystemFonts && TryMatchSystemFont(metricId.Name, metricId.SkStyle, out var systemTypeface))
             return systemTypeface;
 
-        // 3. Fallback font (stream first, then system).
+        // 3. A font that measures like the missing one (stream first, then system).
+        foreach (var substitute in MetricCompatibleFonts.For(metricId.Name))
+        {
+            if (_streamFonts.TryGetValue(substitute, out var substituteTypeface))
+                return substituteTypeface;
+            if (_useSystemFonts && TryMatchSystemFont(substitute, metricId.SkStyle, out var systemSubstitute))
+                return systemSubstitute;
+        }
+
+        // 4. Fallback font (stream first, then system).
         if (_streamFonts.TryGetValue(_fallbackFont, out var fallbackTypeface))
             return fallbackTypeface;
         if (_useSystemFonts && TryMatchSystemFont(_fallbackFont, metricId.SkStyle, out var systemFallback))
             return systemFallback;
 
-        // 4. Embedded ultimate fallback.
+        // 5. Embedded ultimate fallback.
         if (_embeddedFontName is not null && _streamFonts.TryGetValue(_embeddedFontName, out var embeddedTypeface))
             return embeddedTypeface;
 

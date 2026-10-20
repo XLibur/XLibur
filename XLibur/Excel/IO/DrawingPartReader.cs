@@ -69,8 +69,36 @@ internal static class DrawingPartReader
 
         var layout = GridLayout.OnFirstUse(ws);
 
-        foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
-            LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);
+        // The names of the shapes that do not load as pictures stay taken (issue #796).
+        var drawing = drawingsPart.WorksheetDrawing!;
+        ((XLPictures)ws.Pictures).LoadDrawing(ShapeNames(drawing), () =>
+        {
+            foreach (var anchor in drawing.ChildElements)
+                LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);
+        });
+    }
+
+    /// <summary>The name of each shape of the drawing, at any depth, once per shape.</summary>
+    /// <remarks>
+    /// The branches of an <c>mc:AlternateContent</c> are one drawing in two forms, and Excel gives
+    /// them one id and one name: a 3D model's frame and its fallback picture. Such a drawing is one
+    /// shape, so its name is given once, and the picture loaded from the fallback accounts for it.
+    /// </remarks>
+    private static IEnumerable<string> ShapeNames(Xdr.WorksheetDrawing drawing)
+    {
+        var forms = new HashSet<(AlternateContent Wrapper, uint Id)>();
+        foreach (var properties in drawing.Descendants<Xdr.NonVisualDrawingProperties>())
+        {
+            if (properties.Name?.Value is not { Length: > 0 } name)
+                continue;
+
+            if (properties.Ancestors<AlternateContent>().FirstOrDefault() is { } wrapper &&
+                properties.Id?.Value is { } id &&
+                !forms.Add((wrapper, id)))
+                continue;
+
+            yield return name;
+        }
     }
 
     private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws,

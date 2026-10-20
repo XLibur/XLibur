@@ -259,6 +259,22 @@ public abstract class FontEngineContractTests
         await Assert.That(nonExistentHeight).IsEqualTo(fallbackHeight);
     }
 
+    [Test]
+    public async Task MissingAptosNarrow_UsesMetricCompatibleFont()
+    {
+        // Excel's default font, Aptos Narrow, is often missing outside Office. Its digits are 1038/2048
+        // of an em wide, the same as Carlito's, so an engine that has Carlito measures the digit
+        // width Excel uses, not the fallback's (#793). 7.434 px is what the Aptos Narrow files of
+        // Office's font cache give for 11 pt at 96 DPI.
+        using var fallbackStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+        using var carlitoStream = TestHelper.GetStreamFromResource("Fonts.CarlitoBare-Regular.ttf");
+        var engine = CreateOnlyWithFonts(fallbackStream, carlitoStream);
+
+        var digitWidth = engine.GetMaxDigitWidth(new DummyFont("Aptos Narrow", 11), 96);
+
+        await Assert.That(digitWidth).IsEqualTo(7.434).Within(0.001);
+    }
+
     #endregion
 
     #region Stream-based factory methods

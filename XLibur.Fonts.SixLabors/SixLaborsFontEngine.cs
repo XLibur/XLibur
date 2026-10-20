@@ -200,7 +200,9 @@ public class SixLaborsFontEngine : IXLFontEngine
 
     private Font LoadFont(MetricId metricId)
     {
+        // A missing font is measured with one that measures like it, if there is one.
         if (!_fontCollection.Value.TryGet(metricId.Name, out var fontFamily) &&
+            !MetricCompatibleFonts.TryGetSubstitute(metricId.Name, _fontCollection.Value.TryGet, out fontFamily) &&
             !_fontCollection.Value.TryGet(_fallbackFont, out fontFamily))
         {
             if (_embeddedFontName is not null)

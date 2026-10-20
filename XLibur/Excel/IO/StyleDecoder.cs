@@ -48,6 +48,24 @@ internal static class StyleDecoder
     }
 
     /// <summary>
+    /// Decodes the <c>&lt;xf&gt;</c> at <paramref name="xfId"/> in <c>&lt;cellStyleXfs&gt;</c>, the
+    /// list a <c>&lt;cellStyle&gt;</c>'s <c>xfId</c> indexes (ECMA-376 Part 1, §18.8.7). A
+    /// stylesheet with no style formats, or an <c>xfId</c> past their end, leaves
+    /// <paramref name="defaults"/> untouched.
+    /// </summary>
+    /// <remarks>
+    /// Before #799 the Normal style was decoded with <see cref="Decode(int, StylesheetData, XLStyleKey)"/>,
+    /// which reads <c>&lt;cellXfs&gt;</c>, so the workbook took the cell format at the same index.
+    /// </remarks>
+    internal static XLStyleKey DecodeCellStyleFormat(int xfId, StylesheetData styles, XLStyleKey defaults)
+    {
+        if (styles.Stylesheet?.CellStyleFormats?.ElementAtOrDefault(xfId) is not CellFormat styleFormat)
+            return defaults;
+
+        return Decode(styleFormat, styles, defaults);
+    }
+
+    /// <summary>
     /// Resolves a <c>&lt;cellXfs&gt;</c> style index to an interned <see cref="XLStyleValue"/>
     /// without creating an <see cref="XLStyle"/> wrapper or writing to any slice.
     /// </summary>
@@ -77,7 +95,7 @@ internal static class StyleDecoder
     }
 
     /// <summary>
-    /// Decodes one <c>&lt;xf&gt;</c> from <c>&lt;cellXfs&gt;</c>. Each aspect is decoded only when
+    /// Decodes one <c>&lt;xf&gt;</c> from <c>&lt;cellXfs&gt;</c> or <c>&lt;cellStyleXfs&gt;</c>. Each aspect is decoded only when
     /// the <c>&lt;xf&gt;</c> states an index or a child for it, so an unstated aspect keeps
     /// whatever <paramref name="defaults"/> carried.
     /// </summary>

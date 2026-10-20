@@ -12,6 +12,7 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     private readonly List<XLPicture> _pictures = [];
     private readonly XLWorksheet _worksheet;
     private long _nextGroupKey = 1;
+    private HashSet<string> _keptShapeNames = new(StringComparer.OrdinalIgnoreCase);
 
     public XLPictures(XLWorksheet worksheet)
     {
@@ -164,9 +165,15 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         return false;
     }
 
+    /// <summary>
+    /// Adds a loaded picture under the name and id the file gives it. No name is generated: while a
+    /// drawing loads every name in it is taken (see <see cref="LoadDrawing"/>), so a generated name
+    /// would walk past all of them only to be replaced.
+    /// </summary>
     internal IXLPicture Add(Stream stream, string name, int id)
     {
-        var picture = (XLPicture)Add(stream);
+        var picture = new XLPicture(_worksheet, stream);
+        _pictures.Add(picture);
         picture.SetName(name);
         picture.Id = id;
         return picture;
@@ -296,10 +303,51 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);
 
+    /// <summary>
+    /// Loads the pictures of a drawing through <paramref name="loadPictures"/>, and keeps the names
+    /// of the drawing's shapes that did not load as pictures (issue #796): a linked picture, a
+    /// picture under a wrapper the loader does not read, a text box, a chart. The save keeps those
+    /// shapes as the file has them, so no picture is given one of their names.
+    /// </summary>
+    /// <param name="shapeNames">The name of each shape of the drawing, once per shape.</param>
+    /// <param name="loadPictures">Adds the drawing's pictures to this collection.</param>
+    /// <remarks>
+    /// While the pictures load, every name in the drawing is taken, so a picture the file leaves
+    /// unnamed is not named after a shape further on. Each loaded picture then accounts for one use
+    /// of its name, so a name two shapes share is still kept when only one of them loaded.
+    /// </remarks>
+    internal void LoadDrawing(IEnumerable<string> shapeNames, Action loadPictures)
+    {
+        var uses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in shapeNames)
+            uses[name] = uses.GetValueOrDefault(name) + 1;
+
+        _keptShapeNames = new HashSet<string>(uses.Keys, StringComparer.OrdinalIgnoreCase);
+        loadPictures();
+
+        foreach (var picture in _pictures)
+        {
+            if (uses.TryGetValue(picture.Name, out var count))
+                uses[picture.Name] = count - 1;
+        }
+
+        _keptShapeNames = new HashSet<string>(uses.Where(use => use.Value > 0).Select(use => use.Key),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="name"/>, in any case, is the name of a shape the drawing keeps, or of a
+    /// picture of this collection other than <paramref name="renamed"/>.
+    /// </summary>
+    internal bool IsNameTaken(string name, XLPicture? renamed = null) =>
+        _keptShapeNames.Contains(name) ||
+        (_pictures.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } picture &&
+         picture != renamed);
+
     private string GetNextPictureName()
     {
         var pictureNumber = Count;
-        while (_pictures.Any(p => p.Name == $"Picture {pictureNumber}"))
+        while (IsNameTaken($"Picture {pictureNumber}"))
         {
             pictureNumber++;
         }

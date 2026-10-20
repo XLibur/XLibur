@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
+using LoadOptions = XLibur.Excel.LoadOptions;
 
 namespace XLibur.Tests.Excel.Drawings;
 
@@ -88,6 +89,47 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task Moving_the_3d_model_to_a_cell_keeps_the_size_excel_shows_it_at()
+    {
+        // Excel, at 120 DPI, shows the model 147.89 pt square over columns of 48 pt (80 px, a digit
+        // width of 9 px for Aptos Narrow 11) and rows of 14.4 pt (24 px). Loaded at that DPI, its box
+        // is 246 px each way, and the one-cell anchor written for the move keeps it (#793). 7620 EMU
+        // is a pixel at 120 DPI.
+        using var saved = LoadAndSave(Fixture(), AtExcelDpi, ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(Extent(saved)).IsEqualTo($"{246 * 7620}x{246 * 7620}");
+    }
+
+    [Test]
+    public async Task Moving_the_3d_model_to_a_position_keeps_the_size_excel_shows_it_at()
+    {
+        using var saved = LoadAndSave(Fixture(), AtExcelDpi, ws => ws.Picture("3D Model 1").MoveTo(30, 40));
+
+        await Assert.That(Extent(saved)).IsEqualTo($"{246 * 7620}x{246 * 7620}");
+    }
+
+    [Test]
+    public async Task The_3d_model_measures_its_columns_at_96_dpi()
+    {
+        // At 96 DPI Aptos Narrow 11 has a digit width of 7 px, so a column is 64 px and the box is
+        // the model's 1878203 EMU, 197 px wide. Only the width: the rows are at a default height the
+        // file does not state, which Excel derives from the font at its own DPI.
+        using var wb = LoadFixture();
+
+        await Assert.That(wb.Worksheet(1).Picture("3D Model 1").Width).IsEqualTo(197);
+    }
+
+    [Test]
+    public async Task Moving_the_3d_model_to_a_cell_keeps_its_width_at_96_dpi()
+    {
+        // The 197 px the box measures at 96 DPI (above), by the rule: Excel on this machine runs at
+        // 120 DPI and cannot be measured at 96. The height is left unpinned, as above.
+        using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
+
+        await Assert.That(Extent(saved)).StartsWith($"{197 * 9525}x");
+    }
+
+    [Test]
     public async Task Moving_the_picture_between_cells_keeps_its_two_cell_anchor_in_place()
     {
         // MoveTo(from, to) keeps the two-cell form, so the anchor is the one Excel wrote, edited.
@@ -105,6 +147,20 @@ public class PictureAlternateContentTests
 
         await Assert.That(Shape(saved)).IsEqualTo(
             "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron'");
+    }
+
+    [Test]
+    public async Task The_3d_model_name_is_free_again_once_the_picture_is_renamed()
+    {
+        // The frame and the fallback picture are one drawing with one name, which the picture holds:
+        // no other shape keeps it once the picture lets it go (#796).
+        using var wb = LoadFixture();
+        var ws = wb.Worksheet(1);
+        ws.Picture("3D Model 1").Name = "Model";
+
+        var other = ws.AddPicture(new MemoryStream(Png), "3D Model 1");
+
+        await Assert.That(other.Name).IsEqualTo("3D Model 1");
     }
 
     [Test]
@@ -214,18 +270,128 @@ public class PictureAlternateContentTests
     public async Task A_3d_model_grouped_with_a_picture_keeps_the_model_and_loads_the_picture()
     {
         // Excel puts the wrapper inside the group: anchor > grpSp > [mc:AlternateContent, pic]. The
-        // picture loads as a grouped picture; the model inside the group is left as Excel wrote it.
+        // picture loads as a grouped picture; the model inside the group is left as Excel wrote it,
+        // and a rename of the picture reaches the picture alone (#795).
         using var source = Resource("picture-3d-model-grouped.xlsx");
         using var wb = new XLWorkbook(source);
         await Assert.That(string.Join(", ", wb.Worksheet(1).Pictures.Select(p => p.Name))).IsEqualTo("Picture 3");
+        wb.Worksheet(1).Picture("Picture 3").Name = "Photo";
 
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
 
         await Assert.That(Shape(saved)).IsEqualTo("twoCellAnchor > grpSp 5 'Group 4'");
         await Assert.That(GroupMembers(saved)).IsEqualTo(
-            "AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1', pic 4 'Picture 3'");
+            "AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1', pic 4 'Photo'");
         await Assert.That(Relationships(saved)).Contains("model3d ../media/model3d1.glb");
+    }
+
+    [Test]
+    public async Task Grouping_the_3d_model_with_a_picture_keeps_the_model_in_the_group()
+    {
+        // As Excel does (picture-3d-model-grouped.xlsx), the whole wrapper goes into the group, with
+        // the model in its mc:Choice, and not only the fallback picture (#794). Excel 16.0 (build
+        // 20430) opened the saved file with the group's first item a 3D model (Shapes type 30,
+        // msoModel3D, with a Model3D), at 75 pt, 37.5 pt and 150 by 112.5 pt: the box set below.
+        using var saved = GroupedWithLogo();
+
+        // The first save numbered the model 1 and the picture 2, so the group takes 3.
+        await Assert.That(Shape(saved)).IsEqualTo("absoluteAnchor > grpSp 3 'Group 3'");
+        await Assert.That(GroupMembers(saved)).IsEqualTo(
+            "AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1', pic 2 'Logo'");
+        await Assert.That(Relationships(saved)).Contains("model3d ../media/model3d1.glb");
+    }
+
+    [Test]
+    public async Task A_grouped_3d_model_is_placed_in_the_group_where_its_picture_was()
+    {
+        // In a group each drawing is placed by its own transform, in the group's child coordinates,
+        // which XLibur makes the sheet's. Excel places the model's frame there too, at the box its
+        // fallback picture has: off 1270000,635000 ext 1878203 square in picture-3d-model-grouped.xlsx.
+        // A frame in an anchor of its own is placed by the anchor, and Excel writes its transform as
+        // zeros, so the group must set it, or the model shrinks to nothing at the group's corner.
+        using var saved = GroupedWithLogo();
+
+        await Assert.That(GroupedTransforms(saved)).IsEqualTo(
+            $"graphicFrame {Box(100, 50, 200, 150)} | pic {Box(100, 50, 200, 150)}");
+    }
+
+    [Test]
+    public async Task Moving_and_resizing_a_grouped_3d_model_moves_both_forms()
+    {
+        // Once grouped and saved, the model is written in place in its group. Both forms of it are
+        // one drawing, so the model's frame moves and resizes with its fallback picture (#794).
+        using var saved = GroupedWithLogo(ws =>
+        {
+            var model = ws.Picture("3D Model 1").MoveTo(120, 60);
+            model.Width = 240;
+        });
+
+        await Assert.That(GroupedTransforms(saved)).IsEqualTo(
+            $"graphicFrame {Box(120, 60, 240, 150)} | pic {Box(120, 60, 240, 150)}");
+    }
+
+    [Test]
+    public async Task Deleting_a_grouped_3d_model_deletes_the_model()
+    {
+        // The model was grouped in this session, so its picture is still loaded and can be deleted.
+        // The wrapper goes with it, and the model part, leaving the group its other picture.
+        using var saved = GroupedWithLogo(ws => ws.Pictures.Delete("3D Model 1"));
+
+        await Assert.That(GroupMembers(saved)).IsEqualTo("pic 2 'Logo'");
+        await Assert.That(Relationships(saved)).DoesNotContain("model3d");
+        await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// The 3D model moved to (100, 50) px, sized 200 by 150 px, and grouped with a picture beside it. Grouping needs both
+    /// free-floating and saved, so they are saved once before the group is made. An edit after the
+    /// group is made is saved once more.
+    /// </summary>
+    private static MemoryStream GroupedWithLogo(Action<IXLWorksheet>? afterGrouping = null)
+    {
+        var saved = new MemoryStream();
+        using var source = Fixture();
+        using var wb = new XLWorkbook(source);
+        var ws = wb.Worksheet(1);
+        var model = ws.Picture("3D Model 1").MoveTo(100, 50);
+        model.Width = 200;
+        model.Height = 150;
+        var logo = ws.AddPicture(new MemoryStream(Png), "Logo").MoveTo(400, 50);
+        using var first = new MemoryStream();
+        wb.SaveAs(first);
+
+        ws.Pictures.Group(model, logo);
+        using var grouped = new MemoryStream();
+        wb.SaveAs(afterGrouping is null ? saved : grouped);
+        if (afterGrouping is not null)
+        {
+            afterGrouping(ws);
+            wb.SaveAs(saved);
+        }
+
+        return saved;
+    }
+
+    /// <summary>A box of pixels at 96 DPI as EMU, e.g. <c>off 952500,476250 ext 1905000x1428750</c>.</summary>
+    private static string Box(int left, int top, int width, int height) =>
+        $"off {left * 9525},{top * 9525} ext {width * 9525}x{height * 9525}";
+
+    /// <summary>
+    /// The transform of each drawing in the branches of the wrapper in the saved drawing's group,
+    /// described as <see cref="Box"/> describes one.
+    /// </summary>
+    private static string GroupedTransforms(Stream saved)
+    {
+        var wrapper = XDocument.Parse(saved.ReadPart(Drawing1)).Descendants(McNs + "AlternateContent").Single();
+        return string.Join(" | ", wrapper.Elements().Select(branch =>
+        {
+            var drawing = branch.Elements().Single();
+            var off = drawing.Descendants(ANs + "off").First();
+            var ext = drawing.Descendants(ANs + "ext").First(e => e.Attribute("cx") is not null);
+            return $"{drawing.Name.LocalName} off {(string?)off.Attribute("x")},{(string?)off.Attribute("y")} " +
+                   $"ext {(string?)ext.Attribute("cx")}x{(string?)ext.Attribute("cy")}";
+        }));
     }
 
     [Test]
@@ -294,13 +460,18 @@ public class PictureAlternateContentTests
         return package;
     }
 
+    private static readonly LoadOptions AtExcelDpi = new() { Dpi = new System.Drawing.Point(120, 120) };
+
     private static MemoryStream LoadAndSave(Action<IXLWorksheet> edit) => LoadAndSave(Fixture(), edit);
 
-    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
+    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit) =>
+        LoadAndSave(source, new LoadOptions(), edit);
+
+    private static MemoryStream LoadAndSave(MemoryStream source, LoadOptions options, Action<IXLWorksheet> edit)
     {
         var saved = new MemoryStream();
         using (source)
-        using (var wb = new XLWorkbook(source))
+        using (var wb = new XLWorkbook(source, options))
         {
             edit(wb.Worksheet(1));
             wb.SaveAs(saved);

@@ -259,18 +259,16 @@ public partial class XLWorkbook
             .FirstOrDefault(x => x.BuiltinId is not null && x.BuiltinId.Value == 0);
         if (normalStyle != null)
         {
-            var normalStyleKey = StyleDecoder.Decode((int)normalStyle.FormatId!.Value,
+            // A cell style's xfId indexes cellStyleXfs, not cellXfs (#799).
+            var normalStyleKey = StyleDecoder.DecodeCellStyleFormat((int)normalStyle.FormatId!.Value,
                 context.Styles, ((XLStyle)Style).Key);
             Style = new XLStyle(null!, normalStyleKey);
         }
 
         // Excel measures the default width of a column in digits of the first font, not the Normal
-        // style's (#786).
+        // style's (#786). ColumnWidth follows from it, measured when it is first asked for (#798).
         if (s?.Fonts?.GetFirstChild<Font>() is { } firstFont)
             SetFirstFont(new XLFont(StyleDecoder.FontKey(firstFont, XLFontValue.Default.Key)));
-
-        if (s is not null)
-            ColumnWidth = CalculateColumnWidth(8, MaxDigitWidth);
 
         // We loop through the sheets in 2 passes: first just to add the sheets and second to add all the data for the sheets.
         // We do this mainly because it skips a very costly calculation invalidation step, but it also make things more consistent,

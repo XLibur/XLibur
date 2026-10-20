@@ -39,6 +39,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The fonts that measure like a font the machine may not have, shared by every engine. -->
+        <Compile Include="..\XLibur.Fonts.Shared\MetricCompatibleFonts.cs" Link="MetricCompatibleFonts.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
         <PackageReference Include="SixLabors.Fonts" Version="1.0.1" />
     </ItemGroup>

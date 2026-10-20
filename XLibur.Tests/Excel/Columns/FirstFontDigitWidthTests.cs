@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
@@ -36,6 +35,11 @@ namespace XLibur.Tests.Excel.Columns;
 /// <item><c>normalStyleFont</c>: the first font is Calibri 11, the Normal style uses Calibri 20, and
 /// the cells Calibri 11. Excel reports Calibri 11 as the Normal style's font, and columns are
 /// measured in 9 px digits.</item>
+/// <item><c>noCellStyles</c> and <c>noNormalStyle</c>: the first font is Calibri 20, which nothing
+/// uses, and there is no Normal style (no <c>cellStyles</c>, or no <c>builtinId="0"</c> in it).
+/// Columns are measured in 17 px digits (#790).</item>
+/// <item><c>noFonts</c>: a stylesheet of fills and borders only. Excel uses its own default font,
+/// whose digit is 9 px (#790).</item>
 /// </list>
 /// </remarks>
 public class FirstFontDigitWidthTests
@@ -65,6 +69,40 @@ public class FirstFontDigitWidthTests
         // Excel shows a width to two decimals.
         await Assert.That(ws.ColumnWidth).IsEqualTo(excelStandardWidth).Within(0.005);
         await Assert.That(ws.Column(2).Width).IsEqualTo(excelStandardWidth).Within(0.005);
+    }
+
+    [Test]
+    // The first font is Calibri 20, which nothing uses, and the stylesheet has no Normal style:
+    // either no cellStyles at all, or a cellStyles with no builtinId="0". Excel opened both files
+    // without a repair, reported StandardWidth 8.29 and drew column B 152 px wide: 8 of its 17 px
+    // digits (147 px), rounded up to a multiple of 8 px. Excel reports Calibri 20 as the Normal
+    // style's font in both. Before #788 the load kept the in-memory default width, 8.43, when the
+    // stylesheet had no Normal style (#790).
+    [Arguments("noCellStyles")]
+    [Arguments("noNormalStyle")]
+    public async Task A_stylesheet_with_no_Normal_style_has_a_default_width_in_digits_of_the_first_font(string fonts)
+    {
+        using var wb = new XLWorkbook(Fixture(fonts, "none"), AtExcelDpi);
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(ws.ColumnWidth).IsEqualTo(8.29).Within(0.005);
+        await Assert.That(ws.Column(2).Width).IsEqualTo(8.29).Within(0.005);
+    }
+
+    [Test]
+    public async Task A_stylesheet_with_no_fonts_has_a_default_width_in_digits_of_the_default_font()
+    {
+        // Excel opens a stylesheet with no <fonts> only when it has no cell formats either; one with
+        // cell formats but no fonts it opens only by repairing it. Either way it uses its own default
+        // font, Aptos Narrow 11 in this build, reports StandardWidth 8.11 and draws column B 80 px
+        // wide: 8 of its 9 px digits (72 px), rounded up to a multiple of 8 px. The load falls back
+        // to the library's default font, Calibri 11, because the save writes that font first, and its
+        // digit is 9 px wide as well, so the width is Excel's (#790).
+        using var wb = new XLWorkbook(Fixture("noFonts", "none"), AtExcelDpi);
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(ws.ColumnWidth).IsEqualTo(8.11).Within(0.005);
+        await Assert.That(ws.Column(2).Width).IsEqualTo(8.11).Within(0.005);
     }
 
     [Test]
@@ -102,10 +140,7 @@ public class FirstFontDigitWidthTests
         await Assert.That(reloaded.Worksheet(1).ColumnWidth).IsEqualTo(fonts == "firstFont" ? 8.29 : 8.11).Within(0.005);
     }
 
-    private static string FirstFont(Stream saved) =>
-        Regex.Match(saved.ReadPart("xl/styles.xml"), "<x:font>.*?</x:font>", RegexOptions.None, RegexTimeout).Value;
-
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+    private static string FirstFont(Stream saved) => StylesPart.FirstElement(saved, "font");
 
     private const string AutofitText = "The quick brown fox jumps";
 
@@ -130,7 +165,7 @@ public class FirstFontDigitWidthTests
 
         ws.Column(1).AdjustToContents();
 
-        await AssertNearExcel(ws.Column(1).Width, excelAutofitWidth);
+        await AssertWidthNearExcel(ws.Column(1).Width, excelAutofitWidth);
     }
 
     [Test]
@@ -151,7 +186,7 @@ public class FirstFontDigitWidthTests
 
         ws.Row(2).AdjustToContents();
 
-        await AssertNearExcel(ws.Row(2).Height, excelAutofitHeight);
+        await AssertHeightNearExcel(ws.Row(2).Height, excelAutofitHeight);
     }
 
     [Test]
@@ -170,8 +205,8 @@ public class FirstFontDigitWidthTests
         ws.Column(1).AdjustToContents();
         ws.Row(2).AdjustToContents();
 
-        await AssertNearExcel(ws.Column(1).Width, 41.11);
-        await AssertNearExcel(ws.Row(2).Height, 283.8);
+        await AssertWidthNearExcel(ws.Column(1).Width, 41.11);
+        await AssertHeightNearExcel(ws.Row(2).Height, 283.8);
 
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
@@ -180,13 +215,26 @@ public class FirstFontDigitWidthTests
     }
 
     /// <summary>
-    /// Autofit measures text with the font engine, not as Excel does, and pads it more: in the
-    /// all-Calibri workbook it is 220 px wide where Excel is 207 px, and 96.6 pt high where Excel is
-    /// 100.8 pt. So an autofit is compared with Excel's to within 10 %, which a digit width of the
-    /// wrong font misses by about half or double.
+    /// Autofit pads the text as Excel does (#789, <see cref="AutofitPaddingTests"/>), but measures it
+    /// with the font engine, which is wider than Excel's measurement. Excel draws the text with GDI at
+    /// an em of whole pixels and with hinted advance widths: <see cref="AutofitText"/> is 195 px in
+    /// Calibri 11 and 357 px in Calibri 20 there, and 201 px and 366 px in the engine, which scales
+    /// the outlines' advance widths to the exact em. So column A is 213 px where Excel is 207 px,
+    /// 210 px where it is 204 px, and 387 px where it is 377 px. In characters, which leave out the
+    /// column's own padding, that is 22.89 for 22.22, 11.71 for 11.35 and 42.22 for 41.11: within
+    /// 3.5 %. A digit width of the wrong font misses by about half or double.
     /// </summary>
-    private static async Task AssertNearExcel(double actual, double excel) =>
-        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.1);
+    private static async Task AssertWidthNearExcel(double actual, double excel) =>
+        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.035);
+
+    /// <summary>
+    /// Wrapped text breaks into as many lines as in Excel, but a line is lower: the engine makes a
+    /// line the em plus the descent, 23 px in Calibri 11 and 41 px in Calibri 20 at 120 DPI, where
+    /// Excel's lines are 24 px and 43 px. Row 2 is 7 lines of 23 px (96.6 pt) where Excel is 100.8 pt,
+    /// and 11 lines of 41 px (270.6 pt) where Excel is 283.8 pt: within 5 %.
+    /// </summary>
+    private static async Task AssertHeightNearExcel(double actual, double excel) =>
+        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.05);
 
     private const string Calibri11 =
         "<x:font><x:sz val=\"11\" /><x:color rgb=\"FF000000\" /><x:name val=\"Calibri\" /><x:family val=\"2\" /></x:font>";
@@ -234,15 +282,29 @@ public class FirstFontDigitWidthTests
                 "<x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"1\" /></x:cellXfs>",
                 "<x:cellStyles count=\"2\"><x:cellStyle name=\"Plain\" xfId=\"0\" />" +
                 "<x:cellStyle name=\"Normal\" xfId=\"1\" builtinId=\"0\" /></x:cellStyles>")),
+            "noCellStyles" => package.RewritePart("xl/styles.xml", xml => WithStyles(xml, Calibri20 + Calibri11,
+                "<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" /></x:cellXfs>",
+                "")),
+            "noNormalStyle" => package.RewritePart("xl/styles.xml", xml => WithStyles(xml, Calibri20 + Calibri11,
+                "<x:cellStyleXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" /></x:cellStyleXfs>",
+                "<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" /></x:cellXfs>",
+                "<x:cellStyles count=\"1\"><x:cellStyle name=\"Plain\" xfId=\"0\" /></x:cellStyles>")),
+            // Fills and borders only, the stylesheet Excel opened without a repair.
+            "noFonts" => package.RewritePart("xl/styles.xml", _ =>
+                "<x:styleSheet xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<x:fills count=\"2\"><x:fill><x:patternFill patternType=\"none\" /></x:fill>" +
+                "<x:fill><x:patternFill patternType=\"gray125\" /></x:fill></x:fills>" +
+                "<x:borders count=\"1\"><x:border><x:left /><x:right /><x:top /><x:bottom /><x:diagonal /></x:border></x:borders>" +
+                "</x:styleSheet>"),
             _ => throw new ArgumentOutOfRangeException(nameof(fonts)),
         };
     }
 
-    private static string WithStyles(string xml, string fonts, string cellStyleXfs, string cellXfs, string cellStyles)
-    {
-        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{fonts}</x:fonts>", RegexOptions.None, RegexTimeout);
-        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs, RegexOptions.None, RegexTimeout);
-        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs, RegexOptions.None, RegexTimeout);
-        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles, RegexOptions.None, RegexTimeout);
-    }
+    private static string WithStyles(string xml, string fonts, string cellStyleXfs, string cellXfs, string cellStyles) =>
+        StylesPart.ReplaceElements(xml,
+            ("fonts", $"<x:fonts count=\"2\">{fonts}</x:fonts>"),
+            ("cellStyleXfs", cellStyleXfs),
+            ("cellXfs", cellXfs),
+            ("cellStyles", cellStyles));
 }

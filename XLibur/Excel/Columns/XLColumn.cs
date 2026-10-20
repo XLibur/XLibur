@@ -238,6 +238,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         // Reusable buffer
         var glyphs = new List<GlyphBox>();
         XLStyle? cellStyle = null;
+        var columnMdw = Worksheet.Workbook.MaxDigitWidth;
         var columnWidthPx = 0;
         foreach (var cell in Column(startRow, endRow).CellsUsed())
         {
@@ -255,7 +256,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
             var textWidthPx = (int)Math.Ceiling(GetContentWidth(cellStyle.Alignment.TextRotation, glyphs));
 
             var cellMdw = XLHelper.GetMdw(engine, cellStyle.Font, dpi.X);
-            var cellWidthPx = GetCellWidthPx(textWidthPx, cellMdw);
+            var cellWidthPx = GetCellWidthPx(textWidthPx, cellMdw, columnMdw);
 
             if (autoFilterRows.Contains(cell.Address.RowNumber))
             {
@@ -271,20 +272,22 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 
     /// <summary>
     /// Width in pixels of a cell that holds content of the given width, including padding on
-    /// each side and the grid line.
+    /// each side and the grid line, as Excel pads it for autofit and for wrapping (#789).
     /// </summary>
+    /// <remarks>
+    /// Measured in Excel at 120 DPI (see <c>AutofitPaddingTests</c> and docs/autofit-vs-excel.md).
+    /// The padding is that of a column width, <c>2 * ceil(mdw / 4) + 1</c> in digits of the cell
+    /// font, plus the greater of 2 px and 1 px for every four digits of the column (the first
+    /// font's) that the content is wide. Excel wraps text by the same rule.
+    /// </remarks>
     /// <param name="textWidthPx">Width of the content in pixels.</param>
-    /// <param name="scaledMdw">Maximum digit width of the cell font in whole pixels, see <see cref="XLHelper.GetMdw(IXLFontEngine, IXLFontBase, double)"/>.</param>
-    internal static int GetCellWidthPx(int textWidthPx, double scaledMdw)
+    /// <param name="cellMdw">Maximum digit width of the cell font in whole pixels, see <see cref="XLHelper.GetMdw(IXLFontEngine, IXLFontBase, double)"/>.</param>
+    /// <param name="columnMdw">Maximum digit width of the column, the first font's, in whole pixels.</param>
+    internal static int GetCellWidthPx(int textWidthPx, int cellMdw, int columnMdw)
     {
-        // Not sure about rounding, but larger is probably better, so use ceiling.
-        // Due to mismatched rendering, add 3% instead of 1.75%, to have additional space.
-        var oneSidePadding = (int)Math.Ceiling(textWidthPx * 0.03 + scaledMdw / 4);
-
-        // Cell width if calculated as content width + padding on each side of a content.
-        // The one side padding is roughly 1.75% of content + MDW/4.
-        // The additional pixel is there for lines between cells.
-        return textWidthPx + 2 * oneSidePadding + 1;
+        var padding = 2 * (int)Math.Ceiling(cellMdw / 4.0) + 1;
+        var extra = Math.Max(2, textWidthPx / (4 * columnMdw));
+        return textWidthPx + padding + extra;
     }
 
     private static double GetContentWidth(int textRotationDeg, List<GlyphBox> glyphs)
