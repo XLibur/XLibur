@@ -130,7 +130,7 @@ public class FirstFontDigitWidthTests
 
         ws.Column(1).AdjustToContents();
 
-        await AssertNearExcel(ws.Column(1).Width, excelAutofitWidth);
+        await AssertWidthNearExcel(ws.Column(1).Width, excelAutofitWidth);
     }
 
     [Test]
@@ -151,7 +151,7 @@ public class FirstFontDigitWidthTests
 
         ws.Row(2).AdjustToContents();
 
-        await AssertNearExcel(ws.Row(2).Height, excelAutofitHeight);
+        await AssertHeightNearExcel(ws.Row(2).Height, excelAutofitHeight);
     }
 
     [Test]
@@ -170,8 +170,8 @@ public class FirstFontDigitWidthTests
         ws.Column(1).AdjustToContents();
         ws.Row(2).AdjustToContents();
 
-        await AssertNearExcel(ws.Column(1).Width, 41.11);
-        await AssertNearExcel(ws.Row(2).Height, 283.8);
+        await AssertWidthNearExcel(ws.Column(1).Width, 41.11);
+        await AssertHeightNearExcel(ws.Row(2).Height, 283.8);
 
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
@@ -180,13 +180,26 @@ public class FirstFontDigitWidthTests
     }
 
     /// <summary>
-    /// Autofit measures text with the font engine, not as Excel does, and pads it more: in the
-    /// all-Calibri workbook it is 220 px wide where Excel is 207 px, and 96.6 pt high where Excel is
-    /// 100.8 pt. So an autofit is compared with Excel's to within 10 %, which a digit width of the
-    /// wrong font misses by about half or double.
+    /// Autofit pads the text as Excel does (#789, <see cref="AutofitPaddingTests"/>), but measures it
+    /// with the font engine, which is wider than Excel's measurement. Excel draws the text with GDI at
+    /// an em of whole pixels and with hinted advance widths: <see cref="AutofitText"/> is 195 px in
+    /// Calibri 11 and 357 px in Calibri 20 there, and 201 px and 366 px in the engine, which scales
+    /// the outlines' advance widths to the exact em. So column A is 213 px where Excel is 207 px,
+    /// 210 px where it is 204 px, and 387 px where it is 377 px. In characters, which leave out the
+    /// column's own padding, that is 22.89 for 22.22, 11.71 for 11.35 and 42.22 for 41.11: within
+    /// 3.5 %. A digit width of the wrong font misses by about half or double.
     /// </summary>
-    private static async Task AssertNearExcel(double actual, double excel) =>
-        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.1);
+    private static async Task AssertWidthNearExcel(double actual, double excel) =>
+        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.035);
+
+    /// <summary>
+    /// Wrapped text breaks into as many lines as in Excel, but a line is lower: the engine makes a
+    /// line the em plus the descent, 23 px in Calibri 11 and 41 px in Calibri 20 at 120 DPI, where
+    /// Excel's lines are 24 px and 43 px. Row 2 is 7 lines of 23 px (96.6 pt) where Excel is 100.8 pt,
+    /// and 11 lines of 41 px (270.6 pt) where Excel is 283.8 pt: within 5 %.
+    /// </summary>
+    private static async Task AssertHeightNearExcel(double actual, double excel) =>
+        await Assert.That(actual).IsEqualTo(excel).Within(excel * 0.05);
 
     private const string Calibri11 =
         "<x:font><x:sz val=\"11\" /><x:color rgb=\"FF000000\" /><x:name val=\"Calibri\" /><x:family val=\"2\" /></x:font>";
