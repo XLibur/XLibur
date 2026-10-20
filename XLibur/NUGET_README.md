@@ -5,7 +5,6 @@
 XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an
 intuitive and user-friendly interface to dealing with the underlying [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
 
-
 ## Install
 
 The recommended package is **`XLibur.Bundle`**, which installs the core library together with the
@@ -38,7 +37,7 @@ using (var workbook = new XLWorkbook())
 
 More in the [Getting Started guide](https://xlibur.github.io/XLibur/getting-started).
 
-## Ancestory
+## Ancestry
 
 XLibur forked [ClosedXML v0.105](https://github.com/ClosedXML/ClosedXML/). Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
 
@@ -62,7 +61,7 @@ bare `XLibur` package with no font engine throws an `InvalidOperationException` 
 telling you which package to add.
 
 To use a different engine — including SixLabors 1.x, which matches ClosedXML 0.105's behaviour
-exactly — see [docs/font-architecture.md](docs/font-architecture.md) for the available packages,
+exactly — see [docs/font-architecture.md](https://github.com/XLibur/XLibur/blob/main/docs/font-architecture.md) for the available packages,
 their licenses, and the engine resolution order.
 
 ## Report templating
@@ -78,13 +77,14 @@ template.AddVariable("Sales", sales);
 template.Generate();
 template.SaveAs("SalesReport-2026.xlsx");
 ```
+
 ## License
 
-[MIT LICENSE](LICENSE).
+[MIT LICENSE](https://github.com/XLibur/XLibur/blob/main/LICENSE).
 
 ## Credits
 
-ClosedXML authors who developed the core code we build on. 
+ClosedXML authors who developed the core code we build on.
 [Manuel de Leon](https://github.com/mdeleone),
 [Jan Havlíček](https://github.com/jahav), [Francois Botha](https://github.com/igitur),
 [Aleksei Pankratev](https://github.com/Pankraty).
