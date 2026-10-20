@@ -15,13 +15,17 @@ namespace XLibur.Excel.IO;
 /// <remarks>
 /// One instance serves one save of one sheet's drawing. It reads the drawing once, on the first
 /// call that needs it, rather than once per picture, which made a save of n pictures cost n² (issue
-/// #797): an index of the pictures by drawing id and image link, and the highest drawing id.
+/// #797): an index of the pictures by drawing id and image link, and the highest drawing id. The
+/// sheet may have no drawing when the save starts, so the drawing is taken from the sheet's part at
+/// that first call, by which time the save has made it.
 /// </remarks>
-internal sealed class DrawingIds
+internal sealed class DrawingIds(WorksheetPart worksheetPart)
 {
     private Xdr.WorksheetDrawing? _drawing;
     private Dictionary<(uint Id, string RelId), List<(OpenXmlCompositeElement Anchor, Xdr.Picture Picture)>>? _pictures;
     private uint? _maxId;
+
+    private Xdr.WorksheetDrawing Drawing => _drawing ??= worksheetPart.DrawingsPart!.WorksheetDrawing!;
 
     /// <summary>
     /// The picture with drawing id <paramref name="id"/> and image link <paramref name="relId"/>, and
@@ -44,20 +48,19 @@ internal sealed class DrawingIds
     /// names one drawing, so no later lookup asks for it.
     /// </para>
     /// </remarks>
-    internal (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(
-        Xdr.WorksheetDrawing worksheetDrawing, int id, string? relId)
+    internal (OpenXmlCompositeElement Anchor, Xdr.Picture Picture)? FindPicture(int id, string? relId)
     {
         if (string.IsNullOrEmpty(relId))
             return null;
 
-        Bind(worksheetDrawing);
-        _pictures ??= IndexPictures(worksheetDrawing);
-        if (!_pictures.TryGetValue(((uint)id, relId), out var candidates))
+        var key = ((uint)id, relId);
+        _pictures ??= IndexPictures(Drawing);
+        if (!_pictures.TryGetValue(key, out var candidates))
             return null;
 
         foreach (var (anchor, picture) in candidates)
         {
-            if (anchor.Parent == worksheetDrawing && IsPicture(picture, anchor, (uint)id, relId))
+            if (anchor.Parent == Drawing && KeyOf(picture, anchor) == key)
                 return (anchor, picture);
         }
 
@@ -73,23 +76,11 @@ internal sealed class DrawingIds
     /// The drawing is read at the first call. The save removes deleted pictures before it takes an
     /// id, so an id a deleted picture had is free again, as it is in the file.
     /// </remarks>
-    internal uint NextDrawingId(Xdr.WorksheetDrawing worksheetDrawing)
+    internal uint NextDrawingId()
     {
-        Bind(worksheetDrawing);
-        _maxId ??= HighestDrawingId(worksheetDrawing);
+        _maxId ??= HighestDrawingId(Drawing);
         _maxId++;
         return _maxId.Value;
-    }
-
-    /// <summary>Forgets what was read from another drawing.</summary>
-    private void Bind(Xdr.WorksheetDrawing worksheetDrawing)
-    {
-        if (ReferenceEquals(_drawing, worksheetDrawing))
-            return;
-
-        _drawing = worksheetDrawing;
-        _pictures = null;
-        _maxId = null;
     }
 
     private static Dictionary<(uint Id, string RelId), List<(OpenXmlCompositeElement Anchor, Xdr.Picture Picture)>>
@@ -100,13 +91,11 @@ internal sealed class DrawingIds
         {
             foreach (var picture in anchor.Descendants<Xdr.Picture>())
             {
-                if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is not { } id ||
-                    picture.BlipFill?.Blip?.Embed?.Value is not { Length: > 0 } relId ||
-                    !DrawingAnchorContent.IsAnchorPicture(picture, anchor))
+                if (KeyOf(picture, anchor) is not { } key)
                     continue;
 
-                if (!pictures.TryGetValue((id, relId), out var candidates))
-                    pictures[(id, relId)] = candidates = [];
+                if (!pictures.TryGetValue(key, out var candidates))
+                    pictures[key] = candidates = [];
 
                 candidates.Add((anchor, picture));
             }
@@ -115,10 +104,16 @@ internal sealed class DrawingIds
         return pictures;
     }
 
-    private static bool IsPicture(Xdr.Picture picture, OpenXmlCompositeElement anchor, uint id, string relId) =>
-        picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value == id &&
-        picture.BlipFill?.Blip?.Embed?.Value == relId &&
-        DrawingAnchorContent.IsAnchorPicture(picture, anchor);
+    /// <summary>
+    /// The drawing id and image link <paramref name="picture"/> is found by, or <c>null</c> when it
+    /// has no id or link, or is not the picture <paramref name="anchor"/> places.
+    /// </summary>
+    private static (uint Id, string RelId)? KeyOf(Xdr.Picture picture, OpenXmlCompositeElement anchor) =>
+        picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is { } id &&
+        picture.BlipFill?.Blip?.Embed?.Value is { Length: > 0 } relId &&
+        DrawingAnchorContent.IsAnchorPicture(picture, anchor)
+            ? (id, relId)
+            : null;
 
     private static uint HighestDrawingId(Xdr.WorksheetDrawing worksheetDrawing)
     {

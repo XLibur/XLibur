@@ -39,7 +39,7 @@ internal static class GroupedPictureWriter
 
         foreach (var pending in pendingGroups)
         {
-            var groupId = ids.NextDrawingId(worksheetDrawing);
+            var groupId = ids.NextDrawingId();
 
             var groupShape = new Xdr.GroupShape(
                 new Xdr.NonVisualGroupShapeProperties(
@@ -56,7 +56,7 @@ internal static class GroupedPictureWriter
                 )
             );
 
-            MoveMembersIntoGroup(drawingsPart, pending, groupShape, groupId, ids);
+            MoveMembersIntoGroup(pending, groupShape, groupId, ids);
 
             // Propagate the new group id to every member sharing this group's key — including
             // pictures added to the group before its first save, which carry a null group id and
@@ -83,12 +83,12 @@ internal static class GroupedPictureWriter
     /// wrapper and the model in its <c>mc:Choice</c>, which is how Excel groups a 3D model:
     /// <c>xdr:grpSp</c> holding the <c>mc:AlternateContent</c> (#794).
     /// </remarks>
-    private static void MoveMembersIntoGroup(DrawingsPart drawingsPart, XLPendingGroup pending,
-        Xdr.GroupShape groupShape, uint groupId, DrawingIds ids)
+    private static void MoveMembersIntoGroup(XLPendingGroup pending, Xdr.GroupShape groupShape, uint groupId,
+        DrawingIds ids)
     {
         foreach (var member in pending.Members)
         {
-            if (ids.FindPicture(drawingsPart.WorksheetDrawing!, member.Id, member.RelId) is not
+            if (ids.FindPicture(member.Id, member.RelId) is not
                 { Anchor: var anchor, Picture: var picElement })
                 continue;
 
@@ -196,7 +196,7 @@ internal static class GroupedPictureWriter
         if (groupElement is null)
             return;
 
-        var newId = ids.NextDrawingId(worksheetDrawing);
+        var newId = ids.NextDrawingId();
 
         var relId = context.RelIdGenerator.GetNext(RelType.Workbook);
         var imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);
