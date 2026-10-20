@@ -23,6 +23,8 @@ public class PictureEditAsRoundTripTests
 {
     private const string Drawing1 = "xl/drawings/drawing1.xml";
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     [Test]
     [Arguments("oneCell")]
     [Arguments("absolute")]
@@ -45,7 +47,7 @@ public class PictureEditAsRoundTripTests
         // The real offset and size, as Excel writes them, so a regenerated xdr:pic would differ.
         const string ExcelXfrm = "<a:xfrm><a:off x=\"609600\" y=\"1280160\" /><a:ext cx=\"1219200\" cy=\"731520\" /></a:xfrm>";
         using var source = PictureFromB8ToD12(editAs)
-            .RewritePart(Drawing1, xml => Regex.Replace(xml, "<a:xfrm>.*?</a:xfrm>", ExcelXfrm));
+            .RewritePart(Drawing1, xml => Regex.Replace(xml, "<a:xfrm>.*?</a:xfrm>", ExcelXfrm, RegexOptions.None, RegexTimeout));
         var before = Xfrm(source.ReadPart(Drawing1));
         await Assert.That(before).IsEqualTo(ExcelXfrm);
 
@@ -239,6 +241,62 @@ public class PictureEditAsRoundTripTests
     }
 
     [Test]
+    public async Task Resizing_a_row_above_an_absolute_picture_among_sized_rows_writes_the_anchor_from_the_model()
+    {
+        // Every row of the sheet has a set height, so the comparison has a size to check for each
+        // row from the top of the sheet to the picture's bottom row.
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute", RowsOf20Pt(1, 30)), ws => ws.Row(5).Height = 40);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:absoluteAnchor>");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_below_an_absolute_picture_among_sized_rows_keeps_its_anchor()
+    {
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute", RowsOf20Pt(1, 30)), ws => ws.Row(25).Height = 40);
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:twoCellAnchor editAs=\"absolute\">");
+    }
+
+    [Test]
+    public async Task Inserting_rows_above_a_one_cell_picture_over_sized_rows_keeps_its_anchor()
+    {
+        // The sized rows under the picture move down with it, so its markers still count across
+        // rows of the same heights.
+        using var saved = LoadAndSave(PictureFromB8ToD12("oneCell", RowsOf20Pt(8, 12)), ws => ws.Row(3).InsertRowsAbove(3));
+
+        var drawing = saved.ReadPart(Drawing1);
+        await Assert.That(drawing).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
+        await Assert.That(Markers(drawing)).IsEqualTo("from 1,10 to 3,14");
+    }
+
+    [Test]
+    public async Task Inserting_rows_above_an_absolute_picture_over_sized_rows_writes_the_anchor_from_the_model()
+    {
+        // The picture stays where it is, but the sized rows under it move down, so its kept markers
+        // now count across rows of other heights.
+        using var saved = LoadAndSave(PictureFromB8ToD12("absolute", RowsOf20Pt(8, 12)), ws => ws.Row(3).InsertRowsAbove(3));
+
+        await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:absoluteAnchor>");
+    }
+
+    [Test]
+    public async Task Resizing_a_row_between_two_absolute_pictures_rewrites_only_the_one_below_it()
+    {
+        using var source = AbsolutePicturesAboveAndBelowRow20();
+
+        using var saved = LoadAndSave(source, ws => ws.Row(20).Height = 40);
+
+        var drawing = saved.ReadPart(Drawing1);
+        var kept = Regex.Match(drawing, "<xdr:twoCellAnchor editAs=\"absolute\">.*?</xdr:twoCellAnchor>",
+            RegexOptions.None, RegexTimeout).Value;
+        var rewritten = Regex.Match(drawing, "<xdr:absoluteAnchor>.*?</xdr:absoluteAnchor>",
+            RegexOptions.None, RegexTimeout).Value;
+        await Assert.That(kept).Contains("name=\"Above\"");
+        await Assert.That(rewritten).Contains("name=\"Below\"");
+    }
+
+    [Test]
     public async Task A_second_save_keeps_the_anchor()
     {
         using var source = PictureFromB8ToD12("oneCell");
@@ -260,19 +318,48 @@ public class PictureEditAsRoundTripTests
     /// An 8×8 px picture anchored B8 to D12 the way Excel anchors an inserted picture: a two-cell
     /// anchor whose <c>editAs</c> says how it follows the grid. This is the repro of ClosedXML #2895.
     /// </summary>
-    private static MemoryStream PictureFromB8ToD12(string editAs)
+    private static MemoryStream PictureFromB8ToD12(string editAs, Action<IXLWorksheet>? setUp = null)
     {
         var package = new MemoryStream();
         using (var wb = new XLWorkbook())
         {
             var ws = wb.Worksheets.Add("Sheet1");
+            setUp?.Invoke(ws);
             ws.AddPicture(new MemoryStream(Png), "Logo").MoveTo(ws.Cell("B8"), ws.Cell("D12"));
             wb.SaveAs(package);
         }
 
-        return package.RewritePart(Drawing1,
-            xml => xml.Replace("<xdr:twoCellAnchor>", $"<xdr:twoCellAnchor editAs=\"{editAs}\">"));
+        return WithEditAs(package, editAs);
     }
+
+    /// <summary>
+    /// Two absolute pictures on a sheet whose rows 1 to 40 are 20 pt tall: <c>Above</c> from B2 to
+    /// D6, and <c>Below</c> from B30 to D34.
+    /// </summary>
+    private static MemoryStream AbsolutePicturesAboveAndBelowRow20()
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add("Sheet1");
+            RowsOf20Pt(1, 40)(ws);
+            ws.AddPicture(new MemoryStream(Png), "Above").MoveTo(ws.Cell("B2"), ws.Cell("D6"));
+            ws.AddPicture(new MemoryStream(Png), "Below").MoveTo(ws.Cell("B30"), ws.Cell("D34"));
+            wb.SaveAs(package);
+        }
+
+        return WithEditAs(package, "absolute");
+    }
+
+    private static Action<IXLWorksheet> RowsOf20Pt(int first, int last) => ws =>
+    {
+        for (var row = first; row <= last; row++)
+            ws.Row(row).Height = 20;
+    };
+
+    private static MemoryStream WithEditAs(MemoryStream package, string editAs) =>
+        package.RewritePart(Drawing1,
+            xml => xml.Replace("<xdr:twoCellAnchor>", $"<xdr:twoCellAnchor editAs=\"{editAs}\">"));
 
     private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
     {
@@ -292,12 +379,14 @@ public class PictureEditAsRoundTripTests
         static string Marker(string drawing, string name)
         {
             var m = Regex.Match(drawing,
-                $@"<xdr:{name}><xdr:col>(\d+)</xdr:col><xdr:colOff>-?\d+</xdr:colOff><xdr:row>(\d+)</xdr:row>");
+                $@"<xdr:{name}><xdr:col>(\d+)</xdr:col><xdr:colOff>-?\d+</xdr:colOff><xdr:row>(\d+)</xdr:row>",
+                RegexOptions.None, RegexTimeout);
             return m.Success ? $"{m.Groups[1].Value},{m.Groups[2].Value}" : "none";
         }
 
         return $"from {Marker(drawing, "from")} to {Marker(drawing, "to")}";
     }
 
-    private static string Xfrm(string drawing) => Regex.Match(drawing, "<a:xfrm>.*?</a:xfrm>").Value;
+    private static string Xfrm(string drawing) =>
+        Regex.Match(drawing, "<a:xfrm>.*?</a:xfrm>", RegexOptions.None, RegexTimeout).Value;
 }

@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
+using XLibur.Excel.IO.DrawingML;
 using XLibur.Extensions;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -63,15 +64,17 @@ internal static class DrawingPartReader
         // One grid for every two-cell anchor on the sheet, built only if the sheet has one.
         var columnWidths = context.SheetColumnWidths;
         var grid = new Lazy<AnchorGrid>(
-            () => new AnchorGrid(ws, columnWidths, context.MaxDigitWidth(ws.Workbook)),
+            () => new AnchorGrid(ws, columnWidths, ws.Workbook.MaxDigitWidth),
             LazyThreadSafetyMode.None);
 
+        var layout = GridLayout.OnFirstUse(ws);
+
         foreach (var anchor in drawingsPart.WorksheetDrawing!.ChildElements)
-            LoadDrawingAnchor(anchor, drawingsPart, ws, grid);
+            LoadDrawingAnchor(anchor, drawingsPart, ws, grid, layout);
     }
 
     private static void LoadDrawingAnchor(OpenXmlElement anchor, DrawingsPart drawingsPart, XLWorksheet ws,
-        Lazy<AnchorGrid> grid)
+        Lazy<AnchorGrid> grid, Lazy<GridLayout> layout)
     {
         // Pictures nested inside a top-level group shape (xdr:grpSp) are laid out in the
         // group's child coordinate space. Load each of them as an editable picture that
@@ -84,6 +87,12 @@ internal static class DrawingPartReader
             return;
         }
 
+        // A picture deeper in the anchor than its wrapper's branches, as in a group inside the
+        // wrapper, is left as the file has it (#787).
+        if (anchor.Descendants<Xdr.Picture>().FirstOrDefault() is { } first &&
+            !DrawingAnchorContent.IsAnchorPicture(first, anchor))
+            return;
+
         var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
 
         //If imgId is null, we're probably dealing with a TextBox (or another shape) instead of a picture
@@ -95,7 +104,7 @@ internal static class DrawingPartReader
 
         var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
         LoadPictureTransform(picture, anchor, ws);
-        LoadPicturePlacement(picture, anchor, ws, grid);
+        LoadPicturePlacement(picture, anchor, ws, grid, layout);
     }
 
     internal static int ConvertFromEnglishMetricUnits(long emu, double resolution)
@@ -543,7 +552,7 @@ internal static class DrawingPartReader
     }
 
     private static void LoadPicturePlacement(XLPicture picture,
-        OpenXmlElement anchor, XLWorksheet ws, Lazy<AnchorGrid> grid)
+        OpenXmlElement anchor, XLWorksheet ws, Lazy<AnchorGrid> grid, Lazy<GridLayout> layout)
     {
         if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
         {
@@ -559,12 +568,12 @@ internal static class DrawingPartReader
         }
         else if (anchor is Xdr.TwoCellAnchor twoCellAnchor)
         {
-            LoadTwoCellAnchorPlacement(picture, twoCellAnchor, ws, grid.Value);
+            LoadTwoCellAnchorPlacement(picture, twoCellAnchor, ws, grid.Value, layout);
         }
     }
 
     private static void LoadTwoCellAnchorPlacement(XLPicture picture, Xdr.TwoCellAnchor twoCellAnchor, XLWorksheet ws,
-        AnchorGrid grid)
+        AnchorGrid grid, Lazy<GridLayout> layout)
     {
         var from = LoadMarker(ws, twoCellAnchor.FromMarker!);
         var to = LoadMarker(ws, twoCellAnchor.ToMarker!);
@@ -604,7 +613,7 @@ internal static class DrawingPartReader
         // Neither placement can say this anchor back: Excel sizes it from the markers dropped
         // above, not from the xfrm the model was given. Set last, because placing the picture
         // drops it.
-        picture.KeptAnchor = new XLKeptAnchor(ws, picture.Placement, from, to);
+        picture.KeptAnchor = new XLKeptAnchor(layout.Value, picture.Placement, from, to);
     }
 
     private static void LoadShapeColors<T>(IXLDrawing<T> drawing, XElement shape)

@@ -119,6 +119,41 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal double DpiY { get; }
 
+    private XLFont? _firstFont;
+
+    private int? _maxDigitWidth;
+
+    /// <summary>
+    /// The first font of the stylesheet (<c>&lt;fonts&gt;</c>, index 0), which Excel measures column
+    /// widths in, whatever font the Normal style or the default cell format has. Excel even reports
+    /// it as the Normal style's font. Measured in Excel over COM (#782, #786).
+    /// </summary>
+    /// <remarks>
+    /// A workbook created in memory, or loaded from a stylesheet with no fonts, has the default font:
+    /// the save writes that font first, whatever <see cref="Style"/> holds. A loaded stylesheet keeps
+    /// its fonts in order when it is saved, so its first font stays first. Only the load sets it, once
+    /// (<see cref="SetFirstFont"/>).
+    /// </remarks>
+    internal XLFont FirstFont => _firstFont ??= new XLFont(XLFontValue.Default.Key);
+
+    /// <summary>
+    /// Sets <see cref="FirstFont"/> to the first font of the stylesheet being loaded. It is set once,
+    /// before any column is measured, so <see cref="MaxDigitWidth"/> never holds another font's width.
+    /// </summary>
+    internal void SetFirstFont(XLFont firstFont)
+    {
+        if (_firstFont is not null || _maxDigitWidth is not null)
+            throw new InvalidOperationException("The first font is set once, by the load, before any column is measured.");
+
+        _firstFont = firstFont;
+    }
+
+    /// <summary>
+    /// The maximum digit width of <see cref="FirstFont"/>, in whole pixels at <see cref="DpiX"/>: the
+    /// unit of the column widths Excel shows and the file states.
+    /// </summary>
+    internal int MaxDigitWidth => _maxDigitWidth ??= XLHelper.GetMdw(FirstFont, this);
+
     internal XLPivotCaches PivotCachesInternal { get; }
 
     internal SharedStringTable SharedStringTable { get; } = new();

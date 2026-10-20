@@ -195,7 +195,8 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
         var dpi = new Dpi(Worksheet.Workbook.DpiX, Worksheet.Workbook.DpiY);
         var columnWidthPx = CalculateMinColumnWidth(startRow, endRow, engine, dpi);
 
-        var mdw = XLHelper.GetMdw(engine, Worksheet.Workbook.Style.Font, dpi.X);
+        // Excel draws a column width in digits of the first font, whatever font the cells have (#786).
+        var mdw = Worksheet.Workbook.MaxDigitWidth;
 
         var minWidthInPx = Math.Ceiling(XLHelper.NoCToPixels(minWidth, mdw));
         if (columnWidthPx < minWidthInPx)

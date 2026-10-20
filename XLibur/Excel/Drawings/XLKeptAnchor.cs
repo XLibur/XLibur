@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace XLibur.Excel.Drawings;
 
 /// <summary>
@@ -39,21 +36,29 @@ namespace XLibur.Excel.Drawings;
 /// picture's span would stretch it, and a taller row above an absolute picture would move it, where
 /// Excel keeps both fixed. The layout of those lines is recorded at load and compared at save
 /// (<see cref="IsLayoutUnchanged"/>); when it differs, the kept markers are no longer the picture
-/// Excel showed, and the model writes the anchor from its pixel geometry instead.
+/// Excel showed, and the model writes the anchor from its pixel geometry instead. The layout is
+/// taken once for the sheet each time (<see cref="GridLayout"/>), not once for each picture, so a
+/// sheet with many pictures and many sized rows does not pay for their product (issue #785).
 /// </para>
 /// </remarks>
 internal sealed class XLKeptAnchor
 {
-    private readonly XLWorksheet _worksheet;
     private readonly GridLayout _loadedLayout;
+    private readonly LineRun _loadedRows;
+    private readonly LineRun _loadedColumns;
 
-    internal XLKeptAnchor(XLWorksheet worksheet, XLPicturePlacement placement, XLMarker from, XLMarker to)
+    /// <summary>
+    /// Keeps the markers loaded for a picture, and where they lie in <paramref name="loadedLayout"/>,
+    /// the sheet's layout at load, which every kept anchor on the sheet shares.
+    /// </summary>
+    internal XLKeptAnchor(GridLayout loadedLayout, XLPicturePlacement placement, XLMarker from, XLMarker to)
     {
-        _worksheet = worksheet;
+        _loadedLayout = loadedLayout;
         Placement = placement;
         From = from;
         To = to;
-        _loadedLayout = MeasureLayout();
+        _loadedRows = RowRun();
+        _loadedColumns = ColumnRun();
     }
 
     /// <summary>
@@ -70,7 +75,7 @@ internal sealed class XLKeptAnchor
 
     /// <summary>
     /// Whether the rows and columns the markers count across still have the sizes they had at load,
-    /// read from where the markers are now.
+    /// read from where the markers are now in <paramref name="current"/>, the sheet's layout at save.
     /// </summary>
     /// <remarks>
     /// An insert that moves the markers moves the lines with them, so rows inserted above a one-cell
@@ -79,70 +84,17 @@ internal sealed class XLKeptAnchor
     /// same sizes as before. A row that is resized, hidden or shown, or inserted at another height,
     /// makes it false.
     /// </remarks>
-    internal bool IsLayoutUnchanged => _loadedLayout.Matches(MeasureLayout());
+    internal bool IsLayoutUnchanged(GridLayout current) =>
+        current.Rows.HasSameSizes(RowRun(), _loadedLayout.Rows, _loadedRows) &&
+        current.Columns.HasSameSizes(ColumnRun(), _loadedLayout.Columns, _loadedColumns);
 
     /// <summary>
     /// A one-cell picture's size is the lines from its top-left cell to its bottom-right cell; an
     /// absolute picture's position also takes every line before it, from the sheet's corner.
     /// </summary>
-    private GridLayout MeasureLayout()
-    {
-        var countsFromCorner = Placement == XLPicturePlacement.FreeFloating;
-        var firstRow = countsFromCorner ? 1 : From.RowNumber;
-        var firstColumn = countsFromCorner ? 1 : From.ColumnNumber;
+    private LineRun RowRun() => new(CountsFromCorner ? 1 : From.RowNumber, To.RowNumber);
 
-        return new GridLayout(
-            LineLayout.Measure(_worksheet.Internals.RowsCollection, firstRow, To.RowNumber, _worksheet.RowHeight,
-                static row => row.IsHidden ? 0 : row.Height),
-            LineLayout.Measure(_worksheet.Internals.ColumnsCollection, firstColumn, To.ColumnNumber, _worksheet.ColumnWidth,
-                static column => column.IsHidden ? 0 : column.Width));
-    }
+    private LineRun ColumnRun() => new(CountsFromCorner ? 1 : From.ColumnNumber, To.ColumnNumber);
 
-    private sealed record GridLayout(LineLayout Rows, LineLayout Columns)
-    {
-        public bool Matches(GridLayout other) => Rows.Matches(other.Rows) && Columns.Matches(other.Columns);
-    }
-
-    /// <summary>
-    /// The sizes of a run of rows or columns: the sheet's default, and each line that differs from it,
-    /// by its position in the run. Lines the sheet has never materialised take the default, so a run
-    /// is described by the few lines that differ rather than by every line in it.
-    /// </summary>
-    private sealed record LineLayout(double DefaultSize, (int Offset, double Size)[] Exceptions)
-    {
-        public bool Matches(LineLayout other)
-        {
-            if (!SameSize(DefaultSize, other.DefaultSize) || Exceptions.Length != other.Exceptions.Length)
-                return false;
-
-            for (var i = 0; i < Exceptions.Length; i++)
-            {
-                if (Exceptions[i].Offset != other.Exceptions[i].Offset ||
-                    !SameSize(Exceptions[i].Size, other.Exceptions[i].Size))
-                    return false;
-            }
-
-            return true;
-        }
-
-        private static bool SameSize(double left, double right) => Math.Abs(left - right) < XLHelper.Epsilon;
-
-        public static LineLayout Measure<TLine>(IDictionary<int, TLine> lines, int first, int last,
-            double defaultSize, Func<TLine, double> sizeOf)
-        {
-            var exceptions = new List<(int Offset, double Size)>();
-            foreach (var (number, line) in lines)
-            {
-                if (number < first || number > last)
-                    continue;
-
-                var size = sizeOf(line);
-                if (!SameSize(size, defaultSize))
-                    exceptions.Add((number - first, size));
-            }
-
-            exceptions.Sort();
-            return new LineLayout(defaultSize, [.. exceptions]);
-        }
-    }
+    private bool CountsFromCorner => Placement == XLPicturePlacement.FreeFloating;
 }
