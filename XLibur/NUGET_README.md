@@ -5,37 +5,28 @@
 XLibur is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an
 intuitive and user-friendly interface to dealing with the underlying [OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
 
-This is a fork from the [ClosedXML](https://github.com/ClosedXML/ClosedXML/) project, taken from version v0.105.0 (May 15, 2025).
-Namespaces are changed to avoid conflicts with the original project.
 
-### Primary differences from ClosedXML (0.105)
+## Install
 
-- Dropped support for <net8
-- Enable nullability annotations.
-- Leverage later C# lang features.
-- Fix some outstanding bugs we wanted.
-- Improve memory usage, especially with formatted cells.
-- Add a streaming write API for exports too large to hold in memory (see below).
+The recommended package is **`XLibur.Bundle`**, which installs the core library together with the
+default font engine and behaves like ClosedXML out of the box:
 
-### Migration from ClosedXML
-
-At present most of the surface area is the same as ClosedXML.
-Import the NuGet package, rename the namespace to `XLibur`, and in most cases you should be ready to go.
-
-### Install
-
-```
-dotnet add package XLibur
+```sh
+dotnet add package XLibur.Bundle
 ```
 
-### What can you do with this?
+Or via the Package Manager console:
 
-XLibur allows you to create Excel files without the Excel application. The typical example is creating Excel reports on
-a web server.
+```sh
+PM> Install-Package XLibur.Bundle
+```
 
-**Example:**
+## Quick start
 
-```c#
+XLibur lets you create and manipulate Excel files without Excel installed — a common use case is
+generating reports on a web server.
+
+```csharp
 using (var workbook = new XLWorkbook())
 {
     var worksheet = workbook.Worksheets.Add("Sample Sheet");
@@ -45,54 +36,55 @@ using (var workbook = new XLWorkbook())
 }
 ```
 
-### Writing very large files
+More in the [Getting Started guide](https://xlibur.github.io/XLibur/getting-started).
 
-`XLWorkbook` builds the whole workbook in memory before saving, which puts a ceiling on how large
-an export can be. For those, `XLStreamingWorkbook` writes rows straight into the file as you append
-them, so nothing is retained per row — a million rows by ten columns costs about 108 MB, or 14 MB
-with `Inline` string storage.
+## Ancestory
 
-Memory is flat in the number of rows, but not unconditionally flat: by default each *distinct*
-string is held until `Finish()`, so cost tracks how many distinct text values you write rather than
-how many rows. A million rows of repeating labels is cheap; a million distinct ones is not — see
-the note below on `Inline` storage.
+XLibur forked [ClosedXML v0.105](https://github.com/ClosedXML/ClosedXML/). Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
 
-```c#
-using XLibur.Excel.Streaming;
+## Migration from ClosedXML
 
-using var workbook = XLStreamingWorkbook.Create("Large.xlsx");
+The public API surface is largely unchanged from ClosedXML 0.105. To migrate:
 
-var sheet = workbook.AddWorksheet("Data");
-sheet.Column(1).Width = 30;
-sheet.FreezeRows(1);
+1. Install `XLibur.Bundle` (see [Install](#install))
+2. Replace `using ClosedXML` namespace references with `using XLibur`
 
-var header = workbook.CreateStyle();
-header.Font.Bold = true;
-sheet.AppendRow(["Name", "Amount"], header);
+**One behavioural difference: font engines.** ClosedXML bundles
+[SixLabors.Fonts](https://github.com/SixLabors/Fonts) into its core assembly for text measurement
+(column auto-fit, row heights, glyph metrics). XLibur keeps the core assembly free of any font
+library and ships the font engine as a separate, swappable package, so you can pick one whose
+license suits you.
 
-for (var i = 0; i < 1_000_000; i++)
-    sheet.AppendRow($"Item {i}", i * 1.5);
+With `XLibur.Bundle`, no code changes are needed — the [SkiaSharp](https://github.com/mono/SkiaSharp)
+engine (MIT) auto-registers the first time you create a workbook, and falls back to an embedded
+metric-only Calibri-compatible font so measurement works in headless environments. Installing the
+bare `XLibur` package with no font engine throws an `InvalidOperationException` on workbook creation
+telling you which package to add.
 
-workbook.Finish();   // required: writes the strings, styles and workbook parts
+To use a different engine — including SixLabors 1.x, which matches ClosedXML 0.105's behaviour
+exactly — see [docs/font-architecture.md](docs/font-architecture.md) for the available packages,
+their licenses, and the engine resolution order.
+
+## Report templating
+
+`XLibur.Report` generates reports from `.xlsx` templates: author the report in Excel, bind .NET data
+to it, and generate the finished workbook. Charts, pivot tables and pictures survive range expansion,
+which is the part comparable libraries do not do.
+
+```csharp
+using var template = new XLTemplate("SalesReport.xlsx");
+template.AddVariable("Company", "Contoso");
+template.AddVariable("Sales", sales);
+template.Generate();
+template.SaveAs("SalesReport-2026.xlsx");
 ```
+## License
 
-The trade is that it is append-only: rows go in ascending order, one worksheet at a time, nothing
-can be read back or revised, and formulas are stored verbatim rather than evaluated. Use
-`XLWorkbook` whenever any of that matters.
-
-Two notes worth knowing. `Finish()` must be called — disposing without it abandons the write.
-And by default distinct strings accumulate in a shared string table until then, so if your data has
-an unbounded number of distinct strings, set
-`StringStorage = XLStreamingStringStorage.Inline` to keep memory flat at the cost of a larger file.
-
-## Documentation
-
-For full documentation, source code, and contribution guidelines, visit the [GitHub repository](https://github.com/XLibur/XLibur).
+[MIT LICENSE](LICENSE).
 
 ## Credits
 
-* ClosedXML Project originally created by Manuel de Leon
-* Maintainer of ClosedXML: [Jan Havlíček](https://github.com/jahav)
-* Former maintainer and lead developer: [Francois Botha](https://github.com/igitur)
-* Master of Computing Patterns: [Aleksei Pankratev](https://github.com/Pankraty)
-* Logo design by [@Tobaloidee](https://github.com/Tobaloidee)
+ClosedXML authors who developed the core code we build on. 
+[Manuel de Leon](https://github.com/mdeleone),
+[Jan Havlíček](https://github.com/jahav), [Francois Botha](https://github.com/igitur),
+[Aleksei Pankratev](https://github.com/Pankraty).
