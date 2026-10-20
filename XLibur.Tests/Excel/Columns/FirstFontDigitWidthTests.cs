@@ -175,7 +175,7 @@ public class FirstFontDigitWidthTests
 
         using var saved = new MemoryStream();
         wb.SaveAs(saved);
-        await Assert.That(Regex.Match(saved.ReadPart("xl/styles.xml"), "<x:font>.*?</x:font>").Value)
+        await Assert.That(FirstFont(saved))
             .Contains("<x:sz val=\"11\" />").And.Contains("<x:name val=\"Calibri\" />");
     }
 
@@ -240,9 +240,9 @@ public class FirstFontDigitWidthTests
 
     private static string WithStyles(string xml, string fonts, string cellStyleXfs, string cellXfs, string cellStyles)
     {
-        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{fonts}</x:fonts>");
-        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs);
-        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs);
-        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles);
+        xml = Regex.Replace(xml, "<x:fonts.*?</x:fonts>", $"<x:fonts count=\"2\">{fonts}</x:fonts>", RegexOptions.None, RegexTimeout);
+        xml = Regex.Replace(xml, "<x:cellStyleXfs.*?</x:cellStyleXfs>", cellStyleXfs, RegexOptions.None, RegexTimeout);
+        xml = Regex.Replace(xml, "<x:cellXfs.*?</x:cellXfs>", cellXfs, RegexOptions.None, RegexTimeout);
+        return Regex.Replace(xml, "<x:cellStyles.*?</x:cellStyles>", cellStyles, RegexOptions.None, RegexTimeout);
     }
 }
