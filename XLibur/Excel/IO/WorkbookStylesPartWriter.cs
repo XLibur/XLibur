@@ -30,10 +30,11 @@ internal static class WorkbookStylesPartWriter
         uint borderCount = 1;
 
         // The default font comes before the styles' fonts, used or not, so a new stylesheet gets it
-        // at index 0 and its columns are measured in the default font's digits. Only a phonetic font
-        // the shared strings registered comes before it.
-        foreach (var font in xlStyles.Select(s => s.Font).Prepend(DefaultStyleValue.Font).Distinct()
-                     .Where(f => !context.SharedFonts.ContainsKey(f)))
+        // at index 0 and its columns are measured in the default font's digits (#802). The fonts of
+        // the texts' phonetic properties follow, so the shared strings and the worksheets, written
+        // after this part, read each one's id from the map (#801).
+        foreach (var font in xlStyles.Select(s => s.Font).Prepend(DefaultStyleValue.Font)
+                     .Concat(workbook.SharedStringTable.GetPhoneticFonts()).Distinct())
         {
             context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
         }
