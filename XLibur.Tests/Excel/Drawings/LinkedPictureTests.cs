@@ -57,6 +57,25 @@ public class LinkedPictureTests
     }
 
     [Test]
+    public async Task A_failed_add_under_the_linked_picture_name_adds_no_picture()
+    {
+        // The add throws before the picture is created (issue #806), so the save has only the
+        // linked picture.
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(Fixture()))
+        {
+            var ws = wb.Worksheet(1);
+
+            await Assert.That(() => ws.AddPicture(new MemoryStream(Png), "picture 1")).Throws<ArgumentException>();
+
+            await Assert.That(ws.Pictures.Count).IsEqualTo(0);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(Shapes(saved)).IsEqualTo("AlternateContent pic 'Picture 1' camera $A$1:$B$2");
+    }
+
+    [Test]
     public async Task A_picture_cannot_be_renamed_to_the_linked_picture_name()
     {
         using var wb = new XLWorkbook(Fixture());

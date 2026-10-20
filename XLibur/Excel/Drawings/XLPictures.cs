@@ -54,7 +54,8 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(Stream stream, string name)
     {
-        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ThrowIfNameTaken(name);
         var picture = Add(stream);
         picture.Name = name;
         return picture;
@@ -70,7 +71,8 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
 
     public IXLPicture Add(Stream stream, XLPictureFormat format, string name)
     {
-        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ThrowIfNameTaken(name);
         var picture = Add(stream, format);
         picture.Name = name;
         return picture;
@@ -89,7 +91,8 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     public IXLPicture Add(string imageFile, string name)
     {
         ArgumentException.ThrowIfNullOrEmpty(imageFile);
-        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ThrowIfNameTaken(name);
         var picture = Add(imageFile);
         picture.Name = name;
         return picture;
@@ -343,6 +346,16 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         _keptShapeNames.Contains(name) ||
         (_pictures.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is { } picture &&
          picture != renamed);
+
+    /// <summary>
+    /// Throws when <paramref name="name"/> is taken (see <see cref="IsNameTaken"/>). A named <c>Add</c>
+    /// checks before it creates the picture, so a taken name leaves the collection as it was (#806).
+    /// </summary>
+    internal void ThrowIfNameTaken(string name, XLPicture? renamed = null)
+    {
+        if (IsNameTaken(name, renamed))
+            throw new ArgumentException($"The picture name '{name}' already exists.");
+    }
 
     private string GetNextPictureName()
     {

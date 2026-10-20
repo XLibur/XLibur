@@ -130,8 +130,7 @@ internal sealed class XLPicture : IXLPicture
 
             // A name a kept shape has, such as a linked picture the loader does not read, is taken
             // as a picture's is (#796).
-            if (((XLPictures)Worksheet.Pictures).IsNameTaken(value, this))
-                throw new ArgumentException($"The picture name '{value}' already exists.");
+            ((XLPictures)Worksheet.Pictures).ThrowIfNameTaken(value, this);
 
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.",
