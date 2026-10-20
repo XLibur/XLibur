@@ -117,7 +117,7 @@ internal static class PictureAnchorWriter
 
         if (!keepsBranch)
         {
-            worksheetDrawing.ReplaceChild(anchor, found.Anchor);
+            ReplaceAnchor(worksheetDrawing, found.Anchor, anchor);
             return pictureElement;
         }
 
@@ -127,6 +127,38 @@ internal static class PictureAnchorWriter
         WriteAnchorPosition(worksheetDrawing, found.Anchor, anchor);
         PictureContentWriter.WritePictureNameAndImage(found.Anchor, found.Picture, pic.Name, embedId);
         return found.Picture;
+    }
+
+    /// <summary>
+    /// Puts the regenerated <paramref name="generated"/> where <paramref name="existing"/> is in the
+    /// drawing, so the drawing keeps its order.
+    /// </summary>
+    /// <remarks>
+    /// An anchor of the same form is emptied and given the generated anchor's attributes and
+    /// children. Replacing the element instead makes the SDK walk the drawing's anchors to find the
+    /// one before it, so a save that regenerates n anchors walked n² of them (#804). An anchor of
+    /// another form, which only a change of placement makes, is still replaced.
+    /// </remarks>
+    private static void ReplaceAnchor(Xdr.WorksheetDrawing worksheetDrawing,
+        OpenXmlCompositeElement existing, OpenXmlCompositeElement generated)
+    {
+        if (existing.GetType() != generated.GetType())
+        {
+            worksheetDrawing.ReplaceChild(generated, existing);
+            return;
+        }
+
+        existing.ClearAllAttributes();
+        existing.MCAttributes = null;
+        existing.RemoveAllChildren();
+        foreach (var attribute in generated.GetAttributes())
+            existing.SetAttribute(attribute);
+
+        while (generated.FirstChild is { } child)
+        {
+            child.Remove();
+            existing.AppendChild(child);
+        }
     }
 
     /// <summary>

@@ -332,6 +332,17 @@ public class PictureAlternateContentTests
     }
 
     [Test]
+    public async Task Renaming_a_grouped_3d_model_renames_both_forms_and_no_other_drawing()
+    {
+        // The save writes a grouped picture's name to the drawings that share its id, which only the
+        // forms in its wrapper do, and reads no further into the group (#804).
+        using var saved = GroupedWithLogo(ws => ws.Picture("3D Model 1").Name = "Tetrahedron");
+
+        await Assert.That(GroupMembers(saved)).IsEqualTo(
+            "AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron', pic 2 'Logo'");
+    }
+
+    [Test]
     public async Task Deleting_a_grouped_3d_model_deletes_the_model()
     {
         // The model was grouped in this session, so its picture is still loaded and can be deleted.

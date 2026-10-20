@@ -285,7 +285,7 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
     /// <param name="columnMdw">Maximum digit width of the column, the first font's, in whole pixels.</param>
     internal static int GetCellWidthPx(int textWidthPx, int cellMdw, int columnMdw)
     {
-        var padding = 2 * (int)Math.Ceiling(cellMdw / 4.0) + 1;
+        var padding = XLHelper.ColumnPaddingPx(cellMdw);
         var extra = Math.Max(2, textWidthPx / (4 * columnMdw));
         return textWidthPx + padding + extra;
     }

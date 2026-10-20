@@ -374,11 +374,14 @@ internal static class SheetViewWriter
 
         // ColumnWriter used to be handed this value; it now resolves the sheet default itself
         // through XLColumnSettings, so the width rule has two callers and no stored copy.
-        var worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth).SaveRound();
         if (xlWorksheet.ColumnWidthChanged)
         {
             if (!IsWidthLoadedFrom(sheetFormat.DefaultColumnWidth, xlWorksheet))
+            {
+                var worksheetColumnWidth = ColumnWriter.GetColumnWidth(xlWorksheet.ColumnWidth,
+                    xlWorksheet.Workbook.MaxDigitWidth).SaveRound();
                 sheetFormat.DefaultColumnWidth = SchemaDefault.Measure(sheetFormat.DefaultColumnWidth, worksheetColumnWidth);
+            }
         }
         else
             worksheet.SheetFormatProperties.DefaultColumnWidth = null;

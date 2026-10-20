@@ -523,22 +523,29 @@ public static partial class XLHelper
     internal static double PointsToPixels(double points, double dpi) => points * dpi / 72d;
 
     /// <summary>
+    /// The padding of a column, in pixels: 2 px each side for Calibri 11 at 96 DPI, scaled with the
+    /// digit width, plus 1 px for the grid line. <c>2 * ceil(mdw / 4) + 1</c>, 5 px for a 7 px
+    /// digit and 7 px for a 9 px one.
+    /// </summary>
+    /// <param name="mdw">Maximum digit width in whole pixels.</param>
+    internal static int ColumnPaddingPx(int mdw) => 2 * (int)Math.Ceiling(mdw / 4.0) + 1;
+
+    /// <summary>
     /// Convert size in pixels to a size in NoC (number of characters).
     /// </summary>
-    /// <param name="px">Size in pixels.</param>
+    /// <param name="px">Size in pixels, not necessarily whole.</param>
     /// <param name="mdw">Size of maximum digit width in pixels.</param>
     /// <returns>Size in NoC.</returns>
-    internal static double PixelToNoC(int px, int mdw)
+    internal static double PixelToNoC(double px, int mdw)
     {
-        // Pixel padding. Each side should have 2px for Calibri at 11pt plus 1 pixel for the grid line.
-        var pp = 2 * (int)Math.Ceiling(mdw / 4.0) + 1;
+        var pp = ColumnPaddingPx(mdw);
 
         // NoC scales linearly with MDW, if size is at least 1 char (+padding)
         if (px >= (mdw + pp))
-            return (px - pp) / (double)mdw;
+            return (px - pp) / mdw;
 
         // smaller sizes are scaled to the 1 NoC size
-        return px / (double)(mdw + pp);
+        return px / (mdw + pp);
     }
 
     /// <summary>
@@ -549,11 +556,65 @@ public static partial class XLHelper
     /// <returns>Size in pixels (not rounded).</returns>
     internal static double NoCToPixels(double noc, int mdw)
     {
-        var pp = 2 * (int)Math.Ceiling(mdw / 4.0) + 1;
+        var pp = ColumnPaddingPx(mdw);
         if (noc < 1)
             return noc * (mdw + pp);
 
         return noc * mdw + pp;
+    }
+
+    /// <summary>
+    /// The <c>&lt;col width&gt;</c> of a column that shows <paramref name="noc"/> digits: the width
+    /// with its padding, in digits of <paramref name="mdw"/>. The padding is
+    /// <c>2 * ceil(mdw / 4) + 1</c> px, 5/7 of a digit at 96 DPI and 7/9 at 120 DPI, and below one
+    /// digit it scales with the width. Not rounded to whole pixels, unlike Excel (#803).
+    /// </summary>
+    /// <param name="noc">Width as Excel shows it, in number of characters.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
+    internal static double NoCToFileWidth(double noc, int mdw) => NoCToPixels(noc, mdw) / mdw;
+
+    /// <summary>
+    /// The width Excel shows for a <c>&lt;col width&gt;</c> of <paramref name="width"/>: the inverse
+    /// of <see cref="NoCToFileWidth"/>. Unlike <see cref="ConvertWidthToNoC"/> it snaps to whole
+    /// pixels only a width Excel wrote (#803).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Excel writes the width of a column it draws <c>n</c> px wide as <c>n / mdw</c> truncated to
+    /// 1/256: 64 px of 7 px digits is 9.142857, written 9.140625. Such a width loads as the
+    /// <c>n</c> px it was truncated from, 59/7 digits as Excel shows it (8.43), not 8.426339.
+    /// </para>
+    /// <para>
+    /// Any other width loads exactly, rounded to the six decimals a save writes a width with, so a
+    /// width of up to six decimals that XLibur saved loads as exactly the width that was set: 20 at
+    /// 120 DPI is saved as 20.777778, which is 20.0000003 less its padding. A width XLibur saved
+    /// loads as Excel shows it when the file holds just what Excel writes, as a whole number of
+    /// pixels does. Rarely it is not a whole number: 139.426339 at 96 DPI saves as 140.140625, which
+    /// Excel writes for 981 px, so it loads as 139.428571. About 1 in 200,000 widths of six decimals
+    /// does this, and no width of two decimals at a digit of 5 to 20 px.
+    /// </para>
+    /// </remarks>
+    /// <param name="width">Width from the source file, padding included.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
+    internal static double FileWidthToNoC(double width, int mdw)
+    {
+        var px = TryGetExcelWholePixels(width, mdw, out var wholePx) ? wholePx : width * mdw;
+        return Math.Round(PixelToNoC(px, mdw), 6);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="width"/> is the whole-pixel width Excel writes for a column
+    /// <paramref name="px"/> pixels wide: <c>px / mdw</c> truncated to 1/256.
+    /// </summary>
+    private static bool TryGetExcelWholePixels(double width, int mdw, out int px)
+    {
+        // Scaling by 256 is exact in binary, so a whole 1/256 scales to a whole number. Truncating
+        // to 1/256 takes off less than a pixel, so the pixels are the width's, rounded up.
+        var in256ths = width * 256;
+        var whole256ths = Math.Round(in256ths);
+        px = (int)Math.Ceiling(width * mdw);
+        return Math.Abs(in256ths - whole256ths) < Epsilon
+               && px * 256L / mdw == (long)whole256ths;
     }
 
     /// <summary>
@@ -564,10 +625,12 @@ public static partial class XLHelper
     /// This is the one place that rounds the engine's fractional width. It rounds half away from
     /// zero, the same as every other pixel snap of a font metric here (<c>GlyphBox.EmSize</c>,
     /// <c>GlyphBox.Descent</c>), and as a renderer snaps a positive width to the pixel grid.
-    /// Banker's rounding would make a width of 8.5 px 8 but 7.5 px 8 too.
+    /// Banker's rounding would make a width of 8.5 px 8 but 7.5 px 8 too. A digit is at least
+    /// 1 px: every column width is in digits, and a font engine that reports a digit of under half
+    /// a pixel would otherwise give a width of NaN.
     /// </remarks>
     internal static int GetMdw(IXLFontEngine engine, IXLFontBase font, double dpiX)
-        => engine.GetMaxDigitWidth(font, dpiX).RoundToInt();
+        => Math.Max(1, engine.GetMaxDigitWidth(font, dpiX).RoundToInt());
 
     /// <inheritdoc cref="GetMdw(IXLFontEngine, IXLFontBase, double)"/>
     internal static int GetMdw(IXLFontBase font, XLWorkbook workbook)

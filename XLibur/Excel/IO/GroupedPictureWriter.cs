@@ -71,6 +71,9 @@ internal static class GroupedPictureWriter
             );
             worksheetDrawing.Append(absoluteAnchor);
         }
+
+        // The members are grouped pictures now, which an index made before is missing.
+        ids.ForgetGroupedPictures();
     }
 
     /// <summary>
@@ -264,23 +267,23 @@ internal static class GroupedPictureWriter
     /// save DOM is an independent re-parse of the package and object references from load don't
     /// survive.
     /// </summary>
-    internal static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic)
+    internal static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, DrawingIds ids)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
         var group = pic.GroupInfo;
         if (drawingsPart?.WorksheetDrawing is null || group is null)
             return;
 
-        var worksheetDrawing = drawingsPart.WorksheetDrawing;
-
-        var picElement = FindGroupedPictureById(worksheetDrawing, pic.Id);
+        var picElement = ids.FindGroupedPicture(pic.Id);
         if (picElement is null)
             return;
 
-        // The name goes to drawings with the picture's id in the anchor that holds the group, as a
-        // plain picture's goes to drawings in its own anchor.
-        var anchor = picElement.Ancestors().FirstOrDefault(a => a.Parent is Xdr.WorksheetDrawing) ?? picElement;
-        PictureContentWriter.WritePictureName(anchor, picElement, pic.Name);
+        // The name goes to every drawing with the picture's id: the picture, and the other branches of
+        // the mc:AlternateContent it is one form of, as a grouped 3D model's frame is. Only a wrapper
+        // holds drawings that share an id, so the rest of the group is not read: reading the whole
+        // group for each of its pictures made a save of n grouped pictures cost n² (#804).
+        var scope = (OpenXmlElement?)picElement.Ancestors<AlternateContent>().LastOrDefault() ?? picElement;
+        PictureContentWriter.WritePictureName(scope, picElement, pic.Name);
         RefeedGroupedPictureImage(drawingsPart, pic);
         UpdateGroupedPictureGeometry(picElement, pic, group);
     }
@@ -316,22 +319,6 @@ internal static class GroupedPictureWriter
             PlaceInGroup(form, offset, extents);
     }
 
-    /// <summary>
-    /// Locate the <c>xdr:pic</c> inside a group shape that carries the given drawing id. The save DOM
-    /// is an independent re-parse, so the picture is matched by id rather than object reference.
-    /// </summary>
-    private static Xdr.Picture? FindGroupedPictureById(Xdr.WorksheetDrawing worksheetDrawing, int id)
-    {
-        foreach (var candidate in worksheetDrawing.Descendants<Xdr.Picture>())
-        {
-            var candidateId = candidate.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value;
-            if (candidateId == (uint)id && candidate.Ancestors<Xdr.GroupShape>().Any())
-                return candidate;
-        }
-
-        return null;
-    }
-
     /// <summary>The picture's sheet size, in the group's child coordinate space.</summary>
     private static (long Cx, long Cy) ChildExtents(XLPicture pic, XLPictureGroup group, XLWorkbook wb) =>
     (
@@ -361,7 +348,7 @@ internal static class GroupedPictureWriter
     /// it. The group's bounding box is kept fixed.
     /// </summary>
     internal static void RemoveGroupedPictures(DrawingsPart drawingsPart,
-        ICollection<(int Id, string? RelId)> removed)
+        ICollection<(int Id, string? RelId)> removed, DrawingIds ids)
     {
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
         if (worksheetDrawing is null)
@@ -373,7 +360,7 @@ internal static class GroupedPictureWriter
             if (relId is not null)
                 released.Add(relId);
 
-            if (FindGroupedPictureById(worksheetDrawing, id) is { } picture)
+            if (ids.FindGroupedPicture(id) is { } picture)
             {
                 // A 3D model's render goes with its wrapper, so the model goes too (#794).
                 var drawing = (OpenXmlElement?)DrawingAnchorContent.WrapperOf(picture) ?? picture;

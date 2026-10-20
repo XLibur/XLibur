@@ -25,7 +25,7 @@ public class PictureSaveBenchmarks
     private byte[] _source = null!;
     private XLWorkbook _workbook = null!;
 
-    [Params(1_000, 2_000)]
+    [Params(1_000, 2_000, 4_000)]
     public int Pictures { get; set; }
 
     [Params("twoCell", "oneCell")]

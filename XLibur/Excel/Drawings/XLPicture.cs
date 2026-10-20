@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using XLibur.Graphics;
 
 namespace XLibur.Excel.Drawings;
@@ -46,10 +45,7 @@ internal sealed class XLPicture : IXLPicture
             [XLMarkerPosition.BottomRight] = null
         };
 
-        // Calculate default picture ID
-        var allPictures = worksheet.Workbook.Worksheets.SelectMany(ws => ws.Pictures);
-        var freeId = allPictures.Select(x => x.Id).DefaultIfEmpty(0).Max() + 1;
-        _id = freeId;
+        _id = XLPictures.NextFreeId(worksheet.Workbook);
     }
 
     public IXLCell BottomRightCell
@@ -85,11 +81,29 @@ internal sealed class XLPicture : IXLPicture
         get => _id;
         internal set
         {
-            if ((Worksheet.Pictures.FirstOrDefault(p => p.Id.Equals(value)) ?? this) != this)
+            if (Collection.IsIdTaken(value, this))
                 throw new ArgumentException($"The picture ID '{value}' already exists.");
 
+            var oldId = _id;
             _id = value;
+            OnIdChanged(oldId);
         }
+    }
+
+    /// <summary>The pictures of <see cref="Worksheet"/>, which this picture is one of while <see cref="IsInCollection"/>.</summary>
+    private XLPictures Collection => (XLPictures)Worksheet.Pictures;
+
+    /// <summary>
+    /// Whether this picture is one of <see cref="Collection"/>: from when it is added until it is
+    /// deleted. Set by the collection, which keeps the names and ids its pictures hold.
+    /// </summary>
+    internal bool IsInCollection { get; set; }
+
+    /// <summary>Tell <see cref="Collection"/> that <see cref="Id"/> was <paramref name="oldId"/>.</summary>
+    private void OnIdChanged(int oldId)
+    {
+        if (IsInCollection && oldId != _id)
+            Collection.OnIdChanged(this, oldId);
     }
 
     /// <summary>
@@ -100,7 +114,9 @@ internal sealed class XLPicture : IXLPicture
     /// </summary>
     internal void KeepSavedIds(int id, string relId)
     {
+        var oldId = _id;
         _id = id;
+        OnIdChanged(oldId);
         RelId = relId;
     }
 
@@ -130,14 +146,15 @@ internal sealed class XLPicture : IXLPicture
 
             // A name a kept shape has, such as a linked picture the loader does not read, is taken
             // as a picture's is (#796).
-            if (((XLPictures)Worksheet.Pictures).IsNameTaken(value, this))
-                throw new ArgumentException($"The picture name '{value}' already exists.");
+            Collection.ThrowIfNameTaken(value, this);
 
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.",
                     nameof(value));
 
+            var oldName = _name;
             _name = value;
+            OnRenamed(oldName);
         }
     }
 
@@ -378,7 +395,16 @@ internal sealed class XLPicture : IXLPicture
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException("Picture name cannot be empty or consist only of whitespace.", nameof(value));
 
+        var oldName = _name;
         _name = value;
+        OnRenamed(oldName);
+    }
+
+    /// <summary>Tell <see cref="Collection"/> that <see cref="Name"/> was <paramref name="oldName"/>.</summary>
+    private void OnRenamed(string oldName)
+    {
+        if (IsInCollection)
+            Collection.OnRenamed(this, oldName);
     }
 
     private void Init(XLPictureInfo info)

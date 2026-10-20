@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Graphics;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Columns;
 
@@ -18,6 +20,10 @@ public class MaxDigitWidthRoundingTests
     [Arguments(7.5, 8)]
     [Arguments(8.5, 9)]
     [Arguments(8.49, 8)]
+    // A digit of under half a pixel is one pixel: every column width is in digits, and a digit of
+    // 0 px made the saved width NaN.
+    [Arguments(0.3, 1)]
+    [Arguments(0, 1)]
     public async Task GetMdw_RoundsHalfAwayFromZero(double engineMdw, int expected)
     {
         using var probe = new XLWorkbook();
@@ -26,6 +32,28 @@ public class MaxDigitWidthRoundingTests
         var mdw = XLHelper.GetMdw(engine, probe.Style.Font, 96);
 
         await Assert.That(mdw).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task A_font_engine_digit_under_half_a_pixel_saves_and_loads_a_width_in_one_pixel_digits()
+    {
+        // A 1 px digit has a 3 px padding, so a width of 20 is 23 px: width="23". With a 0 px digit
+        // the save divided by zero and wrote width="NaN".
+        using var probe = new XLWorkbook();
+        var options = new LoadOptions { FontEngine = new FixedMdwFontEngine(probe.FontEngine, 0.3) };
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(options))
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 1;
+            ws.Column(2).Width = 20;
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(saved.Sheet1Xml()).Contains("<x:col min=\"2\" max=\"2\" width=\"23\" customWidth=\"1\" />");
+
+        using var reloaded = new XLWorkbook(saved, options);
+        await Assert.That(reloaded.Worksheet(1).Column(2).Width).IsEqualTo(20);
     }
 
     [Test]

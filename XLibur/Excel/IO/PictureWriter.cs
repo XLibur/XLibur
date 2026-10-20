@@ -96,7 +96,7 @@ internal static class PictureWriter
         // drawing DOM for sheets that have nothing to remove.
         if (xlPictures.DeletedFromGroups.Count > 0)
         {
-            GroupedPictureWriter.RemoveGroupedPictures(drawingsPart, xlPictures.DeletedFromGroups);
+            GroupedPictureWriter.RemoveGroupedPictures(drawingsPart, xlPictures.DeletedFromGroups, ids);
             xlPictures.DeletedFromGroups.Clear();
         }
 
@@ -134,7 +134,7 @@ internal static class PictureWriter
             if (groupedPicture.GroupInfo!.IsNew)
                 GroupedPictureWriter.InsertGroupedPicture(worksheetPart, groupedPicture, context, ids);
             else
-                GroupedPictureWriter.UpdateGroupedPicture(worksheetPart, groupedPicture);
+                GroupedPictureWriter.UpdateGroupedPicture(worksheetPart, groupedPicture, ids);
         }
 
         return groupedPictures.Count;

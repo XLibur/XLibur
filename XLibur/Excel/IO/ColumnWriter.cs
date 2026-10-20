@@ -26,12 +26,14 @@ internal static class ColumnWriter
     /// sheet whose own style is the default does not need them: a column with no <c>&lt;col&gt;</c>
     /// has the sheet's width and style 0 already, and Excel writes none (#722).
     /// </param>
+    /// <param name="MaxDigitWidth">The workbook's digit width, which a width's padding is worked out from (#803).</param>
     private readonly record struct ColumnWriteContext(
         Columns Columns,
         Dictionary<uint, Column> SheetColumnsByMin,
         uint WorksheetStyleId,
         XLColumnSettings DefaultColumn,
-        bool BackFillsColumns);
+        bool BackFillsColumns,
+        int MaxDigitWidth);
 
     /// <remarks>
     /// This took the whole ten-member save bag until spec 29. The shared style map is the only
@@ -75,10 +77,11 @@ internal static class ColumnWriter
         var sheetColumnsByMin = columns.Elements<Column>().ToDictionary(c => c.Min!.Value, c => c);
         // The raw model width, not a pre-resolved one: Resolve applies GetColumnWidth and SaveRound
         // itself, and handing it an already-resolved width rounds twice.
+        var mdw = xlWorksheet.Workbook.MaxDigitWidth;
         var ctx = new ColumnWriteContext(columns, sheetColumnsByMin, worksheetStyleId,
-            XLColumnSettings.Resolve(1, 1, worksheetStyleId, xlWorksheet.ColumnWidth,
-                hidden: false, collapsed: false, outlineLevel: 0),
-            BackFillsColumns: partIsEmpty || worksheetStyleId != 0);
+            XLColumnSettings.Resolve((1, 1), worksheetStyleId, xlWorksheet.ColumnWidth,
+                hidden: false, collapsed: false, outlineLevel: 0, mdw),
+            BackFillsColumns: partIsEmpty || worksheetStyleId != 0, mdw);
 
         var (minInColumnsCollection, maxInColumnsCollection) = GetColumnsRange(xlWorksheet);
 
@@ -86,7 +89,7 @@ internal static class ColumnWriter
         var maxCol = WriteMainColumns(ctx, xlWorksheet, minInColumnsCollection, maxInColumnsCollection, sharedStyles);
         WritePostColumns(ctx, maxCol);
 
-        CollapseColumns(columns, sheetColumnsByMin);
+        CollapseColumns(columns, sheetColumnsByMin, mdw);
 
         if (!columns.Any())
         {
@@ -134,7 +137,7 @@ internal static class ColumnWriter
         for (var co = min; co <= max; co++)
         {
             if (BacksFill(ctx, co))
-                UpdateColumn(WorksheetDefaultColumn(ctx, co, co), ctx.Columns, ctx.SheetColumnsByMin);
+                UpdateColumn(ctx, WorksheetDefaultColumn(ctx, co, co));
         }
     }
 
@@ -153,7 +156,7 @@ internal static class ColumnWriter
         {
             var column = BuildColumnElement(ctx, xlWorksheet, co, sharedStyles);
             if (column is not null)
-                UpdateColumn(column, ctx.Columns, ctx.SheetColumnsByMin);
+                UpdateColumn(ctx, column);
         }
 
         foreach (
@@ -166,7 +169,10 @@ internal static class ColumnWriter
                 || !xlWorksheet.Internals.ColumnsCollection.IsLoadedStyle(loadedStyle.Value, xlWorksheet.StyleValue))
                 col.Style = SchemaDefault.UInt(col.Style, ctx.WorksheetStyleId, 0);
 
-            col.Width = ctx.DefaultColumn.Width is { } sheetWidth ? SchemaDefault.Measure(col.Width, sheetWidth) : null;
+            if (ctx.DefaultColumn.Width is not { } sheetWidth)
+                col.Width = null;
+            else if (!SameWidth(col.Width, sheetWidth, ctx.MaxDigitWidth))
+                col.Width = sheetWidth;
 
             if ((int)col.Max!.Value > maxInColumnsCollection)
                 maxInColumnsCollection = (int)col.Max.Value;
@@ -200,9 +206,9 @@ internal static class ColumnWriter
 
         // The raw width, not GetColumnWidth(col.Width).SaveRound() - Resolve applies that itself.
         var settings = XLColumnSettings.Resolve(
-            (uint)columnNumber, (uint)columnNumber,
+            ((uint)columnNumber, (uint)columnNumber),
             LoadedStyleId(ctx, xlWorksheet, (uint)columnNumber, col.StyleValue) ?? sharedStyles[col.StyleValue].StyleId,
-            col.Width, col.IsHidden, col.Collapsed, col.OutlineLevel);
+            col.Width, col.IsHidden, col.Collapsed, col.OutlineLevel, ctx.MaxDigitWidth);
 
         // A column with the sheet's width has no customWidth, as Excel writes it. The model does not
         // know whether a width was set, only what it is.
@@ -253,9 +259,15 @@ internal static class ColumnWriter
             WorksheetDefaultColumn(ctx, (uint)(maxInColumnsCollection + 1), (uint)XLHelper.MaxColumnNumber));
     }
 
-    internal static double GetColumnWidth(double columnWidth)
+    /// <summary>
+    /// The <c>width</c> a column of <paramref name="columnWidth"/> digits is saved with: the width
+    /// and its padding, worked out from the digit width (#803).
+    /// </summary>
+    /// <param name="columnWidth">The width as the model holds it, as Excel shows it.</param>
+    /// <param name="mdw">Maximum digit width of the workbook's first font, in whole pixels.</param>
+    internal static double GetColumnWidth(double columnWidth, int mdw)
     {
-        return Math.Min(255.0, Math.Max(0.0, columnWidth + XLConstants.ColumnWidthOffset));
+        return Math.Min(255.0, Math.Max(0.0, XLHelper.NoCToFileWidth(columnWidth, mdw)));
     }
 
     /// <summary>
@@ -265,7 +277,7 @@ internal static class ColumnWriter
     /// Only columns that touch are joined, and a run starts at its own first column. A column with
     /// no <c>&lt;col&gt;</c> between two alike is not given their width (#722).
     /// </remarks>
-    private static void CollapseColumns(Columns columns, Dictionary<uint, Column> sheetColumns)
+    private static void CollapseColumns(Columns columns, Dictionary<uint, Column> sheetColumns, int mdw)
     {
         uint? runMin = null;
         var count = sheetColumns.Count;
@@ -276,7 +288,7 @@ internal static class ColumnWriter
             runMin ??= kp.Key;
             if (i + 1 != count
                 && arr[i + 1].Key == kp.Value.Max!.Value + 1
-                && ColumnsAreEqual(kp.Value, arr[i + 1].Value))
+                && ColumnsAreEqual(kp.Value, arr[i + 1].Value, mdw))
                 continue;
 
             var newColumn = (Column)kp.Value.CloneNode(true);
@@ -293,25 +305,25 @@ internal static class ColumnWriter
         }
     }
 
-    private static void UpdateColumn(Column column, Columns columns, Dictionary<uint, Column> sheetColumnsByMin)
+    private static void UpdateColumn(ColumnWriteContext ctx, Column column)
     {
-        if (!sheetColumnsByMin.TryGetValue(column.Min!.Value, out var newColumn))
+        if (!ctx.SheetColumnsByMin.TryGetValue(column.Min!.Value, out var existingColumn))
         {
-            newColumn = (Column)column.CloneNode(true);
-            columns.AppendChild(newColumn);
-            sheetColumnsByMin.Add(column.Min.Value, newColumn);
+            var newColumn = (Column)column.CloneNode(true);
+            ctx.Columns.AppendChild(newColumn);
+            ctx.SheetColumnsByMin.Add(column.Min.Value, newColumn);
         }
         else
         {
-            UpdateExistingColumn(column, columns, sheetColumnsByMin);
+            UpdateExistingColumn(ctx, column, existingColumn);
         }
     }
 
-    private static void UpdateExistingColumn(Column column, Columns columns, Dictionary<uint, Column> sheetColumnsByMin)
+    private static void UpdateExistingColumn(ColumnWriteContext ctx, Column column, Column existingColumn)
     {
-        var existingColumn = sheetColumnsByMin[column.Min!.Value];
+        var (columns, sheetColumnsByMin) = (ctx.Columns, ctx.SheetColumnsByMin);
         var newColumn = (Column)existingColumn.CloneNode(true);
-        newColumn.Min = column.Min;
+        newColumn.Min = column.Min!;
         newColumn.Max = column.Max;
 
         // A style="0" the file had stays; the column writes none of its own.
@@ -320,7 +332,7 @@ internal static class ColumnWriter
         // already carries both. The file can spell a width with more digits than a save keeps
         // (#722). The model does not know whether a width was set, only what it is.
         var width = column.Width!.SaveRound();
-        if (!SchemaDefault.SameMeasure(existingColumn.Width, width))
+        if (!SameWidth(existingColumn.Width, width, ctx.MaxDigitWidth))
         {
             newColumn.Width = width;
             newColumn.CustomWidth = column.CustomWidth;
@@ -333,7 +345,7 @@ internal static class ColumnWriter
             ? (byte)column.OutlineLevel
             : null;
 
-        sheetColumnsByMin.Remove(column.Min.Value);
+        sheetColumnsByMin.Remove(newColumn.Min.Value);
         if (existingColumn.Min! + 1 > existingColumn.Max!)
         {
             columns.RemoveChild(existingColumn);
@@ -349,10 +361,10 @@ internal static class ColumnWriter
         }
     }
 
-    private static bool ColumnsAreEqual(Column left, Column right)
+    private static bool ColumnsAreEqual(Column left, Column right, int mdw)
     {
         return NullableValuesEqual(left.Style, right.Style)
-               && NullableDoublesEqual(left.Width, right.Width)
+               && NullableWidthsEqual(left.Width, right.Width, mdw)
                && NullableValuesEqual(left.CustomWidth, right.CustomWidth)
                && NullableValuesEqual(left.Hidden, right.Hidden)
                && NullableValuesEqual(left.Collapsed, right.Collapsed)
@@ -367,14 +379,24 @@ internal static class ColumnWriter
         return left.Value.Equals(right.Value);
     }
 
-    /// <summary>
-    /// Are the widths the same at the six decimals a save writes? A loaded width keeps the file's
-    /// digits, such as 14.85546875, and is the same width as 14.855469 (#722).
-    /// </summary>
-    private static bool NullableDoublesEqual(DoubleValue? left, DoubleValue? right)
+    private static bool NullableWidthsEqual(DoubleValue? left, DoubleValue? right, int mdw)
     {
         if (left == null && right == null) return true;
         if (left == null || right == null) return false;
-        return Math.Abs(Math.Round(left.Value, 6) - Math.Round(right.Value, 6)) < XLHelper.Epsilon;
+        return SameWidth(left, right.Value, mdw);
     }
+
+    /// <summary>
+    /// Does the file's <paramref name="loaded"/> width load as the same column width as
+    /// <paramref name="width"/>? A loaded width keeps the file's digits, such as 14.85546875, and is
+    /// the same width as the one a save writes for it (#722).
+    /// </summary>
+    /// <remarks>
+    /// Compared as the widths Excel shows, which the load rounds to six decimals, not as the widths
+    /// the file states: a save writes the width less its padding plus its padding again, and at six
+    /// decimals that is not always the width the file stated (#803).
+    /// </remarks>
+    private static bool SameWidth(DoubleValue? loaded, double width, int mdw) =>
+        loaded is { HasValue: true }
+        && Math.Abs(XLHelper.FileWidthToNoC(loaded.Value, mdw) - XLHelper.FileWidthToNoC(width, mdw)) < XLHelper.Epsilon;
 }

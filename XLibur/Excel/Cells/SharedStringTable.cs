@@ -262,6 +262,23 @@ internal sealed class SharedStringTable
         return byFileIndex;
     }
 
+    /// <summary>
+    /// The font of the phonetic properties of every text in use, shared or inline, in id order.
+    /// A font is listed once for each text that has it.
+    /// </summary>
+    /// <remarks>
+    /// The styles part registers these fonts, so a text's <c>phoneticPr/@fontId</c> can name its
+    /// font when the shared strings and the worksheets are written after it (#801).
+    /// </remarks>
+    internal IEnumerable<XLFontValue> GetPhoneticFonts()
+    {
+        foreach (var entry in _table)
+        {
+            if (entry.RefCount > 0 && entry.Text.Value is XLImmutableRichText { PhoneticsProperties: { } properties })
+                yield return properties.Font;
+        }
+    }
+
     private static bool IsShared(Entry entry) =>
         entry.RefCount > 0 && // Only used entry can be written to sst
         !entry.Text.Inline; // Inline texts shouldn't be written to sst
