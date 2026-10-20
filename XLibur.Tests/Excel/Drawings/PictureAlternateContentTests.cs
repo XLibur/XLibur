@@ -139,29 +139,104 @@ public class PictureAlternateContentTests
     [Test]
     public async Task Deleting_the_picture_deletes_the_3d_model()
     {
+        // The model part and its render go with the anchor, and so does the drawing, now empty.
         using var saved = LoadAndSave(ws => ws.Pictures.Delete("3D Model 1"));
 
-        await Assert.That(Shape(saved)).IsEqualTo("0 anchors");
+        await Assert.That(saved.PartsUnder("xl/drawings/")).IsEmpty();
+        await Assert.That(saved.PartsUnder("xl/media/")).IsEmpty();
     }
+
+    [Test]
+    public async Task Deleting_one_copy_of_a_3d_model_keeps_the_model_the_other_copy_shows()
+    {
+        // Excel's copies of a 3D model share its model part and its render.
+        using var saved = LoadAndSave(Duplicated(), ws => ws.Pictures.Delete("3D Model 2"));
+
+        await Assert.That(Shape(saved)).IsEqualTo(
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+        await Assert.That(Relationships(saved)).IsEqualTo("image ../media/image1.png, model3d ../media/model3d1.glb");
+        await Assert.That(string.Join(", ", saved.PartsUnder("xl/media/").Order()))
+            .IsEqualTo("xl/media/image1.png, xl/media/model3d1.glb");
+    }
+
+    [Test]
+    public async Task Deleting_every_copy_of_a_3d_model_deletes_the_model()
+    {
+        using var saved = LoadAndSave(Duplicated(), ws =>
+        {
+            ws.Pictures.Delete("3D Model 1");
+            ws.Pictures.Delete("3D Model 2");
+        });
+
+        await Assert.That(saved.PartsUnder("xl/drawings/")).IsEmpty();
+        await Assert.That(saved.PartsUnder("xl/media/")).IsEmpty();
+    }
+
+    [Test]
+    public async Task Deleting_a_3d_model_keeps_the_pictures_beside_it()
+    {
+        // A picture added beside the model keeps the drawing, and its own image, after the model goes.
+        using var saved = LoadAndSave(ws =>
+        {
+            ws.Pictures.Delete("3D Model 1");
+            ws.AddPicture(new MemoryStream(Png), "Logo").MoveTo(ws.Cell("B2"));
+        });
+
+        await Assert.That(Shape(saved)).IsEqualTo("oneCellAnchor > pic 1 'Logo'");
+        await Assert.That(Relationships(saved)).StartsWith("image ");
+        await Assert.That(Relationships(saved)).DoesNotContain("model3d");
+        await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(1);
+    }
+
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
 
     private static XLWorkbook LoadFixture() => new(Fixture());
 
-    private static MemoryStream Fixture()
+    private static MemoryStream Fixture() => Resource("picture-3d-model.xlsx");
+
+    /// <summary>
+    /// A 3D model and its copy, made in Excel 16.0 (build 20430) over COM: <c>Shapes.Add3DModel</c> of
+    /// the same tetrahedron, then <c>Duplicate</c>. Excel writes two anchors like the one of
+    /// <c>picture-3d-model.xlsx</c>, "3D Model 1" (id 2) and "3D Model 2" (id 3), and both embed the
+    /// same model part (rId1) and the same render (rId2).
+    /// </summary>
+    private static MemoryStream Duplicated() => Resource("picture-3d-model-duplicated.xlsx");
+
+    private static MemoryStream Resource(string name)
     {
-        using var resource = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Other\Drawings\picture-3d-model.xlsx"));
+        using var resource = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath($@"Other\Drawings\{name}"));
         var package = new MemoryStream();
         resource.CopyTo(package);
         package.Position = 0;
         return package;
     }
 
-    private static MemoryStream LoadAndSave(Action<IXLWorksheet> edit)
+    private static MemoryStream LoadAndSave(Action<IXLWorksheet> edit) => LoadAndSave(Fixture(), edit);
+
+    private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)
     {
         var saved = new MemoryStream();
-        using var wb = LoadFixture();
-        edit(wb.Worksheet(1));
-        wb.SaveAs(saved);
+        using (source)
+        using (var wb = new XLWorkbook(source))
+        {
+            edit(wb.Worksheet(1));
+            wb.SaveAs(saved);
+        }
+
         return saved;
+    }
+
+    /// <summary>
+    /// The saved drawing's relationships, each as its type's last segment and its target, in target
+    /// order, e.g. <c>image ../media/image1.png, model3d ../media/model3d1.glb</c>.
+    /// </summary>
+    private static string Relationships(Stream saved)
+    {
+        var relationships = XDocument.Parse(saved.ReadPart("xl/drawings/_rels/drawing1.xml.rels")).Root!.Elements()
+            .Select(r => $"{((string)r.Attribute("Type")!).Split('/')[^1]} {(string?)r.Attribute("Target")}")
+            .Order();
+        return string.Join(", ", relationships);
     }
 
     /// <summary>
