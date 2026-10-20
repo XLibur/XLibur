@@ -77,12 +77,12 @@ internal static class PictureWriter
                 released.Add(relId);
                 if (DrawingIds.FindPicture(worksheetDrawing, id, relId) is { } found)
                 {
-                    released.AddRange(RelationshipIds(found.Anchor));
+                    released.AddRange(PictureContentWriter.RelationshipIds(found.Anchor));
                     found.Anchor.Remove();
                 }
             }
 
-            DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
+            PictureContentWriter.DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
         }
 
         xlPictures.Deleted.Clear();
@@ -229,7 +229,7 @@ internal static class PictureWriter
         // never overwritten.
         var existing = DrawingIds.FindPicture(worksheetDrawing, pic.Id, pic.RelId);
 
-        var imagePart = FeedImagePart(drawingsPart, pic, context, fedImages);
+        var imagePart = PictureContentWriter.FeedImagePart(drawingsPart, pic, context, fedImages);
         var embedId = drawingsPart.GetIdOfPart(imagePart);
 
         if (pic.KeptAnchor is { } kept && existing is { Anchor: Xdr.TwoCellAnchor twoCellAnchor } &&
@@ -297,7 +297,7 @@ internal static class PictureWriter
         // wrapper and its other branches are the drawing; the regenerated anchor only says where
         // it goes.
         WriteAnchorPosition(worksheetDrawing, found.Anchor, anchor);
-        WritePictureNameAndImage(found.Anchor, found.Picture, pic.Name, embedId);
+        PictureContentWriter.WritePictureNameAndImage(found.Anchor, found.Picture, pic.Name, embedId);
         return found.Picture;
     }
 
@@ -350,97 +350,6 @@ internal static class PictureWriter
         element is Xdr.FromMarker or Xdr.ToMarker or Xdr.Position or Xdr.Extent;
 
     /// <summary>
-    /// Writes the name and image link the model owns into a picture written back into its anchor.
-    /// </summary>
-    /// <remarks>
-    /// The name goes to every drawing in the anchor with the picture's id. Excel gives each branch
-    /// of <c>mc:AlternateContent</c> the same id and name, as one drawing in two forms, so a 3D
-    /// model renamed through its fallback picture is renamed in the form Excel shows. The image
-    /// link goes to every image in the wrapper that showed the picture's image: a 3D model's
-    /// <c>am3d:raster</c> is the render its fallback picture shows, so the two stay on one part.
-    /// The shape properties of the other branches are left as Excel wrote them.
-    /// </remarks>
-    private static void WritePictureNameAndImage(OpenXmlElement anchor, Xdr.Picture picture, string name,
-        string embedId)
-    {
-        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value is { } id)
-        {
-            foreach (var properties in anchor.Descendants<Xdr.NonVisualDrawingProperties>())
-            {
-                if (properties.Id?.Value == id)
-                    properties.Name = name;
-            }
-        }
-
-        if (picture.BlipFill?.Blip is not { } blip)
-            return;
-
-        var previous = blip.Embed?.Value;
-        blip.Embed = embedId;
-        if (previous is null || previous == embedId || DrawingAnchorContent.WrapperOf(picture) is not { } wrapper)
-            return;
-
-        foreach (var image in wrapper.Descendants())
-        {
-            if (image.LocalName == "blip" && EmbedOf(image) == previous)
-                image.SetAttribute(new OpenXmlAttribute("r", "embed", RelationshipsNs, embedId));
-        }
-    }
-
-    /// <summary>The <c>r:embed</c> of an image element, whatever namespace the element is in.</summary>
-    private static string? EmbedOf(OpenXmlElement image) =>
-        image.GetAttributes().FirstOrDefault(a => a.LocalName == "embed" && a.NamespaceUri == RelationshipsNs).Value;
-
-    /// <summary>
-    /// The image part <paramref name="pic"/> is written with, holding its image. Each part is fed
-    /// once per save, by the first picture that shows it; <paramref name="fedImages"/> holds, by
-    /// relationship id, the image each part was fed this save. The picture's own link is left as it
-    /// was: it takes the link the save wrote once the save has succeeded, as it takes its id.
-    /// </summary>
-    /// <remarks>
-    /// Pictures that share a part, as Excel's copies of a picture do (#781), feed it once. A copy
-    /// whose image differs from what its part was fed, because the image was changed after the load,
-    /// shows a part that holds its own image instead: one this save already fed with the same image,
-    /// or a new one. So a changed image is not overwritten by the copies that kept theirs, and does
-    /// not reach them.
-    /// </remarks>
-    private static ImagePart FeedImagePart(DrawingsPart drawingsPart, XLPicture pic, SaveContext context,
-        Dictionary<string, MemoryStream> fedImages)
-    {
-        if (pic.RelId is { } relId && drawingsPart.GetPartOrNull<ImagePart>(relId) is { } loaded)
-        {
-            if (!fedImages.TryGetValue(relId, out var fed))
-                return Feed(loaded, relId);
-
-            if (SameImage(fed, pic.ImageStream))
-                return loaded;
-
-            foreach (var (otherRelId, otherImage) in fedImages)
-            {
-                if (SameImage(otherImage, pic.ImageStream))
-                    return drawingsPart.GetPartOrNull<ImagePart>(otherRelId)!;
-            }
-        }
-
-        var newRelId = context.RelIdGenerator.GetNext(RelType.Workbook);
-        return Feed(drawingsPart.AddImagePart(pic.Format.ToOpenXml(), newRelId), newRelId);
-
-        ImagePart Feed(ImagePart part, string partRelId)
-        {
-            pic.ImageStream.Position = 0;
-            part.FeedData(pic.ImageStream);
-            fedImages[partRelId] = pic.ImageStream;
-            return part;
-        }
-    }
-
-    private static bool SameImage(MemoryStream left, MemoryStream right) =>
-        ReferenceEquals(left, right) || Bytes(left).SequenceEqual(Bytes(right));
-
-    private static ReadOnlySpan<byte> Bytes(MemoryStream stream) =>
-        stream.TryGetBuffer(out var buffer) ? buffer.AsSpan() : stream.ToArray();
-
-    /// <summary>
     /// Write a picture the caller has not placed back into the two-cell anchor it was loaded from,
     /// rather than regenerating it. See <see cref="XLKeptAnchor"/> for why the model cannot.
     /// </summary>
@@ -463,7 +372,7 @@ internal static class PictureWriter
 
         WriteMarkerCell(from, kept.From);
         WriteMarkerCell(to, kept.To);
-        WritePictureNameAndImage(anchor, picture, pic.Name, embedId);
+        PictureContentWriter.WritePictureNameAndImage(anchor, picture, pic.Name, embedId);
         return true;
     }
 
@@ -799,57 +708,11 @@ internal static class PictureWriter
 
             if (FindGroupedPictureById(worksheetDrawing, id) is { } picture)
             {
-                released.AddRange(RelationshipIds(picture));
+                released.AddRange(PictureContentWriter.RelationshipIds(picture));
                 picture.Remove();
             }
         }
 
-        DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
+        PictureContentWriter.DeleteUnreferencedRelationships(drawingsPart, worksheetDrawing, released);
     }
-
-    /// <summary>
-    /// Every relationship id <paramref name="element"/> refers to, by any attribute in the
-    /// relationships namespace: the image of a picture's <c>a:blip</c>, and whatever Excel added
-    /// that XLibur does not model, such as a 3D model's part and its render's <c>am3d:blip</c>.
-    /// </summary>
-    private static IEnumerable<string> RelationshipIds(OpenXmlElement element) =>
-        element.Descendants().Prepend(element)
-            .SelectMany(e => e.GetAttributes())
-            .Where(a => a.NamespaceUri == RelationshipsNs && !string.IsNullOrEmpty(a.Value))
-            .Select(a => a.Value!);
-
-    /// <summary>
-    /// Drops each of the drawing part's relationships in <paramref name="released"/> that nothing left
-    /// in <paramref name="worksheetDrawing"/> refers to, once the drawings that referred to it have
-    /// been removed.
-    /// </summary>
-    /// <remarks>
-    /// Others may still refer to it: Excel shares one image part, and one 3D model part, between
-    /// copies. Only this drawing's relationship is dropped; the SDK deletes the part it targets only
-    /// when no other part, such as another sheet's drawing, still reaches it.
-    /// </remarks>
-    private static void DeleteUnreferencedRelationships(DrawingsPart drawingsPart,
-        Xdr.WorksheetDrawing worksheetDrawing, List<string> released)
-    {
-        if (released.Count == 0)
-            return;
-
-        var stillReferenced = RelationshipIds(worksheetDrawing).ToHashSet(StringComparer.Ordinal);
-        foreach (var relId in released.Distinct(StringComparer.Ordinal))
-        {
-            if (stillReferenced.Contains(relId))
-                continue;
-
-            if (drawingsPart.HasPartWithId(relId))
-                drawingsPart.DeletePart(relId);
-            else if (HasReferenceRelationship(drawingsPart, relId))
-                drawingsPart.DeleteReferenceRelationship(relId);
-        }
-    }
-
-    /// <summary>Whether the part has a relationship <paramref name="relId"/> to no part: a hyperlink, an external target or media.</summary>
-    private static bool HasReferenceRelationship(DrawingsPart drawingsPart, string relId) =>
-        drawingsPart.ExternalRelationships.Any(r => r.Id == relId) ||
-        drawingsPart.HyperlinkRelationships.Any(r => r.Id == relId) ||
-        drawingsPart.DataPartReferenceRelationships.Any(r => r.Id == relId);
 }
