@@ -223,9 +223,9 @@ internal static class GroupedPictureWriter
     }
 
     /// <summary>
-    /// Update a picture that lives inside a group shape in place: re-feed its (possibly replaced)
-    /// image data and, if the picture was resized, write the new size back into its child-space
-    /// extent. The surrounding group — its other pictures, connectors and shapes — is left
+    /// Update a picture that lives inside a group shape in place: write its name, re-feed its
+    /// (possibly replaced) image data and, if the picture was resized, write the new size back into
+    /// its child-space extent. The surrounding group — its other pictures, connectors and shapes — is left
     /// untouched. The picture is matched to its <c>xdr:pic</c> element by drawing id, because the
     /// save DOM is an independent re-parse of the package and object references from load don't
     /// survive.
@@ -243,6 +243,10 @@ internal static class GroupedPictureWriter
         if (picElement is null)
             return;
 
+        // The name goes to drawings with the picture's id in the anchor that holds the group, as a
+        // plain picture's goes to drawings in its own anchor.
+        var anchor = picElement.Ancestors().FirstOrDefault(a => a.Parent is Xdr.WorksheetDrawing) ?? picElement;
+        PictureContentWriter.WritePictureName(anchor, picElement, pic.Name);
         RefeedGroupedPictureImage(drawingsPart, pic);
         UpdateGroupedPictureGeometry(picElement, pic, group);
     }
