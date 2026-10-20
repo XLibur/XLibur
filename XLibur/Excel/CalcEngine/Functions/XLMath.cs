@@ -179,9 +179,22 @@ public static class XLMath
             return shifted * coef;
         }
 
-        // Double can store at most 15 digits and anything below that is float artefact
-        return Math.Round(value, (int)Math.Min(digits, 15), MidpointRounding.AwayFromZero);
+        // Double can store at most 15 digits and anything below that is float artefact. A value
+        // this large has no fraction to round, and scaling it could overflow.
+        if (Math.Abs(value) >= 1e16)
+            return value;
+
+        // Scale, round, scale back, as Excel does: 2.15 * 10 is 21.5, so ROUND(2.15, 1) is 2.2.
+        // Math.Round(value, digits, mode) did the same up to .NET 10. From .NET 11 it rounds the
+        // exact binary value, and 2.15 is stored as 2.1499999..., so it gives 2.1.
+        var power10 = Power10[(int)Math.Min(digits, 15)];
+        return Math.Round(value * power10, MidpointRounding.AwayFromZero) / power10;
     }
+
+    private static readonly double[] Power10 =
+    [
+        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15
+    ];
 
     #region Statistical distribution helpers
 

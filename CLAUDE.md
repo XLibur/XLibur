@@ -17,10 +17,11 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 ## Build
 
-- **Target Frameworks:** net8.0, net9.0, net10.0
+- **Target Frameworks:** net8.0, net9.0, net10.0, net11.0 (libraries); tests run on net8.0 and net10.0
+- **SDK:** .NET 11 RC 2 (`11.0.100-rc.2.26504.105`), pinned in `global.json` with prereleases allowed
 - **Nullable Reference Types:** Enabled
 - **Warnings as Errors:** Enabled (TreatWarningsAsErrors=true)
-- **CI:** GitHub Actions with .NET 8.0.x and 10.0.x SDKs
+- **CI:** GitHub Actions with .NET 8.0.x and 10.0.x, plus the .NET 11 RC 2 SDK
 
 ## Versioning
 

@@ -48,7 +48,12 @@ public class XLCellValueTests
     [
         new object[] { 5.875m, 5.875d },
         new object[] { decimal.MaxValue, 7.922816251426434E+28 },
+        // .NET 11 converts a decimal to the nearest double; earlier runtimes are one ulp off here.
+#if NET11_0_OR_GREATER
+        new object[] { 1.0E-28m, 1.0E-28d }
+#else
         new object[] { 1.0E-28m, 1.0000000000000001E-28d }
+#endif
     ];
 
     [Test]
