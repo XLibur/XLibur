@@ -185,6 +185,43 @@ public class SavingTests
         }
     }
 
+    /// <summary>
+    /// A circular reference elsewhere in the workbook does not separate a calculated formula's
+    /// cached value from its type. ClosedXML took the type only when the whole recalculation
+    /// succeeded, so a cycle anywhere wrote a boolean as an untyped <c>1</c> (ClosedXML #2894).
+    /// </summary>
+    [Test]
+    [Arguments("B1>0", "b", "1")]
+    [Arguments("\"x\"&B1", "str", "x5")]
+    [Arguments("1/0", "e", "#DIV/0!")]
+    public async Task SaveCachedValueWithItsTypeWhenAnotherFormulaIsCircular(string formula,
+        string expectedType, string expectedValue)
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("sheet1");
+            ws.Cell("B1").Value = 5;
+            ws.Cell("A1").FormulaA1 = formula;
+            ws.Cell("D1").FormulaA1 = "D2+1";
+            ws.Cell("D2").FormulaA1 = "INDEX(D1:D1,1)*2";
+
+            wb.SaveAs(ms, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+        }
+
+        using var package = SpreadsheetDocument.Open(ms, false);
+        var cells = package.WorkbookPart!.WorksheetParts.Single().Worksheet!
+            .Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>()
+            .ToDictionary(c => c.CellReference!.Value!);
+
+        await Assert.That(cells["A1"].DataType?.InnerText).IsEqualTo(expectedType);
+        await Assert.That(cells["A1"].CellValue?.Text).IsEqualTo(expectedValue);
+
+        // The cycle itself is written with no cached value, so Excel recalculates it on open.
+        await Assert.That(cells["D1"].CellValue).IsNull();
+        await Assert.That(cells["D2"].CellValue).IsNull();
+    }
+
     [Test]
     public async Task CanSaveAsCopyReadOnlyFile()
     {
