@@ -34,7 +34,12 @@ XLibur (core)
 ├── GraphicEngineFontAdapter    — wraps legacy IXLGraphicEngine as IXLFontEngine
 └── LoadOptions.FontEngine      — injection point
 
-XLibur.Fonts.SixLabors.V1
+XLibur.Fonts.PinataLabs           — supersedes XLibur.Fonts.SixLabors.V1
+├── PinataLabsFontEngine         — PinataLabs.Typography (Apache 2.0 fork of SixLabors.Fonts 1.x) implementation
+├── PinataLabsFontBootstrap      — Register() + CreateDefault(); no module initializer, opt-in only
+└── CarlitoBare embedded fonts   — Calibri-compatible metric-only fallback
+
+XLibur.Fonts.SixLabors.V1         — superseded; removed once PinataLabs.Typography ships a stable 1.x
 ├── DefaultFontEngine            — SixLabors.Fonts 1.0.1 implementation
 ├── SixLaborsV1FontBootstrap     — explicit registration API
 ├── CarlitoBare embedded fonts   — Calibri-compatible metric-only fallback

@@ -25,6 +25,14 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **New font engine package `XLibur.Fonts.PinataLabs`.** It is built on [PinataLabs.Typography](https://github.com/PinataLabs/Typography), an Apache 2.0 fork of SixLabors.Fonts 1.x that still receives updates. `PinataLabsFontEngine` has the same members as V1's `DefaultFontEngine`, and a test checks that every measurement is identical to V1's. The package embeds the CarlitoBare fallback fonts. It is opt-in: register it with `PinataLabsFontBootstrap.Register()` or pass it in `LoadOptions.FontEngine`. SkiaSharp remains the default engine ([#835](https://github.com/XLibur/XLibur/issues/835)).
+
+### 🗑️ Deprecations
+
+- **`XLibur.Fonts.SixLabors.V1` is superseded by `XLibur.Fonts.PinataLabs`.** SixLabors.Fonts 1.x no longer receives updates. V1 still ships and works unchanged; its README shows the type renames for migrating. It will be removed once PinataLabs.Typography ships a stable 1.x ([#835](https://github.com/XLibur/XLibur/issues/835)).
+
 ## v0.730.0 - 2026-10-26
 
 ### ✨ New Features

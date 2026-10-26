@@ -1,8 +1,23 @@
 # XLibur.Fonts.SixLabors.V1
 
-The default font engine for [XLibur](https://www.nuget.org/packages/XLibur), providing text measurement and font metrics using [SixLabors.Fonts](https://github.com/SixLabors/Fonts) 1.x (Apache 2.0 licensed).
+> **Superseded by [XLibur.Fonts.PinataLabs](https://www.nuget.org/packages/XLibur.Fonts.PinataLabs).**
+> SixLabors.Fonts 1.x no longer receives updates. XLibur.Fonts.PinataLabs is built on PinataLabs.Typography,
+> a maintained Apache 2.0 fork of SixLabors.Fonts 1.x, and gives the same measurements. This package will be
+> removed in a future release.
 
-This package is automatically included as a dependency of XLibur. You do not need to install it separately unless you want to reference `DefaultFontEngine` directly.
+A font engine for [XLibur](https://www.nuget.org/packages/XLibur), providing text measurement and font metrics using [SixLabors.Fonts](https://github.com/SixLabors/Fonts) 1.x (Apache 2.0 licensed).
+
+## Migrating to XLibur.Fonts.PinataLabs
+
+Replace the package reference, then rename the types:
+
+| XLibur.Fonts.SixLabors.V1 | XLibur.Fonts.PinataLabs |
+| --- | --- |
+| `using XLibur.Fonts.SixLabors.V1;` | `using XLibur.Fonts.PinataLabs;` |
+| `DefaultFontEngine` | `PinataLabsFontEngine` |
+| `SixLaborsV1FontBootstrap.Register()` | `PinataLabsFontBootstrap.Register()` |
+
+The constructor and the `Instance`, `CreateOnlyWithFonts` and `CreateWithFontsAndSystemFonts` members are unchanged. XLibur.Fonts.PinataLabs has no module initializer: call `PinataLabsFontBootstrap.Register()` explicitly if you relied on this package registering itself when its assembly loaded.
 
 ## Upgrading to SixLabors.Fonts 2.x
 
