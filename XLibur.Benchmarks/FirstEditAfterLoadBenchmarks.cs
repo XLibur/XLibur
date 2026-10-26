@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -39,7 +39,7 @@ public class FirstEditAfterLoadBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         const string sharedSuffix = "shared";
         var shared = Shape.EndsWith(sharedSuffix, StringComparison.Ordinal);

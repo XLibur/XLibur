@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -35,7 +35,7 @@ public class GroupedPictureSaveBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _source = Fixture(Pictures);
     }
 

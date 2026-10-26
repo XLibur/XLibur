@@ -16,5 +16,5 @@
   <Project Path="XLibur/XLibur.csproj" />
   <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
-  <Project Path="XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj" />
+  <Project Path="XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
 </Solution>

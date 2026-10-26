@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -45,7 +45,7 @@ public class TemplateRoundTripBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _template = TemplateFixture.Build(SheetCount, DefinedNames, Validations, dataRows: 0);
         // Two sheets: the data sheet under measurement plus the one lookup sheet the defined name
         // spans. This asked for one sheet until the fixture's sheet count was corrected, and got

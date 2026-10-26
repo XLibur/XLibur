@@ -23,4 +23,4 @@ Shows how to configure `SixLaborsFontEngine` as the font engine for a workbook:
 
 ## Why a separate project?
 
-The core `XLibur` package uses SixLabors.Fonts 1.0.1 (via `XLibur.Fonts.SixLabors.V1`), while `XLibur.Fonts.SixLabors` uses version 2.1.3. Keeping the examples in a separate project avoids mixing both versions in the same dependency graph.
+`XLibur.Fonts.SixLabors` uses SixLabors.Fonts 2.1.3, which is under the Six Labors Split License. Keeping the examples in a separate project keeps that dependency out of the main examples.

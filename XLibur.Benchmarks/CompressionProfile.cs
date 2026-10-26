@@ -5,7 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using XLibur.Excel;
 using XLibur.Excel.Streaming;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -52,7 +52,7 @@ public static class CompressionProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         var data = BenchmarkData.Create(RowCount);
 
         Console.WriteLine();

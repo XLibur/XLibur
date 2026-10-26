@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -41,7 +41,7 @@ public class SheetGeometryBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         _unique = new string[Cells];
         for (var i = 0; i < Cells; i++)

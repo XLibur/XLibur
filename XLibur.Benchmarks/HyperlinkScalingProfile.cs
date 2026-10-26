@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -34,7 +34,7 @@ public static class HyperlinkScalingProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         // Warm the paths so the smallest count does not absorb JIT.
         Add(1_000);

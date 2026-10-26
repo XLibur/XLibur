@@ -10,7 +10,7 @@ using JetBrains.Profiler.SelfApi;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -28,7 +28,7 @@ public static class FirstEditProfile
 {
     public static void Run(string[] args)
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         var rows = args.Length > 2 ? int.Parse(args[2]) : 25_000;
         var formulasPerRow = args.Length > 3 ? int.Parse(args[3]) : 8;
         var formulas = rows * formulasPerRow;

@@ -34,7 +34,7 @@ using var wb = new XLWorkbook(options);
 
 ## When to install the pieces separately
 
-- You want a different font engine (e.g. `XLibur.Fonts.SixLabors.V1` for SixLabors.Fonts 1.x, or `XLibur.Fonts.SixLabors` for 2.x), in which case install `XLibur` plus the engine of your choice.
+- You want a different font engine (e.g. `XLibur.Fonts.PinataLabs` for a pure-managed engine that matches ClosedXML's, or `XLibur.Fonts.SixLabors` for 2.x), in which case install `XLibur` plus the engine of your choice.
 - You're a library author and don't want to force a font-engine choice on downstream consumers — depend only on `XLibur`.
 
 ## Documentation

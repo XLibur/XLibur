@@ -4,7 +4,7 @@ using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Streaming;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -33,7 +33,7 @@ public class StreamingWriteBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         var data = BenchmarkData.Create(RowCount);
         _strings = data.Strings;
         _numbers = data.Numbers;
@@ -90,7 +90,7 @@ public static class StreamingMemoryProfile
 
     public static void Run(string[] args)
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         var rowCount = args.Length > 2 && int.TryParse(args[2], out var parsed) ? parsed : DefaultRowCount;
         Console.WriteLine($"Streaming write: {rowCount:N0} rows x {ColumnCount} cols");

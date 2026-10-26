@@ -3,7 +3,7 @@ using System.Linq;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
 using XLibur.Excel.Coordinates;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -62,7 +62,7 @@ public class UsedCellEnumerationBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         _workbook = new XLWorkbook();
         _sheet = (XLWorksheet)_workbook.AddWorksheet("Data");

@@ -1,14 +1,14 @@
 using System;
 using XLibur.Excel;
 using XLibur.Graphics;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Graphics;
 
 public class FontTests
 {
-    private readonly IXLGraphicEngine _engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
+    private readonly IXLGraphicEngine _engine = new DefaultGraphicEngine(PinataLabsFontEngine.Instance.Value);
 
     [Test]
     [Arguments]
@@ -68,7 +68,7 @@ public class FontTests
     public async Task UseEmbeddedFontWhenFallbackFontIsNotPresent()
     {
         var nonExistentFont = new DummyFont("SomeNonExistentFont", 11);
-        var fontEngine = new DefaultFontEngine("NonExistentFallbackFont");
+        var fontEngine = new PinataLabsFontEngine("NonExistentFallbackFont");
         Span<int> text = ['8'];
 
         var box = fontEngine.GetGlyphBox(text, nonExistentFont, new Dpi(96, 96));
@@ -82,7 +82,7 @@ public class FontTests
     public async Task CanSpecifyFallbackFontWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
-        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
+        var fontEngine = PinataLabsFontEngine.CreateOnlyWithFonts(fallbackFontStream);
 
         var nonExistentFont = new DummyFont("Nonexistent Font", 20);
         var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
@@ -97,7 +97,7 @@ public class FontTests
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
         var fontBStream = TestHelper.GetStreamFromResource("Fonts.TestFontB.ttf");
-        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream, fontBStream);
+        var fontEngine = PinataLabsFontEngine.CreateOnlyWithFonts(fallbackFontStream, fontBStream);
 
         var widthOfLetterB = fontEngine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
 
@@ -121,7 +121,7 @@ public class FontTests
     [Test]
     public async Task DefaultFontEngine_CanBeUsedDirectly()
     {
-        var fontEngine = DefaultFontEngine.Instance.Value;
+        var fontEngine = PinataLabsFontEngine.Instance.Value;
         var textFont = new DummyFont("Calibri", 11);
         var textWidthPx = fontEngine.GetMaxDigitWidth(textFont, 96);
         await Assert.That(textWidthPx).IsEqualTo(7.43359375d);
@@ -131,7 +131,7 @@ public class FontTests
     public async Task DefaultFontEngine_CanSpecifyFallbackFontWithoutFileSystem()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
-        var fontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
+        var fontEngine = PinataLabsFontEngine.CreateOnlyWithFonts(fallbackFontStream);
 
         var nonExistentFont = new DummyFont("Nonexistent Font", 20);
         var widthOfLetterA = fontEngine.GetTextWidth("A", nonExistentFont, 120);
@@ -144,7 +144,7 @@ public class FontTests
     public async Task FontEngine_CanBeInjectedViaLoadOptions()
     {
         using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
-        var customFontEngine = DefaultFontEngine.CreateOnlyWithFonts(fallbackFontStream);
+        var customFontEngine = PinataLabsFontEngine.CreateOnlyWithFonts(fallbackFontStream);
 
         var loadOptions = new LoadOptions { FontEngine = customFontEngine };
         using var wb = new XLWorkbook(loadOptions);

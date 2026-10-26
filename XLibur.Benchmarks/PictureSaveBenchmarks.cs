@@ -1,7 +1,7 @@
 using System.IO;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -34,7 +34,7 @@ public class PictureSaveBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _source = KeptAnchorScalingProfile.WithEditAs(KeptAnchorScalingProfile.Fixture(Rows, Pictures), EditAs);
     }
 

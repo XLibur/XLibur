@@ -1,7 +1,7 @@
 using System;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -57,7 +57,7 @@ public class CellStylingBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         _dates = new DateTime[Rows];
         var start = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Unspecified);

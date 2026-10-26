@@ -2,7 +2,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using XLibur.Excel.Drawings;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 using XLibur.Graphics;
 using System.Threading.Tasks;
 
@@ -223,7 +223,7 @@ public class PictureInfoTests
     private static async Task AssertImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, Size expectedHiMetricSize, double expectedDpiX, double expectedDpiY)
     {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"XLibur.Tests.Resource.Images.{imageName}");
-        var engine = new DefaultGraphicEngine(DefaultFontEngine.Instance.Value);
+        var engine = new DefaultGraphicEngine(PinataLabsFontEngine.Instance.Value);
         var info = engine.GetPictureInfo(stream!, XLPictureFormat.Unknown);
 
         await Assert.That(info.Format).IsEqualTo(expectedFormat);

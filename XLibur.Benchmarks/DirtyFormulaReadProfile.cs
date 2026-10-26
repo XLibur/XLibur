@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -56,7 +56,7 @@ public static class DirtyFormulaReadProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         Console.WriteLine();
         Console.WriteLine($"Reading dirty formula cells from a freshly loaded workbook, {Rows:N0} formulas.");

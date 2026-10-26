@@ -2,7 +2,7 @@
 
 An optional font engine for [XLibur](https://www.nuget.org/packages/XLibur) that uses [PinataLabs.Typography](https://github.com/PinataLabs/Typography) for text measurement and font metrics.
 
-PinataLabs.Typography is a maintained fork of SixLabors.Fonts 1.x, under the Apache 2.0 license. This package supersedes `XLibur.Fonts.SixLabors.V1`: it has the same API and gives the same measurements, and its dependency still receives updates.
+PinataLabs.Typography is a maintained fork of SixLabors.Fonts 1.x, under the Apache 2.0 license. This package replaces `XLibur.Fonts.SixLabors.V1`, which is no longer published: it has the same API and gives the same measurements, and its dependency still receives updates.
 
 ## Installation
 

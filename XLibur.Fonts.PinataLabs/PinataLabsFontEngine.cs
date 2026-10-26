@@ -13,8 +13,8 @@ namespace XLibur.Fonts.PinataLabs;
 /// Implementation of <see cref="IXLFontEngine"/> that uses PinataLabs.Typography for font metrics and text measurement.
 /// </summary>
 /// <remarks>
-/// PinataLabs.Typography is a maintained fork of SixLabors.Fonts 1.x, and this engine measures exactly as
-/// <c>DefaultFontEngine</c> from <c>XLibur.Fonts.SixLabors.V1</c> does.
+/// PinataLabs.Typography is a maintained fork of SixLabors.Fonts 1.x, and this engine replaces
+/// <c>DefaultFontEngine</c> from the removed <c>XLibur.Fonts.SixLabors.V1</c>, measuring exactly as it did.
 /// </remarks>
 public class PinataLabsFontEngine : IXLFontEngine
 {

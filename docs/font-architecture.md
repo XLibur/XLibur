@@ -34,16 +34,10 @@ XLibur (core)
 ├── GraphicEngineFontAdapter    — wraps legacy IXLGraphicEngine as IXLFontEngine
 └── LoadOptions.FontEngine      — injection point
 
-XLibur.Fonts.PinataLabs           — supersedes XLibur.Fonts.SixLabors.V1
+XLibur.Fonts.PinataLabs           — replaced XLibur.Fonts.SixLabors.V1 (#835)
 ├── PinataLabsFontEngine         — PinataLabs.Typography (Apache 2.0 fork of SixLabors.Fonts 1.x) implementation
 ├── PinataLabsFontBootstrap      — Register() + CreateDefault(); no module initializer, opt-in only
 └── CarlitoBare embedded fonts   — Calibri-compatible metric-only fallback
-
-XLibur.Fonts.SixLabors.V1         — superseded; removed once PinataLabs.Typography ships a stable 1.x
-├── DefaultFontEngine            — SixLabors.Fonts 1.0.1 implementation
-├── SixLaborsV1FontBootstrap     — explicit registration API
-├── CarlitoBare embedded fonts   — Calibri-compatible metric-only fallback
-└── ModuleInit                   — auto-registers if assembly is loaded
 
 XLibur.Fonts.SixLabors
 ├── SixLaborsFontEngine          — SixLabors.Fonts 2.1.3 implementation
@@ -87,7 +81,7 @@ column of an Aptos Narrow workbook about 10% too wide (#793).
 The core cannot reference any font package at compile time (that would create a circular dependency and reintroduce library lock-in). Registration therefore happens at runtime, and there are three layers, checked cheapest-first:
 
 1. **Explicit per-workbook** — `LoadOptions.FontEngine`.
-2. **Explicit global** — `LoadOptions.DefaultFontEngine`, typically set by a package bootstrap such as `SkiaSharpFontBootstrap.Register()` or `SixLaborsV1FontBootstrap.Register()`. Each bootstrap uses `??=`, so the first registration wins.
+2. **Explicit global** — `LoadOptions.DefaultFontEngine`, typically set by a package bootstrap such as `SkiaSharpFontBootstrap.Register()` or `PinataLabsFontBootstrap.Register()`. Each bootstrap uses `??=`, so the first registration wins.
 3. **Auto-registered default (zero-config)** — if nothing above is set, core reflectively locates the default engine package.
 
 **Auto-registration (the default path).** `XLibur.Fonts.SkiaSharp` is the default engine. When it (or the `XLibur.Bundle` meta-package) is referenced, a plain `new XLWorkbook()` just works with no startup call. This is handled by `DefaultFontEngineProbe` in core: on first workbook creation with no engine registered, it does `Assembly.Load("XLibur.Fonts.SkiaSharp")`, finds `SkiaSharpFontBootstrap.CreateDefault()`, invokes it, and caches the result. Because the probe is consulted *after* both explicit layers, any explicit registration always overrides the default.
@@ -105,8 +99,8 @@ If no font engine can be resolved by any of the three layers (e.g. bare `XLibur`
 Users configure font engines through `LoadOptions`:
 
 ```csharp
-// Register V1 at startup, then use XLibur normally
-SixLaborsV1FontBootstrap.Register();
+// Register PinataLabs at startup, then use XLibur normally
+PinataLabsFontBootstrap.Register();
 using var wb = new XLWorkbook();
 
 // Or use SixLabors.Fonts 2.x explicitly
@@ -138,7 +132,7 @@ FontEngine =
 
 The `GraphicEngineFontAdapter` ensures backward compatibility: a custom `IXLGraphicEngine` that doesn't implement `IXLFontEngine` still has its font methods used (since `IXLGraphicEngine` has the same 5 method signatures).
 
-When a `FontEngine` is explicitly provided but no `GraphicEngine` is set, the workbook creates `new DefaultGraphicEngine(fontEngine)` — avoiding the V1 assembly load for the graphic engine's font needs.
+When a `FontEngine` is explicitly provided but no `GraphicEngine` is set, the workbook creates `new DefaultGraphicEngine(fontEngine)`, so the graphic engine measures with the same font engine.
 
 ### Versioning
 
@@ -163,13 +157,16 @@ published in the same run. The release workflow verifies this before pushing to 
 
 | Test project | References | SixLabors version | What it tests |
 |---|---|---|---|
-| XLibur.Tests | XLibur + V1 | 1.0.1 only | DefaultFontEngine, DefaultGraphicEngine, font injection via LoadOptions |
+| XLibur.Tests | XLibur + XLibur.Fonts.PinataLabs | PinataLabs.Typography (fork of 1.0.1) | PinataLabsFontEngine, DefaultGraphicEngine, font injection via LoadOptions |
+| XLibur.Fonts.PinataLabs.Tests | XLibur.Fonts.PinataLabs (transitive XLibur) | PinataLabs.Typography | PinataLabsFontEngine with embedded test fonts, and the bootstrap |
 | XLibur.Fonts.SixLabors.Tests | XLibur.Fonts.SixLabors (transitive XLibur) | 2.1.3 only | SixLaborsFontEngine with embedded test fonts (no system fonts needed for CI) |
 | XLibur.Fonts.SkiaSharp.Tests | XLibur.Fonts.SkiaSharp (transitive XLibur) | SkiaSharp 3.x | SkiaSharpFontEngine with embedded test fonts (no system fonts needed for CI) |
 
-The test projects never reference both V1 and the v2 package, eliminating DLL version conflicts entirely. The SixLabors test project uses stream-based `TestFontA.ttf` as its default engine so tests pass on Linux CI without system fonts.
+No test project references SixLabors.Fonts 2.x together with another font engine. PinataLabs.Typography uses its own namespace and assembly name, so it cannot conflict with SixLabors.Fonts at all. The SixLabors test project uses stream-based `TestFontA.ttf` as its default engine so tests pass on Linux CI without system fonts.
 
 ## Key Decisions and Rationale
+
+Some of the decisions below name `XLibur.Fonts.SixLabors.V1`, `DefaultFontEngine` and `SixLaborsV1FontBootstrap`. They were removed in #835, and `XLibur.Fonts.PinataLabs` (`PinataLabsFontEngine`, `PinataLabsFontBootstrap`) took their place: SixLabors.Fonts 1.x no longer gets updates, and PinataLabs.Typography is a maintained Apache 2.0 fork of it that measures the same.
 
 **Why not remove SixLabors.Fonts from the ecosystem entirely?**
 SixLabors.Fonts 1.0.1 is battle-tested, Apache 2.0 licensed, and provides accurate metrics for hundreds of fonts. A from-scratch font parser would be a massive effort with questionable benefit.
@@ -181,7 +178,7 @@ If both V1 (1.0.1) and V2 (2.1.3) packages exist and a consumer installs both, N
 The original design made explicit `SixLaborsV1FontBootstrap.Register()` the primary path and treated auto-registration as a fragile nice-to-have. In practice that meant every consumer had to add a startup call, and the "install the Bundle and it just works" promise was broken (the Bundle has no code, so nothing forced the engine assembly to load — see below). To deliver true zero-config while keeping the core font-library-agnostic, core now performs a single targeted reflective load of the default package (`DefaultFontEngineProbe`). This is deliberately narrower and more robust than the earlier rejected approach: it uses `Assembly.Load(AssemblyName)` through the host's standard resolver (not `LoadFromAssemblyPath` + `BaseDirectory` path guessing), hardcodes one well-known package name, and is consulted only after both explicit registration layers so it never overrides an explicit choice. Explicit `Register()` and `LoadOptions.FontEngine` remain fully supported and always win.
 
 **Why not rely on the font package's `[ModuleInitializer]`?**
-A module initializer only runs when the CLR loads that assembly's module, which happens lazily — the first time a type in it is touched. Zero-config usage (`new XLWorkbook()`) touches only core types, so the engine assembly is never loaded and its initializer never fires. Merely referencing the engine (directly or transitively via the Bundle) does not force a load. The core-side probe is the only mechanism that reliably runs for zero-config consumers, because core is always loaded. The V1 package retains its module initializer for backward compatibility; SkiaSharp relies on the core probe instead.
+A module initializer only runs when the CLR loads that assembly's module, which happens lazily — the first time a type in it is touched. Zero-config usage (`new XLWorkbook()`) touches only core types, so the engine assembly is never loaded and its initializer never fires. Merely referencing the engine (directly or transitively via the Bundle) does not force a load. The core-side probe is the only mechanism that reliably runs for zero-config consumers, because core is always loaded. The V1 package kept its module initializer for backward compatibility until it was removed; SkiaSharp relies on the core probe, and PinataLabs is registered explicitly.
 
 **Why does `DefaultGraphicEngine` only accept `IXLFontEngine` (no string constructor)?**
 The original `DefaultGraphicEngine(string fallbackFont)` constructor, `Instance` singleton, and `CreateOnlyWithFonts`/`CreateWithFontsAndSystemFonts` factory methods all internally created a `DefaultFontEngine` — which lives in the V1 assembly. Since the core can't reference V1 (circular dependency), those constructors required an internal factory delegation system (`DefaultFontEngineFactory`) bridged via `InternalsVisibleTo`. This created two parallel global registration paths that could get out of sync. Removing the factory-dependent constructors eliminates the entire internal factory system. Consumers who need a `DefaultGraphicEngine` pass in the font engine explicitly: `new DefaultGraphicEngine(new DefaultFontEngine("Arial"))`. Most consumers don't create `DefaultGraphicEngine` directly — they call `SixLaborsV1FontBootstrap.Register()` and use `new XLWorkbook()`.

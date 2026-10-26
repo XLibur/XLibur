@@ -43,8 +43,7 @@ core stays font-library-agnostic.
 | Package | Font library | Licence | Notes |
 |---|---|---|---|
 | `XLibur.Fonts.SkiaSharp` | SkiaSharp | MIT | **Default.** Auto-registers. Ships native binaries. |
-| `XLibur.Fonts.PinataLabs` | PinataLabs.Typography | Apache 2.0 | Pure-managed. A maintained fork of SixLabors.Fonts 1.x; measures exactly as V1. |
-| `XLibur.Fonts.SixLabors.V1` | SixLabors.Fonts 1.x | Apache 2.0 | Superseded by `XLibur.Fonts.PinataLabs`. Matches ClosedXML 0.105's engine exactly. |
+| `XLibur.Fonts.PinataLabs` | PinataLabs.Typography | Apache 2.0 | Pure-managed. A maintained fork of SixLabors.Fonts 1.x; matches ClosedXML 0.105's engine exactly. Replaces the removed `XLibur.Fonts.SixLabors.V1`. |
 | `XLibur.Fonts.SixLabors` | SixLabors.Fonts 2.x | Six Labors Split License | Commercial restrictions above $1M revenue. |
 
 Measurement parity between SkiaSharp and SixLabors was verified at **0% metric drift** across
@@ -58,10 +57,10 @@ width, descent, height, and max-digit-width — switching engines does not chang
   per-platform native binaries.
 - **PinataLabs.Typography** — pure managed, no native dependency. Choose this if you are
   migrating from ClosedXML and want byte-identical behaviour, or if native binaries are a
-  problem in your deployment. It replaces the SixLabors.Fonts 1.x engine, whose library no
-  longer gets updates; the API and the measurements are the same.
-- **SixLabors.Fonts 1.x** — superseded by PinataLabs.Typography, and will be removed once
-  PinataLabs.Typography ships a stable 1.x.
+  problem in your deployment. It replaces `XLibur.Fonts.SixLabors.V1`, whose SixLabors.Fonts
+  1.x library no longer gets updates; the API and the measurements are the same, so moving
+  over means renaming `DefaultFontEngine` to `PinataLabsFontEngine` and
+  `SixLaborsV1FontBootstrap` to `PinataLabsFontBootstrap`.
 - **SixLabors.Fonts 2.x** — only if you specifically need 2.x features and the Split License
   is acceptable for your organisation.
 
@@ -139,7 +138,6 @@ new SkiaSharpFontEngine("Arial");
 new SkiaSharpFontEngine("Microsoft Sans Serif");   // the default engine's choice
 new SixLaborsFontEngine("Segoe UI");
 new PinataLabsFontEngine("Microsoft Sans Serif");
-new DefaultFontEngine("Microsoft Sans Serif");     // SixLabors 1.x
 ```
 
 Pick something metrically close to what your workbooks actually use. A wildly different
@@ -151,7 +149,7 @@ Docker images, Azure Functions, and AWS Lambda typically have no system fonts. T
 
 ### Rely on the embedded fallback
 
-`XLibur.Fonts.SkiaSharp`, `XLibur.Fonts.PinataLabs` and `XLibur.Fonts.SixLabors.V1` all embed *CarlitoBare* — a
+`XLibur.Fonts.SkiaSharp` and `XLibur.Fonts.PinataLabs` both embed *CarlitoBare* — a
 metric-only, Calibri-compatible font. Because it matches Calibri's metrics, column widths come
 out correct for the default Excel font even with nothing installed on the box. This is the
 zero-config path and needs no code.
@@ -203,7 +201,7 @@ using var bold = assembly.GetManifestResourceStream("MyApp.Fonts.Inter-Bold.ttf"
 var engine = SkiaSharpFontEngine.CreateOnlyWithFonts(fallback, bold);
 ```
 
-The same API exists on `PinataLabsFontEngine`, `SixLaborsFontEngine` (2.x) and `DefaultFontEngine` (1.x):
+The same API exists on `PinataLabsFontEngine` and `SixLaborsFontEngine` (2.x):
 
 ```csharp
 using XLibur.Fonts.PinataLabs;

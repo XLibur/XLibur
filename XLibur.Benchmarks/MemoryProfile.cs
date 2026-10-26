@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using JetBrains.Profiler.SelfApi;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -26,7 +26,7 @@ public static class MemoryProfile
 
     public static void Run(string[] args)
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         var mode = args.Length > 1 ? args[1].ToLowerInvariant() : "both";
         var outputDir = args.Length > 2 ? args[2] : @"C:\profiles";
 

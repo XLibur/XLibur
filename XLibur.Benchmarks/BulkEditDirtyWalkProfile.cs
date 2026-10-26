@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -24,7 +24,7 @@ public static class BulkEditDirtyWalkProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         RunProbe(("warmup", () => EditRootsWithDependents(chains: 10, depth: 5, edits: 1_000), 1));
 

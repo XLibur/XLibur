@@ -25,13 +25,13 @@
 
 ## Unreleased
 
+### ⚠️ Breaking Changes
+
+- **`XLibur.Fonts.SixLabors.V1` is removed; use `XLibur.Fonts.PinataLabs`.** SixLabors.Fonts 1.x no longer receives updates. Replace the package reference, then rename the types: `using XLibur.Fonts.SixLabors.V1;` → `using XLibur.Fonts.PinataLabs;`, `DefaultFontEngine` → `PinataLabsFontEngine`, `SixLaborsV1FontBootstrap` → `PinataLabsFontBootstrap`. The constructor and the `Instance`, `CreateOnlyWithFonts` and `CreateWithFontsAndSystemFonts` members are unchanged, and measurements are identical. The new package has no module initializer, so call `PinataLabsFontBootstrap.Register()` if you relied on V1 registering itself when its assembly loaded. Versions of V1 already published stay on NuGet ([#835](https://github.com/XLibur/XLibur/issues/835)).
+
 ### ✨ New Features
 
-- **New font engine package `XLibur.Fonts.PinataLabs`.** It is built on [PinataLabs.Typography](https://github.com/PinataLabs/Typography), an Apache 2.0 fork of SixLabors.Fonts 1.x that still receives updates. `PinataLabsFontEngine` has the same members as V1's `DefaultFontEngine`, and a test checks that every measurement is identical to V1's. The package embeds the CarlitoBare fallback fonts. It is opt-in: register it with `PinataLabsFontBootstrap.Register()` or pass it in `LoadOptions.FontEngine`. SkiaSharp remains the default engine ([#835](https://github.com/XLibur/XLibur/issues/835)).
-
-### 🗑️ Deprecations
-
-- **`XLibur.Fonts.SixLabors.V1` is superseded by `XLibur.Fonts.PinataLabs`.** SixLabors.Fonts 1.x no longer receives updates. V1 still ships and works unchanged; its README shows the type renames for migrating. It will be removed once PinataLabs.Typography ships a stable 1.x ([#835](https://github.com/XLibur/XLibur/issues/835)).
+- **New font engine package `XLibur.Fonts.PinataLabs`.** It is built on [PinataLabs.Typography](https://github.com/PinataLabs/Typography), an Apache 2.0 fork of SixLabors.Fonts 1.x that still receives updates. `PinataLabsFontEngine` is a port of V1's `DefaultFontEngine` with the same members. Before V1 was removed, a test compared every measurement with V1's and found them identical, and the core test suite, whose expected widths were set with V1, now passes on PinataLabs. The package embeds the CarlitoBare fallback fonts. It is opt-in: register it with `PinataLabsFontBootstrap.Register()` or pass it in `LoadOptions.FontEngine`. SkiaSharp remains the default engine ([#835](https://github.com/XLibur/XLibur/issues/835)).
 
 ## v0.730.0 - 2026-10-26
 

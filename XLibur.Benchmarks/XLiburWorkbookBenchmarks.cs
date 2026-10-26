@@ -4,7 +4,7 @@ using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnostics.dotTrace;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -24,7 +24,7 @@ public class XLiburWorkbookBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _data = BenchmarkData.Create(RowCount);
         _strings = _data.Strings;
         _numbers = _data.Numbers;

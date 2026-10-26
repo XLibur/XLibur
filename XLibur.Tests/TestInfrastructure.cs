@@ -28,7 +28,7 @@ public static class TestDefaults
     [Before(HookType.Assembly)]
     public static void GlobalSetup()
     {
-        Fonts.SixLabors.V1.SixLaborsV1FontBootstrap.Register();
+        Fonts.PinataLabs.PinataLabsFontBootstrap.Register();
         SetCulture(DefaultCulture);
     }
 

@@ -2,7 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -26,7 +26,7 @@ public class RoundTripCompressionBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _propertiesBytes = PropertiesFixture.Load();
     }
 

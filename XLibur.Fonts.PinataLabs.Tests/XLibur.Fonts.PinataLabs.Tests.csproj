@@ -26,9 +26,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" />
-    <!-- Only for V1ParityTests, which checks the engine measures exactly as V1 does. Remove both with V1. -->
-    <ProjectReference Include="..\XLibur.Fonts.SixLabors.V1\XLibur.Fonts.SixLabors.V1.csproj" />
-  </ItemGroup>
+    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" />  </ItemGroup>
 
 </Project>

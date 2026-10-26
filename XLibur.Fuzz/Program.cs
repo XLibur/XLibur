@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using SharpFuzz;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Fuzz;
 
@@ -41,31 +41,29 @@ internal static class Program
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Nothing in this program may name <c>XLibur.Fonts.SixLabors.V1</c> from a method that
-    /// runs before <see cref="Fuzzer.LibFuzzer"/> starts.</b> That is a hard constraint, not a
-    /// style preference, and it is why registration sits inside the callback rather than at the
-    /// top of <c>Main</c>.
+    /// <b>Nothing in this program may call <c>PinataLabsFontBootstrap.Register()</c> before
+    /// <see cref="Fuzzer.LibFuzzer"/> starts.</b> That is a hard constraint, not a style
+    /// preference, and it is why registration sits inside the callback rather than at the top of
+    /// <c>Main</c>.
     /// </para>
     /// <para>
-    /// That assembly carries a <c>[ModuleInitializer]</c> which registers the font engine as soon
-    /// as the assembly loads, and registering reads <c>LoadOptions.DefaultFontEngine</c> — code
-    /// inside <c>XLibur.dll</c>, which SharpFuzz has rewritten to report coverage. The rewritten
-    /// code dereferences a trace buffer that <c>Fuzzer.LibFuzzer.Run</c> is what allocates. Load
-    /// the fonts assembly first and the process dies during module initialisation, before a
-    /// single input is fuzzed:
+    /// Registering reads <c>LoadOptions.DefaultFontEngine</c> — code inside <c>XLibur.dll</c>,
+    /// which SharpFuzz has rewritten to report coverage. The rewritten code dereferences a trace
+    /// buffer that <c>Fuzzer.LibFuzzer.Run</c> is what allocates. Register first and the process
+    /// dies before a single input is fuzzed:
     /// </para>
     /// <code>
-    /// TypeInitializationException -> NullReferenceException
+    /// NullReferenceException
     ///   at XLibur.Excel.LoadOptions.get_DefaultFontEngine()
-    ///   at SixLaborsV1FontBootstrap.Register()
-    ///   at ModuleInit.Initialize()
+    ///   at PinataLabsFontBootstrap.Register()
     /// </code>
     /// <para>
-    /// The trap is that a <em>reference</em> is enough — the branch need never execute. An earlier
-    /// version put the callback registration in exactly the right place but still called
-    /// <c>Register()</c> in <c>Main</c>'s replay branch, and JIT-compiling <c>Main</c> loaded the
-    /// assembly anyway. Hence the split into separate methods, and hence <c>NoInlining</c>: if
-    /// this body were inlined back into <c>Main</c>, the reference would return with it.
+    /// The engine this program used before, <c>XLibur.Fonts.SixLabors.V1</c>, made it worse: a
+    /// <c>[ModuleInitializer]</c> registered as soon as its assembly loaded, so a mere
+    /// <em>reference</em> in <c>Main</c> crashed the process, because JIT-compiling <c>Main</c>
+    /// loaded the assembly. <c>XLibur.Fonts.PinataLabs</c> has no module initializer, but the
+    /// split into separate methods and <c>NoInlining</c> are kept so the call cannot drift back
+    /// into <c>Main</c>.
     /// </para>
     /// <para>
     /// Failure is near-silent. libFuzzer sees only an exit code and then waits for a target that
@@ -82,7 +80,7 @@ internal static class Program
         {
             if (!fontEngineRegistered)
             {
-                SixLaborsV1FontBootstrap.Register();
+                PinataLabsFontBootstrap.Register();
                 fontEngineRegistered = true;
             }
 
@@ -100,10 +98,9 @@ internal static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int Replay(string target, string path)
     {
-        // Safe here, and only here: replay runs an uninstrumented build, so loading the fonts
-        // assembly touches no rewritten XLibur code. See the remarks on Fuzz for why this call
-        // cannot be hoisted into Main, even into a branch that never executes.
-        SixLaborsV1FontBootstrap.Register();
+        // Safe here, and only here: replay runs an uninstrumented build, so registering touches
+        // no rewritten XLibur code. See the remarks on Fuzz for why this call stays out of Main.
+        PinataLabsFontBootstrap.Register();
 
         var files = Directory.Exists(path)
             ? Directory.GetFiles(path).OrderBy(f => f, StringComparer.Ordinal).ToArray()

@@ -3,7 +3,7 @@
     <PropertyGroup>
         <TargetFrameworks>net10.0;net8.0;net9.0;net11.0</TargetFrameworks>
         <RootNamespace>XLibur.Fonts.PinataLabs</RootNamespace>
-        <Description>PinataLabs.Typography implementation of IXLFontEngine for XLibur. PinataLabs.Typography is a maintained, Apache 2.0 fork of SixLabors.Fonts 1.x; this package supersedes XLibur.Fonts.SixLabors.V1.</Description>
+        <Description>PinataLabs.Typography implementation of IXLFontEngine for XLibur. PinataLabs.Typography is a maintained, Apache 2.0 fork of SixLabors.Fonts 1.x; this package replaces XLibur.Fonts.SixLabors.V1.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
         <PackageTags>Excel OpenXml xlsx Font PinataLabs Typography</PackageTags>
     </PropertyGroup>
