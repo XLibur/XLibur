@@ -744,10 +744,10 @@ internal static class Lookup
         var colon = span.IndexOf(':');
         if (colon >= 0)
         {
-            return string.Concat(
-                span[..colon].TrimEnd(tokenWhitespace),
-                ":",
-                span[(colon + 1)..].TrimStart(tokenWhitespace));
+            var first = span[..colon].TrimEnd(tokenWhitespace);
+            var second = span[(colon + 1)..].TrimStart(tokenWhitespace);
+            if (first.Length + 1 + second.Length != addressText.Length)
+                return string.Concat(first, ":", second);
         }
 
         return span.Length == addressText.Length ? addressText : span.ToString();
