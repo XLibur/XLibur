@@ -567,15 +567,15 @@ internal static partial class XLCellFormulaShifter
     private static partial Regex A1ColumnRegexGenerated();
 
     /// <summary>
-    /// The reference finder. Unlike <see cref="XLHelper.A1SimpleRegex"/>, which is anchored and asks
+    /// The reference finder. Unlike <see cref="XLHelper.IsValidRangeAddress(string)"/>, which asks
     /// whether a whole string is one range address, this one scans a formula for every reference in it,
-    /// so it is unanchored and guards the bare A1 form with word boundaries instead. The two cannot be
-    /// one regex for that reason; the quoted sheet-name alternative they do share is
+    /// so it is unanchored and guards the bare A1 form with word boundaries instead. The two cannot
+    /// share one pattern for that reason; the quoted sheet-name alternative they have in common is
     /// <see cref="XLHelper.QuotedSheetNamePattern"/>, defined once (#570, and #524 before it).
     /// </summary>
     /// <remarks>
     /// The unquoted alternative keeps its optional apostrophes, where
-    /// <see cref="XLHelper.A1SimpleRegex"/> dropped them for #560. Here they are what consumes the
+    /// <see cref="XLHelper.IsValidRangeAddress(string)"/> dropped them for #560. Here they are what consumes the
     /// trailing apostrophe of an external workbook reference: <c>'[file.xlsx]Sheet'!A1</c> matches as
     /// <c>Sheet'!A1</c>, whose sheet name matches no real sheet, so the reference is left alone.
     /// Narrowing this to <c>\w+</c> would leave a bare <c>A1</c> to match on its own, which the shifter

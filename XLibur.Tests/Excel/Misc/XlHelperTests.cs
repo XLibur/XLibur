@@ -118,6 +118,174 @@ public class XlHelperTests
     }
 
     [Test]
+    [Arguments("A1\n")]
+    [Arguments("Data!A1:B2\n")]
+    [Arguments("'Bob''s'!$A:$A\n")]
+    [Arguments("1:1\n")]
+    [Arguments("A1\n\n")]
+    public async Task A_range_address_ending_in_a_line_feed_is_not_a_range_address(string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
+    }
+
+    [Test]
+    [Arguments("A1:")]
+    [Arguments("A1:B")]
+    [Arguments("A:B2")]
+    [Arguments("A$:B")]
+    [Arguments("AAAA1")]
+    [Arguments("A12345678")]
+    [Arguments("12345678:1")]
+    [Arguments("$$A1")]
+    [Arguments("A1:B2:C3")]
+    [Arguments("!A1")]
+    [Arguments("Data!")]
+    [Arguments("Da ta!A1")]
+    public async Task Malformed_range_addresses_are_not_range_addresses(string address)
+    {
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
+    }
+
+    /// <summary>
+    /// IsValidRangeAddress was a regex with a 150 ms timeout, and the timeout is wall-clock time: a
+    /// thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException on a valid
+    /// address, from <c>Range("A1:B2")</c> and every other caller (#816). It is a scan now. This
+    /// pins the scan to the language the regex accepted, with one change: the regex ended in
+    /// '\Z', which also matches before a final '\n', so 'A1\n' was an address. The oracle ends in
+    /// '\z' instead.
+    /// </summary>
+    /// <remarks>
+    /// Random strings almost never form an address, so the inputs are valid addresses (with and
+    /// without a sheet, quoted names with doubled apostrophes, '$' in each position, ranges, whole
+    /// columns and whole rows) that are then mutated by inserting, deleting and swapping characters.
+    /// The test checks that both outcomes are well represented.
+    /// </remarks>
+    [Test]
+    public async Task IsValidRangeAddress_accepts_the_language_the_regex_accepted()
+    {
+        var oracle = CreateRangeAddressOracle();
+
+        // Characters that matter to the grammar, and a few that only a Unicode-aware class treats
+        // specially: '٣' is an Arabic-Indic digit, which '\d' matches, 'é' is a letter that '\w'
+        // matches but '[a-zA-Z]' does not.
+        const string alphabet = "'!$:AZaz019٣_é \n[]*?/\\";
+        string[] sheetParts = ["Bob", "''", "My Data", "a", "'", "_", "٣", "é", "Sheet1", "[", ":", "*", "?"];
+        string[] columns = ["A", "z", "AB", "XFD", "ABCD", "é"];
+        string[] rows = ["1", "09", "1048576", "1234567", "12345678", "٣"];
+
+        string Pick(string[] values, Random random) => values[random.Next(values.Length)];
+        string Dollar(Random random) => random.Next(3) == 0 ? "$" : "";
+
+        string Cell(Random random) => Dollar(random) + Pick(columns, random) + Dollar(random) + Pick(rows, random);
+
+        string Sheet(Random random)
+        {
+            switch (random.Next(4))
+            {
+                case 0:
+                    return "";
+                case 1:
+                    return Pick(["Data", "Sheet_1", "é", "٣", "x y"], random) + "!";
+                default:
+                    var name = "";
+                    for (var i = random.Next(0, 4); i > 0; i--)
+                        name += Pick(sheetParts, random);
+                    return "'" + name + "'!";
+            }
+        }
+
+        string Range(Random random)
+        {
+            switch (random.Next(4))
+            {
+                case 0:
+                    return Cell(random);
+                case 1:
+                    return Cell(random) + ":" + Cell(random);
+                case 2:
+                    return Dollar(random) + Pick(rows, random) + ":" + Dollar(random) + Pick(rows, random);
+                default:
+                    return Dollar(random) + Pick(columns, random) + ":" + Dollar(random) + Pick(columns, random);
+            }
+        }
+
+        var random = new Random(816);
+        const int cases = 400_000;
+        var accepted = 0;
+        for (var i = 0; i < cases; i++)
+        {
+            var address = Sheet(random) + Range(random);
+            for (var mutations = random.Next(0, 4); mutations > 0; mutations--)
+            {
+                var chars = new List<char>(address);
+                switch (random.Next(3))
+                {
+                    case 0:
+                        chars.Insert(random.Next(chars.Count + 1), alphabet[random.Next(alphabet.Length)]);
+                        break;
+                    case 1 when chars.Count > 0:
+                        chars.RemoveAt(random.Next(chars.Count));
+                        break;
+                    case 2 when chars.Count > 1:
+                        var a = random.Next(chars.Count);
+                        var b = random.Next(chars.Count);
+                        (chars[a], chars[b]) = (chars[b], chars[a]);
+                        break;
+                }
+
+                address = new string(chars.ToArray());
+            }
+
+            var expected = !string.IsNullOrWhiteSpace(address) && oracle.IsMatch(address);
+            if (expected)
+                accepted++;
+
+            if (XLHelper.IsValidRangeAddress(address) != expected)
+                await Assert.That(XLHelper.IsValidRangeAddress(address)).IsEqualTo(expected).Because($"'{address}'");
+        }
+
+        Console.WriteLine($"IsValidRangeAddress fuzz: {cases} cases, the oracle accepts {accepted} ({100.0 * accepted / cases:F1}%)");
+
+        // Both outcomes have to be common, or the comparison proves little.
+        await Assert.That(accepted).IsGreaterThan(cases / 10);
+        await Assert.That(accepted).IsLessThan(cases * 9 / 10);
+    }
+
+    /// <summary>
+    /// '\w' is a Unicode class (letters, nonspacing marks, decimal digits, connector punctuation),
+    /// which a sheet name written without apostrophes may hold. The fuzz test samples a handful of such
+    /// characters, so this one tries every UTF-16 code unit, bare and inside apostrophes.
+    /// </summary>
+    [Test]
+    public async Task IsValidRangeAddress_reads_every_character_in_a_sheet_name_as_the_regex_did()
+    {
+        var oracle = CreateRangeAddressOracle();
+        for (var code = 0; code <= char.MaxValue; code++)
+        {
+            foreach (var address in new[] { (char)code + "!A1", "'" + (char)code + "'!A1", "'a" + (char)code + "'!A1" })
+            {
+                var expected = !string.IsNullOrWhiteSpace(address) && oracle.IsMatch(address);
+                if (XLHelper.IsValidRangeAddress(address) != expected)
+                    await Assert.That(XLHelper.IsValidRangeAddress(address)).IsEqualTo(expected).Because($"U+{code:X4}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The pattern IsValidRangeAddress used to match, without the timeout, and with '\z' where it had
+    /// '\Z'. NonBacktracking cannot time out, so it is an oracle that does not depend on the machine's
+    /// load.
+    /// </summary>
+    private static System.Text.RegularExpressions.Regex CreateRangeAddressOracle() => new(
+        @"\A"
+        + "((" + XLHelper.QuotedSheetNamePattern + @"|\w+)!)?"
+        + @"(\$?[a-zA-Z]{1,3}\$?\d{1,7}(:\$?[a-zA-Z]{1,3}\$?\d{1,7})?"
+        + @"|\$?\d{1,7}:\$?\d{1,7}"
+        + @"|\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})"
+        + @"\z",
+        System.Text.RegularExpressions.RegexOptions.NonBacktracking);
+
+    [Test]
     public async Task InvalidA1Addresses()
     {
         await Assert.That(XLHelper.IsValidA1Address("")).IsFalse();
