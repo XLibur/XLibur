@@ -118,25 +118,24 @@ public class XlHelperTests
     }
 
     /// <summary>
-    /// The regex ended in '\Z', which also matches before a final '\n', and that stays: INDIRECT
-    /// resolves <c>"A1:B2"&amp;CHAR(10)</c> and <c>"Data!A1:B2"&amp;CHAR(10)</c> as Excel does only
-    /// because this accepts one trailing line feed. Two of them, or a '\r', are still refused. Where
-    /// INDIRECT should take the rule from Excel's whitespace handling instead is #820.
+    /// The regex ended in '\Z', which also matches before a final '\n', and the scan kept that so
+    /// INDIRECT could resolve <c>"A1:B2"&amp;CHAR(10)</c> as Excel does. INDIRECT now drops the
+    /// whitespace Excel allows itself, so a range address is strict again (#820).
     /// </summary>
     [Test]
-    [Arguments("A1\n", true)]
-    [Arguments("A1:B2\n", true)]
-    [Arguments("Data!A1:B2\n", true)]
-    [Arguments("1:1\n", true)]
-    [Arguments("A:A\n", true)]
-    [Arguments("'Bob''s'!$A:$A\n", true)]
-    [Arguments("A1\n\n", false)]
-    [Arguments("A1\r", false)]
-    [Arguments("A1\r\n", false)]
-    [Arguments("A1\nB2", false)]
-    public async Task A_range_address_may_end_in_one_line_feed(string address, bool expected)
+    [Arguments("A1\n")]
+    [Arguments("A1:B2\n")]
+    [Arguments("Data!A1:B2\n")]
+    [Arguments("1:1\n")]
+    [Arguments("A:A\n")]
+    [Arguments("'Bob''s'!$A:$A\n")]
+    [Arguments("A1\n\n")]
+    [Arguments("A1\r")]
+    [Arguments("A1\r\n")]
+    [Arguments("A1\nB2")]
+    public async Task A_range_address_may_not_end_in_whitespace(string address)
     {
-        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsEqualTo(expected);
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
     }
 
     [Test]
@@ -161,8 +160,8 @@ public class XlHelperTests
     /// IsValidRangeAddress was a regex with a 150 ms timeout, and the timeout is wall-clock time: a
     /// thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException on a valid
     /// address, from <c>Range("A1:B2")</c> and every other caller (#816). It is a scan now. This
-    /// pins the scan to the language the regex accepted, with no change. The oracle is the old
-    /// pattern, '\Z' included, without the timeout and with NonBacktracking. Only IsMatch is used:
+    /// pins the scan to the language the regex accepted, except a final line feed (#820). The oracle
+    /// is the old pattern, without the timeout and with NonBacktracking. Only IsMatch is used:
     /// on net10.0 NonBacktracking returns empty capture groups in some trailing-'\n' cases.
     /// </summary>
     /// <remarks>
@@ -282,9 +281,9 @@ public class XlHelperTests
     }
 
     /// <summary>
-    /// The pattern IsValidRangeAddress used to match, as it was but without the timeout.
-    /// NonBacktracking cannot time out, so it is an oracle that does not depend on the machine's
-    /// load.
+    /// The pattern IsValidRangeAddress used to match, without the timeout, and ending in '\z'
+    /// instead of '\Z', so that a final line feed is not allowed (#820). NonBacktracking cannot
+    /// time out, so it is an oracle that does not depend on the machine's load.
     /// </summary>
     private static System.Text.RegularExpressions.Regex CreateRangeAddressOracle() => new(
         @"\A"
@@ -292,7 +291,7 @@ public class XlHelperTests
         + @"(\$?[a-zA-Z]{1,3}\$?\d{1,7}(:\$?[a-zA-Z]{1,3}\$?\d{1,7})?"
         + @"|\$?\d{1,7}:\$?\d{1,7}"
         + @"|\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})"
-        + @"\Z",
+        + @"\z",
         System.Text.RegularExpressions.RegexOptions.NonBacktracking);
 
     [Test]

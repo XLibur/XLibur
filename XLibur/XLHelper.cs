@@ -363,14 +363,11 @@ public static partial class XLHelper
         // caller (#816). The grammar is an optional sheet name and '!', then one of 'A1',
         // 'A1:B2', '1:2' and 'A:B', each reference with an optional '$' before its letters and
         // before its digits.
+        // The regex's '\Z' also let the address end in one line feed. INDIRECT relied on that to
+        // read "A1:B2"&CHAR(10) as Excel does, and now drops the whitespace itself (#820).
         var index = 0;
         TrySkipSheetName(rangeAddress, ref index);
-        //
-        // The address may end in one line feed, as the regex's '\Z' allowed. INDIRECT reads
-        // "A1:B2"&CHAR(10) the same way, as Excel does, and relies on this.
-        return TrySkipRange(rangeAddress, ref index)
-            && (index == rangeAddress.Length
-                || (index == rangeAddress.Length - 1 && rangeAddress[index] == '\n'));
+        return TrySkipRange(rangeAddress, ref index) && index == rangeAddress.Length;
     }
 
     /// <summary>
