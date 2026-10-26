@@ -42,6 +42,16 @@
 
 - **Text such as `NaN` or `1e400` gives `#VALUE!` instead of throwing.** Arithmetic on text and `VALUE` read `NaN` as not-a-number and `1e400` as infinity. A cell value can hold neither, so the formula threw `ArgumentException` out of `IXLCell.Value` and recalculation. Excel gives `#VALUE!` for both, and so does XLibur now ([#824](https://github.com/XLibur/XLibur/issues/824)).
 
+- **Text is read as a date, a time or a number as Excel reads it in more cases.** Arithmetic on text, criteria functions such as `COUNTIF`, autofilter values on load and `VALUE` all use this reading. Measured in Excel over COM with Windows set to day-first and then month-first dates, 252 inputs in all, which now all match:
+  - Two numbers separated by `/` or `-` are a day and a month of this year, in the culture's order, and otherwise a month and a year. In en-AU, `1/2` is 1 February, `1/13` is January 2013 and `1-2022` is January 2022. In en-US, `1/2` is 2 January.
+  - A day and a month name separated by a space, as in `1 mar` or `1 mar 2022`, and a year-first date with `/`, as in `2000/04/30`.
+  - A two-digit year is 1930–2029, as in Excel, not 1950–2049. `22/04/30` and `1-jan-30` are in 1930.
+  - A group after the first may have more digits than the group size. `1,0000` is 10000, and `1,00` is still `#VALUE!`.
+  - `10 am` is ten o'clock. An AM/PM designator against the digits, as in `10:30am`, is `#VALUE!`.
+  - A date or time with a leading space is `#VALUE!`, except for `d-mmm` such as ` 1-mar`. Before, `" 10:30 AM"*1` was a time. `VALUE` still skips leading spaces, as in Excel.
+
+  ([#831](https://github.com/XLibur/XLibur/issues/831))
+
 - **`INDIRECT` in R1C1 style no longer throws out of a cell's value on a busy server.** `INDIRECT(text, FALSE)` read each cell reference with a regex that had the same 150 ms wall-clock timeout. A timeout escaped `IXLCell.Value` and recalculation instead of giving `#REF!`. The reference is now read with a scan, which gives the same answers as before ([#818](https://github.com/XLibur/XLibur/issues/818)).
 
 - **The first text read as a date in each culture no longer fails at random on a busy server.** Before it reads text as a date, the calc engine builds the culture's date patterns once, so that `MM` and `dd` also read a month or day without a leading zero. It did that with two regex replaces that had the same 150 ms wall-clock timeout, and a timeout escaped `IXLCell.Value`, recalculation, or the load of a workbook with autofilter values. The patterns are now built with a scan, which gives the same patterns for every culture ([#825](https://github.com/XLibur/XLibur/issues/825)).

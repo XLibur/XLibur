@@ -10,8 +10,8 @@ namespace XLibur.Excel.CalcEngine;
 /// and Excel is not:
 /// <list type="bullet">
 ///     <item>Group separators must actually group. .NET accepts a separator anywhere in the integer
-///           part, so <c>1,00</c> and <c>1,00,000</c> both parse as numbers under en-US even though
-///           neither is grouped the way the culture groups.</item>
+///           part, so <c>1,00</c> and <c>1,00,000</c> both parse as numbers under en-US, while Excel
+///           wants each group after the first to have at least the group size of digits.</item>
 ///     <item>The currency symbol must be where the culture puts it. .NET accepts it at either end,
 ///           so <c>1$</c> parses under en-US and <c>Kč 1</c> under cs-CZ, while Excel rejects both.</item>
 ///     <item>The number must be finite. .NET reads <c>NaN</c> and overflows <c>1e400</c> to
@@ -35,9 +35,11 @@ internal static class NumberParser
     }
 
     /// <summary>
-    /// Checks that every group separator in the integer part sits on a group boundary. Only the
-    /// leftmost group may be shorter than its group size, which is why the groups can't be validated
-    /// until they have all been seen.
+    /// Checks that every group after the first has at least its group size of digits. Excel takes
+    /// <c>1,0000</c> and <c>1234,0000</c> but not <c>1,00</c> or <c>1,00,000</c>: a group may be
+    /// longer than its size, never shorter, and the leftmost group may be any length (#831). The
+    /// size depends on the position from the right, so the groups can't be validated until they
+    /// have all been seen.
     /// </summary>
     private static bool HasValidGroupSeparators(string text, CultureInfo culture)
     {
@@ -96,8 +98,8 @@ internal static class NumberParser
     private static bool IsValidGroup(int length, int size, bool isLeftmost)
     {
         return isLeftmost
-            ? length >= 1 && (size == 0 || length <= size)
-            : size != 0 && length == size;
+            ? length >= 1
+            : size != 0 && length >= size;
     }
 
     /// <summary>

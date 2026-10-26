@@ -20,18 +20,44 @@ internal static class DateTimeParser
     // what patterns Excel uses for which cultures.
     private static readonly ConcurrentDictionary<CultureInfo, string[]> CultureSpecificPatterns = new();
 
-    private static readonly string[] TimeOfDayPatterns = ["h:m tt", "h:m t", "h:m:s tt", "h:m:s t"];
+    // 'h tt': Excel reads '10 am' as ten o'clock (#831).
+    private static readonly string[] TimeOfDayPatterns = ["h:m tt", "h:m t", "h:m:s tt", "h:m:s t", "h tt", "h t"];
 
     private static readonly string[] TimePatterns = ["h:m:s tt", "h:m tt", "H:m:s", "H:m", "h:m:s", "h:m"];
+
+    private static readonly ConcurrentDictionary<CultureInfo, CultureInfo> ExcelTwoDigitYearCultures = new();
+
+    /// <summary>
+    /// The culture with Excel's window for a two-digit year, 1930-2029 (Windows' default), where
+    /// .NET's is 1950-2049: Excel reads '22/04/30' and '1-jan-30' as 1930 (#831). Only a Gregorian
+    /// calendar is changed; in another calendar 2029 is a different year.
+    /// </summary>
+    public static CultureInfo WithExcelTwoDigitYears(CultureInfo culture)
+    {
+        return ExcelTwoDigitYearCultures.GetOrAdd(culture, static c =>
+        {
+            if (c.DateTimeFormat.Calendar is not GregorianCalendar)
+                return c;
+
+            var clone = (CultureInfo)c.Clone();
+            clone.DateTimeFormat.Calendar.TwoDigitYearMax = 2029;
+            return CultureInfo.ReadOnly(clone);
+        });
+    }
 
     public static bool TryParseCultureDate(string s, CultureInfo culture, out DateTime date)
     {
         var datePatterns = CultureSpecificPatterns.GetOrAdd(culture, static ci =>
         {
+            // ISO 8601, and the same with '/', as Excel reads '2000/04/30' in every culture measured (#831).
+            // The '/' is quoted, since a bare one stands for the culture's date separator. Be more
+            // forgiving, M,d instead of MM,dd.
+            string[] yearFirstPatterns = ["yyyy-M-d", "yyyy'/'M'/'d"];
             var shortDatePatterns = ci.DateTimeFormat.GetAllDateTimePatterns('d')
                 .Concat(ci.DateTimeFormat.GetAllDateTimePatterns('D'))
                 .Where(pattern => !pattern.Contains("dddd")) // It doesn't seem that Excel parser is capable of parsing day names in any culture
                 .Select(AllowSingleDigitMonthAndDay)
+                .Concat(yearFirstPatterns)
                 .Distinct().ToArray();
 
             // Not sure about this, but reasonably close. Hours pattern is probably generated (e.g. 'as-IN' culture
@@ -43,11 +69,10 @@ internal static class DateTimeParser
             var longDatePatterns = shortDatePatterns
                 .SelectMany(datePattern => timePatterns.Select(timePattern => string.Create(CultureInfo.InvariantCulture, $"{datePattern} {timePattern}")));
 
-            // ISO8601 should be parseable in all cultures, not sure if Excel does. Be more forgiving, M,d instead MM,dd.
-            return shortDatePatterns.Concat(longDatePatterns).Concat(["yyyy-M-d"]).Distinct().ToArray();
+            return shortDatePatterns.Concat(longDatePatterns).Distinct().ToArray();
         });
 
-        return DateTime.TryParseExact(s, datePatterns, culture, Style, out date);
+        return DateTime.TryParseExact(s, datePatterns, WithExcelTwoDigitYears(culture), Style, out date);
     }
 
     /// <summary>
@@ -80,6 +105,49 @@ internal static class DateTimeParser
         }
 
         return result.ToString();
+    }
+
+    /// <summary>
+    /// Whether a digit is directly followed by letters that start an AM/PM designator, as in
+    /// <c>10:30am</c> or <c>10a</c>. Excel gives <c>#VALUE!</c> for those, while .NET reads the space
+    /// in <c>h:m tt</c> as optional (#831). Letters that only share a first letter with a designator,
+    /// such as the month in <c>1apr</c>, don't count.
+    /// </summary>
+    public static bool HasDesignatorAgainstDigit(string s, CultureInfo c)
+    {
+        for (var i = 1; i < s.Length; i++)
+        {
+            if (!char.IsAsciiDigit(s[i - 1]) || !char.IsLetter(s[i]))
+                continue;
+
+            var end = i;
+            while (end < s.Length && char.IsLetter(s[end]))
+                end++;
+
+            if (IsDesignatorPrefix(s.AsSpan(i, end - i), c))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsDesignatorPrefix(ReadOnlySpan<char> letters, CultureInfo c)
+    {
+        ReadOnlySpan<string> designators =
+        [
+            c.DateTimeFormat.AMDesignator,
+            c.DateTimeFormat.PMDesignator,
+            CultureInfo.InvariantCulture.DateTimeFormat.AMDesignator,
+            CultureInfo.InvariantCulture.DateTimeFormat.PMDesignator
+        ];
+
+        foreach (var designator in designators)
+        {
+            if (designator.Length > 0 && designator.AsSpan().StartsWith(letters, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     public static bool TryParseTimeOfDay(string s, CultureInfo c, out DateTime timeOfDay)

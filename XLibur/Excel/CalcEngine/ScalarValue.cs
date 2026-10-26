@@ -389,6 +389,21 @@ internal readonly struct ScalarValue
 
     private static bool TryParseDatePatterns(string text, CultureInfo culture, out double serialDateTime)
     {
+        // Excel refuses a leading space on every date and time but format 16 'd-mmm', which
+        // TryParseMonthNameDate handles on its own (#831). VALUE skips leading spaces before this.
+        if (text.Length > 0 && char.IsWhiteSpace(text[0]))
+        {
+            serialDateTime = default;
+            return TryParseMonthNameDate(text, culture, out var dayAndMonthName) && ToSerialDate(dayAndMonthName, out serialDateTime);
+        }
+
+        // Excel wants an AM/PM designator apart from the digits: '10:30am' and '10am' are not times.
+        if (DateTimeParser.HasDesignatorAgainstDigit(text, culture))
+        {
+            serialDateTime = default;
+            return false;
+        }
+
         // This date varies by the culture. Keep first before other standard patterns. Must be for both yy and yyyy.
         // Format 14 : short date (for en 'm/d/yyyy')
         // Format 22 : short date + hours (for en 'm/d/yyyy h:mm')
@@ -404,6 +419,11 @@ internal readonly struct ScalarValue
         if (TryParseDateWithOverflowTime(text, culture, out serialDateTime))
         {
             return true;
+        }
+
+        if (TryParseNumericDayMonthOrMonthYear(text, culture, out var numericDate))
+        {
+            return ToSerialDate(numericDate, out serialDateTime);
         }
 
         // Formats 15, 16 and 17: dates with names of months.
@@ -435,6 +455,51 @@ internal readonly struct ScalarValue
     }
 
     /// <summary>
+    /// Two numbers separated by '/' or '-', such as <c>1/2</c>, <c>1-13</c> or <c>1/2022</c>. Excel
+    /// reads them as a day and a month of the current year, in the culture's order, and when that
+    /// is no date, as a month and a year. A two-digit year below 30 is 20xx, 30 and above 19xx.
+    /// Month-first cultures also take a one-digit year ('1/0' is January 2000), day-first ones
+    /// don't. Measured over COM in both orders (#831).
+    /// </summary>
+    private static bool TryParseNumericDayMonthOrMonthYear(string text, CultureInfo culture, out DateTime date)
+    {
+        date = default;
+        var span = text.AsSpan().TrimEnd();
+        var separator = span.IndexOfAny('/', '-');
+        if (separator < 0)
+            return false;
+
+        var first = span[..separator];
+        var second = span[(separator + 1)..];
+        if (first.Length is < 1 or > 2 || second.Length is < 1 or > 4
+            || first.ContainsAnyExceptInRange('0', '9') || second.ContainsAnyExceptInRange('0', '9'))
+            return false;
+
+        var a = int.Parse(first, NumberStyles.None, CultureInfo.InvariantCulture);
+        var b = int.Parse(second, NumberStyles.None, CultureInfo.InvariantCulture);
+        var monthFirst = IsMonthBeforeDay(culture);
+        var thisYear = DateTime.Now.Year;
+
+        var (month, day) = monthFirst ? (a, b) : (b, a);
+        if (second.Length <= 2 && month is >= 1 and <= 12 && day >= 1 && day <= DateTime.DaysInMonth(thisYear, month))
+        {
+            date = new DateTime(thisYear, month, day, 0, 0, 0, DateTimeKind.Unspecified);
+            return true;
+        }
+
+        var yearDigitsAllowed = second.Length is 2 or 4 || (monthFirst && second.Length == 1);
+        if (a is < 1 or > 12 || !yearDigitsAllowed)
+            return false;
+
+        var year = second.Length == 4 ? b : b < 30 ? 2000 + b : 1900 + b;
+        if (year < 1)
+            return false;
+
+        date = new DateTime(year, a, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return true;
+    }
+
+    /// <summary>
     /// Match the date patterns with names of months (formats 15, 16 and 17). The returned date
     /// already has the year adjustments of the matched format applied.
     /// </summary>
@@ -451,15 +516,17 @@ internal readonly struct ScalarValue
         // Format 15 'd-mmm-yy'
         if (!hasLeadingWhitespace &&
             DateTime.TryParseExact(text, ["d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+                                          "d MMM yyyy", "d MMMM yyyy", "d MMM yy", "d MMMM yy",
                                           "d-MMM-yyyy h:m", "d-MMMM-yyyy h:m", "d-MMM-yy h:m", "d-MMMM-yy h:m",
-                                          "d-MMM-yyyy h:m:s", "d-MMMM-yyyy h:m:s", "d-MMM-yy h:m:s", "d-MMMM-yy h:m:s"], culture, dateStyle, out date))
+                                          "d-MMM-yyyy h:m:s", "d-MMMM-yyyy h:m:s", "d-MMM-yy h:m:s", "d-MMMM-yy h:m:s"],
+                                   DateTimeParser.WithExcelTwoDigitYears(culture), dateStyle, out date))
         {
             return true;
         }
 
         // Since format doesn't have a year, it uses current year
-        // Format 16 'd-mmm'
-        if (DateTime.TryParseExact(text, ["d-MMM", "d-MMMM"], culture, dateStyle, out date))
+        // Format 16 'd-mmm', and with a space as well: '1 mar' (#831)
+        if (DateTime.TryParseExact(text, ["d-MMM", "d-MMMM", "d MMM", "d MMMM"], culture, dateStyle, out date))
         {
             return true;
         }

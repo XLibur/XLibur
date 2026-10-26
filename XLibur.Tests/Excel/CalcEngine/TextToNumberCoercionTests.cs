@@ -419,7 +419,8 @@ public class TextToNumberCoercionTests
     [Arguments("24:60:00", null)] // Only one part can be over the limit, but here are hours and minutes
     [Arguments("24:00:60", null)] // Only one part can be over the limit, but here are hours and seconds
     [Arguments("23:60:06", 1.000069444)]
-    [Arguments("  24   :  00  :   59  ", 1.00068287)] // Extra padding
+    [Arguments("24   :  00  :   59  ", 1.00068287)] // Extra padding inside and at the end
+    [Arguments("  24   :  00  :   59  ", null)] // but not at the start, measured over COM (#831)
     [Arguments("24:0:", 1)] // Last part can be omitted
     [Arguments("0::0", null)] // Parts in the middle can't be omitted
     [Arguments(":0:0", null)] // First part can't be omitted
@@ -517,6 +518,231 @@ public class TextToNumberCoercionTests
     {
         await AssertCoercion(currency, expectedValue);
     }
+
+    // Measured in Excel 365 over COM on 2026-10-26 with Windows set to day-first (en-AU) and then
+    // month-first (M/d/yyyy) order (#831). A day and a month with no year are of the current year.
+    // Two numbers are read first as a day and a month in the culture's order, and when that is no
+    // date, as a month and a year: a two-digit year below 30 is 20xx, 30 and above 19xx.
+
+    [Test]
+    [SetCulture("en-AU")]
+    [Arguments("1/2", 2, 1)]
+    [Arguments("3/4", 4, 3)]
+    [Arguments("31/12", 12, 31)]
+    [Arguments("13/1", 1, 13)]
+    [Arguments("1-1", 1, 1)]
+    [Arguments("1-2", 2, 1)]
+    [Arguments("31-12", 12, 31)]
+    public async Task Date_DayAndMonth_DayFirst(string text, int month, int day)
+    {
+        await AssertCoercion(text, ThisYear(month, day));
+    }
+
+    [Test]
+    [Arguments("1/2", 1, 2)]
+    [Arguments("3/4", 3, 4)]
+    [Arguments("12/31", 12, 31)]
+    [Arguments("1/13", 1, 13)]
+    [Arguments("1-1", 1, 1)]
+    [Arguments("1-2", 1, 2)]
+    [Arguments("12-31", 12, 31)]
+    [Arguments("1-22", 1, 22)]
+    [Arguments("12/22", 12, 22)]
+    public async Task Date_MonthAndDay_MonthFirst(string text, int month, int day)
+    {
+        await AssertCoercion(text, ThisYear(month, day));
+    }
+
+    [Test]
+    [SetCulture("en-AU")]
+    [Arguments("12/31", 11658)] // 1931-12-01: 31 is no month, so it is a year
+    [Arguments("1/13", 41275)] // 2013-01-01
+    [Arguments("1/2022", 44562)]
+    [Arguments("1-2022", 44562)]
+    [Arguments("12-2022", 44896)]
+    [Arguments("1-22", 44562)]
+    [Arguments("1/22", 44562)]
+    [Arguments("12/22", 44896)]
+    [Arguments("1-99", 36161)]
+    [Arguments("1-1999", 36161)]
+    [Arguments("30/2", null)] // Neither 30 February nor a month 30
+    [Arguments("0/1", null)]
+    [Arguments("1/0", null)] // Day-first takes no one-digit year
+    [Arguments("13-2022", null)]
+    [Arguments("13/22", null)]
+    [Arguments("0-2022", null)]
+    [Arguments("1 2", null)] // A space doesn't separate two numbers
+    [Arguments("1 2022", null)]
+    [Arguments("1/2/3/4", null)]
+    public async Task Date_MonthAndYear_DayFirst(string text, double? expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    [Test]
+    [Arguments("2/30", 10990)] // 1930-02-01
+    [Arguments("1/0", 36526)] // 2000-01-01: month-first takes a one-digit year
+    [Arguments("1/2022", 44562)]
+    [Arguments("1-2022", 44562)]
+    [Arguments("31/12", null)]
+    [Arguments("13/1", null)]
+    [Arguments("31-12", null)]
+    [Arguments("13-1", null)]
+    [Arguments("13-2022", null)]
+    [Arguments("13/22", null)]
+    public async Task Date_MonthAndYear_MonthFirst(string text, double? expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    [Test]
+    [Arguments("1 mar", 3, 1)]
+    [Arguments("1 March", 3, 1)]
+    [Arguments("31 mar", 3, 31)]
+    [Arguments("1  mar", 3, 1)]
+    [Arguments(" 1 mar", 3, 1)] // Format 16 allows a leading space
+    [Arguments("1 marc", 3, 1)]
+    public async Task Date_Format16_WithSpace(string text, int month, int day)
+    {
+        await AssertCoercion(text, ThisYear(month, day));
+    }
+
+    [Test]
+    [Arguments("32 mar", null)]
+    [Arguments("1 mar 2022", 44621)]
+    [Arguments("1 mar 22", 44621)]
+    [Arguments("2000/04/30", 36646)]
+    [Arguments("2000/4/30", 36646)]
+    [Arguments("2000/04/30 10:30", 36646.4375)]
+    [Arguments("2000/13/1", null)]
+    [Arguments("2000/1/32", null)]
+    public async Task Date_DayMonthNameAndYearFirst(string text, double? expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    // Excel requires each group after the first to have at least the group size of digits, not
+    // exactly it, and puts no limit on the first group.
+    [Test]
+    [Arguments("1,0000", 10000)]
+    [Arguments("12,0000", 120000)]
+    [Arguments("123,0000", 1230000)]
+    [Arguments("1234,0000", 12340000)]
+    [Arguments("1,00000", 100000)]
+    [Arguments("1,000000", 1000000)]
+    [Arguments("1,0000,000", 10000000)]
+    [Arguments("1,000,0000", 10000000)]
+    [Arguments("1,0000.5", 10000.5)]
+    [Arguments("$1,0000", 10000)]
+    [Arguments("-1,0000", -10000)]
+    [Arguments("(1,0000)", -10000)]
+    [Arguments("1,0000%", 100)]
+    [Arguments("1,0", null)]
+    [Arguments("12,34,567", null)]
+    [Arguments(",1000", null)]
+    [Arguments("1,", null)]
+    public async Task Number_GroupsOfAtLeastTheGroupSize(string number, double? expectedValue)
+    {
+        await AssertCoercion(number, expectedValue);
+    }
+
+    // An AM/PM designator must be apart from the digits before it.
+    [Test]
+    [Arguments("10:30am", null)]
+    [Arguments("10:30pm", null)]
+    [Arguments("10:30AM", null)]
+    [Arguments("10:30:15am", null)]
+    [Arguments("10:30a", null)]
+    [Arguments("10am", null)]
+    [Arguments("1/2/2022 10:30am", null)]
+    [Arguments("10:30 a", 0.4375)]
+    [Arguments("10:30 am", 0.4375)]
+    [Arguments("10 am", 0.41666666666666669)]
+    [Arguments("1/2/2022 10:30 am", 44563.4375)]
+    public async Task Time_DesignatorAfterASpace(string text, double? expectedValue)
+    {
+        await AssertCoercion(text, expectedValue, Tolerance);
+    }
+
+    // Text*1 refuses a leading space on every date and time but format 16 ('d-mmm'), and keeps
+    // accepting it on numbers. VALUE skips leading spaces, so it reads all of these.
+    [Test]
+    [Arguments(" 10:30 AM", 0.4375)]
+    [Arguments(" 10:30", 0.4375)]
+    [Arguments(" 10:30:15", 0.43767361111111114)]
+    [Arguments(" 90:00", 3.75)]
+    [Arguments(" 1/2/2022", 44563)]
+    [Arguments(" 1-mar-2022", 44621)]
+    [Arguments(" 30-apr-2000", 36646)]
+    [Arguments(" 2000-04-30", 36646)]
+    public async Task Date_LeadingSpace_IsRefusedByCoercionButNotByValue(string text, double valueResult)
+    {
+        await AssertCoercion(text, null);
+        await AssertValue(text, valueResult);
+    }
+
+    [Test]
+    [Arguments(" 1/2", 1, 2)]
+    [Arguments(" mar-22", 3, 22)]
+    public async Task Date_ThisYear_LeadingSpace_IsRefusedByCoercionButNotByValue(string text, int month, int day)
+    {
+        await AssertCoercion(text, null);
+        await AssertValue(text, ThisYear(month, day));
+    }
+
+    private static async Task AssertValue(string text, double expectedValue)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That((double)wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(expectedValue).Within(Tolerance);
+    }
+
+    [Test]
+    [Arguments(" 1-mar")]
+    [Arguments(" 1 mar")]
+    public async Task Date_Format16_LeadingSpace_IsAccepted(string text)
+    {
+        await AssertCoercion(text, ThisYear(3, 1));
+    }
+
+    [Test]
+    [Arguments(" 1 1/2", 1.5)]
+    [Arguments(" 1", 1)]
+    [Arguments(" 1%", 0.01)]
+    [Arguments(" $1", 1)]
+    [Arguments(" (1)", -1)]
+    [Arguments(" 1e3", 1000)]
+    public async Task Number_LeadingSpace_IsAccepted(string text, double expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    // Excel reads a two-digit year as 1930-2029 (Windows' default window) in every format. .NET's
+    // window is 1950-2049, so '22/04/30' was 2030.
+    [Test]
+    [SetCulture("en-AU")]
+    [Arguments("22/04/30", 11070)] // 1930-04-22
+    [Arguments("22/04/29", 47230)] // 2029-04-22
+    [Arguments("1/1/49", 17899)]
+    [Arguments("1/1/50", 18264)]
+    public async Task Date_TwoDigitYear_DayFirst(string text, double expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    [Test]
+    [Arguments("1/2/30 10:30", 10960.4375)] // 1930-01-02 10:30
+    [Arguments("1-jan-30", 10959)]
+    [Arguments("1-jan-29", 47119)]
+    [Arguments("1 jan 30", 10959)]
+    [Arguments("1-jan-49", 17899)]
+    [Arguments("jan-49", 17899)]
+    public async Task Date_TwoDigitYear(string text, double expectedValue)
+    {
+        await AssertCoercion(text, expectedValue);
+    }
+
+    private static double ThisYear(int month, int day) =>
+        new DateTime(DateTime.Now.Year, month, day, 0, 0, 0, DateTimeKind.Unspecified).ToOADate();
 
     private static async Task AssertCoercion(string text, double? expectedValue, double tolerance = 0)
     {
