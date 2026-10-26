@@ -32,6 +32,12 @@
 
 - **Opening a workbook with a table no longer fails at random on a busy server.** The load checks that each table's name is not an R1C1 address, and the check was a regex with a 150 ms timeout. The timeout counts wall-clock time, so when the thread was descheduled or paused by GC during the match, the check threw `RegexMatchTimeoutException`, whatever the name. With every core 4x oversubscribed, a name as plain as `OpportunityTable` timed out 103 times in 12.9 million checks. The check is now a scan, with no timeout. It accepts the same names as the regex did, except one that ends in a line feed: the regex's `$` also matched before a final `\n`, so `R1C1\n` counted as an address ([#815](https://github.com/XLibur/XLibur/issues/815)).
 
+- **`Range(string)`, data validation lists, defined names and `INDIRECT` no longer fail at random on a busy server.** Each checks its text with `IsValidRangeAddress`, which was a regex with the same 150 ms wall-clock timeout, so a thread paused during the match threw `RegexMatchTimeoutException` on a valid address. The check is now a scan, with no timeout, and it accepts exactly the addresses the regex did. That includes one that ends in a single line feed, which `INDIRECT` relies on to resolve `"A1:B2"&CHAR(10)` as Excel does ([#816](https://github.com/XLibur/XLibur/issues/816)).
+
+- **Text such as `1 1/2` is read as a number without failing at random on a busy server, and a whole number too big for an `int` no longer throws.** Arithmetic on text, criteria functions such as `COUNTIF` over text cells, and autofilter values on load all try text as a fraction, with a regex that had the same 150 ms wall-clock timeout. The fraction is now read with a scan. The whole number was read with `int.Parse`, so `99999999999 1/2` threw `OverflowException`. It is now read as a double, and gives 99999999999.5, as in Excel. As in Excel too, `1 1/2` followed by a line feed is no longer a number. The regex's `$` had let it through ([#817](https://github.com/XLibur/XLibur/issues/817)).
+
+- **`INDIRECT` in R1C1 style no longer throws out of a cell's value on a busy server.** `INDIRECT(text, FALSE)` read each cell reference with a regex that had the same 150 ms wall-clock timeout. A timeout escaped `IXLCell.Value` and recalculation instead of giving `#REF!`. The reference is now read with a scan, which gives the same answers as before ([#818](https://github.com/XLibur/XLibur/issues/818)).
+
 ## v0.720.0 - 2026-10-20
 
 ### ⚡ Performance
