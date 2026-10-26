@@ -1258,6 +1258,7 @@ public class TextTests
     [Arguments("30-apr-2000", 36646)]
     [Arguments("10:30 AM", 0.4375)]
     [Arguments("March 2022", 44621)] // The old VALUE read this through YearMonthPattern
+    [Arguments("July 2024", 45474)]
     [Arguments("Mar 2022", 44621)]
     [Arguments("mar  2022", 44621)]
     [Arguments("Mar 2022 ", 44621)]
@@ -1352,5 +1353,8 @@ public class TextTests
         await Assert.That(wb.Evaluate("VALUE(\"5-březen-22\")")).IsEqualTo(expectedSerialDate);
         await Assert.That(wb.Evaluate("VALUE(\"05.03.2022\")")).IsEqualTo(expectedSerialDate);
         await Assert.That(wb.Evaluate("VALUE(\"5-březen\")")).IsEqualTo(new DateTime(DateTime.Now.Year, 3, 5, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime());
+
+        // The culture's YearMonthPattern, 'MMMM yyyy', which the old VALUE tried by name.
+        await Assert.That(wb.Evaluate("VALUE(\"březen 2022\")")).IsEqualTo(44621d);
     }
 }
