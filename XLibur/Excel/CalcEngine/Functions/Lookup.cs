@@ -788,7 +788,9 @@ internal static class Lookup
         // ASCII digits alone give the same result. Its '$' matched before a final line feed
         // too, so 'R1C1' + LF resolves; Excel resolves that as well. Excel also ignores a trailing
         // space, which this does not (#820, where the rule for trailing whitespace belongs).
-        // NumberStyles.None takes ASCII digits only: no sign, no whitespace, and not an empty span.
+        // Each number is checked to be ASCII digits before int.TryParse reads it. NumberStyles.None
+        // rejects a sign and whitespace, but int.TryParse still ignores trailing NULs, so 'R1C1\0'
+        // would resolve where the regex gave #REF!. XLHelper.IsValidRow avoids it for the same reason.
         row = 0;
         column = 0;
         var span = text.AsSpan();
@@ -799,9 +801,15 @@ internal static class Lookup
             return false;
 
         var columnLetter = span.IndexOfAny('C', 'c');
-        if (columnLetter < 0
-            || !int.TryParse(span[1..columnLetter], NumberStyles.None, CultureInfo.InvariantCulture, out row)
-            || !int.TryParse(span[(columnLetter + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out column))
+        if (columnLetter < 0)
+            return false;
+
+        var rowDigits = span[1..columnLetter];
+        var columnDigits = span[(columnLetter + 1)..];
+        if (rowDigits.IsEmpty || rowDigits.ContainsAnyExceptInRange('0', '9')
+            || columnDigits.IsEmpty || columnDigits.ContainsAnyExceptInRange('0', '9')
+            || !int.TryParse(rowDigits, NumberStyles.None, CultureInfo.InvariantCulture, out row)
+            || !int.TryParse(columnDigits, NumberStyles.None, CultureInfo.InvariantCulture, out column))
         {
             row = 0;
             column = 0;

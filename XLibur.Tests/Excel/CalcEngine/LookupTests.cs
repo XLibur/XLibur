@@ -1170,6 +1170,10 @@ public class LookupTests
     [Arguments("R1C99999999999")]
     [Arguments("R+1C1")]
     [Arguments("R١C١")] // Arabic-Indic digits: '\d' matched them and int.TryParse then rejected them
+    [Arguments("R1C1\0")] // int.TryParse ignores trailing NULs; the regex did not
+    [Arguments("R1\0C1")]
+    [Arguments("R1C1\0\0")]
+    [Arguments("R1C1\n\0")]
     public async Task Indirect_R1C1_is_a_reference_error(string text)
     {
         using var wb = new XLWorkbook();
@@ -1200,7 +1204,8 @@ public class LookupTests
         // that fold to ASCII under some case mappings.
         string[] numbers = ["0", "1", "9", "42", "16384", "16385", "1048576", "1048577", "2147483647", "2147483648", "99999999999", "٣", "1٣", "007"];
         string[] letters = ["R", "r", "C", "c", "x", "ſ", "K", ""];
-        string[] separators = ["", "\n", "\r", " ", "-", "+", ":"];
+        // '\0' because int.TryParse ignores trailing NULs, which the regex never matched.
+        string[] separators = ["", "\n", "\r", " ", "-", "+", ":", "\0"];
 
         using var wb = new XLWorkbook();
         var sheet = wb.AddWorksheet();
@@ -1213,6 +1218,7 @@ public class LookupTests
                 random.Next(10) == 0 ? separators[random.Next(separators.Length)] : "",
                 random.Next(12) == 0 ? letters[random.Next(letters.Length)] : "R",
                 random.Next(3) == 0 ? numbers[random.Next(numbers.Length)] : random.Next(1, 20000).ToString(),
+                random.Next(12) == 0 ? separators[random.Next(separators.Length)] : "",
                 random.Next(12) == 0 ? letters[random.Next(letters.Length)] : "C",
                 random.Next(3) == 0 ? numbers[random.Next(numbers.Length)] : random.Next(1, 20000).ToString(),
                 random.Next(4) == 0 ? separators[random.Next(separators.Length)] : "");
