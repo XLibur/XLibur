@@ -1293,6 +1293,11 @@ public class LookupTests
     [Arguments("INDIRECT(\"A1\"&CHAR(11))")]
     [Arguments("INDIRECT(\"A1\"&CHAR(12))")]
     [Arguments("INDIRECT(\"A1\"&CHAR(160))")]
+    [Arguments("INDIRECT(\" \")")]
+    [Arguments("INDIRECT(CHAR(10))")]
+    [Arguments("INDIRECT(\"Data! \")")]
+    [Arguments("INDIRECT(\" \",FALSE)")]
+    [Arguments("INDIRECT(\"A1 : \")")]
     public async Task Indirect_rejects_leading_whitespace_and_other_trailing_whitespace(string formula)
     {
         using var wb = new XLWorkbook();
