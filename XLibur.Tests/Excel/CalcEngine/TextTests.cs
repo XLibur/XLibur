@@ -1304,6 +1304,21 @@ public class TextTests
         await Assert.That(wb.Evaluate("\" 1-jan-2022\"*1")).IsEqualTo(XLError.IncompatibleValue);
     }
 
+    /// <summary>
+    /// double.TryParse reads "NaN" and overflows "1e400" to infinity, and a cell value can't hold
+    /// either, so both threw ArgumentException out of the formula. Excel gives #VALUE!.
+    /// </summary>
+    [Test]
+    [Arguments("NaN")]
+    [Arguments("1e400")]
+    [Arguments("-1e400")]
+    public async Task Text_that_is_not_a_finite_number_is_a_value_error(string text)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(wb.Evaluate($"\"{text}\"*1")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
     [Test]
     [Arguments("1 1/0")]
     [Arguments("abc")]
