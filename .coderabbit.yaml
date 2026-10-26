@@ -5,13 +5,18 @@ reviews:
   high_level_summary: true
   collapse_walkthrough: true
   poem: false
-  review_status: true
+  # Off: auto reviews are disabled, so every PR otherwise got a "Review skipped" comment.
+  review_status: false
   sequence_diagrams: true
   # Reviews are triggered manually by commenting `@coderabbitai review` on a PR.
   auto_review:
     enabled: false
     drafts: false
+  # Markdown (the changelog, docs, READMEs) is not reviewed, so a PR that changes only Markdown
+  # has nothing to review. Build and Test skips such a PR too (paths-ignore), and Greptile
+  # ignores the same files (greptile.json).
   path_filters:
+    - '!**/*.md'
     - '!**/*.trx'
     - '!**/BenchmarkDotNet.Artifacts/**'
     - '!**/obj/**'

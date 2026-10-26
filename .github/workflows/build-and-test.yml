@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # A PR that changes only Markdown (the changelog, docs, READMEs) has nothing to build or test.
+    # The workflow is skipped only when every changed file matches, so a PR that also touches code
+    # still runs. This is safe while no job here is a required status check: a required check on a
+    # skipped workflow stays pending, and the PR cannot be merged.
+    paths-ignore:
+      - '**.md'
 
 # Three jobs run side by side. Run in sequence they took 8-10 minutes, and two of the steps did not
 # need to be in line with the build:
