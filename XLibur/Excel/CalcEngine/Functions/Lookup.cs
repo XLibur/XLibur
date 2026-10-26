@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
@@ -748,9 +748,6 @@ internal static class Lookup
         }
     }
 
-    private static readonly Regex AbsoluteR1C1Regex = new(
-        @"^R(\d+)C(\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, XLHelper.RegexTimeout);
-
     private static AnyValue TryParseR1C1Reference(XLWorksheet? worksheet, string addressText)
     {
         // Support single cell (R1C1) and range (R1C1:R5C3)
@@ -784,16 +781,40 @@ internal static class Lookup
 
     private static bool TryParseAbsoluteR1C1Cell(string text, out int row, out int column)
     {
+        // A scan, not a regex. This was '^R(\d+)C(\d+)$' with a 150 ms timeout, and the timeout is
+        // wall-clock time: a thread descheduled or paused by GC mid-match threw
+        // RegexMatchTimeoutException out of the cell's value, whatever the text (#818).
+        // The regex's '\d' also matched non-ASCII digits, which int.TryParse then rejected, so
+        // ASCII digits alone give the same result. Its '$' matched before a final line feed
+        // too, so 'R1C1' + LF resolves; Excel resolves that as well.
+        row = 0;
         column = 0;
-        var match = AbsoluteR1C1Regex.Match(text);
-        if (!match.Success)
-        {
-            row = 0;
-            return false;
-        }
+        var span = text.AsSpan();
+        if (span.Length > 0 && span[^1] == '\n')
+            span = span[..^1];
 
-        return int.TryParse(match.Groups[1].Value, out row)
-            && int.TryParse(match.Groups[2].Value, out column);
+        if (span.Length == 0 || span[0] is not ('R' or 'r'))
+            return false;
+
+        var rowDigits = CountAsciiDigits(span[1..]);
+        var columnLetter = 1 + rowDigits;
+        if (rowDigits == 0 || columnLetter >= span.Length || span[columnLetter] is not ('C' or 'c'))
+            return false;
+
+        var columnDigits = span[(columnLetter + 1)..];
+        return CountAsciiDigits(columnDigits) == columnDigits.Length
+            && columnDigits.Length > 0
+            && int.TryParse(span.Slice(1, rowDigits), NumberStyles.None, CultureInfo.InvariantCulture, out row)
+            && int.TryParse(columnDigits, NumberStyles.None, CultureInfo.InvariantCulture, out column);
+    }
+
+    private static int CountAsciiDigits(ReadOnlySpan<char> span)
+    {
+        var count = 0;
+        while (count < span.Length && char.IsAsciiDigit(span[count]))
+            count++;
+
+        return count;
     }
 
     private static bool IsWithinSheetBounds(int row, int column)
