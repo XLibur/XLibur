@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using System.Threading.Tasks;
@@ -97,6 +98,28 @@ public class TextToNumberCoercionTests
         await AssertCoercion(fraction, expectedValue);
     }
 
+    // The same answers Excel gave when probed over COM, through the calc engine. They go through
+    // arithmetic on text, as XLibur's VALUE function has its own parser that doesn't read
+    // fractions at all ("fraction isn't parsed, maybe in the future" in Text.cs).
+    [Test]
+    [Arguments("\"99999999999 1/2\"+0", 99999999999.5)]
+    [Arguments("\"2147483648 1/2\"+0", 2147483648.5)]
+    [Arguments("\"1 1/2\"+0", 1.5)]
+    public async Task Fraction_Arithmetic_MatchesExcel(string formula, double expectedValue)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That((double)wb.Evaluate(formula)).IsEqualTo(expectedValue);
+    }
+
+    [Test]
+    [Arguments("(\"1 1/2\"&CHAR(10))+0")]
+    [Arguments("(\"1 1/2\"&CHAR(13))+0")]
+    public async Task Fraction_Arithmetic_LineBreakIsNotANumber(string formula)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
     // A whole number beyond double.MaxValue is not a number. Excel's VALUE caps its text at
     // 255 characters, which XLibur doesn't copy, so there is no Excel answer to match.
     [Test]
@@ -115,7 +138,7 @@ public class TextToNumberCoercionTests
     [Arguments("\n1 1/2")]
     [Arguments("1 1/2 \n")]
     [Arguments("1 1/2\t")]
-    [Arguments("1 1/2 ")]
+    [Arguments("1 1/2\u00A0")] // no-break space, U+00A0
     public async Task Fraction_LineBreaksAndOtherWhitespace_AreNotANumber(string text)
     {
         await Assert.That(FractionParser.TryParse(text, out _)).IsFalse();
@@ -128,8 +151,9 @@ public class TextToNumberCoercionTests
     /// scan now. This pins the scan to the language the regex accepted, and to the value it parsed,
     /// with two changes: the regex ended in '$', which also matches before a final '\n', so
     /// "1 1/2\n" was a number; and a whole number that overflows an int threw. The oracle ends in
-    /// '\z' instead, and the overflow inputs are left out, as the oracle's int.Parse cannot
-    /// read them.
+    /// '\z' instead, and reads the whole number as a double from its own capture group. A whole
+    /// number beyond the range of a double is left out: the scan says it is not a number, which
+    /// Fraction_WholeNumberBiggerThanDouble_IsNotANumber pins.
     /// </summary>
     [Test]
     public async Task FractionParser_accepts_the_language_the_regex_accepted()
@@ -140,19 +164,23 @@ public class TextToNumberCoercionTests
             | System.Text.RegularExpressions.RegexOptions.NonBacktracking);
 
         // Random strings almost never form a fraction, so build one from parts and then mutate it.
-        // '٣' is an Arabic-Indic digit, which '\d' would match and '[0-9]' does not.
+        // '\u0663' is an Arabic-Indic digit, which '\d' would match and '[0-9]' does not.
         string[] signs = ["", "+", "-", " +", "- ", " - ", "  "];
-        string[] wholes = ["0", "1", "12", "007", "2147483647", "٣"];
-        string[] fractionParts = ["0", "1", "00", "9", "32767", "32768", "00001", "99999", "100000", "000000", "٣"];
-        const string noise = " /+-0123456789\n\r\t٣.";
+        string[] wholes = ["0", "1", "12", "007", "2147483647", "\u0663"];
+        string[] fractionParts = ["0", "1", "00", "9", "32767", "32768", "00001", "99999", "100000", "000000", "\u0663"];
+        const string noise = " /+-0123456789\n\r\t\u0663.";
 
         var random = new Random(17);
         var accepted = 0;
-        const int cases = 200_000;
+        const int cases = 100_000;
         for (var i = 0; i < cases; i++)
         {
+            // One in four wholes has 10 to 20 digits, which no int can hold.
+            var whole = random.Next(4) == 0
+                ? RandomDigits(random, random.Next(10, 21))
+                : wholes[random.Next(wholes.Length)];
             var text = signs[random.Next(signs.Length)]
-                       + wholes[random.Next(wholes.Length)]
+                       + whole
                        + (random.Next(12) == 0 ? "  " : " ")
                        + fractionParts[random.Next(fractionParts.Length)]
                        + "/"
@@ -181,8 +209,8 @@ public class TextToNumberCoercionTests
             text = chars.ToString();
 
             var match = oracle.Match(text);
-            if (match.Success && !int.TryParse(match.Groups[2].Value, out _))
-                continue; // The old code read the whole number with int.Parse, which overflows.
+            if (match.Success && double.IsInfinity(double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)))
+                continue; // Not a number now, where the old code threw.
 
             bool expectedOk;
             double expected = 0;
@@ -197,8 +225,8 @@ public class TextToNumberCoercionTests
                 expectedOk = denominator != 0 && denominator <= short.MaxValue && numerator <= short.MaxValue;
                 if (expectedOk)
                 {
-                    var whole = int.Parse(match.Groups[2].Value);
-                    var fraction = whole + numerator / (double)denominator;
+                    var wholeNumber = double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+                    var fraction = wholeNumber + numerator / (double)denominator;
                     expected = match.Groups[1].Value == "-" ? -fraction : fraction;
                 }
             }
@@ -214,8 +242,17 @@ public class TextToNumberCoercionTests
         }
 
         // The comparison is only worth something if it reaches valid fractions.
-        Console.WriteLine($"FractionParser fuzz: oracle accepted {accepted} of {cases} inputs.");
-        await Assert.That(accepted).IsGreaterThan(cases / 10);
+        await Assert.That(accepted).IsGreaterThan(cases / 10)
+            .Because($"the oracle accepted {accepted} of {cases} inputs");
+    }
+
+    private static string RandomDigits(Random random, int length)
+    {
+        var digits = new char[length];
+        for (var i = 0; i < digits.Length; i++)
+            digits[i] = (char)('0' + random.Next(10));
+
+        return new string(digits);
     }
 
     [Test]
