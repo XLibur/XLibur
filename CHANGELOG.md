@@ -56,6 +56,13 @@
 
 - **The first text read as a date in each culture no longer fails at random on a busy server.** Before it reads text as a date, the calc engine builds the culture's date patterns once, so that `MM` and `dd` also read a month or day without a leading zero. It did that with two regex replaces that had the same 150 ms wall-clock timeout, and a timeout escaped `IXLCell.Value`, recalculation, or the load of a workbook with autofilter values. The patterns are now built with a scan, which gives the same patterns for every culture ([#825](https://github.com/XLibur/XLibur/issues/825)).
 
+### 🔧 Dependencies
+
+- **`XLibur` moves to OpenMcdf 3.4.0** (from 3.3.0). OpenMcdf reads and writes the container of a password-encrypted workbook. ([#834](https://github.com/XLibur/XLibur/pull/834) by [@jafin](https://github.com/jafin))
+- **`XLibur.Report` moves to Scriban 7.5.3** (from 7.5.1), the default template engine. ([#834](https://github.com/XLibur/XLibur/pull/834) by [@jafin](https://github.com/jafin))
+- **Microsoft.SourceLink.GitHub moves to 10.0.403** (from 10.0.402). Build-time only. ([#834](https://github.com/XLibur/XLibur/pull/834) by [@jafin](https://github.com/jafin))
+- **TUnit moves to 1.76.28, and the test projects' System.Security.Cryptography.Pkcs pins to 10.0.14.** Test projects only. ([#834](https://github.com/XLibur/XLibur/pull/834) by [@jafin](https://github.com/jafin))
+
 ## v0.720.0 - 2026-10-20
 
 ### ⚡ Performance
