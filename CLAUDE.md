@@ -106,7 +106,12 @@ Other notes:
 
 - **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation ([source](https://github.com/dotnet/Open-XML-SDK))
 - **ExcelNumberFormat** 1.1.0 - Excel number formatting ([source](https://github.com/andersnm/ExcelNumberFormat))
-- **SixLabors.Fonts** 1.0.1 - Font handling
+- **PinataLabs.Typography** 0.1.0 - Font handling in `XLibur.Fonts.PinataLabs`, the engine
+  `XLibur.Tests`, the benchmarks and the fuzzer register; an Apache 2.0 fork of SixLabors.Fonts
+  1.x with the namespace renamed to `PinataLabs.Typography` ([source](https://github.com/PinataLabs/Typography)).
+  It replaced `XLibur.Fonts.SixLabors.V1` (SixLabors.Fonts 1.0.1). Keep it on a stable version:
+  a prerelease dependency fails the pack with NU5104 under warnings-as-errors
+- **SixLabors.Fonts** 2.1.3 - Font handling in `XLibur.Fonts.SixLabors` only
 - **XLibur.ClosedXML.Parser** 5.0.2 - Parser utilities; our fork of ClosedXML.Parser.
   Since 5.0.0 the assembly is `XLibur.ClosedXML.Parser` and the namespace is `XLibur.Parser`
   (`using XLibur.Parser;`), so it loads side by side with upstream ClosedXML ([source](https://github.com/XLibur/ClosedXML.Parser),

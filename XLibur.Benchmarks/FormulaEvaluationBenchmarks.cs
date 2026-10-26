@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -60,7 +60,7 @@ public class FormulaEvaluationBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         // Distinct formula text per row: one AST each, every reference resolved once. The window
         // slides so the text differs, and Build populates past RowCount so every window is full.

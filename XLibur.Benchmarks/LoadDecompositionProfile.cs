@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -45,7 +45,7 @@ public static class LoadDecompositionProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         var variants = new (string Label, Func<byte[]> Build)[]
         {

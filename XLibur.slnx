@@ -8,6 +8,10 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
+  <Folder Name="/XLibur.Fonts.PinataLabs/">
+    <Project Path="XLibur.Fonts.PinataLabs.Tests/XLibur.Fonts.PinataLabs.Tests.csproj" />
+    <Project Path="XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
+  </Folder>
   <Folder Name="/XLibur.Fonts.SixLabors/">
     <Project Path="XLibur.Fonts.SixLabors.Examples/XLibur.Fonts.SixLabors.Examples.csproj" />
     <Project Path="XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
@@ -28,5 +32,4 @@
   <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="XLibur/XLibur.csproj" />
   <Project Path="XLibur.Bundle/XLibur.Bundle.csproj" />
-  <Project Path="XLibur.Fonts.SixLabors.V1/XLibur.Fonts.SixLabors.V1.csproj" />
 </Solution>

@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 using static XLibur.Benchmarks.TemplateFixture;
 
 namespace XLibur.Benchmarks;
@@ -43,7 +43,7 @@ public static class TemplateRoundTripProfile
 
     public static void Run(string[] args)
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         var template = ResolveTemplatePath(args);
 

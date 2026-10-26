@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -48,7 +48,7 @@ public class SharedFormulaWriteBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _input = Fixture switch
         {
             "FillDown50k" => BuildFillDown(50_000),
@@ -78,7 +78,7 @@ public class SharedFormulaWriteBenchmarks
     /// </summary>
     public static void Profile()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         Console.WriteLine("| fixture | mode | file bytes | sheet XML bytes | save alloc | load alloc | first recalc alloc |");
         Console.WriteLine("|---|---|---:|---:|---:|---:|---:|");
         foreach (var (name, input) in new[] { ("FillDown50k", BuildFillDown(50_000)), ("Orders10k", BuildOrders(10_000)) })

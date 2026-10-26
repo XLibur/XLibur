@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -37,7 +37,7 @@ public static class SharedFormulaReadProfile
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         var perCell = Build(shared: false);
         var shared = Build(shared: true);

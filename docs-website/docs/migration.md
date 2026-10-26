@@ -54,12 +54,12 @@ What this means when migrating:
   | Package | Font library | License | Notes |
   |---|---|---|---|
   | `XLibur.Fonts.SkiaSharp` | SkiaSharp | MIT | **Default.** Auto-registers; ships native binaries. |
-  | `XLibur.Fonts.SixLabors.V1` | SixLabors.Fonts 1.x | Apache 2.0 | Pure-managed; matches ClosedXML 0.105's engine. |
+  | `XLibur.Fonts.PinataLabs` | PinataLabs.Typography | Apache 2.0 | Pure-managed; a maintained fork of SixLabors.Fonts 1.x that matches ClosedXML 0.105's engine. |
   | `XLibur.Fonts.SixLabors` | SixLabors.Fonts 2.x | Six Labors Split License | Commercial restrictions over $1M revenue. |
 
   ```csharp
   // Override globally at startup (e.g. keep ClosedXML's SixLabors 1.x behavior):
-  SixLaborsV1FontBootstrap.Register();
+  PinataLabsFontBootstrap.Register();
 
   // Or override per workbook:
   var options = new LoadOptions { FontEngine = new SkiaSharpFontEngine("Arial") };

@@ -4,9 +4,9 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using XLibur.Benchmarks;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
-SixLaborsV1FontBootstrap.Register();
+PinataLabsFontBootstrap.Register();
 
 if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreCase))
 {

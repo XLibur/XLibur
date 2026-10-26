@@ -5,7 +5,7 @@ using XLibur.Excel;
 using XLibur.Excel.Cells;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -75,7 +75,7 @@ public class AllocationBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _workbook = new XLWorkbook();
         _worksheet = (XLWorksheet)_workbook.AddWorksheet("Data");
         _shiftRange = _worksheet.Range("A1:Z1000")!;

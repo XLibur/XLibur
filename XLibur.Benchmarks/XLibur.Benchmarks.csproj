@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\XLibur\XLibur.csproj" />
-    <ProjectReference Include="..\XLibur.Fonts.SixLabors.V1\XLibur.Fonts.SixLabors.V1.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

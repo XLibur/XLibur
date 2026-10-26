@@ -2,18 +2,21 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using SixLabors.Fonts;
-using SixLabors.Fonts.Unicode;
+using PinataLabs.Typography;
+using PinataLabs.Typography.Unicode;
 using XLibur.Excel;
 using XLibur.Graphics;
 
-namespace XLibur.Fonts.SixLabors.V1;
+namespace XLibur.Fonts.PinataLabs;
 
 /// <summary>
-/// Default implementation of <see cref="IXLFontEngine"/> that uses SixLabors.Fonts for font metrics and text measurement.
+/// Implementation of <see cref="IXLFontEngine"/> that uses PinataLabs.Typography for font metrics and text measurement.
 /// </summary>
-public class DefaultFontEngine : IXLFontEngine
+/// <remarks>
+/// PinataLabs.Typography is a maintained fork of SixLabors.Fonts 1.x, and this engine replaces
+/// <c>DefaultFontEngine</c> from the removed <c>XLibur.Fonts.SixLabors.V1</c>, measuring exactly as it did.
+/// </remarks>
+public class PinataLabsFontEngine : IXLFontEngine
 {
     /// <summary>
     /// Carlito is a Calibri metric compatible font. This is a version stripped of everything but metric information
@@ -45,13 +48,13 @@ public class DefaultFontEngine : IXLFontEngine
     /// <summary>
     /// Get a singleton instance of the engine that uses <c>Microsoft Sans Serif</c> as a fallback font.
     /// </summary>
-    public static Lazy<DefaultFontEngine> Instance { get; } = new(() => new DefaultFontEngine("Microsoft Sans Serif"));
+    public static Lazy<PinataLabsFontEngine> Instance { get; } = new(() => new PinataLabsFontEngine(PinataLabsFontBootstrap.DefaultFallbackFont));
 
     /// <summary>
     /// Initialize a new instance of the engine.
     /// </summary>
     /// <param name="fallbackFont">A name of a font that is used when a font in a workbook is not available.</param>
-    public DefaultFontEngine(string fallbackFont)
+    public PinataLabsFontEngine(string fallbackFont)
     {
         if (string.IsNullOrWhiteSpace(fallbackFont))
             throw new ArgumentException("Fallback font name must not be null or whitespace.", nameof(fallbackFont));
@@ -72,7 +75,7 @@ public class DefaultFontEngine : IXLFontEngine
     /// <param name="fallbackFontStream">A stream that contains a fallback font.</param>
     /// <param name="useSystemFonts">Should the engine try to use system fonts? If false, system fonts won't be loaded, which can significantly speed up library startup.</param>
     /// <param name="fontStreams">Extra fonts that should be loaded to the engine.</param>
-    internal DefaultFontEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
+    internal PinataLabsFontEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
     {
         ArgumentNullException.ThrowIfNull(fallbackFontStream);
         ArgumentNullException.ThrowIfNull(fontStreams);
@@ -100,7 +103,7 @@ public class DefaultFontEngine : IXLFontEngine
     /// Font is determined by a name and style in the worksheet, but the font name must be mapped to a font file/stream.
     /// System fonts on Windows contain hundreds of font files that have to be checked to find the correct font
     /// file for the font name and style. That means to read hundreds of files and parse data inside them.
-    /// Even though SixLabors.Fonts does this only once (lazily too) and stores data in a static variable, it is
+    /// Even though PinataLabs.Typography does this only once (lazily too) and stores data in a static variable, it is
     /// an overhead that can be avoided.
     /// </para>
     /// <para>
@@ -115,7 +118,7 @@ public class DefaultFontEngine : IXLFontEngine
     /// <param name="fontStreams">Fonts that should be loaded to the engine.</param>
     public static IXLFontEngine CreateOnlyWithFonts(Stream fallbackFontStream, params Stream[] fontStreams)
     {
-        return new DefaultFontEngine(fallbackFontStream, false, fontStreams);
+        return new PinataLabsFontEngine(fallbackFontStream, false, fontStreams);
     }
 
     /// <summary>
@@ -126,7 +129,7 @@ public class DefaultFontEngine : IXLFontEngine
     /// <param name="fontStreams">Fonts that should be loaded to the engine.</param>
     public static IXLFontEngine CreateWithFontsAndSystemFonts(Stream fallbackFontStream, params Stream[] fontStreams)
     {
-        return new DefaultFontEngine(fallbackFontStream, true, fontStreams);
+        return new PinataLabsFontEngine(fallbackFontStream, true, fontStreams);
     }
 
     public double GetDescent(IXLFontBase font, double dpiY)
@@ -169,7 +172,7 @@ public class DefaultFontEngine : IXLFontEngine
     /// <inheritdoc />
     public GlyphBox GetGlyphBox(ReadOnlySpan<int> graphemeCluster, IXLFontBase font, Dpi dpi)
     {
-        // SixLabors.Fonts don't have a way to get a glyph representation of a cluster
+        // PinataLabs.Typography doesn't have a way to get a glyph representation of a cluster
         // without a TextRenderer that has unacceptable performance.
         var metric = GetMetrics(font);
         var advanceFu = 0;
@@ -183,7 +186,7 @@ public class DefaultFontEngine : IXLFontEngine
                 ColorFontSupport.None,
                 out var glyphs);
 
-            // As of SixLabors.Fonts 1.0.0, the TryGetGlyphMetrics method never fails. It returns .notdef glyph 0
+            // Like SixLabors.Fonts 1.0.0, the TryGetGlyphMetrics method never fails. It returns .notdef glyph 0
             // as a fallback glyph, but it might change in the future.
             if (!containsMetrics)
                 continue;
@@ -233,20 +236,12 @@ public class DefaultFontEngine : IXLFontEngine
 
     private static void AddEmbeddedFont(FontCollection fontCollection)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        const string resourcePath = "XLibur.Graphics.Fonts.CarlitoBare-{0}.ttf";
-
-        using var regular = assembly.GetManifestResourceStream(string.Format(resourcePath, "Regular"))!;
-        fontCollection.Add(regular);
-
-        using var bold = assembly.GetManifestResourceStream(string.Format(resourcePath, "Bold"))!;
-        fontCollection.Add(bold);
-
-        using var italic = assembly.GetManifestResourceStream(string.Format(resourcePath, "Italic"))!;
-        fontCollection.Add(italic);
-
-        using var boldItalic = assembly.GetManifestResourceStream(string.Format(resourcePath, "BoldItalic"))!;
-        fontCollection.Add(boldItalic);
+        var assembly = typeof(PinataLabsFontEngine).Assembly;
+        foreach (var resourcePath in PinataLabsFontBootstrap.EmbeddedFontResourcePaths)
+        {
+            using var stream = assembly.GetManifestResourceStream(resourcePath)!;
+            fontCollection.Add(stream);
+        }
     }
 
     private double CalculateMaxDigitWidth(MetricId metricId)

@@ -3,7 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -23,7 +23,7 @@ public class LargeSheetRoundTripBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
         _bytes = LargeSheetFixture.Build();
         Console.WriteLine($"// Sheet part: {LargeSheetFixture.SheetPartLength(_bytes):N0} bytes inflated, package {_bytes.Length:N0} bytes");
     }

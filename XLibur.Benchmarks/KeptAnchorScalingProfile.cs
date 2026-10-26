@@ -5,7 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -48,7 +48,7 @@ public static class KeptAnchorScalingProfile
 
     public static void Run(string[] args)
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         // args[0] is "profile" and args[1] the mode.
         var pictures = args.Length > 2 ? int.Parse(args[2], CultureInfo.InvariantCulture) : Pictures;

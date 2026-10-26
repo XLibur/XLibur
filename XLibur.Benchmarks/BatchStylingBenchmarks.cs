@@ -1,7 +1,7 @@
 using System;
 using BenchmarkDotNet.Attributes;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -37,7 +37,7 @@ public class BatchStylingBenchmarks
     // never runs and every benchmark in the class fails on the first text measurement.
 #pragma warning disable CA1822
     [GlobalSetup]
-    public void GlobalSetup() => SixLaborsV1FontBootstrap.Register();
+    public void GlobalSetup() => PinataLabsFontBootstrap.Register();
 #pragma warning restore CA1822
 
     [IterationSetup]

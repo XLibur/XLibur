@@ -173,6 +173,15 @@ jobs:
           -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename fonts-skiasharp-test-results.trx
 
+      - name: Test Fonts.PinataLabs
+        run: >
+          dotnet test XLibur.Fonts.PinataLabs.Tests/XLibur.Fonts.PinataLabs.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net10.0
+          -p:TargetFrameworks=net10.0
+          --report-trx --report-trx-filename fonts-pinatalabs-test-results.trx
+
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
         env:
@@ -243,6 +252,14 @@ jobs:
           --no-build
           --framework net8.0
           --report-trx --report-trx-filename fonts-skiasharp-test-results.trx
+
+      - name: Test Fonts.PinataLabs
+        run: >
+          dotnet test XLibur.Fonts.PinataLabs.Tests/XLibur.Fonts.PinataLabs.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --report-trx --report-trx-filename fonts-pinatalabs-test-results.trx
 
       - name: Upload test results
         uses: actions/upload-artifact@v7

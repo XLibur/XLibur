@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -49,7 +49,7 @@ public static class ShifterCorpusDump
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         Console.WriteLine("# axis\tformula\tfirst\tlast\tshift\tforeignFormula\texpected\tlegacyExpected");
 

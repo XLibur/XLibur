@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using XLibur.Excel;
-using XLibur.Fonts.SixLabors.V1;
+using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Benchmarks;
 
@@ -23,7 +23,7 @@ public static class CreatePhaseProbe
 
     public static void Run()
     {
-        SixLaborsV1FontBootstrap.Register();
+        PinataLabsFontBootstrap.Register();
 
         // Warm up JIT and the process-wide style/colour repositories so one-time costs do not
         // land on whichever probe happens to run first.
