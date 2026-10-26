@@ -38,6 +38,8 @@
 
 - **`INDIRECT` in R1C1 style no longer throws out of a cell's value on a busy server.** `INDIRECT(text, FALSE)` read each cell reference with a regex that had the same 150 ms wall-clock timeout. A timeout escaped `IXLCell.Value` and recalculation instead of giving `#REF!`. The reference is now read with a scan, which gives the same answers as before ([#818](https://github.com/XLibur/XLibur/issues/818)).
 
+- **The first text read as a date in each culture no longer fails at random on a busy server.** Before it reads text as a date, the calc engine builds the culture's date patterns once, so that `MM` and `dd` also read a month or day without a leading zero. It did that with two regex replaces that had the same 150 ms wall-clock timeout, and a timeout escaped `IXLCell.Value`, recalculation, or the load of a workbook with autofilter values. The patterns are now built with a scan, which gives the same patterns for every culture ([#825](https://github.com/XLibur/XLibur/issues/825)).
+
 ## v0.720.0 - 2026-10-20
 
 ### ⚡ Performance

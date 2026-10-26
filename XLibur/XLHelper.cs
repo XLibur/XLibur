@@ -62,8 +62,6 @@ public static partial class XLHelper
     /// </summary>
     internal static readonly StringComparer FunctionComparer = StringComparer.OrdinalIgnoreCase;
 
-    internal static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
-
     /// <summary>
     /// A sheet name written in apostrophes. The surrounding apostrophes are required, and an
     /// apostrophe in the name itself is doubled and may appear anywhere in it, as in

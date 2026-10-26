@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Text;
 
 namespace XLibur.Excel.CalcEngine;
 
@@ -20,8 +20,6 @@ internal static class DateTimeParser
     // what patterns Excel uses for which cultures.
     private static readonly ConcurrentDictionary<CultureInfo, string[]> CultureSpecificPatterns = new();
 
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
-
     private static readonly string[] TimeOfDayPatterns = ["h:m tt", "h:m t", "h:m:s tt", "h:m:s t"];
 
     private static readonly string[] TimePatterns = ["h:m:s tt", "h:m tt", "H:m:s", "H:m", "h:m:s", "h:m"];
@@ -30,17 +28,10 @@ internal static class DateTimeParser
     {
         var datePatterns = CultureSpecificPatterns.GetOrAdd(culture, static ci =>
         {
-            // Patterns that look for exactly two MM/dd that aren't part of longer sequence of MMM/ddd.
-            // The MM/dd matches only two digit month/day and date recognition should be more fuzzy, it
-            // should recognize month/day even without leading zero. Many cultures return only MM/dd
-            // (NOT M/d) on GetAllDateTimePatterns.
-            const string leadingZeroMonthPattern = "(?<!M)MM(?!M)";
-            const string leadingZeroDayPattern = "(?<!d)dd(?!d)";
             var shortDatePatterns = ci.DateTimeFormat.GetAllDateTimePatterns('d')
                 .Concat(ci.DateTimeFormat.GetAllDateTimePatterns('D'))
                 .Where(pattern => !pattern.Contains("dddd")) // It doesn't seem that Excel parser is capable of parsing day names in any culture
-                .Select(pattern => Regex.Replace(pattern, leadingZeroMonthPattern, "M", RegexOptions.None, RegexTimeout)) // Recognize months even without leading zero
-                .Select(pattern => Regex.Replace(pattern, leadingZeroDayPattern, "d", RegexOptions.None, RegexTimeout)) // Recognize days even without leading zero
+                .Select(AllowSingleDigitMonthAndDay)
                 .Distinct().ToArray();
 
             // Not sure about this, but reasonably close. Hours pattern is probably generated (e.g. 'as-IN' culture
@@ -57,6 +48,38 @@ internal static class DateTimeParser
         });
 
         return DateTime.TryParseExact(s, datePatterns, culture, Style, out date);
+    }
+
+    /// <summary>
+    /// Shortens each run of exactly two <c>M</c> or two <c>d</c> to one, so the pattern also reads a
+    /// month or day without a leading zero. <c>MM</c>/<c>dd</c> match only two digits, and many
+    /// cultures give only those (not <c>M</c>/<c>d</c>) from <c>GetAllDateTimePatterns</c>. Longer
+    /// runs, such as <c>MMM</c> or <c>ddd</c>, are names and stay as they are.
+    /// </summary>
+    /// <remarks>
+    /// This was two regex replaces with a wall-clock timeout, which a busy server could trip (#825).
+    /// </remarks>
+    internal static string AllowSingleDigitMonthAndDay(string pattern)
+    {
+        var result = new StringBuilder(pattern.Length);
+        var i = 0;
+        while (i < pattern.Length)
+        {
+            var c = pattern[i];
+            var end = i + 1;
+            while (end < pattern.Length && pattern[end] == c)
+                end++;
+
+            var runLength = end - i;
+            if (runLength == 2 && (c is 'M' or 'd'))
+                result.Append(c);
+            else
+                result.Append(pattern, i, runLength);
+
+            i = end;
+        }
+
+        return result.ToString();
     }
 
     public static bool TryParseTimeOfDay(string s, CultureInfo c, out DateTime timeOfDay)
