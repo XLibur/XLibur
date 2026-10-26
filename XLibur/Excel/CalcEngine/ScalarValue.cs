@@ -567,13 +567,8 @@ internal readonly struct ScalarValue
         if (DateTime.TryParseExact(text, ["MMM-yyyy", "MMMM-yyyy", "MMM yyyy", "MMMM yyyy"], culture, dateStyle, out date))
             return true;
 
-        if (!DateTime.TryParseExact(text, ["MMM-y", "MMMM-y", "MMM y", "MMMM y"], culture, dateStyle, out date))
-            return false;
-
-        if (date.Year != DateTime.Now.Year && date.Year >= 2030)
-            date = date.AddYears(-100);
-
-        return true;
+        // A one- or two-digit year falls in Excel's 1930-2029 window, as in the other formats.
+        return DateTime.TryParseExact(text, ["MMM-y", "MMMM-y", "MMM y", "MMMM y"], DateTimeParser.WithExcelTwoDigitYears(culture), dateStyle, out date);
     }
 
     private static bool TryParseDateWithOverflowTime(string text, CultureInfo culture, out double serialDateTime)

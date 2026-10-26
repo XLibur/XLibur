@@ -176,7 +176,9 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
+        // Like VALUE, DATEVALUE skips leading spaces, which text-to-number coercion refuses on a
+        // date (#831).
+        if (!ScalarValue.ToSerialDateTime(text!.TrimStart(' '), ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return Math.Truncate(serialDateTime);
@@ -756,7 +758,8 @@ internal static class DateAndTime
         if (!value.TryPickText(out var text, out var error))
             return error;
 
-        if (!ScalarValue.ToSerialDateTime(text!, ctx.Culture, out var serialDateTime))
+        // Like VALUE, TIMEVALUE skips leading spaces (#831).
+        if (!ScalarValue.ToSerialDateTime(text!.TrimStart(' '), ctx.Culture, out var serialDateTime))
             return XLError.IncompatibleValue;
 
         return serialDateTime % 1.0;

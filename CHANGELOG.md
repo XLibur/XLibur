@@ -48,7 +48,7 @@
   - A two-digit year is 1930–2029, as in Excel, not 1950–2049. `22/04/30` and `1-jan-30` are in 1930.
   - A group after the first may have more digits than the group size. `1,0000` is 10000, and `1,00` is still `#VALUE!`.
   - `10 am` is ten o'clock. An AM/PM designator against the digits, as in `10:30am`, is `#VALUE!`.
-  - A date or time with a leading space is `#VALUE!`, except for `d-mmm` such as ` 1-mar`. Before, `" 10:30 AM"*1` was a time. `VALUE` still skips leading spaces, as in Excel.
+  - A date or time with a leading space is `#VALUE!`, except for `d-mmm` such as ` 1-mar`. Before, `" 10:30 AM"*1` was a time, and `COUNTIF` matched a date against `" 1/2/2022"`. `VALUE`, `DATEVALUE` and `TIMEVALUE` still skip leading spaces, as in Excel.
 
   ([#831](https://github.com/XLibur/XLibur/issues/831))
 

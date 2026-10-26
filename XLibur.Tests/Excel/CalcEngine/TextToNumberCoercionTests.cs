@@ -696,6 +696,28 @@ public class TextToNumberCoercionTests
         await Assert.That((double)wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(expectedValue).Within(Tolerance);
     }
 
+    // DATEVALUE and TIMEVALUE skip leading spaces, as VALUE does.
+    [Test]
+    [Arguments("DATEVALUE(\" 1/2/2022\")", 44563)]
+    [Arguments("DATEVALUE(\" 1-jan-2022\")", 44562)]
+    [Arguments("TIMEVALUE(\" 10:30 AM\")", 0.4375)]
+    [Arguments("TIMEVALUE(\" 10:30\")", 0.4375)]
+    public async Task DateValueAndTimeValue_SkipLeadingSpaces(string formula, double expectedValue)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That((double)wb.Evaluate(formula)).IsEqualTo(expectedValue).Within(Tolerance);
+    }
+
+    [Test]
+    [Arguments("5 a", 0.20833333333333334)]
+    [Arguments("5 A", 0.20833333333333334)]
+    [Arguments("5 p", 0.70833333333333337)]
+    [Arguments("12 p", 0.5)]
+    public async Task Time_HourAndOneLetterDesignator(string text, double expectedValue)
+    {
+        await AssertCoercion(text, expectedValue, Tolerance);
+    }
+
     [Test]
     [Arguments(" 1-mar")]
     [Arguments(" 1 mar")]
