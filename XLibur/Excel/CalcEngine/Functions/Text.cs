@@ -1314,10 +1314,11 @@ internal static class Text
         if (!arg.TryPickText(out var text, out var error))
             return error;
 
-        // In Excel, VALUE(text) and the coercion text*1 agree on every input measured (#824), so
-        // VALUE reads text the way the coercion does: numbers, currency, braces, percentages,
-        // fractions, dates and times.
-        return ScalarValue.TextToNumber(text!, ctx.Culture).TryPickT0(out var parsed, out _)
+        // VALUE reads text the way the coercion text*1 does: numbers, currency, braces,
+        // percentages, fractions, dates and times (#824). The one difference measured in Excel is
+        // that VALUE skips leading spaces, so VALUE(" 1-jan-2022") is a date where " 1-jan-2022"*1
+        // is #VALUE!. A leading line feed is not skipped.
+        return ScalarValue.TextToNumber(text!.TrimStart(' '), ctx.Culture).TryPickT0(out var parsed, out _)
             ? parsed
             : XLError.IncompatibleValue;
     }
