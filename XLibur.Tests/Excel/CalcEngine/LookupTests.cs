@@ -1142,6 +1142,110 @@ public class LookupTests
     }
 
     [Test]
+    [Arguments("R1C1\n", 1, 1)]
+    [Arguments("r2c3", 2, 3)]
+    [Arguments("R1048576C16384", 1048576, 16384)]
+    public async Task Indirect_R1C1_resolves(string text, int row, int column)
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = text;
+
+        await Assert.That(sheet.Evaluate("ROW(INDIRECT(A1, FALSE))")).IsEqualTo(row);
+        await Assert.That(sheet.Evaluate("COLUMN(INDIRECT(A1, FALSE))")).IsEqualTo(column);
+    }
+
+    [Test]
+    [Arguments("R1C1\r")]
+    [Arguments("R1C1\n\n")]
+    [Arguments("R1C1 ")]
+    [Arguments("\nR1C1")]
+    [Arguments("R1C")]
+    [Arguments("RC1")]
+    [Arguments("R0C1")]
+    [Arguments("R1C0")]
+    [Arguments("R1048577C1")]
+    [Arguments("R1C16385")]
+    [Arguments("R99999999999C1")]
+    [Arguments("R1C99999999999")]
+    [Arguments("R+1C1")]
+    [Arguments("R١C١")] // Arabic-Indic digits: '\d' matched them and int.TryParse then rejected them
+    [Arguments("R1C1\0")] // int.TryParse ignores trailing NULs; the regex did not
+    [Arguments("R1\0C1")]
+    [Arguments("R1C1\0\0")]
+    [Arguments("R1C1\n\0")]
+    public async Task Indirect_R1C1_is_a_reference_error(string text)
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = text;
+
+        await Assert.That(sheet.Evaluate("INDIRECT(A1, FALSE)")).IsEqualTo(XLError.CellReference);
+    }
+
+    /// <summary>
+    /// INDIRECT read an R1C1 cell with a regex with a 150 ms timeout, and the timeout is wall-clock
+    /// time: a thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException out of
+    /// the cell's value, whatever the text (#818). It is a scan now. This pins the scan to the
+    /// regex's language, and the oracle is the old pattern itself with no timeout. Its '$' also
+    /// matches before a final line feed, and the scan keeps that, as Excel resolves 'R1C1' &amp; CHAR(10)
+    /// too. The inputs are built from the pieces of a valid reference, so that a fair share of
+    /// them resolve.
+    /// </summary>
+    [Test]
+    public async Task Indirect_R1C1_resolves_the_language_the_regex_accepted()
+    {
+        var oracle = new System.Text.RegularExpressions.Regex(
+            @"^R(\d+)C(\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        // '٣' is an Arabic-Indic digit, which '\d' matches; 'ſ' and 'K' (Kelvin) are the letters
+        // that fold to ASCII under some case mappings.
+        string[] numbers = ["0", "1", "9", "42", "16384", "16385", "1048576", "1048577", "2147483647", "2147483648", "99999999999", "٣", "1٣", "007"];
+        string[] letters = ["R", "r", "C", "c", "x", "ſ", "K", ""];
+        // '\0' because int.TryParse ignores trailing NULs, which the regex never matched.
+        string[] separators = ["", "\n", "\r", " ", "-", "+", ":", "\0"];
+
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        var random = new Random(7);
+        var resolved = 0;
+        const int cases = 100_000;
+        for (var i = 0; i < cases; i++)
+        {
+            var text = string.Concat(
+                random.Next(10) == 0 ? separators[random.Next(separators.Length)] : "",
+                random.Next(12) == 0 ? letters[random.Next(letters.Length)] : "R",
+                random.Next(3) == 0 ? numbers[random.Next(numbers.Length)] : random.Next(1, 20000).ToString(),
+                random.Next(12) == 0 ? separators[random.Next(separators.Length)] : "",
+                random.Next(12) == 0 ? letters[random.Next(letters.Length)] : "C",
+                random.Next(3) == 0 ? numbers[random.Next(numbers.Length)] : random.Next(1, 20000).ToString(),
+                random.Next(4) == 0 ? separators[random.Next(separators.Length)] : "");
+
+            XLCellValue expected = XLError.CellReference;
+            var match = oracle.Match(text);
+            if (match.Success
+                && int.TryParse(match.Groups[1].Value, out var row)
+                && int.TryParse(match.Groups[2].Value, out var column)
+                && row is >= 1 and <= XLHelper.MaxRowNumber
+                && column is >= 1 and <= XLHelper.MaxColumnNumber)
+            {
+                expected = row;
+                resolved++;
+            }
+
+            sheet.Cell("A1").Value = text;
+            var actual = sheet.Evaluate("ROW(INDIRECT(A1, FALSE))");
+            if (!actual.Equals(expected))
+                await Assert.That(actual).IsEqualTo(expected).Because($"'{text}'");
+        }
+
+        // Guards the generator: if almost nothing resolves, the test says little.
+        await Assert.That(resolved).IsGreaterThan(cases / 4).Because($"{resolved} of {cases} resolved");
+    }
+
+    [Test]
     public async Task Indirect_NonExistentSheet_ReturnsCellReferenceError()
     {
         using var wb = new XLWorkbook();

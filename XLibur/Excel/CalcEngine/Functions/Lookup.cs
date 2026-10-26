@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using XLibur.Excel.Coordinates;
 using XLibur.Extensions;
 using static XLibur.Excel.CalcEngine.Functions.SignatureAdapter;
@@ -748,9 +748,6 @@ internal static class Lookup
         }
     }
 
-    private static readonly Regex AbsoluteR1C1Regex = new(
-        @"^R(\d+)C(\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, XLHelper.RegexTimeout);
-
     private static AnyValue TryParseR1C1Reference(XLWorksheet? worksheet, string addressText)
     {
         // Support single cell (R1C1) and range (R1C1:R5C3)
@@ -784,16 +781,42 @@ internal static class Lookup
 
     private static bool TryParseAbsoluteR1C1Cell(string text, out int row, out int column)
     {
+        // A scan, not a regex. This was '^R(\d+)C(\d+)$' with a 150 ms timeout, and the timeout is
+        // wall-clock time: a thread descheduled or paused by GC mid-match threw
+        // RegexMatchTimeoutException out of the cell's value, whatever the text (#818).
+        // The regex's '\d' also matched non-ASCII digits, which int.TryParse then rejected, so
+        // ASCII digits alone give the same result. Its '$' matched before a final line feed
+        // too, so 'R1C1' + LF resolves; Excel resolves that as well. Excel also ignores a trailing
+        // space, which this does not (#820, where the rule for trailing whitespace belongs).
+        // Each number is checked to be ASCII digits before int.TryParse reads it. NumberStyles.None
+        // rejects a sign and whitespace, but int.TryParse still ignores trailing NULs, so 'R1C1\0'
+        // would resolve where the regex gave #REF!. XLHelper.IsValidRow avoids it for the same reason.
+        row = 0;
         column = 0;
-        var match = AbsoluteR1C1Regex.Match(text);
-        if (!match.Success)
+        var span = text.AsSpan();
+        if (span.Length > 0 && span[^1] == '\n')
+            span = span[..^1];
+
+        if (span.Length == 0 || span[0] is not ('R' or 'r'))
+            return false;
+
+        var columnLetter = span.IndexOfAny('C', 'c');
+        if (columnLetter < 0)
+            return false;
+
+        var rowDigits = span[1..columnLetter];
+        var columnDigits = span[(columnLetter + 1)..];
+        if (rowDigits.IsEmpty || rowDigits.ContainsAnyExceptInRange('0', '9')
+            || columnDigits.IsEmpty || columnDigits.ContainsAnyExceptInRange('0', '9')
+            || !int.TryParse(rowDigits, NumberStyles.None, CultureInfo.InvariantCulture, out row)
+            || !int.TryParse(columnDigits, NumberStyles.None, CultureInfo.InvariantCulture, out column))
         {
             row = 0;
+            column = 0;
             return false;
         }
 
-        return int.TryParse(match.Groups[1].Value, out row)
-            && int.TryParse(match.Groups[2].Value, out column);
+        return true;
     }
 
     private static bool IsWithinSheetBounds(int row, int column)
