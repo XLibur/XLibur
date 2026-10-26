@@ -322,8 +322,12 @@ public static partial class XLHelper
         // before its digits.
         var index = 0;
         TrySkipSheetName(rangeAddress, ref index);
+        //
+        // The address may end in one line feed, as the regex's '\Z' allowed. INDIRECT reads
+        // "A1:B2"&CHAR(10) the same way, as Excel does, and relies on this.
         return TrySkipRange(rangeAddress, ref index)
-            && index == rangeAddress.Length;
+            && (index == rangeAddress.Length
+                || (index == rangeAddress.Length - 1 && rangeAddress[index] == '\n'));
     }
 
     /// <summary>
@@ -332,14 +336,16 @@ public static partial class XLHelper
     /// <c>'Bob''s'!</c>, or a run of word characters, as in <c>Sheet_1!</c>.
     /// </summary>
     /// <returns><c>false</c>, with <paramref name="index"/> unchanged, if there is no sheet name.
-    /// The sheet name is optional, so that is not an error here.</returns>
+    /// The sheet name is optional, so that is not an error here. A malformed one returns <c>false</c> too,
+    /// deliberately: it mirrors the regex's optional sheet group, and the range itself can start with
+    /// word characters, as in <c>A1:B2</c>, so the range check is what refuses what is left.</returns>
     private static bool TrySkipSheetName(string address, ref int index)
     {
         var position = index;
         if (address[position] == '\'')
         {
             position++;
-            var nameLength = 0;
+            var nameStart = position;
             while (position < address.Length)
             {
                 var c = address[position];
@@ -360,11 +366,10 @@ public static partial class XLHelper
                 {
                     position++;
                 }
-
-                nameLength++;
             }
 
-            if (nameLength == 0 || position == address.Length)
+            // The name cannot be empty, and the closing apostrophe has to be there.
+            if (position == nameStart || position == address.Length)
                 return false;
 
             position++;
@@ -404,34 +409,32 @@ public static partial class XLHelper
     /// </summary>
     private static bool TrySkipRange(string address, ref int index)
     {
-        TrySkipDollar(address, ref index);
+        SkipDollar(address, ref index);
         if (TrySkipLetters(address, ref index))
         {
             // 'A:B'. A '$' cannot come between the letters and the ':'.
             if (index < address.Length && address[index] == ':')
             {
                 index++;
-                TrySkipDollar(address, ref index);
+                SkipDollar(address, ref index);
                 return TrySkipLetters(address, ref index);
             }
 
             // 'A1' or 'A1:B2'.
-            TrySkipDollar(address, ref index);
+            SkipDollar(address, ref index);
             if (!TrySkipDigits(address, ref index))
                 return false;
 
-            if (index == address.Length)
+            // 'A1', unless something follows that the caller will refuse.
+            if (index == address.Length || address[index] != ':')
                 return true;
 
-            if (address[index] != ':')
-                return false;
-
             index++;
-            TrySkipDollar(address, ref index);
+            SkipDollar(address, ref index);
             if (!TrySkipLetters(address, ref index))
                 return false;
 
-            TrySkipDollar(address, ref index);
+            SkipDollar(address, ref index);
             return TrySkipDigits(address, ref index);
         }
 
@@ -442,11 +445,11 @@ public static partial class XLHelper
             return false;
 
         index++;
-        TrySkipDollar(address, ref index);
+        SkipDollar(address, ref index);
         return TrySkipDigits(address, ref index);
     }
 
-    private static void TrySkipDollar(string address, ref int index)
+    private static void SkipDollar(string address, ref int index)
     {
         if (index < address.Length && address[index] == '$')
             index++;

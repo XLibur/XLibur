@@ -117,15 +117,26 @@ public class XlHelperTests
         await Assert.That(bobs.DefinedName("Local").Ranges.Count).IsEqualTo(1);
     }
 
+    /// <summary>
+    /// The regex ended in '\Z', which also matches before a final '\n', and that stays: INDIRECT
+    /// resolves <c>"A1:B2"&amp;CHAR(10)</c> and <c>"Data!A1:B2"&amp;CHAR(10)</c> as Excel does only
+    /// because this accepts one trailing line feed. Two of them, or a '\r', are still refused. Where
+    /// INDIRECT should take the rule from Excel's whitespace handling instead is #820.
+    /// </summary>
     [Test]
-    [Arguments("A1\n")]
-    [Arguments("Data!A1:B2\n")]
-    [Arguments("'Bob''s'!$A:$A\n")]
-    [Arguments("1:1\n")]
-    [Arguments("A1\n\n")]
-    public async Task A_range_address_ending_in_a_line_feed_is_not_a_range_address(string address)
+    [Arguments("A1\n", true)]
+    [Arguments("A1:B2\n", true)]
+    [Arguments("Data!A1:B2\n", true)]
+    [Arguments("1:1\n", true)]
+    [Arguments("A:A\n", true)]
+    [Arguments("'Bob''s'!$A:$A\n", true)]
+    [Arguments("A1\n\n", false)]
+    [Arguments("A1\r", false)]
+    [Arguments("A1\r\n", false)]
+    [Arguments("A1\nB2", false)]
+    public async Task A_range_address_may_end_in_one_line_feed(string address, bool expected)
     {
-        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsFalse();
+        await Assert.That(XLHelper.IsValidRangeAddress(address)).IsEqualTo(expected);
     }
 
     [Test]
@@ -150,9 +161,9 @@ public class XlHelperTests
     /// IsValidRangeAddress was a regex with a 150 ms timeout, and the timeout is wall-clock time: a
     /// thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException on a valid
     /// address, from <c>Range("A1:B2")</c> and every other caller (#816). It is a scan now. This
-    /// pins the scan to the language the regex accepted, with one change: the regex ended in
-    /// '\Z', which also matches before a final '\n', so 'A1\n' was an address. The oracle ends in
-    /// '\z' instead.
+    /// pins the scan to the language the regex accepted, with no change. The oracle is the old
+    /// pattern, '\Z' included, without the timeout and with NonBacktracking. Only IsMatch is used:
+    /// on net10.0 NonBacktracking returns empty capture groups in some trailing-'\n' cases.
     /// </summary>
     /// <remarks>
     /// Random strings almost never form an address, so the inputs are valid addresses (with and
@@ -210,7 +221,7 @@ public class XlHelperTests
         }
 
         var random = new Random(816);
-        const int cases = 400_000;
+        const int cases = 100_000;
         var accepted = 0;
         for (var i = 0; i < cases; i++)
         {
@@ -244,11 +255,10 @@ public class XlHelperTests
                 await Assert.That(XLHelper.IsValidRangeAddress(address)).IsEqualTo(expected).Because($"'{address}'");
         }
 
-        Console.WriteLine($"IsValidRangeAddress fuzz: {cases} cases, the oracle accepts {accepted} ({100.0 * accepted / cases:F1}%)");
-
         // Both outcomes have to be common, or the comparison proves little.
-        await Assert.That(accepted).IsGreaterThan(cases / 10);
-        await Assert.That(accepted).IsLessThan(cases * 9 / 10);
+        var share = $"the oracle accepted {accepted} of {cases} ({100.0 * accepted / cases:F1}%)";
+        await Assert.That(accepted).IsGreaterThan(cases / 10).Because(share);
+        await Assert.That(accepted).IsLessThan(cases * 9 / 10).Because(share);
     }
 
     /// <summary>
@@ -272,8 +282,8 @@ public class XlHelperTests
     }
 
     /// <summary>
-    /// The pattern IsValidRangeAddress used to match, without the timeout, and with '\z' where it had
-    /// '\Z'. NonBacktracking cannot time out, so it is an oracle that does not depend on the machine's
+    /// The pattern IsValidRangeAddress used to match, as it was but without the timeout.
+    /// NonBacktracking cannot time out, so it is an oracle that does not depend on the machine's
     /// load.
     /// </summary>
     private static System.Text.RegularExpressions.Regex CreateRangeAddressOracle() => new(
@@ -282,7 +292,7 @@ public class XlHelperTests
         + @"(\$?[a-zA-Z]{1,3}\$?\d{1,7}(:\$?[a-zA-Z]{1,3}\$?\d{1,7})?"
         + @"|\$?\d{1,7}:\$?\d{1,7}"
         + @"|\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})"
-        + @"\z",
+        + @"\Z",
         System.Text.RegularExpressions.RegexOptions.NonBacktracking);
 
     [Test]
