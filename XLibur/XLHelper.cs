@@ -64,10 +64,6 @@ public static partial class XLHelper
 
     internal static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(150);
 
-    internal static readonly Regex RCSimpleRegex = new(
-        @"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?$"
-        , RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout);
-
     /// <summary>
     /// A sheet name written in apostrophes. The surrounding apostrophes are required, and an
     /// apostrophe in the name itself is doubled and may appear anywhere in it, as in
@@ -306,7 +302,56 @@ public static partial class XLHelper
         if (string.IsNullOrWhiteSpace(address))
             return false;
 
-        return RCSimpleRegex.IsMatch(address);
+        // A scan, not a regex. This was a regex with a 150 ms timeout, and the timeout is
+        // wall-clock time: a thread descheduled or paused by GC mid-match threw
+        // RegexMatchTimeoutException on a name as plain as 'OpportunityTable'. Table names are
+        // checked against this on load, so a busy server failed to open workbooks with tables (#815).
+        // The grammar is 'R' then 'C', each optional, each with an optional offset that is
+        // either bare or in brackets.
+        var index = 0;
+        return TrySkipRCPart(address, ref index, 'R')
+            && TrySkipRCPart(address, ref index, 'C')
+            && index == address.Length;
+    }
+
+    /// <summary>
+    /// Skips one part of an R1C1 address: <paramref name="letter"/> in either case, then an
+    /// optional offset of digits with an optional leading '-', bare or in brackets, as in
+    /// <c>R</c>, <c>R12</c>, <c>R-1</c>, <c>R[]</c> and <c>R[-1]</c>.
+    /// </summary>
+    /// <returns><c>false</c> if the letter is there and its offset is malformed. A part that is
+    /// not there at all is skipped and is not an error.</returns>
+    private static bool TrySkipRCPart(string address, ref int index, char letter)
+    {
+        if (index == address.Length || char.ToUpperInvariant(address[index]) != letter)
+            return true;
+
+        index++;
+        var bracketed = index < address.Length && address[index] == '[';
+        if (bracketed)
+            index++;
+
+        // A '-' must be followed by a digit, so 'R-' and 'R[-]' are not addresses.
+        if (index < address.Length && address[index] == '-')
+        {
+            if (index + 1 == address.Length || !char.IsDigit(address[index + 1]))
+                return false;
+
+            index++;
+        }
+
+        // char.IsDigit, not IsAsciiDigit, as the regex's '\d' matched every Unicode digit.
+        while (index < address.Length && char.IsDigit(address[index]))
+            index++;
+
+        if (!bracketed)
+            return true;
+
+        if (index == address.Length || address[index] != ']')
+            return false;
+
+        index++;
+        return true;
     }
 
     public static bool IsValidRangeAddress(string rangeAddress)
