@@ -291,9 +291,47 @@ public class XlHelperTests
     [Arguments("R[-]C222")]
     [Arguments("R[]C[-]")]
     [Arguments("_R111C222")]
+    [Arguments("R-C1")]
+    [Arguments("R[1C1")]
+    [Arguments("R1]C1")]
+    [Arguments("C1R1")]
+    [Arguments("R1C1\n")]
     public async Task InvalidRCAddresses(string address)
     {
         await Assert.That(XLHelper.IsValidRCAddress(address)).IsFalse();
+    }
+
+    /// <summary>
+    /// IsValidRCAddress was a regex with a 150 ms timeout, and the timeout is wall-clock time: a
+    /// thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException for a name
+    /// as plain as 'OpportunityTable', and failed the load of any workbook with a table (#815). It is a
+    /// scan now. This pins the scan to the language the regex accepted, with one change: the
+    /// regex ended in '$', which also matches before a final '\n', so 'R1C1\n' was an address.
+    /// The oracle ends in '\z' instead.
+    /// </summary>
+    [Test]
+    public async Task IsValidRCAddress_accepts_the_language_the_regex_accepted()
+    {
+        var oracle = new System.Text.RegularExpressions.Regex(
+            @"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?\z",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            | System.Text.RegularExpressions.RegexOptions.NonBacktracking);
+
+        // '٣' is an Arabic-Indic digit, which '\d' matches; 'ſ' and 'K' (Kelvin) are the letters
+        // that fold to ASCII under some case mappings.
+        const string alphabet = "rRcC019-[]x \n٣ſK";
+        var random = new Random(7);
+        for (var i = 0; i < 100_000; i++)
+        {
+            var chars = new char[random.Next(1, 12)];
+            for (var j = 0; j < chars.Length; j++)
+                chars[j] = alphabet[random.Next(alphabet.Length)];
+            var address = new string(chars);
+
+            var expected = !string.IsNullOrWhiteSpace(address) && oracle.IsMatch(address);
+            if (XLHelper.IsValidRCAddress(address) != expected)
+                await Assert.That(XLHelper.IsValidRCAddress(address)).IsEqualTo(expected).Because($"'{address}'");
+        }
     }
 
     #region Old XLHelper methods

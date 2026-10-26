@@ -28,6 +28,10 @@
 
 - **The packages target .NET 11 (`net11.0`), built with the .NET 11 RC 2 SDK.** XLibur, XLibur.Bundle, the three font engines, XLibur.Report and XLibur.Report.DynamicLinq now ship a `net11.0` build beside `net8.0`, `net9.0` and `net10.0`. Building the repository now needs the .NET 11 RC 2 SDK (`11.0.100-rc.2.26504.105`, pinned in `global.json`). .NET 11 changes `Math.Round(value, digits, MidpointRounding.AwayFromZero)` to round the exact binary value, so it rounds 2.15 to one digit as 2.1. Excel gives 2.2, and so did earlier runtimes. `ROUND` now scales and rounds the value itself, so it gives Excel's result on every runtime.
 
+### 🐛 Bug Fixes
+
+- **Opening a workbook with a table no longer fails at random on a busy server.** The load checks that each table's name is not an R1C1 address, and the check was a regex with a 150 ms timeout. The timeout counts wall-clock time, so when the thread was descheduled or paused by GC during the match, the check threw `RegexMatchTimeoutException`, whatever the name. With every core 4x oversubscribed, a name as plain as `OpportunityTable` timed out 103 times in 12.9 million checks. The check is now a scan, with no timeout. It accepts the same names as the regex did, except one that ends in a line feed: the regex's `$` also matched before a final `\n`, so `R1C1\n` counted as an address ([#815](https://github.com/XLibur/XLibur/issues/815)).
+
 ## v0.720.0 - 2026-10-20
 
 ### ⚡ Performance
