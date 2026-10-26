@@ -14,6 +14,8 @@ namespace XLibur.Excel.CalcEngine;
 ///           neither is grouped the way the culture groups.</item>
 ///     <item>The currency symbol must be where the culture puts it. .NET accepts it at either end,
 ///           so <c>1$</c> parses under en-US and <c>Kč 1</c> under cs-CZ, while Excel rejects both.</item>
+///     <item>The number must be finite. .NET reads <c>NaN</c> and overflows <c>1e400</c> to
+///           infinity, which a cell value can't hold; Excel gives <c>#VALUE!</c> for both.</item>
 /// </list>
 /// </summary>
 internal static class NumberParser
@@ -21,6 +23,7 @@ internal static class NumberParser
     public static bool TryParse(string text, CultureInfo culture, out double number)
     {
         if (double.TryParse(text, NumberStyles.Any, culture, out number) &&
+            double.IsFinite(number) &&
             HasValidGroupSeparators(text, culture) &&
             HasValidCurrencyPosition(text, culture))
         {

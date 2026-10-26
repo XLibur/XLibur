@@ -484,8 +484,10 @@ internal readonly struct ScalarValue
         // why cs-CZ reads 'led-5' as January 2005. Parsing happens in year 1 (NoCurrentDateDefault),
         // so a number that isn't a valid day falls through to the year reading below, and so does
         // 'feb-29', which no year 1 can hold.
+        // Excel takes a space between the month and the number as well as a '-': 'Mar 2022' and
+        // 'March 2022' are the first of March 2022, as 'Mar-2022' is.
         if (IsMonthBeforeDay(culture) &&
-            DateTime.TryParseExact(text, ["MMM-d", "MMMM-d"], culture, dateStyle, out var dateFormat17AsDay))
+            DateTime.TryParseExact(text, ["MMM-d", "MMMM-d", "MMM d", "MMMM d"], culture, dateStyle, out var dateFormat17AsDay))
         {
             date = dateFormat17AsDay.AddYears(DateTime.Now.Year - dateFormat17AsDay.Year);
             return true;
@@ -494,7 +496,11 @@ internal readonly struct ScalarValue
         // Month and a number. In some cultures, the culture date parsing will interpret this pattern as MMM-dd, but
         // that depends on culture date patterns above. Use MMM and MMMM to encompass both abbreviation and full name.
         // Format 17 'mmm-yy'
-        if (!DateTime.TryParseExact(text, ["MMM-y", "MMMM-y"], culture, dateStyle, out date))
+        // A four-digit year is taken as written. 'y' reads only one or two digits.
+        if (DateTime.TryParseExact(text, ["MMM-yyyy", "MMMM-yyyy", "MMM yyyy", "MMMM yyyy"], culture, dateStyle, out date))
+            return true;
+
+        if (!DateTime.TryParseExact(text, ["MMM-y", "MMMM-y", "MMM y", "MMMM y"], culture, dateStyle, out date))
             return false;
 
         if (date.Year != DateTime.Now.Year && date.Year >= 2030)

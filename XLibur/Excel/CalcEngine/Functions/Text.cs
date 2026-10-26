@@ -1305,11 +1305,6 @@ internal static class Text
 
     private static AnyValue Value(CalcContext ctx, ScalarValue arg)
     {
-        // Specification is vague/misleading:
-        // * function accepts significantly more diverse range of inputs e.g. result of "($100)" is -100
-        //   despite braces not being part of any default number format.
-        // * Different cultures work weird, e.g. 7:30 PM is detected as 19:30 in cs locale despite "PM" designator being "odp."
-        // * Formats 14 and 22 differ depending on the locale (that is why in dialogue are with a '*' sign)
         if (arg.IsBlank)
             return 0;
 
@@ -1319,32 +1314,13 @@ internal static class Text
         if (!arg.TryPickText(out var text, out var error))
             return error;
 
-        const string percentSign = "%";
-        var isPercent = text!.Contains(percentSign, StringComparison.Ordinal);
-        var textWithoutPercent = isPercent ? text.Replace(percentSign, string.Empty) : text;
-        if (double.TryParse(textWithoutPercent, NumberStyles.Any, ctx.Culture, out var parsedNumber))
-            return isPercent ? parsedNumber / 100d : parsedNumber;
-
-        // fraction isn't parsed, maybe in the future
-        // No idea how Date/Time parsing works, good enough for initial approach
-        var dateTimeFormats = new[]
-        {
-            ctx.Culture.DateTimeFormat.ShortDatePattern,
-            ctx.Culture.DateTimeFormat.YearMonthPattern,
-            ctx.Culture.DateTimeFormat.ShortTimePattern,
-            ctx.Culture.DateTimeFormat.LongTimePattern,
-            "mm-dd-yy", // format 14
-            "d-MMMM-yy", // format 15
-            "d-MMMM", // format 16
-            "d-MMM-yyyy",
-            "H:mm", // format 20
-            "H:mm:ss" // format 21
-        };
-        const DateTimeStyles dateTimeStyle = DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.NoCurrentDateDefault;
-        if (DateTime.TryParseExact(text, dateTimeFormats, ctx.Culture, dateTimeStyle, out var parsedDate))
-            return parsedDate.ToOADate();
-
-        return XLError.IncompatibleValue;
+        // VALUE reads text the way the coercion text*1 does: numbers, currency, braces,
+        // percentages, fractions, dates and times (#824). The one difference measured in Excel is
+        // that VALUE skips leading spaces, so VALUE(" 1-jan-2022") is a date where " 1-jan-2022"*1
+        // is #VALUE!. A leading line feed is not skipped.
+        return ScalarValue.TextToNumber(text!.TrimStart(' '), ctx.Culture).TryPickT0(out var parsed, out _)
+            ? parsed
+            : XLError.IncompatibleValue;
     }
 
     private static ScalarValue NumberValue(CalcContext ctx, string text, string decimalSeparator, string groupSeparator)

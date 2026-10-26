@@ -1239,6 +1239,96 @@ public class TextTests
         await Assert.That((double)wb.Evaluate("VALUE(\"16:48:00\")-VALUE(\"12:17:12\")")).IsEqualTo(0.188056d).Within(0.000001d);
     }
 
+    /// <summary>
+    /// Excel 365 over COM, 2026-10-26: <c>VALUE(text)</c> and <c>text*1</c> agreed on every input
+    /// measured. VALUE had its own parser, which read no fractions and missed some times (#824).
+    /// </summary>
+    [Test]
+    [Arguments("1 1/2", 1.5)]
+    [Arguments("-1 1/2", -1.5)]
+    [Arguments("0 3/4", 0.75)]
+    [Arguments("1 1/2 ", 1.5)]
+    [Arguments("90:00", 3.75)]
+    [Arguments("($100)", -100)]
+    [Arguments("(100%)", -1)]
+    [Arguments(" % 100", 1)]
+    [Arguments("1,000", 1000)]
+    [Arguments("1e3", 1000)]
+    [Arguments("$1", 1)]
+    [Arguments("30-apr-2000", 36646)]
+    [Arguments("10:30 AM", 0.4375)]
+    [Arguments("March 2022", 44621)] // The old VALUE read this through YearMonthPattern
+    [Arguments("July 2024", 45474)]
+    [Arguments("Mar 2022", 44621)]
+    [Arguments("mar  2022", 44621)]
+    [Arguments("Mar 2022 ", 44621)]
+    [Arguments("Mar 1999", 36220)]
+    [Arguments("Mar 32", 11749)] // Not a day, so a year: 1932
+    [Arguments("Mar-2022", 44621)]
+    [Arguments("Mar 2040", 51196)] // A four-digit year is not moved back a century
+    public async Task Value_reads_text_as_text_to_number_coercion_does(string text, double expected)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(expected);
+        await Assert.That(wb.Evaluate($"\"{text}\"*1")).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Value_reads_day_and_month_as_this_year()
+    {
+        var expected = new DateTime(DateTime.Now.Year, 3, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime();
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate("VALUE(\"1-mar\")")).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Excel's VALUE skips leading spaces, where the coercion text*1 gives #VALUE! for a date or
+    /// a time that starts with one. A leading line feed is not skipped. Excel 365 over COM, 2026-10-26.
+    /// </summary>
+    [Test]
+    [Arguments(" 1-jan-2022", 44562)]
+    [Arguments("  Mar 2022", 44621)]
+    [Arguments(" March-2022", 44621)]
+    [Arguments(" 10:30 AM", 0.4375)]
+    [Arguments(" 1 1/2", 1.5)]
+    public async Task Value_skips_leading_spaces(string text, double expected)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Value_does_not_skip_a_leading_line_feed()
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate("VALUE(CHAR(10)&\"Mar 2022\")")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(wb.Evaluate("\" 1-jan-2022\"*1")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    /// <summary>
+    /// double.TryParse reads "NaN" and overflows "1e400" to infinity, and a cell value can't hold
+    /// either, so both threw ArgumentException out of the formula. Excel gives #VALUE!.
+    /// </summary>
+    [Test]
+    [Arguments("NaN")]
+    [Arguments("1e400")]
+    [Arguments("-1e400")]
+    public async Task Text_that_is_not_a_finite_number_is_a_value_error(string text)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(wb.Evaluate($"\"{text}\"*1")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    [Arguments("1 1/0")]
+    [Arguments("abc")]
+    public async Task Value_rejects_text_that_coercion_rejects(string text)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.Evaluate($"VALUE(\"{text}\")")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
     [Test]
     [SetCulture("cs-CZ")]
     public async Task Value_NonEnglish()
@@ -1263,5 +1353,8 @@ public class TextTests
         await Assert.That(wb.Evaluate("VALUE(\"5-březen-22\")")).IsEqualTo(expectedSerialDate);
         await Assert.That(wb.Evaluate("VALUE(\"05.03.2022\")")).IsEqualTo(expectedSerialDate);
         await Assert.That(wb.Evaluate("VALUE(\"5-březen\")")).IsEqualTo(new DateTime(DateTime.Now.Year, 3, 5, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime());
+
+        // The culture's YearMonthPattern, 'MMMM yyyy', which the old VALUE tried by name.
+        await Assert.That(wb.Evaluate("VALUE(\"březen 2022\")")).IsEqualTo(44621d);
     }
 }
