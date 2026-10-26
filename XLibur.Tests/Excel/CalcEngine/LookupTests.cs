@@ -1143,6 +1143,8 @@ public class LookupTests
 
     [Test]
     [Arguments("R1C1\n", 1, 1)]
+    [Arguments("R1C1\n\n", 1, 1)]
+    [Arguments("R1C1 ", 1, 1)]
     [Arguments("r2c3", 2, 3)]
     [Arguments("R1048576C16384", 1048576, 16384)]
     public async Task Indirect_R1C1_resolves(string text, int row, int column)
@@ -1157,8 +1159,6 @@ public class LookupTests
 
     [Test]
     [Arguments("R1C1\r")]
-    [Arguments("R1C1\n\n")]
-    [Arguments("R1C1 ")]
     [Arguments("\nR1C1")]
     [Arguments("R1C")]
     [Arguments("RC1")]
@@ -1187,16 +1187,16 @@ public class LookupTests
     /// INDIRECT read an R1C1 cell with a regex with a 150 ms timeout, and the timeout is wall-clock
     /// time: a thread descheduled or paused by GC mid-match threw RegexMatchTimeoutException out of
     /// the cell's value, whatever the text (#818). It is a scan now. This pins the scan to the
-    /// regex's language, and the oracle is the old pattern itself with no timeout. Its '$' also
-    /// matches before a final line feed, and the scan keeps that, as Excel resolves 'R1C1' &amp; CHAR(10)
-    /// too. The inputs are built from the pieces of a valid reference, so that a fair share of
-    /// them resolve.
+    /// regex's language, and the oracle is the old pattern with no timeout. Its '$' let one final
+    /// line feed through; INDIRECT now drops any run of trailing spaces and line feeds, as Excel
+    /// does (#820), so the oracle allows that run instead. The inputs are built from the pieces of
+    /// a valid reference, so that a fair share of them resolve.
     /// </summary>
     [Test]
     public async Task Indirect_R1C1_resolves_the_language_the_regex_accepted()
     {
         var oracle = new System.Text.RegularExpressions.Regex(
-            @"^R(\d+)C(\d+)$",
+            @"^R(\d+)C(\d+)[ \n]*\z",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase
             | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
@@ -1243,6 +1243,63 @@ public class LookupTests
 
         // Guards the generator: if almost nothing resolves, the test says little.
         await Assert.That(resolved).IsGreaterThan(cases / 4).Because($"{resolved} of {cases} resolved");
+    }
+
+    /// <summary>
+    /// Excel reads INDIRECT's text as formula syntax, so spaces and line feeds may follow a token:
+    /// at the end, around ':' and after '!'. Measured in Excel 365 over COM on 2026-10-26, with
+    /// <c>Data!A1</c> = 123, <c>Data!B2</c> = 7 and the name <c>Foo</c> = <c>Data!$A$1</c> (#820).
+    /// </summary>
+    [Test]
+    [Arguments("INDIRECT(\"A1\"&CHAR(10))", 123)]
+    [Arguments("INDIRECT(\"$A$1\"&CHAR(10))", 123)]
+    [Arguments("INDIRECT(\"A1\"&CHAR(10)&CHAR(10))", 123)]
+    [Arguments("INDIRECT(\"A1 \")", 123)]
+    [Arguments("INDIRECT(\"A1 \"&CHAR(10))", 123)]
+    [Arguments("INDIRECT(\"A1\"&CHAR(10)&\" \")", 123)]
+    [Arguments("SUM(INDIRECT(\"A1:B2\"&CHAR(10)))", 130)]
+    [Arguments("SUM(INDIRECT(\"Data!A1:B2\"&CHAR(10)))", 130)]
+    [Arguments("SUM(INDIRECT(\"A1 :A1\"))", 123)]
+    [Arguments("SUM(INDIRECT(\"A1: A1\"))", 123)]
+    [Arguments("INDIRECT(\"Data!A1 \")", 123)]
+    [Arguments("INDIRECT(\"Data! A1\")", 123)]
+    [Arguments("INDIRECT(\"Foo \")", 123)]
+    [Arguments("INDIRECT(\"Foo\"&CHAR(10))", 123)]
+    [Arguments("INDIRECT(\"R1C1\"&CHAR(10),FALSE)", 123)]
+    [Arguments("INDIRECT(\"R1C1 \",FALSE)", 123)]
+    [Arguments("INDIRECT(\"R1C1 \"&CHAR(10),FALSE)", 123)]
+    [Arguments("SUM(INDIRECT(\"R1C1:R1C1\"&CHAR(10),FALSE))", 123)]
+    [Arguments("SUM(INDIRECT(\"R1C1 :R1C1\",FALSE))", 123)]
+    public async Task Indirect_allows_spaces_and_line_feeds_after_a_token(string formula, double expected)
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        data.Cell("A1").Value = 123;
+        data.Cell("B2").Value = 7;
+        wb.DefinedNames.Add("Foo", "Data!$A$1");
+
+        await Assert.That(data.Evaluate(formula)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Excel gives <c>#REF!</c> for leading whitespace, and for a trailing tab, CR, VT, FF or NBSP.
+    /// </summary>
+    [Test]
+    [Arguments("INDIRECT(\" A1\")")]
+    [Arguments("INDIRECT(CHAR(10)&\"A1\")")]
+    [Arguments("INDIRECT(\" R1C1\",FALSE)")]
+    [Arguments("INDIRECT(\"A1\"&CHAR(9))")]
+    [Arguments("INDIRECT(\"A1\"&CHAR(13))")]
+    [Arguments("INDIRECT(\"A1\"&CHAR(11))")]
+    [Arguments("INDIRECT(\"A1\"&CHAR(12))")]
+    [Arguments("INDIRECT(\"A1\"&CHAR(160))")]
+    public async Task Indirect_rejects_leading_whitespace_and_other_trailing_whitespace(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var data = wb.AddWorksheet("Data");
+        data.Cell("A1").Value = 123;
+
+        await Assert.That(data.Evaluate(formula)).IsEqualTo(XLError.CellReference);
     }
 
     [Test]

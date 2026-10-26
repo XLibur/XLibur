@@ -722,9 +722,35 @@ internal static class Lookup
                 return XLError.CellReference;
         }
 
+        addressText = DropWhitespaceAfterTokens(addressText, followsSheet: bangIndex >= 0);
         return isA1
             ? TryParseA1Reference(ctx, worksheet, addressText)
             : TryParseR1C1Reference(worksheet, addressText);
+    }
+
+    /// <summary>
+    /// Excel reads INDIRECT's text as formula syntax, where spaces and line feeds may follow a
+    /// token. Drops them at the end, on both sides of the first ':', and at the start when the text
+    /// followed a '!'. Leading whitespace of the whole text, and any other whitespace character,
+    /// stays, as Excel gives <c>#REF!</c> for those (#820).
+    /// </summary>
+    private static string DropWhitespaceAfterTokens(string addressText, bool followsSheet)
+    {
+        const string tokenWhitespace = " \n";
+        var span = addressText.AsSpan().TrimEnd(tokenWhitespace);
+        if (followsSheet)
+            span = span.TrimStart(tokenWhitespace);
+
+        var colon = span.IndexOf(':');
+        if (colon >= 0)
+        {
+            return string.Concat(
+                span[..colon].TrimEnd(tokenWhitespace),
+                ":",
+                span[(colon + 1)..].TrimStart(tokenWhitespace));
+        }
+
+        return span.Length == addressText.Length ? addressText : span.ToString();
     }
 
     private static AnyValue TryParseA1Reference(CalcContext ctx, XLWorksheet? worksheet, string addressText)
@@ -785,18 +811,14 @@ internal static class Lookup
         // wall-clock time: a thread descheduled or paused by GC mid-match threw
         // RegexMatchTimeoutException out of the cell's value, whatever the text (#818).
         // The regex's '\d' also matched non-ASCII digits, which int.TryParse then rejected, so
-        // ASCII digits alone give the same result. Its '$' matched before a final line feed
-        // too, so 'R1C1' + LF resolves; Excel resolves that as well. Excel also ignores a trailing
-        // space, which this does not (#820, where the rule for trailing whitespace belongs).
+        // ASCII digits alone give the same result. Its '$' matched before a final line feed too;
+        // trailing whitespace is now dropped before this, by DropWhitespaceAfterTokens (#820).
         // Each number is checked to be ASCII digits before int.TryParse reads it. NumberStyles.None
         // rejects a sign and whitespace, but int.TryParse still ignores trailing NULs, so 'R1C1\0'
         // would resolve where the regex gave #REF!. XLHelper.IsValidRow avoids it for the same reason.
         row = 0;
         column = 0;
         var span = text.AsSpan();
-        if (span.Length > 0 && span[^1] == '\n')
-            span = span[..^1];
-
         if (span.Length == 0 || span[0] is not ('R' or 'r'))
             return false;
 
