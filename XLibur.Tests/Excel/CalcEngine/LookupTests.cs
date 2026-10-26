@@ -1192,7 +1192,9 @@ public class LookupTests
     public async Task Indirect_R1C1_resolves_the_language_the_regex_accepted()
     {
         var oracle = new System.Text.RegularExpressions.Regex(
-            @"^R(\d+)C(\d+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            @"^R(\d+)C(\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
         // '٣' is an Arabic-Indic digit, which '\d' matches; 'ſ' and 'K' (Kelvin) are the letters
         // that fold to ASCII under some case mappings.
@@ -1234,8 +1236,7 @@ public class LookupTests
         }
 
         // Guards the generator: if almost nothing resolves, the test says little.
-        await Assert.That(resolved).IsGreaterThan(cases / 4);
-        Console.WriteLine($"INDIRECT R1C1 fuzz: {resolved} of {cases} resolved");
+        await Assert.That(resolved).IsGreaterThan(cases / 4).Because($"{resolved} of {cases} resolved");
     }
 
     [Test]

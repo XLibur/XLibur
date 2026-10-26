@@ -786,7 +786,9 @@ internal static class Lookup
         // RegexMatchTimeoutException out of the cell's value, whatever the text (#818).
         // The regex's '\d' also matched non-ASCII digits, which int.TryParse then rejected, so
         // ASCII digits alone give the same result. Its '$' matched before a final line feed
-        // too, so 'R1C1' + LF resolves; Excel resolves that as well.
+        // too, so 'R1C1' + LF resolves; Excel resolves that as well. Excel also ignores a trailing
+        // space, which this does not (#820, where the rule for trailing whitespace belongs).
+        // NumberStyles.None takes ASCII digits only: no sign, no whitespace, and not an empty span.
         row = 0;
         column = 0;
         var span = text.AsSpan();
@@ -796,25 +798,17 @@ internal static class Lookup
         if (span.Length == 0 || span[0] is not ('R' or 'r'))
             return false;
 
-        var rowDigits = CountAsciiDigits(span[1..]);
-        var columnLetter = 1 + rowDigits;
-        if (rowDigits == 0 || columnLetter >= span.Length || span[columnLetter] is not ('C' or 'c'))
+        var columnLetter = span.IndexOfAny('C', 'c');
+        if (columnLetter < 0
+            || !int.TryParse(span[1..columnLetter], NumberStyles.None, CultureInfo.InvariantCulture, out row)
+            || !int.TryParse(span[(columnLetter + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out column))
+        {
+            row = 0;
+            column = 0;
             return false;
+        }
 
-        var columnDigits = span[(columnLetter + 1)..];
-        return CountAsciiDigits(columnDigits) == columnDigits.Length
-            && columnDigits.Length > 0
-            && int.TryParse(span.Slice(1, rowDigits), NumberStyles.None, CultureInfo.InvariantCulture, out row)
-            && int.TryParse(columnDigits, NumberStyles.None, CultureInfo.InvariantCulture, out column);
-    }
-
-    private static int CountAsciiDigits(ReadOnlySpan<char> span)
-    {
-        var count = 0;
-        while (count < span.Length && char.IsAsciiDigit(span[count]))
-            count++;
-
-        return count;
+        return true;
     }
 
     private static bool IsWithinSheetBounds(int row, int column)
