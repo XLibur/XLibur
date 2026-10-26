@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace XLibur.Excel.CalcEngine;
@@ -25,16 +26,20 @@ internal static class DateTimeParser
 
     private static readonly string[] TimePatterns = ["h:m:s tt", "h:m tt", "H:m:s", "H:m", "h:m:s", "h:m"];
 
-    private static readonly ConcurrentDictionary<CultureInfo, CultureInfo> ExcelTwoDigitYearCultures = new();
+    // Keyed by instance, not by CultureInfo.Equals, which compares only the name: two en-US
+    // instances can have different date separators or patterns, and each must keep its own. An
+    // entry goes away with its culture.
+    private static readonly ConditionalWeakTable<CultureInfo, CultureInfo> ExcelTwoDigitYearCultures = new();
 
     /// <summary>
     /// The culture with Excel's window for a two-digit year, 1930-2029 (Windows' default), where
     /// .NET's is 1950-2049: Excel reads '22/04/30' and '1-jan-30' as 1930 (#831). Only a Gregorian
-    /// calendar is changed; in another calendar 2029 is a different year.
+    /// calendar is changed; in another calendar 2029 is a different year. The clone is taken the
+    /// first time a culture is seen, so a writable culture changed after that keeps its old settings.
     /// </summary>
     public static CultureInfo WithExcelTwoDigitYears(CultureInfo culture)
     {
-        return ExcelTwoDigitYearCultures.GetOrAdd(culture, static c =>
+        return ExcelTwoDigitYearCultures.GetValue(culture, static c =>
         {
             if (c.DateTimeFormat.Calendar is not GregorianCalendar)
                 return c;

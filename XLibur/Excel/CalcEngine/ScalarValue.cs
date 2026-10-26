@@ -471,33 +471,48 @@ internal readonly struct ScalarValue
 
         var first = span[..separator];
         var second = span[(separator + 1)..];
-        if (first.Length is < 1 or > 2 || second.Length is < 1 or > 4
-            || first.ContainsAnyExceptInRange('0', '9') || second.ContainsAnyExceptInRange('0', '9'))
+        if (!IsShortNumber(first, 2) || !IsShortNumber(second, 4))
             return false;
 
         var a = int.Parse(first, NumberStyles.None, CultureInfo.InvariantCulture);
         var b = int.Parse(second, NumberStyles.None, CultureInfo.InvariantCulture);
         var monthFirst = IsMonthBeforeDay(culture);
+        return TryDayAndMonthOfThisYear(a, b, second.Length, monthFirst, out date)
+               || TryMonthAndYear(a, b, second.Length, monthFirst, out date);
+    }
+
+    private static bool IsShortNumber(ReadOnlySpan<char> digits, int maxLength) =>
+        digits.Length >= 1 && digits.Length <= maxLength && !digits.ContainsAnyExceptInRange('0', '9');
+
+    private static bool TryDayAndMonthOfThisYear(int a, int b, int secondLength, bool monthFirst, out DateTime date)
+    {
+        date = default;
         var thisYear = DateTime.Now.Year;
-
         var (month, day) = monthFirst ? (a, b) : (b, a);
-        if (second.Length <= 2 && month is >= 1 and <= 12 && day >= 1 && day <= DateTime.DaysInMonth(thisYear, month))
-        {
-            date = new DateTime(thisYear, month, day, 0, 0, 0, DateTimeKind.Unspecified);
-            return true;
-        }
-
-        var yearDigitsAllowed = second.Length is 2 or 4 || (monthFirst && second.Length == 1);
-        if (a is < 1 or > 12 || !yearDigitsAllowed)
+        if (secondLength > 2 || month is < 1 or > 12 || day < 1 || day > DateTime.DaysInMonth(thisYear, month))
             return false;
 
-        var year = second.Length == 4 ? b : b < 30 ? 2000 + b : 1900 + b;
-        if (year < 1)
-            return false;
-
-        date = new DateTime(year, a, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        date = new DateTime(thisYear, month, day, 0, 0, 0, DateTimeKind.Unspecified);
         return true;
     }
+
+    private static bool TryMonthAndYear(int month, int year, int yearLength, bool monthFirst, out DateTime date)
+    {
+        date = default;
+        var yearDigitsAllowed = yearLength is 2 or 4 || (monthFirst && yearLength == 1);
+        if (month is < 1 or > 12 || !yearDigitsAllowed)
+            return false;
+
+        var fullYear = yearLength == 4 ? year : ExcelTwoDigitYear(year);
+        if (fullYear < 1)
+            return false;
+
+        date = new DateTime(fullYear, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return true;
+    }
+
+    /// <summary>Excel's two-digit-year window, 1930-2029.</summary>
+    private static int ExcelTwoDigitYear(int year) => year < 30 ? 2000 + year : 1900 + year;
 
     /// <summary>
     /// Match the date patterns with names of months (formats 15, 16 and 17). The returned date

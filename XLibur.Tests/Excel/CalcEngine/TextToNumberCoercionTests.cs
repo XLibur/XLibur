@@ -763,6 +763,28 @@ public class TextToNumberCoercionTests
         await AssertCoercion(text, expectedValue);
     }
 
+    // The two-digit-year culture is cached per culture instance. CultureInfo.Equals compares only
+    // the name, so a cache keyed by it handed a second en-US the first one's date separator.
+    [Test]
+    public async Task Date_CultureWithItsOwnDateSeparator_KeepsIt()
+    {
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+            await AssertCoercion("1/2/2022", 44563);
+
+            var dotted = new CultureInfo("en-US");
+            dotted.DateTimeFormat.DateSeparator = ".";
+            CultureInfo.CurrentCulture = dotted;
+            await AssertCoercion("1.2.2022", 44563);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
     private static double ThisYear(int month, int day) =>
         new DateTime(DateTime.Now.Year, month, day, 0, 0, 0, DateTimeKind.Unspecified).ToOADate();
 
