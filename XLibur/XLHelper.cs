@@ -78,34 +78,6 @@ public static partial class XLHelper
     /// </remarks>
     internal const string QuotedSheetNamePattern = @"\'(?:[^\[\]\*/\\\?:\']|\'\')+\'";
 
-    internal static readonly Regex A1SimpleRegex = new(
-        @"\A"
-        + "(?<Reference>" // Start Group to pick
-        + "(?<Sheet>" // Start Sheet Name, optional
-        + "("
-        + QuotedSheetNamePattern
-        // Sheet name with special characters, written in apostrophes. See the pattern's own summary.
-        + "|"
-        + @"\w+"
-        // Sheet name of letters, digits and underscores, written without apostrophes. The quoted form
-        // of such a name, as in 'Data'!A1, is read by the alternative above, which allows every word
-        // character. This was '?\w+'?, where each apostrophe was optional on its own, so a name with
-        // one apostrophe instead of two matched: 'Data!A1 and Data'!A1 were both reported as valid
-        // range addresses (#560).
-        + ")"
-        + "!)?" // End Sheet Name, optional
-        + "(?<Range>" // Start range
-        + @"\$?[a-zA-Z]{1,3}\$?\d{1,7}" // A1 Address 1
-        + @"(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?" // A1 Address 2, optional
-        + "|"
-        + @"(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})" // 1:1
-        + "|"
-        + @"(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})" // A:A
-        + ")" // End Range
-        + ")" // End Group to pick
-        + @"\Z"
-        , RegexOptions.Compiled, RegexTimeout);
-
     internal static readonly Regex NamedRangeReferenceRegex = NamedRangeReferenceRegexCompiled();
 
     private static readonly string[] Letters =
@@ -387,7 +359,171 @@ public static partial class XLHelper
         if (string.IsNullOrWhiteSpace(rangeAddress))
             return false;
 
-        return A1SimpleRegex.IsMatch(rangeAddress);
+        // A scan, not a regex. This was a regex with a 150 ms timeout, and the timeout is
+        // wall-clock time: a thread descheduled or paused by GC mid-match threw
+        // RegexMatchTimeoutException on a valid address, from Range("A1:B2") and every other
+        // caller (#816). The grammar is an optional sheet name and '!', then one of 'A1',
+        // 'A1:B2', '1:2' and 'A:B', each reference with an optional '$' before its letters and
+        // before its digits.
+        var index = 0;
+        TrySkipSheetName(rangeAddress, ref index);
+        //
+        // The address may end in one line feed, as the regex's '\Z' allowed. INDIRECT reads
+        // "A1:B2"&CHAR(10) the same way, as Excel does, and relies on this.
+        return TrySkipRange(rangeAddress, ref index)
+            && (index == rangeAddress.Length
+                || (index == rangeAddress.Length - 1 && rangeAddress[index] == '\n'));
+    }
+
+    /// <summary>
+    /// Skips a sheet name and its '!': either written in apostrophes, where an apostrophe in the
+    /// name is doubled and the characters <c>[ ] * / \ ? :</c> are not allowed, as in
+    /// <c>'Bob''s'!</c>, or a run of word characters, as in <c>Sheet_1!</c>.
+    /// </summary>
+    /// <returns><c>false</c>, with <paramref name="index"/> unchanged, if there is no sheet name.
+    /// The sheet name is optional, so that is not an error here. A malformed one returns <c>false</c> too,
+    /// deliberately: it mirrors the regex's optional sheet group, and the range itself can start with
+    /// word characters, as in <c>A1:B2</c>, so the range check is what refuses what is left.</returns>
+    private static bool TrySkipSheetName(string address, ref int index)
+    {
+        var position = index;
+        if (address[position] == '\'')
+        {
+            position++;
+            var nameStart = position;
+            while (position < address.Length)
+            {
+                var c = address[position];
+                if (c == '\'')
+                {
+                    // A doubled apostrophe is part of the name, a single one closes it. The
+                    // closing one has to be followed by '!', so there is nothing to back out of.
+                    if (position + 1 == address.Length || address[position + 1] != '\'')
+                        break;
+
+                    position += 2;
+                }
+                else if (c is '[' or ']' or '*' or '/' or '\\' or '?' or ':')
+                {
+                    return false;
+                }
+                else
+                {
+                    position++;
+                }
+            }
+
+            // The name cannot be empty, and the closing apostrophe has to be there.
+            if (position == nameStart || position == address.Length)
+                return false;
+
+            position++;
+        }
+        else
+        {
+            // Each apostrophe is required or absent as a pair, never one on its own, so
+            // 'Data!A1 and Data'!A1 are not addresses (#560). The quoted form of a name of word
+            // characters, as in 'Data'!A1, is read by the branch above.
+            var nameStart = position;
+            while (position < address.Length && IsWordChar(address[position]))
+                position++;
+
+            if (position == nameStart)
+                return false;
+        }
+
+        if (position == address.Length || address[position] != '!')
+            return false;
+
+        index = position + 1;
+        return true;
+    }
+
+    /// <summary>
+    /// The characters the regex's <c>\w</c> matched: letters, nonspacing marks, decimal digits
+    /// and connector punctuation, in every script.
+    /// </summary>
+    private static bool IsWordChar(char c) => char.GetUnicodeCategory(c) is
+        UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter
+        or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter or UnicodeCategory.NonSpacingMark
+        or UnicodeCategory.DecimalDigitNumber or UnicodeCategory.ConnectorPunctuation;
+
+    /// <summary>
+    /// Skips a reference with no sheet: <c>A1</c>, <c>A1:B2</c>, <c>1:2</c> or <c>A:B</c>, each
+    /// reference with an optional '$' before its letters and before its digits.
+    /// </summary>
+    private static bool TrySkipRange(string address, ref int index)
+    {
+        SkipDollar(address, ref index);
+        if (TrySkipLetters(address, ref index))
+        {
+            // 'A:B'. A '$' cannot come between the letters and the ':'.
+            if (index < address.Length && address[index] == ':')
+            {
+                index++;
+                SkipDollar(address, ref index);
+                return TrySkipLetters(address, ref index);
+            }
+
+            // 'A1' or 'A1:B2'.
+            SkipDollar(address, ref index);
+            if (!TrySkipDigits(address, ref index))
+                return false;
+
+            // 'A1', unless something follows that the caller will refuse.
+            if (index == address.Length || address[index] != ':')
+                return true;
+
+            index++;
+            SkipDollar(address, ref index);
+            if (!TrySkipLetters(address, ref index))
+                return false;
+
+            SkipDollar(address, ref index);
+            return TrySkipDigits(address, ref index);
+        }
+
+        // '1:2'.
+        if (!TrySkipDigits(address, ref index)
+            || index == address.Length
+            || address[index] != ':')
+            return false;
+
+        index++;
+        SkipDollar(address, ref index);
+        return TrySkipDigits(address, ref index);
+    }
+
+    private static void SkipDollar(string address, ref int index)
+    {
+        if (index < address.Length && address[index] == '$')
+            index++;
+    }
+
+    /// <summary>
+    /// Skips one to three ASCII letters, the longest a column can be. A fourth is not skipped, so
+    /// what follows it is not valid either.
+    /// </summary>
+    private static bool TrySkipLetters(string address, ref int index)
+    {
+        var start = index;
+        while (index < address.Length && index - start < 3 && char.IsAsciiLetter(address[index]))
+            index++;
+
+        return index > start;
+    }
+
+    /// <summary>
+    /// Skips one to <see cref="MaxRowDigits"/> digits, in any script as the regex's <c>\d</c> matched
+    /// them, the longest a row can be. An eighth is not skipped, so what follows it is not valid either.
+    /// </summary>
+    private static bool TrySkipDigits(string address, ref int index)
+    {
+        var start = index;
+        while (index < address.Length && index - start < MaxRowDigits && char.IsDigit(address[index]))
+            index++;
+
+        return index > start;
     }
 
     public static bool IsValidRangeAddress(IXLRangeAddress rangeAddress)
@@ -716,7 +852,7 @@ public static partial class XLHelper
     internal static double DegToRad(double angle) => Math.PI * angle / 180.0;
 
     // The first sheet alternative is a quoted name that doubles each apostrophe it holds, as in
-    // 'Bob''s'!A1, which A1SimpleRegex accepts too. Without it such a reference fell through
+    // 'Bob''s'!A1, which IsValidRangeAddress accepts too. Without it such a reference fell through
     // XLDefinedNames' check for a sheet-qualified address.
     [GeneratedRegex(@"^(('(?<Sheet>([^']|'')+)'|'?(?<Sheet>[^'!]+)'?)!(?<Range>.+))|((?<Table>[^\[]+)\[(?<Column>[^\]]+)\])$",
         RegexOptions.ExplicitCapture | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
