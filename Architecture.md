@@ -22,7 +22,7 @@ directly.
 | Parser             | XLibur.ClosedXML.Parser 5.0.2                               |
 | Font handling       | SixLabors.Fonts 1.0.1                                       |
 | Spatial indexing   | RBush.Signed 4.0.0                                          |
-| Number formatting  | ExcelNumberFormat 1.1.0                                     |
+| Number formatting  | XLibur.ExcelNumberFormat 1.2.1                              |
 
 ---
 

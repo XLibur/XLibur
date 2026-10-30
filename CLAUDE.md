@@ -105,7 +105,9 @@ Other notes:
 ## Key Dependencies
 
 - **DocumentFormat.OpenXml** 3.4.1 - Core OpenXML implementation ([source](https://github.com/dotnet/Open-XML-SDK))
-- **ExcelNumberFormat** 1.1.0 - Excel number formatting ([source](https://github.com/andersnm/ExcelNumberFormat))
+- **XLibur.ExcelNumberFormat** 1.2.1 - Excel number formatting; our fork of ExcelNumberFormat, same
+  `ExcelNumberFormat` namespace ([source](https://github.com/XLibur/ExcelNumberFormat),
+  [upstream](https://github.com/andersnm/ExcelNumberFormat))
 - **PinataLabs.Typography** 0.1.0 - Font handling in `XLibur.Fonts.PinataLabs`, the engine
   `XLibur.Tests`, the benchmarks and the fuzzer register; an Apache 2.0 fork of SixLabors.Fonts
   1.x with the namespace renamed to `PinataLabs.Typography` ([source](https://github.com/PinataLabs/Typography)).
