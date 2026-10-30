@@ -33,6 +33,10 @@
 
 - **New font engine package `XLibur.Fonts.PinataLabs`.** It is built on [PinataLabs.Typography](https://github.com/PinataLabs/Typography), an Apache 2.0 fork of SixLabors.Fonts 1.x that still receives updates. `PinataLabsFontEngine` is a port of V1's `DefaultFontEngine` with the same members. Before V1 was removed, a test compared every measurement with V1's and found them identical, and the core test suite, whose expected widths were set with V1, now passes on PinataLabs. The package embeds the CarlitoBare fallback fonts. It is opt-in: register it with `PinataLabsFontBootstrap.Register()` or pass it in `LoadOptions.FontEngine`. SkiaSharp remains the default engine ([#835](https://github.com/XLibur/XLibur/issues/835)).
 
+### 🐛 Bug Fixes
+
+- **`GetFormattedString` applies the number format to text cells.** A text cell skipped its format, so `"Prefix: "@` showed `abc` instead of `Prefix: abc`, and `0;-0;0;"Note: "@` showed `abc` instead of `Note: abc` ([ClosedXML#2898](https://github.com/ClosedXML/ClosedXML/issues/2898)).
+
 ### 🔧 Dependencies
 
 - **`ExcelNumberFormat` 1.1.0 is replaced by `XLibur.ExcelNumberFormat` 1.2.1**, our fork. The namespace is unchanged, so no source changes were needed.

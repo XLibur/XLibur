@@ -362,7 +362,9 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         var format = GetFormat();
         return value.IsUnifiedNumber
             ? value.GetUnifiedNumber().ToExcelFormat(format, culture)
-            : value.ToString(culture);
+            : value.IsText
+                ? value.GetText().ToExcelFormat(format, culture)
+                : value.ToString(culture);
     }
 
     public void InvalidateFormula()

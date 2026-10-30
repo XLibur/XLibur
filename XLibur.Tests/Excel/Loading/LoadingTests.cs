@@ -510,7 +510,8 @@ public class LoadingTests
         {
             var ws = wb.Worksheet(1);
 
-            await Assert.That(ws.Cell(1, 1).GetFormattedString()).IsEqualTo("21 January 2019");
+            // [$-F800] is the system long date; Excel ignores the rest of the format and so does XLibur.ExcelNumberFormat.
+            await Assert.That(ws.Cell(1, 1).GetFormattedString()).IsEqualTo("Monday, January 21, 2019");
             await Assert.That(ws.Cell(2, 1).GetFormattedString()).IsEqualTo("21-Jan-19");
             await Assert.That(ws.Cell(3, 1).GetFormattedString()).IsEqualTo("Monday, 21 January 2019");
             await Assert.That(ws.Cell(4, 1).GetFormattedString()).IsEqualTo("21 Jan 2019");

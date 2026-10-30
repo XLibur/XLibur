@@ -28,7 +28,6 @@ public class NumberFormatExcelParityTests
     }
 
     [Test]
-    [Skip("Still fails on XLibur.ExcelNumberFormat 1.2.1: literals in the text section are dropped (ClosedXML/ClosedXML#2898). Remove when fixed.")]
     [Arguments("\"Prefix: \"@", "abc", "Prefix: abc")]
     [Arguments("@\" suffix\"", "abc", "abc suffix")]
     [Arguments("0;-0;0;\"Note: \"@", "abc", "Note: abc")]
