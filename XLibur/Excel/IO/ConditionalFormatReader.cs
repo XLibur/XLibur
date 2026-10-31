@@ -27,6 +27,11 @@ internal static class ConditionalFormatReader
     {
         if (conditionalFormatting == null) return;
 
+        // The range (sqref) is required by the schema; with none there is nothing to apply the
+        // rules to, so skip them rather than fail the load.
+        if (conditionalFormatting.SequenceOfReferences?.Items is not { Count: > 0 })
+            return;
+
         foreach (var fr in conditionalFormatting.Elements<ConditionalFormattingRule>())
         {
             var ranges = conditionalFormatting.SequenceOfReferences!.Items
@@ -71,7 +76,9 @@ internal static class ConditionalFormatReader
     private static void LoadConditionalFormatStyle(ConditionalFormattingRule fr,
         XLConditionalFormat conditionalFormat, Dictionary<int, DifferentialFormat> differentialFormats)
     {
-        var dxf = differentialFormats[(int)fr.FormatId!.Value];
+        // A rule naming a differential format the styles part does not have formats nothing.
+        if (!differentialFormats.TryGetValue((int)fr.FormatId!.Value, out var dxf))
+            return;
 
         // One decode of the whole dxf, then apply the key - rather than four per-aspect decodes
         // through a second implementation. This is what makes a conditional format's font name,
@@ -91,7 +98,10 @@ internal static class ConditionalFormatReader
 
     private static void LoadCellIsFormulas(ConditionalFormattingRule fr, XLConditionalFormat conditionalFormat)
     {
-        conditionalFormat.Operator = fr.Operator!.Value.ToXLibur();
+        // The operator is optional; the schema default is lessThan.
+        conditionalFormat.Operator = fr.Operator is { HasValue: true } op
+            ? op.Value.ToXLibur()
+            : XLCFOperator.LessThan;
 
         var nonEmptyFormulas = fr.Elements<Formula>()
             .Where(static f => !string.IsNullOrEmpty(f.Text))
@@ -201,11 +211,17 @@ internal static class ConditionalFormatReader
         conditionalFormat.BarMaxLength = dataBar.MaxLength?.Value ?? 90;
 
         var id = fr.Descendants<X14.Id>().FirstOrDefault();
-        if (id is { Text: not null } && !string.IsNullOrWhiteSpace(id.Text))
-            conditionalFormat.Id = new Guid(id.Text.Substring(1, id.Text.Length - 2));
+        if (id is { Text: not null } && TryParseRuleId(id.Text, out var ruleId))
+            conditionalFormat.Id = ruleId;
 
         ExtractConditionalFormatValueObjects(conditionalFormat, dataBar);
     }
+
+    /// <summary>
+    /// The id that pairs a rule with its x14 twin. Excel writes it in braces; the braces carry no
+    /// meaning, so a bare GUID pairs as well.
+    /// </summary>
+    private static bool TryParseRuleId(string text, out Guid id) => Guid.TryParse(text.Trim(), out id);
 
     private static void LoadIconSetFormat(XLConditionalFormat conditionalFormat, IconSet iconSet)
     {
@@ -342,9 +358,12 @@ internal static class ConditionalFormatReader
                          cf.Type is { HasValue: true }
                          && cf.Type.Value == ConditionalFormatValues.DataBar))
         {
+            if (conditionalFormattingRule.Id?.Value is not { } twinId || !TryParseRuleId(twinId, out var ruleId))
+                continue;
+
             var xlConditionalFormat = ws.ConditionalFormats
                 .Cast<XLConditionalFormat>()
-                .SingleOrDefault(cf => cf.Id.WrapInBraces() == conditionalFormattingRule.Id);
+                .SingleOrDefault(cf => cf.Id == ruleId);
             if (xlConditionalFormat == null) continue;
 
             // Every child of the x14 data bar is optional. Excel leaves out the negative fill when
