@@ -5,6 +5,7 @@ using System.Text;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Extensions;
 using XLibur.Utils;
 
 namespace XLibur.Excel.IO;
@@ -171,7 +172,7 @@ internal static class SharedStringReader
             reader.Read(); // Move past </si>.
 
             // Decode _xHHHH_ escapes (e.g. _x0018_ → ), matching the SetCellText path.
-            return SharedStringEntry.Plain(XmlEncoder.DecodeString(plainText ?? string.Empty));
+            return SharedStringEntry.Plain(XmlEncoder.DecodeString((plainText ?? string.Empty).FixNewLines()));
         }
 
         var rich = ReadRichItem(reader, plainText);

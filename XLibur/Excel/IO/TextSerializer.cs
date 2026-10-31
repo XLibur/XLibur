@@ -53,12 +53,7 @@ internal static class TextSerializer
             w.WriteAttribute("sb", p.StartIndex);
             w.WriteAttribute("eb", p.EndIndex);
 
-            w.WriteStartElement("t", Main2006SsNs);
-            if (p.Text.PreserveSpaces())
-                w.WritePreserveSpaceAttr();
-
-            w.WriteString(p.Text);
-            w.WriteEndElement(); // t
+            CellXmlWriter.WriteTextElement(w, p.Text);
             w.WriteEndElement(); // rPh
         }
     }
@@ -178,15 +173,7 @@ internal static class TextSerializer
             w.WriteEmptyElement("shadow");
     }
 
-    private static void WriteText(XmlWriter w, string text)
-    {
-        w.WriteStartElement("t", Main2006SsNs);
-        if (text.PreserveSpaces())
-            w.WritePreserveSpaceAttr();
-
-        w.WriteString(text);
-        w.WriteEndElement(); // t
-    }
+    private static void WriteText(XmlWriter w, string text) => CellXmlWriter.WriteTextElement(w, text);
 
     private static void WriteRunProperty(XmlWriter w, string elName, string val)
     {

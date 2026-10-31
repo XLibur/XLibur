@@ -164,12 +164,13 @@ internal static class CellXmlWriter
     }
 
     /// <summary>
-    /// Write a <c>&lt;v&gt;</c> element holding verbatim text.
+    /// Write a <c>&lt;v&gt;</c> element holding the text of a formula's cached string result,
+    /// encoded by the <c>_xHHHH_</c> text codec like every other cell text.
     /// </summary>
     internal static void WriteStringValue(XmlWriter w, string text)
     {
         w.WriteStartElement("v", Main2006SsNs);
-        w.WriteString(text);
+        w.WriteString(XmlEncoder.EncodeString(text));
         w.WriteEndElement();
     }
 
