@@ -232,5 +232,40 @@ public class ExcelAuthoredConditionalFormatTests
         await Assert.That(sheet).Contains("maxLength=\"90\"");
     }
 
+    /// <summary>
+    /// A data bar from Excel 2007 has no x14 twin. Excel renders it with the schema defaults of
+    /// <c>c:dataBar</c> (10 to 90) and, resaving such a file, writes no twin either (verified over COM),
+    /// so XLibur must not widen it to the whole cell when it writes a twin.
+    /// </summary>
+    private static MemoryStream DataBarWithoutTwin(string? legacyAttributes = null) =>
+        SaveDataBar(XLColor.Red, XLColor.Blue)
+            .RewriteSheet1(xml =>
+            {
+                xml = Edit(xml, "<x:extLst><x:ext [^>]*uri=\"\\{78C0D931.*?</x:ext></x:extLst>", "");
+                return legacyAttributes is null ? xml : Edit(xml, "<x:dataBar>", "<x:dataBar " + legacyAttributes + ">");
+            });
+
+    [Test]
+    public async Task DataBarWithoutATwinTakesTheLegacyDefaultLengths()
+    {
+        using var package = DataBarWithoutTwin();
+        using var saved = SaveAgain(package);
+
+        var sheet = saved.Sheet1Xml();
+        await Assert.That(sheet).Contains("minLength=\"10\"");
+        await Assert.That(sheet).Contains("maxLength=\"90\"");
+    }
+
+    [Test]
+    public async Task DataBarWithoutATwinKeepsItsLegacyLengths()
+    {
+        using var package = DataBarWithoutTwin("minLength=\"20\" maxLength=\"70\"");
+        using var saved = SaveAgain(package);
+
+        var sheet = saved.Sheet1Xml();
+        await Assert.That(sheet).Contains("minLength=\"20\"");
+        await Assert.That(sheet).Contains("maxLength=\"70\"");
+    }
+
     #endregion
 }

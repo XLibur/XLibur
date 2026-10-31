@@ -164,9 +164,17 @@ internal static class CellXmlWriter
     }
 
     /// <summary>
-    /// Write a <c>&lt;v&gt;</c> element holding verbatim text.
+    /// Write a <c>&lt;v&gt;</c> element holding the text of a formula's cached string result,
+    /// encoded by the <c>_xHHHH_</c> text codec like every other cell text.
     /// </summary>
     internal static void WriteStringValue(XmlWriter w, string text)
+        => WriteVerbatimValue(w, XmlEncoder.EncodeString(text));
+
+    /// <summary>
+    /// Write a <c>&lt;v&gt;</c> element holding fixed text that needs no escaping, such as the
+    /// spelling of a boolean or an error, so those cells skip the codec's scan.
+    /// </summary>
+    private static void WriteVerbatimValue(XmlWriter w, string text)
     {
         w.WriteStartElement("v", Main2006SsNs);
         w.WriteString(text);
@@ -230,10 +238,10 @@ internal static class CellXmlWriter
                 WriteNumberValue(w, ToFileSerialDateTime(cellValue.GetUnifiedNumber(), use1904DateSystem));
                 break;
             case XLDataType.Boolean:
-                WriteStringValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
+                WriteVerbatimValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
             case XLDataType.Error:
-                WriteStringValue(w, cellValue.GetError().ToDisplayString());
+                WriteVerbatimValue(w, cellValue.GetError().ToDisplayString());
                 break;
             default:
                 throw new InvalidOperationException();

@@ -713,7 +713,7 @@ internal static class WorksheetSheetDataReader
         var inlineString = new InlineString(reader.ReadOuterXml());
         if (inlineString.Text is not null)
         {
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, XmlEncoder.DecodeString(inlineString.Text.Text.FixNewLines()));
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, XmlEncoder.DecodeString(inlineString.Text.Text));
         }
         else if (inlineString.HasChildren)
         {
@@ -924,7 +924,7 @@ internal static class WorksheetSheetDataReader
         else if (dataType == CellValues.SharedString)
             SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
-            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellValue.ToString(), inline);
+            cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, XmlEncoder.DecodeString(cellValue.ToString()), inline);
         else if (dataType == CellValues.Boolean)
             SetBooleanCellValue(cellValue, cellsCollection, cellAddress, inline);
         else if (dataType == CellValues.Error)
@@ -946,7 +946,7 @@ internal static class WorksheetSheetDataReader
         {
             hasRuns = true;
             var runProperties = run.RunProperties;
-            var text = run.Text!.InnerText.FixNewLines();
+            var text = XmlEncoder.DecodeString(run.Text!.InnerText.FixNewLines());
 
             if (runProperties == null)
             {
@@ -1383,7 +1383,7 @@ internal static class WorksheetSheetDataReader
 
         foreach (var pr in element.Elements<PhoneticRun>())
         {
-            var phoneticText = pr.Text!.InnerText.FixNewLines();
+            var phoneticText = XmlEncoder.DecodeString(pr.Text!.InnerText.FixNewLines());
             var sb = (int)pr.BaseTextStartIndex!.Value;
             var eb = (int)pr.EndingBaseIndex!.Value;
 

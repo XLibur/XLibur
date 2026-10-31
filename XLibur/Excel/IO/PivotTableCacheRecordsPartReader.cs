@@ -19,23 +19,18 @@ internal static class PivotTableCacheRecordsPartReader
         pivotCache.AllocateRecordCapacity(recordCount);
 
         // Non-database fields (calculated and grouping) don't have records — only database fields do.
-        var databaseFieldCount = pivotCache.DatabaseFieldCount;
+        var databaseFields = pivotCache.GetDatabaseFieldIndexes();
         foreach (var record in recordsPart.Elements<PivotCacheRecord>())
         {
             var recordColumns = record.ChildElements.Count;
-            if (recordColumns != databaseFieldCount)
+            if (recordColumns != databaseFields.Length)
                 throw PartStructureException.IncorrectElementsCount();
 
-            // Map record column index to field index, skipping non-database fields.
-            var recordColIdx = 0;
-            for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
+            // Record column i holds the value of the i-th database field.
+            for (var recordColIdx = 0; recordColIdx < databaseFields.Length; ++recordColIdx)
             {
-                if (pivotCache.IsNonDatabaseField(fieldIdx))
-                    continue;
-
-                var fieldValues = pivotCache.GetFieldValues(fieldIdx);
+                var fieldValues = pivotCache.GetFieldValues(databaseFields[recordColIdx]);
                 var recordItem = record.ElementAt(recordColIdx);
-                recordColIdx++;
 
                 // Don't add values to the shared items of a cache when record value is added, because we want 1:1
                 // read/write. Read them from definition. Whatever is in shared items now should be written out,

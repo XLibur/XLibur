@@ -121,6 +121,13 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                 hashCode = (hashCode * 397) ^ xx.Gradient.GetHashCode();
                 hashCode = (hashCode * 397) ^ (int)xx.BarAxisPosition;
                 hashCode = (hashCode * 397) ^ xx.BarAxisColor.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.BarBorder.GetHashCode();
+                hashCode = (hashCode * 397) ^ (xx.BarBorderColor?.GetHashCode() ?? 0);
+                hashCode = (hashCode * 397) ^ (xx.NegativeBarBorderColor?.GetHashCode() ?? 0);
+                hashCode = (hashCode * 397) ^ xx.NegativeBarColorSameAsPositive.GetHashCode();
+                hashCode = (hashCode * 397) ^ xx.NegativeBarBorderColorSameAsPositive.GetHashCode();
+                hashCode = (hashCode * 397) ^ (int)xx.BarMinLength;
+                hashCode = (hashCode * 397) ^ (int)xx.BarMaxLength;
                 hashCode = (hashCode * 397) ^ xx.StopIfTrue.GetHashCode();
                 return hashCode;
             }

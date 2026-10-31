@@ -964,7 +964,7 @@ public partial class XLWorkbook
         foreach (var run in runs)
         {
             var runProperties = run.RunProperties;
-            var text = run.Text!.InnerText.FixNewLines();
+            var text = XmlEncoder.DecodeString(run.Text!.InnerText.FixNewLines());
             var rt = xlComment.AddText(text);
             var stated = StyleDecoder.ApplyRunFont(runProperties, rt);
             ((XLRichString)rt).SetStatedProperties(stated);
@@ -973,7 +973,7 @@ public partial class XLWorkbook
         // Comments can have text not wrapped in a Run element (e.g., Google Sheets exports)
         if (commentTextNode.Text != null)
         {
-            var plainText = commentTextNode.Text.Text.FixNewLines();
+            var plainText = XmlEncoder.DecodeString(commentTextNode.Text.Text.FixNewLines());
             xlComment.AddText(plainText);
         }
 

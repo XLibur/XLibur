@@ -22,15 +22,15 @@ internal static class PivotTableCacheRecordsPartWriter
         xml.WriteAttributeString("xmlns", "xr", null, RevisionNs);
 
         var recordCount = pivotCache.RecordCount;
-        var fieldCount = pivotCache.FieldCount;
+        xml.WriteAttribute("count", recordCount);
+
+        // Non-database fields (calculated and grouping) don't have records.
+        var databaseFields = pivotCache.GetDatabaseFieldIndexes();
         for (var recordIdx = 0; recordIdx < recordCount; ++recordIdx)
         {
             xml.WriteStartElement("r");
-            for (var fieldIdx = 0; fieldIdx < fieldCount; ++fieldIdx)
+            foreach (var fieldIdx in databaseFields)
             {
-                // Non-database fields (calculated and grouping) don't have records.
-                if (pivotCache.IsNonDatabaseField(fieldIdx))
-                    continue;
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
                 var value = fieldValues.GetValue(recordIdx);
                 var text = value.Type == XLPivotCacheValueType.String ? fieldValues.GetText(value) : null;

@@ -232,11 +232,26 @@ internal sealed class XLPivotCache : IXLPivotCache
 
     internal void AllocateRecordCapacity(int recordCount)
     {
-        foreach (var fieldValues in _values)
+        foreach (var fieldIndex in GetDatabaseFieldIndexes())
+            _values[fieldIndex].AllocateCapacity(recordCount);
+    }
+
+    /// <summary>
+    /// The indexes of the fields that have a column in every record, in field order. This is the one
+    /// definition of the shape of a record: the records part is read and written through it, and the
+    /// cache definition declares a field as a database field exactly when it is listed here, so the
+    /// definition and the records cannot promise different field counts (spec 41).
+    /// </summary>
+    internal int[] GetDatabaseFieldIndexes()
+    {
+        var indexes = new List<int>(_fieldNames.Count);
+        for (var fieldIndex = 0; fieldIndex < _fieldNames.Count; ++fieldIndex)
         {
-            if (!IsNonDatabaseField(_values.IndexOf(fieldValues)))
-                fieldValues.AllocateCapacity(recordCount);
+            if (!IsNonDatabaseField(fieldIndex))
+                indexes.Add(fieldIndex);
         }
+
+        return indexes.ToArray();
     }
 
     /// <summary>
@@ -304,7 +319,7 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// Number of database fields in the cache (excludes calculated and grouping fields).
     /// This is the number of fields that have records.
     /// </summary>
-    internal int DatabaseFieldCount => _fieldNames.Count - _nonDatabaseFieldIndexes.Count;
+    internal int DatabaseFieldCount => GetDatabaseFieldIndexes().Length;
 
     private string AdjustedFieldName(string header)
     {

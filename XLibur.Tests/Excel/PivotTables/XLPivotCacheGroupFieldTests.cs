@@ -27,6 +27,7 @@ public class XLPivotCacheGroupFieldTests
     [Arguments(@"TryToLoad\LO\xlsx\pivot_table\shared-nested-dategroup.xlsx")]
     [Arguments(@"TryToLoad\LO\xlsx\tdf89139_pivot_table.xlsx")]
     [Arguments(@"TryToLoad\PivotTable_OverDateField_783.xlsx")]
+    [Arguments(@"Other\ExcelAuthored\PivotGroupedByMonths.xlsx")]
     public async Task Saved_file_with_grouped_cache_fields_loads_again(string resource)
     {
         using var saved = LoadAndSave(resource);
@@ -43,6 +44,7 @@ public class XLPivotCacheGroupFieldTests
     [Arguments(@"TryToLoad\LO\xlsx\pivot_table\shared-nested-dategroup.xlsx")]
     [Arguments(@"TryToLoad\LO\xlsx\tdf89139_pivot_table.xlsx")]
     [Arguments(@"TryToLoad\PivotTable_OverDateField_783.xlsx")]
+    [Arguments(@"Other\ExcelAuthored\PivotGroupedByMonths.xlsx")]
     public async Task Save_keeps_grouping_fields_and_their_field_groups(string resource)
     {
         using var source = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource));
