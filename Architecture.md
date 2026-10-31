@@ -21,7 +21,7 @@ directly.
 | Core dependency    | DocumentFormat.OpenXml 3.4.1                                |
 | Parser             | XLibur.ClosedXML.Parser 5.0.2                               |
 | Font handling       | SixLabors.Fonts 1.0.1                                       |
-| Spatial indexing   | RBush.Signed 4.0.0                                          |
+| Spatial indexing   | XLibur.RBush 5.0.0                                          |
 | Number formatting  | XLibur.ExcelNumberFormat 1.2.3                              |
 
 ---

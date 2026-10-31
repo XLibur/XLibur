@@ -118,7 +118,7 @@ Other notes:
   Since 5.0.0 the assembly is `XLibur.ClosedXML.Parser` and the namespace is `XLibur.Parser`
   (`using XLibur.Parser;`), so it loads side by side with upstream ClosedXML ([source](https://github.com/XLibur/ClosedXML.Parser),
   [upstream](https://github.com/ClosedXML/ClosedXML.Parser))
-- **RBush.Signed** 4.0.0 - Spatial indexing
+- **XLibur.RBush** 5.0.0 - Spatial indexing; our fork of RBush (namespace is still `RBush`)
 
 ## Shell Commands
 
