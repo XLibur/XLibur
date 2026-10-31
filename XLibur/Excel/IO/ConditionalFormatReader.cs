@@ -194,6 +194,12 @@ internal static class ConditionalFormatReader
         if (dataBar.ShowValue != null)
             conditionalFormat.ShowBarOnly = !dataBar.ShowValue.Value;
 
+        // A bar with no x14 twin (Excel 2007) is drawn from the lengths of this element, whose
+        // schema defaults are 10 and 90; Excel resaves such a bar as it was (checked over COM). The
+        // twin, when there is one, replaces these (see LoadX14DataBarAttributes).
+        conditionalFormat.BarMinLength = dataBar.MinLength?.Value ?? 10;
+        conditionalFormat.BarMaxLength = dataBar.MaxLength?.Value ?? 90;
+
         var id = fr.Descendants<X14.Id>().FirstOrDefault();
         if (id is { Text: not null } && !string.IsNullOrWhiteSpace(id.Text))
             conditionalFormat.Id = new Guid(id.Text.Substring(1, id.Text.Length - 2));
