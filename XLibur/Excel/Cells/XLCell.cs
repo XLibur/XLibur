@@ -312,30 +312,11 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public TimeSpan GetTimeSpan() => Value.GetTimeSpan();
 
-    public bool TryGetValue<T>(out T value)
-    {
-        XLCellValue currentValue;
-        try
-        {
-            currentValue = Value;
-        }
-        catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.TolerantRead, ex) == EvaluationOutcome.NoValue)
-        {
-            // The formula cannot be evaluated - a cycle, an unsupported feature.
-            value = default!;
-            return false;
-        }
+    // One implementation of the tolerant read and its message, shared with the wrapper-free
+    // XLWorksheet.GetValue<T>(row, column) so the two cannot drift (#842).
+    public bool TryGetValue<T>(out T value) => Worksheet.TryGetCellValue(_point.Row, _point.Column, out value);
 
-        return XLCellValueConverter.TryConvert(currentValue, out value);
-    }
-
-    public T GetValue<T>()
-    {
-        if (TryGetValue(out T retVal))
-            return retVal;
-
-        throw new InvalidCastException($"Cannot convert {Address.ToStringRelative(true)}'s value to " + typeof(T));
-    }
+    public T GetValue<T>() => Worksheet.GetCellValue<T>(_point.Row, _point.Column);
 
     public string GetString() => Value.ToString(CultureInfo.CurrentCulture);
 
@@ -388,27 +369,22 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     /// <returns>Null if cell does not contain a formula. Calculated value otherwise.</returns>
     public void Evaluate(bool force)
     {
+        if (!force)
+        {
+            // A single-cell attempt that falls back has already run the full recalculation by the time
+            // it returns false, so there is nothing left for a second pass to do. The rule is shared
+            // with the wrapper-free reads (#842).
+            Worksheet.EvaluateIfDirty(SheetPoint);
+            return;
+        }
+
         if (Formula is null)
         {
             return;
         }
 
-        var shouldRecalculate = force || NeedsRecalculation;
-        if (!shouldRecalculate)
-        {
-            return;
-        }
-
         var wb = Worksheet.Workbook;
-        if (force)
-        {
-            wb.CalcEngine.Recalculate(wb, null);
-            return;
-        }
-
-        // A single-cell attempt that falls back has already run the full recalculation by the time
-        // it returns false, so there is nothing left for a second pass to do.
-        wb.CalcEngine.TryEvaluateSingleCell(Formula, SheetPoint, Worksheet);
+        wb.CalcEngine.Recalculate(wb, null);
     }
 
     /// <summary>
@@ -445,11 +421,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     {
         get
         {
-            if (Formula is not null)
-            {
-                Evaluate(false);
-            }
-
+            Worksheet.EvaluateIfDirty(SheetPoint);
             return SliceCellValue;
         }
         set => SetValue(value);
