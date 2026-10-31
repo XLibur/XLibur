@@ -594,4 +594,24 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// <param name="column">Column number (1-based).</param>
     /// <param name="value">The value to set.</param>
     void SetCellValue(int row, int column, XLCellValue value);
+
+    /// <summary>
+    /// Reads the value of a cell and converts it to <typeparamref name="T"/>, without creating a cell
+    /// object. It gives the same result as <c>Cell(row, column).GetValue&lt;T&gt;()</c>, and it is the
+    /// cheaper call when a program reads many cells by coordinates.
+    /// </summary>
+    /// <remarks>
+    /// <para>If the cell holds a formula that needs recalculation, the formula is evaluated first, as
+    /// <see cref="IXLCell.Value"/> does.</para>
+    /// <para>The conversion rules are those of <see cref="IXLCell.GetValue{T}"/>.</para>
+    /// </remarks>
+    /// <typeparam name="T">The type to convert the value to.</typeparam>
+    /// <param name="row">Row number (1-based).</param>
+    /// <param name="column">Column number (1-based).</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="InvalidCastException">The value cannot be converted to <typeparamref name="T"/>,
+    /// or the formula in the cell cannot be evaluated. The message names the cell and the type, as
+    /// <see cref="IXLCell.GetValue{T}"/> does.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="row"/> or <paramref name="column"/> is outside the sheet.</exception>
+    T GetValue<T>(int row, int column);
 }

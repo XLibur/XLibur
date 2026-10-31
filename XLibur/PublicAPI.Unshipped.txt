@@ -542,3 +542,4 @@ static XLibur.Excel.XLRangeAddress.operator ==(XLibur.Excel.XLRangeAddress left,
 *REMOVED*XLibur.Excel.IXLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.IXLRangeAddress!
 XLibur.Excel.IXLRangeAddress.Intersection(XLibur.Excel.IXLRangeAddress! otherRangeAddress) -> XLibur.Excel.XLRangeAddress
 XLibur.Excel.IXLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.XLRangeAddress
+XLibur.Excel.IXLWorksheet.GetValue<T>(int row, int column) -> T

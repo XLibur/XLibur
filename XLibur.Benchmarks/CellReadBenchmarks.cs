@@ -29,12 +29,16 @@ public class CellReadBenchmarks
     private XLWorkbook _workbook = null!;
     private XLWorksheet _sheet = null!;
 
+    // The public member, reached the way a caller reaches it: through the interface.
+    private IXLWorksheet _worksheet = null!;
+
     [GlobalSetup]
     public void Setup()
     {
         PinataLabsFontBootstrap.Register();
         _workbook = new XLWorkbook();
         _sheet = (XLWorksheet)_workbook.AddWorksheet("Data");
+        _worksheet = _sheet;
 
 #pragma warning disable S2245 // Deterministic seed for reproducible benchmarks
         var random = new Random(42);
@@ -120,7 +124,7 @@ public class CellReadBenchmarks
         for (var r = 1; r <= Rows; r++)
         {
             for (var c = 1; c <= Cols; c++)
-                n += _sheet.GetCellValue<string>(r, c).Length;
+                n += _worksheet.GetValue<string>(r, c).Length;
         }
 
         return n;
@@ -134,7 +138,7 @@ public class CellReadBenchmarks
         for (var r = 1; r <= Rows; r++)
         {
             for (var c = 4; c <= 8; c++)
-                n += _sheet.GetCellValue<double>(r, c);
+                n += _worksheet.GetValue<double>(r, c);
         }
 
         return n;

@@ -2115,6 +2115,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return XLCellValueConverter.TryConvert(currentValue, out value);
     }
 
+    /// <inheritdoc />
+    public T GetValue<T>(int row, int column) => GetCellValue<T>(row, column);
+
     /// <summary>
     /// The read twin of <see cref="XLCell.GetValue{T}"/> without the wrapper.
     /// </summary>

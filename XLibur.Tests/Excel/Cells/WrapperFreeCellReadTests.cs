@@ -55,6 +55,24 @@ public class WrapperFreeCellReadTests
     }
 
     [Test]
+    public async Task PublicGetValue_MatchesCellGetValue()
+    {
+        var ws = CreateSheet(out var wb);
+        using (wb)
+        {
+            IXLWorksheet api = ws;
+            for (var column = 1; column <= 7; column++)
+            {
+                await Assert.That(api.GetValue<string>(1, column)).IsEqualTo(api.Cell(1, column).GetValue<string>());
+            }
+
+            await Assert.That(api.GetValue<double>(1, 2)).IsEqualTo(42.5);
+            await Assert.That(() => api.GetValue<double>(1, 1)).Throws<InvalidCastException>();
+            await Assert.That(() => api.GetValue<double>(0, 1)).Throws<ArgumentOutOfRangeException>();
+        }
+    }
+
+    [Test]
     public async Task GetCellValue_EvaluatesADirtyFormula()
     {
         using var wb = new XLWorkbook();
