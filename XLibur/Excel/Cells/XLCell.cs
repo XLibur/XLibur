@@ -360,9 +360,13 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
     {
         culture ??= CultureInfo.CurrentCulture;
         var format = GetFormat();
-        return value.IsUnifiedNumber
-            ? value.GetUnifiedNumber().ToExcelFormat(format, culture)
-            : value.ToString(culture);
+        if (value.IsUnifiedNumber)
+            return value.GetUnifiedNumber().ToExcelFormat(format, culture);
+
+        if (value.IsText)
+            return value.GetText().ToExcelFormat(format, culture);
+
+        return value.ToString(culture);
     }
 
     public void InvalidateFormula()
