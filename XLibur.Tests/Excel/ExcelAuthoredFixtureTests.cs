@@ -1,9 +1,16 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Validation;
+using TUnit.Assertions.Enums;
 using XLibur.Excel;
 using XLibur.Excel.ConditionalFormats;
+using XLibur.Excel.IO;
 using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel;
@@ -22,6 +29,13 @@ namespace XLibur.Tests.Excel;
 /// Cat, which holds #N/A and #DIV/0!, and <c>PivotMixedDatesAndNumbers</c> pivots Mixed.
 /// <c>SparklineThemeAxisColor.xlsx</c> has sheet "S" with the values in A1:C3 and one sparkline
 /// group in E1:E3 whose horizontal axis is shown and coloured Accent1 darker by 25 percent.
+/// <c>PivotChartFormats.xlsx</c> and <c>PivotFilters.xlsx</c> pivot a 24-row sheet "Data" with
+/// columns Date (every 37 days from 2025-01-15), Region (North, South, East, West in turn), Product
+/// (Apples, Pears, Plums in turn) and Amount (10 to 240) into "Pivot". The first has Region on
+/// rows, Product on columns and a clustered column pivot chart, whose Apples series is filled red
+/// and whose second Pears point is filled green. The second has Region, Product and Date on rows
+/// with a label filter (Region begins with "N"), a value filter (top 2 Products by Sum of Amount)
+/// and a date filter (Date after 2025-06-30).
 /// </remarks>
 public class ExcelAuthoredFixtureTests
 {
@@ -227,6 +241,156 @@ public class ExcelAuthoredFixtureTests
         var indexes = cache.GetDatabaseFieldIndexes();
         await Assert.That(indexes).IsEquivalentTo(Enumerable.Range(0, fieldCount).Where(i => i != 1).ToArray());
         await Assert.That(cache.DatabaseFieldCount).IsEqualTo(indexes.Length);
+    }
+
+    #endregion
+
+    #region Pivot chart formats and filters
+
+    private static XLPivotTable OnlyPivotTable(XLWorkbook wb)
+        => (XLPivotTable)wb.Worksheet("Pivot").PivotTables.Single();
+
+    /// <summary>
+    /// Excel writes one record for each series of a pivot chart, formatted or not, and one more for
+    /// the single point formatted by hand. The point's area names the data field, a Region and a
+    /// Product, where a series' area names only the data field and the Product.
+    /// </summary>
+    [Test]
+    public async Task PivotChartFormatsExcelWroteLoad()
+    {
+        using var source = Open("PivotChartFormats.xlsx");
+        using var wb = new XLWorkbook(source);
+
+        var chartFormats = OnlyPivotTable(wb).ChartFormats;
+        await Assert.That(chartFormats.Select(f => (f.Chart, f.Format, f.Series)).ToArray())
+            .IsEquivalentTo(new[] { (0u, 0u, true), (0u, 1u, true), (0u, 2u, true), (0u, 3u, false) }, CollectionOrdering.Matching);
+
+        var point = chartFormats[3].PivotArea.References;
+        await Assert.That(point.Select(r => r.Field).ToArray())
+            .IsEquivalentTo(new uint?[] { 4294967294, 1, 2 }, CollectionOrdering.Matching);
+        await Assert.That(point.Select(r => r.FieldItems.Single()).ToArray())
+            .IsEquivalentTo(new uint[] { 0, 1, 1 }, CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// Excel numbers a pivot filter by the order it was added and lists them by field: the date
+    /// filter on Date (field 0) came third, the label filter on Region (1) first and the top 2 on
+    /// Product (2) second, measured by the first data field. Excel writes evaluation order -1 for
+    /// all three.
+    /// </summary>
+    [Test]
+    public async Task PivotFiltersExcelWroteLoad()
+    {
+        using var source = Open("PivotFilters.xlsx");
+        using var wb = new XLWorkbook(source);
+
+        var filters = OnlyPivotTable(wb).PivotFilters;
+        await Assert.That(filters.Select(f => (f.Field, f.Id, f.Type, f.EvaluationOrder)).ToArray())
+            .IsEquivalentTo(new[] { (0u, 3u, "dateNewerThan", -1), (1u, 1u, "captionBeginsWith", -1), (2u, 2u, "count", -1) },
+                CollectionOrdering.Matching);
+        await Assert.That(filters[1].StringValue1).IsEqualTo("N");
+        await Assert.That(filters[2].MeasureField).IsEqualTo(0u);
+        await Assert.That(filters.Select(f => f.AutoFilter.Columns.Count).ToArray()).IsEquivalentTo(new[] { 1, 1, 1 });
+    }
+
+    /// <summary>
+    /// The <paramref name="name"/> element of the only pivot table definition in
+    /// <paramref name="package"/>. See <see cref="Normalized"/>.
+    /// </summary>
+    private static XElement PivotDefinitionElement(Stream package, string name)
+    {
+        package.Position = 0;
+        using var doc = SpreadsheetDocument.Open(package, false);
+        var part = doc.WorkbookPart!.WorksheetParts.SelectMany(p => p.PivotTableParts).Single();
+        return Normalized(part, XName.Get(name, OpenXmlConst.Main2006SsNs));
+    }
+
+    /// <summary>
+    /// The <paramref name="name"/> element of the only chart part in <paramref name="package"/>.
+    /// See <see cref="Normalized"/>.
+    /// </summary>
+    private static XElement ChartElement(Stream package, string name)
+    {
+        package.Position = 0;
+        using var doc = SpreadsheetDocument.Open(package, false);
+        var part = doc.WorkbookPart!.WorksheetParts.Select(p => p.DrawingsPart).OfType<DrawingsPart>()
+            .SelectMany(p => p.ChartParts).Single();
+        return Normalized(part, XName.Get(name, "http://schemas.openxmlformats.org/drawingml/2006/chart"));
+    }
+
+    /// <summary>
+    /// The first <paramref name="name"/> element of <paramref name="part"/>, without namespace
+    /// declarations and with each element's attributes sorted, so that a prefix or an attribute
+    /// order alone does not make two elements differ.
+    /// </summary>
+    private static XElement Normalized(OpenXmlPart part, XName name)
+    {
+        using var stream = part.GetStream();
+        var element = new XElement(XDocument.Load(stream).Descendants(name).FirstOrDefault()
+            ?? throw new InvalidOperationException($"No {name.LocalName} element."));
+        foreach (var node in element.DescendantsAndSelf())
+            node.ReplaceAttributes(node.Attributes().Where(a => !a.IsNamespaceDeclaration).OrderBy(a => a.Name.ToString()).ToArray());
+
+        return element;
+    }
+
+    /// <summary>
+    /// None of the three filters puts <c>filter</c> and <c>dateGroupItem</c> in one <c>filters</c>
+    /// element, the shape the validator wrongly rejects (#316), so the validator has a say here.
+    /// </summary>
+    /// <remarks>
+    /// Only the pivot table definition is validated. The chart part Excel wrote fails the
+    /// validator on a <c>c:ext</c> before XLibur touches it, and XLibur passes that part through.
+    /// </remarks>
+    [Test]
+    [Arguments("PivotChartFormats.xlsx")]
+    [Arguments("PivotFilters.xlsx")]
+    public async Task ResavedPivotTableDefinitionIsSchemaValid(string fixture)
+    {
+        using var saved = Resave(fixture);
+        using var doc = SpreadsheetDocument.Open(saved, false);
+        var pivotTablePart = doc.WorkbookPart!.WorksheetParts.SelectMany(p => p.PivotTableParts).Single();
+        var errors = new OpenXmlValidator(FileFormatVersions.Office2010)
+            .Validate(pivotTablePart)
+            .Select(error => $"{error.Path?.XPath}: {error.Description}")
+            .ToList();
+
+        await Assert.That(errors).IsEmpty();
+    }
+
+    [Test]
+    [Arguments("PivotChartFormats.xlsx", "chartFormats")]
+    [Arguments("PivotFilters.xlsx", "filters")]
+    public async Task PivotElementExcelWroteSurvivesARoundTripUnchanged(string fixture, string name)
+    {
+        using var source = Open(fixture);
+        var excel = PivotDefinitionElement(source, name);
+
+        using var saved = Resave(fixture);
+        var xlibur = PivotDefinitionElement(saved, name);
+
+        await Assert.That(XNode.DeepEquals(xlibur, excel)).IsTrue()
+            .Because($"Excel wrote{Environment.NewLine}{excel}{Environment.NewLine}XLibur wrote{Environment.NewLine}{xlibur}");
+    }
+
+    /// <summary>
+    /// The other half of the link: the chart part names the pivot table it draws in
+    /// <c>pivotSource</c> and holds the formatting records in <c>pivotFmts</c>. Keeping
+    /// <c>chartFormats</c> is no use if a save loses either.
+    /// </summary>
+    [Test]
+    [Arguments("pivotSource")]
+    [Arguments("pivotFmts")]
+    public async Task PivotChartPartElementSurvivesARoundTripUnchanged(string name)
+    {
+        using var source = Open("PivotChartFormats.xlsx");
+        var excel = ChartElement(source, name);
+
+        using var saved = Resave("PivotChartFormats.xlsx");
+        var xlibur = ChartElement(saved, name);
+
+        await Assert.That(XNode.DeepEquals(xlibur, excel)).IsTrue()
+            .Because($"Excel wrote{Environment.NewLine}{excel}{Environment.NewLine}XLibur wrote{Environment.NewLine}{xlibur}");
     }
 
     #endregion
