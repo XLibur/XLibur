@@ -49,7 +49,7 @@ internal static class PivotTableCacheDefinitionPartReader
             ReadCacheFields(cacheFields, pivotCache);
             if (pivotTableCacheDefinitionPart.PivotTableCacheRecordsPart?.PivotCacheRecords is { } recordsPart)
             {
-                ReadRecords(recordsPart, pivotCache);
+                PivotTableCacheRecordsPartReader.Read(recordsPart, pivotCache);
             }
         }
 
@@ -324,121 +324,9 @@ internal static class PivotTableCacheDefinitionPartReader
         {
             // Shared items can't contain element of type index (`x`),
             // because index references shared items.
-            AddValueItem(sharedItems, item);
+            PivotCacheValueCodec.ReadValue(sharedItems, item);
         }
 
         return sharedItems;
-    }
-
-    /// <summary>
-    /// Add a cache item that holds a value (not an index) to the shared items or the records of a field.
-    /// </summary>
-    private static void AddValueItem(IXLPivotCacheValueSink sink, OpenXmlElement item)
-    {
-        switch (item)
-        {
-            case MissingItem:
-                sink.AddMissing();
-                break;
-            case NumberItem numberItem:
-                sink.AddNumber(GetNumberValue(numberItem));
-                break;
-            case BooleanItem booleanItem:
-                sink.AddBoolean(GetBooleanValue(booleanItem));
-                break;
-            case ErrorItem errorItem:
-                sink.AddError(GetErrorValue(errorItem));
-                break;
-            case StringItem stringItem:
-                sink.AddString(GetStringValue(stringItem));
-                break;
-            case DateTimeItem dateTimeItem:
-                sink.AddDateTime(GetDateTimeValue(dateTimeItem));
-                break;
-            default:
-                throw PartStructureException.ExpectedElementNotFound();
-        }
-    }
-
-    private static void ReadRecords(PivotCacheRecords recordsPart, XLPivotCache pivotCache)
-    {
-        // Number of records can be rather large, preallocate capacity to avoid reallocation.
-        var recordCount = recordsPart.Count?.Value is not null
-            ? checked((int)recordsPart.Count.Value)
-            : 0;
-        pivotCache.AllocateRecordCapacity(recordCount);
-
-        // Non-database fields (calculated and grouping) don't have records — only database fields do.
-        var databaseFieldCount = pivotCache.DatabaseFieldCount;
-        foreach (var record in recordsPart.Elements<PivotCacheRecord>())
-        {
-            var recordColumns = record.ChildElements.Count;
-            if (recordColumns != databaseFieldCount)
-                throw PartStructureException.IncorrectElementsCount();
-
-            // Map record column index to field index, skipping non-database fields.
-            var recordColIdx = 0;
-            for (var fieldIdx = 0; fieldIdx < pivotCache.FieldCount; ++fieldIdx)
-            {
-                if (pivotCache.IsNonDatabaseField(fieldIdx))
-                    continue;
-
-                var fieldValues = pivotCache.GetFieldValues(fieldIdx);
-                var recordItem = record.ElementAt(recordColIdx);
-                recordColIdx++;
-
-                // Don't add values to the shared items of a cache when record value is added, because we want 1:1
-                // read/write. Read them from definition. Whatever is in shared items now should be written out,
-                // unless there is a cache refresh. Basically trust the author of the workbook that it is valid.
-                AddRecordItem(fieldValues, recordItem);
-            }
-        }
-    }
-
-    private static void AddRecordItem(XLPivotCacheValues fieldValues, OpenXmlElement recordItem)
-    {
-        // Only a record can hold an index (`x`) into the shared items; every other item is a value.
-        if (recordItem is FieldItem indexItem)
-            fieldValues.AddIndex(GetFieldIndex(indexItem, fieldValues.SharedCount));
-        else
-            AddValueItem(fieldValues, recordItem);
-    }
-
-    private static double GetNumberValue(NumberItem numberItem)
-    {
-        return numberItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-    }
-
-    private static bool GetBooleanValue(BooleanItem booleanItem)
-    {
-        return booleanItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-    }
-
-    private static XLError GetErrorValue(ErrorItem errorItem)
-    {
-        var errorText = errorItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-        if (!XLErrorParser.TryParseError(errorText, out var error))
-            throw PartStructureException.IncorrectAttributeFormat();
-
-        return error;
-    }
-
-    private static string GetStringValue(StringItem stringItem)
-    {
-        return stringItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-    }
-
-    private static DateTime GetDateTimeValue(DateTimeItem dateTimeItem)
-    {
-        return dateTimeItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-    }
-
-    private static uint GetFieldIndex(FieldItem indexItem, int sharedCount)
-    {
-        var index = indexItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
-        if (index >= sharedCount)
-            throw PartStructureException.IncorrectAttributeValue();
-
-        return index;
     }
 }

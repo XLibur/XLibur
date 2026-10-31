@@ -71,6 +71,8 @@ internal static class PivotTableCacheDefinitionPartWriter
             pivotCacheDefinition.MissingItemsLimit = 0U;
         else if (pivotCache.ItemsToRetainPerField == XLItemsToRetain.Max)
             pivotCacheDefinition.MissingItemsLimit = XLHelper.MaxRowNumber;
+        else if (pivotCacheDefinition.MissingItemsLimit?.Value is 0U or XLHelper.MaxRowNumber)
+            pivotCacheDefinition.MissingItemsLimit = null; // Automatic: the attribute the part was loaded with is stale.
 
         pivotCacheDefinition.CacheSource = BuildCacheSource(pivotCache);
 
@@ -329,22 +331,11 @@ internal static class PivotTableCacheDefinitionPartWriter
 
         WriteSharedItemStats(sharedItems, fieldValues.Stats);
 
-        // Write the cache values as they are. Going through XLCellValue would send a date through the
-        // cell serial conversion, which refuses a date on 1900-02-28 with a time part.
         for (uint index = 0; index < xlSharedItems.Count; ++index)
         {
             var value = xlSharedItems.GetValue(index);
-            OpenXmlElement toAdd = value.Type switch
-            {
-                XLPivotCacheValueType.Missing => new MissingItem(),
-                XLPivotCacheValueType.Boolean => new BooleanItem { Val = value.GetBoolean() },
-                XLPivotCacheValueType.Number => new NumberItem { Val = value.GetNumber() },
-                XLPivotCacheValueType.String => new StringItem { Val = xlSharedItems.GetStringValue(index) },
-                XLPivotCacheValueType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
-                XLPivotCacheValueType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
-                _ => throw new InvalidOperationException()
-            };
-            sharedItems.AppendChild(toAdd);
+            var text = value.Type == XLPivotCacheValueType.String ? xlSharedItems.GetStringValue(index) : null;
+            sharedItems.AppendChild(PivotCacheValueCodec.ToSharedItem(value, text));
         }
     }
 
