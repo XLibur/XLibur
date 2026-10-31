@@ -83,30 +83,10 @@ internal sealed class XLDataValidation : IXLDataValidation
         if (Areas.Count == 0)
             AddRanges(dataValidation.Ranges);
 
-        IgnoreBlanks = dataValidation.IgnoreBlanks;
-        InCellDropdown = dataValidation.InCellDropdown;
-        ShowErrorMessage = dataValidation.ShowErrorMessage;
-        ShowInputMessage = dataValidation.ShowInputMessage;
-        InputTitle = dataValidation.InputTitle;
-        InputMessage = dataValidation.InputMessage;
-        ErrorTitle = dataValidation.ErrorTitle;
-        ErrorMessage = dataValidation.ErrorMessage;
-        ErrorStyle = dataValidation.ErrorStyle;
-        AllowedValues = dataValidation.AllowedValues;
-        Operator = dataValidation.Operator;
-        MinValue = dataValidation.MinValue;
-        MaxValue = dataValidation.MaxValue;
+        Settings = DataValidationSettings.From(dataValidation);
     }
 
-    public bool IsDirty()
-    {
-        return
-            AllowedValues != XLAllowedValues.AnyValue
-            || (ShowInputMessage &&
-                (!string.IsNullOrWhiteSpace(InputTitle) || !string.IsNullOrWhiteSpace(InputMessage)))
-            || (ShowErrorMessage &&
-                (!string.IsNullOrWhiteSpace(ErrorTitle) || !string.IsNullOrWhiteSpace(ErrorMessage)));
-    }
+    public bool IsDirty() => Settings.IsDirty();
 
     /// <summary>
     /// Carve <paramref name="rangeAddress"/> out of the coverage, keeping the non-overlapping
@@ -134,25 +114,21 @@ internal sealed class XLDataValidation : IXLDataValidation
 
     private void Initialize()
     {
-        AllowedValues = XLAllowedValues.AnyValue;
-        IgnoreBlanks = true;
-        ShowErrorMessage = true;
-        ShowInputMessage = true;
-        InCellDropdown = true;
-        InputTitle = string.Empty;
-        InputMessage = string.Empty;
-        ErrorTitle = string.Empty;
-        ErrorMessage = string.Empty;
-        ErrorStyle = XLErrorStyle.Stop;
-        Operator = XLOperator.Between;
-        Value = string.Empty;
-        MinValue = string.Empty;
-        MaxValue = string.Empty;
+        Settings = DataValidationSettings.Default;
     }
+
+    /// <summary>
+    /// The rule's thirteen settings, as one value. Every public setting below reads and writes this.
+    /// </summary>
+    internal DataValidationSettings Settings { get; set; } = DataValidationSettings.Default;
 
     #region IXLDataValidation Members
 
-    public XLAllowedValues AllowedValues { get; set; }
+    public XLAllowedValues AllowedValues
+    {
+        get => Settings.AllowedValues;
+        set => Settings = Settings with { AllowedValues = value };
+    }
 
     public XLDateCriteria Date
     {
@@ -172,16 +148,65 @@ internal sealed class XLDataValidation : IXLDataValidation
         }
     }
 
-    public string ErrorMessage { get; set; } = string.Empty;
-    public XLErrorStyle ErrorStyle { get; set; }
-    public string ErrorTitle { get; set; } = string.Empty;
-    public bool IgnoreBlanks { get; set; }
-    public bool InCellDropdown { get; set; }
-    public string InputMessage { get; set; } = string.Empty;
-    public string InputTitle { get; set; } = string.Empty;
-    public string MaxValue { get; set; } = string.Empty;
-    public string MinValue { get; set; } = string.Empty;
-    public XLOperator Operator { get; set; }
+    public string ErrorMessage
+    {
+        get => Settings.ErrorMessage;
+        set => Settings = Settings with { ErrorMessage = value };
+    }
+
+    public XLErrorStyle ErrorStyle
+    {
+        get => Settings.ErrorStyle;
+        set => Settings = Settings with { ErrorStyle = value };
+    }
+
+    public string ErrorTitle
+    {
+        get => Settings.ErrorTitle;
+        set => Settings = Settings with { ErrorTitle = value };
+    }
+
+    public bool IgnoreBlanks
+    {
+        get => Settings.IgnoreBlanks;
+        set => Settings = Settings with { IgnoreBlanks = value };
+    }
+
+    public bool InCellDropdown
+    {
+        get => Settings.InCellDropdown;
+        set => Settings = Settings with { InCellDropdown = value };
+    }
+
+    public string InputMessage
+    {
+        get => Settings.InputMessage;
+        set => Settings = Settings with { InputMessage = value };
+    }
+
+    public string InputTitle
+    {
+        get => Settings.InputTitle;
+        set => Settings = Settings with { InputTitle = value };
+    }
+
+    public string MaxValue
+    {
+        get => Settings.MaxValue;
+        set => Settings = Settings with { MaxValue = value };
+    }
+
+    public string MinValue
+    {
+        get => Settings.MinValue;
+        set => Settings = Settings with { MinValue = value };
+    }
+
+    public XLOperator Operator
+    {
+        get => Settings.Operator;
+        set => Settings = Settings with { Operator = value };
+    }
 
     /// <summary>
     /// Coverage materialized as ranges on the owning worksheet, in reading order (top-to-bottom,
@@ -207,9 +232,17 @@ internal sealed class XLDataValidation : IXLDataValidation
         CoverageReplaced?.Invoke(this, EventArgs.Empty);
     }
 
-    public bool ShowErrorMessage { get; set; }
+    public bool ShowErrorMessage
+    {
+        get => Settings.ShowErrorMessage;
+        set => Settings = Settings with { ShowErrorMessage = value };
+    }
 
-    public bool ShowInputMessage { get; set; }
+    public bool ShowInputMessage
+    {
+        get => Settings.ShowInputMessage;
+        set => Settings = Settings with { ShowInputMessage = value };
+    }
 
     public XLTextLengthCriteria TextLength
     {

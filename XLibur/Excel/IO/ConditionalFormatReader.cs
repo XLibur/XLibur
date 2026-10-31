@@ -14,7 +14,7 @@ using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Reads conditional formatting rules and worksheet extensions (sparklines, X14 data validations, data bars).
+/// Reads conditional formatting rules and worksheet extensions (sparklines, data bars). Data validations in the extension are read by <see cref="DataValidationReader"/>.
 /// </summary>
 internal static class ConditionalFormatReader
 {
@@ -222,7 +222,7 @@ internal static class ConditionalFormatReader
             return;
         }
 
-        LoadX14DataValidations(extensions, ws);
+        DataValidationReader.LoadExtensionDataValidations(extensions, ws);
         LoadX14DataBarExtensions(extensions, ws);
         LoadX14ExtensionRuleFormulas(extensions, ws);
         KeepX14ExtensionRuleXml(extensions, ws);
@@ -326,57 +326,6 @@ internal static class ConditionalFormatReader
 
         areas = new XLAreaList(list);
         return true;
-    }
-
-    private static void LoadX14DataValidations(WorksheetExtensionList extensions, XLWorksheet ws)
-    {
-        foreach (var dvs in extensions
-                     .Descendants<X14.DataValidations>()
-                     .SelectMany(dataValidations => dataValidations.Descendants<X14.DataValidation>()))
-        {
-            var txt = dvs.ReferenceSequence!.InnerText;
-            if (string.IsNullOrWhiteSpace(txt)) continue;
-            foreach (var rangeAddress in txt.Split(' '))
-            {
-                var dvt = new XLDataValidation(ws.Range(rangeAddress)!);
-                ws.DataValidations.Add(dvt, skipIntersectionsCheck: true);
-                ApplyX14DataValidationProperties(dvs, dvt);
-            }
-        }
-    }
-
-    private static void ApplyX14DataValidationProperties(X14.DataValidation dvs, XLDataValidation dvt)
-    {
-        ApplyX14DataValidationDisplay(dvs, dvt);
-        ApplyX14DataValidationCriteria(dvs, dvt);
-    }
-
-    /// <summary>
-    /// The flags and messages of a data validation: how it shows itself to the user.
-    /// </summary>
-    private static void ApplyX14DataValidationDisplay(X14.DataValidation dvs, XLDataValidation dvt)
-    {
-        // A missing flag is false, its schema default, which is not the model's default (#709).
-        dvt.IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(dvs.AllowBlank, false);
-        if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
-        dvt.ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowErrorMessage, false);
-        dvt.ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowInputMessage, false);
-        if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
-        if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
-        if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
-        if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
-    }
-
-    /// <summary>
-    /// The error style and the rule itself: what values the data validation accepts.
-    /// </summary>
-    private static void ApplyX14DataValidationCriteria(X14.DataValidation dvs, XLDataValidation dvt)
-    {
-        if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
-        if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
-        if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
-        if (dvs.DataValidationForumla1 != null) dvt.MinValue = dvs.DataValidationForumla1.InnerText;
-        if (dvs.DataValidationForumla2 != null) dvt.MaxValue = dvs.DataValidationForumla2.InnerText;
     }
 
     private static void LoadX14DataBarExtensions(WorksheetExtensionList extensions, XLWorksheet ws)
