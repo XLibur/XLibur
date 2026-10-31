@@ -39,7 +39,7 @@
 
 ### 🔧 Dependencies
 
-- **`ExcelNumberFormat` 1.1.0 is replaced by `XLibur.ExcelNumberFormat` 1.2.1**, our fork. The namespace is unchanged, so no source changes were needed.
+- **`ExcelNumberFormat` 1.1.0 is replaced by `XLibur.ExcelNumberFormat` 1.2.3**, our fork. The namespace is unchanged, so no source changes were needed for the swap.
 
 ## v0.730.0 - 2026-10-26
 
