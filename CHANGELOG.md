@@ -33,13 +33,26 @@
 
 - **New font engine package `XLibur.Fonts.PinataLabs`.** It is built on [PinataLabs.Typography](https://github.com/PinataLabs/Typography), an Apache 2.0 fork of SixLabors.Fonts 1.x that still receives updates. `PinataLabsFontEngine` is a port of V1's `DefaultFontEngine` with the same members. Before V1 was removed, a test compared every measurement with V1's and found them identical, and the core test suite, whose expected widths were set with V1, now passes on PinataLabs. The package embeds the CarlitoBare fallback fonts. It is opt-in: register it with `PinataLabsFontBootstrap.Register()` or pass it in `LoadOptions.FontEngine`. SkiaSharp remains the default engine ([#835](https://github.com/XLibur/XLibur/issues/835)).
 
+- **`IXLWorksheet.GetValue<T>(row, column)` reads a cell's value without creating a cell object.** It gives the same result as `ws.Cell(row, column).GetValue<T>()`: the same conversion rules, the same recalculation of a formula that needs it, and the same `InvalidCastException` message. `ws.Cell(r, c)` creates an `XLCell` before `GetValue` runs, so only a new member can skip it. In a benchmark of 20,000 × 15 cells, a `string` read went from 36.5 ms and 77 B a call to 27.1 ms and 29 B, and a `double` read from 6.0 ms and 48 B to 3.3 ms and 0 B. A type that implements `IXLWorksheet` itself must add the member. The only implementer in this repository is the internal `XLWorksheet` ([#842](https://github.com/XLibur/XLibur/issues/842)).
+
 ### 🐛 Bug Fixes
+
+- **Text with a control character no longer breaks a save when strings are not shared, and `_x0041_` stays as typed.** XML cannot hold some characters, so the file format writes them as `_xHHHH_`, and a literal `_xHHHH_` in a user's text is escaped too. Five of the seven places that write or read text did this. The two that did not were the ends of the inline-string path, used when string sharing is off and by the streaming writer with inline storage. A control character in a cell made the save throw. A cell that held the text `_x0041_` was written as it was, so Excel showed `A`. Text is now escaped where the text element is written and decoded where it is read, once, so no caller can skip it. Not yet covered: the cached text result of a formula, and the text of rich-text runs ([#845](https://github.com/XLibur/XLibur/issues/845)).
+
+- **A data bar from Excel that has "negative fill same as positive" no longer stops the workbook from opening.** Excel leaves out the negative-fill element in that case, and XLibur read it without checking, so the whole load threw. A data bar also keeps its border, border colours, the two "same as positive" flags and its minimum and maximum bar lengths when you save, where it lost them before. If you give a loaded data bar a negative colour with `DataBar(positive, negative)`, or add one to `Colors`, the colour is now saved ([#845](https://github.com/XLibur/XLibur/issues/845)).
+
+- **An icon set whose threshold has no value can be saved, and copying it keeps every threshold.** The converter read the value without checking, so a save after loading such a file threw. After a conditional format copy it also dropped the last threshold ([#845](https://github.com/XLibur/XLibur/issues/845)).
+
+- **A pivot table's item retention set back to Automatic is saved.** After a file with a retention of None or Max was loaded, setting it to Automatic was not written. A pivot cache value is now spelled by one piece of code for both the shared items and the records ([#845](https://github.com/XLibur/XLibur/issues/845)).
+
+- **Data validation rules are written the same way in the standard and the extension form.** A rule is skipped when it holds no setting, and this is now decided for each rule. Before, the standard form wrote every rule once any rule on the sheet had content, and the extension form never checked. A formula that is empty or only spaces is left out in both forms; before, the extension form left out a blank one and the standard form wrote it. The extension form also keeps the range text of a loaded rule, as the standard form did. A rule that has no setting is now dropped when a modified sheet is saved. An unmodified sheet is still copied as it is. The thirteen settings of a rule are now one value, so copying, resetting and merging adjacent rules cannot disagree about them ([#844](https://github.com/XLibur/XLibur/issues/844)).
 
 - **`GetFormattedString` applies the number format to text cells.** A text cell skipped its format, so `"Prefix: "@` showed `abc` instead of `Prefix: abc`, and `0;-0;0;"Note: "@` showed `abc` instead of `Note: abc` ([ClosedXML#2898](https://github.com/ClosedXML/ClosedXML/issues/2898)).
 
 ### 🔧 Dependencies
 
 - **`ExcelNumberFormat` 1.1.0 is replaced by `XLibur.ExcelNumberFormat` 1.2.3**, our fork. The namespace is unchanged, so no source changes were needed for the swap.
+- **`RBush.Signed` 4.0.0 is replaced by `XLibur.RBush` 5.0.0**, our fork, which the dependency tree uses as its spatial index. The namespace is `RBush` as before, so no source changes were needed. The assembly is named `XLibur.RBush`, and it is not strong-named, where `RBush.Signed` was. It ships `net8.0`, `net10.0` and `net11.0` builds, and `net9.0` uses the `net8.0` one ([#851](https://github.com/XLibur/XLibur/pull/851)).
 
 ## v0.730.0 - 2026-10-26
 
