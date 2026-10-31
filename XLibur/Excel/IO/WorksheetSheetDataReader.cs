@@ -713,7 +713,7 @@ internal static class WorksheetSheetDataReader
         var inlineString = new InlineString(reader.ReadOuterXml());
         if (inlineString.Text is not null)
         {
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, XmlEncoder.DecodeString(inlineString.Text.Text.FixNewLines()));
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, XmlEncoder.DecodeString(inlineString.Text.Text));
         }
         else if (inlineString.HasChildren)
         {
@@ -976,7 +976,7 @@ internal static class WorksheetSheetDataReader
         }
 
         if (!hasRuns)
-            xlCell.SetOnlyValue(XmlEncoder.DecodeString(element.Text?.InnerText.FixNewLines()));
+            xlCell.SetOnlyValue(XmlEncoder.DecodeString(element.Text?.InnerText));
 
         LoadPhonetics(xlCell, element);
 

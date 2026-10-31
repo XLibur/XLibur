@@ -30,7 +30,7 @@ public static class StreamHelper
         ("/xl/sharedStrings.xml", XName.Get("sst", OpenXmlConst.Main2006SsNs), XName.Get("uniqueCount")),
         // The records part states its record count (as Excel does). The reference workbooks were
         // saved before it was written, and the count is pinned by PivotCacheExcelAuthoredTests.
-        ("/xl/pivotCache/pivotCacheRecords", XName.Get("pivotCacheRecords", OpenXmlConst.Main2006SsNs), XName.Get("count")),
+        ("/pivotCache/pivotCacheRecords", XName.Get("pivotCacheRecords", OpenXmlConst.Main2006SsNs), XName.Get("count")),
     };
 
     public static void StreamToStreamAppend(Stream streamIn, Stream streamToWrite)
