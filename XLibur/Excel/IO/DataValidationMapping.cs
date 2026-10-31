@@ -128,8 +128,94 @@ internal static class DataValidationMapping
     /// <summary>A formula, or null for the element a rule with no formula leaves out, as Excel does.</summary>
     private static string? FormulaOrNull(string formula) => string.IsNullOrWhiteSpace(formula) ? null : formula;
 
-    /// <summary>A message or title, left out when empty, as Excel leaves it out.</summary>
-    private static StringValue? NullIfEmpty(string? text) => string.IsNullOrEmpty(text) ? null : new StringValue(text);
+    /// <summary>
+    /// Both spellings carry the settings as the same attributes, with the same names and values, so
+    /// they are read and written by name here and not once per element type. Only the formulas and the
+    /// cells differ, as they are children, and each adapter handles those.
+    /// </summary>
+    private static string? Attribute(OpenXmlElement element, string name)
+    {
+        foreach (var attribute in element.GetAttributes())
+        {
+            if (attribute.LocalName == name && string.IsNullOrEmpty(attribute.NamespaceUri))
+                return attribute.Value;
+        }
+
+        return null;
+    }
+
+    private static bool ParseFlag(string? value) => value is "1" or "true";
+
+    private static T ParseEnum<T>(string value)
+        where T : struct, IEnumValue, IEnumValueFactory<T> =>
+        new EnumValue<T> { InnerText = value }.Value;
+
+    /// <summary>The settings the attributes of <paramref name="element"/> hold, apart from the formulas.</summary>
+    private static DataValidationSettings ReadAttributes(OpenXmlElement element)
+    {
+        var settings = Absent with
+        {
+            IgnoreBlanks = ParseFlag(Attribute(element, "allowBlank")),
+            ShowErrorMessage = ParseFlag(Attribute(element, "showErrorMessage")),
+            ShowInputMessage = ParseFlag(Attribute(element, "showInputMessage")),
+        };
+
+        if (Attribute(element, "showDropDown") is { } dropDown) settings = settings with { InCellDropdown = !ParseFlag(dropDown) };
+        if (Attribute(element, "promptTitle") is { } promptTitle) settings = settings with { InputTitle = promptTitle };
+        if (Attribute(element, "prompt") is { } prompt) settings = settings with { InputMessage = prompt };
+        if (Attribute(element, "errorTitle") is { } errorTitle) settings = settings with { ErrorTitle = errorTitle };
+        if (Attribute(element, "error") is { } error) settings = settings with { ErrorMessage = error };
+        if (Attribute(element, "errorStyle") is { } style)
+            settings = settings with { ErrorStyle = ParseEnum<DataValidationErrorStyleValues>(style).ToXLibur() };
+        if (Attribute(element, "type") is { } type)
+            settings = settings with { AllowedValues = ParseEnum<DataValidationValues>(type).ToXLibur() };
+        if (Attribute(element, "operator") is { } op)
+            settings = settings with { Operator = ParseEnum<DataValidationOperatorValues>(op).ToXLibur() };
+
+        return settings;
+    }
+
+    private static void SetAttribute(OpenXmlElement element, string name, string value) =>
+        element.SetAttribute(new OpenXmlAttribute(name, string.Empty, value));
+
+    private static void SetFlag(OpenXmlElement element, string name, bool value, bool schemaDefault)
+    {
+        if (value != schemaDefault)
+            SetAttribute(element, name, value ? "1" : "0");
+    }
+
+    private static void SetText(OpenXmlElement element, string name, string text)
+    {
+        if (!string.IsNullOrEmpty(text))
+            SetAttribute(element, name, text);
+    }
+
+    private static void SetEnum<T>(OpenXmlElement element, string name, T value, T schemaDefault)
+        where T : struct, IEnumValue, IEnumValueFactory<T>
+    {
+        if (!value.Equals(schemaDefault))
+            SetAttribute(element, name, new EnumValue<T>(value).InnerText!);
+    }
+
+    /// <summary>Puts the attributes <paramref name="settings"/> needs on <paramref name="element"/>, leaving out what only restates the schema.</summary>
+    private static TElement WriteAttributes<TElement>(TElement element, in DataValidationSettings settings)
+        where TElement : OpenXmlElement
+    {
+        SetFlag(element, "allowBlank", settings.IgnoreBlanks, false);
+        SetEnum(element, "type", settings.AllowedValues.ToOpenXml(), DataValidationValues.None);
+        SetFlag(element, "showErrorMessage", settings.ShowErrorMessage, false);
+        SetText(element, "prompt", settings.InputMessage);
+        SetText(element, "promptTitle", settings.InputTitle);
+        SetText(element, "errorTitle", settings.ErrorTitle);
+        SetText(element, "error", settings.ErrorMessage);
+        SetFlag(element, "showDropDown", !settings.InCellDropdown, false);
+        SetFlag(element, "showInputMessage", settings.ShowInputMessage, false);
+        SetEnum(element, "errorStyle", settings.ErrorStyle.ToOpenXml(), DataValidationErrorStyleValues.Stop);
+        if (settings.UsesOperator())
+            SetEnum(element, "operator", settings.Operator.ToOpenXml(), DataValidationOperatorValues.Between);
+
+        return element;
+    }
 
     /// <summary>The standard <c>dataValidation</c> element.</summary>
     internal sealed class StandardSpelling : IDataValidationSpelling<DataValidation>
@@ -138,50 +224,21 @@ internal static class DataValidationMapping
 
         public static DataValidationSettings Read(DataValidation element)
         {
-            var settings = Absent with
+            var settings = ReadAttributes(element);
+            return settings with
             {
-                IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(element.AllowBlank, false),
-                ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowErrorMessage, false),
-                ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowInputMessage, false),
+                MinValue = element.Formula1 is null ? settings.MinValue : element.Formula1.Text,
+                MaxValue = element.Formula2 is null ? settings.MaxValue : element.Formula2.Text,
             };
-            if (element.ShowDropDown != null) settings = settings with { InCellDropdown = !element.ShowDropDown.Value };
-            if (element.PromptTitle != null) settings = settings with { InputTitle = element.PromptTitle.Value! };
-            if (element.Prompt != null) settings = settings with { InputMessage = element.Prompt.Value! };
-            if (element.ErrorTitle != null) settings = settings with { ErrorTitle = element.ErrorTitle.Value! };
-            if (element.Error != null) settings = settings with { ErrorMessage = element.Error.Value! };
-            if (element.ErrorStyle != null) settings = settings with { ErrorStyle = element.ErrorStyle.Value.ToXLibur() };
-            if (element.Type != null) settings = settings with { AllowedValues = element.Type.Value.ToXLibur() };
-            if (element.Operator != null) settings = settings with { Operator = element.Operator.Value.ToXLibur() };
-            if (element.Formula1 != null) settings = settings with { MinValue = element.Formula1.Text };
-            if (element.Formula2 != null) settings = settings with { MaxValue = element.Formula2.Text };
-            return settings;
         }
 
         public static DataValidation Write(in DataValidationSettings settings, string sqref)
         {
-            var minValue = FormulaOrNull(settings.MinValue);
-            var maxValue = FormulaOrNull(settings.MaxValue);
-
-            // Built from the model, so there is nothing loaded to keep: a default is left out.
-            return new DataValidation
-            {
-                AllowBlank = SchemaDefault.Bool(null, settings.IgnoreBlanks, false),
-                Formula1 = minValue is null ? null : new Formula1(minValue),
-                Formula2 = maxValue is null ? null : new Formula2(maxValue),
-                Type = SchemaDefault.Enum(null, settings.AllowedValues.ToOpenXml(), DataValidationValues.None),
-                ShowErrorMessage = SchemaDefault.Bool(null, settings.ShowErrorMessage, false),
-                Prompt = NullIfEmpty(settings.InputMessage),
-                PromptTitle = NullIfEmpty(settings.InputTitle),
-                ErrorTitle = NullIfEmpty(settings.ErrorTitle),
-                Error = NullIfEmpty(settings.ErrorMessage),
-                ShowDropDown = SchemaDefault.Bool(null, !settings.InCellDropdown, false),
-                ShowInputMessage = SchemaDefault.Bool(null, settings.ShowInputMessage, false),
-                ErrorStyle = SchemaDefault.Enum(null, settings.ErrorStyle.ToOpenXml(), DataValidationErrorStyleValues.Stop),
-                Operator = settings.UsesOperator()
-                    ? SchemaDefault.Enum(null, settings.Operator.ToOpenXml(), DataValidationOperatorValues.Between)
-                    : null,
-                SequenceOfReferences = new ListValue<StringValue> { InnerText = sqref }
-            };
+            var element = WriteAttributes(new DataValidation(), settings);
+            if (FormulaOrNull(settings.MinValue) is { } min) element.Formula1 = new Formula1(min);
+            if (FormulaOrNull(settings.MaxValue) is { } max) element.Formula2 = new Formula2(max);
+            element.SequenceOfReferences = new ListValue<StringValue> { InnerText = sqref };
+            return element;
         }
     }
 
@@ -192,53 +249,23 @@ internal static class DataValidationMapping
 
         public static DataValidationSettings Read(X14.DataValidation element)
         {
-            var settings = Absent with
+            var settings = ReadAttributes(element);
+            return settings with
             {
-                IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(element.AllowBlank, false),
-                ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowErrorMessage, false),
-                ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowInputMessage, false),
+                MinValue = element.DataValidationForumla1 is null ? settings.MinValue : element.DataValidationForumla1.InnerText,
+                MaxValue = element.DataValidationForumla2 is null ? settings.MaxValue : element.DataValidationForumla2.InnerText,
             };
-            if (element.ShowDropDown != null) settings = settings with { InCellDropdown = !element.ShowDropDown.Value };
-            if (element.PromptTitle != null) settings = settings with { InputTitle = element.PromptTitle.Value! };
-            if (element.Prompt != null) settings = settings with { InputMessage = element.Prompt.Value! };
-            if (element.ErrorTitle != null) settings = settings with { ErrorTitle = element.ErrorTitle.Value! };
-            if (element.Error != null) settings = settings with { ErrorMessage = element.Error.Value! };
-            if (element.ErrorStyle != null) settings = settings with { ErrorStyle = element.ErrorStyle.Value.ToXLibur() };
-            if (element.Type != null) settings = settings with { AllowedValues = element.Type.Value.ToXLibur() };
-            if (element.Operator != null) settings = settings with { Operator = element.Operator.Value.ToXLibur() };
-            if (element.DataValidationForumla1 != null) settings = settings with { MinValue = element.DataValidationForumla1.InnerText };
-            if (element.DataValidationForumla2 != null) settings = settings with { MaxValue = element.DataValidationForumla2.InnerText };
-            return settings;
         }
 
         public static X14.DataValidation Write(in DataValidationSettings settings, string sqref)
         {
-            var minValue = FormulaOrNull(settings.MinValue);
-            var maxValue = FormulaOrNull(settings.MaxValue);
-
-            return new X14.DataValidation
-            {
-                AllowBlank = SchemaDefault.Bool(null, settings.IgnoreBlanks, false),
-                DataValidationForumla1 = minValue is null
-                    ? null
-                    : new X14.DataValidationForumla1(new OfficeExcel.Formula(minValue)),
-                DataValidationForumla2 = maxValue is null
-                    ? null
-                    : new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue)),
-                Type = SchemaDefault.Enum(null, settings.AllowedValues.ToOpenXml(), DataValidationValues.None),
-                ShowErrorMessage = SchemaDefault.Bool(null, settings.ShowErrorMessage, false),
-                Prompt = NullIfEmpty(settings.InputMessage),
-                PromptTitle = NullIfEmpty(settings.InputTitle),
-                ErrorTitle = NullIfEmpty(settings.ErrorTitle),
-                Error = NullIfEmpty(settings.ErrorMessage),
-                ShowDropDown = SchemaDefault.Bool(null, !settings.InCellDropdown, false),
-                ShowInputMessage = SchemaDefault.Bool(null, settings.ShowInputMessage, false),
-                ErrorStyle = SchemaDefault.Enum(null, settings.ErrorStyle.ToOpenXml(), DataValidationErrorStyleValues.Stop),
-                Operator = settings.UsesOperator()
-                    ? SchemaDefault.Enum(null, settings.Operator.ToOpenXml(), DataValidationOperatorValues.Between)
-                    : null,
-                ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sqref }
-            };
+            var element = WriteAttributes(new X14.DataValidation(), settings);
+            if (FormulaOrNull(settings.MinValue) is { } min)
+                element.DataValidationForumla1 = new X14.DataValidationForumla1(new OfficeExcel.Formula(min));
+            if (FormulaOrNull(settings.MaxValue) is { } max)
+                element.DataValidationForumla2 = new X14.DataValidationForumla2(new OfficeExcel.Formula(max));
+            element.ReferenceSequence = new OfficeExcel.ReferenceSequence { Text = sqref };
+            return element;
         }
     }
 }

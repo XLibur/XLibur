@@ -120,7 +120,15 @@ public class DataValidationMappingTests
     public async Task EveryProperty_OfTheMapping_IsOnTheValidationInterface()
     {
         // The settings list is the single source for read, write, copy, reset and equality, so a
-        // property added to it without a matching public setting (or the reverse) is a defect.
+        // setting on the public interface without a matching component (or the reverse) is a defect.
+        // Value is an alias of MinValue, not a setting of its own.
+        var onInterface = typeof(IXLDataValidation)
+            .GetProperties()
+            .Where(p => p.CanWrite && p.Name != nameof(IXLDataValidation.Value))
+            .Select(p => p.Name)
+            .OrderBy(n => n)
+            .ToArray();
+
         var mapped = typeof(XLDataValidation).Assembly
             .GetType("XLibur.Excel.DataValidationSettings", throwOnError: true)!
             .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
@@ -128,7 +136,11 @@ public class DataValidationMappingTests
             .OrderBy(n => n)
             .ToArray();
 
-        await Assert.That(mapped).IsEquivalentTo(Settings.Select(s => s.Name).OrderBy(n => n).ToArray());
+        var tested = Settings.Select(s => s.Name).OrderBy(n => n).ToArray();
+
+        await Assert.That(onInterface.Length).IsEqualTo(13);
+        await Assert.That(mapped).IsEquivalentTo(onInterface);
+        await Assert.That(tested).IsEquivalentTo(onInterface);
     }
 
     [Test]
