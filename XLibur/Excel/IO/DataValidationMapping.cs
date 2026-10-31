@@ -138,8 +138,7 @@ internal static class DataValidationMapping
 
         public static DataValidationSettings Read(DataValidation element)
         {
-            var settings = Absent;
-            settings = settings with
+            var settings = Absent with
             {
                 IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(element.AllowBlank, false),
                 ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowErrorMessage, false),
@@ -193,8 +192,7 @@ internal static class DataValidationMapping
 
         public static DataValidationSettings Read(X14.DataValidation element)
         {
-            var settings = Absent;
-            settings = settings with
+            var settings = Absent with
             {
                 IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(element.AllowBlank, false),
                 ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(element.ShowErrorMessage, false),
