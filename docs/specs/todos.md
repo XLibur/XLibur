@@ -9,22 +9,28 @@ Each item below was read in context and checked against the surrounding code. Ve
 - **Partly stale** — comment corrected, remaining work tracked.
 - **Genuine** — tracked as a task.
 
+> **Status (November 2026):** every task is done or closed except the #10 removal; see the
+> [task summary](#task-summary) and [still to do](#still-to-do). Parts 1 and 2 record the code as
+> it was triaged in July 2026. Read the status column, not the verdicts, before filing an issue
+> from them: #846 was filed from the verification notes below after all three of its items had
+> merged.
+
 ---
 
 ## Part 1 — TODO comments (S1135)
 
-| # | Location | Verdict | Task |
-|---|----------|---------|------|
-| 6 | `Coordinates/SheetPoint.cs:47` | **Stale — removed** | — |
-| 3 | `CalcEngine/DependencyTree.cs:98` | **Partly stale — reworded** | #5 |
-| 1 | `CalcEngine/AstNode.cs:298` | Genuine (perf) | #6 |
-| 2 | `CalcEngine/DependenciesVisitor.cs:194` | Genuine (correctness) | #4 |
-| 4 | `CalcEngine/Visitors/FormulaReferences.cs:103` | Genuine (correctness) | #4 |
-| 7 | `DataValidation/XLDataValidations.cs:278` | Genuine (**bug**) | #1 |
-| 10 | `IO/PivotTableDefinitionPartReader.cs:127` | Genuine (data loss) | #2 |
-| 11 | `IO/PivotTableDefinitionPartReader.cs:132` | Genuine (data loss) | #3 |
-| 12 | `IO/PivotTableDefinitionPartWriter2.cs:79` | Genuine (trivial) | #7 |
-| 17 | `PivotTables/XLPivotReference.cs:56` | Genuine (hardening) | #8 |
+| # | Location | Verdict | Task | Status |
+|---|----------|---------|------|--------|
+| 6 | `Coordinates/SheetPoint.cs:47` | **Stale — removed** | — | Done (#285) |
+| 3 | `CalcEngine/DependencyTree.cs:98` | **Partly stale — reworded** | #5 | Closed, will not do |
+| 1 | `CalcEngine/AstNode.cs:298` | Genuine (perf) | #6 | Merged (#286) |
+| 2 | `CalcEngine/DependenciesVisitor.cs:194` | Genuine (correctness) | #4 | Merged (#297) |
+| 4 | `CalcEngine/Visitors/FormulaReferences.cs:103` | Genuine (correctness) | #4 | Merged (#297) |
+| 7 | `DataValidation/XLDataValidations.cs:278` | Genuine (**bug**) | #1 | Merged (#290) |
+| 10 | `IO/PivotTableDefinitionPartReader.cs:127` | Genuine (data loss) | #2 | Merged (#294) |
+| 11 | `IO/PivotTableDefinitionPartReader.cs:132` | Genuine (data loss) | #3 | Merged (#300, #310) |
+| 12 | `IO/PivotTableDefinitionPartWriter2.cs:79` | Genuine (trivial) | #7 | Merged (#287) |
+| 17 | `PivotTables/XLPivotReference.cs:56` | Genuine (hardening) | #8 | Closed, will not do |
 
 ### Removed as stale
 
@@ -43,6 +49,8 @@ formula types silently, nothing throws, and `FormulaType.Shared` is marked `// N
 Comment rewritten to say only that; work tracked as task #5.
 
 ### Verification notes for the genuine ones
+
+These describe the code at triage. All of them are fixed; see the status column above.
 
 - **#7 (data validations)** is a real defect, not a nicety. `SplitBy` can leave a rule with
   zero areas, `Consolidate` preserves it, and `DataValidationWriter` then emits
@@ -108,8 +116,8 @@ its own period runs from this release.
 | Task | Item(s) | Kind | Status |
 |------|---------|------|--------|
 | #1 | 7 | Bug — empty data validations written with empty `sqref` | **Merged** — [#290](https://github.com/XLibur/XLibur/pull/290) |
-| #2 | 10 | Feature — pivot `chartFormats` round trip | **Merged** — [#294](https://github.com/XLibur/XLibur/pull/294) |
-| #3 | 11 | Feature — pivot `filters` round trip | **Merged** — [#300](https://github.com/XLibur/XLibur/pull/300); `autoFilter` modelled rather than preserved as a string in [#301](https://github.com/XLibur/XLibur/issues/301) |
+| #2 | 10 | Feature — pivot `chartFormats` round trip | **Merged** — [#294](https://github.com/XLibur/XLibur/pull/294); tested against a file Excel wrote in [#855](https://github.com/XLibur/XLibur/pull/855) |
+| #3 | 11 | Feature — pivot `filters` round trip | **Merged** — [#300](https://github.com/XLibur/XLibur/pull/300); `autoFilter` modelled rather than preserved as a string ([#301](https://github.com/XLibur/XLibur/issues/301)) in [#310](https://github.com/XLibur/XLibur/pull/310); tested against a file Excel wrote in [#855](https://github.com/XLibur/XLibur/pull/855) |
 | #4 | 2, 4 | Correctness — structured references in the dependency tree | **Merged** — [#297](https://github.com/XLibur/XLibur/pull/297) |
 | #5 | 3 | Perf — register data-table formulas in the dependency tree | **Closed, will not do** — see below |
 | #6 | 1 | Perf — cache parsed reference addresses | **Merged** — [#286](https://github.com/XLibur/XLibur/pull/286) |
@@ -139,6 +147,9 @@ changes that mostly touch different files.
 | [#295](https://github.com/XLibur/XLibur/pull/295) | Correction to the task #9 finding | Merged |
 | [#296](https://github.com/XLibur/XLibur/pull/296) | Task #9, plus the #9 and #10 decisions | Merged |
 | [#297](https://github.com/XLibur/XLibur/pull/297) | Task #4, plus the task #5 correction | Merged |
+| [#300](https://github.com/XLibur/XLibur/pull/300) | Task #3 | Merged |
+| [#310](https://github.com/XLibur/XLibur/pull/310) | Task #3: a pivot filter's `autoFilter` modelled, not kept as XML (#301) | Merged |
+| [#855](https://github.com/XLibur/XLibur/pull/855) | Tasks #2 and #3 tested against files Excel wrote (#846) | Merged |
 
 ### Task #6 — reference resolution (#286)
 
@@ -189,6 +200,17 @@ The `chartFormats` element — which ties each PivotChart formatting record to t
 applies to — was never read or written, so manual chart formatting vanished on load/save. Added
 `XLPivotChartFormat` plus a reader and writer following the existing `formats`/`conditionalFormats`
 pattern. Not to be confused with the `chartFormat` *attribute*, which already worked.
+
+### Tasks #2 and #3 — Excel-authored fixtures (#855)
+
+The tests from #294 and #300 build their input with the OpenXML SDK. #846, filed from Part 1
+after both had merged, asked for files Excel wrote. #855 adds two, authored over COM:
+`PivotChartFormats.xlsx` (a series and a point formatted by hand) and `PivotFilters.xlsx` (label,
+top-N and date filters). Each element loads as Excel wrote it and saves back unchanged, and Excel
+opens the resaved files with the formatting and filters intact.
+
+The validator bug tracked in #316 does not touch these: for those three filter kinds Excel writes
+`customFilters` and `top10`, never a `filters` element holding `filter` and `dateGroupItem`.
 
 ### Task #4 — structured references in the dependency tree (#297)
 
@@ -286,8 +308,6 @@ depends on the current value.
 - **#10 removal** — the decision is made but the code change is not: 16 members across three
   groups, plus the `PublicAPI.*.txt` and `CHANGELOG.md` updates a breaking change needs, and
   the test files that still call `NamedRange`/`NamedRanges`.
-- **#3** — the largest job left. `CT_PivotFilter` carries a required full `autoFilter` subtree,
-  so it needs real OpenXML modelling rather than another pass of the `formats` pattern.
 - **The `DataTableFormulaFormat` bug** above, if the intended display text can be settled.
 
-Tasks #1, #2, #4, #6, #7, #9 and #11 are done; #5 and #8 are closed as will-not-do.
+Tasks #1, #2, #3, #4, #6, #7, #9 and #11 are done; #5 and #8 are closed as will-not-do.
