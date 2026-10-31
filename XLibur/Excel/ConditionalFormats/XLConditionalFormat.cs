@@ -855,6 +855,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     {
         Colors.Initialize(positiveColor);
         Colors.Add(negativeColor);
+        // The caller chose a negative colour, so a loaded "same as positive" no longer holds.
+        NegativeBarColorSameAsPositive = false;
         ShowBarOnly = showBarOnly;
         Gradient = gradient;
         ConditionalFormatType = XLConditionalFormatType.DataBar;

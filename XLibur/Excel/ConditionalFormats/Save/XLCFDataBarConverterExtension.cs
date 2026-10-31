@@ -34,6 +34,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         };
 
         var xlCf = (XLConditionalFormat)cf;
+        var negativeSameAsPositive = xlCf.NegativeBarColorSameAsPositive && cf.Colors.Count < 2;
         DataBar dataBar = new DataBar
         {
             MinLength = xlCf.BarMinLength,
@@ -42,7 +43,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             Gradient = SchemaDefault.Bool(null, cf.Gradient, true),
             ShowValue = SchemaDefault.Bool(null, !cf.ShowBarOnly, true),
             Border = SchemaDefault.Bool(null, xlCf.BarBorder, false),
-            NegativeBarColorSameAsPositive = SchemaDefault.Bool(null, xlCf.NegativeBarColorSameAsPositive, false),
+            NegativeBarColorSameAsPositive = SchemaDefault.Bool(null, negativeSameAsPositive, false),
             NegativeBarBorderColorSameAsPositive =
                 SchemaDefault.Bool(null, xlCf.NegativeBarBorderColorSameAsPositive, true),
         };
@@ -85,7 +86,9 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         }
 
         // Excel leaves the negative fill out when the negative bar has the positive bar's colour.
-        if (!xlCf.NegativeBarColorSameAsPositive)
+        // A second colour in Colors (set through the public dictionary, say) is an explicit negative
+        // colour, which the flag must not hide.
+        if (!negativeSameAsPositive)
         {
             var negativeColor = cf.Colors.Count == 2 ? cf.Colors[2] : cf.Colors[1];
             var negativeFillColor = new NegativeFillColor();

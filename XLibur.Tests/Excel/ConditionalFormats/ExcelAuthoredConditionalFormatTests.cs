@@ -89,6 +89,57 @@ public class ExcelAuthoredConditionalFormatTests
         await Assert.That(wb.Worksheet("S").ConditionalFormats.Single().Colors.Count).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task ChoosingANegativeColourOnALoadedSameAsPositiveBarKeepsIt()
+    {
+        using var package = DataBarWithoutNegativeFill();
+        using var wb = new XLWorkbook(package);
+        var negative = XLColor.FromArgb(0xFF123456);
+        wb.Worksheet("S").ConditionalFormats.Single()
+            .DataBar(XLColor.Red, negative).LowestValue().HighestValue();
+        using var saved = Save(wb);
+
+        var sheet = saved.Sheet1Xml();
+        await Assert.That(sheet).Contains("<x14:negativeFillColor rgb=\"FF123456\"");
+        await Assert.That(sheet).DoesNotContain("negativeBarColorSameAsPositive");
+
+        using var reloaded = new XLWorkbook(saved);
+        var cf = reloaded.Worksheet("S").ConditionalFormats.Single();
+        await Assert.That(cf.Colors.Count).IsEqualTo(2);
+        await Assert.That(cf.Colors[2]).IsEqualTo(negative);
+    }
+
+    [Test]
+    public async Task ASingleColourOnALoadedSameAsPositiveBarStaysSameAsPositive()
+    {
+        using var package = DataBarWithoutNegativeFill();
+        using var wb = new XLWorkbook(package);
+        wb.Worksheet("S").ConditionalFormats.Single().DataBar(XLColor.Blue).LowestValue().HighestValue();
+        using var saved = Save(wb);
+
+        var sheet = saved.Sheet1Xml();
+        await Assert.That(sheet).Contains("negativeBarColorSameAsPositive=\"1\"");
+        await Assert.That(sheet).DoesNotContain("negativeFillColor");
+
+        using var reloaded = new XLWorkbook(saved);
+        var cf = reloaded.Worksheet("S").ConditionalFormats.Single();
+        await Assert.That(cf.Colors.Count).IsEqualTo(1);
+        await Assert.That(cf.Colors[1]).IsEqualTo(XLColor.Blue);
+    }
+
+    [Test]
+    public async Task ANegativeColourAddedToTheColorsDirectlyIsNotHiddenByTheFlag()
+    {
+        using var package = DataBarWithoutNegativeFill();
+        using var wb = new XLWorkbook(package);
+        var negative = XLColor.FromArgb(0xFF654321);
+        wb.Worksheet("S").ConditionalFormats.Single().Colors.Add(negative);
+        using var saved = Save(wb);
+
+        await Assert.That(saved.Sheet1Xml()).Contains("<x14:negativeFillColor rgb=\"FF654321\"");
+        await Assert.That(saved.Sheet1Xml()).DoesNotContain("negativeBarColorSameAsPositive");
+    }
+
     #endregion
 
     #region Icon set threshold without a value (save throws)
