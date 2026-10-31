@@ -2072,6 +2072,63 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     /// <summary>
+    /// The read twin of <see cref="SetCellValue"/>: the value <c>Cell(row, column).Value</c> gives,
+    /// without minting an <see cref="XLCell"/> wrapper (#842). A formula that needs recalculation is
+    /// evaluated first, exactly as <see cref="XLCell.Value"/> does.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The coordinates are outside the sheet.</exception>
+    internal XLCellValue GetCellValue(int row, int column)
+    {
+        if (row is <= 0 or > XLHelper.MaxRowNumber)
+            throw new ArgumentOutOfRangeException(nameof(row), $"Row number must be between 1 and {XLHelper.MaxRowNumber}");
+
+        if (column is <= 0 or > XLHelper.MaxColumnNumber)
+            throw new ArgumentOutOfRangeException(nameof(column), $"Column number must be between 1 and {XLHelper.MaxColumnNumber}");
+
+        var point = new Point(row, column);
+        var cells = Internals.CellsCollection;
+        var formula = cells.FormulaSlice.Get(point);
+        if (formula is not null && formula.IsDirty())
+            Workbook.CalcEngine.TryEvaluateSingleCell(formula, point, this);
+
+        return cells.ValueSlice.GetCellValue(point);
+    }
+
+    /// <summary>
+    /// The read twin of <see cref="XLCell.TryGetValue{T}"/> without the wrapper: converts the value at
+    /// (<paramref name="row"/>, <paramref name="column"/>) to <typeparamref name="T"/>. Returns false when
+    /// the value cannot be converted, or when the cell's formula cannot be evaluated.
+    /// </summary>
+    internal bool TryGetCellValue<T>(int row, int column, out T value)
+    {
+        XLCellValue currentValue;
+        try
+        {
+            currentValue = GetCellValue(row, column);
+        }
+        catch (Exception ex) when (EvaluationPolicy.For(EvaluationEntryPoint.TolerantRead, ex) == EvaluationOutcome.NoValue)
+        {
+            value = default!;
+            return false;
+        }
+
+        return XLCellValueConverter.TryConvert(currentValue, out value);
+    }
+
+    /// <summary>
+    /// The read twin of <see cref="XLCell.GetValue{T}"/> without the wrapper.
+    /// </summary>
+    /// <exception cref="InvalidCastException">The value cannot be converted to <typeparamref name="T"/>.</exception>
+    internal T GetCellValue<T>(int row, int column)
+    {
+        if (TryGetCellValue(row, column, out T result))
+            return result;
+
+        throw new InvalidCastException(
+            $"Cannot convert {new XLAddress(this, row, column, false, false).ToStringRelative(true)}'s value to " + typeof(T));
+    }
+
+    /// <summary>
     /// Get a style that should be used for a <paramref name="value"/>,
     /// if the value is set to the <paramref name="point"/>.
     /// </summary>
