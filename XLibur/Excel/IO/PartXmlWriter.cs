@@ -31,9 +31,9 @@ internal static class PartXmlWriter
         XmlWriter.Create(stream, new XmlWriterSettings
         {
             CloseOutput = closeOutput,
-            // Deliberate, not defaulted: XML-forbidden characters in cell text are escaped by the
-            // _xHHHH_ codec at CellXmlWriter.WriteTextElement. Anything else that reaches the
-            // writer with one is a bug that should fail loudly rather than produce a corrupt part.
+            // Deliberate, not defaulted (it is also the framework default): text written through
+            // CellXmlWriter.WriteTextElement is escaped by the _xHHHH_ codec first. Anything else that
+            // reaches the writer with a forbidden character fails loudly rather than corrupt a part.
             CheckCharacters = true,
             Encoding = XLHelper.NoBomUTF8,
         });

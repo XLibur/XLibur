@@ -16,7 +16,9 @@ internal sealed class XLCFIconSetConverter : IXLCFConverter
             Reverse = SchemaDefault.Bool(null, cf.ReverseIconOrder, false),
             IconSetValue = cf.IconSetStyle.ToOpenXml()
         };
-        var count = cf.Values.Count;
+        // Counted by the content types, which every threshold has: a threshold without a value is
+        // absent from Values after a copy, so Values.Count would drop the last threshold.
+        var count = cf.ContentTypes.Count;
         for (var i = 1; i <= count; i++)
         {
             // A value object may omit its value (cfvo val is optional), as the colour scale's converter
