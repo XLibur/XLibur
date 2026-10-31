@@ -156,7 +156,9 @@ public class WrapperFreeCellReadTests
         var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / rows;
 
         await Assert.That(sum).IsGreaterThan(0d);
-        // Cell(r,c) alone is 48 B, so any wrapper would break a ceiling this low.
-        await Assert.That(perCall).IsLessThan(8L);
+        // The read itself allocates nothing (measured 0 B; the benchmark shows 18 B over 100k calls).
+        // The ceiling is half an XLCell wrapper (48 B): it leaves room for coverage instrumentation and
+        // tiering noise on this thread, and still fails if a wrapper is minted per call.
+        await Assert.That(perCall).IsLessThan(24L);
     }
 }

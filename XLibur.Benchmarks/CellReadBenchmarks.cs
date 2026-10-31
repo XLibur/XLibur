@@ -14,9 +14,17 @@ namespace XLibur.Benchmarks;
 /// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*CellReadBenchmarks*'
 /// </summary>
 /// <remarks>
-/// Spec 19 area 1, task 1.5 (#842). Every method makes <c>Rows x Cols</c> calls over a fixture with the
-/// same column mix as <c>XLiburReadBenchmarks</c> (3 text, 5 numeric, 3 date, 3 text, 1 formula), so
-/// divide by <see cref="CallsPerOp"/> for the per-call figure.
+/// Spec 19 area 1, task 1.5 (#842). The fixture has the same column mix as <c>XLiburReadBenchmarks</c>
+/// (3 text, 5 numeric, 3 date, 3 text, 1 formula).
+/// <para>
+/// The rungs are <b>not additive</b>: they do different work over different cell sets, so read each as
+/// its own figure. Compare like with like only:
+/// <c>Cell_GetValueString</c> with <c>Seam_GetValueString</c> (all 15 columns),
+/// <c>Cell_GetValueDouble</c> with <c>Seam_GetValueDouble</c> (the 5 numeric columns), and
+/// <c>Cell_GetValueStringTextOnly</c> with <c>Seam_GetValueStringTextOnly</c> (the 6 text columns).
+/// <c>Cell_Discarded</c> and <c>Cell_Value</c> price the wrapper and the raw value fetch.
+/// Divide by the calls per operation (<c>Rows x Cols</c>, or <c>Rows x 5</c>, or <c>Rows x 6</c>).
+/// </para>
 /// </remarks>
 [MemoryDiagnoser]
 public class CellReadBenchmarks
@@ -153,6 +161,22 @@ public class CellReadBenchmarks
         {
             for (var c = 4; c <= 8; c++)
                 n += ((IXLCell)_sheet.Cell(r, c)).GetValue<double>();
+        }
+
+        return n;
+    }
+
+    /// <summary>The public seam over the same six text columns as <see cref="Cell_GetValueStringTextOnly"/>.</summary>
+    [Benchmark]
+    public int Seam_GetValueStringTextOnly()
+    {
+        var n = 0;
+        for (var r = 1; r <= Rows; r++)
+        {
+            for (var c = 1; c <= 3; c++)
+                n += _worksheet.GetValue<string>(r, c).Length;
+            for (var c = 12; c <= 14; c++)
+                n += _worksheet.GetValue<string>(r, c).Length;
         }
 
         return n;

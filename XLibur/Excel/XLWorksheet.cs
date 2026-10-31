@@ -2079,19 +2079,31 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// <exception cref="ArgumentOutOfRangeException">The coordinates are outside the sheet.</exception>
     internal XLCellValue GetCellValue(int row, int column)
     {
+        ValidateCellCoordinates(row, column);
+        var point = new Point(row, column);
+        EvaluateIfDirty(point);
+        return Internals.CellsCollection.ValueSlice.GetCellValue(point);
+    }
+
+    /// <summary>
+    /// Evaluates the formula of the cell at <paramref name="point"/> if it has one and it needs
+    /// recalculation. The one copy of that rule, shared by <see cref="XLCell.Value"/> and the
+    /// wrapper-free reads (#842).
+    /// </summary>
+    internal void EvaluateIfDirty(Point point)
+    {
+        var formula = Internals.CellsCollection.FormulaSlice.Get(point);
+        if (formula is not null && formula.IsDirty())
+            Workbook.CalcEngine.TryEvaluateSingleCell(formula, point, this);
+    }
+
+    private static void ValidateCellCoordinates(int row, int column)
+    {
         if (row is <= 0 or > XLHelper.MaxRowNumber)
             throw new ArgumentOutOfRangeException(nameof(row), $"Row number must be between 1 and {XLHelper.MaxRowNumber}");
 
         if (column is <= 0 or > XLHelper.MaxColumnNumber)
             throw new ArgumentOutOfRangeException(nameof(column), $"Column number must be between 1 and {XLHelper.MaxColumnNumber}");
-
-        var point = new Point(row, column);
-        var cells = Internals.CellsCollection;
-        var formula = cells.FormulaSlice.Get(point);
-        if (formula is not null && formula.IsDirty())
-            Workbook.CalcEngine.TryEvaluateSingleCell(formula, point, this);
-
-        return cells.ValueSlice.GetCellValue(point);
     }
 
     /// <summary>
@@ -2101,6 +2113,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     internal bool TryGetCellValue<T>(int row, int column, out T value)
     {
+        // Checked before the try, so a bad coordinate never depends on the policy filter to escape.
+        ValidateCellCoordinates(row, column);
+
         XLCellValue currentValue;
         try
         {
