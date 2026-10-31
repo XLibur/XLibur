@@ -204,6 +204,10 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         var copy = targetSheet.SparklineGroups.Add(new XLSparklineGroup(targetSheet, this));
         foreach (var sparkline in _sparklines.Values)
         {
+            // A sparkline loaded with a data reference that named no range has nothing to copy.
+            if (sparkline.SourceData is null)
+                continue;
+
             var location = targetSheet.Cell(sparkline.Location.Address.WithoutWorksheet());
             var sourceData = sparkline.SourceData.Worksheet == Worksheet
                 ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString()!)!

@@ -622,8 +622,9 @@ internal static class ConditionalFormattingWriter
         var sparklines = new X14.Sparklines(xlSparklineGroup
             .Select(xlSparkline => new X14.Sparkline
             {
+                // A sparkline loaded with a data reference that named no range has no source data.
                 Formula = new OfficeExcel.Formula(
-                    xlSparkline.SourceData.RangeAddress.ToString(XLReferenceStyle.A1, true)),
+                    xlSparkline.SourceData?.RangeAddress.ToString(XLReferenceStyle.A1, true) ?? "#REF!"),
                 ReferenceSequence =
                     new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString()!)
             })
@@ -682,8 +683,8 @@ internal static class ConditionalFormattingWriter
 
     private static void SetSparklineAxes(X14.SparklineGroup sparklineGroup, IXLSparklineGroup xlSparklineGroup)
     {
-        sparklineGroup.AxisColor = new X14.AxisColor
-        { Rgb = xlSparklineGroup.HorizontalAxis.Color.Color.ToHex() };
+        sparklineGroup.AxisColor =
+            new X14.AxisColor().FromXLiburColor<X14.AxisColor>(xlSparklineGroup.HorizontalAxis.Color);
         sparklineGroup.DisplayXAxis = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.IsVisible, false);
         sparklineGroup.RightToLeft = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.RightToLeft, false);
         sparklineGroup.DateAxis = SchemaDefault.Bool(null, xlSparklineGroup.HorizontalAxis.DateAxis, false);
