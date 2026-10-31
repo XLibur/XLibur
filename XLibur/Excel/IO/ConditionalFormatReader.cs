@@ -29,12 +29,12 @@ internal static class ConditionalFormatReader
 
         // The range (sqref) is required by the schema; with none there is nothing to apply the
         // rules to, so skip them rather than fail the load.
-        if (conditionalFormatting.SequenceOfReferences?.Items is not { Count: > 0 })
+        if (conditionalFormatting.SequenceOfReferences?.Items is not { Count: > 0 } references)
             return;
 
         foreach (var fr in conditionalFormatting.Elements<ConditionalFormattingRule>())
         {
-            var ranges = conditionalFormatting.SequenceOfReferences!.Items
+            var ranges = references
                 .Select(sor => ws.Range(sor.Value!)!);
             var conditionalFormat = new XLConditionalFormat(ranges);
 
@@ -379,21 +379,20 @@ internal static class ConditionalFormatReader
             if (x14DataBar != null)
                 LoadX14DataBarAttributes(x14DataBar, xlConditionalFormat);
 
-            var barAxisColor = conditionalFormattingRule
-                .Descendants<X14.BarAxisColor>().SingleOrDefault();
-            if (barAxisColor != null)
-                xlConditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
-
-            var borderColor = conditionalFormattingRule
-                .Descendants<X14.BorderColor>().SingleOrDefault();
-            if (borderColor != null)
-                xlConditionalFormat.BarBorderColor = borderColor.ToXLiburColor();
-
-            var negativeBorderColor = conditionalFormattingRule
-                .Descendants<X14.NegativeBorderColor>().SingleOrDefault();
-            if (negativeBorderColor != null)
-                xlConditionalFormat.NegativeBarBorderColor = negativeBorderColor.ToXLiburColor();
+            LoadX14DataBarColors(conditionalFormattingRule, xlConditionalFormat);
         }
+    }
+
+    private static void LoadX14DataBarColors(X14.ConditionalFormattingRule rule, XLConditionalFormat conditionalFormat)
+    {
+        if (rule.Descendants<X14.BarAxisColor>().SingleOrDefault() is { } barAxisColor)
+            conditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
+
+        if (rule.Descendants<X14.BorderColor>().SingleOrDefault() is { } borderColor)
+            conditionalFormat.BarBorderColor = borderColor.ToXLiburColor();
+
+        if (rule.Descendants<X14.NegativeBorderColor>().SingleOrDefault() is { } negativeBorderColor)
+            conditionalFormat.NegativeBarBorderColor = negativeBorderColor.ToXLiburColor();
     }
 
     /// <summary>
@@ -484,7 +483,15 @@ internal static class ConditionalFormatReader
 
         // Only an address without a sheet name belongs to this sheet. One naming a sheet that is gone
         // would otherwise be read as the same cells on this sheet, which ws.Range does with the name.
-        return workbook.Range(reference) ?? (reference.Contains('!') ? null : ws.Range(reference));
+        try
+        {
+            return workbook.Range(reference) ?? (reference.Contains('!') ? null : ws.Range(reference));
+        }
+        catch (Exception ex) when (ex is ArgumentException or OverflowException)
+        {
+            // An address that passes the syntax check can still lie outside the sheet, such as row 1048577.
+            return null;
+        }
     }
 
     private static void LoadSparklineStyle(X14.SparklineGroup slg, XLSparklineGroup xlSparklineGroup)

@@ -113,6 +113,9 @@ public class ExcelAuthoredSparklineTests
     [Arguments("S!nonsense")]
     [Arguments("Gone!A2:C2")]
     [Arguments("#REF!A2:C2")]
+    [Arguments("S!A1:A1048577")]
+    [Arguments("S!XFE1:XFE2")]
+    [Arguments("A1:A1048577")]
     public async Task SparklineWhoseDataNamesNoRangeIsKeptAsAnInvalidOneAndSaves(string reference)
     {
         using var package = WithSecondSparkline(s => Edit(s, "<xm:f>.*?</xm:f>", $"<xm:f>{reference}</xm:f>"));
@@ -151,6 +154,15 @@ public class ExcelAuthoredSparklineTests
         using var wb = new XLWorkbook(package);
         await Assert.That(wb.Worksheet("S").SparklineGroups.SelectMany(g => g).Count()).IsGreaterThanOrEqualTo(1);
         using var saved = Save(wb);
+    }
+
+    [Test]
+    [Arguments("S!A1048577")]
+    [Arguments("XFE1")]
+    public async Task SparklineWithACellPastTheSheetLimitLoadsAndTheOthersAreKept(string cell)
+    {
+        using var package = WithSecondSparkline(s => Edit(s, "<xm:sqref>.*?</xm:sqref>", $"<xm:sqref>{cell}</xm:sqref>"));
+        await AssertFirstSparklineKeptAndRoundTrips(package);
     }
 
     [Test]
