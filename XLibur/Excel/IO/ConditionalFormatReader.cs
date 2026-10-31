@@ -29,12 +29,12 @@ internal static class ConditionalFormatReader
 
         // The range (sqref) is required by the schema; with none there is nothing to apply the
         // rules to, so skip them rather than fail the load.
-        if (conditionalFormatting.SequenceOfReferences?.Items is not { Count: > 0 })
+        if (conditionalFormatting.SequenceOfReferences?.Items is not { Count: > 0 } references)
             return;
 
         foreach (var fr in conditionalFormatting.Elements<ConditionalFormattingRule>())
         {
-            var ranges = conditionalFormatting.SequenceOfReferences!.Items
+            var ranges = references
                 .Select(sor => ws.Range(sor.Value!)!);
             var conditionalFormat = new XLConditionalFormat(ranges);
 
@@ -379,21 +379,20 @@ internal static class ConditionalFormatReader
             if (x14DataBar != null)
                 LoadX14DataBarAttributes(x14DataBar, xlConditionalFormat);
 
-            var barAxisColor = conditionalFormattingRule
-                .Descendants<X14.BarAxisColor>().SingleOrDefault();
-            if (barAxisColor != null)
-                xlConditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
-
-            var borderColor = conditionalFormattingRule
-                .Descendants<X14.BorderColor>().SingleOrDefault();
-            if (borderColor != null)
-                xlConditionalFormat.BarBorderColor = borderColor.ToXLiburColor();
-
-            var negativeBorderColor = conditionalFormattingRule
-                .Descendants<X14.NegativeBorderColor>().SingleOrDefault();
-            if (negativeBorderColor != null)
-                xlConditionalFormat.NegativeBarBorderColor = negativeBorderColor.ToXLiburColor();
+            LoadX14DataBarColors(conditionalFormattingRule, xlConditionalFormat);
         }
+    }
+
+    private static void LoadX14DataBarColors(X14.ConditionalFormattingRule rule, XLConditionalFormat conditionalFormat)
+    {
+        if (rule.Descendants<X14.BarAxisColor>().SingleOrDefault() is { } barAxisColor)
+            conditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
+
+        if (rule.Descendants<X14.BorderColor>().SingleOrDefault() is { } borderColor)
+            conditionalFormat.BarBorderColor = borderColor.ToXLiburColor();
+
+        if (rule.Descendants<X14.NegativeBorderColor>().SingleOrDefault() is { } negativeBorderColor)
+            conditionalFormat.NegativeBarBorderColor = negativeBorderColor.ToXLiburColor();
     }
 
     /// <summary>
@@ -425,16 +424,73 @@ internal static class ConditionalFormatReader
         {
             var xlSparklineGroup = (XLSparklineGroup)((XLSparklineGroups)ws.SparklineGroups).Add();
 
-            if (slg.Formula != null)
-                xlSparklineGroup.DateRange = workbook.Range(slg.Formula.Text);
+            // The date range is optional, and only a row or a column of cells can be one.
+            if (slg.Formula is not null &&
+                TryResolveSparklineRange(workbook, ws, slg.Formula.Text) is { } dateRange &&
+                IsSingleLine(dateRange))
+            {
+                xlSparklineGroup.DateRange = dateRange;
+            }
 
             LoadSparklineStyle(slg, xlSparklineGroup);
             LoadSparklineProperties(slg, xlSparklineGroup);
             LoadSparklineMarkers(slg, xlSparklineGroup);
             LoadSparklineAxes(slg, xlSparklineGroup);
 
-            slg.Descendants<X14.Sparklines>().SelectMany(sls => sls.Descendants<X14.Sparkline>())
-                .ForEach(sl => xlSparklineGroup.Add(sl.ReferenceSequence!.Text, sl.Formula!.Text));
+            foreach (var sl in slg.Descendants<X14.Sparklines>().SelectMany(sls => sls.Descendants<X14.Sparkline>()))
+                LoadSparkline(sl, xlSparklineGroup, workbook, ws);
+
+            // A group with no sparkline has nothing to draw, and the writer leaves it out anyway.
+            if (!xlSparklineGroup.Any())
+                ws.SparklineGroups.Remove(xlSparklineGroup);
+        }
+    }
+
+    /// <summary>
+    /// Adds one sparkline to the group. A sparkline needs both its cell (<c>xm:sqref</c>) and its data
+    /// range (<c>xm:f</c>). One that lacks either, or whose cell is not a single cell, or whose data
+    /// is not a row or a column, has nothing to draw and is skipped without failing the load. A data
+    /// reference that names no range, such as one to a deleted sheet, keeps the sparkline as an
+    /// invalid one (no source data), as it always has.
+    /// </summary>
+    private static void LoadSparkline(X14.Sparkline sl, XLSparklineGroup xlSparklineGroup, XLWorkbook workbook,
+        XLWorksheet ws)
+    {
+        if (sl.ReferenceSequence is null || sl.Formula is null || string.IsNullOrWhiteSpace(sl.Formula.Text))
+            return;
+
+        if (TryResolveSparklineRange(workbook, ws, sl.ReferenceSequence.Text) is not { } location ||
+            location.Worksheet != ws || location.RowCount() != 1 || location.ColumnCount() != 1)
+            return;
+
+        var sourceData = TryResolveSparklineRange(workbook, ws, sl.Formula.Text);
+        if (sourceData is not null && !IsSingleLine(sourceData))
+            return;
+
+        _ = new XLSparkline(xlSparklineGroup, location.FirstCell(), sourceData);
+    }
+
+    private static bool IsSingleLine(IXLRange range) => range.RowCount() == 1 || range.ColumnCount() == 1;
+
+    /// <summary>
+    /// The range a sparkline reference points at, or null if it is empty or does not name a range.
+    /// </summary>
+    private static IXLRange? TryResolveSparklineRange(XLWorkbook workbook, XLWorksheet ws, string? reference)
+    {
+        // A sparkline never refers to a table, and a '[' would send the lookup to one that may not exist.
+        if (string.IsNullOrWhiteSpace(reference) || reference.Contains('['))
+            return null;
+
+        // Only an address without a sheet name belongs to this sheet. One naming a sheet that is gone
+        // would otherwise be read as the same cells on this sheet, which ws.Range does with the name.
+        try
+        {
+            return workbook.Range(reference) ?? (reference.Contains('!') ? null : ws.Range(reference));
+        }
+        catch (Exception ex) when (ex is ArgumentException or OverflowException)
+        {
+            // An address that passes the syntax check can still lie outside the sheet, such as row 1048577.
+            return null;
         }
     }
 
@@ -481,7 +537,7 @@ internal static class ConditionalFormatReader
     private static void LoadSparklineAxes(X14.SparklineGroup slg, XLSparklineGroup xlSparklineGroup)
     {
         if (slg.AxisColor != null)
-            xlSparklineGroup.HorizontalAxis.Color = XLColor.FromHtml(slg.AxisColor.Rgb!.Value!);
+            xlSparklineGroup.HorizontalAxis.Color = slg.AxisColor.ToXLiburColor();
         if (slg.DisplayXAxis != null) xlSparklineGroup.HorizontalAxis.IsVisible = slg.DisplayXAxis;
         if (slg.RightToLeft != null) xlSparklineGroup.HorizontalAxis.RightToLeft = slg.RightToLeft;
 
