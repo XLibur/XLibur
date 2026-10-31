@@ -20,6 +20,8 @@ namespace XLibur.Tests.Excel;
 /// 37 days from 2025-01-15), Amount, Cat and Mixed (alternating dates and numbers):
 /// <c>PivotGroupedByMonths</c> groups Date by months and years, <c>PivotWithErrorValues</c> pivots
 /// Cat, which holds #N/A and #DIV/0!, and <c>PivotMixedDatesAndNumbers</c> pivots Mixed.
+/// <c>SparklineThemeAxisColor.xlsx</c> has sheet "S" with the values in A1:C3 and one sparkline
+/// group in E1:E3 whose horizontal axis is shown and coloured Accent1 darker by 25 percent.
 /// </remarks>
 public class ExcelAuthoredFixtureTests
 {
@@ -106,6 +108,31 @@ public class ExcelAuthoredFixtureTests
             await Assert.That(after[i].Ranges.Select(r => r.RangeAddress.ToStringRelative()))
                 .IsEquivalentTo(before[i].Ranges.Select(r => r.RangeAddress.ToStringRelative()));
         }
+    }
+
+    #endregion
+
+    #region Sparklines
+
+    [Test]
+    public async Task SparklineGroupWithAThemeColouredAxisLoadsAndSurvivesASave()
+    {
+        using var source = Open("SparklineThemeAxisColor.xlsx");
+        using var wb = new XLWorkbook(source);
+
+        var group = wb.Worksheet("S").SparklineGroups.Single();
+        await Assert.That(group.Count()).IsEqualTo(3);
+        await Assert.That(group.HorizontalAxis.IsVisible).IsTrue();
+        await Assert.That(group.HorizontalAxis.Color.ColorType).IsEqualTo(XLColorType.Theme);
+        await Assert.That(group.HorizontalAxis.Color.ThemeColor).IsEqualTo(XLThemeColor.Accent1);
+
+        using var saved = Resave("SparklineThemeAxisColor.xlsx");
+        await Assert.That(saved.Sheet1Xml()).Contains("<x14:colorAxis theme=\"4\" tint=\"-0.249977111117893\"");
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var again = reloaded.Worksheet("S").SparklineGroups.Single();
+        await Assert.That(again.Count()).IsEqualTo(3);
+        await Assert.That(again.HorizontalAxis.Color).IsEqualTo(group.HorizontalAxis.Color);
     }
 
     #endregion
