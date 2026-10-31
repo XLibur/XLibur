@@ -392,22 +392,55 @@ internal static class ConditionalFormatReader
                 .SingleOrDefault(cf => cf.Id.WrapInBraces() == conditionalFormattingRule.Id);
             if (xlConditionalFormat == null) continue;
 
+            // Every child of the x14 data bar is optional. Excel leaves out the negative fill when
+            // the negative bar is the colour of the positive one (negativeBarColorSameAsPositive), and
+            // the border colours when the bar has no border.
             var negativeFillColor = conditionalFormattingRule
                 .Descendants<X14.NegativeFillColor>().SingleOrDefault();
-            xlConditionalFormat.Colors.Add(negativeFillColor!.ToXLiburColor());
+            if (negativeFillColor != null)
+                xlConditionalFormat.Colors.Add(negativeFillColor.ToXLiburColor());
 
             var x14DataBar = conditionalFormattingRule
                 .Descendants<X14.DataBar>().SingleOrDefault();
-            if (x14DataBar?.Gradient != null)
-                xlConditionalFormat.Gradient = x14DataBar.Gradient.Value;
-            if (x14DataBar?.AxisPosition != null)
-                xlConditionalFormat.BarAxisPosition = x14DataBar.AxisPosition.Value.ToXLibur();
+            if (x14DataBar != null)
+                LoadX14DataBarAttributes(x14DataBar, xlConditionalFormat);
 
             var barAxisColor = conditionalFormattingRule
                 .Descendants<X14.BarAxisColor>().SingleOrDefault();
             if (barAxisColor != null)
                 xlConditionalFormat.BarAxisColor = barAxisColor.ToXLiburColor();
+
+            var borderColor = conditionalFormattingRule
+                .Descendants<X14.BorderColor>().SingleOrDefault();
+            if (borderColor != null)
+                xlConditionalFormat.BarBorderColor = borderColor.ToXLiburColor();
+
+            var negativeBorderColor = conditionalFormattingRule
+                .Descendants<X14.NegativeBorderColor>().SingleOrDefault();
+            if (negativeBorderColor != null)
+                xlConditionalFormat.NegativeBarBorderColor = negativeBorderColor.ToXLiburColor();
         }
+    }
+
+    /// <summary>
+    /// The attributes of an <c>x14:dataBar</c>. A missing attribute takes its schema default: the bar
+    /// runs from 10 to 90 percent of the cell, has no border, and its negative bar has the positive
+    /// bar's border colour but not its fill colour.
+    /// </summary>
+    private static void LoadX14DataBarAttributes(X14.DataBar x14DataBar, XLConditionalFormat conditionalFormat)
+    {
+        if (x14DataBar.Gradient != null)
+            conditionalFormat.Gradient = x14DataBar.Gradient.Value;
+        if (x14DataBar.AxisPosition != null)
+            conditionalFormat.BarAxisPosition = x14DataBar.AxisPosition.Value.ToXLibur();
+
+        conditionalFormat.BarBorder = OpenXmlHelper.GetBooleanValueAsBool(x14DataBar.Border, false);
+        conditionalFormat.NegativeBarColorSameAsPositive =
+            OpenXmlHelper.GetBooleanValueAsBool(x14DataBar.NegativeBarColorSameAsPositive, false);
+        conditionalFormat.NegativeBarBorderColorSameAsPositive =
+            OpenXmlHelper.GetBooleanValueAsBool(x14DataBar.NegativeBarBorderColorSameAsPositive, true);
+        conditionalFormat.BarMinLength = x14DataBar.MinLength?.Value ?? 10;
+        conditionalFormat.BarMaxLength = x14DataBar.MaxLength?.Value ?? 90;
     }
 
     private static void LoadSparklineGroups(WorksheetExtensionList extensions, XLWorksheet ws, XLWorkbook workbook)
