@@ -26,9 +26,9 @@ internal static class TextSerializer
     private static void WritePlainText(XmlWriter w, XLImmutableRichText richText)
     {
         // Plain text carrying only a phonetic guide - it never had runs, so write it back as a
-        // bare <t> rather than wrapping it in a run with invented formatting. This text was
-        // decoded on the way in (unlike run text, which is not), so it has to be re-encoded:
-        // a decoded _xHHHH_ escape is a raw control character that is not valid XML content.
+        // bare <t> rather than wrapping it in a run with invented formatting. Run text, phonetic
+        // text and this are all decoded on the way in and encoded by WriteTextElement on the way
+        // out: a decoded _xHHHH_ escape is a raw control character, not valid XML content.
         if (richText.Text.Length > 0)
             CellXmlWriter.WriteTextElement(w, richText.Text);
     }

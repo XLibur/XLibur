@@ -72,6 +72,43 @@ public class ConditionalFormatOptionalElementTests
         await Assert.That(cf.Style.Fill.BackgroundColor).IsNotEqualTo(XLColor.Yellow);
     }
 
+    /// <summary>
+    /// The rule is kept, not dropped: its condition still applies, only its format is lost. Dropping it
+    /// would silently delete a rule the author wrote. On a save it comes back without a format.
+    /// </summary>
+    [Test]
+    public async Task RuleWhoseDifferentialFormatIsMissingIsKeptThroughASave()
+    {
+        using var package = SaveCellIs().RewriteSheet1(xml => Edit(xml, "dxfId=\"\\d+\"", "dxfId=\"99\""));
+        using var saved = Resave(package);
+
+        using var wb = Load(saved);
+        var cf = wb.Worksheet("S").ConditionalFormats.Single();
+        await Assert.That(cf.Operator).IsEqualTo(XLCFOperator.LessThan);
+        await Assert.That(cf.Values[1].Value).IsEqualTo("10");
+        await Assert.That(cf.Style.Fill.BackgroundColor).IsNotEqualTo(XLColor.Yellow);
+    }
+
+    /// <summary>
+    /// A bar from Excel 2007 with no lengths is drawn 10 to 90 (checked over COM); a bar XLibur
+    /// builds is drawn the whole cell. They look different, so they must not compare equal and be
+    /// merged into one.
+    /// </summary>
+    [Test]
+    public async Task LoadedLegacyDataBarIsNotEqualToABarBuiltWithDefaults()
+    {
+        using var legacy = SaveDataBar().RewriteSheet1(xml =>
+            Edit(xml, "<x:extLst><x:ext [^>]*uri=\"\\{78C0D931.*?</x:ext></x:extLst>", ""));
+        using var loaded = Load(legacy);
+        using var built = new XLWorkbook();
+        var ws = built.AddWorksheet("S");
+        ws.Range("A1:A2").AddConditionalFormat().DataBar(XLColor.Red, XLColor.Blue).LowestValue().HighestValue();
+
+        var a = loaded.Worksheet("S").ConditionalFormats.Single();
+        var b = ws.ConditionalFormats.Single();
+        await Assert.That(XLibur.Excel.ConditionalFormats.XLConditionalFormat.NoRangeComparer.Equals(a, b)).IsFalse();
+    }
+
     [Test]
     public async Task ConditionalFormattingWithoutARangeIsSkipped()
     {

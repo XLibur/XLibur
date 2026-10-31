@@ -17,6 +17,7 @@ namespace XLibur.Utils;
 internal static class XmlEncoder
 {
     private const int EscapeLength = 7; // _xHHHH_
+    private const int LongEscapeLength = 11; // _xHHHHHHHH_
 
     public static string EncodeString(string encodeStr)
     {
@@ -66,8 +67,7 @@ internal static class XmlEncoder
             {
                 // The escape starts with an underscore, which may close "_xHHHH" written just
                 // before it as plain characters into a different escape. Escape that opener.
-                if (literalUnderscore >= 0 && sb.Length - literalUnderscore == EscapeLength - 1
-                    && IsEscapeBody(sb, literalUnderscore + 1))
+                if (literalUnderscore >= 0 && EndsWithEscapeBody(sb, literalUnderscore))
                 {
                     sb.Remove(literalUnderscore, 1);
                     sb.Insert(literalUnderscore, "_x005F_");
@@ -117,31 +117,87 @@ internal static class XmlEncoder
     }
 
     /// <summary>
-    /// Whether the underscore at <paramref name="index"/> is followed by <c>xHHHH_</c>.
+    /// Whether the underscore at <paramref name="index"/> is followed by <c>xHHHH_</c> or
+    /// <c>xHHHHHHHH_</c>. ECMA-376 (ST_Xstring) defines only the first; the second is what
+    /// <see cref="XmlConvert.DecodeName"/> accepted for a character outside the BMP, and is read
+    /// so that text from a producer using it keeps loading.
     /// </summary>
-    private static bool OpensEscape(string s, int index)
+    private static bool OpensEscape(string s, int index) => EscapeLengthAt(s, index) > 0;
+
+    /// <summary>
+    /// The length of the escape that starts at the underscore at <paramref name="index"/> (7 or 11),
+    /// or 0 when none starts there.
+    /// </summary>
+    private static int EscapeLengthAt(string s, int index)
     {
-        return index + EscapeLength <= s.Length
-               && s[index + 1] == 'x'
-               && IsHexDigit(s[index + 2]) && IsHexDigit(s[index + 3])
-               && IsHexDigit(s[index + 4]) && IsHexDigit(s[index + 5])
-               && s[index + 6] == '_';
+        if (index + 1 >= s.Length || s[index + 1] != 'x')
+            return 0;
+
+        if (HexRunEndsWithUnderscore(s, index + 2, 4))
+            return EscapeLength;
+
+        return HexRunEndsWithUnderscore(s, index + 2, 8) ? LongEscapeLength : 0;
+    }
+
+    private static bool HexRunEndsWithUnderscore(string s, int start, int hexCount)
+    {
+        if (start + hexCount >= s.Length || s[start + hexCount] != '_')
+            return false;
+
+        for (var k = 0; k < hexCount; k++)
+        {
+            if (!IsHexDigit(s[start + k]))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
-    /// Whether the five characters of <paramref name="sb"/> from <paramref name="start"/> are
-    /// <c>xHHHH</c>.
+    /// Whether <paramref name="sb"/> ends, after the underscore at <paramref name="underscore"/>, with
+    /// exactly <c>xHHHH</c> or <c>xHHHHHHHH</c>: an escape that a following underscore would close.
     /// </summary>
-    private static bool IsEscapeBody(StringBuilder sb, int start)
+    private static bool EndsWithEscapeBody(StringBuilder sb, int underscore)
     {
-        return sb[start] == 'x'
-               && IsHexDigit(sb[start + 1]) && IsHexDigit(sb[start + 2])
-               && IsHexDigit(sb[start + 3]) && IsHexDigit(sb[start + 4]);
+        var hexCount = sb.Length - underscore - 2;
+        if (hexCount is not (4 or 8) || sb[underscore + 1] != 'x')
+            return false;
+
+        for (var k = 0; k < hexCount; k++)
+        {
+            if (!IsHexDigit(sb[underscore + 2 + k]))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool IsHexDigit(char c)
     {
         return (uint)(c - '0') <= 9 || (uint)(c - 'a') <= 5 || (uint)(c - 'A') <= 5;
+    }
+
+    /// <summary>
+    /// Appends the character an escape stands for. An 8-digit escape that is not a scalar value
+    /// (beyond U+10FFFF, or a surrogate) is not one, and is left as the text it is.
+    /// </summary>
+    private static bool TryDecodeEscape(string s, int index, int escapeLength, StringBuilder sb)
+    {
+        long code = 0;
+        for (var k = index + 2; k < index + escapeLength - 1; k++)
+            code = (code << 4) | (uint)HexValue(s[k]);
+
+        if (escapeLength == EscapeLength)
+        {
+            sb.Append((char)code);
+            return true;
+        }
+
+        if (code > 0x10FFFF || code is >= 0xD800 and <= 0xDFFF)
+            return false;
+
+        sb.Append(char.ConvertFromUtf32((int)code));
+        return true;
     }
 
     private static int HexValue(char c)
@@ -169,12 +225,10 @@ internal static class XmlEncoder
         while (i < decodeStr.Length)
         {
             var c = decodeStr[i];
-            if (c == '_' && OpensEscape(decodeStr, i))
+            var escapeLength = c == '_' ? EscapeLengthAt(decodeStr, i) : 0;
+            if (escapeLength > 0 && TryDecodeEscape(decodeStr, i, escapeLength, sb))
             {
-                var code = (HexValue(decodeStr[i + 2]) << 12) | (HexValue(decodeStr[i + 3]) << 8)
-                           | (HexValue(decodeStr[i + 4]) << 4) | HexValue(decodeStr[i + 5]);
-                sb.Append((char)code);
-                i += EscapeLength;
+                i += escapeLength;
             }
             else
             {

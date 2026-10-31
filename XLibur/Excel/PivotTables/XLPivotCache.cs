@@ -244,15 +244,14 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     internal int[] GetDatabaseFieldIndexes()
     {
-        var indexes = new int[DatabaseFieldCount];
-        var next = 0;
+        var indexes = new List<int>(_fieldNames.Count);
         for (var fieldIndex = 0; fieldIndex < _fieldNames.Count; ++fieldIndex)
         {
             if (!IsNonDatabaseField(fieldIndex))
-                indexes[next++] = fieldIndex;
+                indexes.Add(fieldIndex);
         }
 
-        return indexes;
+        return indexes.ToArray();
     }
 
     /// <summary>
@@ -320,7 +319,7 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// Number of database fields in the cache (excludes calculated and grouping fields).
     /// This is the number of fields that have records.
     /// </summary>
-    internal int DatabaseFieldCount => _fieldNames.Count - _nonDatabaseFieldIndexes.Count;
+    internal int DatabaseFieldCount => GetDatabaseFieldIndexes().Length;
 
     private string AdjustedFieldName(string header)
     {

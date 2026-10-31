@@ -181,5 +181,26 @@ public class ExcelAuthoredFixtureTests
         await Assert.That(columns).IsEqualTo(fieldCount - nonDatabase);
     }
 
+    /// <summary>
+    /// The set of non-database fields is filled while loading, so it may hold an index outside the
+    /// fields or the same index twice. Neither may disturb which fields have a record column.
+    /// </summary>
+    [Test]
+    public async Task DatabaseFieldIndexesAgreeWithTheirCountForAMalformedSet()
+    {
+        using var source = Open("PivotWithErrorValues.xlsx");
+        using var wb = new XLWorkbook(source);
+        var cache = (XLPivotCache)wb.PivotCaches.Single();
+        var fieldCount = cache.FieldCount;
+
+        cache.SetNonDatabaseField(fieldCount + 5);
+        cache.SetNonDatabaseField(1);
+        cache.SetNonDatabaseField(1);
+
+        var indexes = cache.GetDatabaseFieldIndexes();
+        await Assert.That(indexes).IsEquivalentTo(Enumerable.Range(0, fieldCount).Where(i => i != 1).ToArray());
+        await Assert.That(cache.DatabaseFieldCount).IsEqualTo(indexes.Length);
+    }
+
     #endregion
 }
