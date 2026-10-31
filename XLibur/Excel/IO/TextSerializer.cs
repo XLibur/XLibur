@@ -30,7 +30,7 @@ internal static class TextSerializer
         // decoded on the way in (unlike run text, which is not), so it has to be re-encoded:
         // a decoded _xHHHH_ escape is a raw control character that is not valid XML content.
         if (richText.Text.Length > 0)
-            WriteText(w, XmlEncoder.EncodeString(richText.Text));
+            CellXmlWriter.WriteTextElement(w, richText.Text);
     }
 
     private static void WriteRuns(XmlWriter w, XLImmutableRichText richText)

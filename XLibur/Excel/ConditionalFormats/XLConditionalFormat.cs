@@ -54,6 +54,13 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
                    && xx.Gradient == yy.Gradient
                    && xx.BarAxisPosition == yy.BarAxisPosition
                    && xx.BarAxisColor == yy.BarAxisColor
+                   && xx.BarBorder == yy.BarBorder
+                   && Equals(xx.BarBorderColor, yy.BarBorderColor)
+                   && Equals(xx.NegativeBarBorderColor, yy.NegativeBarBorderColor)
+                   && xx.NegativeBarColorSameAsPositive == yy.NegativeBarColorSameAsPositive
+                   && xx.NegativeBarBorderColorSameAsPositive == yy.NegativeBarBorderColorSameAsPositive
+                   && xx.BarMinLength == yy.BarMinLength
+                   && xx.BarMaxLength == yy.BarMaxLength
                    && _listComparer.Equals(xxValues, yyValues)
                    && FormulasAreEqual(xx, yy)
                    && _colorsComparer.Equals(xx.Colors, yy.Colors)
@@ -587,6 +594,48 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
 
     public XLColor BarAxisColor { get; set; } = XLColor.Black;
 
+    // The rest of the x14 data bar's attributes. They are carried so that a data bar Excel authored
+    // keeps them across a save; XLibur's own API does not set them (spec 48), so each default is
+    // what XLibur has always written for a bar it made.
+
+    /// <summary>
+    /// The x14 <c>border</c> attribute: whether the bar is drawn with a border (schema default
+    /// <c>false</c>).
+    /// </summary>
+    internal bool BarBorder { get; set; }
+
+    /// <summary>
+    /// The x14 <c>borderColor</c> of the bar, or <c>null</c> when the rule has none.
+    /// </summary>
+    internal XLColor? BarBorderColor { get; set; }
+
+    /// <summary>
+    /// The x14 <c>negativeBorderColor</c> of the bar, or <c>null</c> when the rule has none.
+    /// </summary>
+    internal XLColor? NegativeBarBorderColor { get; set; }
+
+    /// <summary>
+    /// The x14 <c>negativeBarColorSameAsPositive</c> attribute (schema default <c>false</c>). Excel
+    /// omits the <c>negativeFillColor</c> element when it is set.
+    /// </summary>
+    internal bool NegativeBarColorSameAsPositive { get; set; }
+
+    /// <summary>
+    /// The x14 <c>negativeBarBorderColorSameAsPositive</c> attribute (schema default <c>true</c>).
+    /// </summary>
+    internal bool NegativeBarBorderColorSameAsPositive { get; set; } = true;
+
+    /// <summary>
+    /// The x14 <c>minLength</c>: the shortest bar, as a percentage of the cell width. A bar XLibur
+    /// makes spans the whole cell, 0 to 100.
+    /// </summary>
+    internal uint BarMinLength { get; set; }
+
+    /// <summary>
+    /// The x14 <c>maxLength</c>: the longest bar, as a percentage of the cell width.
+    /// </summary>
+    internal uint BarMaxLength { get; set; } = 100;
+
     public bool StopIfTrue { get; set; }
 
     public IXLConditionalFormat SetStopIfTrue()
@@ -630,6 +679,13 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
         Gradient = other.Gradient;
         BarAxisPosition = other.BarAxisPosition;
         BarAxisColor = other.BarAxisColor;
+        BarBorder = xlOther.BarBorder;
+        BarBorderColor = xlOther.BarBorderColor;
+        NegativeBarBorderColor = xlOther.NegativeBarBorderColor;
+        NegativeBarColorSameAsPositive = xlOther.NegativeBarColorSameAsPositive;
+        NegativeBarBorderColorSameAsPositive = xlOther.NegativeBarBorderColorSameAsPositive;
+        BarMinLength = xlOther.BarMinLength;
+        BarMaxLength = xlOther.BarMaxLength;
         StopIfTrue = other.StopIfTrue;
 
         Values.Clear();
@@ -799,6 +855,8 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     {
         Colors.Initialize(positiveColor);
         Colors.Add(negativeColor);
+        // The caller chose a negative colour, so a loaded "same as positive" no longer holds.
+        NegativeBarColorSameAsPositive = false;
         ShowBarOnly = showBarOnly;
         Gradient = gradient;
         ConditionalFormatType = XLConditionalFormatType.DataBar;

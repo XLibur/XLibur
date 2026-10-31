@@ -33,45 +33,8 @@ internal static class PivotTableCacheRecordsPartWriter
                     continue;
                 var fieldValues = pivotCache.GetFieldValues(fieldIdx);
                 var value = fieldValues.GetValue(recordIdx);
-                switch (value.Type)
-                {
-                    case XLPivotCacheValueType.Missing:
-                        xml.WriteEmptyElement("m");
-                        break;
-                    case XLPivotCacheValueType.Number:
-                        xml.WriteStartElement("n");
-                        // As a cell writes it, so the record matches its source cell (#741).
-                        xml.WriteAttribute("v", value.GetNumber(), XmlWriterExtensions.RoundTripNumberFormat);
-                        xml.WriteEndElement();
-                        break;
-                    case XLPivotCacheValueType.Boolean:
-                        xml.WriteStartElement("b");
-                        xml.WriteAttribute("v", value.GetBoolean());
-                        xml.WriteEndElement();
-                        break;
-                    case XLPivotCacheValueType.Error:
-                        xml.WriteStartElement("e");
-                        xml.WriteAttribute("v", value.GetError().ToDisplayString());
-                        xml.WriteEndElement();
-                        break;
-                    case XLPivotCacheValueType.String:
-                        xml.WriteStartElement("s");
-                        xml.WriteAttribute("v", fieldValues.GetText(value));
-                        xml.WriteEndElement();
-                        break;
-                    case XLPivotCacheValueType.DateTime:
-                        xml.WriteStartElement("d");
-                        xml.WriteAttribute("v", value.GetDateTime());
-                        xml.WriteEndElement();
-                        break;
-                    case XLPivotCacheValueType.Index:
-                        xml.WriteStartElement("x");
-                        xml.WriteAttribute("v", value.GetIndex());
-                        xml.WriteEndElement();
-                        break;
-                    default:
-                        throw new NotSupportedException();
-                }
+                var text = value.Type == XLPivotCacheValueType.String ? fieldValues.GetText(value) : null;
+                PivotCacheValueCodec.WriteRecordValue(xml, value, text);
             }
             xml.WriteEndElement(); // r
         }

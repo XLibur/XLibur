@@ -33,13 +33,19 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             Id = ((XLConditionalFormat)cf).Id.WrapInBraces()
         };
 
+        var xlCf = (XLConditionalFormat)cf;
+        var negativeSameAsPositive = xlCf.NegativeBarColorSameAsPositive && cf.Colors.Count < 2;
         DataBar dataBar = new DataBar
         {
-            MinLength = 0,
-            MaxLength = 100,
+            MinLength = xlCf.BarMinLength,
+            MaxLength = xlCf.BarMaxLength,
             // A schema default is left out, as Excel leaves it out (#709).
             Gradient = SchemaDefault.Bool(null, cf.Gradient, true),
             ShowValue = SchemaDefault.Bool(null, !cf.ShowBarOnly, true),
+            Border = SchemaDefault.Bool(null, xlCf.BarBorder, false),
+            NegativeBarColorSameAsPositive = SchemaDefault.Bool(null, negativeSameAsPositive, false),
+            NegativeBarBorderColorSameAsPositive =
+                SchemaDefault.Bool(null, xlCf.NegativeBarBorderColorSameAsPositive, true),
         };
 
         if (cf.BarAxisPosition != XLDataBarAxisPosition.Automatic)
@@ -68,14 +74,35 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
         var barAxisColor = new BarAxisColor();
         SetColorTypeProperties(barAxisColor, cf.BarAxisColor);
 
-        var negativeColor = cf.Colors.Count == 2 ? cf.Colors[2] : cf.Colors[1];
-        var negativeFillColor = new NegativeFillColor();
-        SetColorTypeProperties(negativeFillColor, negativeColor);
-
         dataBar.Append(cfMin);
         dataBar.Append(cfMax);
 
-        dataBar.Append(negativeFillColor);
+        // Schema order: borderColor, negativeFillColor, negativeBorderColor, axisColor.
+        if (xlCf.BarBorderColor is { } borderColor)
+        {
+            var border = new BorderColor();
+            SetColorTypeProperties(border, borderColor);
+            dataBar.Append(border);
+        }
+
+        // Excel leaves the negative fill out when the negative bar has the positive bar's colour.
+        // A second colour in Colors (set through the public dictionary, say) is an explicit negative
+        // colour, which the flag must not hide.
+        if (!negativeSameAsPositive)
+        {
+            var negativeColor = cf.Colors.Count == 2 ? cf.Colors[2] : cf.Colors[1];
+            var negativeFillColor = new NegativeFillColor();
+            SetColorTypeProperties(negativeFillColor, negativeColor);
+            dataBar.Append(negativeFillColor);
+        }
+
+        if (xlCf.NegativeBarBorderColor is { } negativeBorderColor)
+        {
+            var negativeBorder = new NegativeBorderColor();
+            SetColorTypeProperties(negativeBorder, negativeBorderColor);
+            dataBar.Append(negativeBorder);
+        }
+
         dataBar.Append(barAxisColor);
 
         conditionalFormattingRule.Append(dataBar);
