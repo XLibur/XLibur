@@ -68,7 +68,7 @@ internal static class WorksheetElementReader
         else if (elementType == typeof(SheetProtection))
             LoadSheetProtection((SheetProtection)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(DataValidations))
-            LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
+            DataValidationReader.LoadDataValidations((DataValidations)reader.LoadCurrentElement()!, ws);
         else if (elementType == typeof(LegacyDrawing))
             ws.LegacyDrawingId = ((LegacyDrawing)reader.LoadCurrentElement()!).Id?.Value;
         else if (elementType == typeof(ConditionalFormatting))
@@ -474,51 +474,6 @@ internal static class WorksheetElementReader
             !OpenXmlHelper.GetBooleanValueAsBool(sp.SelectLockedCells, false));
         ws.Protection.AllowElement(XLSheetProtectionElements.SelectUnlockedCells,
             !OpenXmlHelper.GetBooleanValueAsBool(sp.SelectUnlockedCells, false));
-    }
-
-    private static void LoadDataValidations(DataValidations dataValidations, XLWorksheet ws)
-    {
-        ArgumentNullException.ThrowIfNull(ws);
-
-        foreach (var dvs in dataValidations.Elements<DataValidation>())
-        {
-            var txt = dvs.SequenceOfReferences!.InnerText;
-            if (string.IsNullOrWhiteSpace(txt)) continue;
-            foreach (var rangeAddress in txt.Split(' '))
-            {
-                var dvt = new XLDataValidation(ws.Range(rangeAddress)!);
-                ws.DataValidations.Add(dvt, skipIntersectionsCheck: true);
-                ApplyDataValidationProperties(dvs, dvt);
-            }
-        }
-    }
-
-    private static void ApplyDataValidationProperties(DataValidation dvs, XLDataValidation dvt)
-    {
-        // A missing flag is false, its schema default, which is not the model's default (#709).
-        dvt.IgnoreBlanks = OpenXmlHelper.GetBooleanValueAsBool(dvs.AllowBlank, false);
-        if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
-        ApplyDataValidationMessages(dvs, dvt);
-        ApplyDataValidationCriteria(dvs, dvt);
-    }
-
-    private static void ApplyDataValidationMessages(DataValidation dvs, XLDataValidation dvt)
-    {
-        dvt.ShowErrorMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowErrorMessage, false);
-        dvt.ShowInputMessage = OpenXmlHelper.GetBooleanValueAsBool(dvs.ShowInputMessage, false);
-        if (dvs.PromptTitle != null) dvt.InputTitle = dvs.PromptTitle.Value!;
-        if (dvs.Prompt != null) dvt.InputMessage = dvs.Prompt.Value!;
-        if (dvs.ErrorTitle != null) dvt.ErrorTitle = dvs.ErrorTitle.Value!;
-        if (dvs.Error != null) dvt.ErrorMessage = dvs.Error.Value!;
-        if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToXLibur();
-    }
-
-    private static void ApplyDataValidationCriteria(DataValidation dvs, XLDataValidation dvt)
-    {
-        if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToXLibur();
-        if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToXLibur();
-        if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
-        if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
     }
 
     private static void LoadHyperlinks(Hyperlinks hyperlinks, WorksheetPart worksheetPart, XLWorksheet ws)

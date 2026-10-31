@@ -350,24 +350,10 @@ internal sealed class XLDataValidations : IXLDataValidations, ISheetListener, IW
 
     public void Consolidate()
     {
-        Func<IXLDataValidation, IXLDataValidation, bool> areEqual = (dv1, dv2) =>
-        {
-            return
-                dv1.IgnoreBlanks == dv2.IgnoreBlanks &&
-                dv1.InCellDropdown == dv2.InCellDropdown &&
-                dv1.ShowErrorMessage == dv2.ShowErrorMessage &&
-                dv1.ShowInputMessage == dv2.ShowInputMessage &&
-                dv1.InputTitle == dv2.InputTitle &&
-                dv1.InputMessage == dv2.InputMessage &&
-                dv1.ErrorTitle == dv2.ErrorTitle &&
-                dv1.ErrorMessage == dv2.ErrorMessage &&
-                dv1.ErrorStyle == dv2.ErrorStyle &&
-                dv1.AllowedValues == dv2.AllowedValues &&
-                dv1.Operator == dv2.Operator &&
-                dv1.MinValue == dv2.MinValue &&
-                dv1.MaxValue == dv2.MaxValue &&
-                dv1.Value == dv2.Value;
-        };
+        // Rules merge when every setting is equal: the equality of the settings value, so a setting
+        // added to it is compared without being added here.
+        static bool areEqual(IXLDataValidation dv1, IXLDataValidation dv2) =>
+            DataValidationSettings.From(dv1) == DataValidationSettings.From(dv2);
 
         var rules = _dataValidations.ToList();
         rules.ForEach(Delete);
