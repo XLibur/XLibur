@@ -713,7 +713,7 @@ internal static class WorksheetSheetDataReader
         var inlineString = new InlineString(reader.ReadOuterXml());
         if (inlineString.Text is not null)
         {
-            cellsCollection.ValueSlice.SetCellValue(cellAddress, inlineString.Text.Text.FixNewLines());
+            cellsCollection.ValueSlice.SetCellValue(cellAddress, XmlEncoder.DecodeString(inlineString.Text.Text.FixNewLines()));
         }
         else if (inlineString.HasChildren)
         {

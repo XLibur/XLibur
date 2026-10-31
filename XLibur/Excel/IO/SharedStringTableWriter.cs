@@ -51,13 +51,7 @@ internal static class SharedStringTableWriter
             else
             {
                 xml.WriteStartElement("si", Main2006SsNs);
-                xml.WriteStartElement("t", Main2006SsNs);
-                var sharedString = sst[sharedStringId];
-                if (sharedString.PreserveSpaces())
-                    xml.WritePreserveSpaceAttr();
-
-                xml.WriteString(XmlEncoder.EncodeString(sharedString));
-                xml.WriteEndElement(); // t
+                CellXmlWriter.WriteTextElement(xml, sst[sharedStringId]);
                 xml.WriteEndElement(); // si
             }
         }

@@ -58,7 +58,7 @@ internal sealed class StreamingSharedStringTable
         foreach (var text in _texts)
         {
             xml.WriteStartElement("si", Main2006SsNs);
-            CellXmlWriter.WriteTextElement(xml, XmlEncoder.EncodeString(text));
+            CellXmlWriter.WriteTextElement(xml, text);
             xml.WriteEndElement(); // si
         }
 

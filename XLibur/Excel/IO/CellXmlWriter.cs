@@ -1,6 +1,7 @@
 using System;
 using System.Xml;
 using XLibur.Extensions;
+using XLibur.Utils;
 using static XLibur.Excel.IO.OpenXmlConst;
 
 namespace XLibur.Excel.IO;
@@ -194,7 +195,10 @@ internal static class CellXmlWriter
     }
 
     /// <summary>
-    /// Write a <c>&lt;t&gt;</c> element, preserving leading/trailing spaces when needed.
+    /// Write a <c>&lt;t&gt;</c> element, preserving leading/trailing spaces when needed. This is
+    /// the seam of the <c>_xHHHH_</c> text codec: the caller passes the real text and it is
+    /// encoded here, so no write path can skip it and none can encode twice. The matching decode
+    /// is applied where cell text is read.
     /// </summary>
     internal static void WriteTextElement(XmlWriter w, string text)
     {
@@ -202,7 +206,7 @@ internal static class CellXmlWriter
         if (text.PreserveSpaces())
             w.WritePreserveSpaceAttr();
 
-        w.WriteString(text);
+        w.WriteString(XmlEncoder.EncodeString(text));
         w.WriteEndElement(); // t
     }
 
