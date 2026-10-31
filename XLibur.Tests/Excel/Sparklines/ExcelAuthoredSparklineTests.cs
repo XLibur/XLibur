@@ -129,6 +129,41 @@ public class ExcelAuthoredSparklineTests
     }
 
     [Test]
+    [Arguments("A1:")]
+    [Arguments("S!")]
+    [Arguments("foo bar")]
+    [Arguments("!!")]
+    [Arguments("Other!G2")]
+    public async Task SparklineWithAMalformedOrForeignCellLoadsAndTheOthersAreKept(string cell)
+    {
+        using var package = WithSecondSparkline(s => Edit(s, "<xm:sqref>.*?</xm:sqref>", $"<xm:sqref>{cell}</xm:sqref>"));
+        await AssertFirstSparklineKeptAndRoundTrips(package);
+    }
+
+    [Test]
+    [Arguments("A1:")]
+    [Arguments("S!")]
+    [Arguments("!!")]
+    public async Task SparklineWithAMalformedDataRangeLoads(string reference)
+    {
+        using var package = WithSecondSparkline(s => Edit(s, "<xm:f>.*?</xm:f>", $"<xm:f>{reference}</xm:f>"));
+
+        using var wb = new XLWorkbook(package);
+        await Assert.That(wb.Worksheet("S").SparklineGroups.SelectMany(g => g).Count()).IsGreaterThanOrEqualTo(1);
+        using var saved = Save(wb);
+    }
+
+    [Test]
+    public async Task InvalidLoadedSparklineIsLeftOutWhenTheSheetIsCopied()
+    {
+        using var package = WithSecondSparkline(s => Edit(s, "<xm:f>.*?</xm:f>", "<xm:f>Gone!A2:C2</xm:f>"));
+        using var wb = new XLWorkbook(package);
+        var copy = wb.Worksheet("S").CopyTo("S2");
+
+        await Assert.That(copy.SparklineGroups.SelectMany(g => g).Count()).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task SparklineWithATwoDimensionalDataRangeIsSkippedAndTheOthersKept()
     {
         using var package = WithSecondSparkline(s => Edit(s, "<xm:f>.*?</xm:f>", "<xm:f>S!A1:C2</xm:f>"));

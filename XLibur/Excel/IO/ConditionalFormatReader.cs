@@ -461,7 +461,7 @@ internal static class ConditionalFormatReader
             return;
 
         if (TryResolveSparklineRange(workbook, ws, sl.ReferenceSequence.Text) is not { } location ||
-            location.RowCount() != 1 || location.ColumnCount() != 1)
+            location.Worksheet != ws || location.RowCount() != 1 || location.ColumnCount() != 1)
             return;
 
         var sourceData = TryResolveSparklineRange(workbook, ws, sl.Formula.Text);

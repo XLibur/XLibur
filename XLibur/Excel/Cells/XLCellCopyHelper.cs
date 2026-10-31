@@ -246,6 +246,8 @@ internal static class XLCellCopyHelper
         if (!otherCell.HasSparkline) return;
 
         var sparkline = otherCell.Sparkline!;
+        // A sparkline loaded with a data reference that named no range has no source data to copy.
+        if (!sparkline.IsValid) return;
         var sourceDataAddress = sparkline.SourceData.RangeAddress.ToString()!;
         var shiftedRangeAddress = XLCellFormula.GetCopiedA1(sourceDataAddress, otherCell.SheetPoint, target.SheetPoint);
         var sourceDataWorksheet = otherCell.Worksheet == sparkline.SourceData.Worksheet
