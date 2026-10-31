@@ -13,11 +13,10 @@ namespace XLibur.Tests.Excel.Drawings;
 /// The drawing ids a save gives the pictures it writes, in a drawing that holds a group shape.
 /// </summary>
 /// <remarks>
-/// A drawing of pictures only is renumbered from 1 once the pictures are written, which hides the
-/// ids the save took on the way. A drawing with a group is not renumbered, because a connector in
-/// the group names the shapes it joins by their ids, so there the ids the save takes are the ones
-/// the file gets. Each id the save takes is the one after the highest the drawing holds at that
-/// moment (issue #797 keeps this while it stops scanning the drawing for each picture).
+/// A save never renumbers a drawing: a connector names the shapes it joins by their ids, and a
+/// loaded picture is written back into its own anchor under the id it was loaded with (spec 17).
+/// A new picture takes the id after the highest the drawing holds at that moment (issue #797
+/// keeps this while it stops scanning the drawing for each picture).
 /// </remarks>
 public class PictureDrawingIdTests
 {
@@ -43,8 +42,8 @@ public class PictureDrawingIdTests
     [Test]
     public async Task Deleting_the_pictures_with_the_highest_ids_frees_them_for_the_pictures_written_after()
     {
-        // Deleting Grouped (13) and Free 2 (12) leaves 11 the highest. Moving Free 1 writes it again
-        // with a new id, and the picture added after it takes the next one.
+        // Deleting Grouped (13) and Free 2 (12) leaves 11 the highest. Moving Free 1 writes it back
+        // into its own anchor under its own id, and the picture added after it takes the next one.
         using var source = WithNewPictures();
         using var saved = LoadAndSave(source, ws =>
         {
@@ -55,14 +54,15 @@ public class PictureDrawingIdTests
         });
 
         await Assert.That(Ids(saved)).IsEqualTo(
-            "Group 9 10, Picture 1 2, Picture 2 3, Straight Arrow Connector 4 5, Free 1 12, Free 3 13");
+            "Group 9 10, Picture 1 2, Picture 2 3, Straight Arrow Connector 4 5, Free 1 11, Free 3 12");
     }
 
     [Test]
     public async Task A_moved_3d_model_takes_no_id_from_the_picture_written_after_it()
     {
-        // A 3D model's anchor is kept and given the new position; its drawing keeps id 1, so the
-        // picture added after it takes the id after the group's, as if the model had not moved.
+        // A 3D model's anchor is kept and given the new position; its drawing keeps the id Excel
+        // gave it, 2, so the picture added after it takes the id after the group's, as if the
+        // model had not moved.
         using var model = Resource("picture-3d-model.xlsx");
         using var withPictures = LoadAndSave(model, ws =>
         {
@@ -79,7 +79,7 @@ public class PictureDrawingIdTests
         });
 
         await Assert.That(Ids(saved)).IsEqualTo(
-            "3D Model 1 1, 3D Model 1 1, Group 4 4, Pic A 2, Pic B 3, Pic C 5");
+            "3D Model 1 2, 3D Model 1 2, Group 5 5, Pic A 3, Pic B 4, Pic C 6");
     }
 
     /// <summary>

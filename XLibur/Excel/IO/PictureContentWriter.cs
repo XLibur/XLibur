@@ -71,34 +71,63 @@ internal static class PictureContentWriter
         image.GetAttributes().FirstOrDefault(a => a.LocalName == "embed" && a.NamespaceUri == RelationshipsNs).Value;
 
     /// <summary>
-    /// The image part <paramref name="pic"/> is written with, holding its image. Each part is fed
-    /// once per save, by the first picture that shows it; <paramref name="fedImages"/> holds, by
-    /// relationship id, the image each part was fed this save. The picture's own link is left as it
-    /// was: it takes the link the save wrote once the save has succeeded, as it takes its id.
+    /// The images one save of a sheet's drawing feeds: which image parts the sheet's pictures show,
+    /// the image each part was fed this save, and the parts a changed image moved off.
+    /// </summary>
+    internal sealed class ImageFeed
+    {
+        private readonly Dictionary<string, int> _users = new(StringComparer.Ordinal);
+
+        internal ImageFeed(XLWorksheet worksheet)
+        {
+            foreach (var picture in (XLPictures)worksheet.Pictures)
+            {
+                if (picture.RelId is { } relId)
+                    _users[relId] = _users.GetValueOrDefault(relId) + 1;
+            }
+        }
+
+        /// <summary>The image each part was fed this save, by relationship id.</summary>
+        internal Dictionary<string, MemoryStream> Fed { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The image links pictures moved off; each is dropped once nothing shows it.</summary>
+        internal List<string> Released { get; } = [];
+
+        /// <summary>Whether more than one picture of the sheet shows the part <paramref name="relId"/>.</summary>
+        internal bool IsShared(string relId) => _users.GetValueOrDefault(relId) > 1;
+    }
+
+    /// <summary>
+    /// The image part <paramref name="pic"/> is written with, holding its image. A loaded picture
+    /// whose image did not change keeps its part, which is not fed again. The picture's own link is
+    /// left as it was: it takes the link the save wrote once the save has succeeded, as it takes its
+    /// id.
     /// </summary>
     /// <remarks>
-    /// Pictures that share a part, as Excel's copies of a picture do (#781), feed it once. A copy
-    /// whose image differs from what its part was fed, because the image was changed after the load,
-    /// shows a part that holds its own image instead: one this save already fed with the same image,
-    /// or a new one. So a changed image is not overwritten by the copies that kept theirs, and does
-    /// not reach them.
+    /// Pictures that share a part, as Excel's copies of a picture do (#781), keep sharing it while
+    /// their image is unchanged. A changed image goes into the part it was loaded from only when no
+    /// other picture shows that part; otherwise it shows a part that holds its own image instead:
+    /// one this save already fed with the same image, or a new one. So a changed image is not
+    /// overwritten by the copies that kept theirs, and does not reach them.
     /// </remarks>
     internal static ImagePart FeedImagePart(DrawingsPart drawingsPart, XLPicture pic, SaveContext context,
-        Dictionary<string, MemoryStream> fedImages)
+        ImageFeed images)
     {
         if (pic.RelId is { } relId && drawingsPart.GetPartOrNull<ImagePart>(relId) is { } loaded)
         {
-            if (!fedImages.TryGetValue(relId, out var fed))
-                return Feed(loaded, relId);
-
-            if (SameImage(fed, pic.ImageStream))
+            if (!pic.IsImageModified)
                 return loaded;
 
-            foreach (var (otherRelId, otherImage) in fedImages)
+            foreach (var (fedRelId, fedImage) in images.Fed)
             {
-                if (SameImage(otherImage, pic.ImageStream))
-                    return drawingsPart.GetPartOrNull<ImagePart>(otherRelId)!;
+                if (SameImage(fedImage, pic.ImageStream))
+                    return drawingsPart.GetPartOrNull<ImagePart>(fedRelId)!;
             }
+
+            if (!images.IsShared(relId) && !images.Fed.ContainsKey(relId))
+                return Feed(loaded, relId);
+
+            images.Released.Add(relId);
         }
 
         var newRelId = context.RelIdGenerator.GetNext(RelType.Workbook);
@@ -108,7 +137,7 @@ internal static class PictureContentWriter
         {
             pic.ImageStream.Position = 0;
             part.FeedData(pic.ImageStream);
-            fedImages[partRelId] = pic.ImageStream;
+            images.Fed[partRelId] = pic.ImageStream;
             return part;
         }
     }

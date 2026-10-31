@@ -186,18 +186,18 @@ internal static class GroupedPictureWriter
     /// requested sheet geometry via the inverse group transform, and appends it to the group element.
     /// The model is then reset so a subsequent save treats it as an existing grouped picture.
     /// </summary>
-    internal static void InsertGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, SaveContext context, DrawingIds ids)
+    internal static Xdr.Picture? InsertGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, SaveContext context, DrawingIds ids)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
         var group = pic.GroupInfo;
         if (drawingsPart?.WorksheetDrawing is null || group?.GroupId is null)
-            return;
+            return null;
 
         var worksheetDrawing = drawingsPart.WorksheetDrawing;
 
         var groupElement = FindGroupShapeById(worksheetDrawing, group.GroupId.Value);
         if (groupElement is null)
-            return;
+            return null;
 
         var newId = ids.NextDrawingId();
 
@@ -246,6 +246,7 @@ internal static class GroupedPictureWriter
             LoadedLeftPx = pic.Left,
             LoadedTopPx = pic.Top,
         };
+        return picElement;
     }
 
     private static Xdr.GroupShape? FindGroupShapeById(Xdr.WorksheetDrawing worksheetDrawing, uint groupId)
@@ -267,16 +268,16 @@ internal static class GroupedPictureWriter
     /// save DOM is an independent re-parse of the package and object references from load don't
     /// survive.
     /// </summary>
-    internal static void UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, DrawingIds ids)
+    internal static Xdr.Picture? UpdateGroupedPicture(WorksheetPart worksheetPart, XLPicture pic, DrawingIds ids)
     {
         var drawingsPart = worksheetPart.DrawingsPart;
         var group = pic.GroupInfo;
         if (drawingsPart?.WorksheetDrawing is null || group is null)
-            return;
+            return null;
 
         var picElement = ids.FindGroupedPicture(pic.Id);
         if (picElement is null)
-            return;
+            return null;
 
         // The name goes to every drawing with the picture's id: the picture, and the other branches of
         // the mc:AlternateContent it is one form of, as a grouped 3D model's frame is. Only a wrapper
@@ -286,15 +287,16 @@ internal static class GroupedPictureWriter
         PictureContentWriter.WritePictureName(scope, picElement, pic.Name);
         RefeedGroupedPictureImage(drawingsPart, pic);
         UpdateGroupedPictureGeometry(picElement, pic, group);
+        return picElement;
     }
 
     /// <summary>
-    /// Re-feed the image bytes into the existing part. If the image was not replaced these are
-    /// the same bytes that were read, so the part is unchanged.
+    /// Re-feed the image bytes into the existing part, when the image changed since the picture was
+    /// loaded or last saved.
     /// </summary>
     private static void RefeedGroupedPictureImage(DrawingsPart drawingsPart, XLPicture pic)
     {
-        if (drawingsPart.GetPartOrNull<ImagePart>(pic.RelId) is not { } imagePart)
+        if (!pic.IsImageModified || drawingsPart.GetPartOrNull<ImagePart>(pic.RelId) is not { } imagePart)
             return;
 
         pic.ImageStream.Position = 0;

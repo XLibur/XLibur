@@ -29,10 +29,11 @@ internal sealed class XLPicture : IXLPicture
         var info = worksheet.Workbook.GraphicEngine.GetPictureInfo(stream, format);
         Init(info);
 
-        ImageStream = new MemoryStream();
+        _image = new XLPictureImageStream();
         stream.Position = 0;
-        stream.CopyTo(ImageStream);
-        ImageStream.Seek(0, SeekOrigin.Begin);
+        stream.CopyTo(_image);
+        _image.Seek(0, SeekOrigin.Begin);
+        _image.MarkUnmodified();
     }
 
     private XLPicture(IXLWorksheet worksheet)
@@ -108,9 +109,10 @@ internal sealed class XLPicture : IXLPicture
 
     /// <summary>
     /// Take the drawing id and image link a save wrote for this picture, once that save has
-    /// succeeded. A save renumbers the drawing, and can give a picture an image part of its own, and
-    /// the next save finds the picture's anchor by both. The check in <see cref="Id"/> is skipped:
-    /// the pictures take their new ids one at a time, so two of them can briefly hold the same one.
+    /// succeeded. A save gives a new picture its drawing id, and can give a picture an image part of
+    /// its own, and the next save finds the picture's anchor by both. The check in <see cref="Id"/>
+    /// is skipped: the pictures take their new ids one at a time, so two of them can briefly hold
+    /// the same one. The picture is then as the file holds it (<see cref="MarkSaved"/>).
     /// </summary>
     internal void KeepSavedIds(int id, string relId)
     {
@@ -118,9 +120,61 @@ internal sealed class XLPicture : IXLPicture
         _id = id;
         OnIdChanged(oldId);
         RelId = relId;
+        MarkSaved();
     }
 
-    public MemoryStream ImageStream { get; private set; } = null!;
+    private readonly XLPictureImageStream _image = null!;
+
+    public MemoryStream ImageStream => _image;
+
+    /// <summary>
+    /// What the picture was when it was loaded or last saved, or <c>null</c> for a picture no save
+    /// has written yet. A save writes a picture only when it differs from this (spec 17).
+    /// </summary>
+    private XLPictureSavedState? _saved;
+
+    /// <summary>Whether the image was written to since the picture was loaded or last saved.</summary>
+    internal bool IsImageModified => _saved is null || _image.IsModified;
+
+    /// <summary>
+    /// Whether the placement, a marker, the size or the position differs from what the picture was
+    /// loaded or last saved with. A picture no save has written yet has changed.
+    /// </summary>
+    internal bool IsGeometryChanged => _saved is not { } saved || saved.Geometry != CaptureGeometry();
+
+    /// <summary>Whether the width or the height differs from what the picture was loaded or last saved with.</summary>
+    internal bool IsSizeChanged =>
+        _saved is not { } saved || saved.Geometry.Width != _width || saved.Geometry.Height != _height;
+
+    /// <summary>
+    /// Whether a save has to write this picture: it is new, or anything the file holds for it has
+    /// changed since it was loaded or last saved. <paramref name="layout"/> is the sheet's layout
+    /// now; a kept anchor whose rows or columns were resized has to be written from the model.
+    /// </summary>
+    internal bool HasUnsavedChanges(Lazy<GridLayout> layout) =>
+        _saved is not { } saved ||
+        _image.IsModified ||
+        !string.Equals(saved.Name, _name, StringComparison.Ordinal) ||
+        saved.Geometry != CaptureGeometry() ||
+        (KeptAnchor is { } kept && !kept.IsLayoutUnchanged(layout.Value));
+
+    /// <summary>
+    /// Record the picture as the file now holds it: once it is loaded, and once a save that wrote it
+    /// has succeeded.
+    /// </summary>
+    internal void MarkSaved()
+    {
+        _saved = new XLPictureSavedState(_name, CaptureGeometry());
+        _image.MarkUnmodified();
+    }
+
+    private XLPictureGeometry CaptureGeometry()
+    {
+        var from = Markers[XLMarkerPosition.TopLeft];
+        var to = Markers[XLMarkerPosition.BottomRight];
+        return new XLPictureGeometry(Placement, _width, _height,
+            from?.Anchor, from?.Offset, to?.Anchor, to?.Offset);
+    }
 
     public int Left
     {
@@ -415,4 +469,17 @@ internal sealed class XLPicture : IXLPicture
         _height = OriginalHeight = size.Height;
     }
 }
+
+/// <summary>Where a picture is and how big, as the model holds it: what decides its anchor.</summary>
+internal readonly record struct XLPictureGeometry(
+    XLPicturePlacement Placement,
+    int Width,
+    int Height,
+    XLibur.Excel.Coordinates.Point? From,
+    Point? FromOffset,
+    XLibur.Excel.Coordinates.Point? To,
+    Point? ToOffset);
+
+/// <summary>What a picture was when it was loaded or last saved.</summary>
+internal sealed record XLPictureSavedState(string Name, XLPictureGeometry Geometry);
 

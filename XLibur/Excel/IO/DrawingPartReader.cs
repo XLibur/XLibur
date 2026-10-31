@@ -133,6 +133,7 @@ internal static class DrawingPartReader
         var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
         LoadPictureTransform(picture, anchor, ws);
         LoadPicturePlacement(picture, anchor, ws, grid, layout);
+        picture.MarkSaved();
     }
 
     internal static int ConvertFromEnglishMetricUnits(long emu, double resolution)
@@ -249,6 +250,7 @@ internal static class DrawingPartReader
             GroupId = groupId,
             GroupKey = groupKey,
         };
+        xlPicture.MarkSaved();
     }
 
     private static XLPicture AddGroupedPicture(Xdr.Picture pic, string embed, OpenXmlPart imagePart, XLWorksheet ws)

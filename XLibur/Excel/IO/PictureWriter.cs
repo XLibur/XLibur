@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -29,28 +29,32 @@ internal static class PictureWriter
         WorksheetPart worksheetPart,
         SaveContext context)
     {
-        var ids = new DrawingIds(worksheetPart);
-        if (worksheetPart.DrawingsPart != null)
-            ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, (XLPictures)xlWorksheet.Pictures, ids);
+        var pictures = (XLPictures)xlWorksheet.Pictures;
+        var layout = GridLayout.OnFirstUse(xlWorksheet);
 
-        var written = new List<(XLPicture Picture, Xdr.Picture Element)>();
-        var groupedPictureCount = WritePictureAnchors(worksheetPart, xlWorksheet, context, written, ids);
-
-        // Rebasing renumbers every NonVisualDrawingProperties id. That would break connector
-        // start/end connection references (a:stCxn/@id, a:endCxn/@id) inside a group, so only do
-        // it for the historical picture-only case where the drawing contains no group shapes.
-        if (xlWorksheet.Pictures.Count > 0 && groupedPictureCount == 0 &&
-            !(worksheetPart.DrawingsPart?.WorksheetDrawing?.Descendants<Xdr.GroupShape>().Any() ?? false))
-            DrawingIds.RebaseNonVisualDrawingPropertiesIds(worksheetPart);
-
-        // The next save edits what this one wrote and finds each picture's anchor by its drawing
-        // id and image link, so the model takes the ones the drawing now holds, once the save has
-        // succeeded (XLWorkbook.KeepWhatTheSaveWrote).
-        foreach (var (picture, element) in written)
+        // A drawing the save package does not have yet, as a sheet saved out of a template has
+        // not, gets every picture. Otherwise only the pictures that changed since the load or the
+        // last save are written, and a sheet with none is not touched at all: reading the drawing
+        // attaches its DOM, and the SDK then writes the DOM back over the part's bytes.
+        var drawingIsNew = worksheetPart.DrawingsPart is null;
+        if (drawingIsNew || HasUnsavedChanges(pictures, layout))
         {
-            context.PictureIdsForNextSave.Add((picture,
-                (int)element.NonVisualPictureProperties!.NonVisualDrawingProperties!.Id!.Value,
-                element.BlipFill!.Blip!.Embed!.Value!));
+            var ids = new DrawingIds(worksheetPart);
+            if (worksheetPart.DrawingsPart != null)
+                ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, pictures, ids);
+
+            var written = new List<(XLPicture Picture, Xdr.Picture Element)>();
+            WritePictureAnchors(worksheetPart, xlWorksheet, context, written, ids, layout, drawingIsNew);
+
+            // The next save edits what this one wrote and finds each picture's anchor by its drawing
+            // id and image link, so the model takes the ones the drawing now holds, once the save has
+            // succeeded (XLWorkbook.KeepWhatTheSaveWrote).
+            foreach (var (picture, element) in written)
+            {
+                context.PictureIdsForNextSave.Add((picture,
+                    (int)element.NonVisualPictureProperties!.NonVisualDrawingProperties!.Id!.Value,
+                    element.BlipFill!.Blip!.Embed!.Value!));
+            }
         }
 
         if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
@@ -62,6 +66,21 @@ internal static class PictureWriter
         }
 
         RemoveEmptyDrawingPart(worksheet, cm, xlWorksheet, worksheetPart);
+    }
+
+    /// <summary>Whether a picture was deleted, grouped, added or changed since the load or the last save.</summary>
+    private static bool HasUnsavedChanges(XLPictures pictures, Lazy<GridLayout> layout)
+    {
+        if (pictures.Deleted.Count > 0 || pictures.DeletedFromGroups.Count > 0 || pictures.PendingGroups.Count > 0)
+            return true;
+
+        foreach (var picture in pictures)
+        {
+            if (picture.HasUnsavedChanges(layout))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -110,34 +129,39 @@ internal static class PictureWriter
     }
 
     /// <summary>
-    /// Write every picture's anchor: free-floating pictures get a fresh anchor, grouped pictures are
-    /// inserted into or updated within their group. Returns the number of grouped pictures handled.
+    /// Write every picture that changed: a new free-floating picture gets a fresh anchor, a loaded one
+    /// is written into the anchor it came from, and a grouped picture is inserted into or updated
+    /// within its group. With <paramref name="writeAll"/> every picture is written, changed or not.
     /// </summary>
-    private static int WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context,
-        List<(XLPicture Picture, Xdr.Picture Element)> written, DrawingIds ids)
+    private static void WritePictureAnchors(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context,
+        List<(XLPicture Picture, Xdr.Picture Element)> written, DrawingIds ids, Lazy<GridLayout> layout, bool writeAll)
     {
         var groupedPictures = new List<XLPicture>();
-        var fedImages = new Dictionary<string, MemoryStream>();
-        var layout = GridLayout.OnFirstUse(xlWorksheet);
+        var images = new PictureContentWriter.ImageFeed(xlWorksheet);
 
         foreach (var pic in xlWorksheet.Pictures)
         {
             var xlPic = (XLPicture)pic;
+            if (!writeAll && !xlPic.HasUnsavedChanges(layout))
+                continue;
+
             if (xlPic.IsInGroup)
                 groupedPictures.Add(xlPic);
             else
-                written.Add((xlPic, PictureAnchorWriter.AddPictureAnchor(worksheetPart, pic, context, fedImages, layout, ids)));
+                written.Add((xlPic, PictureAnchorWriter.AddPictureAnchor(worksheetPart, xlPic, context, images, layout, ids)));
         }
 
         foreach (var groupedPicture in groupedPictures)
         {
-            if (groupedPicture.GroupInfo!.IsNew)
-                GroupedPictureWriter.InsertGroupedPicture(worksheetPart, groupedPicture, context, ids);
-            else
-                GroupedPictureWriter.UpdateGroupedPicture(worksheetPart, groupedPicture, ids);
+            var element = groupedPicture.GroupInfo!.IsNew
+                ? GroupedPictureWriter.InsertGroupedPicture(worksheetPart, groupedPicture, context, ids)
+                : GroupedPictureWriter.UpdateGroupedPicture(worksheetPart, groupedPicture, ids);
+            if (element is not null)
+                written.Add((groupedPicture, element));
         }
 
-        return groupedPictures.Count;
+        if (worksheetPart.DrawingsPart is { WorksheetDrawing: { } drawing } drawingsPart)
+            PictureContentWriter.DeleteUnreferencedRelationships(drawingsPart, drawing, images.Released);
     }
 
     /// <summary>
