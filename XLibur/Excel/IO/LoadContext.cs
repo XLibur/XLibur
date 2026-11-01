@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
 
@@ -29,6 +30,50 @@ internal sealed record StylesheetData(
     /// </remarks>
     internal Dictionary<int, string> CustomNumberFormats { get; } =
         BuildCustomNumberFormats(NumberingFormats);
+
+    // The children of each list a style index points into, taken once. A list of the SDK's is a
+    // linked list of its children, so ElementAt walked it from the first child for every lookup:
+    // each of a workbook's n cell formats walked its fonts, fills and borders, and the cell format
+    // lists themselves, which made decoding the stylesheet quadratic in its size.
+    private OpenXmlElement[]? _cellFormats;
+    private OpenXmlElement[]? _cellStyleFormats;
+    private OpenXmlElement[]? _fills;
+    private OpenXmlElement[]? _borders;
+    private OpenXmlElement[]? _fonts;
+
+    /// <summary>The child of <c>&lt;cellXfs&gt;</c> at <paramref name="index"/>, or <c>null</c> when there is none.</summary>
+    internal OpenXmlElement? CellFormatAt(int index) =>
+        ChildOrDefault(Children(Stylesheet?.CellFormats, ref _cellFormats), index);
+
+    /// <summary>The child of <c>&lt;cellStyleXfs&gt;</c> at <paramref name="index"/>, or <c>null</c> when there is none.</summary>
+    internal OpenXmlElement? CellStyleFormatAt(int index) =>
+        ChildOrDefault(Children(Stylesheet?.CellStyleFormats, ref _cellStyleFormats), index);
+
+    /// <summary>The child of <c>&lt;fills&gt;</c> at <paramref name="index"/>.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such child, as <c>ElementAt</c> threw.</exception>
+    internal OpenXmlElement FillAt(int index) => Child(Children(Fills, ref _fills), index);
+
+    /// <summary>The child of <c>&lt;borders&gt;</c> at <paramref name="index"/>.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such child, as <c>ElementAt</c> threw.</exception>
+    internal OpenXmlElement BorderAt(int index) => Child(Children(Borders, ref _borders), index);
+
+    /// <summary>The child of <c>&lt;fonts&gt;</c> at <paramref name="index"/>.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such child, as <c>ElementAt</c> threw.</exception>
+    internal OpenXmlElement FontAt(int index) => Child(Children(Fonts, ref _fonts), index);
+
+    /// <summary>
+    /// Every child element of <paramref name="list"/>, as <c>ElementAt</c> counted them, taken the
+    /// first time they are asked for. A load decodes styles on one thread, so this needs no lock.
+    /// </summary>
+    private static OpenXmlElement[] Children(OpenXmlElement? list, ref OpenXmlElement[]? children) =>
+        children ??= list is null ? [] : [.. list.ChildElements];
+
+    private static OpenXmlElement? ChildOrDefault(OpenXmlElement[] children, int index) =>
+        (uint)index < (uint)children.Length ? children[index] : null;
+
+    private static OpenXmlElement Child(OpenXmlElement[] children, int index) =>
+        ChildOrDefault(children, index) ?? throw new ArgumentOutOfRangeException(nameof(index), index,
+            "The style list has no element at that index.");
 
     /// <summary>
     /// Admits an entry only when it has both an id and a non-empty format code, and keeps the
