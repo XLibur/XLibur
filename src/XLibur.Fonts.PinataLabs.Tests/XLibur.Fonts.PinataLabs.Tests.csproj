@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- TUnit runs on Microsoft.Testing.Platform rather than VSTest. -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <!-- The contract tests, helpers and test fonts are shared with the other font engine test projects.
+       The fonts are XLibur.Tests' copies, linked back under Resource\Fonts so the resource names stay
+       XLibur.Fonts.PinataLabs.Tests.Resource.Fonts.*. -->
+  <ItemGroup>
+    <Compile Include="..\XLibur.Fonts.Tests.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\XLibur.Tests\Resource\Fonts\TestFont*.ttf" Link="Resource\Fonts\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\resources\fonts\CarlitoBare-Regular.ttf" Link="Resource\Fonts\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.78.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" />  </ItemGroup>
+
+</Project>

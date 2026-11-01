@@ -6,7 +6,7 @@ this document covers only what the change did to bulk-edit cost, and why the exp
 is expensive on purpose.
 
 Branch: `task/40`. Profile: `XLibur.Benchmarks`, `profile bulkedit`
-(`XLibur.Benchmarks/BulkEditDirtyWalkProfile.cs`).
+(`src/XLibur.Benchmarks/BulkEditDirtyWalkProfile.cs`).
 
 ## The mechanism that changed
 

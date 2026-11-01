@@ -64,7 +64,7 @@ template.SaveAs("SalesReport-2026.xlsx");
 ```
 
 See [docs/report-templating.md](docs/report-templating.md) for the template language and tag
-reference, and [XLibur.Report.Examples](XLibur.Report.Examples/README.md) for ten worked examples.
+reference, and [XLibur.Report.Examples](src/XLibur.Report.Examples/README.md) for ten worked examples.
 
 ## Benchmarks
 

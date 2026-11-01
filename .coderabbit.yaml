@@ -24,20 +24,20 @@ reviews:
     - '!**/PublicAPI.Shipped.txt'
     - '!**/PublicAPI.Unshipped.txt'
   path_instructions:
-    - path: 'XLibur/**/*.cs'
+    - path: 'src/XLibur/**/*.cs'
       instructions: |
         This is the core library. Focus on:
         - Thread safety and concurrency issues
         - Memory allocations and performance
         - Nullable reference type correctness
         - Public API surface changes
-    - path: 'XLibur.Tests/**/*.cs'
+    - path: 'src/XLibur.Tests/**/*.cs'
       instructions: |
         These are NUnit 4.x tests. Check for:
         - Proper assertions (prefer Assert.That constraint model)
         - Test isolation and determinism
         - Missing edge case coverage
-    - path: 'XLibur.Benchmarks/**/*.cs'
+    - path: 'src/XLibur.Benchmarks/**/*.cs'
       instructions: |
         These are BenchmarkDotNet performance benchmarks. Focus on:
         - Correct benchmark methodology (no side-effect elimination)

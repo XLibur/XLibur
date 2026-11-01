@@ -80,7 +80,7 @@ on NuGet.
 
 ## Test Conventions
 
-* Tests use [TUnit](https://tunit.dev/) 1.x, which runs on Microsoft.Testing.Platform rather than VSTest. `global.json` opts `dotnet test` into that runner, so runner options are passed directly (for example `dotnet test XLibur.Tests/XLibur.Tests.csproj --report-trx`).
+* Tests use [TUnit](https://tunit.dev/) 1.x, which runs on Microsoft.Testing.Platform rather than VSTest. `global.json` opts `dotnet test` into that runner, so runner options are passed directly (for example `dotnet test src/XLibur.Tests/XLibur.Tests.csproj --report-trx`).
 * **Assertions must be awaited**: `await Assert.That(actual).IsEqualTo(expected)`. This matters more than it looks — an un-awaited assertion never executes and the test passes no matter what. The compiler flags it as CS4014; never suppress it.
 * Data-driven tests use `[Arguments(...)]` for inline cases and `[MethodDataSource(nameof(Source))]` for generated ones. Anything a data source points at must be **public**, because TUnit generates test metadata into a separate file. Avoid generic test methods with data sources: the generator can fail to resolve the type argument and silently emit no cases at all.
 * The suite runs **serially** (`[assembly: NotInParallel]`) because it shares temp files, the calc engine, the font engine and the current culture. Tests default to en-US; override with `[SetCulture("cs-CZ")]`, a local shim in `TestInfrastructure.cs`.
@@ -129,7 +129,7 @@ dotnet tool restore
 dotnet stryker -f stryker-config.json
 
 # Run against a specific file or folder. The path is relative to the project being mutated,
-# so it starts at Excel/ rather than XLibur/Excel/.
+# so it starts at Excel/ rather than src/XLibur/Excel/.
 dotnet stryker -f stryker-config.json --mutate "Excel/Cells/**/*.cs"
 ```
 
@@ -166,5 +166,5 @@ Now, to compare 2 similar, but not exact Excel files:
 
 ## Reconciling Test Files
 
-XLibur uses a set of [reference .xlsx files](https://github.com/XLibur/XLibur/tree/main/XLibur.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the XLibur codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
+XLibur uses a set of [reference .xlsx files](https://github.com/XLibur/XLibur/tree/main/src/XLibur.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the XLibur codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
 

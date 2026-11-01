@@ -60,19 +60,19 @@ jobs:
         run: dotnet build XLibur.slnx --configuration Release --no-restore
 
       - name: Pack XLibur
-        run: dotnet pack XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
+        run: dotnet pack src/XLibur/XLibur.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Pack XLibur.Bundle
-        run: dotnet pack XLibur.Bundle/XLibur.Bundle.csproj --configuration Release --no-build --output ./artifacts
+        run: dotnet pack src/XLibur.Bundle/XLibur.Bundle.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Pack XLibur.Fonts.SixLabors
-        run: dotnet pack XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
+        run: dotnet pack src/XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Pack XLibur.Fonts.SkiaSharp
-        run: dotnet pack XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj --configuration Release --no-build --output ./artifacts
+        run: dotnet pack src/XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Pack XLibur.Fonts.PinataLabs
-        run: dotnet pack XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj --configuration Release --no-build --output ./artifacts
+        run: dotnet pack src/XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Show package version
         run: ls -la ./artifacts/

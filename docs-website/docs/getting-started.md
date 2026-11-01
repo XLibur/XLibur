@@ -260,7 +260,7 @@ using (var workbook = new XLWorkbook(path))
 - The [ClosedXML documentation](https://closedxml.github.io/ClosedXML/) covers the wider API
   (tables, pivot tables, conditional formatting, charts, page setup) and is still *mostly*
   valid for XLibur — the API surface is largely unchanged from ClosedXML 0.105.
-- The [`XLibur.Examples`](https://github.com/XLibur/XLibur/tree/main/XLibur.Examples) project in
+- The [`XLibur.Examples`](https://github.com/XLibur/XLibur/tree/main/src/XLibur.Examples) project in
   the repository contains runnable samples for most features.
 - Generating a report from an Excel template rather than building it cell by cell? See
   [Report Templating](./report-templating.md).

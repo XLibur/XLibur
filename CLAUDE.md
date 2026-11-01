@@ -8,6 +8,9 @@ XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xl
 
 ## Project Structure
 
+All projects live under `src/`. The solutions, `Directory.Build.*`, `XLibur.Report.props` and
+`global.json` stay at the repository root.
+
 - **XLibur** - Core library
 - **XLibur.Tests** - NUnit test suite
 - **XLibur.Examples** - Example applications
@@ -70,7 +73,7 @@ swallows the real message. Nothing is wrong with discovery; the argument was rej
 any test ran. Run the built test executable directly to see the truth:
 
 ```
-XLibur.Tests/bin/Debug/net10.0/XLibur.Tests.exe --filter Foo
+src/XLibur.Tests/bin/Debug/net10.0/XLibur.Tests.exe --filter Foo
   -> Unknown option '--filter'
 ```
 
@@ -83,7 +86,7 @@ Distinguish the two exit codes:
 **Filtering uses `--treenode-filter`, not `--filter`:**
 
 ```
-dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/PivotFilterCriteriaTests/*"
+dotnet test src/XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/PivotFilterCriteriaTests/*"
 ```
 
 The path is `/Assembly/Namespace/Class/Test`; `*` wildcards each segment.
@@ -134,8 +137,8 @@ Other notes:
 endings, so a one-line change turns into a whole-file diff:
 
 ```
-sed -i '/<Nullable>/d' XLibur/XLibur.csproj
-git diff --stat   ->  XLibur/XLibur.csproj | 109 +++++-----   # 55-line file
+sed -i '/<Nullable>/d' src/XLibur/XLibur.csproj
+git diff --stat   ->  src/XLibur/XLibur.csproj | 109 +++++-----   # 55-line file
 ```
 
 This is the cause of the `.csproj` churn that keeps recurring. Two further traps:
