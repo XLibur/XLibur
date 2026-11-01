@@ -9,8 +9,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
-It provides an intuitive interface over the underlying
-[OpenXML](https://github.com/OfficeDev/Open-XML-SDK) API.
 
 📖 **[Documentation](https://xlibur.github.io/XLibur/)** ·
 [Getting Started](https://xlibur.github.io/XLibur/getting-started) ·
