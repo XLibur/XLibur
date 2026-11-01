@@ -17,7 +17,7 @@
 #               filenames and stamped into each document.
 #   output-dir  Created if absent.
 #   project     Project directory name, e.g. XLibur.Bundle. Expected to contain
-#               <project>/<project>.csproj.
+#               src/<project>/<project>.csproj.
 #
 # Requires the CycloneDX tool from .config/dotnet-tools.json — run `dotnet tool restore`
 # first.
@@ -45,7 +45,7 @@ mkdir -p "$output"
 status=0
 
 for project in "$@"; do
-  csproj="$repo_root/$project/$project.csproj"
+  csproj="$repo_root/src/$project/$project.csproj"
   filename="$project.$version.cdx.json"
 
   if [[ ! -f "$csproj" ]]; then

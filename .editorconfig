@@ -32,7 +32,7 @@ trim_trailing_whitespace = false
 # Analyzer rules that are right about library code and wrong about test code.
 # These fire only under SonarCloud's analyzer configuration, not the normal build.
 # See docs/sonar.md for the finding-by-finding reasoning.
-[{XLibur.Tests,XLibur.Report.Tests,XLibur.Fonts.SixLabors.Tests,XLibur.Fonts.SkiaSharp.Tests}/**.cs]
+[src/{XLibur.Tests,XLibur.Report.Tests,XLibur.Fonts.SixLabors.Tests,XLibur.Fonts.SkiaSharp.Tests}/**.cs]
 
 # CA1861: hoist a constant array argument into a static readonly field. In a test the array
 # literal IS the case under test and belongs beside its assertion; moving 58 of them to fields
@@ -97,7 +97,7 @@ dotnet_diagnostic.S1075.severity = none
 dotnet_diagnostic.S3267.severity = none
 
 # Sample and measurement projects: the literal IS the data.
-[{XLibur.Examples,XLibur.Report.Examples,XLibur.Benchmarks,XLibur.Report.Benchmarks}/**.cs]
+[src/{XLibur.Examples,XLibur.Report.Examples,XLibur.Benchmarks,XLibur.Report.Benchmarks}/**.cs]
 
 # S1192: hoist a repeated string literal into a constant. In an example, "Titles", "Revenue" and
 # "1-3, 5, 7" are the worked example - a reader follows them down the page, and replacing them

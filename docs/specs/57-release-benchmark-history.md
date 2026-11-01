@@ -34,7 +34,7 @@ carry the tight threshold; time is indicative only.
 - New `.github/workflows/performance.yml` on `release: published` and `workflow_dispatch`. Never
   blocks `release.yml`.
 - Manual runs are stored with `manual: true` and excluded from baselines, flags and the last-5 table.
-- PRs touching `XLibur.Benchmarks/**` run a smoke job (`--anyCategories CI --job Dry`) so the tagged set
+- PRs touching `src/XLibur.Benchmarks/**` run a smoke job (`--anyCategories CI --job Dry`) so the tagged set
   cannot rot. It stores nothing and flags nothing.
 
 ### Records
@@ -52,7 +52,7 @@ carry the tight threshold; time is indicative only.
 - Nothing is a hard gate.
 
 ### Reporting
-- `tools/PerfReport` (small .NET tool, TUnit tests): reads BDN JSON plus runner metadata, appends the
+- `src/XLibur.PerfReport` (small .NET tool, TUnit tests): reads BDN JSON plus runner metadata, appends the
   record, compares, and generates `docs/performance.md` on `perf-history` (never hand-edited).
 - Table per benchmark: last 5 releases, mean, allocated, delta vs previous, flag column. The same table
   goes to the job summary.
@@ -62,20 +62,20 @@ carry the tight threshold; time is indicative only.
 
 | # | Task | Size |
 |---|------|------|
-| 1 | `tools/PerfReport`: record model (schema 1), BDN JSON reader, compare/flag logic, markdown writer, tests | M |
+| 1 | `src/XLibur.PerfReport`: record model (schema 1), BDN JSON reader, compare/flag logic, markdown writer, tests | M |
 | 2 | Tag the lean benchmark set `[BenchmarkCategory("CI")]`, trimming sizes where needed; confirm peak memory | S |
 | 3 | `performance.yml`: release + dispatch run, smoke job on PRs, push to `perf-history`, job summary, issue on flag | M |
 | 4 | Docs: README/docs-website link to `performance.md`, CHANGELOG entry, CLAUDE.md CI/CD note | S |
 
 ## Acceptance criteria
 
-1. `dotnet run --project tools/PerfReport` over a fixture BDN JSON appends a schema-1 record and
+1. `dotnet run --project src/XLibur.PerfReport` over a fixture BDN JSON appends a schema-1 record and
    regenerates the markdown, with unit tests for: first run (no flags), allocation flag at >5%, time
    flag at >30% over a 5-release median, fingerprint change = re-baselined, manual and pre-release
    records excluded from baselines, unknown schema refused.
 2. The tagged `CI` set runs end to end on a Linux runner within the 30-minute timeout.
 3. `performance.yml` never triggers `release.yml` behaviour and cannot fail a release.
-4. The PR smoke job runs only when `XLibur.Benchmarks/**` (or the tool/workflow) changes.
+4. The PR smoke job runs only when `src/XLibur.Benchmarks/**` (or the tool/workflow) changes.
 5. No new secrets are required.
 
 ## Implementation notes

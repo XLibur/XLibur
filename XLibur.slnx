@@ -7,33 +7,33 @@
     <File Path="Directory.Build.props" />
     <File Path="README.md" />
   </Folder>
-  <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
+  <Project Path="src/XLibur.Tests/XLibur.Tests.csproj" />
   <Folder Name="/XLibur.Fonts.PinataLabs/">
-    <Project Path="XLibur.Fonts.PinataLabs.Tests/XLibur.Fonts.PinataLabs.Tests.csproj" />
-    <Project Path="XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
+    <Project Path="src/XLibur.Fonts.PinataLabs.Tests/XLibur.Fonts.PinataLabs.Tests.csproj" />
+    <Project Path="src/XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
   </Folder>
   <Folder Name="/XLibur.Fonts.SixLabors/">
-    <Project Path="XLibur.Fonts.SixLabors.Examples/XLibur.Fonts.SixLabors.Examples.csproj" />
-    <Project Path="XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
-    <Project Path="XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj" />
+    <Project Path="src/XLibur.Fonts.SixLabors.Examples/XLibur.Fonts.SixLabors.Examples.csproj" />
+    <Project Path="src/XLibur.Fonts.SixLabors.Tests/XLibur.Fonts.SixLabors.Tests.csproj" />
+    <Project Path="src/XLibur.Fonts.SixLabors/XLibur.Fonts.SixLabors.csproj" />
   </Folder>
   <Folder Name="/XLibur.Fonts.SkiaSharp/">
-    <Project Path="XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj" />
-    <Project Path="XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj" />
+    <Project Path="src/XLibur.Fonts.SkiaSharp.Tests/XLibur.Fonts.SkiaSharp.Tests.csproj" />
+    <Project Path="src/XLibur.Fonts.SkiaSharp/XLibur.Fonts.SkiaSharp.csproj" />
   </Folder>
   <Folder Name="/XLibur.Report/">
-    <Project Path="XLibur.Report/XLibur.Report.csproj" />
-    <Project Path="XLibur.Report.Benchmarks/XLibur.Report.Benchmarks.csproj" />
-    <Project Path="XLibur.Report.DynamicLinq/XLibur.Report.DynamicLinq.csproj" />
-    <Project Path="XLibur.Report.Examples/XLibur.Report.Examples.csproj" />
-    <Project Path="XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
+    <Project Path="src/XLibur.Report/XLibur.Report.csproj" />
+    <Project Path="src/XLibur.Report.Benchmarks/XLibur.Report.Benchmarks.csproj" />
+    <Project Path="src/XLibur.Report.DynamicLinq/XLibur.Report.DynamicLinq.csproj" />
+    <Project Path="src/XLibur.Report.Examples/XLibur.Report.Examples.csproj" />
+    <Project Path="src/XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
   </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/PerfReport.Tests/PerfReport.Tests.csproj" />
-    <Project Path="tools/PerfReport/PerfReport.csproj" />
+  <Folder Name="/XLibur.PerfReport/">
+    <Project Path="src/XLibur.PerfReport.Tests/XLibur.PerfReport.Tests.csproj" />
+    <Project Path="src/XLibur.PerfReport/XLibur.PerfReport.csproj" />
   </Folder>
-  <Project Path="XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
-  <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
-  <Project Path="XLibur/XLibur.csproj" />
-  <Project Path="XLibur.Bundle/XLibur.Bundle.csproj" />
+  <Project Path="src/XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
+  <Project Path="src/XLibur.Examples/XLibur.Examples.csproj" />
+  <Project Path="src/XLibur/XLibur.csproj" />
+  <Project Path="src/XLibur.Bundle/XLibur.Bundle.csproj" />
 </Solution>

@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net8.0;net9.0;net11.0</TargetFrameworks>
+        <RootNamespace>XLibur.Fonts.SkiaSharp</RootNamespace>
+        <Description>SkiaSharp implementation of IXLFontEngine for XLibur.</Description>
+        <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <PackageTags>Excel OpenXml xlsx Font SkiaSharp</PackageTags>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <DebugType>Portable</DebugType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            CarlitoBare is a Calibri metric-compatible, metric-only font (no glyph outlines) embedded as the
+            ultimate fallback for the auto-registered default engine. It guarantees text measurement works in
+            headless/serverless environments that have no system fonts. The one copy lives in resources/fonts
+            and is shared with XLibur.Fonts.PinataLabs.
+        -->
+        <EmbeddedResource Include="..\..\resources\fonts\CarlitoBare-Bold.ttf" Link="Fonts\CarlitoBare-Bold.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Bold.ttf" />
+        <EmbeddedResource Include="..\..\resources\fonts\CarlitoBare-BoldItalic.ttf" Link="Fonts\CarlitoBare-BoldItalic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-BoldItalic.ttf" />
+        <EmbeddedResource Include="..\..\resources\fonts\CarlitoBare-Italic.ttf" Link="Fonts\CarlitoBare-Italic.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Italic.ttf" />
+        <EmbeddedResource Include="..\..\resources\fonts\CarlitoBare-Regular.ttf" Link="Fonts\CarlitoBare-Regular.ttf" LogicalName="XLibur.Fonts.SkiaSharp.Fonts.CarlitoBare-Regular.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />
+        <None Include="NUGET_README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The fonts that measure like a font the machine may not have, shared by every engine. -->
+        <Compile Include="..\XLibur.Fonts.Shared\MetricCompatibleFonts.cs" Link="MetricCompatibleFonts.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
+        <PackageReference Include="SkiaSharp" Version="4.154.0" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
+    </ItemGroup>
+
+</Project>

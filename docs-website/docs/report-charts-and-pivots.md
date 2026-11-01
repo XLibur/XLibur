@@ -176,7 +176,7 @@ onto a scratch sheet.
 ## Checking a generated workbook
 
 The repository's
-[`EverythingAtOnce`](https://github.com/XLibur/XLibur/tree/main/XLibur.Report.Examples) example
+[`EverythingAtOnce`](https://github.com/XLibur/XLibur/tree/main/src/XLibur.Report.Examples) example
 builds one workbook covering every feature above and prints a checklist to work down in Excel. It
 exists because no automated test can answer the two questions that matter about a generated file:
 whether Excel opens it without offering to repair it, and whether what it then draws is what was

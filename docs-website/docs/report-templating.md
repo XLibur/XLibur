@@ -299,6 +299,6 @@ to look for one.
   engine
 
 The repository's
-[`XLibur.Report.Examples`](https://github.com/XLibur/XLibur/tree/main/XLibur.Report.Examples)
+[`XLibur.Report.Examples`](https://github.com/XLibur/XLibur/tree/main/src/XLibur.Report.Examples)
 project holds ten runnable examples, each writing **both** the template it authored and the report
 generated from it. Opening a pair side by side is the fastest way to understand any of this.

@@ -29,9 +29,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'XLibur.Benchmarks/**'
-      - 'tools/PerfReport/**'
-      - 'tools/PerfReport.Tests/**'
+      - 'src/XLibur.Benchmarks/**'
+      - 'src/XLibur.PerfReport/**'
+      - 'src/XLibur.PerfReport.Tests/**'
       - '.github/workflows/performance.yml'
 
 permissions:
@@ -63,11 +63,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libfontconfig1
 
       - name: Test the report tool
-        run: dotnet test --project tools/PerfReport.Tests/PerfReport.Tests.csproj
+        run: dotnet test --project src/XLibur.PerfReport.Tests/XLibur.PerfReport.Tests.csproj
 
       - name: Dry run of the CI benchmark set
         run: >
-          dotnet run -c Release --project XLibur.Benchmarks -f net10.0 --
+          dotnet run -c Release --project src/XLibur.Benchmarks -f net10.0 --
           --anyCategories CI --job Dry --inProcess --filter '*'
 
   benchmark:
@@ -126,14 +126,14 @@ jobs:
 
       # Built apart from the run, so the peak memory below is the benchmark process and not MSBuild.
       - name: Build the benchmarks
-        run: dotnet build XLibur.Benchmarks/XLibur.Benchmarks.csproj -c Release -f net10.0
+        run: dotnet build src/XLibur.Benchmarks/XLibur.Benchmarks.csproj -c Release -f net10.0
 
       - name: Run the CI benchmark set
         run: |
           # ShortRunJob, in process, with MemoryDiagnoser and the JSON exporter. GNU time records the
           # peak resident set of the benchmark process, which is the peak working set.
           /usr/bin/time -f '%M' -o "$RUNNER_TEMP/maxrss.txt" \
-            dotnet XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.dll \
+            dotnet src/XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.dll \
             --anyCategories CI --job short --inProcess --memory --exporters json \
             --filter '*' --artifacts "$RUNNER_TEMP/bdn"
 
@@ -158,7 +158,7 @@ jobs:
           args=(
             --bdn "$RUNNER_TEMP/bdn"
             --history "$RUNNER_TEMP/perf-history"
-            --benchmarks-dir XLibur.Benchmarks
+            --benchmarks-dir src/XLibur.Benchmarks
             --commit "$commit"
             --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
             --cores "$(nproc)"
@@ -173,13 +173,13 @@ jobs:
             # A manual run: stored with manual:true, never a baseline, never flagged.
             args+=(--version "$REF_NAME-${commit:0:7}" --manual)
           fi
-          dotnet run -c Release --project tools/PerfReport -- "${args[@]}"
+          dotnet run -c Release --project src/XLibur.PerfReport -- "${args[@]}"
 
       - name: Commit the record and the page to perf-history
         run: |
           history="$RUNNER_TEMP/perf-history"
           mine="$RUNNER_TEMP/my-records"
-          tool="$GITHUB_WORKSPACE/tools/PerfReport"
+          tool="$GITHUB_WORKSPACE/src/XLibur.PerfReport"
           cd "$history"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

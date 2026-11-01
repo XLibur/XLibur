@@ -8,10 +8,14 @@ XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xl
 
 ## Project Structure
 
+All projects live under `src/`. The solutions, `Directory.Build.*`, `XLibur.Report.props` and
+`global.json` stay at the repository root.
+
 - **XLibur** - Core library
 - **XLibur.Tests** - NUnit test suite
 - **XLibur.Examples** - Example applications
 - **XLibur.Benchmarks** - BenchmarkDotNet performance benchmarks
+- **XLibur.PerfReport** (+ `.Tests`) - release benchmark history tool (spec 57); see `performance.yml` below
 
 Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
@@ -36,8 +40,8 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 - **performance.yml** - Separate from `release.yml`, never called by it. `release-publish.yml` starts it by
   `workflow_dispatch` (input `tag`) in a non-blocking job after the release, because a release published with
   `GITHUB_TOKEN` does not fire `release: published`; a dispatch without a tag is a manual run. Runs the `[BenchmarkCategory("CI")]` benchmarks, records them on the orphan `perf-history` branch
-  via `tools/PerfReport` (writes `docs/performance.md` there), and opens/updates one `performance` issue on an
-  allocation rise over 5%. A PR touching `XLibur.Benchmarks/**` runs a dry smoke job. Spec 57.
+  via `src/XLibur.PerfReport` (writes `docs/performance.md` there), and opens/updates one `performance` issue on an
+  allocation rise over 5%. A PR touching `src/XLibur.Benchmarks/**` runs a dry smoke job. Spec 57.
 - **release-drafter.yml** - Maintains draft release notes from merged PRs (label-based categorization)
 - **CodeRabbit** - AI code review on PRs (configured via `.coderabbit.yaml`)
 - **Secrets required:** `SONAR_TOKEN`, `NUGET_API_KEY`
@@ -75,7 +79,7 @@ swallows the real message. Nothing is wrong with discovery; the argument was rej
 any test ran. Run the built test executable directly to see the truth:
 
 ```
-XLibur.Tests/bin/Debug/net10.0/XLibur.Tests.exe --filter Foo
+src/XLibur.Tests/bin/Debug/net10.0/XLibur.Tests.exe --filter Foo
   -> Unknown option '--filter'
 ```
 
@@ -88,7 +92,7 @@ Distinguish the two exit codes:
 **Filtering uses `--treenode-filter`, not `--filter`:**
 
 ```
-dotnet test XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/PivotFilterCriteriaTests/*"
+dotnet test src/XLibur.Tests/XLibur.Tests.csproj -f net10.0 --treenode-filter "/*/*/PivotFilterCriteriaTests/*"
 ```
 
 The path is `/Assembly/Namespace/Class/Test`; `*` wildcards each segment.
@@ -139,8 +143,8 @@ Other notes:
 endings, so a one-line change turns into a whole-file diff:
 
 ```
-sed -i '/<Nullable>/d' XLibur/XLibur.csproj
-git diff --stat   ->  XLibur/XLibur.csproj | 109 +++++-----   # 55-line file
+sed -i '/<Nullable>/d' src/XLibur/XLibur.csproj
+git diff --stat   ->  src/XLibur/XLibur.csproj | 109 +++++-----   # 55-line file
 ```
 
 This is the cause of the `.csproj` churn that keeps recurring. Two further traps:

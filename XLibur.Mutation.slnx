@@ -9,12 +9,12 @@
   test project, and the two projects XLibur.Tests references (both of which reference only
   XLibur).
 
-  Keep in step with the ProjectReference list in XLibur.Tests/XLibur.Tests.csproj. A project
+  Keep in step with the ProjectReference list in src/XLibur.Tests/XLibur.Tests.csproj. A project
   added there and forgotten here fails the mutation build, not the normal one.
 -->
 <Solution>
-  <Project Path="XLibur/XLibur.csproj" />
-  <Project Path="XLibur.Tests/XLibur.Tests.csproj" />
-  <Project Path="XLibur.Examples/XLibur.Examples.csproj" />
-  <Project Path="XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
+  <Project Path="src/XLibur/XLibur.csproj" />
+  <Project Path="src/XLibur.Tests/XLibur.Tests.csproj" />
+  <Project Path="src/XLibur.Examples/XLibur.Examples.csproj" />
+  <Project Path="src/XLibur.Fonts.PinataLabs/XLibur.Fonts.PinataLabs.csproj" />
 </Solution>
