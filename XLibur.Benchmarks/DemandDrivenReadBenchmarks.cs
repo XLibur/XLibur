@@ -29,7 +29,7 @@ public class DemandDrivenReadBenchmarks
     /// the CI run (<c>--job short --inProcess</c>) would build and run this class out of process as
     /// well, and record two results for each benchmark.
     /// </summary>
-    private sealed class DemandDrivenReadConfig : ManualConfig
+    public sealed class DemandDrivenReadConfig : ManualConfig
     {
         public DemandDrivenReadConfig()
         {

@@ -8,7 +8,11 @@ public class CliTests : IDisposable
 
     public CliTests() => Directory.CreateDirectory(_root);
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        Directory.Delete(_root, recursive: true);
+        GC.SuppressFinalize(this);
+    }
 
     private string Bdn(long allocated, string name = "bdn")
     {

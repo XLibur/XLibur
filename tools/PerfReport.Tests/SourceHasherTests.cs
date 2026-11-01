@@ -8,7 +8,11 @@ public class SourceHasherTests : IDisposable
 
     public SourceHasherTests() => Directory.CreateDirectory(_dir);
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    public void Dispose()
+    {
+        Directory.Delete(_dir, recursive: true);
+        GC.SuppressFinalize(this);
+    }
 
     private void Write(string name, string text) => File.WriteAllText(Path.Combine(_dir, name + ".cs"), text);
 
@@ -25,6 +29,43 @@ public class SourceHasherTests : IDisposable
         Write("Bench", "/* other */\r\npublic class Bench {\r\n  [Benchmark]   public void Run()\r\n => Fixture.Build(); }\r\n");
 
         await Assert.That(Hash("Bench")).IsEqualTo(before);
+    }
+
+    private string HashOfBody(string body)
+    {
+        Write("Bench", "public class Bench { [Benchmark] public void Run() { " + body + " } }");
+        return Hash("Bench");
+    }
+
+    [Test]
+    public async Task ASlashesInAStringAreNotAComment()
+    {
+        // `//b` is inside a literal, so changing it must change the hash; read as a comment it would not.
+        var a = HashOfBody("var u = \"http://a\"; Go(u);");
+        var same = HashOfBody("var u = \"http://a\"; Go(u);");
+        var changed = HashOfBody("var u = \"http://b\"; Go(u);");
+
+        await Assert.That(same).IsEqualTo(a);
+        await Assert.That(changed).IsNotEqualTo(a);
+    }
+
+    [Test]
+    public async Task SpacesInsideAStringLiteralCount()
+    {
+        await Assert.That(HashOfBody("var s = \"a  b\";")).IsNotEqualTo(HashOfBody("var s = \"a b\";"));
+    }
+
+    [Test]
+    public async Task SpacesBetweenTokensDoNotCount()
+    {
+        await Assert.That(HashOfBody("var x=1;")).IsEqualTo(HashOfBody("var x = 1;"));
+    }
+
+    [Test]
+    public async Task ACommentOnlyEditDoesNotChangeTheHash()
+    {
+        await Assert.That(HashOfBody("var x = 1; /* one */")).IsEqualTo(HashOfBody("var x = 1; /* uno */ "));
+        await Assert.That(HashOfBody("var x = 1;")).IsEqualTo(HashOfBody("/* a */ var x = 1;\n/// doc\n"));
     }
 
     [Test]

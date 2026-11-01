@@ -190,6 +190,7 @@ jobs:
           --framework net10.0
           -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename perfreport-test-results.trx
+          --coverage --coverage-output-format xml --coverage-output perfreport-coverage.xml
 
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
@@ -206,6 +207,7 @@ jobs:
             **/TestResults/*.trx
             **/TestResults/coverage.xml
             **/TestResults/report-coverage.xml
+            **/TestResults/perfreport-coverage.xml
 
   build-all-frameworks:
     runs-on: ubuntu-latest

@@ -1,38 +1,29 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerfReport;
 
 /// <summary>
 /// Hashes what a benchmark class measures, so an edit to the benchmark re-baselines it. The hash covers the
-/// class's own file and the helper files it names (fixtures and data builders), with comments and
-/// whitespace removed so that a comment edit or a reformat does not re-baseline.
+/// class's own file and the helper files it names (fixtures and data builders). A file is hashed as its C#
+/// tokens: each token's kind and text, so string and number literals keep their exact value, while comments,
+/// whitespace and line endings between tokens do not count.
 /// </summary>
 /// <remarks>
 /// This is approximate. A helper counts when the class file mentions a type the helper declares, and then
 /// the helper's own helpers count too. A file that holds a benchmark class is never a helper of another
 /// class. Code in the library under test is not hashed, as a change there is what the benchmark exists to
 /// measure. A helper reached only through a member the class never names, or through reflection, is missed.
-/// Each file is read once per instance.
+/// Code inside a disabled <c>#if</c> branch is trivia and is not hashed. Each file is read once per instance.
 /// </remarks>
-public sealed partial class SourceHasher
+public sealed class SourceHasher
 {
     public const string Unknown = "unknown";
 
-    [GeneratedRegex(@"//[^\r\n]*|/\*.*?\*/", RegexOptions.Singleline | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
-    private static partial Regex Comments();
-
-    [GeneratedRegex(@"\s+", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
-    private static partial Regex Whitespace();
-
-    [GeneratedRegex(@"\b(?:class|struct|record|enum|interface)\s+([A-Za-z_]\w*)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
-    private static partial Regex Declaration();
-
-    [GeneratedRegex(@"[A-Za-z_]\w*", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
-    private static partial Regex Identifier();
-
-    private sealed record SourceFile(string Name, string Text, HashSet<string> Declared, HashSet<string> Mentioned, bool HasBenchmarks);
+    private sealed record SourceFile(string Name, string Tokens, HashSet<string> Declared, HashSet<string> Mentioned, bool HasBenchmarks);
 
     private readonly Lazy<Dictionary<string, SourceFile>> _files;
     private readonly Dictionary<string, string> _hashes = new(StringComparer.Ordinal);
@@ -65,23 +56,21 @@ public sealed partial class SourceHasher
         while (queue.Count > 0)
         {
             var file = queue.Dequeue();
-            foreach (var candidate in files.Values)
+            foreach (var helper in files.Values.Where(c => IsHelperOf(c, file, included)))
             {
-                if (candidate.HasBenchmarks || included.ContainsKey(candidate.Name))
-                    continue;
-                if (candidate.Declared.Overlaps(file.Mentioned))
-                {
-                    included[candidate.Name] = candidate;
-                    queue.Enqueue(candidate);
-                }
+                included[helper.Name] = helper;
+                queue.Enqueue(helper);
             }
         }
 
         var sb = new StringBuilder();
         foreach (var file in included.Values)
-            sb.Append(file.Name).Append('\n').Append(file.Text).Append('\n');
+            sb.Append(file.Name).Append('\n').Append(file.Tokens).Append('\n');
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())))[..16];
     }
+
+    private static bool IsHelperOf(SourceFile candidate, SourceFile user, SortedDictionary<string, SourceFile> included) =>
+        !candidate.HasBenchmarks && !included.ContainsKey(candidate.Name) && candidate.Declared.Overlaps(user.Mentioned);
 
     private static Dictionary<string, SourceFile> Load(string dir)
     {
@@ -92,18 +81,35 @@ public sealed partial class SourceHasher
 
         foreach (var path in Directory.GetFiles(dir, "*.cs", SearchOption.TopDirectoryOnly))
         {
-            var raw = File.ReadAllText(path);
-            var stripped = Comments().Replace(raw, " ");
-            var text = Whitespace().Replace(stripped, " ").Trim();
             var name = Path.GetFileNameWithoutExtension(path);
-            result[name] = new SourceFile(
-                name,
-                text,
-                Declaration().Matches(stripped).Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal),
-                Identifier().Matches(stripped).Select(m => m.Value).ToHashSet(StringComparer.Ordinal),
-                stripped.Contains("[Benchmark", StringComparison.Ordinal));
+            result[name] = Parse(name, File.ReadAllText(path));
         }
 
         return result;
+    }
+
+    private static SourceFile Parse(string name, string text)
+    {
+        var root = CSharpSyntaxTree.ParseText(text).GetRoot();
+        var tokens = new StringBuilder();
+        var mentioned = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in root.DescendantTokens())
+        {
+            // The kind separates `"a"` from an identifier `a`; the text keeps literals exact.
+            tokens.Append((int)token.Kind()).Append(':').Append(token.Text).Append('\u001f');
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+                mentioned.Add(token.Text);
+        }
+
+        var declared = root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
+            .Select(d => d.Identifier.Text).ToHashSet(StringComparer.Ordinal);
+        var hasBenchmarks = root.DescendantNodes().OfType<AttributeSyntax>().Any(IsBenchmarkAttribute);
+        return new SourceFile(name, tokens.ToString(), declared, mentioned, hasBenchmarks);
+    }
+
+    private static bool IsBenchmarkAttribute(AttributeSyntax attribute)
+    {
+        var name = attribute.Name.ToString();
+        return name is "Benchmark" or "BenchmarkAttribute" || name.EndsWith(".Benchmark", StringComparison.Ordinal);
     }
 }

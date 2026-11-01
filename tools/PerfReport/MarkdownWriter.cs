@@ -63,9 +63,7 @@ public static class MarkdownWriter
     public static string RenderSummary(ReleaseRecord current, IReadOnlyList<ComparisonRow> rows)
     {
         var sb = new StringBuilder();
-        var kind = current.Manual ? " (manual run: not flagged, not stored as a baseline)"
-            : current.PreRelease ? " (pre-release: compared, not used as a baseline)"
-            : "";
+        var kind = RunKind(current);
         sb.Append(CultureInfo.InvariantCulture, $"## Benchmarks for {current.Version}{kind}\n\n");
         sb.Append(CultureInfo.InvariantCulture,
             $"Commit `{current.Commit}`, {current.RunnerImage}, {current.Cores} cores, " +
@@ -80,6 +78,13 @@ public static class MarkdownWriter
             AppendRow(sb, row.Entry.Key, row);
         sb.Append('\n');
         return sb.ToString();
+    }
+
+    private static string RunKind(ReleaseRecord record)
+    {
+        if (record.Manual) return " (manual run: not flagged, not stored as a baseline)";
+        if (record.PreRelease) return " (pre-release: compared, not used as a baseline)";
+        return "";
     }
 
     private static void AppendRow(StringBuilder sb, string label, ComparisonRow row)

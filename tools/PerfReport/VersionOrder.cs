@@ -74,23 +74,38 @@ public static partial class VersionOrder
         c = a.Minor.CompareTo(b.Minor);
         if (c != 0) return c;
         c = a.Patch.CompareTo(b.Patch);
-        if (c != 0) return c;
+        return c != 0 ? c : ComparePreRelease(a.Pre, b.Pre);
+    }
 
+    private static int ComparePreRelease(string[] a, string[] b)
+    {
         // A version with a pre-release part is lower than the same version without one.
-        if (a.Pre.Length == 0 || b.Pre.Length == 0)
-            return a.Pre.Length == b.Pre.Length ? 0 : a.Pre.Length == 0 ? 1 : -1;
+        if (a.Length == 0 || b.Length == 0)
+            return NoPreReleaseFirst(a.Length, b.Length);
 
-        for (var i = 0; i < Math.Min(a.Pre.Length, b.Pre.Length); i++)
+        for (var i = 0; i < Math.Min(a.Length, b.Length); i++)
         {
-            var an = long.TryParse(a.Pre[i], out var x);
-            var bn = long.TryParse(b.Pre[i], out var y);
-            c = an && bn ? x.CompareTo(y)
-                : an ? -1
-                : bn ? 1
-                : string.CompareOrdinal(a.Pre[i], b.Pre[i]);
+            var c = ComparePart(a[i], b[i]);
             if (c != 0) return c;
         }
 
-        return a.Pre.Length.CompareTo(b.Pre.Length);
+        return a.Length.CompareTo(b.Length);
+    }
+
+    private static int NoPreReleaseFirst(int aLength, int bLength)
+    {
+        if (aLength == bLength) return 0;
+        return aLength == 0 ? 1 : -1;
+    }
+
+    /// <summary>Numeric parts compare as numbers and sort before text parts; text compares ordinally.</summary>
+    private static int ComparePart(string a, string b)
+    {
+        var aNumeric = long.TryParse(a, out var x);
+        var bNumeric = long.TryParse(b, out var y);
+        if (aNumeric && bNumeric) return x.CompareTo(y);
+        if (aNumeric) return -1;
+        if (bNumeric) return 1;
+        return string.CompareOrdinal(a, b);
     }
 }

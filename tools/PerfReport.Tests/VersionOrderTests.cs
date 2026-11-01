@@ -11,6 +11,9 @@ public class VersionOrderTests
         Benchmarks = [new BenchmarkEntry { Key = "B.Run", Method = "Run", MeanNs = 1000, AllocatedBytes = alloc, SourceHash = "h" }],
     };
 
+    private static readonly string[] SemverOrder = ["1.2.0", "1.2.1", "1.3.0-beta.1", "1.3.0", "1.10.0"];
+    private static readonly string[] UnparseableLast = ["1.0.0", "main-def", "main-abc"];
+
     [Test]
     public async Task SortsBySemverNotByRecordingTime()
     {
@@ -23,7 +26,19 @@ public class VersionOrderTests
         ]);
 
         await Assert.That(sorted.Select(r => r.Version).ToArray())
-            .IsEquivalentTo(new[] { "1.2.0", "1.2.1", "1.3.0-beta.1", "1.3.0", "1.10.0" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            .IsEquivalentTo(SemverOrder, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    private static readonly string[] PreReleaseOrder =
+        ["1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.2", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0"];
+
+    [Test]
+    public async Task PreReleasePartsFollowSemverPrecedence()
+    {
+        var shuffled = PreReleaseOrder.Reverse().Select(v => R(v, 1)).ToList();
+
+        await Assert.That(VersionOrder.Sort(shuffled).Select(r => r.Version).ToArray())
+            .IsEquivalentTo(PreReleaseOrder, TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
     [Test]
@@ -32,7 +47,7 @@ public class VersionOrderTests
         var sorted = VersionOrder.Sort([R("main-abc", 1, "2026-02-01T00:00:00Z"), R("1.0.0", 1), R("main-def", 1, "2026-01-01T00:00:00Z")]);
 
         await Assert.That(sorted.Select(r => r.Version).ToArray())
-            .IsEquivalentTo(new[] { "1.0.0", "main-def", "main-abc" }, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            .IsEquivalentTo(UnparseableLast, TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
     [Test]

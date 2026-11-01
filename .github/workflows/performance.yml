@@ -44,6 +44,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    concurrency:
+      group: performance-smoke-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v7
@@ -74,9 +77,12 @@ jobs:
     permissions:
       contents: write
       issues: write
-    # One run at a time, so two pushes to perf-history never race. A later run waits rather than cancels.
+    # A group per requested tag. A group holds one running and one pending run, so a single shared group
+    # would drop a queued release when a third arrives; with one group per tag, no distinct release is ever
+    # cancelled. Runs for different tags can overlap, so the push to perf-history below retries on a race.
+    # A manual run has no tag and gets a group of its own.
     concurrency:
-      group: performance-history
+      group: performance-${{ inputs.tag || github.event.release.tag_name || github.run_id }}
       cancel-in-progress: false
 
     steps:
@@ -171,16 +177,39 @@ jobs:
 
       - name: Commit the record and the page to perf-history
         run: |
-          cd "$RUNNER_TEMP/perf-history"
+          history="$RUNNER_TEMP/perf-history"
+          mine="$RUNNER_TEMP/my-records"
+          tool="$GITHUB_WORKSPACE/tools/PerfReport"
+          cd "$history"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add records docs
           if git diff --cached --quiet; then
             echo "Nothing to commit."
-          else
-            git commit -m "perf: record run $GITHUB_RUN_ID"
-            git push origin perf-history
+            exit 0
           fi
+          # Records are one file per version, so two runs never touch the same record. Only the generated
+          # docs/performance.md can conflict. On a rejected push, start again from the new tip, put this
+          # run's record files back and regenerate the page from all the records.
+          mkdir -p "$mine"
+          git diff --cached --name-only -- records | while read -r file; do cp "$file" "$mine/"; done
+          git commit -m "perf: record run $GITHUB_RUN_ID"
+          for attempt in 1 2 3 4 5; do
+            if git push origin perf-history; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); rebuilding on the new tip of perf-history."
+            git fetch origin +perf-history:refs/remotes/origin/perf-history
+            git reset --hard origin/perf-history
+            mkdir -p records
+            cp "$mine"/* records/
+            dotnet run --no-build -c Release --project "$tool" -- --render-only --history "$history"
+            git add records docs
+            git commit -m "perf: record run $GITHUB_RUN_ID"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push to perf-history after 5 attempts."
+          exit 1
 
       # One tracking issue. Its body is a fixed pointer; each flagged release adds a comment, so the
       # earlier ones stay. The tool sets raise_issue only for a release (not a pre-release, not a manual

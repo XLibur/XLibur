@@ -24,59 +24,65 @@ public static class BdnJsonReader
         var root = doc.RootElement;
         if (root.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("The BenchmarkDotNet report is not a JSON object.");
-        var run = new BdnRun();
 
-        if (root.TryGetProperty("HostEnvironmentInfo", out var host)
-            && host.TryGetProperty("LogicalCoreCount", out var cores)
-            && cores.TryGetInt32(out var coreCount))
-        {
-            run.LogicalCores = coreCount;
-        }
+        var run = new BdnRun { LogicalCores = ReadLogicalCores(root) };
 
         if (!root.TryGetProperty("Benchmarks", out var benchmarks) || benchmarks.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("The BenchmarkDotNet report has no 'Benchmarks' array.");
 
         foreach (var b in benchmarks.EnumerateArray())
-        {
-            if (b.ValueKind != JsonValueKind.Object)
-                throw new InvalidDataException("An entry of 'Benchmarks' is not an object.");
-            var type = RequiredString(b, "Type");
-            var method = RequiredString(b, "Method");
-            var parameters = b.TryGetProperty("Parameters", out var p) && p.ValueKind == JsonValueKind.String
-                ? p.GetString() ?? ""
-                : "";
-            var key = parameters.Length == 0 ? $"{type}.{method}" : $"{type}.{method}({parameters})";
-
-            if (!b.TryGetProperty("Statistics", out var stats) || stats.ValueKind != JsonValueKind.Object
-                || !stats.TryGetProperty("Mean", out var mean)
-                || mean.ValueKind != JsonValueKind.Number)
-            {
-                throw new InvalidDataException(
-                    $"Benchmark '{key}' has no numeric Statistics.Mean (did it fail?).");
-            }
-
-            if (!b.TryGetProperty("Memory", out var memory) || memory.ValueKind != JsonValueKind.Object)
-            {
-                throw new InvalidDataException(
-                    $"Benchmark '{key}' has no Memory section. Run with MemoryDiagnoser.");
-            }
-
-            var ops = Number(memory, "TotalOperations");
-            run.Benchmarks.Add(new BenchmarkEntry
-            {
-                Key = key,
-                Method = method,
-                Parameters = parameters,
-                MeanNs = mean.GetDouble(),
-                AllocatedBytes = (long)Number(memory, "BytesAllocatedPerOperation"),
-                Gen0 = PerThousand(Number(memory, "Gen0Collections"), ops),
-                Gen1 = PerThousand(Number(memory, "Gen1Collections"), ops),
-                Gen2 = PerThousand(Number(memory, "Gen2Collections"), ops),
-                SourceHash = sourceHashOf(type),
-            });
-        }
+            run.Benchmarks.Add(ReadBenchmark(b, sourceHashOf));
 
         return run;
+    }
+
+    private static int ReadLogicalCores(JsonElement root) =>
+        root.TryGetProperty("HostEnvironmentInfo", out var host)
+        && host.TryGetProperty("LogicalCoreCount", out var cores)
+        && cores.TryGetInt32(out var count)
+            ? count
+            : 0;
+
+    private static BenchmarkEntry ReadBenchmark(JsonElement b, Func<string, string> sourceHashOf)
+    {
+        if (b.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("An entry of 'Benchmarks' is not an object.");
+
+        var type = RequiredString(b, "Type");
+        var method = RequiredString(b, "Method");
+        var parameters = b.TryGetProperty("Parameters", out var p) && p.ValueKind == JsonValueKind.String
+            ? p.GetString() ?? ""
+            : "";
+        var key = parameters.Length == 0 ? $"{type}.{method}" : $"{type}.{method}({parameters})";
+
+        var mean = RequiredMean(b, key);
+        if (!b.TryGetProperty("Memory", out var memory) || memory.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException($"Benchmark '{key}' has no Memory section. Run with MemoryDiagnoser.");
+
+        var ops = Number(memory, "TotalOperations");
+        return new BenchmarkEntry
+        {
+            Key = key,
+            Method = method,
+            Parameters = parameters,
+            MeanNs = mean,
+            AllocatedBytes = (long)Number(memory, "BytesAllocatedPerOperation"),
+            Gen0 = PerThousand(Number(memory, "Gen0Collections"), ops),
+            Gen1 = PerThousand(Number(memory, "Gen1Collections"), ops),
+            Gen2 = PerThousand(Number(memory, "Gen2Collections"), ops),
+            SourceHash = sourceHashOf(type),
+        };
+    }
+
+    private static double RequiredMean(JsonElement benchmark, string key)
+    {
+        if (benchmark.TryGetProperty("Statistics", out var stats) && stats.ValueKind == JsonValueKind.Object
+            && stats.TryGetProperty("Mean", out var mean) && mean.ValueKind == JsonValueKind.Number)
+        {
+            return mean.GetDouble();
+        }
+
+        throw new InvalidDataException($"Benchmark '{key}' has no numeric Statistics.Mean (did it fail?).");
     }
 
     private static string RequiredString(JsonElement element, string name)

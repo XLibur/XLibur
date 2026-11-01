@@ -100,6 +100,43 @@ public class MarkdownWriterTests
     }
 
     [Test]
+    public async Task EmptyHistoryHasAPageSayingNothingIsRecorded()
+    {
+        var md = MarkdownWriter.RenderHistory(History());
+
+        await Assert.That(md).Contains("No release has been recorded yet");
+    }
+
+    [Test]
+    [Arguments(500.0, "500 ns")]
+    [Arguments(2_500.0, "2.5 us")]
+    [Arguments(3_000_000.0, "3 ms")]
+    [Arguments(4_000_000_000.0, "4 s")]
+    public async Task FormatsTimeInTheNearestUnit(double ns, string expected)
+    {
+        await Assert.That(MarkdownWriter.FormatTime(ns)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments(10L, "10 B")]
+    [Arguments(2048L, "2 KB")]
+    [Arguments(3L * 1024 * 1024, "3 MB")]
+    public async Task FormatsBytesInTheNearestUnit(long bytes, string expected)
+    {
+        await Assert.That(MarkdownWriter.FormatBytes(bytes)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task SummaryNamesAManualRunAndAPreRelease()
+    {
+        var manual = Record("main-abc", 1000, 1000, manual: true);
+        var pre = Record("1.1.0-beta.1", 1000, 1000);
+
+        await Assert.That(MarkdownWriter.RenderSummary(manual, Comparer.Compare(manual, History()))).Contains("manual run");
+        await Assert.That(MarkdownWriter.RenderSummary(pre, Comparer.Compare(pre, History()))).Contains("pre-release");
+    }
+
+    [Test]
     public async Task SummaryOfAFirstRunSaysItSeededHistory()
     {
         var current = Record("1.0.0", 1000, 1000);

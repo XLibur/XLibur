@@ -12,6 +12,7 @@ public static class Program
     private const string Usage =
         "Usage: PerfReport --bdn <dir|file> --history <dir> --version <v> --commit <sha> [--runner-image <s>]\n" +
         "       [--cores <n>] [--peak-working-set-bytes <n>] [--benchmarks-dir <dir>] [--manual]\n" +
+        "       PerfReport --render-only --history <dir>\n" +
         "       [--summary <file>] [--issue-body <file>] [--github-output <file>] [--recorded-at <iso>]";
 
     public static int Main(string[] args) => Run(args, Console.Out, Console.Error);
@@ -28,7 +29,8 @@ public static class Program
             error.WriteLine("Refusing to compare: " + e.Message + " (unknown schema)");
             return 2;
         }
-        catch (Exception e) when (e is ArgumentException or InvalidDataException or IOException or System.Text.Json.JsonException)
+        catch (Exception e) when (e is ArgumentException or FormatException or OverflowException or InvalidDataException
+                                      or IOException or System.Text.Json.JsonException)
         {
             error.WriteLine(e.Message);
             error.WriteLine(Usage);
@@ -36,8 +38,25 @@ public static class Program
         }
     }
 
+    /// <summary>Rebuilds the page from the stored records alone. Used to settle a push race on perf-history.</summary>
+    private static int Render(Options o)
+    {
+        WritePage(o.History, HistoryStore.Load(o.History));
+        return 0;
+    }
+
+    private static void WritePage(string historyDir, IReadOnlyList<ReleaseRecord> records)
+    {
+        var page = Path.Combine(historyDir, "docs", "performance.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(page)!);
+        File.WriteAllText(page, MarkdownWriter.RenderHistory(records));
+    }
+
     private static int Execute(Options o, TextWriter output)
     {
+        if (o.RenderOnly)
+            return Render(o);
+
         var history = HistoryStore.Load(o.History);
 
         var run = ReadBdn(o);
@@ -60,9 +79,7 @@ public static class Program
         HistoryStore.Save(o.History, current);
         var all = HistoryStore.Load(o.History);
 
-        var page = Path.Combine(o.History, "docs", "performance.md");
-        Directory.CreateDirectory(Path.GetDirectoryName(page)!);
-        File.WriteAllText(page, MarkdownWriter.RenderHistory(all));
+        WritePage(o.History, all);
 
         var summary = MarkdownWriter.RenderSummary(current, rows);
         if (o.Summary is not null)
@@ -74,8 +91,8 @@ public static class Program
         // A tracking issue is for a release. A pre-release or a manual run reports its flags in the job
         // summary only.
         var raiseIssue = allocFlags.Count > 0 && current.IsBaseline;
-        if (o.IssueBody is not null && raiseIssue)
-            File.WriteAllText(o.IssueBody, IssueBody(current, allocFlags));
+        if (o.IssueBodyPath is not null && raiseIssue)
+            File.WriteAllText(o.IssueBodyPath, IssueBody(current, allocFlags));
 
         if (o.GithubOutput is not null)
         {
@@ -133,56 +150,5 @@ public static class Program
         sb.Append("\nFull history: `docs/performance.md` on the `perf-history` branch. ");
         sb.Append("Allocated bytes are deterministic, so a flag here is a real change, not runner noise.\n");
         return sb.ToString();
-    }
-
-    private sealed class Options
-    {
-        public string Bdn = "";
-        public string History = "";
-        public string Version = "";
-        public string Commit = "";
-        public string RunnerImage = "";
-        public int? Cores;
-        public long PeakWorkingSetBytes;
-        public string? BenchmarksDir;
-        public bool Manual;
-        public string? Summary;
-        public string? IssueBody;
-        public string? GithubOutput;
-        public string? RecordedAt;
-
-        public static Options Parse(string[] args)
-        {
-            var o = new Options();
-            for (var i = 0; i < args.Length; i++)
-            {
-                string Next() => i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value.");
-                switch (args[i])
-                {
-                    case "--bdn": o.Bdn = Next(); break;
-                    case "--history": o.History = Next(); break;
-                    case "--version": o.Version = Next(); break;
-                    case "--commit": o.Commit = Next(); break;
-                    case "--runner-image": o.RunnerImage = Next(); break;
-                    case "--cores": o.Cores = int.Parse(Next(), CultureInfo.InvariantCulture); break;
-                    case "--peak-working-set-bytes": o.PeakWorkingSetBytes = long.Parse(Next(), CultureInfo.InvariantCulture); break;
-                    case "--benchmarks-dir": o.BenchmarksDir = Next(); break;
-                    case "--manual": o.Manual = true; break;
-                    case "--summary": o.Summary = Next(); break;
-                    case "--issue-body": o.IssueBody = Next(); break;
-                    case "--github-output": o.GithubOutput = Next(); break;
-                    case "--recorded-at": o.RecordedAt = Next(); break;
-                    default: throw new ArgumentException($"Unknown argument '{args[i]}'.");
-                }
-            }
-
-            foreach (var (name, value) in new[] { ("--bdn", o.Bdn), ("--history", o.History), ("--version", o.Version), ("--commit", o.Commit) })
-            {
-                if (value.Length == 0)
-                    throw new ArgumentException($"{name} is required.");
-            }
-
-            return o;
-        }
     }
 }
