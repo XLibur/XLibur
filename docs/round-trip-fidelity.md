@@ -41,6 +41,7 @@ Two consequences:
 | Slicers | ✅ | ✅ | ✅ | Modelled as of PRD 5; a slicer nobody edits is still passed through untouched |
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
 | Drawings in `mc:AlternateContent` (3D models) | ✅ | ✅ | ❌ | Wrapper, both branches and the model part kept; the fallback picture is an `IXLPicture` (#787) |
+| Picture styling (rotation, border, shadow, crop, recolour, effects) | ✅ | ✅ | ✅ | **Lost on every save before spec 17 (#843)**; patched in place now, see below |
 
 ### Chartsheets are preserved, not dropped
 
@@ -119,6 +120,28 @@ two halves are gated separately.
 One thing that does change is unrelated to slicers: `<pivotCache cacheId>` is renumbered on save
 (`3` → `0`). The slicer cache binds to the pivot cache through `pivotCacheId` in
 `pivotCacheDefinition1.xml`, not through this attribute, so the link is not affected.
+
+### Picture styling was lost on every save, and is kept now
+
+Before spec 17 (#843) the table above would have said ❌ for picture styling, and the mechanism
+section explains why it was the exception: preservation covers what XLibur does not rewrite, and
+XLibur rewrote every picture. Each save rebuilt each picture's anchor with a bare `spPr`
+(`a:xfrm` plus `a:prstGeom`) and a bare `blipFill` (`a:blip` plus `a:stretch`), so a rotation, a
+flip, a border, a shadow, a crop, a recolour, a transparency or a brightness adjustment Excel had
+written was gone after the first save, silently. Unmodelled anchor content went with it.
+
+Now a loaded picture is written back into the anchor it was loaded from, and only what changed is
+written: its name, its image link, its position or size, and the styling properties assigned
+through `IXLPicture`. A sheet whose pictures nobody added, edited, deleted or grouped is not touched
+at all, so its drawing part passes through byte-identical, and an image part is fed only when the
+image's bytes changed. Changing `Placement` moves the picture into the new form of anchor with
+everything it holds. Drawing ids are no longer renumbered on save.
+
+The styling is modelled as well: border, fill, rotation and flips, transparency, the recolour
+presets, brightness and contrast, crop and one outer shadow. Glow, soft edges, 3-D, artistic
+effects, inner and perspective shadows and other recolours are read as nothing (a custom recolour
+reads `XLPictureRecolor.Custom`) and kept as the file has them. `PictureFidelityTests` and
+`PictureStylingRoundTripTests` cover it, on a fixture Excel styled over COM.
 
 ### A 3D model keeps its wrapper through a rewritten drawing
 

@@ -109,8 +109,8 @@ public class PictureIdAndNameTests
     [Test]
     public async Task A_new_picture_after_a_save_takes_the_id_after_the_highest_the_save_wrote()
     {
-        // Pictures 2 and 3 are left of three, and the save renumbers them 1 and 2, so the next picture
-        // takes 3, not 4.
+        // Pictures 2 and 3 are left of three. They are new, so the save gives them the drawing's
+        // first ids, 1 and 2, and the next picture takes 3, not 4.
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         var first = ws.AddPicture(new MemoryStream(Png));

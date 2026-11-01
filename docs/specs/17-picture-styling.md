@@ -7,7 +7,7 @@
 extensions with [spec 15](15-shapes-and-text-boxes.md) — see [Interplay](#interplay-with-specs-15-and-16).
 Conflicts with spec 15 in `XLibur/Excel/IO/PictureWriter.cs` (both rework its save orchestration);
 run them sequentially in either order, not concurrently.
-**Status:** Proposed — **unblocked**, spec 16 landed (PRs #401, #402)
+**Status:** ✅ **Done** — all seven tasks, issue #843. See [Results](#results).
 
 ## Summary
 
@@ -272,3 +272,60 @@ Preset 3-D/bevel/glow/soft-edge effects, artistic effects (`a14:imgLayer`), pict
 authoring (`a:tile` preserved if present), image replacement API (re-point `ImageStream` exists
 already; a richer API is separate), per-picture hyperlinks (`a:hlinkClick` — preserved), and
 compression/DPI-resampling of image binaries.
+
+## Results
+
+Implemented on branch `feat/picture-styling-843` (issue #843), all seven tasks in one PR.
+
+**Fixture.** `XLibur.Tests/Resource/Other/Pictures/ExcelStyledPictures.xlsx`, made by Excel 365 over
+COM: twelve copies of one image, each styled one way (plain, rotated + flipH, flipV, dashed border,
+shadow, crop, brightness/contrast, grayscale, black & white, washout, fill, and a combination).
+
+**What the fixture taught, against the spec's assumptions.**
+
+- **Washout is not a duotone.** Excel writes `<a:lum bright="70000" contrast="-70000"/>` and no
+  recolour element. So `Recolor = Washout` is a brightness and a contrast in the model; changing either
+  reads as no recolour, and brightness 70 / contrast −70 reads as Washout (as the loader reads it).
+- **Sepia could not be captured.** The Excel object model has no sepia `ColorType`, so the writer uses
+  the duotone Office documents (`prstClr black` → `srgbClr D9C3A5` with `tint 50000`, `satMod 180000`).
+  Criterion 4 is met for grayscale, black & white and washout; sepia is not fixture-compared.
+- Excel stores a rotation of 20° with a horizontal flip as `rot="20400000"` (340°); the model reads
+  what the file says.
+- An unset shadow colour is written as `a:scrgbClr r=0 g=0 b=0`; the reader reads it.
+
+**Deviations from the design.**
+
+- **Placement change keeps unmodelled content** (criterion 5). The content of an anchor is the same
+  in all three forms, so a change of placement moves the `xdr:pic` and `xdr:clientData` into the new
+  anchor rather than regenerating them. Nothing is lost; the test pins that the styled `xdr:pic` is
+  unchanged. Agreed by the owner on 2026-11-01, so criterion 5 now reads: a placement change
+  moves the drawing into the new anchor intact.
+- **Drawing ids are never renumbered on save**, not only when the drawing is new: a loaded picture
+  keeps the id the file gave it, and a new picture takes the next free one. Agreed by the owner on
+  2026-11-01. `RebaseNonVisualDrawingPropertiesIds` is deleted.
+- **The docs are a section of `docs-website/docs/images.md`**, not a page of their own.
+- **Copies** start from the loaded `xdr:pic` (kept as its XML at load), with every relationship
+  reference other than the image dropped, so a copy keeps unmodelled effects.
+
+**Acceptance criteria.**
+
+1. Untouched sheet: drawing part byte-identical after a save that edits a cell. ✅
+2. Resize of the styled combo picture: the `xdr:pic` change set is exactly `a:xfrm/a:ext`. ✅
+3. Every property set on a new picture and on a loaded one: `validate: true`, reload reads it back
+   (18 cases each). Excel 365 opened the full matrix, new and loaded, with no "[Repaired]" caption, and
+   its object model read back border, rotation/flip, grayscale, washout, black & white,
+   brightness/contrast, crop, shadow, theme border colour and a duplicate's shadow. ✅
+4. Grayscale, black & white, washout, brightness/contrast, crop, border, fill and flip written by
+   XLibur are element-identical to Excel's (offset aside); a custom duotone reads `Custom`, cannot be
+   assigned, and survives an edit. ✅ except sepia (above).
+5. See the deviation above.
+6. Stopwatch, 20 saves after 5 warm-ups, 200 pictures: loaded and untouched, main 52–57 ms and
+   8.4 MB a save, this branch 12 ms and 4.4 MB; a new workbook with 200 pictures, 40 ms and 5.93 MB on
+   both. Not BenchmarkDotNet.
+7. Full suite green on net8.0 and net10.0, all five test projects. Grouped-picture tests unchanged.
+   Tests that pinned drawing-id renumbering were updated (ids are kept now), and two reference files
+   whose second save regenerated `a:xfrm` were refreshed (the z-order one now equals its input).
+
+**Found along the way, not fixed.** `Duplicate()` of a picture never positioned throws a
+`NullReferenceException` (`TopLeftCell` on an unset marker). A drawing whose pictures share a drawing id
+does not load (the id setter throws), which is also why id-keyed patching cannot hit the wrong picture.

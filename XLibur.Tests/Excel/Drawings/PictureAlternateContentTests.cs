@@ -53,12 +53,12 @@ public class PictureAlternateContentTests
     [Test]
     public async Task A_save_keeps_the_3d_model()
     {
-        // The save renumbers the drawing ids from 1. The two branches are one drawing, so they keep
-        // one id between them.
+        // The save keeps the drawing ids the file has. The two branches are one drawing, so they
+        // keep one id between them.
         using var saved = LoadAndSave(_ => { });
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
     }
 
     [Test]
@@ -68,7 +68,7 @@ public class PictureAlternateContentTests
         using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2")));
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "oneCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "oneCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
         await Assert.That(Markers(saved)).IsEqualTo("from 7,1");
     }
 
@@ -84,7 +84,7 @@ public class PictureAlternateContentTests
         });
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "oneCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "oneCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
         await Assert.That(Extent(saved)).IsEqualTo($"{40 * 9525}x{20 * 9525}");
     }
 
@@ -136,7 +136,7 @@ public class PictureAlternateContentTests
         using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").MoveTo(ws.Cell("H2"), ws.Cell("J9")));
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
         await Assert.That(Markers(saved)).IsEqualTo("from 7,1 to 9,8");
     }
 
@@ -146,7 +146,7 @@ public class PictureAlternateContentTests
         using var saved = LoadAndSave(ws => ws.Picture("3D Model 1").Name = "Tetrahedron");
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 'Tetrahedron' | Fallback pic 2 'Tetrahedron'");
     }
 
     [Test]
@@ -176,7 +176,7 @@ public class PictureAlternateContentTests
         wb.SaveAs(second);
 
         await Assert.That(Shape(second)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 'Tetrahedron' | Fallback pic 2 'Tetrahedron'");
     }
 
     [Test]
@@ -192,7 +192,7 @@ public class PictureAlternateContentTests
 
         await Assert.That(saved.ReadPart(Drawing1)).Contains("<xdr:twoCellAnchor editAs=\"oneCell\">");
         await Assert.That(Shape(saved)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
         await Assert.That(Markers(saved)).IsEqualTo("from 2,5 to 5,15");
     }
 
@@ -213,7 +213,7 @@ public class PictureAlternateContentTests
         using var saved = LoadAndSave(Duplicated(), ws => ws.Pictures.Delete("3D Model 2"));
 
         await Assert.That(Shape(saved)).IsEqualTo(
-            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1'");
+            "twoCellAnchor > AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1'");
         await Assert.That(Relationships(saved)).IsEqualTo("image ../media/image1.png, model3d ../media/model3d1.glb");
         await Assert.That(string.Join(", ", saved.PartsUnder("xl/media/").Order()))
             .IsEqualTo("xl/media/image1.png, xl/media/model3d1.glb");
@@ -295,10 +295,10 @@ public class PictureAlternateContentTests
         // msoModel3D, with a Model3D), at 75 pt, 37.5 pt and 150 by 112.5 pt: the box set below.
         using var saved = GroupedWithLogo();
 
-        // The first save numbered the model 1 and the picture 2, so the group takes 3.
-        await Assert.That(Shape(saved)).IsEqualTo("absoluteAnchor > grpSp 3 'Group 3'");
+        // The model keeps the id Excel gave it, 2, and the picture took 3, so the group takes 4.
+        await Assert.That(Shape(saved)).IsEqualTo("absoluteAnchor > grpSp 4 'Group 4'");
         await Assert.That(GroupMembers(saved)).IsEqualTo(
-            "AlternateContent > Choice(am3d) graphicFrame 1 '3D Model 1' | Fallback pic 1 '3D Model 1', pic 2 'Logo'");
+            "AlternateContent > Choice(am3d) graphicFrame 2 '3D Model 1' | Fallback pic 2 '3D Model 1', pic 3 'Logo'");
         await Assert.That(Relationships(saved)).Contains("model3d ../media/model3d1.glb");
     }
 
@@ -339,7 +339,7 @@ public class PictureAlternateContentTests
         using var saved = GroupedWithLogo(ws => ws.Picture("3D Model 1").Name = "Tetrahedron");
 
         await Assert.That(GroupMembers(saved)).IsEqualTo(
-            "AlternateContent > Choice(am3d) graphicFrame 1 'Tetrahedron' | Fallback pic 1 'Tetrahedron', pic 2 'Logo'");
+            "AlternateContent > Choice(am3d) graphicFrame 2 'Tetrahedron' | Fallback pic 2 'Tetrahedron', pic 3 'Logo'");
     }
 
     [Test]
@@ -349,7 +349,7 @@ public class PictureAlternateContentTests
         // The wrapper goes with it, and the model part, leaving the group its other picture.
         using var saved = GroupedWithLogo(ws => ws.Pictures.Delete("3D Model 1"));
 
-        await Assert.That(GroupMembers(saved)).IsEqualTo("pic 2 'Logo'");
+        await Assert.That(GroupMembers(saved)).IsEqualTo("pic 3 'Logo'");
         await Assert.That(Relationships(saved)).DoesNotContain("model3d");
         await Assert.That(saved.PartsUnder("xl/media/").Length).IsEqualTo(1);
     }

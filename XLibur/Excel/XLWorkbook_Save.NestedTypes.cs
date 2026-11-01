@@ -113,7 +113,7 @@ public partial class XLWorkbook
         /// source of the next one (<see cref="KeepWhatTheSaveWrote"/>). A save that fails leaves the
         /// old ones, which are what the old source still has (#781).
         /// </summary>
-        internal List<(XLPicture Picture, int Id, string RelId)> PictureIdsForNextSave { get; } = [];
+        internal List<(XLPicture Picture, int Id, string RelId, string PictureXml)> PictureIdsForNextSave { get; } = [];
 
         /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)

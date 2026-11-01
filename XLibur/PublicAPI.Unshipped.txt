@@ -543,3 +543,90 @@ static XLibur.Excel.XLRangeAddress.operator ==(XLibur.Excel.XLRangeAddress left,
 XLibur.Excel.IXLRangeAddress.Intersection(XLibur.Excel.IXLRangeAddress! otherRangeAddress) -> XLibur.Excel.XLRangeAddress
 XLibur.Excel.IXLRangeAddress.Relative(XLibur.Excel.IXLRangeAddress! sourceRangeAddress, XLibur.Excel.IXLRangeAddress! targetRangeAddress) -> XLibur.Excel.XLRangeAddress
 XLibur.Excel.IXLWorksheet.GetValue<T>(int row, int column) -> T
+XLibur.Excel.Drawings.IXLPicture.BorderColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.Drawings.IXLPicture.BorderColor.set -> void
+XLibur.Excel.Drawings.IXLPicture.BorderDash.get -> XLibur.Excel.Drawings.XLLineDashStyle?
+XLibur.Excel.Drawings.IXLPicture.BorderDash.set -> void
+XLibur.Excel.Drawings.IXLPicture.BorderWidthPt.get -> double?
+XLibur.Excel.Drawings.IXLPicture.BorderWidthPt.set -> void
+XLibur.Excel.Drawings.IXLPicture.Brightness.get -> double?
+XLibur.Excel.Drawings.IXLPicture.Brightness.set -> void
+XLibur.Excel.Drawings.IXLPicture.Contrast.get -> double?
+XLibur.Excel.Drawings.IXLPicture.Contrast.set -> void
+XLibur.Excel.Drawings.IXLPicture.Crop.get -> XLibur.Excel.Drawings.XLCrop?
+XLibur.Excel.Drawings.IXLPicture.Crop.set -> void
+XLibur.Excel.Drawings.IXLPicture.FillColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.Drawings.IXLPicture.FillColor.set -> void
+XLibur.Excel.Drawings.IXLPicture.FlipHorizontal.get -> bool?
+XLibur.Excel.Drawings.IXLPicture.FlipHorizontal.set -> void
+XLibur.Excel.Drawings.IXLPicture.FlipVertical.get -> bool?
+XLibur.Excel.Drawings.IXLPicture.FlipVertical.set -> void
+XLibur.Excel.Drawings.IXLPicture.NoBorder.get -> bool
+XLibur.Excel.Drawings.IXLPicture.NoBorder.set -> void
+XLibur.Excel.Drawings.IXLPicture.NoFill.get -> bool
+XLibur.Excel.Drawings.IXLPicture.NoFill.set -> void
+XLibur.Excel.Drawings.IXLPicture.Recolor.get -> XLibur.Excel.Drawings.XLPictureRecolor?
+XLibur.Excel.Drawings.IXLPicture.Recolor.set -> void
+XLibur.Excel.Drawings.IXLPicture.Rotation.get -> double?
+XLibur.Excel.Drawings.IXLPicture.Rotation.set -> void
+XLibur.Excel.Drawings.IXLPicture.Shadow.get -> XLibur.Excel.Drawings.XLPictureShadow?
+XLibur.Excel.Drawings.IXLPicture.Shadow.set -> void
+XLibur.Excel.Drawings.IXLPicture.Transparency.get -> double?
+XLibur.Excel.Drawings.IXLPicture.Transparency.set -> void
+XLibur.Excel.Drawings.XLCrop
+XLibur.Excel.Drawings.XLCrop.Bottom.get -> double
+XLibur.Excel.Drawings.XLCrop.Bottom.init -> void
+XLibur.Excel.Drawings.XLCrop.Left.get -> double
+XLibur.Excel.Drawings.XLCrop.Left.init -> void
+XLibur.Excel.Drawings.XLCrop.Right.get -> double
+XLibur.Excel.Drawings.XLCrop.Right.init -> void
+XLibur.Excel.Drawings.XLCrop.Top.get -> double
+XLibur.Excel.Drawings.XLCrop.Top.init -> void
+XLibur.Excel.Drawings.XLCrop.XLCrop() -> void
+XLibur.Excel.Drawings.XLCrop.XLCrop(double Left, double Top, double Right, double Bottom) -> void
+XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.Dash = 2 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.DashDot = 4 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.Dot = 1 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.LongDash = 3 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.LongDashDot = 5 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.LongDashDotDot = 6 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.Solid = 0 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.SystemDash = 7 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.SystemDashDot = 9 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.SystemDashDotDot = 10 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLLineDashStyle.SystemDot = 8 -> XLibur.Excel.Drawings.XLLineDashStyle
+XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.BlackAndWhite = 4 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.Custom = 5 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.Grayscale = 1 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.None = 0 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.Sepia = 2 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureRecolor.Washout = 3 -> XLibur.Excel.Drawings.XLPictureRecolor
+XLibur.Excel.Drawings.XLPictureShadow
+XLibur.Excel.Drawings.XLPictureShadow.AngleDeg.get -> double
+XLibur.Excel.Drawings.XLPictureShadow.AngleDeg.init -> void
+XLibur.Excel.Drawings.XLPictureShadow.BlurPt.get -> double
+XLibur.Excel.Drawings.XLPictureShadow.BlurPt.init -> void
+XLibur.Excel.Drawings.XLPictureShadow.Color.get -> XLibur.Excel.XLColor!
+XLibur.Excel.Drawings.XLPictureShadow.Color.init -> void
+XLibur.Excel.Drawings.XLPictureShadow.DistancePt.get -> double
+XLibur.Excel.Drawings.XLPictureShadow.DistancePt.init -> void
+XLibur.Excel.Drawings.XLPictureShadow.TransparencyPct.get -> double
+XLibur.Excel.Drawings.XLPictureShadow.TransparencyPct.init -> void
+XLibur.Excel.Drawings.XLPictureShadow.XLPictureShadow() -> void
+XLibur.Excel.Drawings.XLPictureShadow.XLPictureShadow(XLibur.Excel.XLColor! Color, double TransparencyPct, double BlurPt, double DistancePt, double AngleDeg) -> void
+~override XLibur.Excel.Drawings.XLCrop.Equals(object obj) -> bool
+~override XLibur.Excel.Drawings.XLCrop.ToString() -> string
+override XLibur.Excel.Drawings.XLCrop.GetHashCode() -> int
+static XLibur.Excel.Drawings.XLCrop.operator !=(XLibur.Excel.Drawings.XLCrop left, XLibur.Excel.Drawings.XLCrop right) -> bool
+static XLibur.Excel.Drawings.XLCrop.operator ==(XLibur.Excel.Drawings.XLCrop left, XLibur.Excel.Drawings.XLCrop right) -> bool
+XLibur.Excel.Drawings.XLCrop.Deconstruct(out double Left, out double Top, out double Right, out double Bottom) -> void
+XLibur.Excel.Drawings.XLCrop.Equals(XLibur.Excel.Drawings.XLCrop other) -> bool
+~override XLibur.Excel.Drawings.XLPictureShadow.Equals(object obj) -> bool
+~override XLibur.Excel.Drawings.XLPictureShadow.ToString() -> string
+override XLibur.Excel.Drawings.XLPictureShadow.GetHashCode() -> int
+static XLibur.Excel.Drawings.XLPictureShadow.operator !=(XLibur.Excel.Drawings.XLPictureShadow left, XLibur.Excel.Drawings.XLPictureShadow right) -> bool
+static XLibur.Excel.Drawings.XLPictureShadow.operator ==(XLibur.Excel.Drawings.XLPictureShadow left, XLibur.Excel.Drawings.XLPictureShadow right) -> bool
+XLibur.Excel.Drawings.XLPictureShadow.Deconstruct(out XLibur.Excel.XLColor! Color, out double TransparencyPct, out double BlurPt, out double DistancePt, out double AngleDeg) -> void
+XLibur.Excel.Drawings.XLPictureShadow.Equals(XLibur.Excel.Drawings.XLPictureShadow other) -> bool

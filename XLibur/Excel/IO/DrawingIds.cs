@@ -9,8 +9,7 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// The drawing ids of a sheet's drawing: finding a picture by its id, taking the next free id, and
-/// renumbering them all once the pictures are written.
+/// The drawing ids of a sheet's drawing: finding a picture by its id, and taking the next free id.
 /// </summary>
 /// <remarks>
 /// One instance serves one save of one sheet's drawing. It reads the drawing once, on the first
@@ -186,33 +185,5 @@ internal sealed class DrawingIds(WorksheetPart worksheetPart)
         foreach (var nvdpr in worksheetDrawing.Descendants<Xdr.NonVisualDrawingProperties>())
             maxId = Math.Max(maxId, nvdpr.Id?.Value ?? 0);
         return maxId;
-    }
-
-    /// <summary>Renumbers every drawing id from 1, in document order.</summary>
-    /// <remarks>
-    /// The branches of an <c>mc:AlternateContent</c> are one drawing in two forms, and Excel gives
-    /// them one id: a 3D model's frame and its fallback picture are both id 2. They keep one id
-    /// between them, so the picture XLibur loads from the fallback still names the frame by its id.
-    /// </remarks>
-    internal static void RebaseNonVisualDrawingPropertiesIds(WorksheetPart worksheetPart)
-    {
-        var worksheetDrawing = worksheetPart.DrawingsPart!.WorksheetDrawing;
-
-        uint id = 1;
-        var branchIds = new Dictionary<(AlternateContent Wrapper, uint OldId), uint>();
-        foreach (var nvdpr in worksheetDrawing!.Descendants<Xdr.NonVisualDrawingProperties>())
-        {
-            if (nvdpr.Ancestors<AlternateContent>().FirstOrDefault() is { } wrapper &&
-                nvdpr.Id?.Value is { } oldId)
-            {
-                if (!branchIds.TryGetValue((wrapper, oldId), out var newId))
-                    branchIds[(wrapper, oldId)] = newId = id++;
-
-                nvdpr.Id = newId;
-                continue;
-            }
-
-            nvdpr.Id = id++;
-        }
     }
 }

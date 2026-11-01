@@ -224,7 +224,7 @@ public partial class XLWorkbook
     /// fails afterwards leaves little behind.
     /// </summary>
     private (int[] SstMap, List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> Parts,
-        List<(Drawings.XLPicture Picture, int Id, string RelId)> PictureIds)? _unkeptSave;
+        List<(Drawings.XLPicture Picture, int Id, string RelId, string PictureXml)> PictureIds)? _unkeptSave;
 
     /// <summary>
     /// Keeps what the last save wrote for the next save to compare against (#719): each worksheet
@@ -244,8 +244,8 @@ public partial class XLWorkbook
         foreach (var (sheet, markup, cells) in save.Parts)
             sheet.KeepSavedPart(markup, cells);
 
-        foreach (var (picture, id, relId) in save.PictureIds)
-            picture.KeepSavedIds(id, relId);
+        foreach (var (picture, id, relId, pictureXml) in save.PictureIds)
+            picture.KeepSavedIds(id, relId, pictureXml);
     }
 
     // Adds child parts and generates content of the specified part.

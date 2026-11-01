@@ -2,7 +2,7 @@
 id: images
 title: Images and Pictures
 sidebar_label: Images
-description: Embed images in a worksheet, anchor them absolutely or to cells, scale them, control how they behave when rows and columns move, and group them.
+description: Embed images in a worksheet, anchor them absolutely or to cells, scale and style them, control how they behave when rows and columns move, and group them.
 ---
 
 # Images and Pictures
@@ -200,6 +200,76 @@ foreach (var ws in workbook.Worksheets)
     }
 }
 ```
+
+## Styling a picture
+
+A picture has the styling Excel's Picture Format tab gives it: a border, a fill behind its
+transparent parts, rotation and flips, transparency, a recolour preset, brightness and contrast, a
+crop, and an outer shadow.
+
+```csharp
+var logo = ws.AddPicture("logo.png").MoveTo(ws.Cell("B2"));
+
+logo.BorderColor = XLColor.DarkBlue;
+logo.BorderWidthPt = 1.5;
+logo.BorderDash = XLLineDashStyle.Dash;
+logo.FillColor = XLColor.White;
+
+logo.Rotation = 15;                      // degrees clockwise, about the centre
+logo.FlipHorizontal = true;
+
+logo.Transparency = 20;                  // percent
+logo.Recolor = XLPictureRecolor.Grayscale;
+logo.Brightness = 10;                    // -100 to 100 percent
+logo.Contrast = -5;
+
+logo.Crop = new XLCrop(Left: 10, Top: 0, Right: 5, Bottom: 0);   // percent of each side
+logo.Shadow = new XLPictureShadow(XLColor.Black, TransparencyPct: 60,
+    BlurPt: 4, DistancePt: 3, AngleDeg: 45);
+```
+
+| Property | What Excel calls it |
+|---|---|
+| `BorderColor`, `BorderWidthPt`, `BorderDash`, `NoBorder` | Picture Border |
+| `FillColor`, `NoFill` | Fill (shows through transparent parts of the image) |
+| `Rotation`, `FlipHorizontal`, `FlipVertical` | Rotate |
+| `Transparency` | Transparency |
+| `Recolor` | Color ▸ Recolor: `Grayscale`, `Sepia`, `Washout`, `BlackAndWhite` |
+| `Brightness`, `Contrast` | Corrections ▸ Brightness/Contrast |
+| `Crop` | Crop |
+| `Shadow` | Shadow ▸ Outer |
+
+Every property reads what the file has, so a workbook someone styled in Excel can be inspected:
+
+```csharp
+foreach (var picture in ws.Pictures)
+    Console.WriteLine($"{picture.Name}: rotated {picture.Rotation ?? 0}°, {picture.Recolor}");
+```
+
+`null` means "not set". Assigning `null` removes the value from the file. A property you never
+assign is never written, so styling XLibur does not model — glow, soft edges, 3-D, artistic
+effects — survives a save untouched.
+
+Rotation and flips do not change the anchor: `Width`, `Height`, `Left` and `Top` keep describing
+the unrotated box, and the picture turns about its centre, as in Excel.
+
+:::note
+`Washout` is Excel's brightness 70 % and contrast −70 %, so assigning it sets `Brightness` and
+`Contrast`, and changing either afterwards makes the picture read as no recolour. A recolour that
+is not one of the presets, such as a duotone of theme colours, reads `XLPictureRecolor.Custom`: it
+is kept, but cannot be assigned. Sepia files written by older versions of Office may use a slightly
+different duotone and read `Custom` too.
+:::
+
+`Duplicate` and `CopyTo` carry the styling over, and a copy of a picture loaded from a file keeps
+its unmodelled effects as well.
+
+### What a save writes
+
+A loaded picture is written back into the anchor it came from, changing only what you changed. A
+sheet whose pictures you did not touch is not rewritten at all, and an image is written only when
+its bytes changed. Changing `Placement` moves the picture into a different kind of anchor, and the
+picture keeps everything it holds.
 
 ## Grouping
 
