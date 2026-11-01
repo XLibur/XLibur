@@ -565,4 +565,57 @@ public class PictureTests
             () => new XLWorkbook(stream),
             @"Other\Pictures\ImageShapeZOrder-Output.xlsx");
     }
+
+    [Test]
+    public async Task A_picture_nobody_positioned_can_be_copied()
+    {
+        // A new picture has no anchor cells until it is moved, and a save places it at A1 at its own
+        // size. Duplicate and CopyTo read those cells and threw; the copies are unpositioned too.
+        var png = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var picture = ws.AddPicture(new MemoryStream(png), "Original");
+
+        picture.Duplicate().Name = "Duplicate";
+        picture.CopyTo(wb.AddWorksheet("Sheet2"));
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        var placed = reloaded.Worksheets
+            .SelectMany(sheet => sheet.Pictures)
+            .Select(p => $"{p.Worksheet.Name}!{p.Name} {p.TopLeftCell.Address} {p.Width}x{p.Height}");
+
+        await Assert.That(string.Join(", ", placed)).IsEqualTo(
+            "Sheet1!Original A1 8x8, Sheet1!Duplicate A1 8x8, Sheet2!Original A1 8x8");
+    }
+
+    [Test]
+    public async Task A_copy_keeps_the_anchor_cell_a_partly_positioned_picture_has()
+    {
+        // Moved in pixels, then made MoveAndSize: the top-left corner is set and the bottom-right one
+        // is not, so a save places the picture from the top-left corner at its own size. The copy
+        // must keep that corner rather than drop to A1.
+        var png = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFTEMLQkAI7c/wTpVXRAAAAAASUVORK5CYII=");
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        var picture = ws.AddPicture(new MemoryStream(png), "Original")
+            .MoveTo(20, 30)
+            .WithPlacement(XLPicturePlacement.MoveAndSize);
+
+        picture.Duplicate().Name = "Duplicate";
+        picture.CopyTo(wb.AddWorksheet("Sheet2"));
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        var placed = reloaded.Worksheets
+            .SelectMany(sheet => sheet.Pictures)
+            .Select(p => $"{p.Worksheet.Name}!{p.Name} {p.TopLeftCell.Address} {p.GetOffset(XLMarkerPosition.TopLeft)} {p.Width}x{p.Height}");
+
+        await Assert.That(string.Join(", ", placed)).IsEqualTo(
+            "Sheet1!Original A1 {X=20,Y=30} 8x8, Sheet1!Duplicate A1 {X=20,Y=30} 8x8, Sheet2!Original A1 {X=20,Y=30} 8x8");
+    }
 }

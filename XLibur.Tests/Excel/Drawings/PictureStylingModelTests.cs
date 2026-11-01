@@ -175,6 +175,21 @@ public class PictureStylingModelTests
         await Assert.That(Describe(copy)).IsEqualTo(Describe(picture));
     }
 
+    [Test]
+    public async Task A_copy_of_a_free_floating_picture_has_its_styling()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var picture = ws.AddPicture(new MemoryStream(Png)).MoveTo(30, 40);
+        picture.BorderColor = XLColor.Red;
+        picture.Recolor = XLPictureRecolor.Grayscale;
+
+        var duplicate = picture.Duplicate();
+
+        await Assert.That(Describe(duplicate)).IsEqualTo(Describe(picture));
+        await Assert.That($"{duplicate.Left},{duplicate.Top}").IsEqualTo("30,40");
+    }
+
     /// <summary>Every styling property of <paramref name="picture"/>, in one line; <c>-</c> for none.</summary>
     internal static string Describe(IXLPicture picture)
     {
