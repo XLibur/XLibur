@@ -197,9 +197,10 @@ internal static class PictureAnchorWriter
             {
                 anchor = WriteAnchorPosition(worksheetDrawing, anchor,
                     DrawingAnchorFactory.Create(pic.Placement, GeometryOf(pic), new Xdr.Picture()));
-                if (pic.IsSizeChanged)
-                    WritePictureSize(picture, pic);
             }
+
+            if (pic.IsSizeChanged)
+                WritePictureSize(picture, pic);
         }
 
         PictureContentWriter.WritePictureNameAndImage(anchor, picture, pic.Name, embedId);

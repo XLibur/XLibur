@@ -53,6 +53,7 @@ public class PictureStylingModelTests
     [Arguments(-30.0, 330.0)]
     [Arguments(400.0, 40.0)]
     [Arguments(360.0, 0.0)]
+    [Arguments(-1e-14, 0.0)]
     public async Task A_rotation_is_brought_into_0_up_to_360_degrees(double assigned, double read)
     {
         using var wb = new XLWorkbook();
@@ -85,6 +86,9 @@ public class PictureStylingModelTests
         await Assert.That(() => picture.Rotation = double.PositiveInfinity).Throws<ArgumentOutOfRangeException>();
         await Assert.That(() => picture.Shadow = new XLPictureShadow(XLColor.Black, 0, -1, 0, 0))
             .Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => picture.Shadow = new XLPictureShadow(XLColor.Black, 0, 1e6, 0, 0))
+            .Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => picture.Crop = new XLCrop(-1e7, 0, 0, 0)).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
@@ -127,6 +131,18 @@ public class PictureStylingModelTests
 
         picture.Brightness = 10;
         await Assert.That(picture.Recolor).IsEqualTo(XLPictureRecolor.None);
+    }
+
+    [Test]
+    public async Task Washout_brightness_and_contrast_read_as_washout()
+    {
+        // As the loader reads them, so the model and a reloaded file agree.
+        using var wb = new XLWorkbook();
+        var picture = wb.AddWorksheet().AddPicture(new MemoryStream(Png));
+        picture.Brightness = 70;
+        picture.Contrast = -70;
+
+        await Assert.That(picture.Recolor).IsEqualTo(XLPictureRecolor.Washout);
     }
 
     [Test]

@@ -82,6 +82,22 @@ public class PictureFidelityTests
             .IsEqualTo(Convert.ToHexString(first.PartBytes(Drawing1)));
     }
 
+    [Test]
+    public async Task An_image_written_asynchronously_is_saved()
+    {
+        using var wb = TestHelper.LoadWorkbook(Fixture);
+        var picture = wb.Worksheet(1).Picture("Plain");
+        var changed = picture.ImageStream.ToArray().Concat(new byte[] { 1, 2, 3 }).ToArray();
+        picture.ImageStream.SetLength(0);
+        await picture.ImageStream.WriteAsync(changed);
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+
+        await Assert.That(reloaded.Worksheet(1).Picture("Plain").ImageStream.ToArray().SequenceEqual(changed)).IsTrue();
+    }
+
     /// <summary>The fixture's drawing part, and the one a save after <paramref name="edit"/> writes.</summary>
     internal static (string Before, string After) SaveEdited(Action<IXLWorksheet> edit)
     {

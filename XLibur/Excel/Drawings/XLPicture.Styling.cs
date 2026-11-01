@@ -12,6 +12,12 @@ internal sealed partial class XLPicture
 {
     private const double MaxBorderWidthPt = 1584;
 
+    /// <summary>The longest shadow blur and distance, in points, the EMU attributes can hold with room to spare.</summary>
+    private const double MaxShadowLengthPt = 1584;
+
+    /// <summary>How far a crop edge can extend the image outwards, in percent.</summary>
+    private const double MinCropPercent = -1000;
+
     /// <summary>What the file has, as the loader read it, or what was assigned since.</summary>
     internal XLPictureStyle Style { get; private set; } = new();
 
@@ -187,7 +193,7 @@ internal sealed partial class XLPicture
             ThrowIfOutside(value, -100, 100, "A brightness is -100 to 100 percent.");
             Style.Brightness = value;
             Assign(XLPictureStyleProperties.Brightness);
-            LeaveWashoutUnlessLuminanceIsIt();
+            ReadRecolorFromLuminance();
         }
     }
 
@@ -199,7 +205,7 @@ internal sealed partial class XLPicture
             ThrowIfOutside(value, -100, 100, "A contrast is -100 to 100 percent.");
             Style.Contrast = value;
             Assign(XLPictureStyleProperties.Contrast);
-            LeaveWashoutUnlessLuminanceIsIt();
+            ReadRecolorFromLuminance();
         }
     }
 
@@ -213,9 +219,12 @@ internal sealed partial class XLPicture
                 if (!double.IsFinite(crop.Left) || !double.IsFinite(crop.Top) ||
                     !double.IsFinite(crop.Right) || !double.IsFinite(crop.Bottom) ||
                     crop.Left >= 100 || crop.Top >= 100 || crop.Right >= 100 || crop.Bottom >= 100 ||
+                    crop.Left < MinCropPercent || crop.Top < MinCropPercent ||
+                    crop.Right < MinCropPercent || crop.Bottom < MinCropPercent ||
                     crop.Left + crop.Right >= 100 || crop.Top + crop.Bottom >= 100)
                     throw new ArgumentOutOfRangeException(nameof(value), value,
-                        "A crop leaves part of the image: each edge, and each pair of opposite edges, under 100 percent.");
+                        "A crop leaves part of the image: each edge, and each pair of opposite edges, under 100 percent, " +
+                        $"and no edge below {MinCropPercent} percent.");
             }
 
             Style.Crop = value;
@@ -233,11 +242,11 @@ internal sealed partial class XLPicture
                 ArgumentNullException.ThrowIfNull(shadow.Color, nameof(value));
                 if (!double.IsFinite(shadow.TransparencyPct) || shadow.TransparencyPct < 0 || shadow.TransparencyPct > 100)
                     throw new ArgumentOutOfRangeException(nameof(value), value, "A shadow's transparency is 0 to 100 percent.");
-                if (!double.IsFinite(shadow.BlurPt) || shadow.BlurPt < 0 ||
-                    !double.IsFinite(shadow.DistancePt) || shadow.DistancePt < 0 ||
+                if (!double.IsFinite(shadow.BlurPt) || shadow.BlurPt < 0 || shadow.BlurPt > MaxShadowLengthPt ||
+                    !double.IsFinite(shadow.DistancePt) || shadow.DistancePt < 0 || shadow.DistancePt > MaxShadowLengthPt ||
                     !double.IsFinite(shadow.AngleDeg))
                     throw new ArgumentOutOfRangeException(nameof(value), value,
-                        "A shadow's blur and distance are 0 or more points, and its angle is finite.");
+                        $"A shadow's blur and distance are 0 to {MaxShadowLengthPt} points, and its angle is finite.");
 
                 value = shadow with { AngleDeg = NormalizeAngle(shadow.AngleDeg) };
             }
@@ -270,13 +279,23 @@ internal sealed partial class XLPicture
         AssignedStyle |= XLPictureStyleProperties.Brightness | XLPictureStyleProperties.Contrast;
     }
 
-    private void LeaveWashoutUnlessLuminanceIsIt()
+    /// <summary>
+    /// Keep <see cref="Recolor"/> reading what the file will: washout is a brightness and a
+    /// contrast, so a picture with no other recolour is washed out exactly when it has those two,
+    /// as the loader reads it.
+    /// </summary>
+    private void ReadRecolorFromLuminance()
     {
-        if (Style.Recolor == XLPictureRecolor.Washout &&
-            (Style.Brightness != WashoutBrightness || Style.Contrast != WashoutContrast))
+        var isWashout = Style.Brightness == WashoutBrightness && Style.Contrast == WashoutContrast;
+        if (Style.Recolor == XLPictureRecolor.Washout && !isWashout)
         {
             Style.Recolor = XLPictureRecolor.None;
             AssignedStyle |= XLPictureStyleProperties.Recolor;
+        }
+        else if (Style.Recolor is null or XLPictureRecolor.None && isWashout)
+        {
+            // No element to write: the brightness and contrast are the recolour.
+            Style.Recolor = XLPictureRecolor.Washout;
         }
     }
 
@@ -290,6 +309,10 @@ internal sealed partial class XLPicture
     private static double NormalizeAngle(double degrees)
     {
         var angle = degrees % 360;
-        return angle < 0 ? angle + 360 : angle;
+        if (angle < 0)
+            angle += 360;
+
+        // A tiny negative angle rounds up to a whole turn.
+        return angle >= 360 ? 0 : angle;
     }
 }
