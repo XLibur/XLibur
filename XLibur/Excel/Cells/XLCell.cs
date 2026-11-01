@@ -590,7 +590,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
             if (!string.IsNullOrWhiteSpace(formula))
             {
                 var fixedFunctionsFormula =
-                    FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetPoint);
+                    FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetPoint, Worksheet.IsDefinedName);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormula);
             }
             else
@@ -620,7 +620,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
                     throw refusal.ToException();
 
                 var fixedFunctionsFormulaA1 =
-                    FormulaText.AddFuturePrefixes(formulaA1, Worksheet.Name, SheetPoint);
+                    FormulaText.AddFuturePrefixes(formulaA1, Worksheet.Name, SheetPoint, Worksheet.IsDefinedName);
                 Formula = XLCellFormula.NormalA1(fixedFunctionsFormulaA1);
             }
             else
@@ -910,7 +910,7 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         if (!string.IsNullOrWhiteSpace(trimmed))
         {
             var fixedFunctionsFormula =
-                FormulaText.AddFuturePrefixes(trimmed, Worksheet.Name, SheetPoint);
+                FormulaText.AddFuturePrefixes(trimmed, Worksheet.Name, SheetPoint, Worksheet.IsDefinedName);
             Formula = XLCellFormula.DynamicArrayA1(fixedFunctionsFormula);
         }
         else

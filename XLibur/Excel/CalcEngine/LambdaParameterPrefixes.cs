@@ -10,7 +10,8 @@ namespace XLibur.Excel.CalcEngine;
 /// Gives the parameters of <c>LET</c> and <c>LAMBDA</c> in a typed formula the prefixes Excel writes
 /// in a file: <c>_xlpm.</c> before each parameter and before each use of it, and <c>_xlop.</c> for an
 /// optional parameter, which is typed <c>[y]</c>. Excel refuses to open a workbook whose parameters
-/// have none.
+/// have none. One of Excel's functions written by its name as a value, <c>BYROW(D1:E2,SUM)</c>, gets
+/// <c>_xleta.</c>, without which Excel reads the name as a defined name.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,20 +42,44 @@ internal static class LambdaParameterPrefixes
     /// <paramref name="formula"/>, A1 text without a leading <c>=</c>, with its parameters prefixed;
     /// or the text unchanged when it has no parameter to prefix, or the parser refuses it.
     /// </summary>
-    internal static string Add(string formula)
+    /// <param name="formula">The formula.</param>
+    /// <param name="isDefinedName">
+    /// Whether a name is a defined name. A defined name with the spelling of one of Excel's functions,
+    /// such as <c>Rate</c>, is that name, as Excel writes it. Null for no defined names.
+    /// </param>
+    internal static string Add(string formula, Func<string, bool>? isDefinedName = null)
     {
-        // A string check first: a formula with neither function name has no parameter.
-        if (formula.IndexOf("LET", StringComparison.OrdinalIgnoreCase) < 0 &&
-            formula.IndexOf("LAMBDA", StringComparison.OrdinalIgnoreCase) < 0)
+        // A string check first: a formula with none of these function names has no parameter, and a
+        // function passed by its name is passed to one of them. One elsewhere, =SUM, is left as typed.
+        if (!FunctionsWithParameters.Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase)))
             return formula;
 
         var walk = new Walk(formula);
-        if (!FormulaText.TryWalk(formula, walk, ScopeFactory.Instance, FormulaNotation.A1, out _, out _) ||
-            walk.Edits.Count == 0)
+        if (!FormulaText.TryWalk(formula, walk, ScopeFactory.Instance, FormulaNotation.A1, out var root, out _))
             return formula;
 
-        return walk.Apply();
+        // A name no parameter binds that is one of Excel's functions is that function as a value, which
+        // Excel writes in its own spelling: _xleta.RATE for a typed Rate that names nothing.
+        foreach (var use in root.Free)
+        {
+            if (!use.IsCall && !use.IsPrefixed && IsFunctionName(use.Name) && isDefinedName?.Invoke(use.Name) != true)
+                walk.Replace(use.Start, use.Name.Length, FormulaText.EtaPrefix + use.Name.ToUpperInvariant());
+        }
+
+        return walk.Edits.Count == 0 ? formula : walk.Apply();
     }
+
+    /// <summary>The functions that bind parameters, and those that take a function, by name or a <c>LAMBDA</c>.</summary>
+    private static readonly string[] FunctionsWithParameters = ["LET", "LAMBDA", "MAP", "REDUCE", "SCAN", "BYROW", "BYCOL", "MAKEARRAY"];
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is one of Excel's functions that can be a value. <c>LET</c> and
+    /// <c>LAMBDA</c> cannot, and Excel writes them bare where a function goes.
+    /// </summary>
+    private static bool IsFunctionName(string name) =>
+        ExcelFunctionNames.IsBuiltIn(name) &&
+        !name.Equals("LET", StringComparison.OrdinalIgnoreCase) &&
+        !name.Equals("LAMBDA", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The formula being walked, and the edits that prefix its parameters.</summary>
     private sealed class Walk(string formula)
@@ -81,8 +106,11 @@ internal static class LambdaParameterPrefixes
         }
     }
 
-    /// <summary>A name the walk met that no parameter list has bound yet, at <c>Start</c> in the formula.</summary>
-    private readonly record struct Use(int Start, string Name, bool IsPrefixed);
+    /// <summary>
+    /// A name the walk met that no parameter list has bound yet, at <c>Start</c> in the formula, written
+    /// as a value or, <paramref name="IsCall"/>, called as a function.
+    /// </summary>
+    private readonly record struct Use(int Start, string Name, bool IsPrefixed, bool IsCall = false);
 
     /// <summary>
     /// A node that could stand in a parameter list: a name, or <c>[y]</c>, an optional parameter
@@ -246,7 +274,7 @@ internal static class LambdaParameterPrefixes
 
             var isPrefixed = functionName.StartsWith(ParameterPrefix, StringComparison.OrdinalIgnoreCase);
             var bare = isPrefixed ? functionName[ParameterPrefix.Length..] : functionName;
-            return new Part([new Use(start, bare, isPrefixed), .. merged.Free], null);
+            return new Part([new Use(start, bare, isPrefixed, IsCall: true), .. merged.Free], null);
         }
 
         /// <summary>

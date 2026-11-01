@@ -135,6 +135,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     internal XLDefinedNames DefinedNames { get; }
 
+    /// <summary>Whether a formula on this sheet reads <paramref name="name"/> as a defined name: the sheet's, or the workbook's.</summary>
+    internal bool IsDefinedName(string name) => DefinedNames.Contains(name) || Workbook.DefinedNamesInternal.Contains(name);
+
     public override XLRangeType RangeType => XLRangeType.Worksheet;
 
     /// <summary>

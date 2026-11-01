@@ -104,8 +104,30 @@ ws.Cell("I3").FormulaA1 = "=Factorial(5)";                              // 120
 A function keeps the names bound where it is written, and a function left as the result of a
 cell is `#CALC!`, as in Excel. A function can call itself up to 1,024 calls deep; deeper is
 `#NUM!`. `IF` evaluates only the branch its condition picks, so a function that calls itself
-stops at its base case. The functions that take a `LAMBDA`, such as `MAP` and `REDUCE`, are not
-evaluated yet.
+stops at its base case.
+
+A parameter typed in brackets is optional, and `ISOMITTED` tells whether a call left it out:
+
+```csharp
+ws.Cell("I4").FormulaA1 = "=LAMBDA(x, [y], IF(ISOMITTED(y), x, x + y))(1)";  // 1
+```
+
+### Functions that take a LAMBDA
+
+`MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` and `MAKEARRAY` call a function for each element, row
+or column of an array. The function can be a `LAMBDA`, or one of Excel's functions passed by its
+name:
+
+```csharp
+ws.Cell("J1").SetDynamicFormulaA1("=MAP(A1:A3, LAMBDA(v, v * 2))");              // spills 2, 4, 6
+ws.Cell("K1").FormulaA1 = "=REDUCE(0, A1:A3, LAMBDA(total, v, total + v))";      // 6
+ws.Cell("L1").SetDynamicFormulaA1("=BYROW(D1:E2, SUM)");                          // a total per row
+ws.Cell("M1").SetDynamicFormulaA1("=MAKEARRAY(2, 3, LAMBDA(r, c, r * 10 + c))"); // 11 12 13; 21 22 23
+```
+
+An element of a range is passed as a reference to its cell, as Excel passes it. A result for one
+element that is itself many values makes the whole result `#CALC!`. XLibur writes a function
+passed by its name as Excel does, `_xleta.SUM`, so `FormulaA1` reads it back so.
 
 ### Dates
 
@@ -209,7 +231,8 @@ dots replaced by hyphens (`CEILING.MATH` → `ceiling-math-function`).
 
 ### Logical
 
-`AND` · `FALSE` · `IF` · `IFERROR` · `IFS` · `LAMBDA` · `LET` · `NOT` · `OR` · `SWITCH` · `TRUE`
+`AND` · `BYCOL` · `BYROW` · `FALSE` · `IF` · `IFERROR` · `IFS` · `ISOMITTED` · `LAMBDA` · `LET` ·
+`MAKEARRAY` · `MAP` · `NOT` · `OR` · `REDUCE` · `SCAN` · `SWITCH` · `TRUE`
 
 ### Lookup and reference
 

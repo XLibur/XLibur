@@ -100,6 +100,10 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         if (node.Prefix is null && string.Equals(node.Name, "LAMBDA", StringComparison.OrdinalIgnoreCase))
             return DefineLambda(context, node.Parameters);
 
+        // ISOMITTED asks about the binding of its argument, not its value.
+        if (node.Prefix is null && string.Equals(node.Name, "ISOMITTED", StringComparison.OrdinalIgnoreCase))
+            return EvaluateIsOmitted(context, node.Parameters);
+
         if (!_functions.TryGetFunc(node.Name, out var fn))
             return CallName(context, node);
 
@@ -149,7 +153,17 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         if (node.Prefix is null && context.LetScope is { } scope && scope.TryGetValue(node.Name, out var bound))
             return bound;
 
-        return node.GetValue(context);
+        if (node.Prefix is null && FormulaText.TryStripEtaPrefix(node.Name, out var functionName))
+            return FunctionValue(functionName);
+
+        // One of Excel's functions written by its name as a value, BYROW(D1:E2,SUM), unless a defined
+        // name has its spelling. A file writes it _xleta.SUM.
+        var value = node.GetValue(context);
+        if (node.Prefix is null && value.TryPickError(out var error) && error == XLError.NameNotRecognized &&
+            _functions.TryGetFunc(node.Name, out _) && NamesNothing(context, node))
+            return FunctionValue(node.Name);
+
+        return value;
     }
 
     public AnyValue Visit(CalcContext context, NotSupportedNode node)
@@ -223,6 +237,29 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             context.LetScope = outer;
         }
     }
+
+    /// <summary>
+    /// Whether <paramref name="node"/> names no defined name where the formula is: a name whose value is
+    /// <c>#NAME?</c> is still that name.
+    /// </summary>
+    private static bool NamesNothing(CalcContext context, NameNode node)
+    {
+        if (!context.HasWorkbook)
+            return true;
+
+        return context.HasWorksheet
+            ? !node.TryGetNameRange(context.Worksheet, out _)
+            : !context.Workbook.DefinedNamesInternal.TryGetValue(node.Name, out _);
+    }
+
+    /// <summary>
+    /// One of Excel's functions as a value, <c>MAP(A1:A3,ABS)</c>, or <c>#NAME?</c> for a function
+    /// XLibur does not have.
+    /// </summary>
+    private AnyValue FunctionValue(string name) =>
+        _functions.TryGetFunc(name, out var function)
+            ? AnyValue.From(new LambdaFunction(function!))
+            : XLError.NameNotRecognized;
 
     /// <summary>
     /// A call of a name that is no function: a <c>LET</c> name or a parameter bound to a <c>LAMBDA</c>,
@@ -313,8 +350,8 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     /// </summary>
     /// <remarks>
     /// Excel refuses a <c>LAMBDA</c> without a body, with something other than a name where a parameter
-    /// goes, or with a parameter named twice, as it is typed. A file from another producer can still
-    /// hold one, and it is <c>#VALUE!</c>.
+    /// goes, with a parameter named twice, or with a required parameter after an optional one, as it is
+    /// typed. A file from another producer can still hold one, and it is <c>#VALUE!</c>.
     /// </remarks>
     private static AnyValue DefineLambda(CalcContext context, IReadOnlyList<ValueNode> parameters)
     {
@@ -322,21 +359,52 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             return XLError.IncompatibleValue;
 
         var names = new string[parameters.Count - 1];
+        var required = 0;
         for (var i = 0; i < names.Length; ++i)
         {
-            if (parameters[i] is not NameNode { Prefix: null } parameter)
+            if (ParameterName(parameters[i]) is not { } name)
+                return XLError.IncompatibleValue;
+
+            // The required parameters come first: Excel refuses one after an optional one as it is typed.
+            var isOptional = LetScope<AnyValue>.IsOptionalParameter(name) || parameters[i] is StructuredReferenceNode;
+            if (!isOptional && required++ != i)
                 return XLError.IncompatibleValue;
 
             for (var j = 0; j < i; ++j)
             {
-                if (LetScope<AnyValue>.IsSameName(names[j], parameter.Name))
+                if (LetScope<AnyValue>.IsSameName(names[j], name))
                     return XLError.IncompatibleValue;
             }
 
-            names[i] = parameter.Name;
+            names[i] = name;
         }
 
-        return AnyValue.From(new LambdaFunction(names, parameters[^1], context.LetScope));
+        return AnyValue.From(new LambdaFunction(names, required, parameters[^1], context.LetScope));
+    }
+
+    /// <summary>
+    /// The name a parameter declares: a name, which a file writes <c>_xlpm.x</c>, or <c>_xlop.y</c> for
+    /// an optional one; or <c>[y]</c>, an optional parameter as it is typed, which the parser reads as
+    /// a structured reference with no table. Null for anything else.
+    /// </summary>
+    private static string? ParameterName(ValueNode node) => node switch
+    {
+        NameNode { Prefix: null } name => name.Name,
+        StructuredReferenceNode { Prefix: null, Table: null, Area: StructuredReferenceArea.None } column
+            when column.FirstColumn is not null && column.FirstColumn == column.LastColumn => column.FirstColumn,
+        _ => null
+    };
+
+    /// <summary>
+    /// <c>ISOMITTED(name)</c>: whether the name is a parameter whose argument the call left out. Any
+    /// other argument, such as a cell, is not omitted.
+    /// </summary>
+    private static AnyValue EvaluateIsOmitted(CalcContext context, IReadOnlyList<ValueNode> parameters)
+    {
+        if (parameters.Count != 1)
+            return XLError.IncompatibleValue;
+
+        return parameters[0] is NameNode { Prefix: null } name && context.LetScope is { } scope && scope.IsOmitted(name.Name);
     }
 
     /// <summary>
@@ -359,28 +427,45 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     /// Calls the value of <paramref name="target"/> with <paramref name="arguments"/>. An error is the
     /// result, and any value other than a function is <c>#VALUE!</c>.
     /// </summary>
+    /// <remarks>
+    /// Each argument is evaluated where the call is, before the function, and an error is the value of
+    /// its parameter, so <c>LAMBDA(x,5)(1/0)</c> is 5, as in Excel. An argument left empty, <c>(1,)</c>,
+    /// is omitted.
+    /// </remarks>
     private AnyValue Call(CalcContext context, AnyValue target, IReadOnlyList<ValueNode> arguments)
     {
-        if (target.TryPickLambda(out var lambda))
-            return Invoke(context, lambda, arguments);
+        if (!target.TryPickLambda(out var lambda))
+            return target.TryPickError(out var error) ? error : XLError.IncompatibleValue;
 
-        return target.TryPickError(out var error) ? error : XLError.IncompatibleValue;
+        var values = new AnyValue?[arguments.Count];
+        for (var i = 0; i < values.Length; ++i)
+        {
+            values[i] = arguments[i] is ScalarNode { Value.IsBlank: true }
+                ? (AnyValue?)null
+                : arguments[i].Accept(context, this);
+        }
+
+        return Invoke(context, lambda, values);
     }
 
     /// <summary>
-    /// Evaluates the body of <paramref name="lambda"/> with each parameter bound to its argument, in
-    /// the scope the lambda was written in, not the one it is called from.
+    /// Calls <paramref name="lambda"/> with <paramref name="arguments"/>, in which null is an argument
+    /// left out. <c>MAP</c> and the other functions that take a <c>LAMBDA</c> call it through this.
     /// </summary>
     /// <remarks>
-    /// Each argument is evaluated where the call is, before the body, and bound as a <c>LET</c> binds a
-    /// value: a range stays a reference, a computed array is memoized, and an error is the value of its
-    /// parameter, so <c>LAMBDA(x,5)(1/0)</c> is 5, as in Excel. A call with more or fewer arguments
-    /// than parameters is <c>#VALUE!</c>. An argument left empty, <c>(1,)</c>, is blank.
+    /// The body is evaluated with each parameter bound to its argument, in the scope the lambda was
+    /// written in, not the one it is called from, as a <c>LET</c> binds a value: a range stays a
+    /// reference, and a computed array is memoized. An optional parameter whose argument the call left
+    /// out, or any parameter whose argument is empty, is blank, and <c>ISOMITTED</c> tells it. A call
+    /// with more arguments than parameters, or fewer than the required ones, is <c>#VALUE!</c>.
     /// </remarks>
     /// <exception cref="LambdaDepthException">The call is too deep.</exception>
-    private AnyValue Invoke(CalcContext context, LambdaFunction lambda, IReadOnlyList<ValueNode> arguments)
+    internal AnyValue Invoke(CalcContext context, LambdaFunction lambda, AnyValue?[] arguments)
     {
-        if (arguments.Count != lambda.Parameters.Count)
+        if (lambda.Function is { } function)
+            return InvokeFunction(context, function, arguments);
+
+        if (arguments.Length > lambda.Parameters.Count || arguments.Length < lambda.RequiredParameterCount)
             return XLError.IncompatibleValue;
 
         if (context.LambdaDepth >= MaxLambdaDepth)
@@ -394,13 +479,14 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
                 static s => s.Visitor.Invoke(s.Context, s.Lambda, s.Arguments));
 
         var scope = lambda.Scope;
-        for (var i = 0; i < arguments.Count; ++i)
+        for (var i = 0; i < lambda.Parameters.Count; ++i)
         {
-            var value = arguments[i].Accept(context, this);
+            var argument = i < arguments.Length ? arguments[i] : null;
+            var value = argument ?? AnyValue.Blank;
             if (value.TryPickArray(out var array))
                 value = MemoizedArray.Of(array!);
 
-            scope = new LetScope<AnyValue>(lambda.Parameters[i], value, scope);
+            scope = new LetScope<AnyValue>(lambda.Parameters[i], value, scope, isOmitted: argument is null);
         }
 
         var callerScope = context.LetScope;
@@ -408,12 +494,40 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         context.LambdaDepth++;
         try
         {
-            return lambda.Body.Accept(context, this);
+            return lambda.Body!.Accept(context, this);
         }
         finally
         {
             context.LambdaDepth--;
             context.LetScope = callerScope;
+        }
+    }
+
+    /// <summary>
+    /// Calls one of Excel's functions passed by its name, <c>MAP(A1:A3,ABS)</c>, with values. The wrong
+    /// number of arguments is <c>#VALUE!</c>, as Excel gives <c>MAP(A1:A3,IF)</c>.
+    /// </summary>
+    private static AnyValue InvokeFunction(CalcContext context, FunctionDefinition function, AnyValue?[] arguments)
+    {
+        if (arguments.Length < function.MinParams || (function.MaxParams >= 0 && arguments.Length > function.MaxParams))
+            return XLError.IncompatibleValue;
+
+        var values = new AnyValue[arguments.Length];
+        for (var i = 0; i < values.Length; ++i)
+            values[i] = arguments[i] ?? AnyValue.Blank;
+
+        var outerIntersectOperands = context.IntersectOperands;
+        try
+        {
+            // As a call by the function's name: in an array formula it takes an array element by element.
+            context.IntersectOperands = false;
+            return context.IsArrayCalculation
+                ? function.CallAsArray(context, values)
+                : function.CallFunction(context, values);
+        }
+        finally
+        {
+            context.IntersectOperands = outerIntersectOperands;
         }
     }
 

@@ -16,7 +16,7 @@ internal static class Lookup
         //ce.RegisterFunction("ADDRESS", , Address); // Returns a reference as text to a single cell in a worksheet
         //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
         //ce.RegisterFunction("CHOOSE", , Choose); // Chooses a value from a list of values
-        ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range, AllowRange.All); // Returns the column number of a reference
+        ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the column number of a reference
         ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range, AllowRange.All); // Returns the number of columns in a reference
         //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
         //ce.RegisterFunction("GETPIVOTDATA", , Getpivotdata); // Returns data stored in a PivotTable report

@@ -110,7 +110,7 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
 
             var formula = value.TrimFormulaEqual();
             var fixedFunctionsFormula =
-                FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetRange.FirstPoint);
+                FormulaText.AddFuturePrefixes(formula, Worksheet.Name, SheetRange.FirstPoint, Worksheet.IsDefinedName);
             var arrayFormula = XLCellFormula.Array(fixedFunctionsFormula, range, false);
 
             var formulaSlice = Worksheet.Internals.CellsCollection.FormulaSlice;

@@ -663,4 +663,19 @@ public class InformationTests
         ws.Cell("C1").FormulaA1 = "TYPE((A1,A1))";
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(16.0);
     }
+    /// <summary>
+    /// A dynamic-array formula reads each argument of a function as values, unless the function takes
+    /// the reference itself, as ISREF and COLUMN do: Excel gives TRUE and 2 here, as in a legacy formula.
+    /// </summary>
+    [Test]
+    [Arguments("ISREF(A1)", true)]
+    [Arguments("COLUMN(B1)", 2.0)]
+    public async Task A_function_that_takes_a_reference_sees_it_in_a_dynamic_formula(string formula, object expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C1").SetDynamicFormulaA1(formula);
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(expected is bool b ? b : (XLCellValue)(double)expected);
+    }
 }

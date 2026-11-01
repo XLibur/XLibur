@@ -136,6 +136,12 @@ internal static class FormulaText
     /// </summary>
     private const string WorksheetFuturePrefix = "_xlws.";
 
+    /// <summary>
+    /// The prefix of one of Excel's functions written by its name as a value (an "eta-reduced" lambda),
+    /// as Excel 365 writes <c>BYROW(D1:E2,SUM)</c>: <c>BYROW(D1:E2,_xleta.SUM)</c>.
+    /// </summary>
+    internal const string EtaPrefix = "_xleta.";
+
     private static readonly Lazy<PrefixTree> FutureFunctionSet =
         new(() => PrefixTree.Build(XLConstants.FutureFunctionMap.Value.Keys));
 
@@ -312,7 +318,15 @@ internal static class FormulaText
     /// bar shows, <c>'[file.xlsx]Sheet'!A1</c>, where a file stores <c>[1]Sheet!A1</c>. Only a refusal
     /// is answered with the unchanged text. A defect in the remap reaches the caller.
     /// </remarks>
-    internal static string AddFuturePrefixes(string typed, string sheetName, Point origin)
+    /// <param name="typed">The formula as it is typed.</param>
+    /// <param name="sheetName">The sheet the formula is on.</param>
+    /// <param name="origin">The cell the formula is in, which relative references are relative to.</param>
+    /// <param name="isDefinedName">
+    /// Whether a name is a defined name, which a function's name passed as a value is not
+    /// (<see cref="LambdaParameterPrefixes"/>). Null for no defined names.
+    /// </param>
+    internal static string AddFuturePrefixes(string typed, string sheetName, Point origin,
+        Func<string, bool>? isDefinedName = null)
     {
         // A string check first. It is far cheaper than a parse, and most formulas have no future
         // function.
@@ -324,7 +338,7 @@ internal static class FormulaText
             : typed;
 
         // LET and LAMBDA are future functions, and their parameters need prefixes of their own.
-        return LambdaParameterPrefixes.Add(prefixed);
+        return LambdaParameterPrefixes.Add(prefixed, isDefinedName);
     }
 
     /// <summary>
@@ -346,6 +360,23 @@ internal static class FormulaText
         if (bare.StartsWith(WorksheetFuturePrefix, StringComparison.OrdinalIgnoreCase))
             bare = bare[WorksheetFuturePrefix.Length..];
 
+        return true;
+    }
+
+    /// <summary>
+    /// Takes off the prefix a file writes before one of Excel's functions written by its name as a
+    /// value, <c>_xleta.SUM</c> in <c>BYROW(D1:E2,_xleta.SUM)</c>, in any case.
+    /// </summary>
+    /// <returns><c>true</c> when <paramref name="name"/> had the prefix.</returns>
+    internal static bool TryStripEtaPrefix(string name, out string bare)
+    {
+        if (!name.StartsWith(EtaPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            bare = name;
+            return false;
+        }
+
+        bare = name[EtaPrefix.Length..];
         return true;
     }
 
