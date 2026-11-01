@@ -130,6 +130,25 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         return node.GetValue(context);
     }
 
+    public AnyValue Visit(CalcContext context, NotSupportedNode node)
+        => throw new UnsupportedFeatureException($"Evaluation of {node.FeatureName} is not implemented.");
+
+    public AnyValue Visit(CalcContext context, StructuredReferenceNode node)
+    {
+        if (!StructuredReferenceResolver.TryResolve(context, node, out var worksheet, out var range, out var error))
+            return error;
+
+        // The table's own sheet, not the formula's — a table name is workbook scoped and can be
+        // referenced from anywhere in the workbook.
+        return new Reference(XLRangeAddress.FromSheetRange(worksheet, range));
+    }
+
+    public AnyValue Visit(CalcContext context, PrefixNode node)
+        => throw new InvalidOperationException("Node should never be visited.");
+
+    public AnyValue Visit(CalcContext context, FileNode node)
+        => throw new InvalidOperationException("Node should never be visited.");
+
     /// <summary>
     /// <c>LET(name1, value1, name2, value2, …, body)</c>: evaluates each value in turn, in a scope
     /// that holds the names bound before it, then the body in a scope that holds them all.
@@ -173,25 +192,6 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
             context.LetScope = outer;
         }
     }
-
-    public AnyValue Visit(CalcContext context, NotSupportedNode node)
-        => throw new UnsupportedFeatureException($"Evaluation of {node.FeatureName} is not implemented.");
-
-    public AnyValue Visit(CalcContext context, StructuredReferenceNode node)
-    {
-        if (!StructuredReferenceResolver.TryResolve(context, node, out var worksheet, out var range, out var error))
-            return error;
-
-        // The table's own sheet, not the formula's — a table name is workbook scoped and can be
-        // referenced from anywhere in the workbook.
-        return new Reference(XLRangeAddress.FromSheetRange(worksheet, range));
-    }
-
-    public AnyValue Visit(CalcContext context, PrefixNode node)
-        => throw new InvalidOperationException("Node should never be visited.");
-
-    public AnyValue Visit(CalcContext context, FileNode node)
-        => throw new InvalidOperationException("Node should never be visited.");
 
     /// <summary>
     /// Evaluates the <c>@</c> implicit intersection operator (e.g. <c>@A1:A10</c>): a range gives the
