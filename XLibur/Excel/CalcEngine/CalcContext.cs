@@ -335,6 +335,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </summary>
     private ScalarValue GetFormulaLessCellValue(XLWorksheet sheet, ValueSlice valueSlice, Point point)
     {
+        CalcEngine.EnsureSpillOwners();
         if (!CalcEngine.HasSpillOwners ||
             !CalcEngine.TryGetDirtySpillOwner(sheet.SheetId, point, out var spillAnchor))
             return valueSlice.GetCellValue(point);

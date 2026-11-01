@@ -85,20 +85,22 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// Whether any dynamic-array formula currently has a spill footprint. Used to keep the
     /// spill-owner lookup out of the hot cell-read path for the common no-dynamic-array case.
     /// </summary>
-    internal bool HasSpillOwners
-    {
-        get
-        {
-            if (_spillOwnersStale && Workbook is not null)
-                RebuildSpillOwners(Workbook);
+    internal bool HasSpillOwners => _spillOwners.Count > 0;
 
-            return _spillOwners.Count > 0;
-        }
+    /// <summary>
+    /// Builds <see cref="_spillOwners"/> again if a purge or a load dropped it (see
+    /// <see cref="_spillOwnersStale"/>). It walks every formula, once, so a caller asks for it where it
+    /// is about to consult the footprints, not on a path that does not need them.
+    /// </summary>
+    internal void EnsureSpillOwners()
+    {
+        if (_spillOwnersStale && Workbook is not null)
+            RebuildSpillOwners(Workbook);
     }
 
     /// <summary>
-    /// Set when <see cref="Purge"/> dropped <see cref="_spillOwners"/>, with the formulas dirty and no
-    /// tree to rebuild them from. A read that calculates on demand never builds the tree, so it asks
+    /// Set when <see cref="Purge"/> or <see cref="EndLoad"/> dropped <see cref="_spillOwners"/>, with
+    /// no tree to rebuild them from. A read that calculates on demand never builds the tree, so it asks
     /// for the footprints again when it first needs them, or it would read a stale spilled cell.
     /// </summary>
     private bool _spillOwnersStale;
@@ -191,6 +193,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         _dependencyTree = null;
         _chain = null;
         _spillOwners.Clear();
+        _spillOwnersStale = true;
         _needsDependencyTree = AnyFormulaClean(workbook);
     }
 
@@ -413,16 +416,22 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// recalculation reads its row of <see cref="EvaluationPolicy"/>.
     /// </para>
     /// <para>
-    /// A failure of a precedent (a cycle, an unsupported feature, a refused formula) leaves the
-    /// precedent dirty and stops every formula on the way back to the cell that was asked for, which
-    /// stays dirty and throws it. That is what the pass of a full recalculation leaves, and what the
-    /// <paramref name="entry"/>'s row of <see cref="EvaluationPolicy"/> then reports for that cell.
+    /// An expected failure of a precedent (a cycle, an unsupported feature, a refused formula) is not
+    /// handled here: it propagates to the caller as the exception it was raised as, whatever
+    /// <paramref name="entry"/> is, and a caller whose row of <see cref="EvaluationPolicy"/> tolerates
+    /// it catches it. It leaves the precedent dirty and stops every formula on the way back to the
+    /// cell that was asked for, which stays dirty. That is what the pass of a full recalculation
+    /// leaves, and what the <paramref name="entry"/>'s row then reports for that cell. Only a failure
+    /// that a full recalculation can answer (see <see cref="IsDemandFallback"/>) is not seen by the caller.
+    /// </para>
+    /// <para>
+    /// While a <see cref="RememberFailures"/> scope is open, each failing formula is calculated once.
     /// </para>
     /// </remarks>
     internal bool TryEvaluateSingleCell(XLCellFormula formula, Point point, XLWorksheet sheet,
         EvaluationEntryPoint entry = EvaluationEntryPoint.CellValue)
     {
-        var topLevel = _demandStack.Count == 0;
+        var topLevel = _demandStack is not { Count: > 0 };
 
         try
         {
@@ -442,14 +451,69 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     private const int MaxDemandDepth = 10_000;
 
-    /// <summary>The cells being calculated on demand, outermost first. Empty between reads.</summary>
-    private readonly List<(XLCellFormula Formula, SheetPoint Cell)> _demandStack = [];
+    /// <summary>
+    /// The cells being calculated on demand, outermost first. <c>null</c> until the first demand
+    /// evaluation, so an engine that never calculates a formula holds nothing.
+    /// </summary>
+    private List<(XLCellFormula Formula, SheetPoint Cell)>? _demandStack;
 
     /// <summary>
     /// The formulas on <see cref="_demandStack"/>. A formula met while it is on it reads its own value:
     /// a cycle. The formula is the key, not the point, because the cells of an array formula share one.
     /// </summary>
-    private readonly HashSet<XLCellFormula> _demandActive = new(ReferenceEqualityComparer.Instance);
+    private HashSet<XLCellFormula>? _demandActive;
+
+    /// <summary>
+    /// The failure of each formula that failed with an expected failure while a
+    /// <see cref="RememberFailures"/> scope was open, or <c>null</c>.
+    /// </summary>
+    private Dictionary<XLCellFormula, Exception>? _demandFailures;
+
+    private int _failureScopes;
+
+    /// <summary>
+    /// Opens a scope in which a formula that fails on demand with a cycle, an unsupported feature or
+    /// a refused formula fails again at once when it is read again, instead of being walked again.
+    /// Without it, a chain of formulas behind one failing formula costs each of them a walk of the
+    /// whole chain behind it, which is quadratic. The caller must not edit the workbook in the scope:
+    /// a save does not.
+    /// </summary>
+    internal FailureMemo RememberFailures()
+    {
+        _failureScopes++;
+        return new FailureMemo(this);
+    }
+
+    internal readonly struct FailureMemo : IDisposable
+    {
+        private readonly XLCalcEngine _engine;
+
+        internal FailureMemo(XLCalcEngine engine) => _engine = engine;
+
+        public void Dispose()
+        {
+            if (--_engine._failureScopes == 0)
+                _engine._demandFailures = null;
+        }
+    }
+
+    /// <summary>
+    /// Records <paramref name="exception"/> against <paramref name="formula"/> if a scope is open and
+    /// the failure is an expected one. It is the filter of a catch that does not catch: it always
+    /// answers <c>false</c>, so the exception goes on with its stack as it was raised.
+    /// </summary>
+    private bool RememberFailure(XLCellFormula formula, Exception exception)
+    {
+        if (_failureScopes > 0
+            && EvaluationFailure.Classify(exception) is EvaluationFailureKind.Cycle
+                or EvaluationFailureKind.Unsupported or EvaluationFailureKind.Refused)
+        {
+            (_demandFailures ??= new Dictionary<XLCellFormula, Exception>(ReferenceEqualityComparer.Instance))
+                [formula] = exception;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// How many formulas demand evaluation has calculated. Read by tests that check a read calculates
@@ -471,11 +535,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
     /// <summary>
     /// Whether a failure of demand evaluation is one that a full recalculation can still answer: the
-    /// formulas are nested too deep to calculate one inside another, a formula needs the chain
-    /// (a data table), or something raised the chain's signal for a dirty precedent.
+    /// formulas are nested too deep to calculate one inside another, or a formula needs the chain
+    /// (a data table). A <see cref="GettingDataException"/> is not one: demand evaluation never
+    /// raises the chain's signal, so one that reaches here is not caught, and fails loudly.
     /// </summary>
     private static bool IsDemandFallback(Exception exception)
-        => exception is DemandFallbackException or GettingDataException or InsufficientExecutionStackException;
+        => exception is DemandFallbackException or InsufficientExecutionStackException;
 
     /// <summary>
     /// Raised inside demand evaluation to give it up for a full recalculation. It never leaves
@@ -497,7 +562,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     private SheetPoint FirstCellOfCycle(XLCellFormula metAgain)
     {
-        var start = _demandStack.FindIndex(entry => ReferenceEquals(entry.Formula, metAgain));
+        var start = _demandStack!.FindIndex(entry => ReferenceEquals(entry.Formula, metAgain));
         var first = _demandStack[start].Cell;
         for (var i = start + 1; i < _demandStack.Count; i++)
         {
@@ -518,6 +583,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         // A data table needs the chain.
         if (formula.Type == FormulaType.DataTable)
             throw new DemandFallbackException();
+
+        if (_demandFailures is not null && _demandFailures.TryGetValue(formula, out var failure))
+            throw failure;
+
+        _demandStack ??= [];
+        _demandActive ??= new HashSet<XLCellFormula>(ReferenceEqualityComparer.Instance);
 
         var cell = new SheetPoint(sheet.SheetId, point);
         if (!_demandActive.Add(formula))
@@ -544,6 +615,10 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
                 // A clean formula keeps its value until an edit reaches it, and only the tree knows
                 // which formulas an edit reaches (see _needsDependencyTree).
                 _needsDependencyTree = true;
+            }
+            catch (Exception ex) when (RememberFailure(formula, ex))
+            {
+                throw; // Never reached: the filter answers false.
             }
             finally
             {

@@ -450,11 +450,17 @@ internal static class SheetDataWriter
     /// else is a defect, and the save throws: swallowing it would write a bug in XLibur to the file
     /// exactly as it writes a formula XLibur cannot evaluate.
     /// <para>
-    /// A single-cell attempt that has to fall back runs a full recalculation of the workbook, and
-    /// returns <c>false</c> only after it has. That pass either calculates each formula or leaves it
-    /// dirty, and nothing edits the workbook during a save, so once it has run, no later formula of
-    /// this save needs another one. Without that, a cycle with thousands of dependents cost a full
-    /// pass, and before this a second one, for each of them.
+    /// The attempt calculates the precedents the formula reads on demand (spec 04, #841), so it costs
+    /// the formulas the cell depends on and no pass over the workbook. A formula that fails with an
+    /// expected failure fails once for the whole save, however many formulas read it: the save runs
+    /// in a <see cref="XLCalcEngine.RememberFailures"/> scope, so a chain of thousands of formulas
+    /// behind one cycle is walked once, not once for each of them.
+    /// </para>
+    /// <para>
+    /// An attempt that has to fall back (a chain deeper than the engine nests, or a data table) runs a
+    /// full recalculation of the workbook, and returns <c>false</c> only after it has. That pass
+    /// either calculates each formula or leaves it dirty, and nothing edits the workbook during a
+    /// save, so once it has run, no later formula of this save needs another one.
     /// </para>
     /// </remarks>
     private static void EvaluateFormulaForSave(XLWorksheet xlWorksheet, XLCellFormula formula, Point point,
