@@ -47,32 +47,7 @@ using (var workbook = new XLWorkbook())
 
 More in the [Getting Started guide](https://xlibur.github.io/XLibur/getting-started).
 
-## Ancestory
 
-XLibur forked [ClosedXML v0.105](https://github.com/ClosedXML/ClosedXML/). Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
-
-## Migration from ClosedXML
-
-The public API surface is largely unchanged from ClosedXML 0.105. To migrate:
-
-1. Install `XLibur.Bundle` (see [Install](#install))
-2. Replace `using ClosedXML` namespace references with `using XLibur`
-
-**One behavioural difference: font engines.** ClosedXML bundles
-[SixLabors.Fonts](https://github.com/SixLabors/Fonts) into its core assembly for text measurement
-(column auto-fit, row heights, glyph metrics). XLibur keeps the core assembly free of any font
-library and ships the font engine as a separate, swappable package, so you can pick one whose
-license suits you.
-
-With `XLibur.Bundle`, no code changes are needed — the [SkiaSharp](https://github.com/mono/SkiaSharp)
-engine (MIT) auto-registers the first time you create a workbook, and falls back to an embedded
-metric-only Calibri-compatible font so measurement works in headless environments. Installing the
-bare `XLibur` package with no font engine throws an `InvalidOperationException` on workbook creation
-telling you which package to add.
-
-To use a different engine — including SixLabors 1.x, which matches ClosedXML 0.105's behaviour
-exactly — see [docs/font-architecture.md](docs/font-architecture.md) for the available packages,
-their licenses, and the engine resolution order.
 
 ## Report templating
 
@@ -114,6 +89,34 @@ Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTIN
 | Threaded comments, read and written as conversations rather than flattened | [Comments and hyperlinks](https://xlibur.github.io/XLibur/comments-and-hyperlinks) |
 | A swappable font engine, so you pick a license that suits you | [Fonts](https://xlibur.github.io/XLibur/fonts) |
 | Report generation from `.xlsx` templates | [Report templating](https://xlibur.github.io/XLibur/report-templating) |
+
+
+## Ancestory
+
+XLibur forked [ClosedXML v0.105](https://github.com/ClosedXML/ClosedXML/). Namespaces are prefixed with `XLibur`. Surface API is *mostly* compatible, but check the docs for details.
+
+## Migration from ClosedXML
+
+The public API surface is largely unchanged from ClosedXML 0.105. To migrate:
+
+1. Install `XLibur.Bundle` (see [Install](#install))
+2. Replace `using ClosedXML` namespace references with `using XLibur`
+
+**One behavioural difference: font engines.** ClosedXML bundles
+[SixLabors.Fonts](https://github.com/SixLabors/Fonts) into its core assembly for text measurement
+(column auto-fit, row heights, glyph metrics). XLibur keeps the core assembly free of any font
+library and ships the font engine as a separate, swappable package, so you can pick one whose
+license suits you.
+
+With `XLibur.Bundle`, no code changes are needed — the [SkiaSharp](https://github.com/mono/SkiaSharp)
+engine (MIT) auto-registers the first time you create a workbook, and falls back to an embedded
+metric-only Calibri-compatible font so measurement works in headless environments. Installing the
+bare `XLibur` package with no font engine throws an `InvalidOperationException` on workbook creation
+telling you which package to add.
+
+To use a different engine — including SixLabors 1.x, which matches ClosedXML 0.105's behaviour
+exactly — see [docs/font-architecture.md](docs/font-architecture.md) for the available packages,
+their licenses, and the engine resolution order.
 
 ## License
 
