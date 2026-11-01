@@ -18,8 +18,10 @@ namespace XLibur.Excel.CalcEngine;
 /// elsewhere in the formula stays as it is: a <c>LAMBDA</c>'s parameters are seen by its body, and
 /// each <c>LET</c> name by the values after it and by the body. An inner parameter of the same name
 /// hides an outer one. A name called as a function, as a <c>LET</c>-bound lambda is in
-/// <c>LET(f,LAMBDA(x,x*2),f(3))</c>, is a use too. These are the rules Excel 365 followed for the
-/// formulas in <c>LambdaParameterPrefixTests</c>, typed over COM.
+/// <c>LET(f,LAMBDA(x,x*2),f(3))</c>, is a use too, unless it is one of Excel's functions
+/// (<see cref="ExcelFunctionNames"/>): <c>LET(SUM,LAMBDA(x,x*2),SUM(3))</c> calls <c>SUM</c>. These
+/// are the rules Excel 365 followed for the formulas in <c>LambdaParameterPrefixTests</c>, typed over
+/// COM.
 /// </para>
 /// <para>
 /// The parser's <see cref="FormulaModifier"/> rewrites functions, sheets and references but not
@@ -228,12 +230,20 @@ internal static class LambdaParameterPrefixes
 
         public Part Nested(Walk context, SymbolRange range, Part node) => node;
 
-        /// <summary>A call of a function by name, whose name is unbound like any other name.</summary>
+        /// <summary>
+        /// A call of a function by name. The name is a use of a parameter, a lambda called by the name
+        /// a LET gave it, unless it is one of Excel's functions: a call by such a name calls the
+        /// function even where a parameter has the name.
+        /// </summary>
         private static Part Called(int start, string functionName, IReadOnlyList<Part> arguments)
         {
+            var merged = Part.Merge(arguments);
+            FormulaText.TryStripFuturePrefix(functionName, out var unprefixed);
+            if (ExcelFunctionNames.IsBuiltIn(unprefixed.ToString()))
+                return merged;
+
             var isPrefixed = functionName.StartsWith(ParameterPrefix, StringComparison.OrdinalIgnoreCase);
             var bare = isPrefixed ? functionName[ParameterPrefix.Length..] : functionName;
-            var merged = Part.Merge(arguments);
             return new Part([new Use(start, bare, isPrefixed), .. merged.Free], null);
         }
 

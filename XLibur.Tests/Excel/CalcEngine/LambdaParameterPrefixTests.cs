@@ -33,6 +33,22 @@ public class LambdaParameterPrefixTests
         await Assert.That(Typed(typed)).IsEqualTo(excel);
     }
 
+    /// <summary>
+    /// A call by the name of one of Excel's functions calls that function, even where a LET or
+    /// LAMBDA binds the name: Excel 365 calculates <c>LET(SORT,LAMBDA(x,x*2),SORT(3))</c> as 3, and
+    /// writes the call as <c>_xlfn._xlws.SORT(3)</c>. The name as a value is the parameter.
+    /// </summary>
+    [Test]
+    [Arguments("LET(SORT,LAMBDA(x,x*2),SORT(3))", "_xlfn.LET(_xlpm.SORT,_xlfn.LAMBDA(_xlpm.x,_xlpm.x*2),_xlfn._xlws.SORT(3))")]
+    [Arguments("LET(SUM,LAMBDA(x,x*2),SUM(3))", "_xlfn.LET(_xlpm.SUM,_xlfn.LAMBDA(_xlpm.x,_xlpm.x*2),SUM(3))")]
+    [Arguments("LET(CONCAT,5,CONCAT+1)", "_xlfn.LET(_xlpm.CONCAT,5,_xlpm.CONCAT+1)")]
+    [Arguments("LET(sum,4,sum+1)", "_xlfn.LET(_xlpm.sum,4,_xlpm.sum+1)")]
+    [Arguments("LAMBDA(SORT,SORT+1)(2)", "_xlfn.LAMBDA(_xlpm.SORT,_xlpm.SORT+1)(2)")]
+    public async Task A_call_by_a_function_name_calls_the_function_and_not_the_parameter(string typed, string excel)
+    {
+        await Assert.That(Typed(typed)).IsEqualTo(excel);
+    }
+
     [Test]
     [Arguments("_xlfn.LET(_xlpm.x,1,_xlpm.x+1)")]
     [Arguments("_xlfn.LAMBDA(_xlpm.x,_xlop.y,IF(_xlfn.ISOMITTED(_xlpm.y),_xlpm.x,_xlpm.x+_xlpm.y))(1)")]
