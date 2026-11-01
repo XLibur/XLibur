@@ -625,5 +625,6 @@ a connector, and an empty text box.
 8. A created text box and a created rectangle equal the fixture's `xdr:sp` once id, name, `a:xfrm` and
    `lang` are taken out (`ShapeCreationTests`). ✅
 
-**Not done.** Sepia (spec 17) is still not compared against an Excel-written file: Excel's object
-model cannot apply the preset, so it needs a file styled by hand in Excel.
+**Spec 17's sepia gap is closed too.** A picture the owner recoloured sepia by hand in Excel 365 is
+the fixture `Other/Pictures/ExcelSepiaPicture.xlsx`; Excel wrote the duotone the writer writes,
+element for element (`PictureStylingRoundTripTests`).
