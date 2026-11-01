@@ -298,7 +298,8 @@ shadow, crop, brightness/contrast, grayscale, black & white, washout, fill, and 
 - **Placement change keeps unmodelled content** (criterion 5). The content of an anchor is the same
   in all three forms, so a change of placement moves the `xdr:pic` and `xdr:clientData` into the new
   anchor rather than regenerating them. Nothing is lost; the test pins that the styled `xdr:pic` is
-  unchanged.
+  unchanged. Agreed by the owner on 2026-11-01, so criterion 5 now reads: a placement change
+  moves the drawing into the new anchor intact.
 - **The docs are a section of `docs-website/docs/images.md`**, not a page of their own.
 - **Copies** start from the loaded `xdr:pic` (kept as its XML at load), with every relationship
   reference other than the image dropped, so a copy keeps unmodelled effects.
