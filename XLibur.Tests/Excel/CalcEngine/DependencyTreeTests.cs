@@ -758,7 +758,8 @@ internal class DependencyTreeTests
     /// A function from another cell that is not a function, and a defined name that the parser refuses.
     /// The visitor does not read their arguments, and the factory has read them already.
     /// </summary>
-    private static readonly string[] FormulasThatNeedTheAst = ["A1(B1+C1)", "Bad", "Bad+1"];
+    // AddB refers to a LAMBDA, whose parameters only the visitor binds.
+    private static readonly string[] FormulasThatNeedTheAst = ["A1(B1+C1)", "Bad", "Bad+1", "AddB(A1)"];
 
     public static IEnumerable<object[]> ParityFormulas()
     {
@@ -769,7 +770,7 @@ internal class DependencyTreeTests
             "A1:Other!B2", "B3:name", "name+D2", "Loop", "Other!local", "local", "[0]!name",
             "SUM(A1:A3,B1)", "IF(A1,B1,C1)", "IF(A1,B1)", "IF(A1,B1:B3,5)", "IF(A1,B1,C1):D5",
             "CHOOSE(A1,B1,C1:C2,3)", "INDEX(A1:C3,B1,C1)", "INDEX(A1:C3,B1):D4", "INDIRECT(A1)",
-            "OFFSET(A1,1,1)", "_xlfn.XLOOKUP(A1,B1:B5,C1:C5)", "FOO(A1)", "LOG10(A1)", "A1(B1+C1)",
+            "OFFSET(A1,1,1)", "_xlfn.XLOOKUP(A1,B1:B5,C1:C5)", "FOO(A1)", "AddB(A1)", "name(A1)", "LOG10(A1)", "A1(B1+C1)",
             "{1,2;3,4}", "#N/A", "Other!#REF!", "\"text\"", "TRUE",
             "Sheet:Other!A1", "[1]Sheet1!A1", "TableName[Second]", "SUM(TableName[[#All],[Second]])",
             "1+", "'[Book2.xlsx]Sheet1'!A1", "Bad", "Bad+1", "ABS()", "ABS(1,2)",
@@ -787,6 +788,7 @@ internal class DependencyTreeTests
         AddTable(wb);
         wb.DefinedNames.Add("name", "Sheet!$B$4");
         wb.DefinedNames.Add("Loop", "Loop+1");
+        wb.DefinedNames.Add("AddB", "LAMBDA(x,x+Sheet!$B$1)");
         // Kept as a load keeps it: the public Add refuses text that the parser refuses.
         wb.DefinedNamesInternal.Add("Bad", "'[Book2.xlsx]Sheet1'!A1", null, validateName: true,
             validateRangeAddress: false);

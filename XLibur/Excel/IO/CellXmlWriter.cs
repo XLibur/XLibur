@@ -140,17 +140,16 @@ internal static class CellXmlWriter
     /// The optional cell attributes carried by the misc slice: phonetic flag and the cell and
     /// value metadata indexes. Written straight after <see cref="WriteCellStart"/>.
     /// </summary>
-    internal static void WriteCellMetaAttributes(XmlWriter w, bool hasPhonetic, uint? cellMetaIndex,
-        uint? valueMetaIndex)
+    internal static void WriteCellMetaAttributes(XmlWriter w, in CellMetaAttributes meta)
     {
-        if (hasPhonetic)
+        if (meta.HasPhonetic)
             w.WriteAttributeString("ph", TrueValue);
 
-        if (cellMetaIndex is not null)
-            w.WriteAttribute("cm", cellMetaIndex.Value);
+        if (meta.CellMetaIndex is { } cellMetaIndex)
+            w.WriteAttribute("cm", cellMetaIndex);
 
-        if (valueMetaIndex is not null)
-            w.WriteAttribute("vm", valueMetaIndex.Value);
+        if (meta.ValueMetaIndex is { } valueMetaIndex)
+            w.WriteAttribute("vm", valueMetaIndex);
     }
 
     /// <summary>
@@ -241,7 +240,7 @@ internal static class CellXmlWriter
                 WriteVerbatimValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
             case XLDataType.Error:
-                WriteVerbatimValue(w, cellValue.GetError().ToDisplayString());
+                WriteVerbatimValue(w, cellValue.GetError().ToFileString());
                 break;
             default:
                 throw new InvalidOperationException();
@@ -287,3 +286,9 @@ internal static class CellXmlWriter
         return oleDate >= FirstSerialAfterPhantomLeapDay ? oleDate : oleDate - 1;
     }
 }
+
+/// <summary>
+/// The <c>ph</c>, <c>cm</c> and <c>vm</c> attributes of a cell: whether it shows phonetic text, its cell
+/// metadata index and its value metadata index, as the save writes them.
+/// </summary>
+internal readonly record struct CellMetaAttributes(bool HasPhonetic, uint? CellMetaIndex, uint? ValueMetaIndex);

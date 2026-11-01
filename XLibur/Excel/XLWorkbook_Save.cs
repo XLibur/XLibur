@@ -276,7 +276,7 @@ public partial class XLWorkbook
         GenerateWorkbookLevelParts(document, workbookPart, options, context);
         PreparePivotCaches(workbookPart, context);
         EnsureDynamicArrayMetadata(workbookPart, context);
-        EnsureRichValueImageParts(workbookPart, context);
+        PlanRichValues(workbookPart, context);
 
         var orderedWorksheets = new List<XLWorksheet>(WorksheetsInternal.Count);
         foreach (var ws in WorksheetsInternal)
@@ -295,6 +295,9 @@ public partial class XLWorkbook
             if (worksheet.PivotTables.Any<XLPivotTable>())
                 GeneratePivotTables(workbookPart, worksheetPart, worksheet, context);
         }
+
+        // After the worksheets: the writer numbers an error as it writes the cell.
+        context.RichValues?.Write(InCellImages);
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
@@ -678,11 +681,12 @@ public partial class XLWorkbook
     }
 
     /// <summary>
-    /// If any cell in the workbook has an in-cell image (CellImage), write the
-    /// four rich data XML parts and update metadata.xml with XLRICHVALUE entries.
-    /// Sets each cell's ValueMetaIndex and SliceCellValue for the sheet writer.
+    /// Plans the rich values of the save (<see cref="RichValuePlan"/>): the in-cell images, numbered
+    /// here, and the errors newer than Excel 2007, numbered here for the cells that have an index and
+    /// as the writer meets the others. Sets each image cell's ValueMetaIndex and SliceCellValue for the
+    /// sheet writer. The parts are written once the sheets are (<see cref="RichValuePlan.Write"/>).
     /// </summary>
-    private void EnsureRichValueImageParts(WorkbookPart workbookPart, SaveContext context)
+    private void PlanRichValues(WorkbookPart workbookPart, SaveContext context)
     {
         // Collect all cells with CellImage across all worksheets
         var cellsWithImages = new List<(XLCell Cell, XLCellImage Image)>();
@@ -696,38 +700,22 @@ public partial class XLWorkbook
             }
         }
 
-        if (cellsWithImages.Count == 0)
-            return;
-
         // SetCellImage refuses first; this catches an image that came in another way, e.g. a copy.
-        ThrowIfCellImagesCannotBeWritten();
+        if (cellsWithImages.Count > 0)
+            ThrowIfCellImagesCannotBeWritten();
 
-        // Build rich value entries (one per cell)
-        var entries = new List<RichDataWriter.RichValueEntry>(cellsWithImages.Count);
-        foreach (var (_, image) in cellsWithImages)
-        {
-            entries.Add(new RichDataWriter.RichValueEntry(image.WorkbookImageIndex, image.AltText));
-        }
-
-        // Write the four rich data XML parts
-        RichDataWriter.WriteRichDataParts(workbookPart, InCellImages, entries, context.RelIdGenerator);
-
-        var metadata = EnsureMetadataPart(workbookPart, context);
-        var richValueTypeIndex = EnsureRichValueMetadataType(metadata);
-
-        AppendRichValueFutureMetadata(metadata, entries);
-        var valueMeta = PrepareValueMetadata(metadata, richValueTypeIndex);
+        // Rich data XLibur does not know is kept as loaded, and so is each cell's vm index; a new
+        // error's rich value is added after the kept ones.
+        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData);
+        context.RichValues = plan;
+        if (KeepsLoadedRichData)
+            return;
 
         // Add one valueMetadata record per cell, set each cell's ValueMetaIndex
         for (var i = 0; i < cellsWithImages.Count; i++)
         {
-            var block = new MetadataBlock();
-            block.Append(new MetadataRecord { TypeIndex = richValueTypeIndex, Val = (uint)i });
-            valueMeta.Append(block);
-            valueMeta.Count = (uint)(valueMeta.Count ?? 0) + 1;
-
-            var cell = cellsWithImages[i].Cell;
-            cell.ValueMetaIndex = valueMeta.Count.Value; // 1-based
+            var (cell, image) = cellsWithImages[i];
+            cell.ValueMetaIndex = plan.AddImage(new RichDataWriter.RichValueEntry(image.WorkbookImageIndex, image.AltText));
 
             // The rv index as a number. It is the save's own bookkeeping, not an edit, so it is
             // written to the value slice directly: the cell's setter marks formulas dirty, and a
@@ -741,7 +729,7 @@ public partial class XLWorkbook
                 values.SetCellValue(cell.SheetPoint, richValueIndex);
         }
 
-        PutMetadataChildrenInSchemaOrder(metadata);
+        plan.NumberCellsWithIndexes(WorksheetsInternal.Cast<XLWorksheet>());
     }
 
     /// <summary>
@@ -823,56 +811,32 @@ public partial class XLWorkbook
         return metadataTypes.Count.Value;
     }
 
-    private static void AppendRichValueFutureMetadata(Metadata metadata, List<RichDataWriter.RichValueEntry> entries)
+    private static void AppendRichValueFutureMetadata(Metadata metadata, int richValueCount)
     {
         var existingFm = metadata.Elements<FutureMetadata>()
             .FirstOrDefault(fm => fm.Name?.Value == RichValueMetadataName);
         existingFm?.Remove();
 
-        var futureMetadata = new FutureMetadata { Name = RichValueMetadataName, Count = (uint)entries.Count };
-        for (var i = 0; i < entries.Count; i++)
-        {
-            var fmBlock = new FutureMetadataBlock();
-            var extList = new ExtensionList();
-            var ext = new Extension { Uri = "{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}" };
-
-            var rvb = new OpenXmlUnknownElement("xlrv", "rvb", OpenXmlConst.RichDataNs);
-            rvb.SetAttribute(new OpenXmlAttribute("", "i", "", i.ToString()));
-            ext.Append(rvb);
-            extList.Append(ext);
-            fmBlock.Append(extList);
-            futureMetadata.Append(fmBlock);
-        }
+        var futureMetadata = new FutureMetadata { Name = RichValueMetadataName, Count = (uint)richValueCount };
+        for (var i = 0; i < richValueCount; i++)
+            futureMetadata.Append(NewRichValueFutureBlock(i));
 
         metadata.Append(futureMetadata);
     }
 
-    private static ValueMetadata PrepareValueMetadata(Metadata metadata, uint richValueTypeIndex)
+    /// <summary>The future metadata block that names the rich value at <paramref name="richValueIndex"/>.</summary>
+    private static FutureMetadataBlock NewRichValueFutureBlock(int richValueIndex)
     {
-        var valueMeta = metadata.GetFirstChild<ValueMetadata>();
-        if (valueMeta is not null)
-        {
-            var blocksToRemove = new List<MetadataBlock>();
-            foreach (var bk in valueMeta.Elements<MetadataBlock>())
-            {
-                var rc = bk.GetFirstChild<MetadataRecord>();
-                if (rc?.TypeIndex?.Value == richValueTypeIndex)
-                    blocksToRemove.Add(bk);
-            }
+        var fmBlock = new FutureMetadataBlock();
+        var extList = new ExtensionList();
+        var ext = new Extension { Uri = "{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}" };
 
-            foreach (var bk in blocksToRemove)
-            {
-                bk.Remove();
-                valueMeta.Count = (uint)(valueMeta.Count ?? 1) - 1;
-            }
-        }
-        else
-        {
-            valueMeta = new ValueMetadata { Count = 0 };
-            metadata.Append(valueMeta);
-        }
-
-        return valueMeta;
+        var rvb = new OpenXmlUnknownElement("xlrv", "rvb", OpenXmlConst.RichDataNs);
+        rvb.SetAttribute(new OpenXmlAttribute("", "i", "", richValueIndex.ToString(CultureInfo.InvariantCulture)));
+        ext.Append(rvb);
+        extList.Append(ext);
+        fmBlock.Append(extList);
+        return fmBlock;
     }
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)

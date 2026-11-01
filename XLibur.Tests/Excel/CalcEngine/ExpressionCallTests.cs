@@ -2,7 +2,6 @@ using System.IO;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
-using XLibur.Excel.CalcEngine.Exceptions;
 using XLibur.Excel.Coordinates;
 using XLibur.Tests.Utils;
 
@@ -10,8 +9,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 
 /// <summary>
 /// A call of the value of an expression, such as <c>LAMBDA(x,x*2)(3)</c>, which the formula parser
-/// reads from version 5.1.0. XLibur keeps such a formula and moves its references, but does not
-/// evaluate it until LET and LAMBDA are (#847).
+/// reads from version 5.1.0. XLibur keeps such a formula, moves its references and evaluates it (#847).
 /// </summary>
 /// <remarks>
 /// <c>LAMBDA</c> reads back as <c>_xlfn.LAMBDA</c>, as every function newer than Excel 2007 does in
@@ -92,11 +90,11 @@ public class ExpressionCallTests
     }
 
     [Test]
-    [Arguments(false, "A1", "C1")]
-    [Arguments(false, "B1", "C1")]
-    [Arguments(true, "A1", "C1")]
-    [Arguments(true, "B2", "C2")]
-    public async Task Changing_a_cell_a_call_reads_makes_its_saved_result_stale(bool shared, string input, string call)
+    [Arguments(false, "A1", "C1", 21)]
+    [Arguments(false, "B1", "C1", 14)]
+    [Arguments(true, "A1", "C1", 21)]
+    [Arguments(true, "B2", "C2", 28)]
+    public async Task Changing_a_cell_a_call_reads_recalculates_it(bool shared, string input, string call, double expected)
     {
         using var wb = new XLWorkbook(FileWithACall(shared));
         var ws = wb.Worksheet(1);
@@ -104,9 +102,7 @@ public class ExpressionCallTests
 
         ws.Cell(input).Value = 7;
 
-        // The call is not evaluated, so a stale result reads as the unsupported feature it is,
-        // never as the old value.
-        await Assert.That(() => ws.Cell(call).Value).Throws<UnsupportedFeatureException>();
+        await Assert.That(ws.Cell(call).Value).IsEqualTo(expected);
     }
 
     [Test]
@@ -131,15 +127,14 @@ public class ExpressionCallTests
     }
 
     [Test]
-    public async Task Evaluating_a_call_reports_it_as_not_supported()
+    public async Task A_call_is_evaluated()
     {
-        // As for any construct XLibur reads but does not evaluate, such as DDE: an unsupported feature,
-        // where before parser 5.1.0 the text was refused as unreadable.
+        // Before parser 5.1.0 the text was refused as unreadable, and until #847 it was an unsupported
+        // feature.
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").FormulaA1 = "LAMBDA(x,x*2)(3)";
 
-        await Assert.That(() => ws.Cell("A1").Value).Throws<UnsupportedFeatureException>()
-            .WithMessage("Evaluation of a call of the value of an expression is not implemented.");
+        await Assert.That(ws.Cell("A1").Value).IsEqualTo(6);
     }
 }

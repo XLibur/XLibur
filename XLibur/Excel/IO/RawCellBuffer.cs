@@ -60,7 +60,7 @@ internal sealed class RawCellBuffer
     /// write.
     /// </summary>
     internal bool TryAppendValueCell(ReadOnlySpan<char> reference, uint styleId, XLCellValue value,
-        bool shareString, int sharedStringId, in XLMiscSliceContent misc, bool use1904DateSystem)
+        bool shareString, int sharedStringId, in CellMetaAttributes meta, bool use1904DateSystem)
     {
         string? dataType;
         switch (value.Type)
@@ -102,24 +102,24 @@ internal sealed class RawCellBuffer
             Append('"');
         }
 
-        if (misc.HasPhonetic)
+        if (meta.HasPhonetic)
         {
             Append(" ph=\"");
             Append(TrueValue);
             Append('"');
         }
 
-        if (misc.CellMetaIndex is { } cellMetaIndex)
+        if (meta.CellMetaIndex is { } cellMetaIndex)
         {
             Append(" cm=\"");
             AppendNumber(cellMetaIndex);
             Append('"');
         }
 
-        if (misc.ValueMetaIndex is { } valueMetaIndex)
+        if (meta.ValueMetaIndex is { } vm)
         {
             Append(" vm=\"");
-            AppendNumber(valueMetaIndex);
+            AppendNumber(vm);
             Append('"');
         }
 
@@ -140,7 +140,7 @@ internal sealed class RawCellBuffer
                 break;
             case XLDataType.Error:
                 // #N/A, #DIV/0!, #VALUE! and the like: nothing in them needs escaping.
-                Append(value.GetError().ToDisplayString());
+                Append(value.GetError().ToFileString());
                 break;
             default:
                 AppendNumber(sharedStringId);

@@ -30,6 +30,25 @@ internal static class XLErrorExtensions
             XLError.Python => "#PYTHON!",
             _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Unknown XLError value.")
         };
+
+    /// <summary>
+    /// Whether a file holds <paramref name="error"/> as a rich value. An error newer than Excel 2007, such
+    /// as <c>#SPILL!</c> or <c>#CALC!</c>, is no error value of the file format: Excel writes it as
+    /// <c>#VALUE!</c>, with a vm index whose rich value names the error, and refuses to open a file whose
+    /// cell holds the newer error itself.
+    /// </summary>
+    /// <remarks>
+    /// The errors of the file format are the members numbered 0 (<c>#NULL!</c>) to 7
+    /// (<c>#GETTING_DATA</c>), as <see cref="XLError"/> takes its numbers from their <c>errorType</c>.
+    /// </remarks>
+    public static bool IsRichValue(this XLError error) => error > XLError.GettingData;
+
+    /// <summary>
+    /// The text a cell of a file holds for <paramref name="error"/>: <c>#VALUE!</c> for an error a file
+    /// holds as a rich value (<see cref="IsRichValue"/>).
+    /// </summary>
+    public static string ToFileString(this XLError error) =>
+        error.IsRichValue() ? "#VALUE!" : error.ToDisplayString();
 }
 
 internal static class XLErrorParser

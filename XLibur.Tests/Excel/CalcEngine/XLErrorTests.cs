@@ -58,8 +58,9 @@ public class XLErrorTests
     }
 
     /// <summary>
-    /// A cell error is written to the file as its text and read back from it. An error text the reader
-    /// could not map used to load as a blank cell, with no warning.
+    /// A cell error is written to the file and read back from it: as its text, or, for an error newer
+    /// than Excel 2007, as <c>#VALUE!</c> with a rich value that names it (#847). An error text the
+    /// reader could not map used to load as a blank cell, with no warning.
     /// </summary>
     [Test]
     [MethodDataSource(nameof(AllErrors))]

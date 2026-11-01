@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using XLibur.Extensions;
 using CollectionValue = XLibur.Excel.CalcEngine.OneOf<XLibur.Excel.CalcEngine.Array, XLibur.Excel.CalcEngine.Reference>;
@@ -19,6 +20,7 @@ internal readonly struct AnyValue
     private const int ErrorValue = 4;
     private const int ArrayValue = 5;
     private const int ReferenceValue = 6;
+    private const int LambdaValue = 7;
 
     private readonly byte _index;
     private readonly bool _logical;
@@ -28,8 +30,9 @@ internal readonly struct AnyValue
     /// <summary>
     /// Holds the reference-typed payload — <see cref="string"/> when <see cref="_index"/>
     /// is <see cref="TextValue"/>, an <see cref="CalcEngine.Array"/> when it is
-    /// <see cref="ArrayValue"/>, and a <see cref="CalcEngine.Reference"/> when it is
-    /// <see cref="ReferenceValue"/>. <c>null</c> for the value-type cases. Collapsing the
+    /// <see cref="ArrayValue"/>, a <see cref="CalcEngine.Reference"/> when it is
+    /// <see cref="ReferenceValue"/>, and a <see cref="LambdaFunction"/> when it is
+    /// <see cref="LambdaValue"/>. <c>null</c> for the value-type cases. Collapsing the
     /// three previously-separate nullable reference fields into one slot saves 16 bytes per
     /// struct copy and confines the null-forgiving cast to the three accessor properties
     /// below.
@@ -74,12 +77,23 @@ internal readonly struct AnyValue
         return new AnyValue(ReferenceValue, false, 0, default, reference);
     }
 
+    /// <summary>
+    /// A function value. Anything that reads it as a value, an operator or a function's argument,
+    /// reads <c>#VALUE!</c>, as in Excel; only a call, a <c>LET</c> name and a defined name keep it.
+    /// </summary>
+    public static AnyValue From(LambdaFunction lambda)
+    {
+        ArgumentNullException.ThrowIfNull(lambda);
+        return new AnyValue(LambdaValue, false, 0, default, lambda);
+    }
+
     // Internal accessors that centralize the null-forgiving cast. Each caller is responsible
     // for verifying the matching tag in <see cref="_index"/> first; in exchange the cast is
     // confined to one place per type instead of being scattered with a `!` at every use site.
     private string RefAsText => (string)_ref!;
     private Array RefAsArray => (Array)_ref!;
     private Reference RefAsReference => (Reference)_ref!;
+    private LambdaFunction RefAsLambda => (LambdaFunction)_ref!;
 
     public static implicit operator AnyValue(bool logical) => From(logical);
 
@@ -107,6 +121,8 @@ internal readonly struct AnyValue
 
     public bool IsReference => _index == ReferenceValue;
 
+    public bool IsLambda => _index == LambdaValue;
+
     /// <summary>
     /// Is the value a scalar (blank, logical, number, text or error).
     /// </summary>
@@ -121,6 +137,7 @@ internal readonly struct AnyValue
             NumberValue => _number,
             TextValue => RefAsText,
             ErrorValue => _error,
+            LambdaValue => XLError.IncompatibleValue,
             _ => default
         };
         collection = _index switch
@@ -129,7 +146,17 @@ internal readonly struct AnyValue
             ReferenceValue => RefAsReference,
             _ => default
         };
-        return _index <= ErrorValue;
+
+        // A function value read as a value is #VALUE!, so everything that reduces an argument or an
+        // operand to a scalar reads that, as Excel does: SUM(LAMBDA(x,x)) and LAMBDA(x,x)&"a" are both
+        // #VALUE!.
+        return _index <= ErrorValue || _index == LambdaValue;
+    }
+
+    public bool TryPickLambda([NotNullWhen(true)] out LambdaFunction? lambda)
+    {
+        lambda = _index == LambdaValue ? RefAsLambda : null;
+        return lambda is not null;
     }
 
     public bool TryPickError(out XLError error)
@@ -395,6 +422,7 @@ internal readonly struct AnyValue
             ErrorValue => transformError(_error),
             ArrayValue => transformArray(RefAsArray),
             ReferenceValue => transformReference(RefAsReference),
+            LambdaValue => transformError(XLError.IncompatibleValue),
             _ => throw new InvalidOperationException()
         };
     }
@@ -792,6 +820,7 @@ internal readonly struct AnyValue
             ErrorValue => $"Error: {_error.ToDisplayString()}",
             ArrayValue => $"Array{RefAsArray.Height}x{RefAsArray.Width}",
             ReferenceValue => FormatReference(RefAsReference),
+            LambdaValue => $"Lambda: {RefAsLambda.Parameters.Count} parameters",
             _ => throw new InvalidOperationException()
         };
     }

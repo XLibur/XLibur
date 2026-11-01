@@ -95,6 +95,15 @@ internal sealed class FormulaParser
         return true;
     }
 
+    /// <summary>
+    /// Whether a call by <paramref name="functionName"/>, as a function node holds it, calls what a name
+    /// stands for: a <c>LET</c> name, a parameter, or a defined name that refers to a <c>LAMBDA</c>. It
+    /// does unless the name is a function, one XLibur has or one of Excel's that it does not, which is
+    /// <c>#NAME?</c> (#847).
+    /// </summary>
+    internal static bool IsCallOfName(FunctionRegistry registry, string functionName) =>
+        !registry.TryGetFunc(functionName, out _) && !ExcelFunctionNames.IsBuiltIn(functionName);
+
     internal static BinaryOp ToBinaryOp(BinaryOperation operation) => operation switch
     {
         BinaryOperation.Concat => BinaryOp.Concat,
@@ -327,11 +336,9 @@ internal sealed class FormulaParser
         public ValueNode ExpressionCall(string context, SymbolRange range, ValueNode target,
             IReadOnlyList<ValueNode> arguments)
         {
-            // A call of the value of an expression, such as LAMBDA(x,x*2)(3). The engine has no function
-            // values to call until LET and LAMBDA are evaluated (#847), so it is a construct XLibur reads
-            // and keeps but does not evaluate. Before parser 5.1.0 such text did not parse at all. Its
-            // target and arguments stay in the tree, so the cells they read are its precedents.
-            return new NotSupportedNode("a call of the value of an expression", [target, .. arguments]);
+            // A call of the value of an expression, such as LAMBDA(x,x*2)(3). Before parser 5.1.0 such
+            // text did not parse at all.
+            return new CallNode(target, arguments);
         }
 
         public ValueNode ExternalSheetName(string context, SymbolRange range, int workbookIndex, string sheet, string name)

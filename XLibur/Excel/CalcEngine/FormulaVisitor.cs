@@ -14,6 +14,8 @@ internal interface IFormulaVisitor<in TContext, out TResult>
 
     public TResult Visit(TContext context, NotSupportedNode node);
 
+    public TResult Visit(TContext context, CallNode node);
+
     public TResult Visit(TContext context, ReferenceNode node);
 
     public TResult Visit(TContext context, NameNode node);
