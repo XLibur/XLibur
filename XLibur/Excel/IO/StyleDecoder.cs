@@ -33,7 +33,7 @@ internal static class StyleDecoder
     /// </summary>
     internal static XLStyleKey Decode(int styleIndex, StylesheetData styles, XLStyleKey defaults)
     {
-        if (styles.Stylesheet is not { CellFormats: not null } s)
+        if (styles.Stylesheet is not { CellFormats: not null })
             return defaults; // No stylesheet, no styles.
 
         // A cell may name a format index past the end of the table. Excel repairs that by using
@@ -41,7 +41,7 @@ internal static class StyleDecoder
         // refuses — the cost of the repair is cosmetic, where refusing costs the whole document.
         // Previously the index went straight to ElementAt, whose ArgumentOutOfRangeException
         // escaped the public constructor naming the internal parameter 'index' (D30).
-        if (s.CellFormats.ElementAtOrDefault(styleIndex) is not CellFormat cellFormat)
+        if (styles.CellFormatAt(styleIndex) is not CellFormat cellFormat)
             return defaults;
 
         return Decode(cellFormat, styles, defaults);
@@ -59,7 +59,7 @@ internal static class StyleDecoder
     /// </remarks>
     internal static XLStyleKey DecodeCellStyleFormat(int xfId, StylesheetData styles, XLStyleKey defaults)
     {
-        if (styles.Stylesheet?.CellStyleFormats?.ElementAtOrDefault(xfId) is not CellFormat styleFormat)
+        if (styles.CellStyleFormatAt(xfId) is not CellFormat styleFormat)
             return defaults;
 
         return Decode(styleFormat, styles, defaults);
@@ -118,7 +118,7 @@ internal static class StyleDecoder
 
         if (UInt32HasValue(cellFormat.FillId))
         {
-            var fill = (Fill)styles.Fills!.ElementAt((int)cellFormat.FillId!.Value);
+            var fill = (Fill)styles.FillAt((int)cellFormat.FillId!.Value);
 
             // Unlike the other aspects, the fill does not inherit from what the key already holds:
             // a cellXf's fillId points at a complete <fill> definition rather than an override, so
@@ -133,13 +133,13 @@ internal static class StyleDecoder
 
         if (UInt32HasValue(cellFormat.BorderId))
         {
-            var border = (Border)styles.Borders!.ElementAt((int)cellFormat.BorderId!.Value);
+            var border = (Border)styles.BorderAt((int)cellFormat.BorderId!.Value);
             key = key with { Border = BorderKey(border, key.Border) };
         }
 
         if (UInt32HasValue(cellFormat.FontId))
         {
-            var font = (Font)styles.Fonts!.ElementAt((int)cellFormat.FontId!.Value);
+            var font = (Font)styles.FontAt((int)cellFormat.FontId!.Value);
             key = key with { Font = FontKey(font, key.Font) };
         }
 
