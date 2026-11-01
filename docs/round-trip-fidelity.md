@@ -42,6 +42,8 @@ Two consequences:
 | Threaded comments | ✅ | ✅ | ✅ | Modelled as of spec 09 |
 | Drawings in `mc:AlternateContent` (3D models) | ✅ | ✅ | ❌ | Wrapper, both branches and the model part kept; the fallback picture is an `IXLPicture` (#787) |
 | Picture styling (rotation, border, shadow, crop, recolour, effects) | ✅ | ✅ | ✅ | **Lost on every save before spec 17 (#843)**; patched in place now, see below |
+| Shapes and text boxes (`xdr:sp`) | ✅ | ✅ | ✅ | Modelled as of spec 15 (`ws.Shapes`); a shape nobody edits is passed through untouched, see below |
+| Connectors, grouped shapes, custom geometry | ✅ | ✅ | ❌ | Kept as the file has them; a connector keeps the ids it names |
 
 ### Chartsheets are preserved, not dropped
 
@@ -142,6 +144,38 @@ presets, brightness and contrast, crop and one outer shadow. Glow, soft edges, 3
 effects, inner and perspective shadows and other recolours are read as nothing (a custom recolour
 reads `XLPictureRecolor.Custom`) and kept as the file has them. `PictureFidelityTests` and
 `PictureStylingRoundTripTests` cover it, on a fixture Excel styled over COM.
+
+### Shapes are modelled, and patched in place
+
+Before spec 15 a shape (`xdr:sp`) survived a save only because nothing touched it: the loader
+skipped any anchor without an image, and `RemoveEmptyDrawingPart` kept the drawing part alive while it
+had children. Shapes are in the model now (`IXLWorksheet.Shapes`), and the same rule holds as for
+pictures:
+
+- **A sheet whose shapes nobody added, edited or deleted is not touched.** Its drawing part comes
+  through byte-identical.
+- **A loaded shape is patched, never regenerated.** The save finds its `xdr:sp` again by drawing id,
+  in the package it reopens, and writes only what was assigned, each into the narrowest element that
+  holds it: a run's text into its `a:t`, a paragraph's alignment into its `a:pPr`, a line width into
+  the existing `a:ln`. A gradient, a shadow, a rotation, 3-D, arrowheads, a hyperlink, adjust handles
+  and the anchor's `editAs` stay as the file has them. A fill colour replaces a gradient rather than
+  sitting beside it.
+- **What is not modelled stays opaque.** A shape inside a group, a shape with a custom geometry, a
+  connector and a graphic frame are not loaded and are kept as they are. Drawing ids are never
+  renumbered, so a connector keeps naming the shapes it joins.
+- **A colour that comes only from the shape's theme style (`xdr:style`) reads as `null`.** Setting
+  `FillColor` or `LineColor` writes an explicit colour into `spPr`, which wins over the style.
+
+`ShapeFidelityTests` pins all of this with change sets on a fixture Excel made over COM
+(`Other/Shapes/ExcelShapes.xlsx`); `ShapeCreationTests` pins that a new shape is written as Excel
+writes one.
+
+### Duplicate drawing ids are repaired
+
+A drawing whose pictures, or whose shapes, share a drawing id failed to load (#859). The load now
+gives each later duplicate a fresh id, above every id in the drawing, and the first save writes it
+in, as Excel does when it repairs such a file. Nothing else in the drawing changes. A connector that
+named the duplicate by id names the first one afterwards. `DuplicateDrawingIdTests` covers it.
 
 ### A 3D model keeps its wrapper through a rewritten drawing
 

@@ -319,10 +319,10 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     private static long ToEmu(int pixels, double dpi) => Convert.ToInt64(914400L * pixels / dpi);
 
     /// <summary>
-    /// Loads the pictures of a drawing through <paramref name="loadPictures"/>, and keeps the names
-    /// of the drawing's shapes that did not load as pictures (issue #796): a linked picture, a
-    /// picture under a wrapper the loader does not read, a text box, a chart. The save keeps those
-    /// shapes as the file has them, so no picture is given one of their names.
+    /// Loads the pictures and shapes of a drawing through <paramref name="loadPictures"/>, and keeps
+    /// the names of the drawing's shapes that loaded as neither (issue #796): a linked picture, a
+    /// picture under a wrapper the loader does not read, a connector, a chart. The save keeps those
+    /// as the file has them, so no picture is given one of their names.
     /// </summary>
     /// <param name="shapeNames">The name of each shape of the drawing, once per shape.</param>
     /// <param name="loadPictures">Adds the drawing's pictures to this collection.</param>
@@ -340,10 +340,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
         _keptShapeNames = new HashSet<string>(uses.Keys, StringComparer.OrdinalIgnoreCase);
         loadPictures();
 
-        foreach (var picture in _pictures)
+        // A shape that loaded into the worksheet's shapes holds its name there, for as long as it
+        // keeps it (spec 15), so it is not kept here.
+        var loadedNames = _pictures.Select(picture => picture.Name)
+            .Concat(((IEnumerable<XLShape>)(XLShapes)_worksheet.Shapes).Select(shape => shape.Name));
+        foreach (var name in loadedNames)
         {
-            if (uses.TryGetValue(picture.Name, out var count))
-                uses[picture.Name] = count - 1;
+            if (uses.TryGetValue(name, out var count))
+                uses[name] = count - 1;
         }
 
         _keptShapeNames = new HashSet<string>(uses.Where(use => use.Value > 0).Select(use => use.Key),
@@ -351,13 +355,14 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     }
 
     /// <summary>
-    /// Whether <paramref name="name"/>, in any case, is the name of a shape the drawing keeps, or of a
-    /// picture of this collection other than <paramref name="changing"/>.
+    /// Whether <paramref name="name"/>, in any case, is the name of a shape the drawing keeps, of a
+    /// shape of the worksheet, or of a picture of this collection other than <paramref name="changing"/>.
     /// </summary>
     /// <param name="name">The name to check.</param>
     /// <param name="changing">The picture that is to take the name, or <c>null</c> for a new one.</param>
     internal bool IsNameTaken(string name, XLPicture? changing = null) =>
         _keptShapeNames.Contains(name) ||
+        ((XLShapes)_worksheet.Shapes).IsNameUsed(name) ||
         _nameUses.GetValueOrDefault(name) >
         (changing is { IsInCollection: true } && string.Equals(changing.Name, name, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
 
@@ -366,6 +371,9 @@ internal sealed class XLPictures : IXLPictures, IEnumerable<XLPicture>
     /// <param name="changing">The picture that is to take the id.</param>
     internal bool IsIdTaken(int id, XLPicture changing) =>
         _idUses.GetValueOrDefault(id) > (changing.IsInCollection && changing.Id == id ? 1 : 0);
+
+    /// <summary>Whether a picture of this collection has the id <paramref name="id"/>.</summary>
+    internal bool IsIdUsed(int id) => _idUses.ContainsKey(id);
 
     /// <summary>
     /// The id a new picture takes: one more than the highest id of any picture in

@@ -96,6 +96,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         _dataInserter = new XLWorksheetDataInserter(this);
 
         Pictures = new XLPictures(this);
+        Shapes = new XLShapes(this);
         DefinedNames = new XLDefinedNames(this);
         SheetView = new XLSheetView(this, workbook);
         Tables = [];
@@ -1812,6 +1813,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     }
 
     public IXLPictures Pictures { get; private set; }
+
+    public IXLShapes Shapes { get; }
+
+    /// <summary>The drawing ids the load gave pictures and shapes whose id another already had (#859).</summary>
+    internal DrawingIdRepairs DrawingIdRepairs { get; } = new();
 
     public IEnumerable<IXLPictureGroup> PictureGroups =>
         ((IEnumerable<XLPicture>)(XLPictures)Pictures)

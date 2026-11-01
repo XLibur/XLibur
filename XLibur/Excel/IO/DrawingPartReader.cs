@@ -17,7 +17,8 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Reads drawings (pictures), VML comment shapes, and drawing style properties from worksheet parts.
+/// Reads drawings (pictures, and shapes through <see cref="ShapeReader"/>), VML comment shapes, and
+/// drawing style properties from worksheet parts.
 /// </summary>
 internal static class DrawingPartReader
 {
@@ -115,6 +116,12 @@ internal static class DrawingPartReader
             return;
         }
 
+        if (anchor is OpenXmlCompositeElement composite && composite.GetFirstChild<Xdr.Shape>() is { } shape)
+        {
+            ShapeReader.Load(composite, shape, drawingsPart.WorksheetDrawing!, ws, grid);
+            return;
+        }
+
         // A picture deeper in the anchor than its wrapper's branches, as in a group inside the
         // wrapper, is left as the file has it (#787).
         var first = anchor.Descendants<Xdr.Picture>().FirstOrDefault();
@@ -130,7 +137,7 @@ internal static class DrawingPartReader
         if (!drawingsPart.TryGetPartById(imgId, out var imagePart))
             return;
 
-        var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
+        var picture = LoadPictureFromAnchor(anchor, first, drawingsPart.WorksheetDrawing!, imgId, imagePart, ws);
         if (first is not null)
             LoadPictureStyle(picture, first);
 
@@ -224,7 +231,7 @@ internal static class DrawingPartReader
         var sheetEmuX = (long)Math.Round(offsetX + picOffX * scaleX);
         var sheetEmuY = (long)Math.Round(offsetY + picOffY * scaleY);
 
-        var xlPicture = AddGroupedPicture(pic, embed, imagePart, ws);
+        var xlPicture = AddGroupedPicture(pic, drawingsPart.WorksheetDrawing!, embed, imagePart, ws);
 
         // FreeFloating lets Width/Height/Left/Top be edited; placement does not drive the anchor for
         // grouped pictures because they are written back in place.
@@ -257,7 +264,8 @@ internal static class DrawingPartReader
         xlPicture.MarkSaved();
     }
 
-    private static XLPicture AddGroupedPicture(Xdr.Picture pic, string embed, OpenXmlPart imagePart, XLWorksheet ws)
+    private static XLPicture AddGroupedPicture(Xdr.Picture pic, Xdr.WorksheetDrawing drawing, string embed,
+        OpenXmlPart imagePart, XLWorksheet ws)
     {
         using var stream = imagePart.GetStream();
         using var ms = new MemoryStream();
@@ -265,7 +273,7 @@ internal static class DrawingPartReader
 
         var nvProps = pic.NonVisualPictureProperties?.NonVisualDrawingProperties;
         var pictureName = nvProps?.Name?.Value;
-        var pictureId = Convert.ToInt32(nvProps?.Id?.Value ?? 0);
+        var pictureId = PictureIdOf(ws, drawing, pic, Convert.ToInt32(nvProps?.Id?.Value ?? 0));
 
         XLPicture picture;
         if (string.IsNullOrWhiteSpace(pictureName))
@@ -557,7 +565,7 @@ internal static class DrawingPartReader
     }
 
     private static XLPicture LoadPictureFromAnchor(
-        OpenXmlElement anchor, string imgId,
+        OpenXmlElement anchor, Xdr.Picture? element, Xdr.WorksheetDrawing drawing, string imgId,
         OpenXmlPart imagePart, XLWorksheet ws)
     {
         using var stream = imagePart.GetStream();
@@ -565,7 +573,9 @@ internal static class DrawingPartReader
         stream.CopyTo(ms);
         var vsdp = XLWorkbook.GetPropertiesFromAnchor(anchor);
         var pictureName = vsdp!.Name?.Value;
-        var pictureId = Convert.ToInt32(vsdp.Id!.Value);
+        var pictureId = element is null
+            ? Convert.ToInt32(vsdp.Id!.Value)
+            : PictureIdOf(ws, drawing, element, Convert.ToInt32(vsdp.Id!.Value));
 
         XLPicture picture;
         if (string.IsNullOrWhiteSpace(pictureName))
@@ -581,6 +591,15 @@ internal static class DrawingPartReader
         picture.RelId = imgId;
         return picture;
     }
+
+    /// <summary>
+    /// The id a loaded picture takes: the file's, or a fresh one when another picture of the sheet
+    /// already has it (#859). The first save writes the fresh one into the drawing.
+    /// </summary>
+    private static int PictureIdOf(XLWorksheet ws, Xdr.WorksheetDrawing drawing, Xdr.Picture element, int fileId) =>
+        fileId > 0 && ((XLPictures)ws.Pictures).IsIdUsed(fileId)
+            ? ws.DrawingIdRepairs.Repair(drawing, DrawingIdRepairs.Kind.Picture, element, (uint)fileId)
+            : fileId;
 
     private static void LoadPictureTransform(XLPicture picture,
         OpenXmlElement anchor, XLWorksheet ws)

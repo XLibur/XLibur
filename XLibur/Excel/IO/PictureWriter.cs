@@ -15,9 +15,10 @@ using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// Writes a sheet's pictures into its drawing part. Deletions and new groups are applied first,
-/// then each picture is written: a free-floating one by <see cref="PictureAnchorWriter"/>, one in a
-/// group shape by <see cref="GroupedPictureWriter"/>. Names, image links and image parts are
+/// Writes a sheet's pictures and shapes into its drawing part. The drawing id repairs of the load
+/// are written first (#859), then deletions and new groups, then each picture: a free-floating one
+/// by <see cref="PictureAnchorWriter"/>, one in a group shape by <see cref="GroupedPictureWriter"/>.
+/// The shapes follow, by <see cref="ShapeWriter"/>. Names, image links and image parts are
 /// <see cref="PictureContentWriter"/>'s, and drawing ids are <see cref="DrawingIds"/>'.
 /// </summary>
 internal static class PictureWriter
@@ -30,16 +31,34 @@ internal static class PictureWriter
         SaveContext context)
     {
         var pictures = (XLPictures)xlWorksheet.Pictures;
+        var shapes = (XLShapes)xlWorksheet.Shapes;
         var layout = GridLayout.OnFirstUse(xlWorksheet);
 
         // A drawing the save package does not have yet, as a sheet saved out of a template has
-        // not, gets every picture. Otherwise only the pictures that changed since the load or the
-        // last save are written, and a sheet with none is not touched at all: reading the drawing
+        // not, gets every picture and shape. Otherwise only the ones that changed since the load or
+        // the last save are written, and a sheet with none is not touched at all: reading the drawing
         // attaches its DOM, and the SDK then writes the DOM back over the part's bytes.
         var drawingIsNew = worksheetPart.DrawingsPart is null;
+
+        // Before anything reads the drawing's ids: the load gave a picture or shape whose id
+        // another had a fresh one, which the drawing is to hold from this save on (#859).
+        var repairs = xlWorksheet.DrawingIdRepairs;
+        if (repairs.Count > 0)
+        {
+            if (!drawingIsNew)
+                repairs.Apply(worksheetPart.DrawingsPart!.WorksheetDrawing!);
+
+            context.KeepAfterSave.Add(repairs.Clear);
+        }
+
+        // One instance serves the pictures and the shapes, so they never take the same new id.
+        DrawingIds? ids = null;
+        if (shapes.Deleted.Count > 0)
+            ShapeWriter.RemoveDeleted(shapes, drawingIsNew ? null : ids = new DrawingIds(worksheetPart), context);
+
         if (drawingIsNew || HasUnsavedChanges(pictures, layout))
         {
-            var ids = new DrawingIds(worksheetPart);
+            ids ??= new DrawingIds(worksheetPart);
             if (worksheetPart.DrawingsPart != null)
                 ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, pictures, ids);
 
@@ -58,7 +77,13 @@ internal static class PictureWriter
             }
         }
 
-        if (xlWorksheet.Pictures.Count > 0 && !worksheet.OfType<Drawing>().Any())
+        if (shapes.Count > 0 && (drawingIsNew || shapes.HasUnsavedChanges))
+        {
+            var drawingsPart = DrawingPartScaffold.EnsureDrawingsPart(worksheetPart, context);
+            ShapeWriter.WriteShapes(drawingsPart, shapes, context, ids ?? new DrawingIds(worksheetPart), writeAll: drawingIsNew);
+        }
+
+        if ((xlWorksheet.Pictures.Count > 0 || shapes.Count > 0) && !worksheet.OfType<Drawing>().Any())
         {
             var worksheetDrawing = new Drawing { Id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!) };
             worksheetDrawing.AddNamespaceDeclaration("r", RelationshipsNs);
@@ -178,7 +203,8 @@ internal static class PictureWriter
         if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
             xlWorksheet
                 .LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
-            xlWorksheet.Pictures.Count == 0 && // and also no pictures.
+            xlWorksheet.Pictures.Count == 0 && // and also no pictures
+            xlWorksheet.Shapes.Count == 0 && // or shapes.
             !hasCharts && // and no existing chart parts
             !hasNewCharts && // and no new charts pending write
                              // Check for non-picture shapes (textboxes, rectangles, etc.) last, and

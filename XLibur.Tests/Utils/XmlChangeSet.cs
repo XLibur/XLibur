@@ -335,11 +335,37 @@ internal sealed class XmlChangeSet
 
     private static string? ParentPath(string path)
     {
-        var slash = path.LastIndexOf('/');
+        var slash = LastSeparator(path);
         return slash <= 0 ? null : path[..slash];
     }
 
-    private static string LastSegment(string path) => path[(path.LastIndexOf('/') + 1)..];
+    private static string LastSegment(string path) => path[(LastSeparator(path) + 1)..];
+
+    /// <summary>
+    /// The index of the last <c>/</c> that separates two steps of <paramref name="path"/>. A name in
+    /// Clark notation carries its namespace URI in braces, slashes and all, so a slash inside braces
+    /// is part of a name.
+    /// </summary>
+    private static int LastSeparator(string path)
+    {
+        var depth = 0;
+        for (var i = path.Length - 1; i >= 0; i--)
+        {
+            switch (path[i])
+            {
+                case '}':
+                    depth++;
+                    break;
+                case '{':
+                    depth--;
+                    break;
+                case '/' when depth == 0:
+                    return i;
+            }
+        }
+
+        return -1;
+    }
 
     private static string Quote(string? text) => text is null ? "(none)" : $"'{text}'";
 
@@ -365,6 +391,7 @@ internal sealed class XmlChangeSet
         ["http://schemas.microsoft.com/office/drawing/2014/chart"] = "c16",
         ["http://schemas.microsoft.com/office/drawing/2014/chartex"] = "cx",
         ["http://schemas.microsoft.com/office/drawing/2010/main"] = "a14",
+        ["http://schemas.microsoft.com/office/drawing/2014/main"] = "a16",
         ["http://schemas.microsoft.com/office/spreadsheetml/2014/revision"] = "xr",
     };
 

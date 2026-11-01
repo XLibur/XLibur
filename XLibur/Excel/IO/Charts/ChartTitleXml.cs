@@ -1,5 +1,5 @@
 using System.Linq;
-using DocumentFormat.OpenXml;
+using XLibur.Excel.IO.DrawingML;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using Cx = DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
@@ -122,7 +122,7 @@ internal static class ChartTitleXml
         var rich = chartText?.Elements<C.RichText>().FirstOrDefault();
         if (rich != null)
         {
-            SetRichText(rich, text);
+            TextBodyPrimitives.SetSingleParagraphText(rich, text);
             return;
         }
 
@@ -131,50 +131,6 @@ internal static class ChartTitleXml
         chartText?.Remove();
         ChartElementOrder.InsertOrdered(title, LiteralText(text), ChartElementOrder.TitleChildOrder);
     }
-
-    /// <summary>
-    /// Replaces the text of a rich text block with a single run, keeping the block's body and list
-    /// properties and the run properties of the run that was there.
-    /// </summary>
-    /// <param name="rich">
-    /// A <c>c:rich</c> or its extended-chart counterpart <c>cx:rich</c>. The two are different
-    /// elements holding the same DrawingML paragraphs.
-    /// </param>
-    /// <param name="text">The text the block is left holding.</param>
-    private static void SetRichText(OpenXmlCompositeElement rich, string text)
-    {
-        var paragraphs = rich.Elements<A.Paragraph>().ToList();
-
-        // A title spread over several paragraphs collapses into one; the formatting that survives is
-        // the first run's, which is the run the caller was looking at.
-        for (var i = 1; i < paragraphs.Count; i++)
-            paragraphs[i].Remove();
-
-        var paragraph = paragraphs.FirstOrDefault();
-        if (paragraph == null)
-        {
-            paragraph = new A.Paragraph();
-            rich.Append(paragraph);
-        }
-
-        var runProperties = paragraph.Elements<A.Run>().FirstOrDefault()?.RunProperties?.CloneNode(true);
-        foreach (var existing in paragraph.ChildElements.Where(IsRunLevel).ToList())
-            existing.Remove();
-
-        var run = new A.Run(
-            runProperties ?? new A.RunProperties { Language = "en-US" },
-            new A.Text(text));
-
-        // a:endParaRPr closes the paragraph and has to stay last.
-        var endProperties = paragraph.Elements<A.EndParagraphRunProperties>().FirstOrDefault();
-        if (endProperties != null)
-            paragraph.InsertBefore(run, endProperties);
-        else
-            paragraph.Append(run);
-    }
-
-    /// <summary>Whether an element is one of the run-level children of <c>a:p</c> that carry text.</summary>
-    private static bool IsRunLevel(OpenXmlElement element) => element is A.Run or A.Break or A.Field;
 
     private static A.Paragraph TitleParagraph(string text) =>
         new(new A.Run(new A.RunProperties { Language = "en-US" }, new A.Text(text)));
@@ -186,7 +142,7 @@ internal static class ChartTitleXml
         var rich = chartText?.Elements<Cx.RichTextBody>().FirstOrDefault();
         if (rich != null)
         {
-            SetRichText(rich, text);
+            TextBodyPrimitives.SetSingleParagraphText(rich, text);
             return;
         }
 

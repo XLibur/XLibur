@@ -224,7 +224,8 @@ public partial class XLWorkbook
     /// fails afterwards leaves little behind.
     /// </summary>
     private (int[] SstMap, List<(XLWorksheet Sheet, byte[] Markup, SheetDataBaseline? Cells)> Parts,
-        List<(Drawings.XLPicture Picture, int Id, string RelId, string PictureXml)> PictureIds)? _unkeptSave;
+        List<(Drawings.XLPicture Picture, int Id, string RelId, string PictureXml)> PictureIds,
+        List<Action> AfterSave)? _unkeptSave;
 
     /// <summary>
     /// Keeps what the last save wrote for the next save to compare against (#719): each worksheet
@@ -246,6 +247,9 @@ public partial class XLWorkbook
 
         foreach (var (picture, id, relId, pictureXml) in save.PictureIds)
             picture.KeepSavedIds(id, relId, pictureXml);
+
+        foreach (var keep in save.AfterSave)
+            keep();
     }
 
     // Adds child parts and generates content of the specified part.
@@ -302,7 +306,7 @@ public partial class XLWorkbook
         // Clear list of deleted worksheets to prevent errors on multiple saves
         worksheets.Deleted.Clear();
 
-        _unkeptSave = (context.SstMap, context.PartsForNextSave, context.PictureIdsForNextSave);
+        _unkeptSave = (context.SstMap, context.PartsForNextSave, context.PictureIdsForNextSave, context.KeepAfterSave);
     }
 
     /// <summary>

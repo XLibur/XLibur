@@ -560,6 +560,9 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
 
     IXLPictures Pictures { get; }
 
+    /// <summary>The drawing shapes on this worksheet: preset geometries and text boxes (<c>xdr:sp</c>).</summary>
+    IXLShapes Shapes { get; }
+
     /// <summary>The picture groups (<c>xdr:grpSp</c>) on this worksheet.</summary>
     IEnumerable<IXLPictureGroup> PictureGroups { get; }
 

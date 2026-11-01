@@ -23,6 +23,7 @@ internal sealed class DrawingIds(WorksheetPart worksheetPart)
     private Xdr.WorksheetDrawing? _drawing;
     private Dictionary<(uint Id, string RelId), List<(OpenXmlCompositeElement Anchor, Xdr.Picture Picture)>>? _pictures;
     private Dictionary<uint, List<Xdr.Picture>>? _groupedPictures;
+    private Dictionary<uint, (OpenXmlCompositeElement Anchor, Xdr.Shape Shape)>? _shapes;
     private uint? _maxId;
 
     private Xdr.WorksheetDrawing Drawing => _drawing ??= worksheetPart.DrawingsPart!.WorksheetDrawing!;
@@ -93,6 +94,45 @@ internal sealed class DrawingIds(WorksheetPart worksheetPart)
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The shape with drawing id <paramref name="id"/> that an anchor holds directly, and that anchor,
+    /// or <c>null</c>. Those are the shapes the loader reads (spec 15); one in a group is not found.
+    /// </summary>
+    /// <remarks>
+    /// The shapes are indexed at the first call. A load gives each loaded shape an id of its own, so
+    /// the first in document order is the one; a shape is found only while it is still where the
+    /// index saw it, under the same id.
+    /// </remarks>
+    internal (OpenXmlCompositeElement Anchor, Xdr.Shape Shape)? FindShape(int id)
+    {
+        _shapes ??= IndexShapes(Drawing);
+        if (!_shapes.TryGetValue((uint)id, out var found))
+            return null;
+
+        return found.Anchor.Parent == Drawing && found.Shape.Parent == found.Anchor && ShapeIdOf(found.Shape) == (uint)id
+            ? found
+            : null;
+    }
+
+    /// <summary>The drawing id of a shape, or <c>null</c> when it has none.</summary>
+    internal static uint? ShapeIdOf(Xdr.Shape shape) =>
+        shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Id?.Value;
+
+    private static Dictionary<uint, (OpenXmlCompositeElement Anchor, Xdr.Shape Shape)> IndexShapes(Xdr.WorksheetDrawing worksheetDrawing)
+    {
+        var shapes = new Dictionary<uint, (OpenXmlCompositeElement Anchor, Xdr.Shape Shape)>();
+        foreach (var anchor in worksheetDrawing.ChildElements.OfType<OpenXmlCompositeElement>())
+        {
+            foreach (var shape in anchor.Elements<Xdr.Shape>())
+            {
+                if (ShapeIdOf(shape) is { } id)
+                    shapes.TryAdd(id, (anchor, shape));
+            }
+        }
+
+        return shapes;
     }
 
     /// <summary>Drops the index of grouped pictures, after the save has moved pictures into a group.</summary>

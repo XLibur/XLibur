@@ -228,6 +228,21 @@ public class XmlChangeSetTests
             $"added /c:chartSpace[1]/{{{vendor}}}ext[1]");
     }
 
+    /// <summary>
+    /// A namespace URI has slashes in it, and a path written in Clark notation must not be split
+    /// inside one: the vendor element is part of the pruned subtree, not a change of its own.
+    /// </summary>
+    [Test]
+    public async Task A_pruned_subtree_holding_an_unrecognised_namespace_is_reported_once()
+    {
+        const string vendor = "http://example.com/vendor/2014/main";
+
+        await AssertChanges(
+            $"""<c:chartSpace xmlns:c="{ChartNs}"><c:chart><c:ext><v:id xmlns:v="{vendor}"/></c:ext></c:chart></c:chartSpace>""",
+            $"""<c:chartSpace xmlns:c="{ChartNs}"><c:chart/></c:chartSpace>""",
+            "removed /c:chartSpace[1]/c:chart[1]/c:ext[1] (subtree)");
+    }
+
     // ── The cost of positional identity ─────────────────────────────────
 
     private const string BarChart = "/c:chartSpace[1]/c:chart[1]/c:plotArea[1]/c:barChart[1]";

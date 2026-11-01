@@ -6,7 +6,7 @@
 factory, the shared `ShapePropertiesWriter`, the text-body primitives, and the XML change-set harness
 all come from there and must land first. Task 4 here modifies `PictureWriter.WriteDrawings`
 orchestration, so it conflicts with any in-flight work in `XLibur/Excel/IO/PictureWriter.cs`.
-**Status:** Proposed — **unblocked**, spec 16 landed (PRs #401, #402)
+**Status:** ✅ **Done** — all eight tasks, issue #843 (with #859). See [Results](#results).
 
 ## Summary
 
@@ -542,3 +542,88 @@ row/column insert/delete shifting.
 
 Each of these is additive: the model, the assigned-property flags and the patcher are all designed so a
 later spec can extend them without changing what v1 emits.
+
+## Results
+
+Implemented on branch `feat/shapes-and-text-boxes` (issue #843), all eight tasks in one PR, with
+#859 (duplicate drawing ids) in the same branch. It builds on spec 17 (#857), which had already put
+`XLLineDashStyle`, `a:noFill`, `a:prstDash` and the `a:xfrm` and shadow operations into the shared
+layer, and had stopped renumbering drawing ids.
+
+**Fixture.** `XLibur.Tests/Resource/Other/Shapes/ExcelShapes.xlsx`, made by Excel 365 over COM: a
+plain text box and rectangle (the creation defaults), a text box with a gradient, a shadow, a 20°
+rotation and two paragraphs of mixed runs, an arc whose line has arrowheads, two rectangles joined by
+a connector, and an empty text box.
+
+**What the fixture taught, against the spec's assumptions.**
+
+- **`a:xfrm/a:off` is the sheet position**, not `0,0`, for an ungrouped shape Excel writes. Excel
+  ignores it for an anchored shape, and a new shape writes `0,0` as a new picture does.
+- **A text box from the object model differs from one from the ribbon.** `Shapes.AddTextbox` writes
+  `vert="horz"` and no `wrap`; the ribbon (`TryToLoad/AllShapes.xlsx`) writes `wrap="square"` and no
+  `vert`. Both mean the same. The writer copies the COM fixture, which the creation test compares
+  against.
+- **A preset shape's text is top-left** (`anchor="t"`, `algn="l"`), as both the COM and the ribbon
+  fixtures write it; its fill, line and font come from `xdr:style` (accent 1, its 15% shade, light 1).
+  An open shape (line, arc) has no fill reference and a dark font instead.
+- **The SDK has no `just` or `dist` for `a:bodyPr/@anchor`**, so `XLTextVerticalAlignment` is
+  `Top`, `Center` and `Bottom` only. Writing the other two failed validation.
+
+**Deviations from the design.**
+
+- **Duplicate ids get a fresh id, not read-only marking.** The owner chose option 1 of #859 for
+  pictures on 2026-11-01, and shapes follow it so the two behave alike: the later duplicate takes an
+  id above every id in the drawing, the first save writes it in (`DrawingIdRepairs`), and edits land
+  on the shape they name. A connector that named the duplicate names the first one afterwards.
+- **No rebase guard.** `RebaseNonVisualDrawingPropertiesIds` was deleted by spec 17, so ids are never
+  renumbered and connector references hold without one (criterion 6).
+- **A loaded shape's placement is its anchor's form**: two-cell is `MoveAndSize`, one-cell `Move`,
+  absolute `FreeFloating`. `editAs` is not mapped and is kept while the form is.
+- **Setting `Placement` on a loaded shape does not throw** (design rule 1b). It follows the owner's
+  spec 17 decision for pictures: a new placement moves the `xdr:sp` and the client data, intact, into
+  an anchor of the new form. Throwing would also have locked a new shape's placement after its first
+  save.
+- **An empty body reads as no paragraph.** Excel writes one paragraph with only `a:endParaRPr`; the
+  model shows none, and the first paragraph added is written into that one, so no blank line is left
+  in front of it.
+- **A new run takes the run properties of its neighbour**: the run before it in its paragraph, else
+  the body's first run, else the empty paragraph's `a:endParaRPr`, else `lang="en-US" sz="1100"`. So
+  `IXLTextBox.Text = …` on a loaded text box keeps its font. New runs added together all start from
+  the paragraph as the file had it. A rebuilt body's paragraphs take its first paragraph's `a:pPr`.
+- **Text is checked where it is set.** A control character other than a tab, including the `` a
+  line break reads as, throws `ArgumentException` from the setter rather than from the save.
+- **A move rewrites only what moved**: the marker or position whose cell or offset changed, and the
+  extent only when the size did, so an unmoved corner keeps the file's EMU.
+- **Id 0 counts as a duplicate** and gets a fresh id, since the save finds a shape by its id.
+- **A line break reads as `\v` and a field as its text** in `IXLTextParagraph.Text`; neither is a run,
+  and both are kept when the paragraph is edited.
+- **A shape added at a cell is `Move`** (one-cell anchor), 192 × 96 px, so `WithSize` works on it.
+- **The change-set harness split Clark-notation paths at a slash inside the namespace URI**, so a
+  removed subtree reported its `a16:creationId` a second time. Fixed in `XmlChangeSet`, with a test.
+
+**Acceptance criteria.**
+
+1. A text box and every preset type, plain and formatted, new and patched into the fixture: Excel 365
+   opened both files over COM with no repair log, and its object model read back each shape's type,
+   size and text (`TextBox 1` is 150 × 45 pt, the 200 × 60 px set). ✅
+2. Every `XLShapeType` and an `AddPreset` geometry: add, save, reload reads back type, geometry, fill,
+   line, dash, text, alignment, vertical alignment, wrap and every run font property
+   (`ShapeRoundTripTests`). ✅
+3. Tier 1: an untouched sheet's drawing part is byte-identical. Tier 2: replacing the text leaves the
+   change set inside `spPr` empty, with the gradient, shadow and rotation there. Tier 3: one run's
+   text changes only its `a:t`; a fill colour replaces the `a:gradFill`, `a:ln` and `a:effectLst`
+   unchanged and in order; a line width on the arc changes only `a:ln/@w`, arrowheads kept
+   (`ShapeFidelityTests`). ✅
+4. Full suite green on net8.0 and net10.0 (the test projects do not target net9.0);
+   `PictureTests.Non_picture_shapes_are_preserved_after_roundtrip` passes unmodified. ✅
+5. `ValidatePackage` saves with no error for every type and four arbitrary presets, plain and fully
+   formatted, and for every edit of every loaded shape (`ShapeValidationTests`). ✅
+6. Editing both shapes a connector joins keeps the ids it names. ✅
+7. By construction rather than measured: a sheet with no shapes and no changed pictures creates no
+   `DrawingIds` and reads no drawing; the load adds one child lookup per anchor. The byte-identical
+   tests pin that shape code does not materialise an untouched drawing. Not BenchmarkDotNet.
+8. A created text box and a created rectangle equal the fixture's `xdr:sp` once id, name, `a:xfrm` and
+   `lang` are taken out (`ShapeCreationTests`). ✅
+
+**Not done.** Sepia (spec 17) is still not compared against an Excel-written file: Excel's object
+model cannot apply the preset, so it needs a file styled by hand in Excel.
