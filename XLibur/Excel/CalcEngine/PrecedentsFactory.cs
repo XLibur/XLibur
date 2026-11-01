@@ -148,11 +148,9 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
         return None;
     }
 
-    // A call of the value of an expression, such as LAMBDA(x,x*2)(3), is not evaluated (#847), but the
-    // cells its target and arguments read are its precedents: the visitor's rule for a construct it
-    // reads and does not evaluate.
+    // A call of the value of an expression, such as LAMBDA(x,x*2)(3).
     public int ExpressionCall(DependenciesContext context, SymbolRange range, int target, IReadOnlyList<int> arguments) =>
-        Push(context, DependenciesVisitor.ApplyUnsupported(context, new CallOperands(context, target, arguments)));
+        Push(context, DependenciesVisitor.ApplyCall(context, new CallOperands(context, target, arguments)));
 
     public int StructureReference(DependenciesContext context, SymbolRange range, StructuredReferenceArea area,
         string? firstColumn, string? lastColumn)
@@ -206,14 +204,18 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
 
     public int Nested(DependenciesContext context, SymbolRange range, int node) => node;
 
-    private static int Call(DependenciesContext context, string functionName, IReadOnlyList<int> arguments)
+    private int Call(DependenciesContext context, string functionName, IReadOnlyList<int> arguments)
     {
-        FormulaParser.ResolveFunction(context.Workbook.CalcEngine.Functions, ref functionName, arguments.Count);
+        var functions = context.Workbook.CalcEngine.Functions;
+        FormulaParser.ResolveFunction(functions, ref functionName, arguments.Count);
 
-        // A LET name stands for its value's areas, which a walk in parse order cannot know when it
-        // meets the name: the visitor reads LET with its scope.
-        if (DependenciesVisitor.IsLet(functionName))
+        // LET and LAMBDA bind names, which a walk in parse order meets before it knows what they stand
+        // for: the visitor reads them with a scope. A call of a LET name or a parameter is inside one,
+        // so any other call of a name is a call of a defined name.
+        if (DependenciesVisitor.IsLet(functionName) || DependenciesVisitor.IsLambda(functionName))
             context.NeedsAst = true;
+        else if (FormulaParser.IsCallOfName(functions, functionName))
+            DependenciesVisitor.ApplyCallOfDefinedName(context, _namesOnPath, functionName, new WalkedName(this, context));
 
         return Push(context, DependenciesVisitor.ApplyFunction(context, functionName, new ParsedArguments(context, arguments)));
     }

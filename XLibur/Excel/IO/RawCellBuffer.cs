@@ -57,10 +57,10 @@ internal sealed class RawCellBuffer
 
     /// <summary>
     /// Appends a value cell, or returns false, having appended nothing, for a cell this does not
-    /// write.
+    /// write. <paramref name="valueMetaIndex"/> is the cell's vm index, which the save gives it.
     /// </summary>
     internal bool TryAppendValueCell(ReadOnlySpan<char> reference, uint styleId, XLCellValue value,
-        bool shareString, int sharedStringId, in XLMiscSliceContent misc, bool use1904DateSystem)
+        bool shareString, int sharedStringId, in XLMiscSliceContent misc, uint? valueMetaIndex, bool use1904DateSystem)
     {
         string? dataType;
         switch (value.Type)
@@ -116,10 +116,10 @@ internal sealed class RawCellBuffer
             Append('"');
         }
 
-        if (misc.ValueMetaIndex is { } valueMetaIndex)
+        if (valueMetaIndex is { } vm)
         {
             Append(" vm=\"");
-            AppendNumber(valueMetaIndex);
+            AppendNumber(vm);
             Append('"');
         }
 
@@ -140,7 +140,7 @@ internal sealed class RawCellBuffer
                 break;
             case XLDataType.Error:
                 // #N/A, #DIV/0!, #VALUE! and the like: nothing in them needs escaping.
-                Append(value.GetError().ToDisplayString());
+                Append(value.GetError().ToFileString());
                 break;
             default:
                 AppendNumber(sharedStringId);

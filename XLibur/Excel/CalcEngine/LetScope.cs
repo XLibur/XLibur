@@ -53,6 +53,10 @@ internal sealed class LetScope<TValue>
         return false;
     }
 
+    /// <summary>Whether two names, as formulas write them, are the same name.</summary>
+    internal static bool IsSameName(string name, string other) =>
+        string.Equals(BareName(name), BareName(other), StringComparison.OrdinalIgnoreCase);
+
     private static string BareName(string name) =>
         name.StartsWith(ParameterPrefix, StringComparison.OrdinalIgnoreCase) ? name[ParameterPrefix.Length..] : name;
 }

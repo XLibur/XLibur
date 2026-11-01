@@ -241,7 +241,7 @@ internal static class CellXmlWriter
                 WriteVerbatimValue(w, cellValue.GetBoolean() ? TrueValue : FalseValue);
                 break;
             case XLDataType.Error:
-                WriteVerbatimValue(w, cellValue.GetError().ToDisplayString());
+                WriteVerbatimValue(w, cellValue.GetError().ToFileString());
                 break;
             default:
                 throw new InvalidOperationException();

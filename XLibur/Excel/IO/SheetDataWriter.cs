@@ -296,7 +296,7 @@ internal static class SheetDataWriter
         }
         else if (rowStyleId != cellStyleId)
         {
-            WriteBlankStyledCell(xml, ctx.CellsCollection, point, ctx.CellRef, cellStyleId);
+            WriteBlankStyledCell(xml, ref ctx, point, cellStyleId);
         }
     }
 
@@ -330,7 +330,7 @@ internal static class SheetDataWriter
 
         ref readonly var misc = ref cellsCollection.MiscSlice[point];
         return rawCells.TryAppendValueCell(cellRef[..cellRefLength], cellStyleId, cellValue, shareString,
-            sharedStringId, in misc, ctx.Use1904DateSystem);
+            sharedStringId, in misc, ValueMetaIndex(ref ctx, in misc, cellValue, point), ctx.Use1904DateSystem);
     }
 
     /// <summary>
@@ -364,7 +364,8 @@ internal static class SheetDataWriter
         if (cmIndex is null && formula.IsDynamicArray && saveContext.DynamicArrayMetaIndex is not null)
             cmIndex = saveContext.DynamicArrayMetaIndex.Value;
 
-        WriteStartFormulaCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc, cmIndex);
+        WriteStartFormulaCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc, cmIndex,
+            ValueMetaIndex(ref ctx, in misc, formula.IsClean() ? cachedValue : Blank.Value, point));
 
         WriteFormulaElement(xml, xlWorksheet, formula, point, ctx.SharedFormulas);
 
@@ -480,11 +481,21 @@ internal static class SheetDataWriter
     /// applied as a fallback when <see cref="XLMiscSliceContent.CellMetaIndex"/> is null.
     /// </summary>
     private static void WriteStartFormulaCellDirect(XmlWriter w, char[] reference, int referenceLength,
-        string? dataType, uint styleId, in XLMiscSliceContent misc, uint? cmIndex)
+        string? dataType, uint styleId, in XLMiscSliceContent misc, uint? cmIndex, uint? vmIndex)
     {
         CellXmlWriter.WriteCellStart(w, reference, referenceLength, dataType, styleId);
-        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, cmIndex, misc.ValueMetaIndex);
+        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, cmIndex, vmIndex);
     }
+
+    /// <summary>
+    /// The vm (value metadata) index of a cell that holds <paramref name="value"/>: the one the save's
+    /// rich value plan gives it, or the one it has when the workbook keeps its rich data as loaded.
+    /// </summary>
+    private static uint? ValueMetaIndex(ref CellWriteContext ctx, in XLMiscSliceContent misc, XLCellValue value,
+        Point point)
+        => ctx.SaveContext.RichValues is { } plan
+            ? plan.IndexFor(in misc, value, ctx.CellsCollection, point)
+            : misc.ValueMetaIndex;
 
     /// <summary>
     /// Write the cached value of a formula cell. Text is emitted inline; formulas can only
@@ -518,7 +529,8 @@ internal static class SheetDataWriter
         var dataType = CellXmlWriter.GetFormulaCellType(cellValue.Type);
         ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
-        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc,
+            ValueMetaIndex(ref ctx, in misc, cellValue, point));
         WriteCachedFormulaValue(xml, cellValue, ctx.Use1904DateSystem);
         xml.WriteEndElement(); // cell
     }
@@ -531,20 +543,21 @@ internal static class SheetDataWriter
         var dataType = CellXmlWriter.GetValueCellType(cellValue.Type, shareString);
         ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
-        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc);
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId, in misc,
+            ValueMetaIndex(ref ctx, in misc, cellValue, point));
         WriteCellValueDirect(xml, cellValue, shareString, point, ctx.CellsCollection, ctx.Use1904DateSystem,
             ctx.SaveContext);
         xml.WriteEndElement(); // cell
     }
 
-    private static void WriteBlankStyledCell(XmlWriter xml, XLCellsCollection cellsCollection,
-        Point point, char[] cellRef, uint cellStyleId)
+    private static void WriteBlankStyledCell(XmlWriter xml, ref CellWriteContext ctx, Point point, uint cellStyleId)
     {
-        Span<char> cellRefSpan = cellRef;
+        Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
-        ref readonly var misc = ref cellsCollection.MiscSlice[point];
+        ref readonly var misc = ref ctx.CellsCollection.MiscSlice[point];
 
-        WriteStartCellDirect(xml, cellRef, cellRefLen, null, cellStyleId, in misc);
+        WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, null, cellStyleId, in misc,
+            ValueMetaIndex(ref ctx, in misc, Blank.Value, point));
         xml.WriteEndElement(); // cell
     }
 
@@ -649,10 +662,10 @@ internal static class SheetDataWriter
     }
 
     private static void WriteStartCellDirect(XmlWriter w, char[] reference, int referenceLength, string? dataType,
-        uint styleId, in XLMiscSliceContent misc)
+        uint styleId, in XLMiscSliceContent misc, uint? vmIndex)
     {
         CellXmlWriter.WriteCellStart(w, reference, referenceLength, dataType, styleId);
-        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, misc.CellMetaIndex, misc.ValueMetaIndex);
+        CellXmlWriter.WriteCellMetaAttributes(w, misc.HasPhonetic, misc.CellMetaIndex, vmIndex);
     }
 
     private static void WriteCellValueDirect(XmlWriter w, XLCellValue cellValue, bool shareString,

@@ -1041,13 +1041,26 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </remarks>
     internal AnyValue EvaluateName(string nameFormula, CalcContext caller)
     {
+        // A name keeps a LAMBDA it refers to: it is a function the caller can call.
         var ctx = caller.ForDefinedName(nameFormula);
-        return EvaluateFormula(_cache[nameFormula], ctx);
+        return _cache[nameFormula].AstRoot.Accept(ctx, _visitor);
     }
 
+    /// <summary>
+    /// Evaluates the formula of a cell. A function left as its result is <c>#CALC!</c>, and calls of
+    /// a <c>LAMBDA</c> that went too deep are <c>#NUM!</c>, as in Excel.
+    /// </summary>
     private AnyValue EvaluateFormula(Formula formula, CalcContext ctx)
     {
-        return formula.AstRoot.Accept(ctx, _visitor);
+        try
+        {
+            var result = formula.AstRoot.Accept(ctx, _visitor);
+            return result.IsLambda ? XLError.Calc : result;
+        }
+        catch (LambdaDepthException)
+        {
+            return XLError.NumberInvalid;
+        }
     }
 
     /// <summary>

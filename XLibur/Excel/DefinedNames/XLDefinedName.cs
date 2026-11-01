@@ -143,6 +143,13 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         ArgumentNullException.ThrowIfNull(value, paramName);
 
         var formula = value.TrimFormulaEqual();
+
+        // A typed formula gets the prefixes a file needs, as a cell's does, so a name that refers to
+        // LAMBDA(x,x*2) is written _xlfn.LAMBDA(_xlpm.x,_xlpm.x*2), as Excel writes it. Every reference
+        // of a name has a sheet, so the sheet and the cell the text is read for do not matter.
+        if (!acceptUnusable)
+            formula = FormulaText.AddFuturePrefixes(formula, string.Empty, new Point(1, 1));
+
         var rejection = RejectionOf(formula, paramName, out var references);
         if (rejection is not null)
         {

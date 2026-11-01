@@ -98,12 +98,30 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         if (node.Prefix is null && IsLet(node.Name) && TryApplyLet(context, node.Parameters, out var areas))
             return areas;
 
+        if (node.Prefix is null && IsLambda(node.Name))
+            return ApplyLambda(context, node.Parameters);
+
+        // A call of a name that is no function reads what the name stands for: a LET name or a
+        // parameter is in the scope, and the precedents of a defined name are those of its formula,
+        // such as the cells the body of its LAMBDA reads.
+        if (FormulaParser.IsCallOfName(context.Workbook.CalcEngine.Functions, node.Name) &&
+            !(context.LetScope is { } scope && scope.TryGetValue(node.Name, out _)))
+        {
+            ApplyCallOfDefinedName(context, _namesOnPath, node.Name, new ParsedNameFormula(this, context));
+        }
+
         return ApplyFunction(context, node.Name, new VisitedArguments(this, context, node.Parameters));
     }
 
     public ReferenceAreas Visit(DependenciesContext context, NotSupportedNode node)
     {
-        return ApplyUnsupported(context, new VisitedArguments(this, context, node.Operands));
+        // A construct XLibur does not evaluate, dynamic data exchange, reads no cell.
+        return ReferenceAreas.None;
+    }
+
+    public ReferenceAreas Visit(DependenciesContext context, CallNode node)
+    {
+        return ApplyCall(context, new VisitedArguments(this, context, [node.Target, .. node.Arguments]));
     }
 
     public ReferenceAreas Visit(DependenciesContext context, ReferenceNode node)
@@ -240,11 +258,12 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
     }
 
     /// <summary>
-    /// A construct XLibur reads but does not evaluate, such as a call of the value of an expression
-    /// (<c>LAMBDA(x,x*2)(3)</c>). Every operand that is a reference is a precedent, so a change to it
-    /// makes the formula's saved result stale; the construct gives no reference itself.
+    /// A call of the value of an expression, <c>LAMBDA(x,x*2)(A1)</c>: the target and then the
+    /// arguments. Every one that is a reference is a precedent, as an argument of a function is, and the
+    /// cells the body of the function reads are precedents of the target, the <c>LAMBDA</c> or the name
+    /// it is found through.
     /// </summary>
-    internal static ReferenceAreas ApplyUnsupported<TArguments>(DependenciesContext context, TArguments operands)
+    internal static ReferenceAreas ApplyCall<TArguments>(DependenciesContext context, TArguments operands)
         where TArguments : IFunctionArguments
     {
         for (var i = 0; i < operands.Count; ++i)
@@ -289,6 +308,50 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
             areas = parameters[^1].Accept(context, this);
             return true;
+        }
+        finally
+        {
+            context.LetScope = outer;
+        }
+    }
+
+    /// <summary>
+    /// The precedents of a call of a defined name, <c>AddB(1)</c>: those of the name's formula, such as
+    /// the cells the body of its <c>LAMBDA</c> reads. A sheet before the call, <c>Sheet1!AddB(1)</c>, is
+    /// not kept by the parser for a name that is no function, so the name is found as it is evaluated,
+    /// from the formula's sheet.
+    /// </summary>
+    internal static void ApplyCallOfDefinedName<TFormula>(DependenciesContext context,
+        HashSet<XLDefinedName> namesOnPath, string name, TFormula formula)
+        where TFormula : INameFormula
+    {
+        AddAreasIfReference(context, ApplyName(context, namesOnPath, null, false, name, formula));
+    }
+
+    /// <summary>Whether <paramref name="functionName"/>, as a function node holds it, is <c>LAMBDA</c>.</summary>
+    internal static bool IsLambda(string functionName) => string.Equals(functionName, "LAMBDA", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The precedents of <c>LAMBDA(parameter1, …, body)</c>: the cells the body reads, wherever the
+    /// function is called. A parameter stands for no areas, as what it is bound to is an argument of
+    /// a call, whose references are the call's precedents. The function value is no reference.
+    /// </summary>
+    private ReferenceAreas ApplyLambda(DependenciesContext context, IReadOnlyList<ValueNode> parameters)
+    {
+        if (parameters.Count == 0)
+            return ReferenceAreas.None;
+
+        var outer = context.LetScope;
+        try
+        {
+            for (var i = 0; i < parameters.Count - 1; ++i)
+            {
+                if (parameters[i] is NameNode { Prefix: null } parameter)
+                    context.LetScope = new LetScope<ReferenceAreas>(parameter.Name, ReferenceAreas.None, context.LetScope);
+            }
+
+            AddAreasIfReference(context, parameters[^1].Accept(context, this));
+            return ReferenceAreas.None;
         }
         finally
         {

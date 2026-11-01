@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -11,7 +12,7 @@ namespace XLibur.Excel.IO;
 
 /// <summary>
 /// Reads rich data parts (rdrichvalue.xml, rdrichvaluestructure.xml, richValueRel.xml)
-/// to populate in-cell images during workbook load.
+/// to populate in-cell images and the errors newer than Excel 2007 during workbook load.
 /// </summary>
 internal static class RichDataReader
 {
@@ -31,40 +32,48 @@ internal static class RichDataReader
         if (richValuePart is null)
             return;
 
-        // 1. Parse structures to find each _localImage structure and the positions of its keys
-        var localImageStructures = richValueStructurePart is null
-            ? new Dictionary<int, LocalImageLayout>()
-            : FindLocalImageStructures(richValueStructurePart);
+        // 1. Parse structures to find each _localImage and _error structure and the positions of its keys
+        var structures = richValueStructurePart is null
+            ? new Dictionary<int, StructureLayout>()
+            : FindStructures(richValueStructurePart);
 
-        // 2. Parse rdrichvalue.xml to build rv index -> (rel index, alt text)
-        var richValues = ParseRichValues(richValuePart, localImageStructures);
+        // 2. Parse rdrichvalue.xml to build rv index -> image (rel index, alt text) or error
+        var richValues = ParseRichValues(richValuePart, structures);
         if (richValues.Count == 0)
             return;
 
-        // 3. Parse richValueRel to get image relationship IDs in order
+        // 3. Parse metadata.xml to map vm (1-based) -> rv index (0-based). An error is read whatever
+        // else the rich data holds: the cell says #VALUE!, and its rich value names the error.
+        var vmToRvIndex = ParseValueMetadata(workbookPart);
+        var richValueErrors = MapValueMetadataToErrors(vmToRvIndex, richValues);
+        if (richValueErrors.Count > 0)
+            context.RichValueErrors = richValueErrors;
+
+        // 4. Parse richValueRel to get image relationship IDs in order
         var imageRelIds = richValueRelPart is null ? [] : ParseRichValueRel(richValueRelPart);
 
-        // The save rewrites the rich data parts from the images it knows and drops every other
-        // rich value. Unless each rich value is a local image whose relationship resolves, the
-        // workbook's rich data is left as the file has it, and so are its cells, and no image
-        // can be added: the rewrite would drop the other rich values and leave their cells'
-        // vm indexes naming the new images, or nothing.
-        if (richValueRelPart is null ||
-            !richValues.TrueForAll(rv => rv is { } v && v.RelIndex >= 0 && v.RelIndex < imageRelIds.Count &&
-                                         richValueRelPart.TryGetPartById(imageRelIds[v.RelIndex], out _)))
+        // The save rewrites the rich data parts from the images and errors it knows and drops every
+        // other rich value. Unless each rich value is an error, or a local image whose relationship
+        // resolves, the workbook's rich data is left as the file has it, and so are its cells, and no
+        // image can be added: the rewrite would drop the other rich values and leave their cells' vm
+        // indexes naming the new images, or nothing.
+        if (!richValues.TrueForAll(rv => IsUnderstood(rv, richValueRelPart, imageRelIds)))
         {
             workbook.KeepsLoadedRichData = true;
             return;
         }
 
-        // 4. Load image bytes from relationship targets into the workbook store
+        if (richValueRelPart is null)
+            return;
+
+        // 5. Load image bytes from relationship targets into the workbook store
         var relIndexToImageStoreIndex = LoadImages(richValueRelPart, imageRelIds, workbook);
         var rvEntries = richValues
-            .Select(rv => (XLCellImage?)new XLCellImage(relIndexToImageStoreIndex[rv!.Value.RelIndex], rv.Value.AltText))
+            .Select(rv => rv is { Error: null } image
+                ? new XLCellImage(relIndexToImageStoreIndex[image.RelIndex], image.AltText)
+                : null)
             .ToList();
 
-        // 5. Parse metadata.xml to map vm (1-based) -> rv index (0-based)
-        var vmToRvIndex = ParseValueMetadata(workbookPart);
         if (vmToRvIndex.Count == 0)
             return;
 
@@ -117,6 +126,33 @@ internal static class RichDataReader
         return richValueImages;
     }
 
+    /// <summary>Whether a rich value is an error, or a local image whose relationship resolves.</summary>
+    private static bool IsUnderstood(LoadedRichValue? richValue, OpenXmlPart? richValueRelPart, List<string> imageRelIds)
+    {
+        if (richValue is not { } value)
+            return false;
+
+        if (value.Error is not null)
+            return true;
+
+        return richValueRelPart is not null && value.RelIndex >= 0 && value.RelIndex < imageRelIds.Count &&
+               richValueRelPart.TryGetPartById(imageRelIds[value.RelIndex], out _);
+    }
+
+    /// <summary>The error each vm (1-based) whose rich value is an error names.</summary>
+    private static Dictionary<uint, XLError> MapValueMetadataToErrors(Dictionary<uint, int> vmToRvIndex,
+        List<LoadedRichValue?> richValues)
+    {
+        var errors = new Dictionary<uint, XLError>();
+        foreach (var (vm, rvIndex) in vmToRvIndex)
+        {
+            if (rvIndex >= 0 && rvIndex < richValues.Count && richValues[rvIndex] is { Error: { } error })
+                errors[vm] = error;
+        }
+
+        return errors;
+    }
+
     private static OpenXmlPart? FindPartByRelType(WorkbookPart workbookPart, string relType)
     {
         foreach (var idPart in workbookPart.Parts)
@@ -129,20 +165,30 @@ internal static class RichDataReader
     }
 
     /// <summary>
-    /// The positions, among the values of a rich value, of a local image's keys.
+    /// The positions, among the values of a rich value, of the keys XLibur reads: a local image's, or
+    /// an error's.
     /// </summary>
-    /// <param name="RelKey">Position of the image's index into richValueRel.xml.</param>
+    /// <param name="RelKey">Position of the image's index into richValueRel.xml, or -1 for an error.</param>
     /// <param name="TextKey">Position of the alt text, or -1 if the structure has none.</param>
-    private readonly record struct LocalImageLayout(int RelKey, int TextKey);
+    /// <param name="ErrorTypeKey">Position of an error's <c>errorType</c>, or -1 for an image.</param>
+    private readonly record struct StructureLayout(int RelKey, int TextKey, int ErrorTypeKey);
 
     /// <summary>
-    /// Find every _localImage structure in rdrichvaluestructure.xml, by 0-based structure index.
-    /// Excel writes one structure per set of keys, e.g. one with alt text and one without, so a
-    /// workbook can have several.
+    /// A rich value XLibur reads: a local image, or an error.
     /// </summary>
-    private static Dictionary<int, LocalImageLayout> FindLocalImageStructures(OpenXmlPart part)
+    /// <param name="RelIndex">The image's index into richValueRel.xml.</param>
+    /// <param name="AltText">The image's alt text.</param>
+    /// <param name="Error">The error, or null for an image.</param>
+    private readonly record struct LoadedRichValue(int RelIndex, string AltText, XLError? Error);
+
+    /// <summary>
+    /// Find every _localImage and _error structure in rdrichvaluestructure.xml, by 0-based structure
+    /// index. Excel writes one structure per set of keys, e.g. one with alt text and one without, so a
+    /// workbook can have several of each.
+    /// </summary>
+    private static Dictionary<int, StructureLayout> FindStructures(OpenXmlPart part)
     {
-        var structures = new Dictionary<int, LocalImageLayout>();
+        var structures = new Dictionary<int, StructureLayout>();
 
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
         using var reader = PartXmlReader.CreateVerbatim(stream);
@@ -153,8 +199,11 @@ internal static class RichDataReader
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "s")
                 continue;
 
-            if (reader.GetAttribute("t") == "_localImage" && ReadLocalImageLayout(reader) is { } layout)
+            var type = reader.GetAttribute("t");
+            if (type == "_localImage" && ReadLocalImageLayout(reader) is { } layout)
                 structures[structureIndex] = layout;
+            else if (type == RichDataWriter.ErrorStructureType && ReadErrorLayout(reader) is { } errorLayout)
+                structures[structureIndex] = errorLayout;
 
             structureIndex++;
         }
@@ -162,7 +211,25 @@ internal static class RichDataReader
         return structures;
     }
 
-    private static LocalImageLayout? ReadLocalImageLayout(XmlReader reader)
+    private static StructureLayout? ReadErrorLayout(XmlReader reader)
+    {
+        var keyIndex = 0;
+        using var structureReader = reader.ReadSubtree();
+        while (structureReader.Read())
+        {
+            if (structureReader.NodeType != XmlNodeType.Element || structureReader.LocalName != "k")
+                continue;
+
+            if (structureReader.GetAttribute("n") == RichDataWriter.ErrorTypeKey)
+                return new StructureLayout(-1, -1, keyIndex);
+
+            keyIndex++;
+        }
+
+        return null;
+    }
+
+    private static StructureLayout? ReadLocalImageLayout(XmlReader reader)
     {
         var relKey = -1;
         var textKey = -1;
@@ -187,7 +254,7 @@ internal static class RichDataReader
             keyIndex++;
         }
 
-        return relKey >= 0 ? new LocalImageLayout(relKey, textKey) : null;
+        return relKey >= 0 ? new StructureLayout(relKey, textKey, -1) : null;
     }
 
     /// <summary>
@@ -216,13 +283,13 @@ internal static class RichDataReader
 
     /// <summary>
     /// Parse rdrichvalue.xml. Returns a list indexed by rv index, with null for entries that are
-    /// not local images.
+    /// neither local images nor errors.
     /// </summary>
-    private static List<(int RelIndex, string AltText)?> ParseRichValues(
+    private static List<LoadedRichValue?> ParseRichValues(
         OpenXmlPart part,
-        Dictionary<int, LocalImageLayout> localImageStructures)
+        Dictionary<int, StructureLayout> structures)
     {
-        var entries = new List<(int RelIndex, string AltText)?>();
+        var entries = new List<LoadedRichValue?>();
 
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
         using var reader = PartXmlReader.CreateVerbatim(stream);
@@ -234,14 +301,14 @@ internal static class RichDataReader
 
             var sAttr = reader.GetAttribute("s");
             if (sAttr is null || !int.TryParse(sAttr, out var structureIndex) ||
-                !localImageStructures.TryGetValue(structureIndex, out var layout))
+                !structures.TryGetValue(structureIndex, out var layout))
             {
                 entries.Add(null);
                 continue;
             }
 
             var values = ReadRvChildValues(reader);
-            entries.Add(ReadLocalImage(values, layout));
+            entries.Add(layout.ErrorTypeKey >= 0 ? ReadError(values, layout) : ReadLocalImage(values, layout));
         }
 
         return entries;
@@ -264,14 +331,28 @@ internal static class RichDataReader
         return values;
     }
 
-    private static (int RelIndex, string AltText)? ReadLocalImage(List<string> values, LocalImageLayout layout)
+    private static LoadedRichValue? ReadLocalImage(List<string> values, StructureLayout layout)
     {
         if (layout.RelKey >= values.Count ||
             !int.TryParse(values[layout.RelKey], NumberStyles.Integer, CultureInfo.InvariantCulture, out var relIndex))
             return null;
 
         var altText = layout.TextKey >= 0 && layout.TextKey < values.Count ? values[layout.TextKey] : string.Empty;
-        return (relIndex, altText);
+        return new LoadedRichValue(relIndex, altText, null);
+    }
+
+    /// <summary>
+    /// An error, by its <c>errorType</c>, which [MS-XLSX] 2.3.6.1.3 numbers as <see cref="XLError"/> is
+    /// numbered. An error type XLibur does not know is not read.
+    /// </summary>
+    private static LoadedRichValue? ReadError(List<string> values, StructureLayout layout)
+    {
+        if (layout.ErrorTypeKey >= values.Count ||
+            !int.TryParse(values[layout.ErrorTypeKey], NumberStyles.Integer, CultureInfo.InvariantCulture, out var errorType) ||
+            !Enum.IsDefined((XLError)errorType))
+            return null;
+
+        return new LoadedRichValue(-1, string.Empty, (XLError)errorType);
     }
 
     /// <summary>

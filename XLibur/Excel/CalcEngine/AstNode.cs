@@ -165,27 +165,33 @@ internal sealed class FunctionNode : ValueNode
 /// </summary>
 internal sealed class NotSupportedNode : ValueNode
 {
-    public NotSupportedNode(string featureName)
-        : this(featureName, [])
-    {
-    }
-
     /// <param name="featureName">What is not supported, for the error evaluation reports.</param>
-    /// <param name="operands">The expressions the construct reads. See <see cref="Operands"/>.</param>
-    public NotSupportedNode(string featureName, IReadOnlyList<ValueNode> operands)
+    public NotSupportedNode(string featureName)
     {
         FeatureName = featureName;
-        Operands = operands;
     }
 
     public string FeatureName { get; }
 
-    /// <summary>
-    /// The expressions the construct reads, such as the target and arguments of a call of an
-    /// expression. They are not evaluated, but their references are precedents of the formula, so a
-    /// change to one makes its saved result stale.
-    /// </summary>
-    public IReadOnlyList<ValueNode> Operands { get; }
+    public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
+}
+
+/// <summary>
+/// A call of the value of an expression, such as <c>LAMBDA(x,x*2)(3)</c> or <c>f(3)(4)</c>: the target
+/// is evaluated, and the function it gives is called with the arguments (#847).
+/// </summary>
+internal sealed class CallNode : ValueNode
+{
+    public CallNode(ValueNode target, IReadOnlyList<ValueNode> arguments)
+    {
+        Target = target;
+        Arguments = arguments;
+    }
+
+    /// <summary>The expression whose value is called.</summary>
+    public ValueNode Target { get; }
+
+    public IReadOnlyList<ValueNode> Arguments { get; }
 
     public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
 }

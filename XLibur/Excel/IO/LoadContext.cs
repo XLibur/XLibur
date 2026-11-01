@@ -174,6 +174,12 @@ internal sealed class LoadContext
     internal Dictionary<uint, XLCellImage>? RichValueImages { get; set; }
 
     /// <summary>
+    /// Maps 1-based vm (value metadata) index to the error its rich value names. A cell holds an error
+    /// newer than Excel 2007, such as <c>#CALC!</c>, as <c>#VALUE!</c> with such an index.
+    /// </summary>
+    internal Dictionary<uint, XLError>? RichValueErrors { get; set; }
+
+    /// <summary>
     /// The set of 1-based cell-metadata (<c>cm</c>) indexes that reference the <c>XLDAPR</c>
     /// dynamic-array future-metadata type. A cell whose <c>cm</c> is in this set carries a
     /// dynamic-array formula (as opposed to a legacy CSE array). <c>null</c> when the workbook

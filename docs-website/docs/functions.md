@@ -86,7 +86,26 @@ ws.Cell("H2").FormulaA1 = "=LET(r, A1:A10, SUM(r) / ROWS(r))";   // a range stay
 
 Inside the `LET`, a name hides a defined name of the same spelling. XLibur writes the names
 with the `_xlpm.` prefix Excel uses in a file, so `FormulaA1` reads them back as
-`_xlpm.price`. `LAMBDA`, and the functions that take one such as `MAP`, are not evaluated yet.
+`_xlpm.price`.
+
+### Functions of your own with LAMBDA
+
+`LAMBDA` makes a function. Call it where it is written, give it a name with `LET`, or keep it in
+a defined name and call it from any cell, as Excel's Name Manager does:
+
+```csharp
+ws.Cell("I1").FormulaA1 = "=LAMBDA(x, x * 2)(3)";                       // 6
+ws.Cell("I2").FormulaA1 = "=LET(double, LAMBDA(x, x * 2), double(4))";  // 8
+
+wb.DefinedNames.Add("Factorial", "LAMBDA(n, IF(n <= 1, 1, n * Factorial(n - 1)))");
+ws.Cell("I3").FormulaA1 = "=Factorial(5)";                              // 120
+```
+
+A function keeps the names bound where it is written, and a function left as the result of a
+cell is `#CALC!`, as in Excel. A function can call itself up to 1,024 calls deep; deeper is
+`#NUM!`. `IF` evaluates only the branch its condition picks, so a function that calls itself
+stops at its base case. The functions that take a `LAMBDA`, such as `MAP` and `REDUCE`, are not
+evaluated yet.
 
 ### Dates
 
@@ -190,7 +209,7 @@ dots replaced by hyphens (`CEILING.MATH` → `ceiling-math-function`).
 
 ### Logical
 
-`AND` · `FALSE` · `IF` · `IFERROR` · `IFS` · `LET` · `NOT` · `OR` · `SWITCH` · `TRUE`
+`AND` · `FALSE` · `IF` · `IFERROR` · `IFS` · `LAMBDA` · `LET` · `NOT` · `OR` · `SWITCH` · `TRUE`
 
 ### Lookup and reference
 

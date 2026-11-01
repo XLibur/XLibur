@@ -341,6 +341,26 @@ internal sealed class XLCellsCollection : IWorkbookListener
     /// Points of all cells that carry an in-cell image, in row-major order. Scans the misc slice
     /// directly rather than materialising an <see cref="XLCell"/> per used cell.
     /// </summary>
+    /// <summary>
+    /// The cells that have a vm (value metadata) index: in-cell images, and errors newer than Excel
+    /// 2007, which a file holds as <c>#VALUE!</c> with an index whose rich value names the error.
+    /// </summary>
+    internal List<Point> GetValueMetaPoints()
+    {
+        var points = new List<Point>();
+        if (MiscSlice.IsEmpty)
+            return points;
+
+        var enumerator = new Slice<XLMiscSliceContent>.Enumerator(MiscSlice, Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.ValueMetaIndex is not null)
+                points.Add(enumerator.Point);
+        }
+
+        return points;
+    }
+
     internal List<Point> GetCellImagePoints()
     {
         var points = new List<Point>();

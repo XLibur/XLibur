@@ -70,7 +70,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <remarks>
     /// Everything an evaluation can change is set again here: the cell and its sheet and workbook,
     /// the recursive choice, the sheet a recalculation is limited to, both intersection flags, the
-    /// <c>LET</c> scope, the cells remembered by a recursive read and the count of recursive
+    /// <c>LET</c> scope and <c>LAMBDA</c> depth, the cells remembered by a recursive read and the count of recursive
     /// evaluations. What stays is
     /// what never changes for an engine: the engine and its culture. A context made for a defined
     /// name is never reused, so its name and caller are not reset.
@@ -86,6 +86,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         IsArrayCalculation = false;
         IntersectOperands = intersectOperands;
         LetScope = null;
+        LambdaDepth = 0;
         _recursiveCellValueCache = null;
         _recursiveEvaluations = 0;
     }
@@ -120,6 +121,11 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// which reports the missing context.
     /// </summary>
     internal bool HasWorksheet => _worksheet is not null;
+
+    /// <summary>
+    /// Is the formula calculated in a workbook? <see cref="XLWorkbook.EvaluateExpr"/> gives it none.
+    /// </summary>
+    internal bool HasWorkbook => _workbook is not null;
 
     /// <summary>
     /// The context a defined name's formula is evaluated in, when the formula this context is
@@ -168,6 +174,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
             RecalculateSheetId = RecalculateSheetId,
             NameFormula = nameFormula,
             NameCaller = this,
+            LambdaDepth = LambdaDepth,
         };
     }
 
@@ -220,6 +227,12 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// evaluated in contexts of their own, so a <c>LET</c> name never reaches their formulas.
     /// </summary>
     internal LetScope<AnyValue>? LetScope { get; set; }
+
+    /// <summary>
+    /// How many calls of a <c>LAMBDA</c> are being evaluated, one inside another, so a function that
+    /// calls itself for ever stops. <see cref="CalculationVisitor"/> owns it.
+    /// </summary>
+    internal int LambdaDepth { get; set; }
 
     /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty
