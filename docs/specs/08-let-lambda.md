@@ -77,4 +77,8 @@ The fixture is `Resource/Other/ExcelAuthored/LetFormulas.xlsx`, typed and calcul
 - A range stays a reference: `INDEX(r,2)`, `ROWS(r)` and `ISREF(r)` all see the range.
 - Excel accepts a name that reads as a cell, `LET(A1,1,A1)`, written `_xlpm.A1`. Typed, the parser reads `A1` as a reference, so XLibur does not bind it: a known gap, and a parser question.
 - Excel writes each use of a name in the case it was declared in (`_xlpm.X+1`). XLibur keeps the case it was typed in, and Excel reads both.
+- **A LET value is intersected in a legacy formula.** Excel gives 2 for `LET(x,A1:A3*2,SUM(x))` in C1 entered as a legacy formula, which it shows as `@A1:A3*2`, and 12 entered as a dynamic one. XLibur gives the same for each (PR #865 review).
+- **A name can be an operand of the range operator:** Excel recalculates `LET(r,A1,SUM(r:A3))` when A2 changes. The parse-time precedents walk meets a name before the LET around it, so a formula with LET takes the AST path. There, `DependenciesVisitor` keeps a scope of names bound to reference areas and puts it aside while it reads a defined name's formula.
+- **The parser reads `r:A3` as the column range `r:A` followed by `3`.** A LET name that can be a column cannot be the operand of `:`, which Excel allows. This is a parser question.
+- **A bound computed array is memoized** (`MemoizedArray`, up to 65,536 elements), so a chain of names, each read twice by the next, computes each element once rather than 2^n times. A bigger array stays lazy, as `LazyArrayEvaluationTests` requires.
 - A LET that returns an array is a dynamic-array formula in Excel. Through `FormulaA1`, XLibur saves it as a legacy formula, which Excel evaluates with implicit intersection. `SetDynamicFormulaA1` spills it.

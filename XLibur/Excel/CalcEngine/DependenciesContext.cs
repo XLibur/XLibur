@@ -32,7 +32,15 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
         FormulaArea = formulaArea;
         Workbook = workbook;
         Dependencies = dependencies;
+        LetScope = null;
     }
+
+    /// <summary>
+    /// The areas the names of the <c>LET</c> calls around the node being visited refer to, or
+    /// <c>null</c> outside any. <see cref="DependenciesVisitor"/> owns it, and puts it aside while it
+    /// reads a defined name's formula, where a <c>LET</c> name of the cell formula means nothing.
+    /// </summary>
+    internal LetScope<ReferenceAreas>? LetScope { get; set; }
 
     /// <inheritdoc />
     /// <remarks>

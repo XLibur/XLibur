@@ -137,6 +137,90 @@ public class LetTests
         await Assert.That(ws.Cell("C1").Value).IsNotEqualTo(before);
     }
 
+    /// <summary>
+    /// A LET value is intersected as any operand of a legacy formula is: Excel 365 gives 2 for
+    /// <c>LET(x,A1:A3*2,SUM(x))</c> in C1 entered as a legacy formula (it shows
+    /// <c>@A1:A3*2</c>), and 12 for the same formula entered as a dynamic one.
+    /// </summary>
+    [Test]
+    public async Task A_LET_value_is_intersected_in_a_legacy_formula_and_not_in_a_dynamic_one()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 2;
+        ws.Cell("A3").Value = 3;
+        ws.Cell("C1").FormulaA1 = "LET(x,A1:A3*2,SUM(x))";
+        ws.Cell("D1").SetDynamicFormulaA1("LET(x,A1:A3*2,SUM(x))");
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(2);
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(12);
+    }
+
+    /// <summary>
+    /// A name bound to a reference can be the operand of a range operator, whose result covers cells
+    /// neither end names: Excel 365 recalculates <c>LET(r,A1,SUM(r:A3))</c> from 6 to 24 when A2
+    /// becomes 20. The test names it <c>start</c>: the parser reads <c>r:A3</c> as the column range
+    /// <c>r:A</c> followed by 3, as a name that can be a column cannot be told from one.
+    /// </summary>
+    [Test]
+    public async Task A_range_built_from_a_LET_name_recalculates_when_a_cell_inside_it_changes()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 2;
+        ws.Cell("A3").Value = 3;
+        ws.Cell("C1").FormulaA1 = "LET(start,A1,SUM(start:A3))";
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(6);
+
+        ws.Cell("A2").Value = 20;
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(24);
+    }
+
+    /// <summary>
+    /// A defined name's formula does not see the LET names of the formula that uses it, so its
+    /// precedents are its own: here the defined name <c>Inner</c> reads the defined name <c>x</c>,
+    /// which is A5, not the LET's <c>x</c>.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_used_in_a_LET_keeps_its_own_precedents()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet1");
+        wb.DefinedNames.Add("x", "Sheet1!$A$5");
+        wb.DefinedNames.Add("Inner", "x*10");
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A5").Value = 2;
+        ws.Cell("C1").FormulaA1 = "LET(x,A1,Inner+x)";
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(21);
+
+        ws.Cell("A5").Value = 3;
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(31);
+    }
+
+    /// <summary>
+    /// Each name binds the value its expression has, once: a chain of thirty names each twice the
+    /// one before reads the two-element array thirty times, not two to the thirtieth.
+    /// </summary>
+    [Test]
+    public async Task A_chain_of_names_bound_to_arrays_evaluates_each_once()
+    {
+        var names = Enumerable.Range(0, 31).Select(i => $"n{i}_").ToArray();
+        var bindings = string.Join(",", names.Skip(1).Select((name, i) => $"{name},{names[i]}+{names[i]}"));
+        var formula = $"LET({names[0]},{{1;2}},{bindings},SUM({names[^1]}))";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C1").SetDynamicFormulaA1(formula);
+        var evaluation = Task.Run(() => ws.Cell("C1").Value);
+
+        await Assert.That(await Task.WhenAny(evaluation, Task.Delay(10_000))).IsSameReferenceAs(evaluation);
+        await Assert.That(await evaluation).IsEqualTo(3d * (1L << 30));
+    }
+
     [Test]
     public async Task A_typed_name_that_reads_as_a_cell_is_not_bound_yet()
     {

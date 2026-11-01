@@ -219,7 +219,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// outside any. <see cref="CalculationVisitor"/> owns it. A defined name and another cell are
     /// evaluated in contexts of their own, so a <c>LET</c> name never reaches their formulas.
     /// </summary>
-    internal LetScope? LetScope { get; set; }
+    internal LetScope<AnyValue>? LetScope { get; set; }
 
     /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty

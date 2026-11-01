@@ -157,7 +157,8 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
     /// <para>
     /// A value is bound as it evaluates: a range stays a reference, so <c>LET(r,A1:A3,INDEX(r,2))</c>
     /// is 2, and an error is the value of its name, which reaches the result only where the name is
-    /// used: <c>LET(x,1/0,5)</c> is 5, as in Excel.
+    /// used: <c>LET(x,1/0,5)</c> is 5, as in Excel. A computed array is bound through
+    /// <see cref="MemoizedArray"/>, so a name read many times computes its elements once.
     /// </para>
     /// <para>
     /// Excel refuses a <c>LET</c> without a body, or with something other than a name where a name
@@ -181,8 +182,13 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         {
             for (var i = 0; i < parameters.Count - 1; i += 2)
             {
+                // A computed array keeps each element once it is read, as a name can be read many
+                // times; a reference stays a reference.
                 var value = parameters[i + 1].Accept(context, this);
-                context.LetScope = new LetScope(((NameNode)parameters[i]).Name, value, context.LetScope);
+                if (value.TryPickArray(out var array))
+                    value = MemoizedArray.Of(array!);
+
+                context.LetScope = new LetScope<AnyValue>(((NameNode)parameters[i]).Name, value, context.LetScope);
             }
 
             return parameters[^1].Accept(context, this);

@@ -95,7 +95,53 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
 
     public ReferenceAreas Visit(DependenciesContext context, FunctionNode node)
     {
+        if (node.Prefix is null && IsLet(node.Name) && TryApplyLet(context, node.Parameters, out var areas))
+            return areas;
+
         return ApplyFunction(context, node.Name, new VisitedArguments(this, context, node.Parameters));
+    }
+
+    /// <summary>Whether <paramref name="functionName"/>, as a function node holds it, is <c>LET</c>.</summary>
+    internal static bool IsLet(string functionName) => string.Equals(functionName, "LET", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The precedents of <c>LET(name1, value1, …, body)</c>, by the scoping evaluation follows: each
+    /// value's references are precedents, a name stands for the areas its value refers to, and the
+    /// body's references are precedents, so a range built from a name, <c>r:A3</c>, is the whole
+    /// range. <c>false</c> for a <c>LET</c> evaluation refuses, which is read as any other function.
+    /// </summary>
+    private bool TryApplyLet(DependenciesContext context, IReadOnlyList<ValueNode> parameters, out ReferenceAreas areas)
+    {
+        areas = ReferenceAreas.None;
+        if (parameters.Count < 3 || parameters.Count % 2 == 0)
+            return false;
+
+        for (var i = 0; i < parameters.Count - 1; i += 2)
+        {
+            if (parameters[i] is not NameNode { Prefix: null })
+                return false;
+        }
+
+        var outer = context.LetScope;
+        try
+        {
+            for (var i = 0; i < parameters.Count - 1; i += 2)
+            {
+                var value = parameters[i + 1].Accept(context, this);
+
+                // A bound reference is a precedent even if the body never uses the name, as an
+                // argument of a function is.
+                AddAreasIfReference(context, value);
+                context.LetScope = new LetScope<ReferenceAreas>(((NameNode)parameters[i]).Name, value, context.LetScope);
+            }
+
+            areas = parameters[^1].Accept(context, this);
+            return true;
+        }
+        finally
+        {
+            context.LetScope = outer;
+        }
     }
 
     public ReferenceAreas Visit(DependenciesContext context, NotSupportedNode node)
@@ -133,6 +179,10 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // External references are not supported for names. Book index 0 is this workbook.
         if (node.Prefix is { IsInOtherWorkbook: true })
             return ReferenceAreas.None;
+
+        // A LET name stands for the areas its value refers to, before any defined name.
+        if (node.Prefix is null && context.LetScope is { } scope && scope.TryGetValue(node.Name, out var bound))
+            return bound;
 
         return ApplyName(context, _namesOnPath, node.Prefix?.Sheet, node.Prefix is { IsThisWorkbookScope: true },
             node.Name, new ParsedNameFormula(this, context));
@@ -485,8 +535,18 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             }
 
             // If the formula returned a reference, propagate it, rather
-            // than add to the context (required for `A1:name` ).
-            return ast.AstRoot.Accept(context, visitor);
+            // than add to the context (required for `A1:name` ). The cell formula's LET names mean
+            // nothing in the name's formula, which is evaluated in a context of its own.
+            var scope = context.LetScope;
+            context.LetScope = null;
+            try
+            {
+                return ast.AstRoot.Accept(context, visitor);
+            }
+            finally
+            {
+                context.LetScope = scope;
+            }
         }
     }
 }
