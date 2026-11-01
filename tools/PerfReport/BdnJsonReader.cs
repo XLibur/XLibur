@@ -22,6 +22,8 @@ public static class BdnJsonReader
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("The BenchmarkDotNet report is not a JSON object.");
         var run = new BdnRun();
 
         if (root.TryGetProperty("HostEnvironmentInfo", out var host)
@@ -36,6 +38,8 @@ public static class BdnJsonReader
 
         foreach (var b in benchmarks.EnumerateArray())
         {
+            if (b.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("An entry of 'Benchmarks' is not an object.");
             var type = RequiredString(b, "Type");
             var method = RequiredString(b, "Method");
             var parameters = b.TryGetProperty("Parameters", out var p) && p.ValueKind == JsonValueKind.String
@@ -44,9 +48,11 @@ public static class BdnJsonReader
             var key = parameters.Length == 0 ? $"{type}.{method}" : $"{type}.{method}({parameters})";
 
             if (!b.TryGetProperty("Statistics", out var stats) || stats.ValueKind != JsonValueKind.Object
-                || !stats.TryGetProperty("Mean", out var mean))
+                || !stats.TryGetProperty("Mean", out var mean)
+                || mean.ValueKind != JsonValueKind.Number)
             {
-                throw new InvalidDataException($"Benchmark '{key}' has no Statistics.Mean (did it fail?).");
+                throw new InvalidDataException(
+                    $"Benchmark '{key}' has no numeric Statistics.Mean (did it fail?).");
             }
 
             if (!b.TryGetProperty("Memory", out var memory) || memory.ValueKind != JsonValueKind.Object)

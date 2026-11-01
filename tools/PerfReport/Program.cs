@@ -70,13 +70,18 @@ public static class Program
         output.Write(summary);
 
         var allocFlags = rows.Where(r => r.AllocFlag).ToList();
-        if (o.IssueBody is not null && allocFlags.Count > 0)
+
+        // A tracking issue is for a release. A pre-release or a manual run reports its flags in the job
+        // summary only.
+        var raiseIssue = allocFlags.Count > 0 && current.IsBaseline;
+        if (o.IssueBody is not null && raiseIssue)
             File.WriteAllText(o.IssueBody, IssueBody(current, allocFlags));
 
         if (o.GithubOutput is not null)
         {
             File.AppendAllText(o.GithubOutput,
-                $"alloc_flags={allocFlags.Count}\ntime_flags={rows.Count(r => r.TimeFlag)}\n");
+                $"alloc_flags={allocFlags.Count}\ntime_flags={rows.Count(r => r.TimeFlag)}\n" +
+                $"raise_issue={(raiseIssue ? "true" : "false")}\n");
         }
 
         return 0;
@@ -90,7 +95,8 @@ public static class Program
         if (files.Length == 0)
             throw new InvalidDataException($"No BenchmarkDotNet report (*-report*.json) found in {o.Bdn}.");
 
-        string HashOf(string type) => o.BenchmarksDir is null ? SourceHasher.Unknown : SourceHasher.HashFor(o.BenchmarksDir, type);
+        var hasher = o.BenchmarksDir is null ? null : new SourceHasher(o.BenchmarksDir);
+        string HashOf(string type) => hasher?.HashFor(type) ?? SourceHasher.Unknown;
 
         var merged = new BdnRun();
         foreach (var file in files.OrderBy(f => f, StringComparer.Ordinal))

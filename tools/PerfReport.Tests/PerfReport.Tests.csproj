@@ -3,7 +3,9 @@
   <PropertyGroup>
     <!-- Must stay 'latest': TUnit's Assert.That overloads need C# 13+ overload resolution priority. -->
     <LangVersion>latest</LangVersion>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Plural on purpose, as in the other test projects: build-and-test.yml restores, builds and tests with
+         -p:TargetFrameworks=net10.0, which only lines up for a project that declares TargetFrameworks. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <!-- An un-awaited TUnit assertion never runs, so CS4014 must fail the build. -->

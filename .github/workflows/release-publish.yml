@@ -148,3 +148,26 @@ jobs:
       contents: write
       id-token: write
     secrets: inherit
+
+  # Records the release's benchmarks (spec 57). A release published with GITHUB_TOKEN does not fire
+  # performance.yml's `release: published` trigger, so it is started here with workflow_dispatch, which
+  # GITHUB_TOKEN may raise. This job runs only after the release has succeeded, only starts the other
+  # workflow (it does not wait for it), and `continue-on-error` keeps even a failure to start it from
+  # turning this run red. Nothing about the release depends on it.
+  # A tag pushed by hand (release.yml's own `push: tags` trigger) does not go through here; start
+  # Performance from the Actions tab with that tag if the record is wanted.
+  performance:
+    name: Start benchmark record (non-blocking)
+    needs: [prepare, release]
+    if: ${{ !inputs.dry-run && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Dispatch performance.yml
+        run: gh workflow run performance.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$TAG"

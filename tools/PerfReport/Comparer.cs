@@ -13,10 +13,15 @@ public static class Comparer
     public const int MedianWindow = 5;
 
     /// <param name="current">The run to judge.</param>
-    /// <param name="history">Earlier runs, oldest first. Manual and pre-release runs in it are ignored.</param>
+    /// <param name="history">
+    /// Other runs, in any order. Manual and pre-release runs are ignored. "Earlier" means a lower version,
+    /// not recorded earlier: a re-run of an old release compares with the release before it, and a hotfix
+    /// tag compares with the version it patches.
+    /// </param>
     public static IReadOnlyList<ComparisonRow> Compare(ReleaseRecord current, IReadOnlyList<ReleaseRecord> history)
     {
-        var baselines = history.Where(r => r.IsBaseline).ToList();
+        var baselines = VersionOrder.Sort(history.Where(r => r.IsBaseline
+            && (!VersionOrder.IsParseable(current.Version) || VersionOrder.IsLower(r, current))));
         return current.Benchmarks.Select(entry => CompareEntry(current, entry, baselines)).ToList();
     }
 

@@ -77,3 +77,20 @@ carry the tight threshold; time is indicative only.
 3. `performance.yml` never triggers `release.yml` behaviour and cannot fail a release.
 4. The PR smoke job runs only when `XLibur.Benchmarks/**` (or the tool/workflow) changes.
 5. No new secrets are required.
+
+## Implementation notes
+
+- **Trigger.** GitHub does not fire `release: published` for a release that `GITHUB_TOKEN` publishes, which
+  is how `release.yml` publishes. `release-publish.yml` therefore starts `performance.yml` with
+  `workflow_dispatch` (input `tag`) in a job that runs after the release, does not wait for the benchmark run
+  and has `continue-on-error: true`. A dispatch without a tag is a manual run. The `release` trigger stays for
+  a release a person publishes by hand. A tag pushed by hand is not covered; dispatch Performance with the tag.
+- **Order.** Records are ordered by semantic version, not by recording time, so a re-run of an old release or
+  a hotfix tag cut after a newer release compares with the release below it. Versions that do not parse
+  (manual runs) sort last, by recording time.
+- **Fingerprint limits.** The fingerprint is method, parameters and a hash of the benchmark class's file plus
+  the helper files it names (fixtures, data builders; a file that holds a benchmark class is never a helper),
+  with comments and whitespace removed. It is approximate: code in the library under test is not hashed, and
+  a helper reached without the class naming one of its types, or through reflection, is missed.
+- **Issue.** One `performance` issue. Its body is a pointer to the history; each flagged release (not a
+  pre-release, not a manual run) adds a comment.

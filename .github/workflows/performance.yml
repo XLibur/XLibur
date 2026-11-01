@@ -6,13 +6,25 @@ name: Performance
 # aim is to detect big changes between releases: allocated bytes carry the tight threshold, time is only
 # indicative. Nothing here is a gate.
 #
-# This is a separate workflow on purpose. It is not called from release.yml and nothing in release.yml
-# waits for it, so a failure here cannot fail or block a release.
+# This is a separate workflow on purpose. release.yml does not call it and nothing in release.yml waits
+# for it, so a failure here cannot fail or block a release.
+#
+# How a release reaches it: GitHub does not fire `release: published` for a release that GITHUB_TOKEN
+# publishes (as release.yml does), so that trigger alone would never run. release-publish.yml therefore
+# starts this workflow with `workflow_dispatch` (an event GITHUB_TOKEN may raise) in a job of its own that
+# runs after the release and is allowed to fail. The `release` trigger stays for a release a person
+# publishes by hand. A dispatch with a `tag` is recorded as that release; a dispatch without one is a
+# manual run, stored with manual:true.
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to record, e.g. v0.740.0. Leave empty for a manual run of the selected ref.'
+        required: false
+        type: string
   # The smoke job keeps the tagged set from rotting. It stores nothing and flags nothing.
   pull_request:
     branches: [main]
@@ -68,8 +80,30 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # What this run records. The tag comes from the release event or the dispatch input and is
+      # user-controlled text, so it goes through env and is checked before anything uses it.
+      - name: Resolve what to record
+        id: what
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag=""
+          if [ "$EVENT_NAME" = "release" ]; then
+            tag="$RELEASE_TAG"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          fi
+          if [ -n "$tag" ] && ! printf '%s' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$tag' is not a release tag such as v1.2.3"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
         with:
+          ref: ${{ steps.what.outputs.tag || github.ref }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -84,12 +118,16 @@ jobs:
       - name: Install fontconfig and GNU time
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libfontconfig1 time
 
+      # Built apart from the run, so the peak memory below is the benchmark process and not MSBuild.
+      - name: Build the benchmarks
+        run: dotnet build XLibur.Benchmarks/XLibur.Benchmarks.csproj -c Release -f net10.0
+
       - name: Run the CI benchmark set
         run: |
           # ShortRunJob, in process, with MemoryDiagnoser and the JSON exporter. GNU time records the
-          # peak resident set of the whole process tree, which is the peak working set.
+          # peak resident set of the benchmark process, which is the peak working set.
           /usr/bin/time -f '%M' -o "$RUNNER_TEMP/maxrss.txt" \
-            dotnet run -c Release --project XLibur.Benchmarks -f net10.0 -- \
+            dotnet XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.dll \
             --anyCategories CI --job short --inProcess --memory --exporters json \
             --filter '*' --artifacts "$RUNNER_TEMP/bdn"
 
@@ -107,15 +145,15 @@ jobs:
         id: report
         env:
           # User-controlled values reach the shell through env, never through inline ${{ }}.
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ steps.what.outputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: |
+          commit="$(git rev-parse HEAD)"
           args=(
             --bdn "$RUNNER_TEMP/bdn"
             --history "$RUNNER_TEMP/perf-history"
             --benchmarks-dir XLibur.Benchmarks
-            --commit "$GITHUB_SHA"
+            --commit "$commit"
             --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
             --cores "$(nproc)"
             --peak-working-set-bytes "$(( $(tail -n 1 "$RUNNER_TEMP/maxrss.txt") * 1024 ))"
@@ -123,11 +161,11 @@ jobs:
             --issue-body "$RUNNER_TEMP/issue.md"
             --github-output "$GITHUB_OUTPUT"
           )
-          if [ "$EVENT_NAME" = "release" ]; then
-            args+=(--version "$RELEASE_TAG")
+          if [ -n "$TAG" ]; then
+            args+=(--version "$TAG")
           else
             # A manual run: stored with manual:true, never a baseline, never flagged.
-            args+=(--version "$REF_NAME-${GITHUB_SHA:0:7}" --manual)
+            args+=(--version "$REF_NAME-${commit:0:7}" --manual)
           fi
           dotnet run -c Release --project tools/PerfReport -- "${args[@]}"
 
@@ -140,21 +178,28 @@ jobs:
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
-            git commit -m "perf: record ${GITHUB_SHA:0:7} (run $GITHUB_RUN_ID)"
+            git commit -m "perf: record run $GITHUB_RUN_ID"
             git push origin perf-history
           fi
 
+      # One tracking issue. Its body is a fixed pointer; each flagged release adds a comment, so the
+      # earlier ones stay. The tool sets raise_issue only for a release (not a pre-release, not a manual
+      # run) that has an allocation flag.
       - name: Open or update the allocation issue
-        if: steps.report.outputs.alloc_flags != '0' && github.event_name == 'release'
+        if: steps.report.outputs.raise_issue == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh label create performance --color FBCA04 --description 'Performance regression between releases' || true
           existing="$(gh issue list --label performance --state open --json number --jq '.[0].number // empty')"
-          if [ -n "$existing" ]; then
-            gh issue edit "$existing" --body-file "$RUNNER_TEMP/issue.md"
-          else
-            gh issue create --label performance \
+          if [ -z "$existing" ]; then
+            printf '%s\n' \
+              "Allocations rose by more than 5% between releases. Each flagged release adds a comment below." \
+              "" \
+              "Full history: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/perf-history/docs/performance.md" \
+              > "$RUNNER_TEMP/issue-pointer.md"
+            existing="$(gh issue create --label performance \
               --title 'Allocations rose between releases' \
-              --body-file "$RUNNER_TEMP/issue.md"
+              --body-file "$RUNNER_TEMP/issue-pointer.md" | grep -oE '[0-9]+$')"
           fi
+          gh issue comment "$existing" --body-file "$RUNNER_TEMP/issue.md"

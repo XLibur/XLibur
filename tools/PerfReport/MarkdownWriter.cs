@@ -17,13 +17,10 @@ public static class MarkdownWriter
     /// <summary>The page for <c>docs/performance.md</c>: the last five releases of every benchmark.</summary>
     public static string RenderHistory(IReadOnlyList<ReleaseRecord> history)
     {
-        var stable = history.Where(r => r.IsBaseline).ToList();
+        var stable = VersionOrder.Sort(history.Where(r => r.IsBaseline));
         var rowsByRecord = new Dictionary<ReleaseRecord, Dictionary<string, ComparisonRow>>();
-        for (var i = 0; i < stable.Count; i++)
-        {
-            rowsByRecord[stable[i]] = Comparer.Compare(stable[i], stable.Take(i).ToList())
-                .ToDictionary(r => r.Entry.Key);
-        }
+        foreach (var record in stable)
+            rowsByRecord[record] = Comparer.Compare(record, stable).ToDictionary(r => r.Entry.Key);
 
         var sb = new StringBuilder();
         sb.Append("# Performance history\n\n");

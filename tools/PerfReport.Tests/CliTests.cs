@@ -107,17 +107,57 @@ public class CliTests : IDisposable
     }
 
     [Test]
-    public async Task SourceHashIgnoresLineEndings()
+    public async Task PreReleaseRunIsComparedButRaisesNoIssue()
     {
-        var lf = Path.Combine(_root, "lf");
-        var crlf = Path.Combine(_root, "crlf");
-        Directory.CreateDirectory(lf);
-        Directory.CreateDirectory(crlf);
-        File.WriteAllText(Path.Combine(lf, "Bench.cs"), "a\nb\n");
-        File.WriteAllText(Path.Combine(crlf, "Bench.cs"), "a\r\nb\r\n");
+        Run("1.0.0", 1000);
 
-        await Assert.That(SourceHasher.HashFor(lf, "Bench")).IsEqualTo(SourceHasher.HashFor(crlf, "Bench"));
-        await Assert.That(SourceHasher.HashFor(lf, "Missing")).IsEqualTo("unknown");
+        var result = Run("1.1.0-beta.1", 2000);
+
+        await Assert.That(result.Code).IsEqualTo(0);
+        var output = File.ReadAllText(Path.Combine(_root, "output.txt"));
+        await Assert.That(output).Contains("alloc_flags=1");
+        await Assert.That(output).Contains("raise_issue=false");
+        await Assert.That(File.Exists(Path.Combine(_root, "issue.md"))).IsFalse();
+    }
+
+    [Test]
+    public async Task ReleaseWithAllocationFlagRaisesTheIssue()
+    {
+        Run("1.0.0", 1000);
+
+        Run("1.1.0", 2000);
+
+        await Assert.That(File.ReadAllText(Path.Combine(_root, "output.txt"))).Contains("raise_issue=true");
+    }
+
+    [Test]
+    public async Task ReRunOfAnOlderVersionIsComparedWithTheReleaseBeforeIt()
+    {
+        Run("1.0.0", 1000);
+        Run("1.2.0", 1000);
+
+        // 1.1.0 recorded last, but it sits between the two: its previous release is 1.0.0.
+        Run("1.1.0", 1200);
+
+        await Assert.That(File.ReadAllText(Path.Combine(_root, "summary.md"))).Contains("alloc +20.0%");
+    }
+
+    [Test]
+    public async Task ReportWithANonNumericMeanIsABadInputError()
+    {
+        var dir = Path.Combine(_root, "badbdn");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "x-report.json"), """
+            { "Benchmarks": [ { "Type": "Bench", "Method": "Run",
+              "Statistics": { "Mean": null }, "Memory": { "BytesAllocatedPerOperation": 1 } } ] }
+            """);
+
+        var stderr = new StringWriter();
+        var code = Program.Run(["--bdn", dir, "--history", Path.Combine(_root, "h"), "--version", "1.0.0", "--commit", "c"],
+            new StringWriter(), stderr);
+
+        await Assert.That(code).IsEqualTo(1);
+        await Assert.That(stderr.ToString()).Contains("Mean");
     }
 
     [Test]

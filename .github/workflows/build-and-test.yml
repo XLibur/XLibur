@@ -182,6 +182,15 @@ jobs:
           -p:TargetFrameworks=net10.0
           --report-trx --report-trx-filename fonts-pinatalabs-test-results.trx
 
+      - name: Test PerfReport
+        run: >
+          dotnet test tools/PerfReport.Tests/PerfReport.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net10.0
+          -p:TargetFrameworks=net10.0
+          --report-trx --report-trx-filename perfreport-test-results.trx
+
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
         env:

@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
@@ -68,8 +67,16 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
 //
 // A --job on the command line (the CI run passes --job short or --job Dry, with --inProcess) chooses the
 // job itself. Adding the default job as well would run every benchmark twice, once at full length.
+// Such a run still gets the in-process toolchain: --inProcess is added when the caller did not pass it.
 var config = DefaultConfig.Instance;
-if (!args.Any(a => a.StartsWith("--job", StringComparison.OrdinalIgnoreCase) || a.Equals("-j", StringComparison.Ordinal)))
+if (BenchmarkCommandLine.HasJob(args))
+{
+    if (!BenchmarkCommandLine.HasInProcess(args))
+        args = [.. args, "--inProcess"];
+}
+else
+{
     config = config.AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
+}
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

@@ -11,7 +11,7 @@ public static class HistoryStore
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    /// <summary>Loads every record, oldest first. Refuses a record with an unknown schema.</summary>
+    /// <summary>Loads every record, lowest version first (see <see cref="VersionOrder"/>). Refuses a record with an unknown schema.</summary>
     public static List<ReleaseRecord> Load(string historyDir)
     {
         var dir = Path.Combine(historyDir, "records");
@@ -33,8 +33,7 @@ public static class HistoryStore
                         ?? throw new InvalidDataException($"{file} is empty."));
         }
 
-        return records.OrderBy(r => r.RecordedAt, StringComparer.Ordinal)
-            .ThenBy(r => r.Version, StringComparer.Ordinal).ToList();
+        return VersionOrder.Sort(records);
     }
 
     /// <summary>Writes the record. A second run for the same version replaces the first.</summary>

@@ -80,6 +80,19 @@ public class BdnJsonReaderTests
     }
 
     [Test]
+    [Arguments("null")]
+    [Arguments("\"NaN\"")]
+    [Arguments("{}")]
+    public async Task NonNumericMeanIsRejectedWithAnInvalidDataError(string mean)
+    {
+        var json = "{ \"Benchmarks\": [ { \"Type\": \"T\", \"Method\": \"M\", \"Statistics\": { \"Mean\": " + mean + " }, " +
+                   "\"Memory\": { \"BytesAllocatedPerOperation\": 1 } } ] }";
+
+        await Assert.That(() => BdnJsonReader.Read(json, _ => ""))
+            .Throws<InvalidDataException>();
+    }
+
+    [Test]
     public async Task BenchmarkWithoutMemoryDiagnoserDataIsRejected()
     {
         const string noMemory = """{ "Benchmarks": [ { "Type": "T", "Method": "M", "Statistics": { "Mean": 1 } } ] }""";

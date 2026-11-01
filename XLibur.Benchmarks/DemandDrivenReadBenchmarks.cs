@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
@@ -34,9 +33,7 @@ public class DemandDrivenReadBenchmarks
     {
         public DemandDrivenReadConfig()
         {
-            var chosenOnCommandLine = Environment.GetCommandLineArgs()
-                .Any(a => a.StartsWith("--job", StringComparison.OrdinalIgnoreCase) || a.Equals("-j", StringComparison.Ordinal));
-            if (!chosenOnCommandLine)
+            if (!BenchmarkCommandLine.HasJob(BenchmarkCommandLine.ProcessArgs()))
                 AddJob(Job.Default.WithInvocationCount(1).WithIterationCount(5).WithWarmupCount(1));
         }
     }
@@ -48,11 +45,13 @@ public class DemandDrivenReadBenchmarks
 
     private XLWorkbook _workbook = null!;
     private IXLWorksheet _sheet = null!;
+    private bool _fresh;
 
     [IterationSetup]
     public void Setup()
     {
         PinataLabsFontBootstrap.Register();
+        _fresh = true;
 
         _workbook = new XLWorkbook();
         _sheet = _workbook.AddWorksheet("Data");
@@ -68,13 +67,32 @@ public class DemandDrivenReadBenchmarks
     public void Cleanup() => _workbook.Dispose();
 
     [Benchmark]
-    public double ReadOnDemand() => ReadSpread();
+    public double ReadOnDemand()
+    {
+        UseFreshWorkbook();
+        return ReadSpread();
+    }
 
     [Benchmark(Baseline = true)]
     public double ReadAfterFullPass()
     {
+        UseFreshWorkbook();
         _workbook.RecalculateAllFormulas();
         return ReadSpread();
+    }
+
+    /// <summary>
+    /// A read leaves the formulas it calculated clean, so a second invocation on the same workbook would
+    /// measure cached reads. <c>[IterationSetup]</c> gives each invocation a new workbook only while the job
+    /// runs one invocation per iteration, which BenchmarkDotNet arranges for the default job and for
+    /// <c>Dry</c> and <c>short</c>; a job that does not would fail here instead of reporting wrong numbers.
+    /// </summary>
+    private void UseFreshWorkbook()
+    {
+        if (!_fresh)
+            throw new InvalidOperationException(
+                "More than one invocation ran on one workbook. This benchmark needs InvocationCount=1.");
+        _fresh = false;
     }
 
     private double ReadSpread()
