@@ -21,7 +21,8 @@ internal static class Information
         ce.RegisterFunction("ISNONTEXT", 1, 1, Adapt(IsNonText), FunctionFlags.Scalar);
         ce.RegisterFunction("ISNUMBER", 1, 1, Adapt(IsNumber), FunctionFlags.Scalar);
         ce.RegisterFunction("ISODD", 1, 1, Adapt(IsOdd), FunctionFlags.Range, AllowRange.All);
-        ce.RegisterFunction("ISREF", 1, 1, Adapt(IsRef), FunctionFlags.Range, AllowRange.All);
+        // ReturnsArray passes the argument whole in an array formula, as ROW does, so a reference stays one.
+        ce.RegisterFunction("ISREF", 1, 1, Adapt(IsRef), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All);
         ce.RegisterFunction("ISTEXT", 1, 1, Adapt(IsText), FunctionFlags.Scalar);
         ce.RegisterFunction("N", 1, 1, Adapt(N), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("NA", 0, 0, NA, FunctionFlags.Scalar);

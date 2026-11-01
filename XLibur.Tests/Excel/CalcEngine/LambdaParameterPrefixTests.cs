@@ -136,7 +136,10 @@ public class LambdaParameterPrefixTests
 
     private static string Typed(string formula)
     {
+        // The workbook Excel typed the formulas in defines Rate, so Excel wrote it as that name, not as
+        // its function RATE passed by name (_xleta.RATE).
         using var wb = new XLWorkbook();
+        wb.DefinedNames.Add("Rate", "0.5");
         var cell = wb.AddWorksheet().Cell("C1");
         cell.FormulaA1 = formula;
         return cell.FormulaA1;

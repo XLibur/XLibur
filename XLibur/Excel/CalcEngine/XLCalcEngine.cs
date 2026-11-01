@@ -1047,6 +1047,13 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// Calls <paramref name="lambda"/> with <paramref name="arguments"/>, for a function that takes a
+    /// <c>LAMBDA</c>, such as <c>MAP</c>. A null argument is one left out.
+    /// </summary>
+    internal AnyValue Invoke(CalcContext ctx, LambdaFunction lambda, AnyValue?[] arguments)
+        => _visitor.Invoke(ctx, lambda, arguments);
+
+    /// <summary>
     /// Evaluates the formula of a cell. A function left as its result is <c>#CALC!</c>, and calls of
     /// a <c>LAMBDA</c> that went too deep are <c>#NUM!</c>, as in Excel.
     /// </summary>
@@ -1093,6 +1100,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         DateAndTime.Register(fr);
         Financial.Register(fr);
         DynamicArray.Register(fr);
+        LambdaHelpers.Register(fr);
 
         return fr;
     }

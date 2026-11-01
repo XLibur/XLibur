@@ -148,7 +148,8 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         // LAMBDA(x,x*2) is written _xlfn.LAMBDA(_xlpm.x,_xlpm.x*2), as Excel writes it. Every reference
         // of a name has a sheet, so the sheet and the cell the text is read for do not matter.
         if (!acceptUnusable)
-            formula = FormulaText.AddFuturePrefixes(formula, string.Empty, new Point(1, 1));
+            formula = FormulaText.AddFuturePrefixes(formula, string.Empty, new Point(1, 1),
+                name => _container.Contains(name) || _container.Workbook.DefinedNamesInternal.Contains(name));
 
         var rejection = RejectionOf(formula, paramName, out var references);
         if (rejection is not null)

@@ -21,13 +21,12 @@ public class LambdaTests
     /// <summary>
     /// The cells of the fixture whose formulas Excel calculated, every fourth row of column D, so a
     /// result can spill. Left out: D137, D141, D149 and D193, which Excel refused to enter; the
-    /// cells of <see cref="A_function_Excel_saved_as_the_result_of_a_cell_loads_and_recalculates_as_CALC"/>; the cells of <see cref="An_error_test_reads_a_function_as_VALUE_where_Excel_reads_no_error"/>;
-    /// and D165, <c>LAMBDA(x,ISREF(x))(A1)</c>, which is FALSE because a dynamic formula reads
-    /// <c>ISREF(A1)</c> as FALSE, LAMBDA or not.
+    /// cells of <see cref="A_function_Excel_saved_as_the_result_of_a_cell_loads_and_recalculates_as_CALC"/>; and the
+    /// cells of <see cref="An_error_test_reads_a_function_as_VALUE_where_Excel_reads_no_error"/>.
     /// </summary>
     public static IEnumerable<string> CalculatedCells() =>
         Enumerable.Range(0, 51).Select(i => 1 + 4 * i)
-            .Except([137, 141, 149, 193, 1, 81, 89, 17, 21, 121, 181, 189, 165])
+            .Except([137, 141, 149, 193, 1, 81, 89, 17, 21, 121, 181, 189])
             .Select(row => $"D{row}");
 
     [Test]
