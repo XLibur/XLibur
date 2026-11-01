@@ -49,7 +49,7 @@ internal static class LambdaHelpers
         var columns = 0;
         for (var i = 0; i < arrays.Length; ++i)
         {
-            if (!Elements.TryCreate(args[i], ctx, out arrays[i], out error))
+            if (!Elements.TryCreate(args[i], out arrays[i], out error))
                 return error;
 
             rows = Math.Max(rows, arrays[i].Rows);
@@ -83,7 +83,7 @@ internal static class LambdaHelpers
     /// </summary>
     private static AnyValue Reduce(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetAccumulation(ctx, args, out var accumulator, out var array, out var lambda, out var error))
+        if (!TryGetAccumulation(args, out var accumulator, out var array, out var lambda, out var error))
             return error;
 
         var arguments = new AnyValue?[2];
@@ -93,11 +93,31 @@ internal static class LambdaHelpers
             {
                 arguments[0] = accumulator;
                 arguments[1] = array[row, column];
-                accumulator = ctx.CalcEngine.Invoke(ctx, lambda, arguments);
+                accumulator = Computed(ctx.CalcEngine.Invoke(ctx, lambda, arguments));
             }
         }
 
         return accumulator;
+    }
+
+    /// <summary>
+    /// <paramref name="value"/>, with an array computed into its elements. An array an operation gives,
+    /// such as <c>a+v</c>, holds the operation and its operands, so an accumulator that is one, carried
+    /// through many steps, would hold an operation for each step, and reading it would go as deep.
+    /// </summary>
+    private static AnyValue Computed(AnyValue value)
+    {
+        if (!value.TryPickArray(out var array) || array is ConstArray)
+            return value;
+
+        var elements = new ScalarValue[array!.Height, array.Width];
+        for (var row = 0; row < array.Height; ++row)
+        {
+            for (var column = 0; column < array.Width; ++column)
+                elements[row, column] = array[row, column];
+        }
+
+        return new ConstArray(elements);
     }
 
     /// <summary>
@@ -106,7 +126,7 @@ internal static class LambdaHelpers
     /// </summary>
     private static AnyValue Scan(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetAccumulation(ctx, args, out var accumulator, out var array, out var lambda, out var error))
+        if (!TryGetAccumulation(args, out var accumulator, out var array, out var lambda, out var error))
             return error;
 
         var result = new ScalarValue[array.Rows, array.Columns];
@@ -132,7 +152,7 @@ internal static class LambdaHelpers
         if (!TryGetFunction(args[1], 1, out var lambda, out var error))
             return error;
 
-        if (!Elements.TryCreate(args[0], ctx, out var array, out error))
+        if (!Elements.TryCreate(args[0], out var array, out error))
             return error;
 
         var result = new ScalarValue[array.Rows, 1];
@@ -153,7 +173,7 @@ internal static class LambdaHelpers
         if (!TryGetFunction(args[1], 1, out var lambda, out var error))
             return error;
 
-        if (!Elements.TryCreate(args[0], ctx, out var array, out error))
+        if (!Elements.TryCreate(args[0], out var array, out error))
             return error;
 
         var result = new ScalarValue[1, array.Columns];
@@ -201,13 +221,13 @@ internal static class LambdaHelpers
     /// The arguments of <c>REDUCE</c> and <c>SCAN</c>: the initial value, which is blank when it is left
     /// out, the array, and the function of the accumulator and a value.
     /// </summary>
-    private static bool TryGetAccumulation(CalcContext ctx, Span<AnyValue> args, out AnyValue initial,
+    private static bool TryGetAccumulation(Span<AnyValue> args, out AnyValue initial,
         out Elements array, out LambdaFunction lambda, out XLError error)
     {
         initial = args.Length == 3 ? args[0] : AnyValue.Blank;
         array = default;
         return TryGetFunction(args[^1], 2, out lambda, out error) &&
-               Elements.TryCreate(args[^2], ctx, out array, out error);
+               Elements.TryCreate(args[^2], out array, out error);
     }
 
     /// <summary>
@@ -275,7 +295,7 @@ internal static class LambdaHelpers
             return false;
 
         error = XLError.IncompatibleValue;
-        if (number < 1 || number > max || number != Math.Floor(number))
+        if (number < 1 || number > max || !double.IsInteger(number))
             return false;
 
         size = (int)number;
@@ -323,15 +343,23 @@ internal static class LambdaHelpers
             ? Area(row, column, row, column)
             : _array?[row, column].ToAnyValue() ?? _single;
 
-        internal AnyValue Row(int row) => _isArea
-            ? Area(row, 0, row, Columns - 1)
-            : _array is null ? _single : Slice(row, 0, 1, Columns);
+        internal AnyValue Row(int row)
+        {
+            if (_isArea)
+                return Area(row, 0, row, Columns - 1);
 
-        internal AnyValue Column(int column) => _isArea
-            ? Area(0, column, Rows - 1, column)
-            : _array is null ? _single : Slice(0, column, Rows, 1);
+            return _array is null ? _single : Slice(row, 0, 1, Columns);
+        }
 
-        internal static bool TryCreate(in AnyValue value, CalcContext ctx, out Elements elements, out XLError error)
+        internal AnyValue Column(int column)
+        {
+            if (_isArea)
+                return Area(0, column, Rows - 1, column);
+
+            return _array is null ? _single : Slice(0, column, Rows, 1);
+        }
+
+        internal static bool TryCreate(in AnyValue value, out Elements elements, out XLError error)
         {
             error = default;
             if (value.IsReference)

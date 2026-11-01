@@ -160,7 +160,7 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         // name has its spelling. A file writes it _xleta.SUM.
         var value = node.GetValue(context);
         if (node.Prefix is null && value.TryPickError(out var error) && error == XLError.NameNotRecognized &&
-            _functions.TryGetFunc(node.Name, out _))
+            _functions.TryGetFunc(node.Name, out _) && NamesNothing(context, node))
             return FunctionValue(node.Name);
 
         return value;
@@ -236,6 +236,20 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         {
             context.LetScope = outer;
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="node"/> names no defined name where the formula is: a name whose value is
+    /// <c>#NAME?</c> is still that name.
+    /// </summary>
+    private static bool NamesNothing(CalcContext context, NameNode node)
+    {
+        if (!context.HasWorkbook)
+            return true;
+
+        return context.HasWorksheet
+            ? !node.TryGetNameRange(context.Worksheet, out _)
+            : !context.Workbook.DefinedNamesInternal.TryGetValue(node.Name, out _);
     }
 
     /// <summary>
@@ -505,8 +519,11 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         var outerIntersectOperands = context.IntersectOperands;
         try
         {
+            // As a call by the function's name: in an array formula it takes an array element by element.
             context.IntersectOperands = false;
-            return function.CallFunction(context, values);
+            return context.IsArrayCalculation
+                ? function.CallAsArray(context, values)
+                : function.CallFunction(context, values);
         }
         finally
         {

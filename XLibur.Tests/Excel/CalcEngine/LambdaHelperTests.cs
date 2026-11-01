@@ -115,6 +115,60 @@ public class LambdaHelperTests
         await Assert.That(ws.Cell("G1").Value).IsNotEqualTo(before);
     }
 
+    /// <summary>One of Excel's functions passed by its name keeps what it does with an array: ABS spills.</summary>
+    [Test]
+    public async Task A_function_passed_by_its_name_spills_an_array_in_a_dynamic_formula()
+    {
+        using var wb = CreateWorkbook();
+        var ws = wb.Worksheet(1);
+        ws.Cell("G1").SetDynamicFormulaA1("LET(f,ABS,f({-1,-2}))");
+
+        await Assert.That(ws.Cell("G1").Value).IsEqualTo(1);
+        await Assert.That(ws.Cell("H1").Value).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// An accumulator that is an array is computed at each step, not carried as the operations that
+    /// make it: 10,000 lazy additions, one on another, overflowed the stack when the result was read.
+    /// </summary>
+    [Test]
+    public async Task REDUCE_carries_an_array_accumulator_through_many_steps()
+    {
+        using var wb = CreateWorkbook();
+        var ws = wb.Worksheet(1);
+        ws.Cell("G1").SetDynamicFormulaA1("REDUCE({0,0},SEQUENCE(10000),LAMBDA(a,v,a+v))");
+
+        await Assert.That(ws.Cell("G1").Value).IsEqualTo(50005000);
+        await Assert.That(ws.Cell("H1").Value).IsEqualTo(50005000);
+    }
+
+    /// <summary>A defined name whose value is #NAME? is that name, not the function of its spelling.</summary>
+    [Test]
+    public async Task A_defined_name_with_a_function_spelling_is_the_name_whatever_its_value()
+    {
+        using var wb = CreateWorkbook();
+        wb.DefinedNames.Add("Rate", "Missing");
+        wb.Worksheet(1).Cell("G1").FormulaA1 = "MAP(A1:A3,Rate)";
+
+        await Assert.That(wb.Worksheet(1).Cell("G1").Value).IsEqualTo(XLError.NameNotRecognized);
+    }
+
+    /// <summary>
+    /// A defined name that calls itself by a function's spelling calls itself: its formula is written
+    /// with the name, not with the function passed by its name.
+    /// </summary>
+    [Test]
+    public async Task A_defined_name_that_calls_itself_by_a_function_spelling_calls_itself()
+    {
+        using var wb = CreateWorkbook();
+        wb.DefinedNames.Add("Rate", "LAMBDA(n,IF(n=0,1,SUM(MAP(n-1,Rate))*2))");
+        // Called as a value: a call by the name, Rate(3), calls Excel's RATE.
+        wb.Worksheet(1).Cell("G1").FormulaA1 = "MAP(3,Rate)";
+
+        await Assert.That(wb.DefinedNames.DefinedName("Rate").RefersTo).DoesNotContain("_xleta.");
+        await Assert.That(wb.Worksheet(1).Cell("G1").Value).IsEqualTo(8);
+    }
+
     /// <summary>The sheet the formulas were calculated on in Excel.</summary>
     private static XLWorkbook CreateWorkbook()
     {

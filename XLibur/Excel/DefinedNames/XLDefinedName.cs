@@ -125,6 +125,16 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         => SetFormula(formula, nameof(formula), acceptUnusable: true);
 
     /// <summary>
+    /// Whether the formula of this name reads <paramref name="name"/> as a defined name. This name is one,
+    /// though a name being added is not in its container yet, so a formula that calls itself by the
+    /// spelling of one of Excel's functions calls itself.
+    /// </summary>
+    private bool IsDefinedName(string name) =>
+        string.Equals(name, _name, StringComparison.OrdinalIgnoreCase) ||
+        _container.Contains(name) ||
+        _container.Workbook.DefinedNamesInternal.Contains(name);
+
+    /// <summary>
     /// Parses <paramref name="value"/> and stores it. When the formula turns out to be one this
     /// library will not work with, <paramref name="acceptUnusable"/> decides between keeping the text
     /// verbatim — the reader's choice, so that one bad name cannot stop a workbook from opening — and
@@ -148,8 +158,7 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
         // LAMBDA(x,x*2) is written _xlfn.LAMBDA(_xlpm.x,_xlpm.x*2), as Excel writes it. Every reference
         // of a name has a sheet, so the sheet and the cell the text is read for do not matter.
         if (!acceptUnusable)
-            formula = FormulaText.AddFuturePrefixes(formula, string.Empty, new Point(1, 1),
-                name => _container.Contains(name) || _container.Workbook.DefinedNamesInternal.Contains(name));
+            formula = FormulaText.AddFuturePrefixes(formula, string.Empty, new Point(1, 1), IsDefinedName);
 
         var rejection = RejectionOf(formula, paramName, out var references);
         if (rejection is not null)
