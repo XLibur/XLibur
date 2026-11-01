@@ -242,6 +242,21 @@ public class DemandDrivenEvaluationTests
     }
 
     [Test]
+    public async Task A_dirty_precedent_that_spills_into_the_destination_blocks_it_as_a_full_pass_does()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet(SheetName);
+        ws.Cell("B2").SetDynamicFormulaA1("SEQUENCE(3,3)");
+        ws.Cell("D1").SetDynamicFormulaA1("B2:B4");
+
+        // B2 fills B2:D4, which includes D2:D3 under D1's spill.
+        await Assert.That(ws.Cell("D1").Value).IsEqualTo(XLError.SpillRange);
+        await Assert.That(ws.Cell("D2").Value).IsEqualTo(3);
+        await Assert.That(ws.Cell("D3").Value).IsEqualTo(6);
+        await Assert.That(ws.Cell("B2").Value).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task A_spilled_cell_is_current_after_a_structural_edit_dirtied_every_formula()
     {
         using var wb = new XLWorkbook();

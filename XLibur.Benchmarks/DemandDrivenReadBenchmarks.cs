@@ -21,8 +21,7 @@ public class DemandDrivenReadBenchmarks
 {
     private const int Reads = 100;
 
-    [Params(100_000)]
-    public int Formulas { get; set; }
+    private const int Formulas = 100_000;
 
     private XLWorkbook _workbook = null!;
     private IXLWorksheet _sheet = null!;

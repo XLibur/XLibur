@@ -546,7 +546,11 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// Raised inside demand evaluation to give it up for a full recalculation. It never leaves
     /// <see cref="TryEvaluateSingleCell"/>.
     /// </summary>
-    private sealed class DemandFallbackException : Exception;
+    /// <remarks>
+    /// Declared <c>public</c> to satisfy S3871, which asks that a thrown exception be visible. The
+    /// engine is internal, so the type is not part of the library's API.
+    /// </remarks>
+    public sealed class DemandFallbackException : Exception;
 
     /// <summary>
     /// Calculates a dirty precedent that a formula being calculated on demand has just read, so the
@@ -982,6 +986,23 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     }
 
     /// <summary>
+    /// Evaluates the formula of a cell. A function left as its result is <c>#CALC!</c>, and calls of
+    /// a <c>LAMBDA</c> that went too deep are <c>#NUM!</c>, as in Excel.
+    /// </summary>
+    private AnyValue EvaluateFormula(Formula formula, CalcContext ctx)
+    {
+        try
+        {
+            var result = formula.AstRoot.Accept(ctx, _visitor);
+            return result.IsLambda ? XLError.Calc : result;
+        }
+        catch (LambdaDepthException)
+        {
+            return XLError.NumberInvalid;
+        }
+    }
+
+    /// <summary>
     /// Evaluate <paramref name="formula"/> in <paramref name="ctx"/> and reduce the result to
     /// the single value a cell would hold.
     /// </summary>
@@ -1044,6 +1065,21 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
 
         var masterCell = sheet.Cell(anchor.Row, anchor.Column);
         var array = EvaluateArrayFormula(formula.GetAst(this, anchor), masterCell, recalculateSheetId, demandDriven);
+        if (demandDriven)
+        {
+            // A reference (or an array wrapping one) reads its cells lazily, and a read can calculate a dirty precedent that
+            // spills into the footprint checked below. Read it all first, so that spill has landed
+            // when the collision check runs, as it had in a full pass.
+            var elements = new List<ScalarValue>(array.Width * array.Height);
+            for (var row = 0; row < array.Height; ++row)
+            {
+                for (var column = 0; column < array.Width; ++column)
+                    elements.Add(array[row, column]);
+            }
+
+            array = new LiteralArray(array.Height, array.Width, elements);
+        }
+
         SpillCount++;
 
         var lastRow = anchor.Row + array.Height - 1;
@@ -1238,23 +1274,6 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     internal AnyValue Invoke(CalcContext ctx, LambdaFunction lambda, AnyValue?[] arguments)
         => _visitor.Invoke(ctx, lambda, arguments);
-
-    /// <summary>
-    /// Evaluates the formula of a cell. A function left as its result is <c>#CALC!</c>, and calls of
-    /// a <c>LAMBDA</c> that went too deep are <c>#NUM!</c>, as in Excel.
-    /// </summary>
-    private AnyValue EvaluateFormula(Formula formula, CalcContext ctx)
-    {
-        try
-        {
-            var result = formula.AstRoot.Accept(ctx, _visitor);
-            return result.IsLambda ? XLError.Calc : result;
-        }
-        catch (LambdaDepthException)
-        {
-            return XLError.NumberInvalid;
-        }
-    }
 
     /// <summary>
     /// The function table, built once for the process and shared by every engine.
