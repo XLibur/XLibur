@@ -37,6 +37,8 @@
 
 ### 🐛 Bug Fixes
 
+- **`Duplicate` and `CopyTo` no longer throw on a picture nobody positioned.** A new picture has no anchor cells until it is moved, and the copy read them, so it threw a `NullReferenceException`. The copy is now left unpositioned as well, and a save places both at A1 at their own size, as it already placed the original.
+
 - **Text with a control character no longer breaks a save when strings are not shared, and `_x0041_` stays as typed.** XML cannot hold some characters, so the file format writes them as `_xHHHH_`, and a literal `_xHHHH_` in a user's text is escaped too. Five of the seven places that write or read text did this. The two that did not were the ends of the inline-string path, used when string sharing is off and by the streaming writer with inline storage. A control character in a cell made the save throw. A cell that held the text `_x0041_` was written as it was, so Excel showed `A`. Text is now escaped where the text element is written and decoded where it is read, once, so no caller can skip it. Not yet covered: the cached text result of a formula, and the text of rich-text runs ([#845](https://github.com/XLibur/XLibur/issues/845)).
 
 - **A data bar from Excel that has "negative fill same as positive" no longer stops the workbook from opening.** Excel leaves out the negative-fill element in that case, and XLibur read it without checking, so the whole load threw. A data bar also keeps its border, border colours, the two "same as positive" flags and its minimum and maximum bar lengths when you save, where it lost them before. If you give a loaded data bar a negative colour with `DataBar(positive, negative)`, or add one to `Colors`, the colour is now saved ([#845](https://github.com/XLibur/XLibur/issues/845)).

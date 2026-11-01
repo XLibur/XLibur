@@ -216,6 +216,14 @@ internal sealed class XLPicture : IXLPicture
 
     internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
+    /// <summary>
+    /// Whether the anchor cells the placement needs are set: the top-left one, and for
+    /// <see cref="XLPicturePlacement.MoveAndSize"/> the bottom-right one too.
+    /// </summary>
+    private bool IsPositioned =>
+        Markers[XLMarkerPosition.TopLeft] is not null &&
+        (Placement != XLPicturePlacement.MoveAndSize || Markers[XLMarkerPosition.BottomRight] is not null);
+
     internal string? RelId { get; set; }
 
     /// <summary>
@@ -369,6 +377,11 @@ internal sealed class XLPicture : IXLPicture
             .WithPlacement(XLPicturePlacement.FreeFloating)
             .WithSize(Width, Height)
             .WithPlacement(Placement);
+
+        // A picture nobody moved has no anchor cells, and a save places it at A1 at its own size;
+        // its copy is left unpositioned the same way.
+        if (Placement != XLPicturePlacement.FreeFloating && !IsPositioned)
+            return newPicture;
 
         switch (Placement)
         {
