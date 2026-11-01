@@ -89,6 +89,8 @@ public class LambdaHelperTests
     [Arguments("LET(x,1,x+Rate)", "_xlfn.LET(_xlpm.x,1,_xlpm.x+_xleta.RATE)")]
     [Arguments("map(A1:A3,abs)", "_xlfn.MAP(A1:A3,_xleta.ABS)")]
     [Arguments("SUM", "_xleta.SUM")]
+    [Arguments("ISERROR(DAYS360)", "ISERROR(_xleta.DAYS360)")]
+    [Arguments("ISERROR(LOG10)", "ISERROR(LOG10)")]
     [Arguments("ISERROR(SUM)", "ISERROR(_xleta.SUM)")]
     [Arguments("SUM(A1)+ABS(-1)", "SUM(A1)+ABS(-1)")]
     [Arguments("IF(TRUE,\"SUM\",FALSE)", "IF(TRUE,\"SUM\",FALSE)")]

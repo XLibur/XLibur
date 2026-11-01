@@ -65,6 +65,21 @@ public class FunctionValueErrorTests
         await Assert.That(Evaluate(formula)).IsEqualTo(expected);
     }
 
+    /// <summary>
+    /// A function that reads a function value as a value still does so for each element of an array
+    /// formula: only the functions that test for an error see the function whole.
+    /// </summary>
+    [Test]
+    public async Task Any_other_function_passed_a_function_value_in_an_array_formula_gives_VALUE_for_each_element()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("G1").SetDynamicFormulaA1("ROUND({1,2},LAMBDA(x,x))");
+
+        await Assert.That(ws.Cell("G1").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("H1").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
     [Test]
     public async Task IFNA_keeps_an_error_other_than_NA()
     {

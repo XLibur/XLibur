@@ -48,5 +48,13 @@ internal enum FunctionFlags
     /// The prefix is there for backwards compatibility, to not clash with user-defined
     /// functions and other such reasons. See [MS-XLSX] 2.3.3 for a complete list.
     /// </summary>
-    Future = 16
+    Future = 16,
+
+    /// <summary>
+    /// The function sees a function value, a <c>LAMBDA</c>, as it is, rather than as the <c>#VALUE!</c>
+    /// it reads as: <c>ISERROR</c> is FALSE for one, and <c>IFERROR</c> gives it (#868). A function value
+    /// is no element of an array, so in an array formula a call that is passed one is made once, with
+    /// the arguments as they are.
+    /// </summary>
+    TakesFunctionValue = 32
 }
