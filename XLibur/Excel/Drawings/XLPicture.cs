@@ -216,14 +216,6 @@ internal sealed class XLPicture : IXLPicture
 
     internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
-    /// <summary>
-    /// Whether the anchor cells the placement needs are set: the top-left one, and for
-    /// <see cref="XLPicturePlacement.MoveAndSize"/> the bottom-right one too.
-    /// </summary>
-    private bool IsPositioned =>
-        Markers[XLMarkerPosition.TopLeft] is not null &&
-        (Placement != XLPicturePlacement.MoveAndSize || Markers[XLMarkerPosition.BottomRight] is not null);
-
     internal string? RelId { get; set; }
 
     /// <summary>
@@ -378,30 +370,27 @@ internal sealed class XLPicture : IXLPicture
             .WithSize(Width, Height)
             .WithPlacement(Placement);
 
-        // A picture nobody moved has no anchor cells, and a save places it at A1 at its own size;
-        // its copy is left unpositioned the same way.
-        if (Placement != XLPicturePlacement.FreeFloating && !IsPositioned)
-            return newPicture;
-
-        switch (Placement)
+        if (Placement == XLPicturePlacement.FreeFloating)
         {
-            case XLPicturePlacement.FreeFloating:
-                newPicture.MoveTo(Left, Top);
-                break;
-
-            case XLPicturePlacement.Move:
-                newPicture.MoveTo(targetSheet.Cell(TopLeftCell.Address), GetOffset(XLMarkerPosition.TopLeft));
-                break;
-
-            case XLPicturePlacement.MoveAndSize:
-                newPicture.MoveTo(targetSheet.Cell(TopLeftCell.Address), GetOffset(XLMarkerPosition.TopLeft),
-                    targetSheet.Cell(BottomRightCell.Address),
-                    GetOffset(XLMarkerPosition.BottomRight));
-                break;
+            newPicture.MoveTo(Left, Top);
+            return newPicture;
         }
+
+        // The copy takes each anchor cell the placement uses, at the same address on the target
+        // sheet, and leaves unset the ones the source has not set, so a save falls back for the copy's
+        // unset corners exactly as it does for the source's (see DrawingAnchorFactory).
+        var copy = (XLPicture)newPicture;
+        CopyMarker(copy, targetSheet, XLMarkerPosition.TopLeft);
+        if (Placement == XLPicturePlacement.MoveAndSize)
+            CopyMarker(copy, targetSheet, XLMarkerPosition.BottomRight);
 
         return newPicture;
     }
+
+    private void CopyMarker(XLPicture copy, XLWorksheet targetSheet, XLMarkerPosition position) =>
+        copy.Markers[position] = Markers[position] is { } marker
+            ? new XLMarker(targetSheet.Cell(marker.RowNumber, marker.ColumnNumber), marker.Offset)
+            : null;
 
     internal void SetName(string value)
     {
