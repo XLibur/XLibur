@@ -138,6 +138,21 @@ public class LetTests
     }
 
     [Test]
+    public async Task A_typed_name_that_reads_as_a_cell_is_not_bound_yet()
+    {
+        // Excel gives 1 for LET(A1,1,A1) and writes the name _xlpm.A1. Typed, the parser reads A1 as
+        // a reference where a name goes, so XLibur does not bind it: a known gap (spec 08 Results).
+        // Written as a file writes it, the name binds.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("C1").FormulaA1 = "LET(A1,1,A1)";
+        ws.Cell("C2").FormulaA1 = "_xlfn.LET(_xlpm.A1,5,_xlpm.A1)";
+
+        await Assert.That(ws.Cell("C1").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("C2").Value).IsEqualTo(5);
+    }
+
+    [Test]
     [Arguments("LET(x,1)")]
     [Arguments("LET(x,1,y,2)")]
     [Arguments("LET(1,2,3)")]
