@@ -54,6 +54,15 @@ internal sealed class FunctionDefinition
         if (_flags.HasFlag(FunctionFlags.ReturnsArray) && _allowRanges == AllowRange.All)
             return _function(ctx, args);
 
+        // A function value, a LAMBDA, is no element of an array, so a call that is passed one is made
+        // once, with the arguments as they are: ISERROR and IFERROR see the function (#868), and any
+        // other function reads it as #VALUE!, as it would element by element.
+        foreach (var arg in args)
+        {
+            if (arg.IsLambda)
+                return CallFunction(ctx, args);
+        }
+
         var (totalRows, totalColumns) = GetScalarArgsMaxSize(args);
         NormalizeArguments(ctx, args, totalRows, totalColumns);
         return EvaluateArrayElements(ctx, args, totalRows, totalColumns);

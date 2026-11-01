@@ -49,9 +49,10 @@ internal static class LambdaParameterPrefixes
     /// </param>
     internal static string Add(string formula, Func<string, bool>? isDefinedName = null)
     {
-        // A string check first: a formula with none of these function names has no parameter, and a
-        // function passed by its name is passed to one of them. One elsewhere, =SUM, is left as typed.
-        if (!FunctionsWithParameters.Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase)))
+        // A string check first: a formula with none of these function names has no parameter, and one
+        // with no name of Excel's functions written as a value, =SUM, has no function passed by its name.
+        if (!FunctionsWithParameters.Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase)) &&
+            !MayPassFunctionByName(formula))
             return formula;
 
         var walk = new Walk(formula);
@@ -67,6 +68,100 @@ internal static class LambdaParameterPrefixes
         }
 
         return walk.Edits.Count == 0 ? formula : walk.Apply();
+    }
+
+    /// <summary>
+    /// Whether the text of <paramref name="formula"/> may hold one of Excel's functions written by its
+    /// name as a value, such as <c>SUM</c> in <c>=ISERROR(SUM)</c> (#869): a name of one of them that is
+    /// not called, not a sheet's, not in a string, a quoted sheet name or brackets, and not an error
+    /// such as <c>#N/A</c>. A name with a digit is left out, as it reads as a cell (<c>LOG10</c>), and so
+    /// are <c>TRUE</c> and <c>FALSE</c>, which read as values. It only decides whether the formula is
+    /// walked, which finds what the name is.
+    /// </summary>
+    private static bool MayPassFunctionByName(string formula)
+    {
+        var i = 0;
+        while (i < formula.Length)
+        {
+            var c = formula[i];
+            if (c is '"' or '\'')
+            {
+                i = SkipQuoted(formula, i, c);
+                continue;
+            }
+
+            if (c == '[')
+            {
+                i = SkipBrackets(formula, i);
+                continue;
+            }
+
+            if (!char.IsLetter(c) && c != '_')
+            {
+                i++;
+                continue;
+            }
+
+            var start = i;
+            while (i < formula.Length && (char.IsLetterOrDigit(formula[i]) || formula[i] is '.' or '_'))
+                i++;
+
+            if (IsNameOfFunctionAsValue(formula, start, i))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsNameOfFunctionAsValue(string formula, int start, int end)
+    {
+        var before = start > 0 ? formula[start - 1] : '\0';
+        var after = end < formula.Length ? formula[end] : '\0';
+        if (after is '(' or '!' || before is '#' or '!' or ']')
+            return false;
+
+        var name = formula.AsSpan(start, end - start);
+        foreach (var c in name)
+        {
+            if (char.IsDigit(c))
+                return false;
+        }
+
+        if (name.Equals("TRUE", StringComparison.OrdinalIgnoreCase) || name.Equals("FALSE", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return IsFunctionName(name.ToString());
+    }
+
+    /// <summary>The index after the text that starts with <paramref name="quote"/> at <paramref name="start"/>, a doubled quote being one.</summary>
+    private static int SkipQuoted(string formula, int start, char quote)
+    {
+        var i = start + 1;
+        while (i < formula.Length)
+        {
+            if (formula[i] == quote && (i + 1 >= formula.Length || formula[i + 1] != quote))
+                return i + 1;
+
+            i += formula[i] == quote ? 2 : 1;
+        }
+
+        return i;
+    }
+
+    /// <summary>The index after the brackets that open at <paramref name="start"/>, which may nest: <c>Table1[[#Data],[Col]]</c>.</summary>
+    private static int SkipBrackets(string formula, int start)
+    {
+        var depth = 0;
+        var i = start;
+        while (i < formula.Length)
+        {
+            depth += formula[i] switch { '[' => 1, ']' => -1, _ => 0 };
+            i++;
+            if (depth == 0)
+                return i;
+        }
+
+        return i;
     }
 
     /// <summary>The functions that bind parameters, and those that take a function, by name or a <c>LAMBDA</c>.</summary>

@@ -21,12 +21,11 @@ public class LambdaTests
     /// <summary>
     /// The cells of the fixture whose formulas Excel calculated, every fourth row of column D, so a
     /// result can spill. Left out: D137, D141, D149 and D193, which Excel refused to enter; the
-    /// cells of <see cref="A_function_Excel_saved_as_the_result_of_a_cell_loads_and_recalculates_as_CALC"/>; and the
-    /// cells of <see cref="An_error_test_reads_a_function_as_VALUE_where_Excel_reads_no_error"/>.
+    /// cells of <see cref="A_function_Excel_saved_as_the_result_of_a_cell_loads_and_recalculates_as_CALC"/>.
     /// </summary>
     public static IEnumerable<string> CalculatedCells() =>
         Enumerable.Range(0, 51).Select(i => 1 + 4 * i)
-            .Except([137, 141, 149, 193, 1, 81, 89, 17, 21, 121, 181, 189])
+            .Except([137, 141, 149, 193, 1, 81, 89])
             .Select(row => $"D{row}");
 
     [Test]
@@ -60,24 +59,6 @@ public class LambdaTests
         wb.RecalculateAllFormulas();
 
         await Assert.That(cell.Value).IsEqualTo(XLError.Calc);
-    }
-
-    /// <summary>
-    /// A known gap: XLibur reads a function as <c>#VALUE!</c> wherever a value is wanted, and the
-    /// functions that test for an error see that error. Excel sees no error: <c>ISERROR</c> and
-    /// <c>ISERR</c> are FALSE, <c>ERROR.TYPE</c> is <c>#N/A</c>, and <c>IFERROR</c> gives the function,
-    /// which is <c>#CALC!</c>. The fixture holds each, in D17, D181, D21 and D189.
-    /// </summary>
-    [Test]
-    [Arguments("ISERROR(LAMBDA(x,x))", true)]
-    [Arguments("ISERR(LAMBDA(x,x))", true)]
-    [Arguments("ERROR.TYPE(LAMBDA(x,x))", 3)]
-    [Arguments("IFERROR(LAMBDA(x,x),1)", 1)]
-    public async Task An_error_test_reads_a_function_as_VALUE_where_Excel_reads_no_error(string formula, object xlibur)
-    {
-        var expected = xlibur is bool logical ? logical : (XLCellValue)(int)xlibur;
-
-        await Assert.That(Evaluate(formula)).IsEqualTo(expected);
     }
 
     [Test]

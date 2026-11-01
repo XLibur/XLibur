@@ -297,6 +297,16 @@ internal static class SignatureAdapter
         return (ctx, args) => f(ctx, args[0]);
     }
 
+    /// <summary>
+    /// <paramref name="f"/>, except that a first argument that is a function value, a <c>LAMBDA</c>, gives
+    /// <paramref name="forFunction"/>. A function value is no error, so <c>ISERROR(LAMBDA(x,x))</c> is
+    /// FALSE in Excel, where reading it as a value would give <c>#VALUE!</c> (#868).
+    /// </summary>
+    public static CalcEngineFunction WithFunctionValue(CalcEngineFunction f, AnyValue forFunction)
+    {
+        return (ctx, args) => args[0].IsLambda ? forFunction : f(ctx, args);
+    }
+
     public static CalcEngineFunction Adapt(Func<CalcContext, ScalarValue, AnyValue> f)
     {
         return (ctx, args) =>

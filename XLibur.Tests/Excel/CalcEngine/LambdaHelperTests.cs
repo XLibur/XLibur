@@ -21,13 +21,11 @@ public class LambdaHelperTests
 
     /// <summary>
     /// The cells of the fixture whose formulas Excel calculated, and the cells their results spilled
-    /// into. Left out: G307, <c>ISOMITTED()</c>, which Excel refused to enter, and G343,
-    /// <c>ISERROR(SUM)</c>, where XLibur reads a function as <c>#VALUE!</c> and Excel sees no error
-    /// (<see cref="LambdaTests"/>).
+    /// into. Left out: G307, <c>ISOMITTED()</c>, which Excel refused to enter.
     /// </summary>
     public static IEnumerable<string> CalculatedCells()
     {
-        foreach (var row in Enumerable.Range(0, 66).Select(i => 1 + 6 * i).Except([307, 343]))
+        foreach (var row in Enumerable.Range(0, 66).Select(i => 1 + 6 * i).Except([307]))
         {
             for (var r = row; r < row + 5; r++)
             {
@@ -90,6 +88,10 @@ public class LambdaHelperTests
     [Arguments("LET(f,SUM,f(1,2))", "_xlfn.LET(_xlpm.f,_xleta.SUM,_xlpm.f(1,2))")]
     [Arguments("LET(x,1,x+Rate)", "_xlfn.LET(_xlpm.x,1,_xlpm.x+_xleta.RATE)")]
     [Arguments("map(A1:A3,abs)", "_xlfn.MAP(A1:A3,_xleta.ABS)")]
+    [Arguments("SUM", "_xleta.SUM")]
+    [Arguments("ISERROR(SUM)", "ISERROR(_xleta.SUM)")]
+    [Arguments("SUM(A1)+ABS(-1)", "SUM(A1)+ABS(-1)")]
+    [Arguments("IF(TRUE,\"SUM\",FALSE)", "IF(TRUE,\"SUM\",FALSE)")]
     [Arguments("MAP(A1:A3,LAMBDA(v,SUM(v)))", "_xlfn.MAP(A1:A3,_xlfn.LAMBDA(_xlpm.v,SUM(_xlpm.v)))")]
     public async Task A_function_passed_by_its_name_is_written_as_Excel_writes_it(string formula, string written)
     {

@@ -10,11 +10,12 @@ internal static class Information
     public static void Register(FunctionRegistry ce)
     {
         //ce.RegisterFunction("CELL", 1, 1, Adapt(Cell), FunctionFlags.Range, AllowRange.All);
-        ce.RegisterFunction("ERROR.TYPE", 1, 1, Adapt(ErrorType), FunctionFlags.Scalar);
+        // A function value is no error (#868): Excel gives #N/A, FALSE, FALSE and 128 for LAMBDA(x,x).
+        ce.RegisterFunction("ERROR.TYPE", 1, 1, WithFunctionValue(Adapt(ErrorType), XLError.NoValueAvailable), FunctionFlags.Scalar);
         //ce.RegisterFunction("INFO", 1, 1, Adapt(Info), FunctionFlags.Scalar);
         ce.RegisterFunction("ISBLANK", 1, 1, Adapt(IsBlank), FunctionFlags.Scalar);
-        ce.RegisterFunction("ISERR", 1, 1, Adapt(IsErr), FunctionFlags.Scalar);
-        ce.RegisterFunction("ISERROR", 1, 1, Adapt(IsError), FunctionFlags.Scalar);
+        ce.RegisterFunction("ISERR", 1, 1, WithFunctionValue(Adapt(IsErr), false), FunctionFlags.Scalar);
+        ce.RegisterFunction("ISERROR", 1, 1, WithFunctionValue(Adapt(IsError), false), FunctionFlags.Scalar);
         ce.RegisterFunction("ISEVEN", 1, 1, Adapt(IsEven), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("ISLOGICAL", 1, 1, Adapt(IsLogical), FunctionFlags.Scalar);
         ce.RegisterFunction("ISNA", 1, 1, Adapt(IsNa), FunctionFlags.Scalar);
@@ -26,7 +27,7 @@ internal static class Information
         ce.RegisterFunction("ISTEXT", 1, 1, Adapt(IsText), FunctionFlags.Scalar);
         ce.RegisterFunction("N", 1, 1, Adapt(N), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("NA", 0, 0, NA, FunctionFlags.Scalar);
-        ce.RegisterFunction("TYPE", 1, 1, Adapt(Type), FunctionFlags.Range, AllowRange.All);
+        ce.RegisterFunction("TYPE", 1, 1, WithFunctionValue(Adapt(Type), 128), FunctionFlags.Range, AllowRange.All);
     }
 
     private static AnyValue ErrorType(CalcContext ctx, ScalarValue value)
