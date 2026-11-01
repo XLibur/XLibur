@@ -8,7 +8,7 @@ using XLibur.Graphics;
 namespace XLibur.Excel.Drawings;
 
 [DebuggerDisplay("{Name}")]
-internal sealed class XLPicture : IXLPicture
+internal sealed partial class XLPicture : IXLPicture
 {
     private int _height;
     private int _id;
@@ -154,6 +154,7 @@ internal sealed class XLPicture : IXLPicture
     internal bool HasUnsavedChanges(Lazy<GridLayout> layout) =>
         _saved is not { } saved ||
         _image.IsModified ||
+        AssignedStyle != XLPictureStyleProperties.None ||
         !string.Equals(saved.Name, _name, StringComparison.Ordinal) ||
         saved.Geometry != CaptureGeometry() ||
         (KeptAnchor is { } kept && !kept.IsLayoutUnchanged(layout.Value));
@@ -166,6 +167,7 @@ internal sealed class XLPicture : IXLPicture
     {
         _saved = new XLPictureSavedState(_name, CaptureGeometry());
         _image.MarkUnmodified();
+        AssignedStyle = XLPictureStyleProperties.None;
     }
 
     private XLPictureGeometry CaptureGeometry()
@@ -441,6 +443,7 @@ internal sealed class XLPicture : IXLPicture
                 break;
         }
 
+        ((XLPicture)newPicture).TakeStyleOf(this);
         return newPicture;
     }
 
