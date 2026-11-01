@@ -1,4 +1,7 @@
+using System;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
 using XLibur.Excel;
 using XLibur.Fonts.PinataLabs;
 
@@ -16,20 +19,39 @@ namespace XLibur.Benchmarks;
 /// again for each invocation, because a read leaves the formulas it calculated clean.
 /// </remarks>
 [MemoryDiagnoser]
-[SimpleJob(invocationCount: 1, iterationCount: 5, warmupCount: 1)]
+[BenchmarkCategory("CI")]
+[Config(typeof(DemandDrivenReadConfig))]
 public class DemandDrivenReadBenchmarks
 {
+    /// <summary>
+    /// <c>[SimpleJob(invocationCount: 1, iterationCount: 5, warmupCount: 1)]</c>, unless the command
+    /// line chooses a job. A job from an attribute is run in addition to the one from <c>--job</c>, so
+    /// the CI run (<c>--job short --inProcess</c>) would build and run this class out of process as
+    /// well, and record two results for each benchmark.
+    /// </summary>
+    public sealed class DemandDrivenReadConfig : ManualConfig
+    {
+        public DemandDrivenReadConfig()
+        {
+            if (!BenchmarkCommandLine.HasJob(BenchmarkCommandLine.ProcessArgs()))
+                AddJob(Job.Default.WithInvocationCount(1).WithIterationCount(5).WithWarmupCount(1));
+        }
+    }
+
     private const int Reads = 100;
 
-    private const int Formulas = 100_000;
+    // 20K rows (60K cells) keeps the CI run lean (spec 57); the on-demand/full-pass gap is the same shape.
+    private const int Formulas = 20_000;
 
     private XLWorkbook _workbook = null!;
     private IXLWorksheet _sheet = null!;
+    private bool _fresh;
 
     [IterationSetup]
     public void Setup()
     {
         PinataLabsFontBootstrap.Register();
+        _fresh = true;
 
         _workbook = new XLWorkbook();
         _sheet = _workbook.AddWorksheet("Data");
@@ -45,13 +67,32 @@ public class DemandDrivenReadBenchmarks
     public void Cleanup() => _workbook.Dispose();
 
     [Benchmark]
-    public double ReadOnDemand() => ReadSpread();
+    public double ReadOnDemand()
+    {
+        UseFreshWorkbook();
+        return ReadSpread();
+    }
 
     [Benchmark(Baseline = true)]
     public double ReadAfterFullPass()
     {
+        UseFreshWorkbook();
         _workbook.RecalculateAllFormulas();
         return ReadSpread();
+    }
+
+    /// <summary>
+    /// A read leaves the formulas it calculated clean, so a second invocation on the same workbook would
+    /// measure cached reads. <c>[IterationSetup]</c> gives each invocation a new workbook only while the job
+    /// runs one invocation per iteration, which BenchmarkDotNet arranges for the default job and for
+    /// <c>Dry</c> and <c>short</c>; a job that does not would fail here instead of reporting wrong numbers.
+    /// </summary>
+    private void UseFreshWorkbook()
+    {
+        if (!_fresh)
+            throw new InvalidOperationException(
+                "More than one invocation ran on one workbook. This benchmark needs InvocationCount=1.");
+        _fresh = false;
     }
 
     private double ReadSpread()

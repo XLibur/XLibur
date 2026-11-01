@@ -15,6 +15,7 @@ All projects live under `src/`. The solutions, `Directory.Build.*`, `XLibur.Repo
 - **XLibur.Tests** - NUnit test suite
 - **XLibur.Examples** - Example applications
 - **XLibur.Benchmarks** - BenchmarkDotNet performance benchmarks
+- **XLibur.PerfReport** (+ `.Tests`) - release benchmark history tool (spec 57); see `performance.yml` below
 
 Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
@@ -36,6 +37,11 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 - **build-and-test.yml** - Builds, tests, and runs SonarCloud analysis on push to main and PRs
 - **release.yml** - Triggered by `v*` tags; publishes NuGet package and creates GitHub Release
+- **performance.yml** - Separate from `release.yml`, never called by it. `release-publish.yml` starts it by
+  `workflow_dispatch` (input `tag`) in a non-blocking job after the release, because a release published with
+  `GITHUB_TOKEN` does not fire `release: published`; a dispatch without a tag is a manual run. Runs the `[BenchmarkCategory("CI")]` benchmarks, records them on the orphan `perf-history` branch
+  via `src/XLibur.PerfReport` (writes `docs/performance.md` there), and opens/updates one `performance` issue on an
+  allocation rise over 5%. A PR touching `src/XLibur.Benchmarks/**` runs a dry smoke job. Spec 57.
 - **release-drafter.yml** - Maintains draft release notes from merged PRs (label-based categorization)
 - **CodeRabbit** - AI code review on PRs (configured via `.coderabbit.yaml`)
 - **Secrets required:** `SONAR_TOKEN`, `NUGET_API_KEY`

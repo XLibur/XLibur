@@ -28,6 +28,10 @@
     <Project Path="src/XLibur.Report.Examples/XLibur.Report.Examples.csproj" />
     <Project Path="src/XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
   </Folder>
+  <Folder Name="/XLibur.PerfReport/">
+    <Project Path="src/XLibur.PerfReport.Tests/XLibur.PerfReport.Tests.csproj" />
+    <Project Path="src/XLibur.PerfReport/XLibur.PerfReport.csproj" />
+  </Folder>
   <Project Path="src/XLibur.Benchmarks/XLibur.Benchmarks.csproj" />
   <Project Path="src/XLibur.Examples/XLibur.Examples.csproj" />
   <Project Path="src/XLibur/XLibur.csproj" />

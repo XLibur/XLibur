@@ -30,6 +30,7 @@ namespace XLibur.Benchmarks;
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class SharedFormulaWriteBenchmarks
 {
     private const int GroupRows = 64;
@@ -39,7 +40,7 @@ public class SharedFormulaWriteBenchmarks
     private byte[] _input = null!;
     private byte[] _output = null!;
 
-    [Params("FillDown50k", "Orders10k")]
+    [Params("FillDown20k", "Orders10k")]
     public string Fixture { get; set; } = null!;
 
     [Params(true, false)]
@@ -51,7 +52,7 @@ public class SharedFormulaWriteBenchmarks
         PinataLabsFontBootstrap.Register();
         _input = Fixture switch
         {
-            "FillDown50k" => BuildFillDown(50_000),
+            "FillDown20k" => BuildFillDown(20_000),
             "Orders10k" => BuildOrders(10_000),
             _ => throw new InvalidOperationException($"Unknown fixture '{Fixture}'.")
         };
@@ -81,7 +82,7 @@ public class SharedFormulaWriteBenchmarks
         PinataLabsFontBootstrap.Register();
         Console.WriteLine("| fixture | mode | file bytes | sheet XML bytes | save alloc | load alloc | first recalc alloc |");
         Console.WriteLine("|---|---|---:|---:|---:|---:|---:|");
-        foreach (var (name, input) in new[] { ("FillDown50k", BuildFillDown(50_000)), ("Orders10k", BuildOrders(10_000)) })
+        foreach (var (name, input) in new[] { ("FillDown20k", BuildFillDown(20_000)), ("Orders10k", BuildOrders(10_000)) })
         {
             foreach (var shared in new[] { true, false })
             {

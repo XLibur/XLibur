@@ -35,6 +35,7 @@ namespace XLibur.Benchmarks;
 /// iterations short enough for BenchmarkDotNet to take a useful number of them.
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class FormulaEvaluationBenchmarks
 {
     private const int RowCount = 20_000;

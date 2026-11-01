@@ -24,14 +24,16 @@ namespace XLibur.Benchmarks;
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class FirstEditAfterLoadBenchmarks
 {
     /// <summary>
     /// Rows × formulas per row. The two narrow shapes are the ones #504 measured. The wide shape is
     /// the 200,000-formula row of #513, and <c>shared</c> saves each of its formula columns as one
-    /// shared formula, as Excel does (see <see cref="FirstEditFixture"/>).
+    /// shared formula, as Excel does (see <see cref="FirstEditFixture"/>). The CI run (spec 57) keeps
+    /// the shapes to 80,000 formulas or fewer, so the 25000x8 shapes of #513 are not in this list.
     /// </summary>
-    [Params("1000x2", "10000x2", "25000x8", "25000x8shared")]
+    [Params("1000x2", "10000x2", "10000x8shared")]
     public string Shape { get; set; } = "";
 
     private byte[] _package = null!;

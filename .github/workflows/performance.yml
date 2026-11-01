@@ -1,0 +1,234 @@
+name: Performance
+
+# Spec 57. Runs the lean benchmark set (the [BenchmarkCategory("CI")] classes) on a GitHub-hosted runner
+# when a release is published, stores one record per release on the orphan branch `perf-history`, and
+# regenerates docs/performance.md there. A shared runner is too noisy to compare timings precisely, so the
+# aim is to detect big changes between releases: allocated bytes carry the tight threshold, time is only
+# indicative. Nothing here is a gate.
+#
+# This is a separate workflow on purpose. release.yml does not call it and nothing in release.yml waits
+# for it, so a failure here cannot fail or block a release.
+#
+# How a release reaches it: GitHub does not fire `release: published` for a release that GITHUB_TOKEN
+# publishes (as release.yml does), so that trigger alone would never run. release-publish.yml therefore
+# starts this workflow with `workflow_dispatch` (an event GITHUB_TOKEN may raise) in a job of its own that
+# runs after the release and is allowed to fail. The `release` trigger stays for a release a person
+# publishes by hand. A dispatch with a `tag` is recorded as that release; a dispatch without one is a
+# manual run, stored with manual:true.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to record, e.g. v0.740.0. Leave empty for a manual run of the selected ref.'
+        required: false
+        type: string
+  # The smoke job keeps the tagged set from rotting. It stores nothing and flags nothing.
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/XLibur.Benchmarks/**'
+      - 'src/XLibur.PerfReport/**'
+      - 'src/XLibur.PerfReport.Tests/**'
+      - '.github/workflows/performance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    concurrency:
+      group: performance-smoke-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+            11.0.100-rc.2.26504.105
+
+      - name: Install fontconfig
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libfontconfig1
+
+      - name: Test the report tool
+        run: dotnet test --project src/XLibur.PerfReport.Tests/XLibur.PerfReport.Tests.csproj
+
+      - name: Dry run of the CI benchmark set
+        run: >
+          dotnet run -c Release --project src/XLibur.Benchmarks -f net10.0 --
+          --anyCategories CI --job Dry --inProcess --filter '*'
+
+  benchmark:
+    if: github.event_name != 'pull_request' && github.repository == 'XLibur/XLibur'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+    # A group per requested tag. A group holds one running and one pending run, so a single shared group
+    # would drop a queued release when a third arrives; with one group per tag, no distinct release is ever
+    # cancelled. Runs for different tags can overlap, so the push to perf-history below retries on a race.
+    # A manual run has no tag and gets a group of its own.
+    concurrency:
+      group: performance-${{ inputs.tag || github.event.release.tag_name || github.run_id }}
+      cancel-in-progress: false
+
+    steps:
+      # What this run records. The tag comes from the release event or the dispatch input and is
+      # user-controlled text, so it goes through env and is checked before anything uses it.
+      - name: Resolve what to record
+        id: what
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag=""
+          if [ "$EVENT_NAME" = "release" ]; then
+            tag="$RELEASE_TAG"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          fi
+          if [ -n "$tag" ] && ! printf '%s' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$tag' is not a release tag such as v1.2.3"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.what.outputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+            11.0.100-rc.2.26504.105
+
+      - name: Install fontconfig and GNU time
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libfontconfig1 time
+
+      # Built apart from the run, so the peak memory below is the benchmark process and not MSBuild.
+      - name: Build the benchmarks
+        run: dotnet build src/XLibur.Benchmarks/XLibur.Benchmarks.csproj -c Release -f net10.0
+
+      - name: Run the CI benchmark set
+        run: |
+          # ShortRunJob, in process, with MemoryDiagnoser and the JSON exporter. GNU time records the
+          # peak resident set of the benchmark process, which is the peak working set.
+          /usr/bin/time -f '%M' -o "$RUNNER_TEMP/maxrss.txt" \
+            dotnet src/XLibur.Benchmarks/bin/Release/net10.0/XLibur.Benchmarks.dll \
+            --anyCategories CI --job short --inProcess --memory --exporters json \
+            --filter '*' --artifacts "$RUNNER_TEMP/bdn"
+
+      - name: Check out perf-history
+        run: |
+          # The branch is an orphan: it holds records/*.json and docs/performance.md and nothing else.
+          # It is created here on the first run.
+          if git rev-parse --verify --quiet origin/perf-history >/dev/null; then
+            git worktree add -B perf-history "$RUNNER_TEMP/perf-history" origin/perf-history
+          else
+            git worktree add --orphan -b perf-history "$RUNNER_TEMP/perf-history"
+          fi
+
+      - name: Compare, record and write the report
+        id: report
+        env:
+          # User-controlled values reach the shell through env, never through inline ${{ }}.
+          TAG: ${{ steps.what.outputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          commit="$(git rev-parse HEAD)"
+          args=(
+            --bdn "$RUNNER_TEMP/bdn"
+            --history "$RUNNER_TEMP/perf-history"
+            --benchmarks-dir src/XLibur.Benchmarks
+            --commit "$commit"
+            --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
+            --cores "$(nproc)"
+            --peak-working-set-bytes "$(( $(tail -n 1 "$RUNNER_TEMP/maxrss.txt") * 1024 ))"
+            --summary "$GITHUB_STEP_SUMMARY"
+            --issue-body "$RUNNER_TEMP/issue.md"
+            --github-output "$GITHUB_OUTPUT"
+          )
+          if [ -n "$TAG" ]; then
+            args+=(--version "$TAG")
+          else
+            # A manual run: stored with manual:true, never a baseline, never flagged.
+            args+=(--version "$REF_NAME-${commit:0:7}" --manual)
+          fi
+          dotnet run -c Release --project src/XLibur.PerfReport -- "${args[@]}"
+
+      - name: Commit the record and the page to perf-history
+        run: |
+          history="$RUNNER_TEMP/perf-history"
+          mine="$RUNNER_TEMP/my-records"
+          tool="$GITHUB_WORKSPACE/src/XLibur.PerfReport"
+          cd "$history"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add records docs
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          # Records are one file per version, so two runs never touch the same record. Only the generated
+          # docs/performance.md can conflict. On a rejected push, start again from the new tip, put this
+          # run's record files back and regenerate the page from all the records.
+          mkdir -p "$mine"
+          git diff --cached --name-only -- records | while read -r file; do cp "$file" "$mine/"; done
+          git commit -m "perf: record run $GITHUB_RUN_ID"
+          for attempt in 1 2 3 4 5; do
+            if git push origin perf-history; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); rebuilding on the new tip of perf-history."
+            git fetch origin +perf-history:refs/remotes/origin/perf-history
+            git reset --hard origin/perf-history
+            mkdir -p records
+            cp "$mine"/* records/
+            dotnet run --no-build -c Release --project "$tool" -- --render-only --history "$history"
+            git add records docs
+            git commit -m "perf: record run $GITHUB_RUN_ID"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push to perf-history after 5 attempts."
+          exit 1
+
+      # One tracking issue. Its body is a fixed pointer; each flagged release adds a comment, so the
+      # earlier ones stay. The tool sets raise_issue only for a release (not a pre-release, not a manual
+      # run) that has an allocation flag.
+      - name: Open or update the allocation issue
+        if: steps.report.outputs.raise_issue == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create performance --color FBCA04 --description 'Performance regression between releases' || true
+          existing="$(gh issue list --label performance --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            printf '%s\n' \
+              "Allocations rose by more than 5% between releases. Each flagged release adds a comment below." \
+              "" \
+              "Full history: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/perf-history/docs/performance.md" \
+              > "$RUNNER_TEMP/issue-pointer.md"
+            existing="$(gh issue create --label performance \
+              --title 'Allocations rose between releases' \
+              --body-file "$RUNNER_TEMP/issue-pointer.md" | grep -oE '[0-9]+$')"
+          fi
+          gh issue comment "$existing" --body-file "$RUNNER_TEMP/issue.md"
