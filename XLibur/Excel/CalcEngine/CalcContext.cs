@@ -76,12 +76,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// name is never reused, so its name and caller are not reset.
     /// </remarks>
     internal void Reuse(XLWorkbook? workbook, XLWorksheet? worksheet, Point? formulaPoint, bool recursive,
-        uint? recalculateSheetId, bool intersectOperands)
+        uint? recalculateSheetId, bool intersectOperands, bool demandDriven = false)
     {
         _workbook = workbook;
         _worksheet = worksheet;
         _formulaPoint = formulaPoint ?? NoCell;
         _recursive = recursive;
+        DemandDriven = demandDriven;
         RecalculateSheetId = recalculateSheetId;
         IsArrayCalculation = false;
         IntersectOperands = intersectOperands;
@@ -172,6 +173,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         return new(CalcEngine, Culture, Workbook, _worksheet, _formulaPoint, _recursive)
         {
             RecalculateSheetId = RecalculateSheetId,
+            DemandDriven = DemandDriven,
             NameFormula = nameFormula,
             NameCaller = this,
             LambdaDepth = LambdaDepth,
@@ -233,6 +235,15 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// calls itself for ever stops. <see cref="CalculationVisitor"/> owns it.
     /// </summary>
     internal int LambdaDepth { get; set; }
+
+    /// <summary>
+    /// The mode of a cell read (spec 04, #841). When a formula reads a cell whose own formula is
+    /// dirty, the engine calculates that formula first, on the spot, and the read returns its result.
+    /// Otherwise the read throws <see cref="GettingDataException"/> and the calculation chain
+    /// calculates the precedent first, which is the mode of a full <c>Recalculate</c>. The engine
+    /// keeps the stack of formulas being calculated, which is how it finds a cycle.
+    /// </summary>
+    internal bool DemandDriven { get; set; }
 
     /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty
@@ -297,6 +308,18 @@ internal sealed class CalcContext : IStructuredReferenceScope
         if (_recursive)
             return GetRecursiveCellValue(sheet, point);
 
+        if (DemandDriven)
+        {
+            // Only a spill can write into cells the sparse walk of a caller has not met yet, and it
+            // can happen at any depth of the precedents just calculated.
+            var spills = CalcEngine.SpillCount;
+            CalcEngine.EvaluateDirtyPrecedent(sheet, point, formula);
+            if (CalcEngine.SpillCount != spills)
+                _recursiveEvaluations++;
+
+            return valueSlice.GetCellValue(point);
+        }
+
         throw new GettingDataException(new SheetPoint(sheet.SheetId, new Point(rowNumber, columnNumber)));
     }
 
@@ -319,9 +342,9 @@ internal sealed class CalcContext : IStructuredReferenceScope
         if (IsOutsideRecalculatedSheet(sheet))
             return valueSlice.GetCellValue(point);
 
-        if (_recursive)
+        if (_recursive || DemandDriven)
         {
-            // Evaluate the anchor recursively so it spills current values into this cell.
+            // Evaluate the anchor on the spot so it spills current values into this cell.
             _ = GetCellValue(sheet, spillAnchor.Row, spillAnchor.Column);
             return valueSlice.GetCellValue(point);
         }
