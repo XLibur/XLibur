@@ -160,18 +160,20 @@ public class LetTests
     /// <summary>
     /// A name bound to a reference can be the operand of a range operator, whose result covers cells
     /// neither end names: Excel 365 recalculates <c>LET(r,A1,SUM(r:A3))</c> from 6 to 24 when A2
-    /// becomes 20. The test names it <c>start</c>: the parser reads <c>r:A3</c> as the column range
-    /// <c>r:A</c> followed by 3, as a name that can be a column cannot be told from one.
+    /// becomes 20. The name <c>r</c> is also a column, and <c>r:A3</c> still reads as the name, the
+    /// range operator and A3, as a column range would need a column after the colon (#870).
     /// </summary>
     [Test]
-    public async Task A_range_built_from_a_LET_name_recalculates_when_a_cell_inside_it_changes()
+    [Arguments("start")]
+    [Arguments("r")]
+    public async Task A_range_built_from_a_LET_name_recalculates_when_a_cell_inside_it_changes(string name)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = 1;
         ws.Cell("A2").Value = 2;
         ws.Cell("A3").Value = 3;
-        ws.Cell("C1").FormulaA1 = "LET(start,A1,SUM(start:A3))";
+        ws.Cell("C1").FormulaA1 = $"LET({name},A1,SUM({name}:A3))";
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(6);
 
         ws.Cell("A2").Value = 20;
