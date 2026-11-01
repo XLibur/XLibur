@@ -961,17 +961,12 @@ internal static class WorksheetSheetDataReader
                 // Start from the cell font with the color stripped: an rPr that omits <color> means
                 // automatic, so inheriting the cell's color here would be wrong and would materialize
                 // an explicit one on save. LoadFont puts a color back whenever the rPr carries one.
+                //
+                // The run is added with its whole font in one write. Written a property at a time,
+                // every write re-interned the cell's whole rich text in the shared string table.
                 var colorless = ColorlessFont(xlCell.Style.Font, ref colorlessCellFont);
-                var rt = xlCell.GetRichText().AddText(text, colorless);
-
-                var fontScheme = runProperties.Elements<FontScheme>().FirstOrDefault();
-                if (fontScheme is { Val: not null })
-                    rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
-
-                // Last, because applying the font marks the run's formatting as its own, which
-                // resets what the source is recorded as having stated.
-                var stated = StyleDecoder.ApplyRunFont(runProperties, rt);
-                ((XLRichString)rt).SetStatedProperties(stated);
+                var font = StyleDecoder.RunFontKey(runProperties, colorless.Key);
+                xlCell.GetRichText().AddText(text, new XLFont(font), StyleDecoder.StatedRunProperties(runProperties));
             }
         }
 

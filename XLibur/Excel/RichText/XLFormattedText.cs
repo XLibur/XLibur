@@ -64,6 +64,14 @@ internal class XLFormattedText<T> : IXLFormattedText<T>
         return AddText(richText);
     }
 
+    /// <summary>
+    /// Adds a run with its whole font, which states its own formatting, recording which of the
+    /// recorded properties its source stated. One notification, where setting the font a property at
+    /// a time made one for each.
+    /// </summary>
+    internal IXLRichString AddText(string text, XLFont font, XLStatedRunProperties statedProperties) =>
+        AddText(new XLRichString(text, font, this, OnContentChanged, inheritsContainerFont: false, statedProperties));
+
     public IXLRichString AddText(XLRichString richText)
     {
         _richTexts.Add(richText);

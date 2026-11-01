@@ -599,7 +599,6 @@ internal static class StyleDecoder
         if (runProperties is null)
             return XLStatedRunProperties.None;
 
-        var stated = XLStatedRunProperties.None;
         var key = RunFontKey(runProperties, XLFont.GenerateKey(fontBase));
 
         fontBase.Bold = key.Bold;
@@ -611,10 +610,7 @@ internal static class StyleDecoder
         }
 
         if (runProperties.Elements<FontFamily>().Any(f => f.Val is not null))
-        {
             fontBase.FontFamilyNumbering = key.FontFamilyNumbering;
-            stated |= XLStatedRunProperties.FontFamilyNumbering;
-        }
 
         if (runProperties.Elements<RunFont>().Any(f => f.Val is not null))
             fontBase.FontName = key.FontName;
@@ -630,10 +626,7 @@ internal static class StyleDecoder
             fontBase.Underline = key.Underline;
 
         if (runProperties.Elements<VerticalTextAlignment>().Any())
-        {
             fontBase.VerticalAlignment = key.VerticalAlignment;
-            stated |= XLStatedRunProperties.VerticalAlignment;
-        }
 
         if (runProperties.Elements<FontScheme>().Any())
             fontBase.FontScheme = key.FontScheme;
@@ -642,6 +635,22 @@ internal static class StyleDecoder
         // cannot disturb the intermediate states the writes above produce for a run that has none.
         if (runProperties.Elements<RunPropertyCharSet>().Any(c => c.Val is not null))
             fontBase.FontCharSet = key.FontCharSet;
+
+        return StatedRunProperties(runProperties);
+    }
+
+    /// <summary>
+    /// The properties of a run's font that its <c>rPr</c> states, of those a run records as stated
+    /// or not: the family and the vertical alignment.
+    /// </summary>
+    internal static XLStatedRunProperties StatedRunProperties(RunProperties runProperties)
+    {
+        var stated = XLStatedRunProperties.None;
+        if (runProperties.Elements<FontFamily>().Any(f => f.Val is not null))
+            stated |= XLStatedRunProperties.FontFamilyNumbering;
+
+        if (runProperties.Elements<VerticalTextAlignment>().Any())
+            stated |= XLStatedRunProperties.VerticalAlignment;
 
         return stated;
     }

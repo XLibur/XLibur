@@ -27,6 +27,20 @@ public class RichSharedStringLoadTests
     }
 
     [Test]
+    public async Task A_rich_string_shown_once_costs_little_to_load()
+    {
+        // Each of these cells shows a rich string of its own, as most rich cells do. Reading the
+        // string through an XML writer and parsing it back, then applying each run's font one
+        // property at a time, cost tens of kilobytes a string.
+        using var small = DistinctRichStrings(cells: 1_000);
+        using var large = DistinctRichStrings(cells: 3_000);
+
+        var perString = (LoadAllocation(large) - LoadAllocation(small)) / 2_000;
+
+        await Assert.That(perString).IsLessThan(30_000);
+    }
+
+    [Test]
     public async Task Cells_in_different_fonts_each_show_the_string_in_their_own_font()
     {
         // The first run has no rPr and inherits the whole cell font; the second states only bold,
@@ -72,6 +86,28 @@ public class RichSharedStringLoadTests
 
         await Assert.That(string.Join(", ", texts)).IsEqualTo(
             "Hello /b|world, Changed /i/b|world, Hello /b|world");
+    }
+
+    /// <summary>A saved workbook whose column A holds <paramref name="cells"/> cells, each of a rich string of its own.</summary>
+    private static MemoryStream DistinctRichStrings(int cells)
+    {
+        var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            for (var row = 1; row <= cells; row++)
+            {
+                var richText = ws.Cell(row, 1).GetRichText();
+                richText.AddText($"Item {row} ").SetBold().SetFontColor(XLColor.DarkBlue);
+                richText.AddText("in stock").SetItalic();
+                richText.AddText(" today");
+            }
+
+            wb.SaveAs(package);
+        }
+
+        package.Position = 0;
+        return package;
     }
 
     /// <summary>A saved workbook whose column A holds <paramref name="cells"/> cells of one rich string.</summary>
