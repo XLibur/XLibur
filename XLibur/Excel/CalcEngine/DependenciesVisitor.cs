@@ -103,20 +103,6 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         return ApplyUnsupported(context, new VisitedArguments(this, context, node.Operands));
     }
 
-    /// <summary>
-    /// A construct XLibur reads but does not evaluate, such as a call of the value of an expression
-    /// (<c>LAMBDA(x,x*2)(3)</c>). Every operand that is a reference is a precedent, so a change to it
-    /// makes the formula's saved result stale; the construct gives no reference itself.
-    /// </summary>
-    internal static ReferenceAreas ApplyUnsupported<TArguments>(DependenciesContext context, TArguments operands)
-        where TArguments : IFunctionArguments
-    {
-        for (var i = 0; i < operands.Count; ++i)
-            AddAreasIfReference(context, operands.Evaluate(i));
-
-        return ReferenceAreas.None;
-    }
-
     public ReferenceAreas Visit(DependenciesContext context, ReferenceNode node)
     {
         var prefix = node.Prefix;
@@ -242,6 +228,20 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         // references as arguments, but not as an output value.
         for (var i = 0; i < arguments.Count; ++i)
             AddAreasIfReference(context, arguments.Evaluate(i));
+
+        return ReferenceAreas.None;
+    }
+
+    /// <summary>
+    /// A construct XLibur reads but does not evaluate, such as a call of the value of an expression
+    /// (<c>LAMBDA(x,x*2)(3)</c>). Every operand that is a reference is a precedent, so a change to it
+    /// makes the formula's saved result stale; the construct gives no reference itself.
+    /// </summary>
+    internal static ReferenceAreas ApplyUnsupported<TArguments>(DependenciesContext context, TArguments operands)
+        where TArguments : IFunctionArguments
+    {
+        for (var i = 0; i < operands.Count; ++i)
+            AddAreasIfReference(context, operands.Evaluate(i));
 
         return ReferenceAreas.None;
     }
