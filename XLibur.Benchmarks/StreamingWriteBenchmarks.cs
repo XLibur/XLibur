@@ -21,6 +21,7 @@ namespace XLibur.Benchmarks;
 /// <see cref="StreamingMemoryProfile"/>, at a million rows.
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 [Config(typeof(JoinSummaryConfig))]
 public class StreamingWriteBenchmarks
 {

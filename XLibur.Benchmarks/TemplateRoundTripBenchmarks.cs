@@ -24,6 +24,7 @@ namespace XLibur.Benchmarks;
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class TemplateRoundTripBenchmarks
 {
     private const int SheetCount = 10;

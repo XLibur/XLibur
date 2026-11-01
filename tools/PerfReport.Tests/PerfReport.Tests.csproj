@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Must stay 'latest': TUnit's Assert.That overloads need C# 13+ overload resolution priority. -->
+    <LangVersion>latest</LangVersion>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- An un-awaited TUnit assertion never runs, so CS4014 must fail the build. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.76.45" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PerfReport\PerfReport.csproj" />
+  </ItemGroup>
+
+</Project>

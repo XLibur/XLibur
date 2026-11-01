@@ -33,6 +33,10 @@ Solution uses `.slnx` format (modern MSBuild Solution Extension).
 
 - **build-and-test.yml** - Builds, tests, and runs SonarCloud analysis on push to main and PRs
 - **release.yml** - Triggered by `v*` tags; publishes NuGet package and creates GitHub Release
+- **performance.yml** - Separate from `release.yml`, never called by it. On `release: published` (and manual
+  dispatch) runs the `[BenchmarkCategory("CI")]` benchmarks, records them on the orphan `perf-history` branch
+  via `tools/PerfReport` (writes `docs/performance.md` there), and opens/updates one `performance` issue on an
+  allocation rise over 5%. A PR touching `XLibur.Benchmarks/**` runs a dry smoke job. Spec 57.
 - **release-drafter.yml** - Maintains draft release notes from merged PRs (label-based categorization)
 - **CodeRabbit** - AI code review on PRs (configured via `.coderabbit.yaml`)
 - **Secrets required:** `SONAR_TOKEN`, `NUGET_API_KEY`

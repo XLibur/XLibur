@@ -73,6 +73,10 @@ Published results are available at
 
 [![XLibur benchmark results](docs/benchmark_snapshot.jpg)](https://jafin.github.io/XLBench/charts.html)
 
+How XLibur's own benchmarks change from release to release (allocations and indicative timings,
+measured on a GitHub runner) is in
+[performance.md](https://github.com/XLibur/XLibur/blob/perf-history/docs/performance.md).
+
 ## Contributing
 
 Building, testing, and developer guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).

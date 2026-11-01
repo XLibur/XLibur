@@ -33,15 +33,16 @@ namespace XLibur.Benchmarks;
 /// snapshot that already carries its value; <c>XLCell</c> is a handle that would have to fetch one).
 /// </para>
 /// <para>
-/// 50,000 x 10 rather than <c>XLiburReadBenchmarks</c>' 250,000 x 15: the per-cell costs under
-/// examination are the same, and a fixture eight times smaller keeps an iteration short enough for
+/// 20,000 x 10 rather than <c>XLiburReadBenchmarks</c>' 250,000 x 15: the per-cell costs under
+/// examination are the same, and a fixture nearly nineteen times smaller keeps an iteration short enough for
 /// BenchmarkDotNet to take a useful number of them.
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class UsedCellEnumerationBenchmarks
 {
-    private const int Rows = 50_000;
+    private const int Rows = 20_000;
     private const int Cols = 10;
 
     /// <summary>Ranges in the two multi-range shapes. Ten is a plausible number for a caller unioning columns.</summary>

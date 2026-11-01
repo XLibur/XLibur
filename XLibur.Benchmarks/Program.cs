@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
@@ -64,7 +65,11 @@ if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreC
 // Use InProcessEmitToolchain by default. The default CsProj-based toolchain breaks
 // when there are duplicate project files in the repo (e.g., a git worktree), and
 // in-process is faster anyway since it skips the per-benchmark project regeneration.
-var config = DefaultConfig.Instance
-    .AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
+//
+// A --job on the command line (the CI run passes --job short or --job Dry, with --inProcess) chooses the
+// job itself. Adding the default job as well would run every benchmark twice, once at full length.
+var config = DefaultConfig.Instance;
+if (!args.Any(a => a.StartsWith("--job", StringComparison.OrdinalIgnoreCase) || a.Equals("-j", StringComparison.Ordinal)))
+    config = config.AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

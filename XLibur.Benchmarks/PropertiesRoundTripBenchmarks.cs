@@ -15,6 +15,7 @@ namespace XLibur.Benchmarks;
 /// of loading an 8,000-cell sheet into the model and serialising it back out.
 /// </remarks>
 [MemoryDiagnoser]
+[BenchmarkCategory("CI")]
 public class PropertiesRoundTripBenchmarks
 {
     private byte[] _propertiesBytes = null!;
