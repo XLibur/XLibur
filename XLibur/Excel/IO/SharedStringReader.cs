@@ -10,27 +10,28 @@ using XLibur.Utils;
 namespace XLibur.Excel.IO;
 
 /// <summary>
-/// A shared string table entry that is either a plain text string or a rich text <see cref="RstType"/> element.
+/// A shared string table entry that is either a plain text string or a rich text entry.
 /// Plain text entries (the vast majority) are stored as simple strings to avoid retaining DOM objects.
-/// Rich text entries retain the DOM element for formatting extraction during cell loading.
+/// Rich text entries retain the DOM element for formatting extraction during cell loading, and the
+/// rich text built from it (<see cref="RichSharedString"/>).
 /// </summary>
 internal readonly struct SharedStringEntry
 {
     /// <summary>
-    /// Either a <see cref="string"/> (plain text) or a <see cref="RstType"/> (rich text with runs/phonetics).
+    /// Either a <see cref="string"/> (plain text) or a <see cref="RichSharedString"/> (rich text with runs/phonetics).
     /// </summary>
     private readonly object? _value;
 
     private SharedStringEntry(object? value) => _value = value;
 
     internal static SharedStringEntry Plain(string text) => new(text);
-    internal static SharedStringEntry Rich(RstType element) => new(element);
+    internal static SharedStringEntry Rich(RstType element) => new(new RichSharedString(element));
 
-    internal bool IsRichText => _value is RstType;
+    internal bool IsRichText => _value is RichSharedString;
 
     internal string PlainText => (string)(_value ?? string.Empty);
 
-    internal RstType RichText => (RstType)_value!;
+    internal RichSharedString RichText => (RichSharedString)_value!;
 }
 
 /// <summary>
