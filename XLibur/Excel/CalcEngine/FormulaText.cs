@@ -329,9 +329,10 @@ internal static class FormulaText
         Func<string, bool>? isDefinedName = null)
     {
         // A string check first. It is far cheaper than a parse, and most formulas have no future
-        // function.
+        // function. A function passed by its name, =SUM, gets its prefix whatever else the formula
+        // has, and LambdaParameterPrefixes makes a check of its own first (#869).
         if (!MightContainFutureFunction(typed.AsSpan()))
-            return typed;
+            return LambdaParameterPrefixes.Add(typed, isDefinedName);
 
         var prefixed = TryRewrite(typed, sheetName, origin, RemapFutureFunctions, out var rewritten, out _)
             ? rewritten

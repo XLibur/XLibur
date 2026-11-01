@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Frozen;
+using System.Linq;
 
 namespace XLibur.Excel.CalcEngine;
 
@@ -67,7 +68,22 @@ internal static class ExcelFunctionNames
         "YIELDMAT", "ZTEST",
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Every name <see cref="IsBuiltIn(string)"/> is true for, in one set.</summary>
+    private static readonly Lazy<FrozenSet<string>> All = new(() =>
+        Classic.Concat(XLConstants.FutureFunctionMap.Value.Keys).ToFrozenSet(StringComparer.OrdinalIgnoreCase));
+
     /// <summary>Whether <paramref name="name"/>, without a future-function prefix, names one of Excel's functions.</summary>
     internal static bool IsBuiltIn(string name) =>
         Classic.Contains(name) || XLConstants.FutureFunctionMap.Value.ContainsKey(name);
+
+    /// <inheritdoc cref="IsBuiltIn(string)"/>
+    /// <remarks>Looked up without making a string of the name where the framework can.</remarks>
+    internal static bool IsBuiltIn(ReadOnlySpan<char> name)
+    {
+#if NET9_0_OR_GREATER
+        return All.Value.GetAlternateLookup<ReadOnlySpan<char>>().Contains(name);
+#else
+        return All.Value.Contains(name.ToString());
+#endif
+    }
 }

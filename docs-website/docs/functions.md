@@ -231,7 +231,7 @@ dots replaced by hyphens (`CEILING.MATH` → `ceiling-math-function`).
 
 ### Logical
 
-`AND` · `BYCOL` · `BYROW` · `FALSE` · `IF` · `IFERROR` · `IFS` · `ISOMITTED` · `LAMBDA` · `LET` ·
+`AND` · `BYCOL` · `BYROW` · `FALSE` · `IF` · `IFERROR` · `IFNA` · `IFS` · `ISOMITTED` · `LAMBDA` · `LET` ·
 `MAKEARRAY` · `MAP` · `NOT` · `OR` · `REDUCE` · `SCAN` · `SWITCH` · `TRUE`
 
 ### Lookup and reference

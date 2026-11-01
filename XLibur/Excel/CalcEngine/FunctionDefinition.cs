@@ -54,9 +54,27 @@ internal sealed class FunctionDefinition
         if (_flags.HasFlag(FunctionFlags.ReturnsArray) && _allowRanges == AllowRange.All)
             return _function(ctx, args);
 
+        if (_flags.HasFlag(FunctionFlags.TakesFunctionValue) && HasFunctionValue(args))
+            return CallFunction(ctx, args);
+
         var (totalRows, totalColumns) = GetScalarArgsMaxSize(args);
         NormalizeArguments(ctx, args, totalRows, totalColumns);
         return EvaluateArrayElements(ctx, args, totalRows, totalColumns);
+    }
+
+    /// <summary>
+    /// Whether an argument is a function value, which a <see cref="FunctionFlags.TakesFunctionValue"/>
+    /// function sees whole, as it is no element of an array.
+    /// </summary>
+    private static bool HasFunctionValue(Span<AnyValue> args)
+    {
+        foreach (var arg in args)
+        {
+            if (arg.IsLambda)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

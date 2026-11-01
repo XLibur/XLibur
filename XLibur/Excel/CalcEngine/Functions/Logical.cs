@@ -11,7 +11,8 @@ internal static class Logical
         ce.RegisterFunction("AND", 1, int.MaxValue, And, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("FALSE", 0, 0, Adapt(False), FunctionFlags.Scalar);
         ce.RegisterFunction("IF", 2, 3, AdaptLastOptional(If, false), FunctionFlags.Range, AllowRange.Only, 1, 2);
-        ce.RegisterFunction("IFERROR", 2, 2, Adapt(IfError), FunctionFlags.Scalar);
+        ce.RegisterFunction("IFERROR", 2, 2, IfError, FunctionFlags.TakesFunctionValue);
+        ce.RegisterFunction("IFNA", 2, 2, IfNa, FunctionFlags.TakesFunctionValue); // Returns the value you specify if the expression resolves to #N/A
         ce.RegisterFunction("IFS", 2, 254, Ifs, FunctionFlags.Scalar); // Returns the value for the first TRUE condition
         ce.RegisterFunction("NOT", 1, 1, AdaptCoerced(Not), FunctionFlags.Scalar);
         ce.RegisterFunction("OR", 1, int.MaxValue, Or, FunctionFlags.Range, AllowRange.All);
@@ -65,12 +66,30 @@ internal static class Logical
         return value ? valueIfTrue : valueIfFalse;
     }
 
-    private static AnyValue IfError(ScalarValue potentialError, ScalarValue alternative)
-    {
-        if (!potentialError.IsError)
-            return potentialError.ToAnyValue();
+    private static AnyValue IfError(CalcContext ctx, Span<AnyValue> args)
+        => IfErrorMatching(ctx, args, static _ => true);
 
-        return alternative.ToAnyValue();
+    private static AnyValue IfNa(CalcContext ctx, Span<AnyValue> args)
+        => IfErrorMatching(ctx, args, static error => error == XLError.NoValueAvailable);
+
+    /// <summary>
+    /// <c>IFERROR(value, value_if_error)</c>, and <c>IFNA</c>, for the errors <paramref name="isCaught"/>
+    /// is true for. Each argument is read as one value, except a function value, a <c>LAMBDA</c>, which is
+    /// no error and is the result as it is, so <c>LET(f,IFERROR(LAMBDA(x,x*2),1),f(4))</c> is 8 in Excel
+    /// (#868).
+    /// </summary>
+    private static AnyValue IfErrorMatching(CalcContext ctx, Span<AnyValue> args, Func<XLError, bool> isCaught)
+    {
+        var value = args[0];
+        if (value.IsLambda)
+            return value;
+
+        var scalar = value.ReduceToScalar(ctx);
+        if (!scalar.TryPickError(out var error) || !isCaught(error))
+            return scalar.ToAnyValue();
+
+        var alternative = args[1];
+        return alternative.IsLambda ? alternative : alternative.ReduceToScalar(ctx).ToAnyValue();
     }
 
     private static AnyValue Ifs(CalcContext ctx, Span<AnyValue> args)

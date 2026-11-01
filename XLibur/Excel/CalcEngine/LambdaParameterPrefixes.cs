@@ -49,9 +49,10 @@ internal static class LambdaParameterPrefixes
     /// </param>
     internal static string Add(string formula, Func<string, bool>? isDefinedName = null)
     {
-        // A string check first: a formula with none of these function names has no parameter, and a
-        // function passed by its name is passed to one of them. One elsewhere, =SUM, is left as typed.
-        if (!FunctionsWithParameters.Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase)))
+        // A string check first: a formula with none of these function names has no parameter, and one
+        // with no name of Excel's functions written as a value, =SUM, has no function passed by its name.
+        if (!FunctionsWithParameters.Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase)) &&
+            !MayPassFunctionByName(formula))
             return formula;
 
         var walk = new Walk(formula);
@@ -69,6 +70,122 @@ internal static class LambdaParameterPrefixes
         return walk.Edits.Count == 0 ? formula : walk.Apply();
     }
 
+    /// <summary>
+    /// Whether the text of <paramref name="formula"/> may hold one of Excel's functions written by its
+    /// name as a value, such as <c>SUM</c> in <c>=ISERROR(SUM)</c> (#869): a name of one of them that is
+    /// not called, not a sheet's, not in a string, a quoted sheet name or brackets, and not an error
+    /// such as <c>#N/A</c>. A name that reads as a cell, <c>LOG10</c>, is left out, and so are
+    /// <c>TRUE</c> and <c>FALSE</c>, which read as values. It only decides whether the formula is
+    /// walked, which finds what the name is.
+    /// </summary>
+    private static bool MayPassFunctionByName(string formula)
+    {
+        var i = 0;
+        while (i < formula.Length)
+        {
+            var start = i;
+            i = SkipToken(formula, i, out var isName);
+            if (isName && IsNameOfFunctionAsValue(formula, start, i))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The index after the token at <paramref name="start"/>: a string or quoted sheet name, brackets,
+    /// a name, or one other character. <paramref name="isName"/> is whether it is a name.
+    /// </summary>
+    private static int SkipToken(string formula, int start, out bool isName)
+    {
+        var c = formula[start];
+        isName = char.IsLetter(c) || c == '_';
+        if (c is '"' or '\'')
+            return SkipQuoted(formula, start, c);
+
+        if (c == '[')
+            return SkipBrackets(formula, start);
+
+        if (!isName)
+            return start + 1;
+
+        var i = start;
+        while (i < formula.Length && (char.IsLetterOrDigit(formula[i]) || formula[i] is '.' or '_'))
+            i++;
+
+        return i;
+    }
+
+    private static bool IsNameOfFunctionAsValue(string formula, int start, int end)
+    {
+        var isCalled = end < formula.Length && formula[end] is '(' or '!';
+        var isOfSheetOrError = start > 0 && formula[start - 1] is '#' or '!' or ']';
+        if (isCalled || isOfSheetOrError)
+            return false;
+
+        var name = formula.AsSpan(start, end - start);
+        if (ReadsAsCell(name) ||
+            name.Equals("TRUE", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("FALSE", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return IsFunctionName(name);
+    }
+
+    /// <summary>Whether <paramref name="name"/> reads as a cell, as <c>LOG10</c> does: one to three letters, then digits.</summary>
+    private static bool ReadsAsCell(ReadOnlySpan<char> name)
+    {
+        var letters = 0;
+        while (letters < name.Length && char.IsAsciiLetter(name[letters]))
+            letters++;
+
+        return letters is >= 1 and <= 3 && letters < name.Length && name[letters..].IndexOfAnyExceptInRange('0', '9') < 0;
+    }
+
+    /// <summary>
+    /// The index after the text that starts with <paramref name="quote"/> at <paramref name="start"/>, a
+    /// doubled quote being one.
+    /// </summary>
+    private static int SkipQuoted(string formula, int start, char quote)
+    {
+        var i = start + 1;
+        while (i < formula.Length)
+        {
+            if (formula[i] == quote && (i + 1 >= formula.Length || formula[i + 1] != quote))
+                return i + 1;
+
+            i += formula[i] == quote ? 2 : 1;
+        }
+
+        return i;
+    }
+
+    /// <summary>
+    /// The index after the brackets that open at <paramref name="start"/>, which may nest:
+    /// <c>Table1[[#Data],[Col]]</c>.
+    /// </summary>
+    private static int SkipBrackets(string formula, int start)
+    {
+        var depth = 0;
+        var i = start;
+        while (i < formula.Length)
+        {
+            if (formula[i] == '\'' && i + 1 < formula.Length)
+            {
+                // An apostrophe escapes the bracket after it: Table1[Col'[name].
+                i += 2;
+                continue;
+            }
+
+            depth += formula[i] switch { '[' => 1, ']' => -1, _ => 0 };
+            i++;
+            if (depth == 0)
+                return i;
+        }
+
+        return i;
+    }
+
     /// <summary>The functions that bind parameters, and those that take a function, by name or a <c>LAMBDA</c>.</summary>
     private static readonly string[] FunctionsWithParameters = ["LET", "LAMBDA", "MAP", "REDUCE", "SCAN", "BYROW", "BYCOL", "MAKEARRAY"];
 
@@ -76,7 +193,7 @@ internal static class LambdaParameterPrefixes
     /// Whether <paramref name="name"/> is one of Excel's functions that can be a value. <c>LET</c> and
     /// <c>LAMBDA</c> cannot, and Excel writes them bare where a function goes.
     /// </summary>
-    private static bool IsFunctionName(string name) =>
+    private static bool IsFunctionName(ReadOnlySpan<char> name) =>
         ExcelFunctionNames.IsBuiltIn(name) &&
         !name.Equals("LET", StringComparison.OrdinalIgnoreCase) &&
         !name.Equals("LAMBDA", StringComparison.OrdinalIgnoreCase);
