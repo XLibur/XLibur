@@ -92,6 +92,7 @@ public class LambdaHelperTests
     [Arguments("ISERROR(DAYS360)", "ISERROR(_xleta.DAYS360)")]
     [Arguments("ISERROR(LOG10)", "ISERROR(LOG10)")]
     [Arguments("ISERROR(SUM)", "ISERROR(_xleta.SUM)")]
+    [Arguments("Table1[Col'[name]+ISERROR(SUM)", "Table1[Col'[name]+ISERROR(_xleta.SUM)")]
     [Arguments("SUM(A1)+ABS(-1)", "SUM(A1)+ABS(-1)")]
     [Arguments("IF(TRUE,\"SUM\",FALSE)", "IF(TRUE,\"SUM\",FALSE)")]
     [Arguments("MAP(A1:A3,LAMBDA(v,SUM(v)))", "_xlfn.MAP(A1:A3,_xlfn.LAMBDA(_xlpm.v,SUM(_xlpm.v)))")]

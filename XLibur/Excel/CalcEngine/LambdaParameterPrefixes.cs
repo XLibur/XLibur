@@ -170,6 +170,13 @@ internal static class LambdaParameterPrefixes
         var i = start;
         while (i < formula.Length)
         {
+            if (formula[i] == '\'' && i + 1 < formula.Length)
+            {
+                // An apostrophe escapes the bracket after it: Table1[Col'[name].
+                i += 2;
+                continue;
+            }
+
             depth += formula[i] switch { '[' => 1, ']' => -1, _ => 0 };
             i++;
             if (depth == 0)

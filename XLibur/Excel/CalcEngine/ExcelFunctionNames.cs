@@ -68,13 +68,13 @@ internal static class ExcelFunctionNames
         "YIELDMAT", "ZTEST",
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Whether <paramref name="name"/>, without a future-function prefix, names one of Excel's functions.</summary>
-    internal static bool IsBuiltIn(string name) =>
-        Classic.Contains(name) || XLConstants.FutureFunctionMap.Value.ContainsKey(name);
-
     /// <summary>Every name <see cref="IsBuiltIn(string)"/> is true for, in one set.</summary>
     private static readonly Lazy<FrozenSet<string>> All = new(() =>
         Classic.Concat(XLConstants.FutureFunctionMap.Value.Keys).ToFrozenSet(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>Whether <paramref name="name"/>, without a future-function prefix, names one of Excel's functions.</summary>
+    internal static bool IsBuiltIn(string name) =>
+        Classic.Contains(name) || XLConstants.FutureFunctionMap.Value.ContainsKey(name);
 
     /// <inheritdoc cref="IsBuiltIn(string)"/>
     /// <remarks>Looked up without making a string of the name where the framework can.</remarks>
