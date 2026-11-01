@@ -922,7 +922,7 @@ internal static class WorksheetSheetDataReader
         if (dataType == CellValues.Number)
             SetNumberCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, inline, numberDataTypeCache);
         else if (dataType == CellValues.SharedString)
-            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, ws, sharedStrings, inline);
+            SetSharedStringCellValue(cellValue, cellsCollection, cellAddress, cellStyleValue, ws, sharedStrings, inline);
         else if (dataType == CellValues.String)
             cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, XmlEncoder.DecodeString(cellValue.ToString()), inline);
         else if (dataType == CellValues.Boolean)
@@ -961,17 +961,12 @@ internal static class WorksheetSheetDataReader
                 // Start from the cell font with the color stripped: an rPr that omits <color> means
                 // automatic, so inheriting the cell's color here would be wrong and would materialize
                 // an explicit one on save. LoadFont puts a color back whenever the rPr carries one.
+                //
+                // The run is added with its whole font in one write. Written a property at a time,
+                // every write re-interned the cell's whole rich text in the shared string table.
                 var colorless = ColorlessFont(xlCell.Style.Font, ref colorlessCellFont);
-                var rt = xlCell.GetRichText().AddText(text, colorless);
-
-                var fontScheme = runProperties.Elements<FontScheme>().FirstOrDefault();
-                if (fontScheme is { Val: not null })
-                    rt.SetFontScheme(fontScheme.Val.Value.ToXLibur());
-
-                // Last, because applying the font marks the run's formatting as its own, which
-                // resets what the source is recorded as having stated.
-                var stated = StyleDecoder.ApplyRunFont(runProperties, rt);
-                ((XLRichString)rt).SetStatedProperties(stated);
+                var font = StyleDecoder.RunFontKey(runProperties, colorless.Key);
+                xlCell.GetRichText().AddText(text, new XLFont(font), StyleDecoder.StatedRunProperties(runProperties));
             }
         }
 
@@ -1305,8 +1300,10 @@ internal static class WorksheetSheetDataReader
         cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, cellNumber, inline);
     }
 
+#pragma warning disable S107 // One parameter per cell attribute needed to set the value
     private static void SetSharedStringCellValue(ReadOnlySpan<char> cellValue, XLCellsCollection cellsCollection,
-        Point cellAddress, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
+        Point cellAddress, XLStyleValue cellStyleValue, XLWorksheet ws, SharedStringEntry[]? sharedStrings, bool inline)
+#pragma warning restore S107
     {
         if (TryParseOoxmlNonNegativeInt(cellValue, out var sharedStringId)
             && sharedStrings is not null && sharedStringId < sharedStrings.Length)
@@ -1315,10 +1312,10 @@ internal static class WorksheetSheetDataReader
             var entry = sharedStrings[sharedStringId];
             if (entry.IsRichText)
             {
-                // Recorded after the fact: applying the runs replaces the cell's text entry once
+                SetRichSharedText(entry.RichText, cellsCollection, cellAddress, cellStyleValue, ws, inline);
+
+                // Recorded after the fact: building the runs replaces the cell's text entry once
                 // per property, and only the last one is the text the cell keeps.
-                var xlCell = new XLCell(ws, cellAddress);
-                SetCellText(xlCell, entry.RichText);
                 if (!inline)
                     cellsCollection.ValueSlice.RecordSharedTextFileIndex(cellAddress, sharedStringId);
                 else
@@ -1363,6 +1360,29 @@ internal static class WorksheetSheetDataReader
             XLHelper.ParseCulture,
             DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
         cellsCollection.ValueSlice.SetCellValueDuringLoad(cellAddress, date, inline);
+    }
+
+    /// <summary>
+    /// Gives the cell the rich text of a shared string: the one built for an earlier cell in the
+    /// same font, or one built for it now. See <see cref="RichSharedString"/>.
+    /// </summary>
+    /// <remarks>
+    /// A cell kept inline does not take the built text: its text is not the table's to share, and
+    /// it is rare.
+    /// </remarks>
+    private static void SetRichSharedText(RichSharedString richString, XLCellsCollection cellsCollection,
+        Point cellAddress, XLStyleValue cellStyleValue, XLWorksheet ws, bool inline)
+    {
+        var font = cellStyleValue.Font.Key;
+        if (!inline && richString.TryGetBuilt(font, out var built))
+        {
+            cellsCollection.ValueSlice.SetRichText(cellAddress, built);
+            return;
+        }
+
+        SetCellText(new XLCell(ws, cellAddress), richString.Element);
+        if (!inline && cellsCollection.ValueSlice.GetRichText(cellAddress) is { } richText)
+            richString.AddBuilt(font, richText);
     }
 
     private static void LoadPhonetics(XLCell xlCell, RstType element)
