@@ -1,0 +1,70 @@
+using System;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
+using XLibur.Benchmarks;
+using XLibur.Fonts.PinataLabs;
+
+PinataLabsFontBootstrap.Register();
+
+if (args.Length > 0 && args[0].Equals("profile", StringComparison.OrdinalIgnoreCase))
+{
+    // The fast, GC-exact profiling modes are:
+    //   alloc       an allocation report for the save path, split into create and save phases
+    //   create      the create phase broken down per API call
+    //   streaming   peak heap for the forward-only writer measured against the in-memory
+    //               model, optionally taking a row count
+    //   structural  the cost of repeated row inserts split into its range-shift and
+    //               formula-shift halves
+    //   bulkedit    the dependency-tree MarkDirty walk's cost on repeated single-cell value
+    //               writes, with and without dependents to walk
+    //   template    the open->edit->save round trip of an existing workbook, split into parse
+    //               and serialise; optionally takes a path to a real .xlsx template
+    //   firstedit   the dependency-tree build that the first edit after a load pays (#513),
+    //               with allocation by type; optionally takes rows, formulas per row, shared,
+    //               dotmemory
+    //   properties  loops the XLBench open -> amend two document properties -> save round trip,
+    //               for attaching a profiler; optionally takes a duration in seconds
+    //   sharedwrite sizes and allocation of a save with and without shared formulas (#692)
+    //   keepsurvey  loads, saves and reloads every workbook in src/XLibur.Tests/Resource (or a given
+    //               folder), and counts the sheets whose part the save kept (#702), why the others
+    //               were written again, and the cell values that changed; --sheets lists each sheet
+    //   keptanchors load and save of 1,000 pictures with a kept oneCell or absolute anchor against
+    //               the number of sized rows on the sheet (#785); [pictures] [rows] measures one
+    //               sheet of that size instead, to compare against the number of pictures (#797)
+    // Every other mode attaches dotMemory and targets the load path.
+    // Lowercased once rather than per arm: the mode names are ASCII, so this preserves the
+    // case-insensitive match the eleven separate OrdinalIgnoreCase comparisons gave.
+    switch (args.Length > 1 ? args[1].ToLowerInvariant() : string.Empty)
+    {
+        case "alloc": SaveAllocationProfile.Run(); break;
+        case "create": CreatePhaseProbe.Run(); break;
+        case "streaming": StreamingMemoryProfile.Run(args); break;
+        case "structural": StructuralEditProfile.Run(); break;
+        case "template": TemplateRoundTripProfile.Run(args); break;
+        case "shiftercorpus": ShifterCorpusDump.Run(); break;
+        case "compression": CompressionProfile.Run(); break;
+        case "loadalloc": LoadDecompositionProfile.Run(); break;
+        case "dirtyread": DirtyFormulaReadProfile.Run(); break;
+        case "sharedread": SharedFormulaReadProfile.Run(); break;
+        case "sharedwrite": SharedFormulaWriteBenchmarks.Profile(); break;
+        case "hyperlinks": HyperlinkScalingProfile.Run(); break;
+        case "keptanchors": KeptAnchorScalingProfile.Run(args); break;
+        case "bulkedit": BulkEditDirtyWalkProfile.Run(); break;
+        case "firstedit": FirstEditProfile.Run(args); break;
+        case "properties": PropertiesRoundTripProfile.Run(args); break;
+        case "keepsurvey": KeepPartSurvey.Run(args); break;
+        default: MemoryProfile.Run(args); break;
+    }
+
+    return;
+}
+
+// Use InProcessEmitToolchain by default. The default CsProj-based toolchain breaks
+// when there are duplicate project files in the repo (e.g., a git worktree), and
+// in-process is faster anyway since it skips the per-benchmark project regeneration.
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
+
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

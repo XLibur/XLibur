@@ -24,7 +24,7 @@ if (result.HasErrors)
 template.SaveAs("SalesReport-2026.xlsx");
 ```
 
-Ten worked examples live in [`XLibur.Report.Examples`](../XLibur.Report.Examples/README.md), each
+Ten worked examples live in [`XLibur.Report.Examples`](../src/XLibur.Report.Examples/README.md), each
 writing both the template it authored and the report generated from it. Opening a pair is the fastest
 way to understand any of what follows.
 

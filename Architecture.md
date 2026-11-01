@@ -69,7 +69,7 @@ directly.
   Changes here are breaking changes.
 - **Object Model** — Internal `XL*` classes that hold in-memory state. They know
   nothing about XML or packaging.
-- **IO Layer** — Static reader/writer classes in `XLibur/Excel/IO/` that translate
+- **IO Layer** — Static reader/writer classes in `src/XLibur/Excel/IO/` that translate
   between the object model and the OpenXML DOM or `XmlWriter` streams.
 - **OpenXML SDK** — Handles the ZIP package, XML parsing, and relationship
   management.
@@ -179,7 +179,7 @@ row-major sorting via a single `ulong` comparison.
 
 ### 3.4 Shared String Table
 
-`SharedStringTable` (`XLibur/Excel/Cells/SharedStringTable.cs`) provides
+`SharedStringTable` (`src/XLibur/Excel/Cells/SharedStringTable.cs`) provides
 workbook-level string deduplication. Each unique text (plain `string` or
 `XLImmutableRichText`) is assigned an integer ID.
 
@@ -672,7 +672,7 @@ Pivot tables have their own reader/writer pairs:
 ## 13. Project Layout
 
 ```
-XLibur/
+src/XLibur/
 └── Excel/
     ├── AutoFilters/           — IXLAutoFilter, XLAutoFilter, filter columns
     ├── Caching/               — XLRepositoryBase (WeakRef dedup)

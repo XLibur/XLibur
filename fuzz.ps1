@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Publishes XLibur.Fuzz, instruments XLibur.dll with SharpFuzz, and runs libFuzzer over a
-    corpus. Seeds come from the committed corpus under XLibur.Fuzz\corpus\<target>, so a fresh
+    corpus. Seeds come from the committed corpus under src\XLibur.Fuzz\corpus\<target>, so a fresh
     clone starts where the last person started.
 
     With -Replay, no fuzzing happens: the published harness runs over saved inputs and prints
@@ -88,12 +88,12 @@ function Invoke-Native([string] $File, [string[]] $Arguments) {
 }
 
 $repoRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
-$project = Join-Path $repoRoot 'XLibur.Fuzz\XLibur.Fuzz.csproj'
+$project = Join-Path $repoRoot 'src\XLibur.Fuzz\XLibur.Fuzz.csproj'
 $workRoot = Join-Path $repoRoot 'temp\fuzz'
 $publishRoot = Join-Path $workRoot 'publish'
 $toolsRoot = Join-Path $workRoot 'tools'
 $artifactRoot = Join-Path $workRoot 'artifacts'
-$seedRoot = Join-Path $repoRoot (Join-Path 'XLibur.Fuzz\corpus' $Target)
+$seedRoot = Join-Path $repoRoot (Join-Path 'src\XLibur.Fuzz\corpus' $Target)
 
 $corpusPath = if ([string]::IsNullOrWhiteSpace($Corpus)) {
     Join-Path $workRoot (Join-Path 'corpus' $Target)
@@ -213,7 +213,7 @@ The usual cause is the harness failing at startup rather than a slow run: libFuz
 only as an exit code and then waits indefinitely. Run the published harness in replay mode to see
 the real exception:
 
-  ./fuzz.ps1 -Target $Target -Replay XLibur.Fuzz/corpus/$Target
+  ./fuzz.ps1 -Target $Target -Replay src/XLibur.Fuzz/corpus/$Target
 "@
 }
 

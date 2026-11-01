@@ -7,8 +7,8 @@ XLibur includes code from the projects listed below. Each is used under the lice
 The zip package that a save of a loaded workbook edits is ported from `System.IO.Packaging` in
 [dotnet/runtime](https://github.com/dotnet/runtime) v10.0.0, and changed for XLibur:
 
-- `XLibur/Excel/IO/Packaging/XLZipPackage.cs`, from `ZipPackage.cs`
-- `XLibur/Excel/IO/Packaging/XLZipPackagePart.cs`, from `ZipPackagePart.cs`, `ZipStreamManager.cs`
+- `src/XLibur/Excel/IO/Packaging/XLZipPackage.cs`, from `ZipPackage.cs`
+- `src/XLibur/Excel/IO/Packaging/XLZipPackagePart.cs`, from `ZipPackagePart.cs`, `ZipStreamManager.cs`
   and `ZipWrappingStream.cs`
 
 ```

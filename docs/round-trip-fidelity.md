@@ -2,7 +2,7 @@
 
 What survives a load → save round trip for content XLibur has no object model for.
 
-Every claim here is backed by a test in `XLibur.Tests/Excel/RoundTripFidelityTests.cs`. If someone
+Every claim here is backed by a test in `src/XLibur.Tests/Excel/RoundTripFidelityTests.cs`. If someone
 later changes the save path to rebuild packages from scratch, those tests fail rather than quietly
 dropping a user's chartsheets.
 
@@ -255,6 +255,6 @@ Both directions are pinned by tests, because each is invisible to the other's.
 ## Threaded comments
 
 As of spec 09 threaded comments are modelled rather than preserved, so they are the exception to
-this document. See `XLibur/Excel/Comments/Threaded/`. The one piece still handled by preservation is
+this document. See `src/XLibur/Excel/Comments/Threaded/`. The one piece still handled by preservation is
 `<mentions>`, whose raw XML is round-tripped on unmodified comments and dropped when the comment's
 text changes, because a mention's `startIndex`/`length` index into the text it was written against.

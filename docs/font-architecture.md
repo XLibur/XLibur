@@ -69,7 +69,7 @@ using var wb = new XLWorkbook(new LoadOptions { FontEngine = new SkiaSharpFontEn
 
 Every engine looks a font up in the same order: the font itself, then a font that measures like
 it, then the engine's fallback font, then (where the engine has one) the embedded CarlitoBare.
-The fonts that measure like a missing one are listed once, in `XLibur.Fonts.Shared/MetricCompatibleFonts.cs`,
+The fonts that measure like a missing one are listed once, in `src/XLibur.Fonts.Shared/MetricCompatibleFonts.cs`,
 which each engine compiles in as source. The list has one entry: Aptos Narrow, Excel's default
 font in Microsoft 365, is measured with Calibri, Carlito or CarlitoBare. Windows does not install
 Aptos Narrow (Office keeps it in a font cache of its own), and its digits are as wide as Calibri's,

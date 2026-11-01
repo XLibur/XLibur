@@ -79,7 +79,7 @@ jobs:
         run: |
           for project in XLibur XLibur.Bundle XLibur.Fonts.SixLabors XLibur.Fonts.SkiaSharp XLibur.Fonts.PinataLabs; do
             echo "::group::Pack $project"
-            dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
+            dotnet pack "src/$project/$project.csproj" --configuration Release --no-build --output ./artifacts
             echo "::endgroup::"
           done
           ls -la ./artifacts/

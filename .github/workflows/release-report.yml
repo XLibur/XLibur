@@ -161,7 +161,7 @@ jobs:
       # commit the tag was cut from on someone's machine.
       - name: Test
         run: >
-          dotnet test XLibur.Report.Tests/XLibur.Report.Tests.csproj
+          dotnet test src/XLibur.Report.Tests/XLibur.Report.Tests.csproj
           --configuration Release
           --no-build
           --framework net10.0
@@ -170,7 +170,7 @@ jobs:
         run: |
           for project in XLibur.Report XLibur.Report.DynamicLinq; do
             echo "::group::Pack $project"
-            dotnet pack "$project/$project.csproj" --configuration Release --no-build --output ./artifacts
+            dotnet pack "src/$project/$project.csproj" --configuration Release --no-build --output ./artifacts
             echo "::endgroup::"
           done
           ls -la ./artifacts/
