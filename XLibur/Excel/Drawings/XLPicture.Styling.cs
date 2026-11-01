@@ -25,8 +25,9 @@ internal sealed partial class XLPicture
     internal XLPictureStyleProperties AssignedStyle { get; private set; }
 
     /// <summary>
-    /// The <c>xdr:pic</c> the picture was loaded from, which a copy of the picture starts from, so
-    /// the copy keeps what XLibur does not model. <c>null</c> for a picture XLibur made.
+    /// The <c>xdr:pic</c> the file holds for the picture, as it was loaded or as the last save wrote
+    /// it, which a copy of the picture starts from, so the copy keeps what XLibur does not model.
+    /// <c>null</c> for a picture no save has written yet.
     /// </summary>
     internal string? LoadedPictureXml { get; set; }
 
@@ -260,14 +261,17 @@ internal sealed partial class XLPicture
     internal const double WashoutContrast = -70;
 
     /// <summary>
-    /// Give a copy of a picture its styling: the source's values, all assigned, so the copy is
-    /// written with them, and the source's loaded <c>xdr:pic</c>, for what XLibur does not model.
+    /// Give a copy of a picture its styling. A source the file holds is copied as its
+    /// <c>xdr:pic</c>, which keeps what XLibur does not model and the parts of a value the model
+    /// does not read (a theme colour's shade), and the copy takes only what was assigned to the
+    /// source since, a removal included. A source no save has written has no XML to copy, so every
+    /// value it holds is assigned to the copy.
     /// </summary>
     internal void TakeStyleOf(XLPicture source)
     {
         Style = source.Style.Clone();
-        AssignedStyle = Style.Held();
         LoadedPictureXml = source.LoadedPictureXml;
+        AssignedStyle = LoadedPictureXml is null ? Style.Held() : source.AssignedStyle;
     }
 
     private void Assign(XLPictureStyleProperties property) => AssignedStyle |= property;

@@ -112,14 +112,16 @@ internal sealed partial class XLPicture : IXLPicture
     /// succeeded. A save gives a new picture its drawing id, and can give a picture an image part of
     /// its own, and the next save finds the picture's anchor by both. The check in <see cref="Id"/>
     /// is skipped: the pictures take their new ids one at a time, so two of them can briefly hold
-    /// the same one. The picture is then as the file holds it (<see cref="MarkSaved"/>).
+    /// the same one. The picture is then as the file holds it (<see cref="MarkSaved"/>), and
+    /// <paramref name="pictureXml"/>, the <c>xdr:pic</c> the save wrote, is what a copy starts from.
     /// </summary>
-    internal void KeepSavedIds(int id, string relId)
+    internal void KeepSavedIds(int id, string relId, string pictureXml)
     {
         var oldId = _id;
         _id = id;
         OnIdChanged(oldId);
         RelId = relId;
+        LoadedPictureXml = pictureXml;
         MarkSaved();
     }
 

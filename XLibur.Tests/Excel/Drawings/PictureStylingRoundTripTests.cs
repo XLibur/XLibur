@@ -275,6 +275,54 @@ public class PictureStylingRoundTripTests
         await Assert.That($"{styled.IsInGroup} {styled.BorderColor} {styled.Recolor}").IsEqualTo("True FFFF0000 Grayscale");
     }
 
+    [Test]
+    public async Task A_copy_of_a_picture_whose_shadow_was_removed_has_no_shadow()
+    {
+        using var wb = TestHelper.LoadWorkbook(Fixture);
+        var ws = wb.Worksheet(1);
+        var source = ws.Picture("Shadow");
+        source.Shadow = null;
+        source.Duplicate().Name = "Copy";
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved, validate: true);
+
+        await Assert.That(Element(saved.ReadPart(Drawing1), "Copy", "spPr")).DoesNotContain("outerShdw");
+    }
+
+    [Test]
+    public async Task A_copy_made_after_a_save_has_what_the_save_wrote()
+    {
+        // The save writes the removal; the copy then starts from what the file holds now.
+        using var wb = TestHelper.LoadWorkbook(Fixture);
+        var ws = wb.Worksheet(1);
+        ws.Picture("Shadow").Shadow = null;
+        using var first = new MemoryStream();
+        wb.SaveAs(first);
+
+        ws.Picture("Shadow").Duplicate().Name = "Copy";
+        using var second = new MemoryStream();
+        wb.SaveAs(second, validate: true);
+
+        await Assert.That(Element(second.ReadPart(Drawing1), "Copy", "spPr")).DoesNotContain("outerShdw");
+    }
+
+    [Test]
+    public async Task A_copy_keeps_a_colour_the_model_reads_only_in_part()
+    {
+        // The model reads a theme colour and not its shade; the copy keeps the colour as written.
+        const string shaded = "<a:schemeClr val=\"accent1\"><a:lumMod val=\"75000\"/></a:schemeClr>";
+        using var source = TestHelper.OpenResource(Fixture)
+            .RewritePart(Drawing1, xml => xml.Replace("<a:srgbClr val=\"FF0000\"/>", shaded));
+        using var wb = new XLWorkbook(source);
+        wb.Worksheet(1).Picture("Border").Duplicate().Name = "Copy";
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved, validate: true);
+
+        await Assert.That(Element(saved.ReadPart(Drawing1), "Copy", "spPr")).Contains("lumMod");
+    }
+
     /// <summary>One child of a picture's <c>xdr:pic</c>, by the picture's name and the child's local name.</summary>
     private static string Element(string drawing, string picture, string localName) =>
         XDocument.Parse(drawing).Descendants(Xdr + "pic")

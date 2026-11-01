@@ -53,7 +53,8 @@ internal static class PictureWriter
             {
                 context.PictureIdsForNextSave.Add((picture,
                     (int)element.NonVisualPictureProperties!.NonVisualDrawingProperties!.Id!.Value,
-                    element.BlipFill!.Blip!.Embed!.Value!));
+                    element.BlipFill!.Blip!.Embed!.Value!,
+                    element.OuterXml));
             }
         }
 
