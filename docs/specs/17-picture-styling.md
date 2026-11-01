@@ -300,6 +300,9 @@ shadow, crop, brightness/contrast, grayscale, black & white, washout, fill, and 
   anchor rather than regenerating them. Nothing is lost; the test pins that the styled `xdr:pic` is
   unchanged. Agreed by the owner on 2026-11-01, so criterion 5 now reads: a placement change
   moves the drawing into the new anchor intact.
+- **Drawing ids are never renumbered on save**, not only when the drawing is new: a loaded picture
+  keeps the id the file gave it, and a new picture takes the next free one. Agreed by the owner on
+  2026-11-01. `RebaseNonVisualDrawingPropertiesIds` is deleted.
 - **The docs are a section of `docs-website/docs/images.md`**, not a page of their own.
 - **Copies** start from the loaded `xdr:pic` (kept as its XML at load), with every relationship
   reference other than the image dropped, so a copy keeps unmodelled effects.
