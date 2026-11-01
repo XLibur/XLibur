@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -114,6 +115,13 @@ public partial class XLWorkbook
         /// old ones, which are what the old source still has (#781).
         /// </summary>
         internal List<(XLPicture Picture, int Id, string RelId, string PictureXml)> PictureIdsForNextSave { get; } = [];
+
+        /// <summary>
+        /// What the model takes from this save once its destination is the source of the next one
+        /// (<see cref="KeepWhatTheSaveWrote"/>): the drawing id each shape was written under, and the
+        /// end of each drawing id repair (spec 15, #859). A save that fails runs none of them.
+        /// </summary>
+        internal List<Action> KeepAfterSave { get; } = [];
 
         /// <summary>
         /// 1-based index into <c>cellMetadata</c> records for the XLDAPR (dynamic array)

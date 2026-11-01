@@ -60,6 +60,7 @@ const sidebars: SidebarsConfig = {
         'charts',
         'sparklines',
         'images',
+        'shapes',
         'comments-and-hyperlinks',
       ],
     },

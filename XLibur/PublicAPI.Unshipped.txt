@@ -630,3 +630,133 @@ static XLibur.Excel.Drawings.XLPictureShadow.operator !=(XLibur.Excel.Drawings.X
 static XLibur.Excel.Drawings.XLPictureShadow.operator ==(XLibur.Excel.Drawings.XLPictureShadow left, XLibur.Excel.Drawings.XLPictureShadow right) -> bool
 XLibur.Excel.Drawings.XLPictureShadow.Deconstruct(out XLibur.Excel.XLColor! Color, out double TransparencyPct, out double BlurPt, out double DistancePt, out double AngleDeg) -> void
 XLibur.Excel.Drawings.XLPictureShadow.Equals(XLibur.Excel.Drawings.XLPictureShadow other) -> bool
+XLibur.Excel.Drawings.IXLShape
+XLibur.Excel.Drawings.IXLShape.BottomRightCell.get -> XLibur.Excel.IXLCell!
+XLibur.Excel.Drawings.IXLShape.Delete() -> void
+XLibur.Excel.Drawings.IXLShape.FillColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.Drawings.IXLShape.FillColor.set -> void
+XLibur.Excel.Drawings.IXLShape.Height.get -> int
+XLibur.Excel.Drawings.IXLShape.Height.set -> void
+XLibur.Excel.Drawings.IXLShape.Id.get -> int
+XLibur.Excel.Drawings.IXLShape.Left.get -> int
+XLibur.Excel.Drawings.IXLShape.Left.set -> void
+XLibur.Excel.Drawings.IXLShape.LineColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.Drawings.IXLShape.LineColor.set -> void
+XLibur.Excel.Drawings.IXLShape.LineDash.get -> XLibur.Excel.Drawings.XLLineDashStyle?
+XLibur.Excel.Drawings.IXLShape.LineDash.set -> void
+XLibur.Excel.Drawings.IXLShape.LineWidthPt.get -> double?
+XLibur.Excel.Drawings.IXLShape.LineWidthPt.set -> void
+XLibur.Excel.Drawings.IXLShape.MoveTo(XLibur.Excel.IXLCell! cell) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.MoveTo(XLibur.Excel.IXLCell! cell, int xOffset, int yOffset) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.MoveTo(XLibur.Excel.IXLCell! fromCell, XLibur.Excel.IXLCell! toCell) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.MoveTo(int left, int top) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.Name.get -> string!
+XLibur.Excel.Drawings.IXLShape.Name.set -> void
+XLibur.Excel.Drawings.IXLShape.NoFill.get -> bool
+XLibur.Excel.Drawings.IXLShape.NoFill.set -> void
+XLibur.Excel.Drawings.IXLShape.NoLine.get -> bool
+XLibur.Excel.Drawings.IXLShape.NoLine.set -> void
+XLibur.Excel.Drawings.IXLShape.Placement.get -> XLibur.Excel.Drawings.XLPicturePlacement
+XLibur.Excel.Drawings.IXLShape.Placement.set -> void
+XLibur.Excel.Drawings.IXLShape.PresetGeometry.get -> string!
+XLibur.Excel.Drawings.IXLShape.ShapeType.get -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.IXLShape.TextBody.get -> XLibur.Excel.Drawings.IXLTextBody!
+XLibur.Excel.Drawings.IXLShape.Top.get -> int
+XLibur.Excel.Drawings.IXLShape.Top.set -> void
+XLibur.Excel.Drawings.IXLShape.TopLeftCell.get -> XLibur.Excel.IXLCell!
+XLibur.Excel.Drawings.IXLShape.Width.get -> int
+XLibur.Excel.Drawings.IXLShape.Width.set -> void
+XLibur.Excel.Drawings.IXLShape.WithPlacement(XLibur.Excel.Drawings.XLPicturePlacement value) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.WithSize(int width, int height) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShape.Worksheet.get -> XLibur.Excel.IXLWorksheet!
+XLibur.Excel.Drawings.IXLShapeTextFont
+XLibur.Excel.Drawings.IXLShapeTextFont.Bold.get -> bool?
+XLibur.Excel.Drawings.IXLShapeTextFont.Bold.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.FontColor.get -> XLibur.Excel.XLColor?
+XLibur.Excel.Drawings.IXLShapeTextFont.FontColor.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.FontName.get -> string?
+XLibur.Excel.Drawings.IXLShapeTextFont.FontName.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.FontSize.get -> double?
+XLibur.Excel.Drawings.IXLShapeTextFont.FontSize.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.Italic.get -> bool?
+XLibur.Excel.Drawings.IXLShapeTextFont.Italic.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.Strikethrough.get -> bool?
+XLibur.Excel.Drawings.IXLShapeTextFont.Strikethrough.set -> void
+XLibur.Excel.Drawings.IXLShapeTextFont.Underline.get -> XLibur.Excel.Drawings.XLShapeTextUnderline?
+XLibur.Excel.Drawings.IXLShapeTextFont.Underline.set -> void
+XLibur.Excel.Drawings.IXLShapes
+XLibur.Excel.Drawings.IXLShapes.Add(XLibur.Excel.Drawings.XLShapeType type, XLibur.Excel.IXLCell! topLeft) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShapes.Add(XLibur.Excel.Drawings.XLShapeType type, int left, int top) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShapes.AddPreset(string! presetGeometry, XLibur.Excel.IXLCell! topLeft) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShapes.AddTextBox(string! text, XLibur.Excel.IXLCell! topLeft) -> XLibur.Excel.Drawings.IXLTextBox!
+XLibur.Excel.Drawings.IXLShapes.AddTextBox(string! text, int left, int top) -> XLibur.Excel.Drawings.IXLTextBox!
+XLibur.Excel.Drawings.IXLShapes.Contains(string! name) -> bool
+XLibur.Excel.Drawings.IXLShapes.Count.get -> int
+XLibur.Excel.Drawings.IXLShapes.Delete(XLibur.Excel.Drawings.IXLShape! shape) -> void
+XLibur.Excel.Drawings.IXLShapes.Delete(string! name) -> void
+XLibur.Excel.Drawings.IXLShapes.Shape(string! name) -> XLibur.Excel.Drawings.IXLShape!
+XLibur.Excel.Drawings.IXLShapes.TryGetShape(string! name, out XLibur.Excel.Drawings.IXLShape? shape) -> bool
+XLibur.Excel.Drawings.IXLTextBody
+XLibur.Excel.Drawings.IXLTextBody.AddParagraph(string! text = "") -> XLibur.Excel.Drawings.IXLTextParagraph!
+XLibur.Excel.Drawings.IXLTextBody.Clear() -> void
+XLibur.Excel.Drawings.IXLTextBody.Count.get -> int
+XLibur.Excel.Drawings.IXLTextBody.Text.get -> string!
+XLibur.Excel.Drawings.IXLTextBody.Text.set -> void
+XLibur.Excel.Drawings.IXLTextBody.VerticalAlignment.get -> XLibur.Excel.Drawings.XLTextVerticalAlignment
+XLibur.Excel.Drawings.IXLTextBody.VerticalAlignment.set -> void
+XLibur.Excel.Drawings.IXLTextBody.WrapText.get -> bool
+XLibur.Excel.Drawings.IXLTextBody.WrapText.set -> void
+XLibur.Excel.Drawings.IXLTextBody.this[int index].get -> XLibur.Excel.Drawings.IXLTextParagraph!
+XLibur.Excel.Drawings.IXLTextBox
+XLibur.Excel.Drawings.IXLTextBox.Text.get -> string!
+XLibur.Excel.Drawings.IXLTextBox.Text.set -> void
+XLibur.Excel.Drawings.IXLTextParagraph
+XLibur.Excel.Drawings.IXLTextParagraph.AddText(string! text) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextParagraph.Alignment.get -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.IXLTextParagraph.Alignment.set -> void
+XLibur.Excel.Drawings.IXLTextParagraph.Count.get -> int
+XLibur.Excel.Drawings.IXLTextParagraph.Text.get -> string!
+XLibur.Excel.Drawings.IXLTextParagraph.this[int index].get -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun
+XLibur.Excel.Drawings.IXLTextRun.SetBold(bool value = true) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun.SetFontColor(XLibur.Excel.XLColor! value) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun.SetFontName(string! value) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun.SetFontSize(double value) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun.SetItalic(bool value = true) -> XLibur.Excel.Drawings.IXLTextRun!
+XLibur.Excel.Drawings.IXLTextRun.Text.get -> string!
+XLibur.Excel.Drawings.IXLTextRun.Text.set -> void
+XLibur.Excel.Drawings.XLShapeTextUnderline
+XLibur.Excel.Drawings.XLShapeTextUnderline.Double = 2 -> XLibur.Excel.Drawings.XLShapeTextUnderline
+XLibur.Excel.Drawings.XLShapeTextUnderline.None = 0 -> XLibur.Excel.Drawings.XLShapeTextUnderline
+XLibur.Excel.Drawings.XLShapeTextUnderline.Single = 1 -> XLibur.Excel.Drawings.XLShapeTextUnderline
+XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Can = 16 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Chevron = 14 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Cloud = 17 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Custom = 18 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Diamond = 12 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.DownArrow = 8 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Ellipse = 3 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.LeftArrow = 6 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Line = 9 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Pentagon = 13 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Rectangle = 1 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.RightArrow = 5 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.RoundedCallout = 10 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.RoundedRectangle = 2 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Star5 = 15 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.TextBox = 0 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.Triangle = 4 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.UpArrow = 7 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLShapeType.WedgeRectCallout = 11 -> XLibur.Excel.Drawings.XLShapeType
+XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextAlignment.Center = 1 -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextAlignment.Distributed = 4 -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextAlignment.Justified = 3 -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextAlignment.Left = 0 -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextAlignment.Right = 2 -> XLibur.Excel.Drawings.XLTextAlignment
+XLibur.Excel.Drawings.XLTextVerticalAlignment
+XLibur.Excel.Drawings.XLTextVerticalAlignment.Bottom = 2 -> XLibur.Excel.Drawings.XLTextVerticalAlignment
+XLibur.Excel.Drawings.XLTextVerticalAlignment.Center = 1 -> XLibur.Excel.Drawings.XLTextVerticalAlignment
+XLibur.Excel.Drawings.XLTextVerticalAlignment.Top = 0 -> XLibur.Excel.Drawings.XLTextVerticalAlignment
+XLibur.Excel.IXLWorksheet.Shapes.get -> XLibur.Excel.Drawings.IXLShapes!

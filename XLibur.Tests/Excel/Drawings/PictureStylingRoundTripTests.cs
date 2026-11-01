@@ -155,6 +155,57 @@ public class PictureStylingRoundTripTests
         await Assert.That(XmlChangeSet.Expect(changes)).IsEqualTo(XmlChangeSet.Expect());
     }
 
+    /// <summary>
+    /// Sepia cannot be applied over COM, so this fixture was styled by hand in Excel 365 (Picture
+    /// Format ▸ Color ▸ Sepia) and its photo swapped for a small JPEG afterwards. The picture is
+    /// "Picture 1".
+    /// </summary>
+    private const string SepiaFixture = @"Other\Pictures\ExcelSepiaPicture.xlsx";
+
+    [Test]
+    public async Task Excel_s_sepia_reads_as_sepia()
+    {
+        using var wb = TestHelper.LoadWorkbook(SepiaFixture);
+
+        await Assert.That(wb.Worksheet(1).Picture("Picture 1").Recolor).IsEqualTo(XLPictureRecolor.Sepia);
+    }
+
+    [Test]
+    public async Task Sepia_is_written_as_Excel_writes_it()
+    {
+        using var source = TestHelper.OpenResource(SepiaFixture);
+        var excel = Element(source.ReadPart(Drawing1), "Picture 1", "blipFill");
+
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var picture = ws.AddPicture(new MemoryStream(Png), XLPictureFormat.Png, "Picture 1");
+        picture.Recolor = XLPictureRecolor.Sepia;
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved, validate: true);
+        var xlibur = Element(saved.ReadPart(Drawing1), "Picture 1", "blipFill");
+
+        await Assert.That(XmlChangeSet.Between(Duotone(excel), Duotone(xlibur)).ToString()).IsEqualTo(XmlChangeSet.Expect());
+    }
+
+    [Test]
+    public async Task A_sepia_picture_keeps_its_recolour_through_an_edit()
+    {
+        using var source = TestHelper.OpenResource(SepiaFixture);
+        var before = source.ReadPart(Drawing1);
+        using var wb = new XLWorkbook(source);
+        wb.Worksheet(1).Picture("Picture 1").Rotation = 15;
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        await Assert.That(XmlChangeSet.Between(Element(before, "Picture 1", "blipFill"),
+            Element(saved.ReadPart(Drawing1), "Picture 1", "blipFill")).ToString()).IsEqualTo(XmlChangeSet.Expect());
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet(1).Picture("Picture 1").Recolor).IsEqualTo(XLPictureRecolor.Sepia);
+    }
+
+    /// <summary>The <c>a:duotone</c> of a <c>xdr:blipFill</c>.</summary>
+    private static string Duotone(string blipFill) => XElement.Parse(blipFill).Descendants(A + "duotone").Single().ToString();
+
     [Test]
     public async Task A_recolour_that_is_no_preset_reads_custom_and_survives_an_edit()
     {

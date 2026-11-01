@@ -286,9 +286,12 @@ shadow, crop, brightness/contrast, grayscale, black & white, washout, fill, and 
 - **Washout is not a duotone.** Excel writes `<a:lum bright="70000" contrast="-70000"/>` and no
   recolour element. So `Recolor = Washout` is a brightness and a contrast in the model; changing either
   reads as no recolour, and brightness 70 / contrast −70 reads as Washout (as the loader reads it).
-- **Sepia could not be captured.** The Excel object model has no sepia `ColorType`, so the writer uses
-  the duotone Office documents (`prstClr black` → `srgbClr D9C3A5` with `tint 50000`, `satMod 180000`).
-  Criterion 4 is met for grayscale, black & white and washout; sepia is not fixture-compared.
+- **Sepia could not be captured over COM.** The Excel object model has no sepia `ColorType`, so the
+  writer uses the duotone Office documents (`prstClr black` → `srgbClr D9C3A5` with `tint 50000`,
+  `satMod 180000`). On 2026-11-01 the owner applied Picture Format ▸ Color ▸ Sepia by hand in Excel
+  365, and Excel wrote exactly that duotone. The file is the fixture
+  `Other/Pictures/ExcelSepiaPicture.xlsx`, its photo swapped for a small JPEG; the writer's output is
+  element-identical to it, and it reads back as `Sepia`.
 - Excel stores a rotation of 20° with a horizontal flip as `rot="20400000"` (340°); the model reads
   what the file says.
 - An unset shadow colour is written as `a:scrgbClr r=0 g=0 b=0`; the reader reads it.
@@ -317,7 +320,7 @@ shadow, crop, brightness/contrast, grayscale, black & white, washout, fill, and 
    brightness/contrast, crop, shadow, theme border colour and a duplicate's shadow. ✅
 4. Grayscale, black & white, washout, brightness/contrast, crop, border, fill and flip written by
    XLibur are element-identical to Excel's (offset aside); a custom duotone reads `Custom`, cannot be
-   assigned, and survives an edit. ✅ except sepia (above).
+   assigned, and survives an edit. ✅, sepia included since the hand-styled fixture (above).
 5. See the deviation above.
 6. Stopwatch, 20 saves after 5 warm-ups, 200 pictures: loaded and untouched, main 52–57 ms and
    8.4 MB a save, this branch 12 ms and 4.4 MB; a new workbook with 200 pictures, 40 ms and 5.93 MB on

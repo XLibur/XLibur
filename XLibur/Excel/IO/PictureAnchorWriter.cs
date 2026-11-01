@@ -99,17 +99,7 @@ internal static class PictureAnchorWriter
         properties.Name = pic.Name;
         blip.Link = null;
         blip.Embed = embedId;
-
-        foreach (var element in picture.Descendants().ToList())
-        {
-            if (element == blip || element.Parent is null ||
-                !element.GetAttributes().Any(a => a.NamespaceUri == RelationshipsNs))
-                continue;
-
-            // An extension holding the reference goes whole: an empty a:ext says nothing.
-            var drawing = element.Parent.LocalName == "ext" ? element.Parent : element;
-            drawing.Remove();
-        }
+        DrawingTemplate.DropRelationshipReferences(picture, keep: blip);
 
         if (picture.ShapeProperties?.Transform2D is { } transform)
         {
