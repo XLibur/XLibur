@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using XLibur.Parser;
 using XLibur.Excel.CalcEngine.Exceptions;
@@ -72,6 +73,11 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, FunctionNode node)
     {
+        // LET is a special form: its arguments are names and values bound in order, which no
+        // registered function can be, as a function's arguments are all evaluated before it runs.
+        if (node.Prefix is null && string.Equals(node.Name, "LET", StringComparison.OrdinalIgnoreCase))
+            return EvaluateLet(context, node.Parameters);
+
         if (!_functions.TryGetFunc(node.Name, out var fn))
             return XLError.NameNotRecognized;
 
@@ -117,7 +123,55 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
 
     public AnyValue Visit(CalcContext context, NameNode node)
     {
+        // A name a LET around this node has bound comes before a defined name of the same spelling.
+        if (node.Prefix is null && context.LetScope is { } scope && scope.TryGetValue(node.Name, out var bound))
+            return bound;
+
         return node.GetValue(context);
+    }
+
+    /// <summary>
+    /// <c>LET(name1, value1, name2, value2, …, body)</c>: evaluates each value in turn, in a scope
+    /// that holds the names bound before it, then the body in a scope that holds them all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A value is bound as it evaluates: a range stays a reference, so <c>LET(r,A1:A3,INDEX(r,2))</c>
+    /// is 2, and an error is the value of its name, which reaches the result only where the name is
+    /// used: <c>LET(x,1/0,5)</c> is 5, as in Excel.
+    /// </para>
+    /// <para>
+    /// Excel refuses a <c>LET</c> without a body, or with something other than a name where a name
+    /// goes, as it is typed. A file from another producer can still hold one, and it is
+    /// <c>#VALUE!</c>.
+    /// </para>
+    /// </remarks>
+    private AnyValue EvaluateLet(CalcContext context, IReadOnlyList<ValueNode> parameters)
+    {
+        if (parameters.Count < 3 || parameters.Count % 2 == 0)
+            return XLError.IncompatibleValue;
+
+        for (var i = 0; i < parameters.Count - 1; i += 2)
+        {
+            if (parameters[i] is not NameNode { Prefix: null })
+                return XLError.IncompatibleValue;
+        }
+
+        var outer = context.LetScope;
+        try
+        {
+            for (var i = 0; i < parameters.Count - 1; i += 2)
+            {
+                var value = parameters[i + 1].Accept(context, this);
+                context.LetScope = new LetScope(((NameNode)parameters[i]).Name, value, context.LetScope);
+            }
+
+            return parameters[^1].Accept(context, this);
+        }
+        finally
+        {
+            context.LetScope = outer;
+        }
     }
 
     public AnyValue Visit(CalcContext context, NotSupportedNode node)

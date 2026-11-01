@@ -179,8 +179,10 @@ internal static class LambdaParameterPrefixes
         public Part ExternalFunction(Walk context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> functionName,
             IReadOnlyList<Part> arguments) => Part.Merge(arguments);
 
-        // A name that reads as a cell called as a function, such as LOG10(x). Excel refuses a LET name
-        // or a parameter that reads as a cell, so the name is never one; its arguments may use one.
+        // A name that reads as a cell called as a function, such as LOG10(x). Excel accepts a LET name
+        // that reads as a cell (LET(A1,1,A1) is 1, written _xlpm.A1), but the parser reads such a
+        // name as a reference, so a call of one is not taken for a parameter here; its arguments
+        // may use one.
         public Part CellFunction(Walk context, SymbolRange range, RowCol cell, IReadOnlyList<Part> arguments) =>
             Part.Merge(arguments);
 

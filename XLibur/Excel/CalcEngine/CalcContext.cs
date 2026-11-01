@@ -70,7 +70,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <remarks>
     /// Everything an evaluation can change is set again here: the cell and its sheet and workbook,
     /// the recursive choice, the sheet a recalculation is limited to, both intersection flags, the
-    /// cells remembered by a recursive read and the count of recursive evaluations. What stays is
+    /// <c>LET</c> scope, the cells remembered by a recursive read and the count of recursive
+    /// evaluations. What stays is
     /// what never changes for an engine: the engine and its culture. A context made for a defined
     /// name is never reused, so its name and caller are not reset.
     /// </remarks>
@@ -84,6 +85,7 @@ internal sealed class CalcContext : IStructuredReferenceScope
         RecalculateSheetId = recalculateSheetId;
         IsArrayCalculation = false;
         IntersectOperands = intersectOperands;
+        LetScope = null;
         _recursiveCellValueCache = null;
         _recursiveEvaluations = 0;
     }
@@ -211,6 +213,13 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// </para>
     /// </summary>
     internal bool IntersectOperands { get; set; }
+
+    /// <summary>
+    /// The names the <c>LET</c> calls around the node being evaluated have bound, or <c>null</c>
+    /// outside any. <see cref="CalculationVisitor"/> owns it. A defined name and another cell are
+    /// evaluated in contexts of their own, so a <c>LET</c> name never reaches their formulas.
+    /// </summary>
+    internal LetScope? LetScope { get; set; }
 
     /// <summary>
     /// Sheet that is being recalculated. If set, formula can read dirty

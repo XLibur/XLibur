@@ -3,7 +3,7 @@
 **Area:** Feature (calc engine core)
 **Effort:** L (2–4 weeks; parser/scoping work, not bulk registration)
 **Dependencies:** Independent of Spec 07, but land LET before LAMBDA. Interacts with the spill engine (`docs/dynamic-array-spill-phase-b.md`).
-**Status:** Proposed
+**Status:** In progress — tasks 1–3 done (parser spike, LET, `_xlpm.` on save); LAMBDA (tasks 4–5) next. See [Results](#results).
 
 ## Summary
 
@@ -61,3 +61,20 @@
 - Parser support is the go/no-go gate — that's why task 1 is a spike with a stop condition.
 - Adding a case to a hand-rolled discriminated union touches many switches; lean on the compiler (the union's Match methods) and the nullable/warnings-as-errors build to find them all.
 - Volatile semantics inside lambdas and dirty-tracking of lambda-invoked references: ensure `DependenciesVisitor` treats a lambda body's references as precedents of the calling cell (add tests: edit a cell referenced only inside a lambda body → dependent recalculates).
+
+## Results
+
+**Task 1, parser spike: done.** Parser 5.1.0 (#863) reads every form: LET, `LAMBDA(…)(args)` and chained calls, `_xlpm.` names, and helpers with a lambda argument. A call of an expression is a `NotSupportedNode` that keeps its operands, so the cells they read are precedents.
+
+**Task 3, `_xlpm.` on save: done** (#864). A typed formula's parameters are written as Excel 365 writes them. Excel refused to open a workbook whose parameters had no prefix.
+
+**Task 2, LET: done.** `LET` is a special form in `CalculationVisitor`. A `LetScope` chain on `CalcContext` holds the bindings, a `NameNode` looks there before the defined names, and names match in any case, with or without `_xlpm.`. A defined name and another cell are evaluated in contexts of their own, so a LET name never reaches their formulas. Dependencies needed no change, because LET reaches the dependency walk as an unknown function whose reference arguments are precedents.
+
+The fixture is `Resource/Other/ExcelAuthored/LetFormulas.xlsx`, typed and calculated by Excel 365 over COM. Facts from it:
+
+- Excel refuses duplicate names, too few arguments and an even argument count as they are typed. XLibur gives `#VALUE!` for such a formula from a file.
+- An error bound to a name reaches the result only where the name is used: `LET(x,1/0,5)` is 5.
+- A range stays a reference: `INDEX(r,2)`, `ROWS(r)` and `ISREF(r)` all see the range.
+- Excel accepts a name that reads as a cell, `LET(A1,1,A1)`, written `_xlpm.A1`. Typed, the parser reads `A1` as a reference, so XLibur does not bind it: a known gap, and a parser question.
+- Excel writes each use of a name in the case it was declared in (`_xlpm.X+1`). XLibur keeps the case it was typed in, and Excel reads both.
+- A LET that returns an array is a dynamic-array formula in Excel. Through `FormulaA1`, XLibur saves it as a legacy formula, which Excel evaluates with implicit intersection. `SetDynamicFormulaA1` spills it.
