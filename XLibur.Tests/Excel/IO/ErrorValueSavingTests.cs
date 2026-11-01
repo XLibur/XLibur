@@ -1,6 +1,8 @@
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
@@ -96,6 +98,108 @@ public class ErrorValueSavingTests
 
         await Assert.That(sheet.Cell("A1").Value).IsEqualTo(XLError.Calc);
         await Assert.That(((XLCell)sheet.Cell("B1")!).CellImage).IsNotNull();
+    }
+
+    /// <summary>
+    /// A cube function's cell names an <c>XLMDX</c> record of the value metadata, which the save does not
+    /// model. A rich value's record before it must not move it: the save rewrites the rich values'
+    /// records where they are, and adds new ones after the others.
+    /// </summary>
+    [Test]
+    public async Task A_cube_cell_keeps_its_value_metadata_when_a_rich_value_comes_before_it()
+    {
+        using var source = new MemoryStream();
+        using (var wb = TestHelper.LoadWorkbook(@"Other\Cubes\CubeFromRange-Input.xlsx"))
+        {
+            wb.Worksheet("Data").Cell("Z1").Value = XLError.Calc;
+            wb.SaveAs(source);
+        }
+
+        // The cube's 14 records come first, then the error's. Put the error's first, as a file may.
+        var metadata = XDocument.Parse(source.ReadPart(MetadataPart));
+        var valueMetadata = metadata.Root!.Elements().Single(e => e.Name.LocalName == "valueMetadata");
+        var errorRecord = valueMetadata.Elements().Last();
+        errorRecord.Remove();
+        valueMetadata.AddFirst(errorRecord);
+        source.RewritePart(MetadataPart, _ => metadata.ToString(System.Xml.Linq.SaveOptions.DisableFormatting));
+        source.RewritePart("xl/worksheets/sheet1.xml", xml => xml.Replace("vm=\"15\"", "vm=\"1\""));
+        source.RewritePart("xl/worksheets/sheet2.xml",
+            xml => Regex.Replace(xml, "vm=\"(\\d+)\"", m => $"vm=\"{int.Parse(m.Groups[1].Value) + 1}\""));
+        var cubeIndexes = CubeCellIndexes(source.ReadPart("xl/worksheets/sheet2.xml"));
+
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(source))
+        {
+            await Assert.That(wb.Worksheet("Data").Cell("Z1").Value).IsEqualTo(XLError.Calc);
+            wb.Worksheet("Data").Cell("Z2").Value = XLError.SpillRange;
+            wb.SaveAs(output);
+        }
+
+        var saved = XDocument.Parse(output.ReadPart(MetadataPart));
+        await Assert.That(CubeCellIndexes(output.ReadPart("xl/worksheets/sheet2.xml"))).IsEquivalentTo(cubeIndexes);
+        await Assert.That(cubeIndexes.Select(i => TypeOfValueMetadata(saved, i)).Distinct()).IsEquivalentTo(["XLMDX"]);
+
+        using var reloaded = new XLWorkbook(output);
+        await Assert.That(reloaded.Worksheet("Data").Cell("Z1").Value).IsEqualTo(XLError.Calc);
+        await Assert.That(reloaded.Worksheet("Data").Cell("Z2").Value).IsEqualTo(XLError.SpillRange);
+    }
+
+    /// <summary>
+    /// A workbook whose rich data XLibur does not know keeps it as loaded, and each cell its vm index.
+    /// A new error's rich value is added after the ones the file has, which keep their indexes.
+    /// </summary>
+    [Test]
+    public async Task A_newer_error_is_added_to_rich_data_the_workbook_keeps_as_loaded()
+    {
+        using var source = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            using var png = new MemoryStream(XLCellImageTests.CreateTestPng());
+            wb.AddWorksheet().Cell("B1").SetCellImage(png, XLPictureFormat.Png);
+            wb.SaveAs(source);
+        }
+
+        // A structure XLibur does not read: the rich data is kept as the file has it.
+        var structurePart = RichDataPartName(source, RichDataWriter.RichValueStructureRelType);
+        source.RewritePart(structurePart, xml => xml.Replace("_localImage", "_webImage"));
+
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(source))
+        {
+            wb.Worksheet(1).Cell("A1").Value = XLError.Calc;
+            wb.SaveAs(output);
+        }
+
+        var xml = output.Sheet1Xml();
+        await Assert.That(xml).Contains("<x:c r=\"B1\" vm=\"1\">");
+        await Assert.That(output.ReadPart(RichDataPartName(output, RichDataWriter.RichValueStructureRelType)))
+            .Contains("_webImage");
+
+        using var reloaded = new XLWorkbook(output);
+        await Assert.That(reloaded.Worksheet(1).Cell("A1").Value).IsEqualTo(XLError.Calc);
+    }
+
+    private static string RichDataPartName(Stream package, string relationshipType)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        return document.WorkbookPart!.Parts.Single(p => p.OpenXmlPart.RelationshipType == relationshipType)
+            .OpenXmlPart.Uri.OriginalString.TrimStart('/');
+    }
+
+    private const string MetadataPart = "xl/metadata.xml";
+
+    private static int[] CubeCellIndexes(string sheetXml) =>
+        Regex.Matches(sheetXml, "vm=\"(\\d+)\"").Select(m => int.Parse(m.Groups[1].Value)).Order().ToArray();
+
+    /// <summary>The name of the metadata type of the value metadata record at the 1-based <paramref name="index"/>.</summary>
+    private static string TypeOfValueMetadata(XDocument metadata, int index)
+    {
+        var root = metadata.Root!;
+        var types = root.Elements().Single(e => e.Name.LocalName == "metadataTypes").Elements().ToList();
+        var record = root.Elements().Single(e => e.Name.LocalName == "valueMetadata").Elements().ElementAt(index - 1)
+            .Elements().Single();
+        return (string)types[(int)record.Attribute("t")! - 1].Attribute("name")!;
     }
 
     /// <summary>

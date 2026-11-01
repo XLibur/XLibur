@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -30,8 +31,13 @@ public partial class XLWorkbook
     /// with the vm index each of its cells had then. So before any sheet is written, every cell that
     /// has a rich value's index takes the one this save gives its error, which changes the sheet when
     /// the index changes, and the sheet is written again. An index of another kind of value metadata,
-    /// such as a cube function's <c>XLMDX</c>, is left as it is. A workbook whose rich data XLibur does
-    /// not know keeps it as loaded, and its cells their indexes, and has no plan.
+    /// such as a cube function's <c>XLMDX</c>, is left as it is, and a rich value's record is taken
+    /// where it is, so no other record moves.
+    /// </para>
+    /// <para>
+    /// A workbook whose rich data XLibur does not know keeps it as loaded, and each cell its index. Its
+    /// plan adds the rich value of each newer error a cell without an index holds after the ones the
+    /// file has, which keep their indexes.
     /// </para>
     /// </remarks>
     internal sealed class RichValuePlan
@@ -44,11 +50,37 @@ public partial class XLWorkbook
         private uint _richValueTypeIndex;
         private ValueMetadata? _valueMetadata;
 
-        internal RichValuePlan(WorkbookPart workbookPart, SaveContext context)
+        /// <summary>Whether the workbook keeps the rich data it loaded (<see cref="KeepsLoadedRichData"/>).</summary>
+        private readonly bool _keepsLoadedRichData;
+
+        /// <summary>The kept rich values part, which new errors are added to.</summary>
+        private readonly OpenXmlPart? _keptRichValuePart;
+
+        /// <summary>The kept structures part, which the structure of an error is added to.</summary>
+        private readonly OpenXmlPart? _keptStructurePart;
+
+        /// <summary>How many rich values the kept rich data has.</summary>
+        private int _keptRichValueCount;
+
+        /// <summary>How many future metadata blocks of rich values the kept rich data has.</summary>
+        private int _keptFutureBlockCount;
+
+        /// <summary>
+        /// The records of rich values the part has, by vm index, not yet given to one of this save's.
+        /// </summary>
+        private readonly Queue<(uint Index, MetadataRecord Record)> _freeRecords = [];
+
+        internal RichValuePlan(WorkbookPart workbookPart, SaveContext context, bool keepsLoadedRichData)
         {
             _workbookPart = workbookPart;
             _context = context;
+            _keepsLoadedRichData = keepsLoadedRichData;
             _richValueIndexes = RichValueIndexesOf(workbookPart.CellMetadataPart);
+            if (keepsLoadedRichData)
+            {
+                _keptRichValuePart = FindPart(workbookPart, RichDataWriter.RichValueRelType);
+                _keptStructurePart = FindPart(workbookPart, RichDataWriter.RichValueStructureRelType);
+            }
         }
 
         /// <summary>The images, in the order of their rich values.</summary>
@@ -106,7 +138,7 @@ public partial class XLWorkbook
         /// </summary>
         internal uint? IndexFor(in XLMiscSliceContent misc, in XLCellValue value, XLCellsCollection cells, Point point)
         {
-            if (misc.CellImage is not null || (misc.ValueMetaIndex is { } other && !_richValueIndexes.Contains(other)))
+            if (misc.CellImage is not null || (misc.ValueMetaIndex is { } other && (_keepsLoadedRichData || !_richValueIndexes.Contains(other))))
                 return misc.ValueMetaIndex;
 
             uint? index = value.IsError && value.GetError().IsRichValue() ? ErrorIndex(value.GetError()) : null;
@@ -128,42 +160,169 @@ public partial class XLWorkbook
             if (Metadata is null)
                 return;
 
+            if (_keepsLoadedRichData)
+            {
+                AddErrorsToKeptRichData(Metadata);
+                return;
+            }
+
+            // An old record no rich value of this save took names the first rich value, as no cell
+            // names it any more, and removing it would move the records after it.
+            while (_freeRecords.TryDequeue(out var free))
+                free.Record.Val = 0;
+
             RichDataWriter.WriteRichDataParts(_workbookPart, imageStore, Images, Errors, _context.RelIdGenerator);
             AppendRichValueFutureMetadata(Metadata, Images.Count + Errors.Count);
             PutMetadataChildrenInSchemaOrder(Metadata);
         }
 
-        private uint ErrorIndex(XLError error)
+        /// <summary>
+        /// The vm index of <paramref name="error"/>'s rich value, given at its first cell. Null when the
+        /// workbook keeps rich data that has no rich values or structures part to add it to.
+        /// </summary>
+        private uint? ErrorIndex(XLError error)
         {
             if (_errorIndexes.TryGetValue(error, out var index))
                 return index;
 
-            index = AppendValueMetadata(Images.Count + Errors.Count);
+            if (_keepsLoadedRichData && (_keptRichValuePart is null || _keptStructurePart is null))
+                return null;
+
+            // A value metadata record names a future metadata block, which names the rich value. A save
+            // that writes the rich data numbers them alike; kept rich data has blocks of its own first.
+            if (_valueMetadata is null)
+                PrepareValueMetadata();
+
+            index = AppendValueMetadata((_keepsLoadedRichData ? _keptFutureBlockCount : Images.Count) + Errors.Count);
             Errors.Add(error);
             _errorIndexes[error] = index;
             return index;
         }
 
         /// <summary>
-        /// Appends the value metadata of the rich value at <paramref name="richValueIndex"/>, and returns
-        /// its vm index, which is 1-based. The first one replaces the rich values' records the part has.
+        /// Adds the rich value of each error after the kept ones: an <c>_error</c> structure after the
+        /// structures, the rich values after theirs, and their future metadata blocks after theirs.
+        /// </summary>
+        private void AddErrorsToKeptRichData(Metadata metadata)
+        {
+            var structureIndex = AppendElements(_keptStructurePart!, "s", ns =>
+                [new XElement(ns + "s", new XAttribute("t", RichDataWriter.ErrorStructureType),
+                    new XElement(ns + "k", new XAttribute("n", RichDataWriter.ErrorTypeKey), new XAttribute("t", "i")))]);
+            AppendElements(_keptRichValuePart!, "rv", ns => Errors.Select(error =>
+                new XElement(ns + "rv", new XAttribute("s", structureIndex), new XElement(ns + "v", (int)error))));
+
+            var futureMetadata = metadata.Elements<FutureMetadata>().FirstOrDefault(fm => fm.Name?.Value == RichValueMetadataName);
+            if (futureMetadata is null)
+            {
+                futureMetadata = new FutureMetadata { Name = RichValueMetadataName, Count = 0 };
+                metadata.Append(futureMetadata);
+            }
+
+            for (var i = 0; i < Errors.Count; i++)
+                futureMetadata.Append(NewRichValueFutureBlock(_keptRichValueCount + i));
+
+            futureMetadata.Count = (uint)futureMetadata.Elements<FutureMetadataBlock>().Count();
+            PutMetadataChildrenInSchemaOrder(metadata);
+        }
+
+        /// <summary>
+        /// Appends the elements <paramref name="create"/> makes, in the part's namespace, to the root of
+        /// <paramref name="part"/>, and sets its <c>count</c>. Returns how many elements named
+        /// <paramref name="name"/> the root had before.
+        /// </summary>
+        private static int AppendElements(OpenXmlPart part, string name, Func<XNamespace, IEnumerable<XElement>> create)
+        {
+            XDocument document;
+            using (var stream = part.GetStream(FileMode.Open, FileAccess.Read))
+                document = XDocument.Load(stream);
+
+            var root = document.Root!;
+            var ns = root.Name.Namespace;
+            var before = root.Elements(ns + name).Count();
+            root.Add(create(ns));
+            root.SetAttributeValue("count", root.Elements(ns + name).Count());
+
+            using var buffer = new MemoryStream();
+            document.Save(buffer, System.Xml.Linq.SaveOptions.DisableFormatting);
+            buffer.Position = 0;
+            part.FeedData(buffer);
+            return before;
+        }
+
+        private static int CountElements(OpenXmlPart part, string name)
+        {
+            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+            var root = XDocument.Load(stream).Root!;
+            return root.Elements(root.Name.Namespace + name).Count();
+        }
+
+        private static OpenXmlPart? FindPart(WorkbookPart workbookPart, string relationshipType)
+        {
+            foreach (var idPart in workbookPart.Parts)
+            {
+                if (idPart.OpenXmlPart.RelationshipType == relationshipType)
+                    return idPart.OpenXmlPart;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gives the rich value at <paramref name="richValueIndex"/> a value metadata record, and returns
+        /// its vm index, which is 1-based. A record of a rich value the part has is taken first, where it
+        /// is, so a record of another kind, such as a cube function's <c>XLMDX</c>, keeps its index; a
+        /// new one is appended.
         /// </summary>
         private uint AppendValueMetadata(int richValueIndex)
         {
             if (_valueMetadata is null)
+                PrepareValueMetadata();
+
+            if (_freeRecords.TryDequeue(out var free))
             {
-                Metadata = EnsureMetadataPart(_workbookPart, _context);
-                _richValueTypeIndex = EnsureRichValueMetadataType(Metadata);
-                _valueMetadata = PrepareValueMetadata(Metadata, _richValueTypeIndex);
+                free.Record.Val = (uint)richValueIndex;
+                return free.Index;
             }
 
             var block = new MetadataBlock();
             block.Append(new MetadataRecord { TypeIndex = _richValueTypeIndex, Val = (uint)richValueIndex });
-            _valueMetadata.Append(block);
+            _valueMetadata!.Append(block);
             _valueMetadata.Count = (_valueMetadata.Count ?? 0) + 1;
             var index = _valueMetadata.Count.Value;
             _richValueIndexes.Add(index);
             return index;
+        }
+
+        private void PrepareValueMetadata()
+        {
+            Metadata = EnsureMetadataPart(_workbookPart, _context);
+            _richValueTypeIndex = EnsureRichValueMetadataType(Metadata);
+            _valueMetadata = Metadata.GetFirstChild<ValueMetadata>();
+            if (_keepsLoadedRichData)
+            {
+                // Kept rich values keep their records; new ones are appended after them.
+                _keptRichValueCount = CountElements(_keptRichValuePart!, "rv");
+                _keptFutureBlockCount = Metadata.Elements<FutureMetadata>()
+                    .FirstOrDefault(fm => fm.Name?.Value == RichValueMetadataName)?.Elements<FutureMetadataBlock>().Count() ?? 0;
+            }
+
+            if (_valueMetadata is null)
+            {
+                _valueMetadata = new ValueMetadata { Count = 0 };
+                Metadata.Append(_valueMetadata);
+                return;
+            }
+
+            if (_keepsLoadedRichData)
+                return;
+
+            uint index = 0;
+            foreach (var block in _valueMetadata.Elements<MetadataBlock>())
+            {
+                index++;
+                if (block.GetFirstChild<MetadataRecord>() is { } record && record.TypeIndex?.Value == _richValueTypeIndex)
+                    _freeRecords.Enqueue((index, record));
+            }
         }
 
         /// <summary>

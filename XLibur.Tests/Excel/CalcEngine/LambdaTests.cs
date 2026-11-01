@@ -190,6 +190,7 @@ public class LambdaTests
     [Arguments("Double(A2)", "A2")]
     [Arguments("AddB(1)", "B1")]
     [Arguments("Apply(AddB,1)", "B1")]
+    [Arguments("LAMBDA(first,SUM(first:A3))(A1)", "A2")]
     public async Task Changing_a_cell_a_call_reads_recalculates_it(string formula, string input)
     {
         using var wb = CreateWorkbook();

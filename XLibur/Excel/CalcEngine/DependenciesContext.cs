@@ -33,6 +33,7 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
         Workbook = workbook;
         Dependencies = dependencies;
         LetScope = null;
+        Parameters = null;
     }
 
     /// <summary>
@@ -41,6 +42,13 @@ internal sealed class DependenciesContext : IStructuredReferenceScope
     /// reads a defined name's formula, where a <c>LET</c> name of the cell formula means nothing.
     /// </summary>
     internal LetScope<ReferenceAreas>? LetScope { get; set; }
+
+    /// <summary>
+    /// The parameters of the <c>LAMBDA</c> calls around the node being visited, or <c>null</c> outside
+    /// any. A parameter refers to whatever a call passes it, which the walk of the body cannot know.
+    /// <see cref="DependenciesVisitor"/> owns it, as it owns <see cref="LetScope"/>.
+    /// </summary>
+    internal LetScope<bool>? Parameters { get; set; }
 
     /// <inheritdoc />
     /// <remarks>

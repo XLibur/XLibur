@@ -704,12 +704,12 @@ public partial class XLWorkbook
         if (cellsWithImages.Count > 0)
             ThrowIfCellImagesCannotBeWritten();
 
-        // Rich data XLibur does not know is kept as loaded, and so is each cell's vm index.
+        // Rich data XLibur does not know is kept as loaded, and so is each cell's vm index; a new
+        // error's rich value is added after the kept ones.
+        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData);
+        context.RichValues = plan;
         if (KeepsLoadedRichData)
             return;
-
-        var plan = new RichValuePlan(workbookPart, context);
-        context.RichValues = plan;
 
         // Add one valueMetadata record per cell, set each cell's ValueMetaIndex
         for (var i = 0; i < cellsWithImages.Count; i++)
@@ -819,48 +819,24 @@ public partial class XLWorkbook
 
         var futureMetadata = new FutureMetadata { Name = RichValueMetadataName, Count = (uint)richValueCount };
         for (var i = 0; i < richValueCount; i++)
-        {
-            var fmBlock = new FutureMetadataBlock();
-            var extList = new ExtensionList();
-            var ext = new Extension { Uri = "{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}" };
-
-            var rvb = new OpenXmlUnknownElement("xlrv", "rvb", OpenXmlConst.RichDataNs);
-            rvb.SetAttribute(new OpenXmlAttribute("", "i", "", i.ToString()));
-            ext.Append(rvb);
-            extList.Append(ext);
-            fmBlock.Append(extList);
-            futureMetadata.Append(fmBlock);
-        }
+            futureMetadata.Append(NewRichValueFutureBlock(i));
 
         metadata.Append(futureMetadata);
     }
 
-    private static ValueMetadata PrepareValueMetadata(Metadata metadata, uint richValueTypeIndex)
+    /// <summary>The future metadata block that names the rich value at <paramref name="richValueIndex"/>.</summary>
+    private static FutureMetadataBlock NewRichValueFutureBlock(int richValueIndex)
     {
-        var valueMeta = metadata.GetFirstChild<ValueMetadata>();
-        if (valueMeta is not null)
-        {
-            var blocksToRemove = new List<MetadataBlock>();
-            foreach (var bk in valueMeta.Elements<MetadataBlock>())
-            {
-                var rc = bk.GetFirstChild<MetadataRecord>();
-                if (rc?.TypeIndex?.Value == richValueTypeIndex)
-                    blocksToRemove.Add(bk);
-            }
+        var fmBlock = new FutureMetadataBlock();
+        var extList = new ExtensionList();
+        var ext = new Extension { Uri = "{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}" };
 
-            foreach (var bk in blocksToRemove)
-            {
-                bk.Remove();
-                valueMeta.Count = (uint)(valueMeta.Count ?? 1) - 1;
-            }
-        }
-        else
-        {
-            valueMeta = new ValueMetadata { Count = 0 };
-            metadata.Append(valueMeta);
-        }
-
-        return valueMeta;
+        var rvb = new OpenXmlUnknownElement("xlrv", "rvb", OpenXmlConst.RichDataNs);
+        rvb.SetAttribute(new OpenXmlAttribute("", "i", "", richValueIndex.ToString(CultureInfo.InvariantCulture)));
+        ext.Append(rvb);
+        extList.Append(ext);
+        fmBlock.Append(extList);
+        return fmBlock;
     }
 
     private void PreparePivotCaches(WorkbookPart workbookPart, SaveContext context)

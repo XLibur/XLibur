@@ -90,6 +90,12 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
     {
         var leftAreas = node.LeftExpression.Accept(context, this);
         var rightAreas = node.RightExpression.Accept(context, this);
+
+        // A range from a parameter, LAMBDA(x,SUM(x:A3))(A1), takes in cells that neither the argument
+        // nor the other operand is, and which they are is known only when the function is called.
+        if (node.Operation == BinaryOp.Range && (IsParameter(context, node.LeftExpression) || IsParameter(context, node.RightExpression)))
+            context.Dependencies.MarkPrecedentsUnknown();
+
         return ApplyBinary(context, node.Operation, leftAreas, rightAreas);
     }
 
@@ -328,6 +334,10 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         AddAreasIfReference(context, ApplyName(context, namesOnPath, null, false, name, formula));
     }
 
+    /// <summary>Whether <paramref name="node"/> is a parameter of a <c>LAMBDA</c> around it.</summary>
+    private static bool IsParameter(DependenciesContext context, ValueNode node) =>
+        node is NameNode { Prefix: null } name && context.Parameters is { } parameters && parameters.TryGetValue(name.Name, out _);
+
     /// <summary>Whether <paramref name="functionName"/>, as a function node holds it, is <c>LAMBDA</c>.</summary>
     internal static bool IsLambda(string functionName) => string.Equals(functionName, "LAMBDA", StringComparison.OrdinalIgnoreCase);
 
@@ -342,12 +352,16 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             return ReferenceAreas.None;
 
         var outer = context.LetScope;
+        var outerParameters = context.Parameters;
         try
         {
             for (var i = 0; i < parameters.Count - 1; ++i)
             {
                 if (parameters[i] is NameNode { Prefix: null } parameter)
+                {
                     context.LetScope = new LetScope<ReferenceAreas>(parameter.Name, ReferenceAreas.None, context.LetScope);
+                    context.Parameters = new LetScope<bool>(parameter.Name, true, context.Parameters);
+                }
             }
 
             AddAreasIfReference(context, parameters[^1].Accept(context, this));
@@ -356,6 +370,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
         finally
         {
             context.LetScope = outer;
+            context.Parameters = outerParameters;
         }
     }
 
@@ -601,7 +616,9 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             // than add to the context (required for `A1:name` ). The cell formula's LET names mean
             // nothing in the name's formula, which is evaluated in a context of its own.
             var scope = context.LetScope;
+            var parameters = context.Parameters;
             context.LetScope = null;
+            context.Parameters = null;
             try
             {
                 return ast.AstRoot.Accept(context, visitor);
@@ -609,6 +626,7 @@ internal sealed class DependenciesVisitor : IFormulaVisitor<DependenciesContext,
             finally
             {
                 context.LetScope = scope;
+                context.Parameters = parameters;
             }
         }
     }
