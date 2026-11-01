@@ -26,6 +26,7 @@ public class LambdaParameterPrefixTests
         "_xlfn.LAMBDA(_xlpm.x,_xlop.y,IF(_xlfn.ISOMITTED(_xlpm.y),_xlpm.x,_xlpm.x+_xlpm.y))(1)")]
     [Arguments("LET(x,1,LAMBDA(x,x+1)(x))", "_xlfn.LET(_xlpm.x,1,_xlfn.LAMBDA(_xlpm.x,_xlpm.x+1)(_xlpm.x))")]
     [Arguments("LET(x,1,x+Rate)", "_xlfn.LET(_xlpm.x,1,_xlpm.x+Rate)")]
+    [Arguments("LET(r,A1,SUM(r:A3))", "_xlfn.LET(_xlpm.r,A1,SUM(_xlpm.r:A3))")]
     [Arguments("LET(a,1,b,a+1,a+b)", "_xlfn.LET(_xlpm.a,1,_xlpm.b,_xlpm.a+1,_xlpm.a+_xlpm.b)")]
     [Arguments("REDUCE(0,A1:A3,LAMBDA(acc,v,acc+v))", "_xlfn.REDUCE(0,A1:A3,_xlfn.LAMBDA(_xlpm.acc,_xlpm.v,_xlpm.acc+_xlpm.v))")]
     public async Task A_typed_formula_names_its_parameters_as_Excel_does(string typed, string excel)
