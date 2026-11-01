@@ -456,3 +456,56 @@ internal sealed class SlicedArray : Array
 
     public override int Height { get; }
 }
+
+/// <summary>
+/// An array computed on demand, as an operator or a function gives one, that keeps each element once
+/// it has been computed. A <c>LET</c> binds its arrays this way (#847).
+/// </summary>
+/// <remarks>
+/// A computed array reads its operands again for every element read, which is free once and costs
+/// nothing in memory. A name can be read many times, though, and each name of
+/// <c>LET(a,{1;2},b,a+a,c,b+b,…)</c> reads the one before twice, so without the cache a chain of
+/// thirty names reads the first array two to the thirtieth times. The elements are kept only from
+/// the first read, and only for an array no bigger than <see cref="MaxElements"/>: a whole column
+/// stays as lazy as it was, as <c>LazyArrayEvaluationTests</c> requires.
+/// </remarks>
+internal sealed class MemoizedArray : Array
+{
+    /// <summary>The most elements a memoized array keeps, 2.5 MB of them at most.</summary>
+    internal const int MaxElements = 1 << 16;
+
+    private readonly Array _array;
+    private ScalarValue?[]? _elements;
+
+    private MemoizedArray(Array array) => _array = array;
+
+    /// <summary>
+    /// <paramref name="array"/> with its elements kept as they are computed, or the array itself when
+    /// it already holds its elements, or is too big to keep.
+    /// </summary>
+    internal static Array Of(Array array) =>
+        array is ConstArray or LiteralArray or NumberArray or ScalarArray or MemoizedArray ||
+        (long)array.Width * array.Height > MaxElements
+            ? array
+            : new MemoizedArray(array);
+
+    public override int Width => _array.Width;
+
+    public override int Height => _array.Height;
+
+    public override ScalarValue this[int y, int x]
+    {
+        get
+        {
+            if (y < 0 || y >= Height)
+                throw new ArgumentOutOfRangeException(nameof(y));
+            if (x < 0 || x >= Width)
+                throw new ArgumentOutOfRangeException(nameof(x));
+
+            _elements ??= new ScalarValue?[Width * Height];
+            ref var element = ref _elements[y * Width + x];
+            element ??= _array[y, x];
+            return element.Value;
+        }
+    }
+}

@@ -28,7 +28,8 @@ namespace XLibur.Excel.CalcEngine;
 /// The factory gets the arguments of a node after the parser has read them, so it has added their
 /// precedents before it knows what the node does with them. The visitor does not read the arguments of
 /// two nodes: a function from another cell that is not a function (it is <c>#REF!</c>), and a defined
-/// name whose text the parser refuses. For these, the factory sets
+/// name whose text the parser refuses. And it reads a <c>LET</c> with a scope of its names, which the
+/// factory, meeting each name before the <c>LET</c> around it, cannot. For these, the factory sets
 /// <see cref="DependenciesContext.NeedsAst"/>, and the tree reads that formula through its AST.
 /// </para>
 /// </remarks>
@@ -208,6 +209,12 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
     private static int Call(DependenciesContext context, string functionName, IReadOnlyList<int> arguments)
     {
         FormulaParser.ResolveFunction(context.Workbook.CalcEngine.Functions, ref functionName, arguments.Count);
+
+        // A LET name stands for its value's areas, which a walk in parse order cannot know when it
+        // meets the name: the visitor reads LET with its scope.
+        if (DependenciesVisitor.IsLet(functionName))
+            context.NeedsAst = true;
+
         return Push(context, DependenciesVisitor.ApplyFunction(context, functionName, new ParsedArguments(context, arguments)));
     }
 

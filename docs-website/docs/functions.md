@@ -74,6 +74,20 @@ ws.Cell("G3").FormulaA1 = """=IFERROR(A1/B1, 0)""";
 ws.Cell("G4").FormulaA1 = """=SWITCH(A1, "N", "North", "S", "South", "Other")""";
 ```
 
+### Naming values with LET
+
+`LET` names a value once and uses it by name. Each name can be used by the values after it and
+by the last argument, which gives the result:
+
+```csharp
+ws.Cell("H1").FormulaA1 = "=LET(price, B1, tax, price * 0.1, price + tax)";
+ws.Cell("H2").FormulaA1 = "=LET(r, A1:A10, SUM(r) / ROWS(r))";   // a range stays a range
+```
+
+Inside the `LET`, a name hides a defined name of the same spelling. XLibur writes the names
+with the `_xlpm.` prefix Excel uses in a file, so `FormulaA1` reads them back as
+`_xlpm.price`. `LAMBDA`, and the functions that take one such as `MAP`, are not evaluated yet.
+
 ### Dates
 
 ```csharp
@@ -176,7 +190,7 @@ dots replaced by hyphens (`CEILING.MATH` → `ceiling-math-function`).
 
 ### Logical
 
-`AND` · `FALSE` · `IF` · `IFERROR` · `IFS` · `NOT` · `OR` · `SWITCH` · `TRUE`
+`AND` · `FALSE` · `IF` · `IFERROR` · `IFS` · `LET` · `NOT` · `OR` · `SWITCH` · `TRUE`
 
 ### Lookup and reference
 
