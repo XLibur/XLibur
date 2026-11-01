@@ -39,6 +39,8 @@
 
 ### ⚡ Performance
 
+- **Workbooks with a lot of rich text load about twice as fast.** XLBench's "20 sheets, shared strings + styles" read (20 sheets, about 8,600 rich-text strings, 2,400 cell formats) went from 878 ms and 830 MB to 445 ms and 178 MB (BenchmarkDotNet, same machine). Three costs were behind it. Each rich shared string was written out through an XML writer and parsed back into the SDK's DOM; it is now built straight from the reader. Each run's font was applied one property at a time, and every property re-interned the cell's whole rich text in the shared string table; a run is now added with its whole font in one write. And a rich string was built again for every cell that showed it; cells in the same font now share the text the first one built. Each further distinct rich string costs about 20 kB to load instead of 109 kB, and each further cell showing an already loaded one under 400 bytes instead of 26 kB.
+
 - **A workbook with many cell formats loads faster: decoding the stylesheet is no longer quadratic in its size.** Each cell format looked up its font, fill and border, and was itself looked up, by walking the stylesheet's list from its first entry. The lists are now indexed once per load. A workbook with 10,000 cell formats went from 1.047 s to 293.5 ms to load and read (BenchmarkDotNet). With 2,400 formats, as in XLBench's 20-sheet read, the gain is about 15 ms.
 
 ### 🐛 Bug Fixes
