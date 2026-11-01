@@ -121,6 +121,11 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
+    public virtual object? ExpressionCall(TContext context, SymbolRange range, object? target, IReadOnlyList<object?> arguments)
+    {
+        return default;
+    }
+
     public virtual object? StructureReference(TContext context, SymbolRange range, StructuredReferenceArea area, string? firstColumn,
         string? lastColumn)
     {

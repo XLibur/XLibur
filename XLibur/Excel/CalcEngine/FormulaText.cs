@@ -684,6 +684,9 @@ internal static class FormulaText
         public TNode CellFunction(TContext context, SymbolRange range, RowCol cell, IReadOnlyList<TNode> arguments)
             => inner.CellFunction(context, range, cell, arguments);
 
+        public TNode ExpressionCall(TContext context, SymbolRange range, TNode target, IReadOnlyList<TNode> arguments)
+            => inner.ExpressionCall(context, range, target, arguments);
+
         public TNode Name(TContext context, SymbolRange range, string name)
             => inner.Name(context, range, name);
 

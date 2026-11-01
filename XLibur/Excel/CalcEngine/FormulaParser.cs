@@ -324,6 +324,15 @@ internal sealed class FormulaParser
             return new NameNode(prefixNode, name);
         }
 
+        public ValueNode ExpressionCall(string context, SymbolRange range, ValueNode target,
+            IReadOnlyList<ValueNode> arguments)
+        {
+            // A call of the value of an expression, such as LAMBDA(x,x*2)(3). The engine has no function
+            // values to call until LET and LAMBDA are evaluated (#847), so it is a construct XLibur reads
+            // and keeps but does not evaluate. Before parser 5.1.0 such text did not parse at all.
+            return new NotSupportedNode("a call of the value of an expression");
+        }
+
         public ValueNode ExternalSheetName(string context, SymbolRange range, int workbookIndex, string sheet, string name)
         {
             var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet, null, null);

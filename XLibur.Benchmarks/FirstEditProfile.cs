@@ -226,6 +226,7 @@ public static class FirstEditProfile
         public int ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheetName, ReadOnlySpan<char> functionName, IReadOnlyList<int> arguments) => 0;
         public int ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> functionName, IReadOnlyList<int> arguments) => 0;
         public int CellFunction(string context, SymbolRange range, RowCol cell, IReadOnlyList<int> arguments) => 0;
+        public int ExpressionCall(string context, SymbolRange range, int target, IReadOnlyList<int> arguments) => 0;
         public int StructureReference(string context, SymbolRange range, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;
         public int StructureReference(string context, SymbolRange range, string table, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;
         public int ExternalStructureReference(string context, SymbolRange range, int workbookIndex, string table, StructuredReferenceArea area, string? firstColumn, string? lastColumn) => 0;

@@ -531,6 +531,9 @@ internal sealed class A1Template
             return range;
         }
 
+        public SymbolRange ExpressionCall(Builder context, SymbolRange range, SymbolRange target,
+            IReadOnlyList<SymbolRange> arguments) => range;
+
         public SymbolRange StructureReference(Builder context, SymbolRange range, StructuredReferenceArea area,
             string? firstColumn, string? lastColumn) => range;
 

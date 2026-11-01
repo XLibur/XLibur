@@ -147,6 +147,15 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
         return None;
     }
 
+    public int ExpressionCall(DependenciesContext context, SymbolRange range, int target, IReadOnlyList<int> arguments)
+    {
+        // A call of the value of an expression, such as LAMBDA(x,x*2)(3), is not evaluated (#847). The
+        // precedents of its target and arguments are added already, and the call is no reference of its
+        // own, so the tree reads this formula through its AST, as for a cell called as a function.
+        context.NeedsAst = true;
+        return None;
+    }
+
     public int StructureReference(DependenciesContext context, SymbolRange range, StructuredReferenceArea area,
         string? firstColumn, string? lastColumn)
         => Push(context, DependenciesVisitor.ApplyStructuredReference(context,
