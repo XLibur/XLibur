@@ -317,6 +317,21 @@ public class FormulaTextTests
     /// The parser reads a column name with its colon hidden. The factory must still get the name as
     /// the formula writes it, or a table lookup by that name fails.
     /// </summary>
+    /// <summary>
+    /// A call of an expression (parser 5.1.0) passes through the factory that restores colons, so a
+    /// column name in its arguments reaches the caller's factory as it is written.
+    /// </summary>
+    [Test]
+    public async Task TryWalk_hands_the_factory_a_column_name_inside_a_call_of_an_expression()
+    {
+        var columns = new List<string>();
+        var accepted = FormulaText.TryWalk("LAMBDA(x,x)(SUM(Table1[Start: Date]))", columns, ColumnProbe.Instance,
+            FormulaNotation.A1, out _, out _);
+
+        await Assert.That(accepted).IsTrue();
+        await Assert.That(string.Join("|", columns)).IsEqualTo("Start: Date");
+    }
+
     [Test]
     [MethodDataSource(typeof(FormulaTextCorpusTests), nameof(FormulaTextCorpusTests.Rows))]
     public async Task TryWalk_hands_the_factory_each_column_name_as_it_is_written(

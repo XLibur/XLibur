@@ -1,7 +1,10 @@
 using System.IO;
 using System.Threading.Tasks;
 using XLibur.Excel;
+using XLibur.Excel.CalcEngine;
 using XLibur.Excel.CalcEngine.Exceptions;
+using XLibur.Excel.Coordinates;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CalcEngine;
 
@@ -61,6 +64,70 @@ public class ExpressionCallTests
         ws.Cell("C3").CopyTo(ws.Cell("D4"));
 
         await Assert.That(ws.Cell("D4").FormulaA1).IsEqualTo("_xlfn.LAMBDA(x,x*B2)(C2)");
+    }
+
+    /// <summary>
+    /// A file that holds <c>C1 = LAMBDA(x,x*A1)(B1)</c> with the result 6, as a plain formula or as a
+    /// shared formula over C1:C2, the way Excel saves one: <c>_xlfn.</c> and <c>_xlpm.</c> prefixes, a
+    /// cached result.
+    /// </summary>
+    private static MemoryStream FileWithACall(bool shared)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 2;
+        ws.Cell("B1").Value = 3;
+        ws.Cell("A2").Value = 4;
+        ws.Cell("B2").Value = 5;
+        ws.Cell("C1").FormulaA1 = "A1*B1";
+        ws.Cell("C2").FormulaA1 = "A2*B2";
+        var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        const string call = "_xlfn.LAMBDA(_xlpm.x,_xlpm.x*A1)(B1)";
+        return saved.RewritePart("xl/worksheets/sheet1.xml", xml => shared
+            ? xml.Replace("<x:f>A1*B1</x:f>", $"<x:f t=\"shared\" ref=\"C1:C2\" si=\"0\">{call}</x:f><x:v>6</x:v>")
+                .Replace("<x:f>A2*B2</x:f>", "<x:f t=\"shared\" si=\"0\"/><x:v>20</x:v>")
+            : xml.Replace("<x:f>A1*B1</x:f>", $"<x:f>{call}</x:f><x:v>6</x:v>"));
+    }
+
+    [Test]
+    [Arguments(false, "A1", "C1")]
+    [Arguments(false, "B1", "C1")]
+    [Arguments(true, "A1", "C1")]
+    [Arguments(true, "B2", "C2")]
+    public async Task Changing_a_cell_a_call_reads_makes_its_saved_result_stale(bool shared, string input, string call)
+    {
+        using var wb = new XLWorkbook(FileWithACall(shared));
+        var ws = wb.Worksheet(1);
+        await Assert.That(ws.Cell(call).CachedValue.ToString()).IsNotEmpty();
+
+        ws.Cell(input).Value = 7;
+
+        // The call is not evaluated, so a stale result reads as the unsupported feature it is,
+        // never as the old value.
+        await Assert.That(() => ws.Cell(call).Value).Throws<UnsupportedFeatureException>();
+    }
+
+    [Test]
+    public async Task Each_cell_of_a_shared_call_reads_its_own_references()
+    {
+        using var wb = new XLWorkbook(FileWithACall(shared: true));
+
+        await Assert.That(wb.Worksheet(1).Cell("C2").FormulaA1).IsEqualTo("_xlfn.LAMBDA(_xlpm.x,_xlpm.x*A2)(B2)");
+    }
+
+    [Test]
+    public async Task A_call_whose_argument_names_a_column_with_a_colon_converts_both_ways()
+    {
+        // The conversion hides the colon from the parser and puts it back in the text it writes.
+        const string r1c1 = "LAMBDA(x,x*RC[-1])(Table1[a:b])";
+        var origin = new Point(3, 3);
+
+        await Assert.That(FormulaText.TryConvert(r1c1, origin, FormulaNotation.A1, out var a1, out _)).IsTrue();
+        await Assert.That(a1).IsEqualTo("LAMBDA(x,x*B3)(Table1[a:b])");
+        await Assert.That(FormulaText.TryConvert(a1, origin, FormulaNotation.R1C1, out var back, out _)).IsTrue();
+        await Assert.That(back).IsEqualTo(r1c1);
     }
 
     [Test]

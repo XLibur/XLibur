@@ -166,11 +166,26 @@ internal sealed class FunctionNode : ValueNode
 internal sealed class NotSupportedNode : ValueNode
 {
     public NotSupportedNode(string featureName)
+        : this(featureName, [])
+    {
+    }
+
+    /// <param name="featureName">What is not supported, for the error evaluation reports.</param>
+    /// <param name="operands">The expressions the construct reads. See <see cref="Operands"/>.</param>
+    public NotSupportedNode(string featureName, IReadOnlyList<ValueNode> operands)
     {
         FeatureName = featureName;
+        Operands = operands;
     }
 
     public string FeatureName { get; }
+
+    /// <summary>
+    /// The expressions the construct reads, such as the target and arguments of a call of an
+    /// expression. They are not evaluated, but their references are precedents of the formula, so a
+    /// change to one makes its saved result stale.
+    /// </summary>
+    public IReadOnlyList<ValueNode> Operands { get; }
 
     public override TResult Accept<TContext, TResult>(TContext context, IFormulaVisitor<TContext, TResult> visitor) => visitor.Visit(context, this);
 }
