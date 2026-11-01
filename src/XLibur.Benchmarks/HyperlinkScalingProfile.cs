@@ -8,7 +8,7 @@ namespace XLibur.Benchmarks;
 /// <summary>
 /// Whether <c>XLHyperlinks</c> scales linearly in the number of hyperlinks on a sheet.
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile hyperlinks</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile hyperlinks</c>
 /// </summary>
 /// <remarks>
 /// Spec 19 area 5 task 5.6. <c>XLHyperlinks</c> keys a <c>Dictionary&lt;Area, XLHyperlink&gt;</c> and

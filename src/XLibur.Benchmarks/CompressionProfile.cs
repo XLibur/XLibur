@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// <summary>
 /// What the zip costs the save path, and what the caller gets for it.
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile compression</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile compression</c>
 /// </summary>
 /// <remarks>
 /// Spec 19 area 3, tasks 3.1 and 3.2.

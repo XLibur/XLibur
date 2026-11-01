@@ -14,7 +14,7 @@ namespace XLibur.Benchmarks;
 /// again. Decomposed so the fixed per-request overhead — the part that scales with neither rows
 /// written nor data changed — can be separated from the cost of the edit itself.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile template [path-to.xlsx]
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile template [path-to.xlsx]
 ///
 /// The decomposition is the point. Profiling a template-driven export in a consuming application
 /// put roughly 300 ms per request into opening and re-saving a 124 KB workbook carrying ~10

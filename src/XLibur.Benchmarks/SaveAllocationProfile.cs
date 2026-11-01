@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// <see cref="XLiburWorkbookBenchmarks.CreateFormattedAndSave"/>, which hides whether an
 /// optimisation landed on the cell-population side or the serialisation side.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile alloc
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile alloc
 /// </summary>
 public static class SaveAllocationProfile
 {

@@ -11,9 +11,9 @@ namespace XLibur.Report.Benchmarks;
 /// </summary>
 /// <remarks>
 /// <code>
-/// dotnet run -c Release --project XLibur.Report.Benchmarks -f net10.0 -- scaling
-/// dotnet run -c Release --project XLibur.Report.Benchmarks -f net10.0 -- scaling 1000 10000
-/// dotnet run -c Release --project XLibur.Report.Benchmarks -f net10.0 -- --filter "*ReportGenerate*"
+/// dotnet run -c Release --project src/XLibur.Report.Benchmarks -f net10.0 -- scaling
+/// dotnet run -c Release --project src/XLibur.Report.Benchmarks -f net10.0 -- scaling 1000 10000
+/// dotnet run -c Release --project src/XLibur.Report.Benchmarks -f net10.0 -- --filter "*ReportGenerate*"
 /// </code>
 /// <para>
 /// Reach for <c>scaling</c> first. It answers the question spec 12 asks — does the cost per row stay

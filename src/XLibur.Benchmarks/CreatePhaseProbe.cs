@@ -9,7 +9,7 @@ namespace XLibur.Benchmarks;
 /// Per-operation allocation cost of the public cell-building API, on a worksheet with no merged
 /// ranges, tables or formulas.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile create
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile create
 ///
 /// <see cref="SaveAllocationProfile"/> answers "how much does the whole workbook cost"; this answers
 /// "which API call is paying for it". The two together are what Spec 11's acceptance criteria are

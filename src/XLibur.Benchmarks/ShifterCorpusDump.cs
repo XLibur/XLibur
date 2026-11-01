@@ -9,7 +9,7 @@ namespace XLibur.Benchmarks;
 /// Generates the <c>XLCellFormulaShifter</c> equivalence corpus asserted by
 /// <c>FormulaShifterCorpusTests</c>, as tab-separated rows on stdout.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile shiftercorpus
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile shiftercorpus
 ///
 /// This is the supported way to regenerate <c>src/XLibur.Tests/Resource/Other/FormulaShifterCorpus.tsv</c>
 /// after changing the shifter or widening the case matrix — redirect stdout over that file. Each row

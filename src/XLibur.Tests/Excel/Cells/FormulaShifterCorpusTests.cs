@@ -35,7 +35,7 @@ namespace XLibur.Tests.Excel.Cells;
 /// </para>
 /// <para>
 /// Regenerate with:
-/// <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile shiftercorpus</c>
+/// <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile shiftercorpus</c>
 /// — it writes the corpus to stdout and reports divergences between the two columns on stderr.
 /// </para>
 /// </summary>

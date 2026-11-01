@@ -9,7 +9,7 @@ namespace XLibur.Benchmarks;
 /// The cost of styling cells one at a time, split by call shape, against the same writes unstyled.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*CellStyling*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*CellStyling*'
 /// </summary>
 /// <remarks>
 /// Spec 18 task 2. <c>profile template</c> puts per-cell number formatting at ~2.3x the allocation of

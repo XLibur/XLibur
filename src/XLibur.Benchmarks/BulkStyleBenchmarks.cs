@@ -8,7 +8,7 @@ namespace XLibur.Benchmarks;
 /// <c>XLStylizedBase.ModifyStyle</c>.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*BulkStyle*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*BulkStyle*'
 ///
 /// <para>
 /// Spec 05's acceptance criterion 3 asks that styling a range allocate "O(distinct styles), not

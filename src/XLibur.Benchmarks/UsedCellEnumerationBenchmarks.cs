@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// shapes and the early-exit patterns that the aggregate number cannot distinguish.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*UsedCellEnumeration*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*UsedCellEnumeration*'
 /// </summary>
 /// <remarks>
 /// Spec 19 area 1, task 1.1. <c>XLiburReadBenchmarks</c> puts <c>CellsUsed()</c> at +2.39 s and

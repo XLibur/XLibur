@@ -10,7 +10,7 @@ namespace XLibur.Benchmarks;
 /// What reading one dirty formula cell costs, against reading a hundred and against reading them
 /// all.
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile dirtyread</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile dirtyread</c>
 /// </summary>
 /// <remarks>
 /// Spec 19 area 5 task 5.3, which is spec 04's task 6 — the benchmark that spec has always needed

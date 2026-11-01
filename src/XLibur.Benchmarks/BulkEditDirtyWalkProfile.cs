@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// a formula's dirty flag) with its own tracking; this profile is the before/after gate that
 /// change must not regress.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile bulkedit
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile bulkedit
 /// </summary>
 public static class BulkEditDirtyWalkProfile
 {

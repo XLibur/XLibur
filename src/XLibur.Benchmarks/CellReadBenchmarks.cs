@@ -11,7 +11,7 @@ namespace XLibur.Benchmarks;
 /// is split into the wrapper, the value fetch and the conversion.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*CellReadBenchmarks*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*CellReadBenchmarks*'
 /// </summary>
 /// <remarks>
 /// Spec 19 area 1, task 1.5 (#842). The fixture has the same column mix as <c>XLiburReadBenchmarks</c>

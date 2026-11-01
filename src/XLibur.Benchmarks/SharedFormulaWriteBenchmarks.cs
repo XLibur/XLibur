@@ -15,7 +15,7 @@ namespace XLibur.Benchmarks;
 /// columns are shared as Excel shares them, and a load of the file XLibur writes, each with and without
 /// shared formulas (ADR 0003, #692).
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter *SharedFormulaWrite*</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter *SharedFormulaWrite*</c>
 /// </summary>
 /// <remarks>
 /// <para>
@@ -74,7 +74,7 @@ public class SharedFormulaWriteBenchmarks
     /// <summary>
     /// Exact sizes and allocation for each fixture and mode: the save alone, the load of what it
     /// wrote, and the first recalculation after that load.
-    /// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile sharedwrite</c>
+    /// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile sharedwrite</c>
     /// </summary>
     public static void Profile()
     {

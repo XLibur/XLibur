@@ -10,10 +10,10 @@ namespace XLibur.Report.Examples;
 /// </summary>
 /// <remarks>
 /// <code>
-/// dotnet run --project XLibur.Report.Examples                      # all of them
-/// dotnet run --project XLibur.Report.Examples -- AnnualSalesReport # one of them
-/// dotnet run --project XLibur.Report.Examples -- --list
-/// dotnet run --project XLibur.Report.Examples -- --out c:\temp\reports
+/// dotnet run --project src/XLibur.Report.Examples                      # all of them
+/// dotnet run --project src/XLibur.Report.Examples -- AnnualSalesReport # one of them
+/// dotnet run --project src/XLibur.Report.Examples -- --list
+/// dotnet run --project src/XLibur.Report.Examples -- --out c:\temp\reports
 /// </code>
 /// </remarks>
 public static class Program

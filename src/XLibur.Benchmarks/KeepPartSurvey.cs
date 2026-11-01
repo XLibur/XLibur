@@ -20,7 +20,7 @@ namespace XLibur.Benchmarks;
 /// and why. It also reloads each saved workbook and counts the cells whose value or formula changed.
 /// </summary>
 /// <remarks>
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile keepsurvey [folder] [--sheets] [--rewrite] [--dump dir]
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile keepsurvey [folder] [--sheets] [--rewrite] [--dump dir]
 /// <para>
 /// The folder defaults to <c>src/XLibur.Tests/Resource</c>. <c>--sheets</c> adds one tab-separated
 /// line per worksheet after the summary. <c>--rewrite</c> saves with
@@ -57,7 +57,7 @@ public static class KeepPartSurvey
     private const string Marker = "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>";
 
     private const string Excel = "Excel";
-    private const string XLiburOrClosedXml = "src/XLibur/ClosedXML";
+    private const string XLiburOrClosedXml = "XLibur/ClosedXML";
     private const string Other = "Other";
 
     private static readonly string[] Producers = [Excel, XLiburOrClosedXml, Other];
@@ -555,7 +555,7 @@ public static class KeepPartSurvey
                 return candidate;
         }
 
-        throw new DirectoryNotFoundException("src/XLibur.Tests/Resource not found above " + AppContext.BaseDirectory);
+        throw new DirectoryNotFoundException("XLibur.Tests/Resource not found above " + AppContext.BaseDirectory);
     }
 
     private enum Outcome

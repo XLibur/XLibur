@@ -13,7 +13,7 @@ namespace XLibur.Benchmarks;
 /// Whether loading and saving pictures whose two-cell anchor is kept (<c>editAs="oneCell"</c> or
 /// <c>"absolute"</c>) scales with the number of pictures plus the number of rows, or with their product.
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile keptanchors</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile keptanchors</c>
 ///
 /// <c>profile keptanchors 2000 12500</c> measures one sheet of 2,000 pictures on 12,500 rows instead,
 /// so the cost can be compared against the number of pictures (#797).

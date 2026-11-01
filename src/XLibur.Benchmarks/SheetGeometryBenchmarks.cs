@@ -11,7 +11,7 @@ namespace XLibur.Benchmarks;
 /// a short wide block — crossed with whether the strings repeat.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*SheetGeometry*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*SheetGeometry*'
 /// </summary>
 /// <remarks>
 /// Spec 18 task 3. Refreshing a 10,000-value lookup column costs ~5.4 µs per cell where the wide

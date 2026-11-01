@@ -5,10 +5,10 @@ the pair side by side: a template language reads much better as a before and aft
 and the template is where the interesting part of every one of these lives.
 
 ```
-dotnet run --project XLibur.Report.Examples                        # all of them
-dotnet run --project XLibur.Report.Examples -- AnnualSalesReport   # one of them
-dotnet run --project XLibur.Report.Examples -- --list
-dotnet run --project XLibur.Report.Examples -- --out c:\temp\reports
+dotnet run --project src/XLibur.Report.Examples                        # all of them
+dotnet run --project src/XLibur.Report.Examples -- AnnualSalesReport   # one of them
+dotnet run --project src/XLibur.Report.Examples -- --list
+dotnet run --project src/XLibur.Report.Examples -- --out c:\temp\reports
 ```
 
 Files land in `bin/<config>/<tfm>/Reports` unless `--out` says otherwise, named

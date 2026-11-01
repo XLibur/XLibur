@@ -8,7 +8,7 @@ namespace XLibur.Benchmarks;
 /// Setting a style value through a range, or a worksheet, whose cells already hold that value.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*RedundantRangeStyle*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*RedundantRangeStyle*'
 /// </summary>
 /// <remarks>
 /// Before #505 a setter on a range or a worksheet skipped the write when the value equalled the

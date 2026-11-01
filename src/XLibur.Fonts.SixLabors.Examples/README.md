@@ -5,7 +5,7 @@ Example applications demonstrating how to use [SixLabors.Fonts 2.x](https://gith
 ## Running
 
 ```bash
-dotnet run --project XLibur.Fonts.SixLabors.Examples
+dotnet run --project src/XLibur.Fonts.SixLabors.Examples
 ```
 
 Output files are written to the `Created/` directory under the build output.

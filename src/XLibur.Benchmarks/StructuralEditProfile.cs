@@ -11,7 +11,7 @@ namespace XLibur.Benchmarks;
 /// range-shift notification pass (which visits live ranges) and the formula shift (which visits
 /// formula cells, on every worksheet).
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile structural
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile structural
 ///
 /// The decomposition is the point. Spec 05 workstream A has two independent halves — A2 attacks the
 /// range pass, A3 the formula pass — and a combined number cannot tell you which one you just moved,

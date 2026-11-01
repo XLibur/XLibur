@@ -9,7 +9,7 @@ namespace XLibur.Benchmarks;
 /// <c>XLNumberFormat</c>, <c>XLProtection</c>, <c>XLBorder</c>), on both of their paths.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*StyleFacadeSetter*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*StyleFacadeSetter*'
 /// </summary>
 /// <remarks>
 /// Written for #621 finding 2. Every facade setter has two paths: the cell fast path, which hands

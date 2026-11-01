@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// What a column of formulas costs when Excel saved it as one shared formula, against the same column
 /// saved with a formula in each cell (#686, lever 4).
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile sharedread</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile sharedread</c>
 /// </summary>
 /// <remarks>
 /// <para>

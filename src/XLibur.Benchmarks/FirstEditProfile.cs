@@ -18,7 +18,7 @@ namespace XLibur.Benchmarks;
 /// Where the first edit after a load spends its memory (#513): the whole dependency tree is built
 /// by that edit, and kept until the workbook is disposed.
 ///
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile firstedit [rows] [formulasPerRow] [dotmemory]
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile firstedit [rows] [formulasPerRow] [dotmemory]
 ///
 /// Defaults to 25,000 rows × 8 formulas. Every probe loads the workbook again, so none of them
 /// sees a tree another probe built. With <c>dotmemory</c>, it also saves a dotMemory workspace

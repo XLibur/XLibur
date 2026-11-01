@@ -12,7 +12,7 @@ namespace XLibur.Benchmarks;
 /// Where the load path's allocation goes: how much the model keeps, how much is garbage, and which
 /// column shapes are responsible.
 ///
-/// Run with: <c>dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile loadalloc</c>
+/// Run with: <c>dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile loadalloc</c>
 /// </summary>
 /// <remarks>
 /// Spec 19 area 4, task 4.1. <c>LoadWorkbook</c> allocates 334.54 MB parsing 3.75 M cells — 93.5 B

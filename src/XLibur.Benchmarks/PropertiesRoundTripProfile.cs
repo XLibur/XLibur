@@ -10,7 +10,7 @@ namespace XLibur.Benchmarks;
 /// profiler can be attached to it, and prints a median time and exact allocation per round trip.
 /// </summary>
 /// <remarks>
-/// Run with: dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- profile properties [seconds]
+/// Run with: dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- profile properties [seconds]
 /// <para>Use BenchmarkDotNet for any claim that time moved; the bytes here are exact.</para>
 /// </remarks>
 public static class PropertiesRoundTripProfile

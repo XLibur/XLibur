@@ -9,7 +9,7 @@ namespace XLibur.Benchmarks;
 /// What <see cref="IXLStyle.Batch"/> buys over the same six assignments made directly, on a cell.
 ///
 /// Run with:
-/// dotnet run -c Release --framework net10.0 --project XLibur.Benchmarks -- --filter '*BatchStyling*'
+/// dotnet run -c Release --framework net10.0 --project src/XLibur.Benchmarks -- --filter '*BatchStyling*'
 /// </summary>
 /// <remarks>
 /// Spec 23 task 5. <c>Batch</c> exists for performance: a batch of N property assignments should
