@@ -106,6 +106,14 @@ internal class XLShape : IXLShape
 
     internal XLShapeProperties Assigned { get; private set; }
 
+    /// <summary>
+    /// The <c>xdr:sp</c> the file holds for the shape, as it was loaded or as the last save wrote it;
+    /// <c>null</c> for a shape no save has written. A shape written into a drawing that does not hold
+    /// it — a copy of the sheet, a workbook opened as a template — starts from this, so it keeps what
+    /// XLibur does not model, and its paragraphs and runs are where the model says.
+    /// </summary>
+    internal string? TemplateXml { get; private set; }
+
     public int Left
     {
         get => Markers[XLMarkerPosition.TopLeft]?.Offset.X ?? 0;
@@ -370,11 +378,12 @@ internal class XLShape : IXLShape
         }
     }
     /// <summary>
-    /// Records the shape as the file now holds it, under drawing id <paramref name="id"/>: once it is
-    /// loaded, and once a save that wrote it has succeeded.
+    /// Records the shape as the file now holds it, as <paramref name="xml"/> under drawing id
+    /// <paramref name="id"/>: once it is loaded, and once a save that wrote it has succeeded.
     /// </summary>
-    internal void MarkSaved(int id)
+    internal void MarkSaved(int id, string xml)
     {
+        TemplateXml = xml;
         if (Id != id)
         {
             var oldId = Id;
@@ -386,6 +395,37 @@ internal class XLShape : IXLShape
         Assigned = XLShapeProperties.None;
         _saved = (_name, CaptureGeometry());
         Body.MarkSaved();
+    }
+
+    /// <summary>
+    /// A copy of the shape on <paramref name="target"/>, at the same cells and under the same name,
+    /// for a copy of the sheet. It is new to the file, with every edit the shape has not saved yet,
+    /// and it starts from the shape's XML when the file holds the shape.
+    /// </summary>
+    internal XLShape CopyTo(XLWorksheet target)
+    {
+        var copy = IsTextBox ? new XLTextBox(target, PresetGeometry) : new XLShape(target, PresetGeometry);
+        copy._name = _name;
+        copy._placement = _placement;
+        copy._width = _width;
+        copy._height = _height;
+        copy._fillColor = _fillColor;
+        copy._noFill = _noFill;
+        copy._lineColor = _lineColor;
+        copy._lineWidthPt = _lineWidthPt;
+        copy._lineDash = _lineDash;
+        copy._noLine = _noLine;
+        copy.Assigned = Assigned;
+        copy.TemplateXml = TemplateXml;
+        copy.Body.CopyFrom(Body);
+        foreach (var (position, marker) in Markers)
+        {
+            copy.Markers[position] = marker is null
+                ? null
+                : new XLMarker(target.Cell(marker.RowNumber, marker.ColumnNumber), marker.Offset);
+        }
+
+        return copy;
     }
 
     private XLPictureGeometry CaptureGeometry()

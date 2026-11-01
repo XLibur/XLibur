@@ -594,10 +594,10 @@ internal static class DrawingPartReader
 
     /// <summary>
     /// The id a loaded picture takes: the file's, or a fresh one when another picture of the sheet
-    /// already has it (#859). The first save writes the fresh one into the drawing.
+    /// already has it (#859), id 0 included. The first save writes the fresh one into the drawing.
     /// </summary>
     private static int PictureIdOf(XLWorksheet ws, Xdr.WorksheetDrawing drawing, Xdr.Picture element, int fileId) =>
-        fileId > 0 && ((XLPictures)ws.Pictures).IsIdUsed(fileId)
+        ((XLPictures)ws.Pictures).IsIdUsed(fileId)
             ? ws.DrawingIdRepairs.Repair(drawing, DrawingIdRepairs.Kind.Picture, element, (uint)fileId)
             : fileId;
 

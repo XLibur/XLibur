@@ -846,6 +846,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         targetSheet.SelectedRanges.RemoveAll();
 
         Pictures.ForEach(picture => picture.CopyTo(targetSheet));
+        ((XLShapes)targetSheet.Shapes).CopyFrom((XLShapes)Shapes);
         Tables.ForEach<XLTable>(t => t.CopyTo(targetSheet, false));
         DefinedNames.ForEach<XLDefinedName>(nr =>
             nr.CopyTo(targetSheet)); // Names must modify table references, so keep the order.

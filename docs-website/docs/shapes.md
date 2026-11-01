@@ -99,6 +99,9 @@ The font properties of a run are `Bold`, `Italic`, `Underline`, `Strikethrough`,
 `FontColor` and `FontName`. Each is nullable: `null` means not set, so the run uses the shape's
 style.
 
+Like a picture, a shape anchored to a cell moves with it when rows or columns are inserted or
+deleted, and a copy of the worksheet copies its shapes.
+
 ## Editing shapes in a file
 
 Shapes in a loaded workbook are in `ws.Shapes`, by name:
@@ -132,5 +135,3 @@ their `Id`.
 - Rotation, flips, auto-fit, text insets, vertical text, gradient fills, effects, bullets and
   hyperlinks are not in the model. A shape keeps them when you edit something else.
 - Nothing measures the text: a shape is the size you give it, and long text overflows or wraps.
-- Shapes do not move when rows or columns are inserted or deleted, and copying a worksheet does
-  not copy them.

@@ -96,6 +96,19 @@ public class DuplicateDrawingIdTests
     }
 
     [Test]
+    public async Task Pictures_that_share_id_zero_load()
+    {
+        using var source = TestHelper.OpenResource(PictureFidelityTests.Fixture).RewritePart(PictureFidelityTests.Drawing1,
+            xml => xml.Replace("id=\"3\" name=\"Plain\"", "id=\"0\" name=\"Plain\"")
+                .Replace("id=\"5\" name=\"Rotated\"", "id=\"0\" name=\"Rotated\""));
+        using var wb = new XLWorkbook(source);
+        var ws = wb.Worksheet(1);
+
+        await Assert.That(ws.Picture("Plain").Id).IsEqualTo(0);
+        await Assert.That(ws.Picture("Rotated").Id).IsEqualTo(26);
+    }
+
+    [Test]
     public async Task Shapes_with_id_zero_each_take_a_fresh_id()
     {
         using var source = TestHelper.OpenResource(ShapeCreationTests.Fixture).RewritePart(ShapeCreationTests.Drawing1,

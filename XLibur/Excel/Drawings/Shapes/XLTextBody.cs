@@ -71,18 +71,24 @@ internal sealed class XLTextBody : IXLTextBody
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            var lines = value.Replace("\r\n", "\n").Split('\n');
-            foreach (var line in lines)
-                XLTextRun.ThrowIfNotWritable(line, nameof(value));
-
+            ThrowIfNotWritable(value, nameof(value));
             Clear();
             if (value.Length == 0)
                 return;
 
-            foreach (var line in lines)
+            foreach (var line in Lines(value))
                 AddParagraph(line);
         }
     }
+
+    /// <summary>Throws when <paramref name="text"/>, a whole body's text, has a line a paragraph cannot hold.</summary>
+    internal static void ThrowIfNotWritable(string text, string paramName)
+    {
+        foreach (var line in Lines(text))
+            XLTextRun.ThrowIfNotWritable(line, paramName);
+    }
+
+    private static string[] Lines(string text) => text.Replace("\r\n", "\n").Split('\n');
 
     public IXLTextParagraph AddParagraph(string text = "")
     {
@@ -119,6 +125,24 @@ internal sealed class XLTextBody : IXLTextBody
     {
         _verticalAlignment = verticalAlignment;
         _wrapText = wrapText;
+    }
+
+    /// <summary>
+    /// Makes this empty body a copy of <paramref name="source"/>: its paragraphs and runs, where the
+    /// file holds each, and every edit not saved yet, so a copy of the shape written from the
+    /// shape's XML comes out as the shape would.
+    /// </summary>
+    internal void CopyFrom(XLTextBody source)
+    {
+        foreach (var paragraph in source._paragraphs)
+            _paragraphs.Add(paragraph.Copy());
+
+        _verticalAlignment = source._verticalAlignment;
+        _wrapText = source._wrapText;
+        IsRebuilt = source.IsRebuilt;
+        HasPlaceholderParagraph = source.HasPlaceholderParagraph;
+        IsVerticalAlignmentAssigned = source.IsVerticalAlignmentAssigned;
+        IsWrapTextAssigned = source.IsWrapTextAssigned;
     }
 
     /// <summary>
@@ -204,6 +228,30 @@ internal sealed class XLTextParagraph : IXLTextParagraph
 
     /// <summary>Adds the text of a line break or a field the loader read, which is not a run.</summary>
     internal void AddLoadedText(string text) => _content.Add(text);
+
+    internal XLTextParagraph Copy()
+    {
+        var copy = new XLTextParagraph(DomIndex)
+        {
+            _alignment = _alignment,
+            IsAlignmentAssigned = IsAlignmentAssigned,
+        };
+        foreach (var content in _content)
+        {
+            if (content is XLTextRun run)
+            {
+                var runCopy = run.Copy();
+                copy._runs.Add(runCopy);
+                copy._content.Add(runCopy);
+            }
+            else
+            {
+                copy._content.Add(content);
+            }
+        }
+
+        return copy;
+    }
 
     internal void MarkSaved(int domIndex)
     {
@@ -407,6 +455,18 @@ internal sealed class XLTextRun : IXLTextRun
         _fontColor = fontColor;
         _fontName = fontName;
     }
+
+    internal XLTextRun Copy() => new(_text, DomIndex)
+    {
+        _bold = _bold,
+        _italic = _italic,
+        _underline = _underline,
+        _strikethrough = _strikethrough,
+        _fontSize = _fontSize,
+        _fontColor = _fontColor,
+        _fontName = _fontName,
+        Assigned = Assigned,
+    };
 
     internal void MarkSaved(int domIndex)
     {

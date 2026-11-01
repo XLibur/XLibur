@@ -5,8 +5,8 @@ using XLibur.Excel.Coordinates;
 namespace XLibur.Excel.Drawings;
 
 /// <summary>
-/// Moves the anchors of every chart, note and picture on the sheet when rows or columns are inserted
-/// or deleted.
+/// Moves the anchors of every chart, note, picture and shape on the sheet when rows or columns are
+/// inserted or deleted.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -65,6 +65,30 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
         MoveCharts<TAxis>(in edit);
         MoveNotes<TAxis>(in edit);
         MovePictures<TAxis>(in edit);
+        MoveShapes<TAxis>(in edit);
+    }
+
+    /// <summary>
+    /// Moves the anchors of the sheet's shapes (spec 15) by the rules a picture's follow: a
+    /// free-floating shape stays where it is, a shape that moves with its cell moves its top-left
+    /// corner, and one that also sizes with its cells moves both.
+    /// </summary>
+    private void MoveShapes<TAxis>(in SheetEdit edit)
+        where TAxis : struct, IGridAxis
+    {
+        var shapes = (XLShapes)worksheet.Shapes;
+        if (shapes.Count == 0)
+            return;
+
+        foreach (var shape in shapes)
+        {
+            if (shape.Placement == XLPicturePlacement.FreeFloating)
+                continue;
+
+            Move<TAxis>(shape.Markers[XLMarkerPosition.TopLeft], edit);
+            if (shape.Placement == XLPicturePlacement.MoveAndSize)
+                Move<TAxis>(shape.Markers[XLMarkerPosition.BottomRight], edit);
+        }
     }
 
     private void MoveCharts<TAxis>(in SheetEdit edit)

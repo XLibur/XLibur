@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using XLibur.Excel.Drawings;
@@ -23,19 +24,28 @@ internal static class ShapePatcher
     internal static void Patch(OpenXmlCompositeElement anchor, Xdr.Shape element, XLShape shape)
     {
         if (shape.IsGeometryChanged)
-            WriteGeometry(anchor, element, shape);
+        {
+            WriteAnchorPosition(anchor, shape);
+            WriteTransform(element, shape);
+        }
 
         if (shape.IsNameChanged && element.NonVisualShapeProperties?.NonVisualDrawingProperties is { } properties)
             properties.Name = shape.Name;
 
+        PatchContent(element, shape);
+    }
+
+    /// <summary>
+    /// Writes the fill, line and text edits not saved yet into <paramref name="element"/>, the
+    /// shape's <c>xdr:sp</c> as the file holds it, or a copy of it.
+    /// </summary>
+    internal static void PatchContent(Xdr.Shape element, XLShape shape)
+    {
         if (shape.Assigned != XLShapeProperties.None)
             ShapeFormatWriter.Write(element.ShapeProperties ??= new Xdr.ShapeProperties(), shape);
 
         if (shape.Body.HasChanges)
-        {
-            var body = element.TextBody ?? AddTextBody(element);
-            ShapeTextWriter.Write(body, shape.Body, alignNewParagraphs: false);
-        }
+            ShapeTextWriter.Write(element.TextBody ?? AddTextBody(element), shape.Body, alignNewParagraphs: false);
     }
 
     /// <summary>
@@ -44,7 +54,7 @@ internal static class ShapePatcher
     /// <c>editAs</c>. A new placement is a new form of anchor, and the shape moves into it with the
     /// client data, as a picture does.
     /// </summary>
-    private static void WriteGeometry(OpenXmlCompositeElement anchor, Xdr.Shape element, XLShape shape)
+    private static void WriteAnchorPosition(OpenXmlCompositeElement anchor, XLShape shape)
     {
         var generated = DrawingAnchorFactory.Create(shape.Placement, ShapeWriter.GeometryOf(shape), new Xdr.Shape());
         var position = generated.ChildElements.Where(IsAnchorPosition).ToList();
@@ -52,41 +62,56 @@ internal static class ShapePatcher
             part.Remove();
 
         if (generated.GetType() == anchor.GetType())
-        {
-            // Only the parts whose model value changed: the rest stays as the file has it, rather
-            // than coming back from pixels a half pixel off.
-            foreach (var part in position)
-            {
-                var changed = part switch
-                {
-                    Xdr.FromMarker or Xdr.Position => shape.IsTopLeftChanged,
-                    Xdr.ToMarker => shape.IsBottomRightChanged,
-                    _ => shape.IsSizeChanged,
-                };
-                if (!changed)
-                    continue;
-
-                if (anchor.ChildElements.FirstOrDefault(e => e.GetType() == part.GetType()) is { } old)
-                    anchor.ReplaceChild(part, old);
-                else
-                    anchor.InsertAt(part, position.IndexOf(part));
-            }
-        }
+            ReplaceChangedParts(anchor, position, shape);
         else
+            MoveIntoNewAnchor(anchor, generated, position);
+    }
+
+    /// <summary>
+    /// Puts each part of <paramref name="position"/> whose model value changed in the place of the
+    /// anchor's own. The rest stays as the file has it, rather than coming back from pixels half a
+    /// pixel off.
+    /// </summary>
+    private static void ReplaceChangedParts(OpenXmlCompositeElement anchor, List<OpenXmlElement> position, XLShape shape)
+    {
+        foreach (var part in position)
         {
-            generated.RemoveAllChildren();
-            foreach (var part in position)
-                generated.AppendChild(part);
-
-            foreach (var child in anchor.ChildElements.Where(e => !IsAnchorPosition(e)).ToList())
+            var changed = part switch
             {
-                child.Remove();
-                generated.AppendChild(child);
-            }
+                Xdr.FromMarker or Xdr.Position => shape.IsTopLeftChanged,
+                Xdr.ToMarker => shape.IsBottomRightChanged,
+                _ => shape.IsSizeChanged,
+            };
+            if (!changed)
+                continue;
 
-            anchor.Parent!.ReplaceChild(generated, anchor);
+            if (anchor.ChildElements.FirstOrDefault(e => e.GetType() == part.GetType()) is { } old)
+                anchor.ReplaceChild(part, old);
+            else
+                anchor.InsertAt(part, position.IndexOf(part));
+        }
+    }
+
+    /// <summary>Moves everything the anchor holds but its position into <paramref name="generated"/>, which takes its place.</summary>
+    private static void MoveIntoNewAnchor(OpenXmlCompositeElement anchor, OpenXmlCompositeElement generated,
+        List<OpenXmlElement> position)
+    {
+        generated.RemoveAllChildren();
+        foreach (var part in position)
+            generated.AppendChild(part);
+
+        foreach (var child in anchor.ChildElements.Where(e => !IsAnchorPosition(e)).ToList())
+        {
+            child.Remove();
+            generated.AppendChild(child);
         }
 
+        anchor.Parent!.ReplaceChild(generated, anchor);
+    }
+
+    /// <summary>Writes a new size into <c>a:xfrm/a:ext</c>, and a free-floating shape's position into <c>a:off</c>.</summary>
+    private static void WriteTransform(Xdr.Shape element, XLShape shape)
+    {
         if (element.ShapeProperties?.Transform2D is not { } transform)
             return;
 

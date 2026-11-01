@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.Drawings;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Drawings.Shapes;
 
@@ -122,6 +123,28 @@ public class ShapeRoundTripTests
         await Assert.That(shapes.Shape("Plain TextBox").FillColor).IsEqualTo(XLColor.FromTheme(XLThemeColor.Background1));
         await Assert.That(((IXLTextBox)shapes.Shape("Empty")).Text).IsEqualTo("");
         await Assert.That(shapes.Shape("Empty").TextBody.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments("oneCell", XLPicturePlacement.Move)]
+    [Arguments("absolute", XLPicturePlacement.FreeFloating)]
+    public async Task A_two_cell_anchor_reads_its_placement_from_editAs(string editAs, XLPicturePlacement placement)
+    {
+        using var source = TestHelper.OpenResource(ShapeCreationTests.Fixture).RewritePart(ShapeCreationTests.Drawing1, xml =>
+        {
+            var at = xml.LastIndexOf("<xdr:twoCellAnchor>", xml.IndexOf("name=\"Arc\"", StringComparison.Ordinal), StringComparison.Ordinal);
+            return xml[..at] + $"<xdr:twoCellAnchor editAs=\"{editAs}\">" + xml[(at + "<xdr:twoCellAnchor>".Length)..];
+        });
+        using var wb = new XLWorkbook(source);
+        var arc = wb.Worksheet(1).Shapes.Shape("Arc");
+        await Assert.That(arc.Placement).IsEqualTo(placement);
+
+        arc.WithSize(150, 90);
+        using var reloaded = SaveAndReload(wb);
+
+        var reread = reloaded.Worksheet(1).Shapes.Shape("Arc");
+        await Assert.That((reread.Placement, reread.Width, reread.Height)).IsEqualTo((placement, 150, 90));
+        await Assert.That(reread.LineWidthPt).IsEqualTo(2);
     }
 
     private static void Format(IXLShape shape)

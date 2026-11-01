@@ -40,47 +40,21 @@ internal static class PictureWriter
         // attaches its DOM, and the SDK then writes the DOM back over the part's bytes.
         var drawingIsNew = worksheetPart.DrawingsPart is null;
 
-        // Before anything reads the drawing's ids: the load gave a picture or shape whose id
-        // another had a fresh one, which the drawing is to hold from this save on (#859).
-        var repairs = xlWorksheet.DrawingIdRepairs;
-        if (repairs.Count > 0)
-        {
-            if (!drawingIsNew)
-                repairs.Apply(worksheetPart.DrawingsPart!.WorksheetDrawing!);
+        WriteDrawingIdRepairs(xlWorksheet, worksheetPart, context, drawingIsNew);
 
-            context.KeepAfterSave.Add(repairs.Clear);
-        }
-
-        // One instance serves the pictures and the shapes, so they never take the same new id.
-        DrawingIds? ids = null;
+        // One instance serves the pictures and the shapes, so they never take the same new id. It
+        // reads the drawing only when asked.
+        var ids = new DrawingIds(worksheetPart);
         if (shapes.Deleted.Count > 0)
-            ShapeWriter.RemoveDeleted(shapes, drawingIsNew ? null : ids = new DrawingIds(worksheetPart), context);
+            ShapeWriter.RemoveDeleted(shapes, drawingIsNew ? null : ids, context);
 
         if (drawingIsNew || HasUnsavedChanges(pictures, layout))
-        {
-            ids ??= new DrawingIds(worksheetPart);
-            if (worksheetPart.DrawingsPart != null)
-                ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, pictures, ids);
-
-            var written = new List<(XLPicture Picture, Xdr.Picture Element)>();
-            WritePictureAnchors(worksheetPart, xlWorksheet, context, written, ids, layout, drawingIsNew);
-
-            // The next save edits what this one wrote and finds each picture's anchor by its drawing
-            // id and image link, so the model takes the ones the drawing now holds, once the save has
-            // succeeded (XLWorkbook.KeepWhatTheSaveWrote).
-            foreach (var (picture, element) in written)
-            {
-                context.PictureIdsForNextSave.Add((picture,
-                    (int)element.NonVisualPictureProperties!.NonVisualDrawingProperties!.Id!.Value,
-                    element.BlipFill!.Blip!.Embed!.Value!,
-                    element.OuterXml));
-            }
-        }
+            WritePictures(worksheetPart, xlWorksheet, context, ids, layout, drawingIsNew);
 
         if (shapes.Count > 0 && (drawingIsNew || shapes.HasUnsavedChanges))
         {
             var drawingsPart = DrawingPartScaffold.EnsureDrawingsPart(worksheetPart, context);
-            ShapeWriter.WriteShapes(drawingsPart, shapes, context, ids ?? new DrawingIds(worksheetPart), writeAll: drawingIsNew);
+            ShapeWriter.WriteShapes(drawingsPart, shapes, context, ids, writeAll: drawingIsNew);
         }
 
         if ((xlWorksheet.Pictures.Count > 0 || shapes.Count > 0) && !worksheet.OfType<Drawing>().Any())
@@ -92,6 +66,50 @@ internal static class PictureWriter
         }
 
         RemoveEmptyDrawingPart(worksheet, cm, xlWorksheet, worksheetPart);
+    }
+
+    /// <summary>
+    /// Writes the fresh ids the load gave pictures and shapes whose id another had (#859) into the
+    /// drawing, before anything reads its ids. The drawing holds them from this save on, so the
+    /// repairs are dropped once it has succeeded.
+    /// </summary>
+    private static void WriteDrawingIdRepairs(XLWorksheet xlWorksheet, WorksheetPart worksheetPart,
+        SaveContext context, bool drawingIsNew)
+    {
+        var repairs = xlWorksheet.DrawingIdRepairs;
+        if (repairs.Count == 0)
+            return;
+
+        if (!drawingIsNew)
+            repairs.Apply(worksheetPart.DrawingsPart!.WorksheetDrawing!);
+
+        context.KeepAfterSave.Add(repairs.Clear);
+    }
+
+    /// <summary>
+    /// Applies the picture deletions and new groups, then writes each picture that changed, or every
+    /// picture into a drawing the save package does not have yet.
+    /// </summary>
+    private static void WritePictures(WorksheetPart worksheetPart, XLWorksheet xlWorksheet, SaveContext context,
+        DrawingIds ids, Lazy<GridLayout> layout, bool drawingIsNew)
+    {
+        var pictures = (XLPictures)xlWorksheet.Pictures;
+        if (worksheetPart.DrawingsPart != null)
+            ProcessDeletedPicturesAndGroups(worksheetPart.DrawingsPart, pictures, ids);
+
+        var written = new List<(XLPicture Picture, Xdr.Picture Element)>();
+        WritePictureAnchors(worksheetPart, xlWorksheet, context, written, ids, layout, drawingIsNew);
+
+        // The next save edits what this one wrote and finds each picture's anchor by its drawing id
+        // and image link, so the model takes the ones the drawing now holds, once the save has
+        // succeeded (XLWorkbook.KeepWhatTheSaveWrote).
+        foreach (var (picture, element) in written)
+        {
+            context.PictureIdsForNextSave.Add((picture,
+                (int)element.NonVisualPictureProperties!.NonVisualDrawingProperties!.Id!.Value,
+                element.BlipFill!.Blip!.Embed!.Value!,
+                element.OuterXml));
+        }
     }
 
     /// <summary>Whether a picture was deleted, grouped, added or changed since the load or the last save.</summary>

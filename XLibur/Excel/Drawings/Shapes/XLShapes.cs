@@ -28,6 +28,7 @@ internal sealed class XLShapes : IXLShapes, IEnumerable<XLShape>
     public IXLTextBox AddTextBox(string text, IXLCell topLeft)
     {
         ArgumentNullException.ThrowIfNull(text);
+        XLTextBody.ThrowIfNotWritable(text, nameof(text));
         var box = (XLTextBox)Add(XLShapeType.TextBox, topLeft);
         box.Text = text;
         return box;
@@ -36,6 +37,7 @@ internal sealed class XLShapes : IXLShapes, IEnumerable<XLShape>
     public IXLTextBox AddTextBox(string text, int left, int top)
     {
         ArgumentNullException.ThrowIfNull(text);
+        XLTextBody.ThrowIfNotWritable(text, nameof(text));
         var box = (XLTextBox)Add(XLShapeType.TextBox, left, top);
         box.Text = text;
         return box;
@@ -134,6 +136,16 @@ internal sealed class XLShapes : IXLShapes, IEnumerable<XLShape>
         return shape;
     }
 
+    /// <summary>
+    /// Adds a copy of every shape of <paramref name="source"/>, another sheet's, at the same cells of
+    /// this sheet, under the same names, for a copy of that sheet.
+    /// </summary>
+    internal void CopyFrom(XLShapes source)
+    {
+        foreach (var shape in source._shapes)
+            Attach(shape.CopyTo(_worksheet));
+    }
+
     internal void OnRenamed(XLShape shape, string oldName)
     {
         Release(_nameUses, oldName);
@@ -183,12 +195,12 @@ internal sealed class XLShapes : IXLShapes, IEnumerable<XLShape>
     private string NextName(string start)
     {
         var pictures = (XLPictures)_worksheet.Pictures;
-        for (var number = _shapes.Count + 1; ; number++)
-        {
-            var name = $"{start} {number}";
-            if (!IsNameUsed(name) && !pictures.IsNameTaken(name))
-                return name;
-        }
+        var number = _shapes.Count + 1;
+        var name = $"{start} {number}";
+        while (IsNameUsed(name) || pictures.IsNameTaken(name))
+            name = $"{start} {++number}";
+
+        return name;
     }
 
     private static void Take<TKey>(Dictionary<TKey, int> uses, TKey key) where TKey : notnull =>

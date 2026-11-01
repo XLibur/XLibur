@@ -181,6 +181,11 @@ public class ShapeModelTests
         await Assert.That(() => box.TextBody[0].AddText("\0")).Throws<ArgumentException>();
         await Assert.That(() => box.TextBody[0][0].Text = "a\vb").Throws<ArgumentException>();
         await Assert.That(() => box.Text = "tab\tis fine").ThrowsNothing();
+
+        // A text box whose text is refused is not added.
+        await Assert.That(() => ws.Shapes.AddTextBox("a\vb", ws.Cell("A1"))).Throws<ArgumentException>();
+        await Assert.That(() => ws.Shapes.AddTextBox("a\vb", 10, 10)).Throws<ArgumentException>();
+        await Assert.That(ws.Shapes.Count).IsEqualTo(1);
     }
 
     private static System.IO.Stream Image() =>

@@ -577,8 +577,17 @@ a connector, and an empty text box.
   on the shape they name. A connector that named the duplicate names the first one afterwards.
 - **No rebase guard.** `RebaseNonVisualDrawingPropertiesIds` was deleted by spec 17, so ids are never
   renumbered and connector references hold without one (criterion 6).
-- **A loaded shape's placement is its anchor's form**: two-cell is `MoveAndSize`, one-cell `Move`,
-  absolute `FreeFloating`. `editAs` is not mapped and is kept while the form is.
+- **A loaded shape's placement is read as a picture's is**: one-cell is `Move`, absolute
+  `FreeFloating`, and a two-cell anchor follows its `editAs` (`oneCell` is `Move`, `absolute`
+  `FreeFloating`, anything else `MoveAndSize`). A shape whose position changes is written in the
+  anchor form its placement builds; one that does not keeps its anchor and `editAs` as they are.
+- **Shapes follow their cells and come with a sheet copy** (PR #862 review). The spec left both out of
+  v1, but pictures do both, and a shape left behind by a row insert lands on the wrong cells.
+  `DrawingAnchorListener` moves shapes by the picture rules, and `CopyTo` copies each shape, from its
+  XML when the file holds it, with every edit not saved yet.
+- **Every shape keeps its XML as the file holds it**, as a picture does. A shape written into a drawing
+  that does not hold it — a sheet copy, a save of a workbook opened as a template — starts from that
+  XML, so it keeps what XLibur does not model.
 - **Setting `Placement` on a loaded shape does not throw** (design rule 1b). It follows the owner's
   spec 17 decision for pictures: a new placement moves the `xdr:sp` and the client data, intact, into
   an anchor of the new form. Throwing would also have locked a new shape's placement after its first
@@ -594,7 +603,8 @@ a connector, and an empty text box.
   line break reads as, throws `ArgumentException` from the setter rather than from the save.
 - **A move rewrites only what moved**: the marker or position whose cell or offset changed, and the
   extent only when the size did, so an unmoved corner keeps the file's EMU.
-- **Id 0 counts as a duplicate** and gets a fresh id, since the save finds a shape by its id.
+- **Id 0 counts as a duplicate** for a shape, which gets a fresh id since the save finds it by id. A
+  picture with id 0 keeps it unless a second picture has it too.
 - **A line break reads as `\v` and a field as its text** in `IXLTextParagraph.Text`; neither is a run,
   and both are kept when the paragraph is edited.
 - **A shape added at a cell is `Move`** (one-cell anchor), 192 × 96 px, so `WithSize` works on it.

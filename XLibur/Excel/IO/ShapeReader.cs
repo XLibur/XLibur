@@ -32,7 +32,8 @@ internal static class ShapeReader
         XLWorksheet ws, Lazy<AnchorGrid> grid)
     {
         if (element.NonVisualShapeProperties?.NonVisualDrawingProperties is not { Id.Value: var fileId } properties ||
-            element.ShapeProperties?.GetFirstChild<A.PresetGeometry>()?.Preset is not { HasValue: true } preset)
+            element.ShapeProperties is not { } shapeProperties ||
+            shapeProperties.GetFirstChild<A.PresetGeometry>()?.Preset is not { HasValue: true } preset)
             return;
 
         var shapes = (XLShapes)ws.Shapes;
@@ -46,11 +47,11 @@ internal static class ShapeReader
         var shape = shapes.AddLoaded(preset.InnerText!, isTextBox, properties.Name?.Value ?? string.Empty, id);
 
         LoadGeometry(shape, anchor, element, ws, grid);
-        LoadFormat(shape, element.ShapeProperties!);
+        LoadFormat(shape, shapeProperties);
         if (element.TextBody is { } body)
             LoadText(shape.Body, body);
 
-        shape.MarkSaved(id);
+        shape.MarkSaved(id, element.OuterXml);
     }
 
     private static void LoadGeometry(XLShape shape, OpenXmlCompositeElement anchor, Xdr.Shape element, XLWorksheet ws,
@@ -74,21 +75,45 @@ internal static class ShapeReader
                 break;
 
             case Xdr.TwoCellAnchor twoCell when twoCell is { FromMarker: { } from, ToMarker: { } to }:
-            {
-                shape.SetLoadedPlacement(XLPicturePlacement.MoveAndSize);
-                shape.Markers[XLMarkerPosition.TopLeft] = DrawingPartReader.LoadMarker(ws, from);
-                shape.Markers[XLMarkerPosition.BottomRight] = DrawingPartReader.LoadMarker(ws, to);
-
-                // Excel sizes a two-cell anchor from its markers; a box with nothing visible keeps
-                // the size a:xfrm gives.
-                var box = AnchorBox.Measure(grid.Value, from, to);
-                var extents = element.ShapeProperties?.Transform2D?.Extents;
-                shape.SetLoadedSize(
-                    box.Width > 0 ? box.Width : ToPixels(extents?.Cx?.Value, dpiX),
-                    box.Height > 0 ? box.Height : ToPixels(extents?.Cy?.Value, dpiY));
+                LoadTwoCellGeometry(shape, twoCell, from, to, element, ws, grid.Value);
                 break;
-            }
         }
+    }
+
+    /// <summary>
+    /// A two-cell anchor's placement is its <c>editAs</c>, as a picture's is: <c>oneCell</c> moves with
+    /// its top-left cell at its own size, <c>absolute</c> stays where it is, and anything else moves
+    /// and sizes with its cells. A shape given a new size or position is then written in the anchor
+    /// form its placement builds.
+    /// </summary>
+    private static void LoadTwoCellGeometry(XLShape shape, Xdr.TwoCellAnchor anchor, Xdr.MarkerType from,
+        Xdr.MarkerType to, Xdr.Shape element, XLWorksheet ws, AnchorGrid grid)
+    {
+        // Excel sizes a two-cell anchor from its markers; a box with nothing visible keeps the size
+        // a:xfrm gives.
+        var box = AnchorBox.Measure(grid, from, to);
+        var extents = element.ShapeProperties?.Transform2D?.Extents;
+        shape.SetLoadedSize(
+            box.Width > 0 ? box.Width : ToPixels(extents?.Cx?.Value, ws.Workbook.DpiX),
+            box.Height > 0 ? box.Height : ToPixels(extents?.Cy?.Value, ws.Workbook.DpiY));
+
+        var editAs = anchor.EditAs?.Value;
+        if (editAs == Xdr.EditAsValues.Absolute)
+        {
+            shape.SetLoadedPlacement(XLPicturePlacement.FreeFloating);
+            shape.Markers[XLMarkerPosition.TopLeft] = new XLMarker(ws.Cell(1, 1), new System.Drawing.Point(box.Left, box.Top));
+            return;
+        }
+
+        shape.Markers[XLMarkerPosition.TopLeft] = DrawingPartReader.LoadMarker(ws, from);
+        if (editAs == Xdr.EditAsValues.OneCell)
+        {
+            shape.SetLoadedPlacement(XLPicturePlacement.Move);
+            return;
+        }
+
+        shape.SetLoadedPlacement(XLPicturePlacement.MoveAndSize);
+        shape.Markers[XLMarkerPosition.BottomRight] = DrawingPartReader.LoadMarker(ws, to);
     }
 
     private static int ToPixels(long? emu, double dpi) => DrawingPartReader.ConvertFromEnglishMetricUnits(emu ?? 0, dpi);
@@ -119,9 +144,8 @@ internal static class ShapeReader
     {
         if (element.BodyProperties is { } properties)
         {
-            var anchor = properties.Anchor?.Value;
-            var vertical = anchor == A.TextAnchoringTypeValues.Center ? XLTextVerticalAlignment.Center
-                : anchor == A.TextAnchoringTypeValues.Bottom ? XLTextVerticalAlignment.Bottom
+            var vertical = properties.Anchor?.Value is { } anchor
+                ? Find(VerticalAlignments, anchor) ?? XLTextVerticalAlignment.Top
                 : XLTextVerticalAlignment.Top;
             body.SetLoaded(vertical, properties.Wrap?.Value != A.TextWrappingValues.None);
         }
@@ -166,25 +190,61 @@ internal static class ShapeReader
         if (properties is null)
             return;
 
-        var underline = properties.Underline?.Value;
-        var strike = properties.Strike?.Value;
         run.SetLoadedFont(
             properties.Bold?.Value,
             properties.Italic?.Value,
-            underline == A.TextUnderlineValues.None ? XLShapeTextUnderline.None
-                : underline == A.TextUnderlineValues.Single ? XLShapeTextUnderline.Single
-                : underline == A.TextUnderlineValues.Double ? XLShapeTextUnderline.Double
-                : null,
-            strike == A.TextStrikeValues.SingleStrike ? true : strike == A.TextStrikeValues.NoStrike ? false : null,
+            properties.Underline?.Value is { } underline ? Find(Underlines, underline) : null,
+            properties.Strike?.Value is { } strike ? Find(Strikes, strike) : null,
             properties.FontSize?.Value is { } size ? size / 100.0 : null,
             DrawingColorReader.ReadSolidFillColor(properties),
             properties.GetFirstChild<A.LatinFont>()?.Typeface?.Value);
     }
 
     private static XLTextAlignment ToAlignment(A.TextAlignmentTypeValues? alignment) =>
-        alignment == A.TextAlignmentTypeValues.Center ? XLTextAlignment.Center
-        : alignment == A.TextAlignmentTypeValues.Right ? XLTextAlignment.Right
-        : alignment == A.TextAlignmentTypeValues.Justified ? XLTextAlignment.Justified
-        : alignment == A.TextAlignmentTypeValues.Distributed ? XLTextAlignment.Distributed
-        : XLTextAlignment.Left;
+        alignment is { } value ? Find(Alignments, value) ?? XLTextAlignment.Left : XLTextAlignment.Left;
+
+    // The SDK's enum values are value types whose equality is their == operator, so they are looked
+    // up in short tables rather than switched on, as DrawingColorReader's scheme colours are. A value
+    // the model has no member for reads as null: not modelled, and left as the file has it.
+    private static readonly (A.TextAlignmentTypeValues Xml, XLTextAlignment Model)[] Alignments =
+    [
+        (A.TextAlignmentTypeValues.Left, XLTextAlignment.Left),
+        (A.TextAlignmentTypeValues.Center, XLTextAlignment.Center),
+        (A.TextAlignmentTypeValues.Right, XLTextAlignment.Right),
+        (A.TextAlignmentTypeValues.Justified, XLTextAlignment.Justified),
+        (A.TextAlignmentTypeValues.Distributed, XLTextAlignment.Distributed),
+    ];
+
+    private static readonly (A.TextAnchoringTypeValues Xml, XLTextVerticalAlignment Model)[] VerticalAlignments =
+    [
+        (A.TextAnchoringTypeValues.Top, XLTextVerticalAlignment.Top),
+        (A.TextAnchoringTypeValues.Center, XLTextVerticalAlignment.Center),
+        (A.TextAnchoringTypeValues.Bottom, XLTextVerticalAlignment.Bottom),
+    ];
+
+    private static readonly (A.TextUnderlineValues Xml, XLShapeTextUnderline Model)[] Underlines =
+    [
+        (A.TextUnderlineValues.None, XLShapeTextUnderline.None),
+        (A.TextUnderlineValues.Single, XLShapeTextUnderline.Single),
+        (A.TextUnderlineValues.Double, XLShapeTextUnderline.Double),
+    ];
+
+    private static readonly (A.TextStrikeValues Xml, bool Model)[] Strikes =
+    [
+        (A.TextStrikeValues.SingleStrike, true),
+        (A.TextStrikeValues.NoStrike, false),
+    ];
+
+    private static TModel? Find<TXml, TModel>((TXml Xml, TModel Model)[] table, TXml value)
+        where TXml : struct, System.IEquatable<TXml>
+        where TModel : struct
+    {
+        foreach (var (xml, model) in table)
+        {
+            if (xml.Equals(value))
+                return model;
+        }
+
+        return null;
+    }
 }

@@ -35,22 +35,33 @@ internal static class ShapeTextWriter
         var paragraphs = body.Elements<A.Paragraph>().ToList();
         var template = TemplateOf(paragraphs);
         if (model.IsRebuilt)
-        {
-            // The new paragraphs take the first one's properties, as the new runs take its first
-            // run's, so a centred shape stays centred.
-            var paragraphTemplate = paragraphs.FirstOrDefault()?.ParagraphProperties;
-            foreach (var paragraph in paragraphs)
-                paragraph.Remove();
+            Rebuild(body, model, paragraphs, template, alignNewParagraphs);
+        else
+            PatchParagraphs(body, model, paragraphs, template, alignNewParagraphs);
+    }
 
-            foreach (var paragraph in model.Paragraphs)
-                body.Append(NewParagraph(paragraph, template, alignNewParagraphs, paragraphTemplate));
+    /// <summary>
+    /// Replaces every paragraph of the body with the model's. The new paragraphs take the first one's
+    /// properties, as the new runs take its first run's, so a centred shape stays centred.
+    /// </summary>
+    private static void Rebuild(Xdr.TextBody body, XLTextBody model, List<A.Paragraph> paragraphs,
+        A.RunProperties template, bool alignNewParagraphs)
+    {
+        var paragraphTemplate = paragraphs.FirstOrDefault()?.ParagraphProperties;
+        foreach (var paragraph in paragraphs)
+            paragraph.Remove();
 
-            if (!body.Elements<A.Paragraph>().Any())
-                body.Append(EmptyParagraph(template, alignNewParagraphs, paragraphTemplate));
+        foreach (var paragraph in model.Paragraphs)
+            body.Append(NewParagraph(paragraph, template, alignNewParagraphs, paragraphTemplate));
 
-            return;
-        }
+        if (!body.Elements<A.Paragraph>().Any())
+            body.Append(EmptyParagraph(template, alignNewParagraphs, paragraphTemplate));
+    }
 
+    /// <summary>Edits each paragraph the file holds where it is, and adds the new ones after them.</summary>
+    private static void PatchParagraphs(Xdr.TextBody body, XLTextBody model, List<A.Paragraph> paragraphs,
+        A.RunProperties template, bool alignNewParagraphs)
+    {
         // The empty paragraph of an empty body takes the first paragraph added, so the body does not
         // keep a blank line in front of it.
         var placeholder = model.HasPlaceholderParagraph ? paragraphs.FirstOrDefault() : null;
@@ -109,11 +120,7 @@ internal static class ShapeTextWriter
         // Taken before any run is added, so each new run starts from the paragraph as the file had
         // it, and not from the formatting given to the new run before it.
         var runs = element.Elements<A.Run>().ToList();
-        var paragraphTemplate = runs.LastOrDefault()?.RunProperties is { } previous
-            ? (A.RunProperties)previous.CloneNode(true)
-            : element.Elements<A.EndParagraphRunProperties>().FirstOrDefault() is { } end
-                ? CopyCharacterProperties<A.RunProperties>(end)
-                : template;
+        var paragraphTemplate = RunTemplateOf(element, runs, template);
 
         foreach (var run in paragraph.Runs)
         {
@@ -127,6 +134,21 @@ internal static class ShapeTextWriter
 
             TextBodyPrimitives.AppendRun(element, NewRun(run, (A.RunProperties)paragraphTemplate.CloneNode(true)));
         }
+    }
+
+    /// <summary>
+    /// The run properties a new run in <paramref name="element"/> starts from: its last run's, else
+    /// its <c>a:endParaRPr</c>, else the body's <paramref name="template"/>.
+    /// </summary>
+    private static A.RunProperties RunTemplateOf(A.Paragraph element, List<A.Run> runs, A.RunProperties template)
+    {
+        if (runs.LastOrDefault()?.RunProperties is { } previous)
+            return (A.RunProperties)previous.CloneNode(true);
+
+        if (element.Elements<A.EndParagraphRunProperties>().FirstOrDefault() is { } end)
+            return CopyCharacterProperties<A.RunProperties>(end);
+
+        return template;
     }
 
     private static void PatchRun(A.Run element, XLTextRun run)
@@ -187,6 +209,13 @@ internal static class ShapeTextWriter
 
     private static void WriteFont(A.RunProperties properties, XLTextRun run, XLTextRunProperties assigned)
     {
+        WriteFontStyle(properties, run, assigned);
+        WriteFontFace(properties, run, assigned);
+    }
+
+    /// <summary>The assigned bold, italic, underline and strikethrough.</summary>
+    private static void WriteFontStyle(A.RunProperties properties, XLTextRun run, XLTextRunProperties assigned)
+    {
         if (Has(assigned, XLTextRunProperties.Bold))
             properties.Bold = run.Bold is { } bold ? bold : null;
 
@@ -197,10 +226,12 @@ internal static class ShapeTextWriter
             properties.Underline = run.Underline is { } underline ? ToUnderline(underline) : null;
 
         if (Has(assigned, XLTextRunProperties.Strikethrough))
-            properties.Strike = run.Strikethrough is { } strike
-                ? strike ? A.TextStrikeValues.SingleStrike : A.TextStrikeValues.NoStrike
-                : null;
+            properties.Strike = run.Strikethrough is { } strike ? ToStrike(strike) : null;
+    }
 
+    /// <summary>The assigned size, colour and typeface.</summary>
+    private static void WriteFontFace(A.RunProperties properties, XLTextRun run, XLTextRunProperties assigned)
+    {
         if (Has(assigned, XLTextRunProperties.FontSize))
             properties.FontSize = run.FontSize is { } size ? (int)System.Math.Round(size * 100) : null;
 
@@ -258,6 +289,9 @@ internal static class ShapeTextWriter
         XLTextVerticalAlignment.Bottom => A.TextAnchoringTypeValues.Bottom,
         _ => A.TextAnchoringTypeValues.Top,
     };
+
+    private static A.TextStrikeValues ToStrike(bool strike) =>
+        strike ? A.TextStrikeValues.SingleStrike : A.TextStrikeValues.NoStrike;
 
     private static A.TextUnderlineValues ToUnderline(XLShapeTextUnderline underline) => underline switch
     {

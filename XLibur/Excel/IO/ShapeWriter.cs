@@ -49,8 +49,8 @@ internal static class ShapeWriter
 
     /// <summary>
     /// Writes every shape that changed, or every shape when <paramref name="writeAll"/> is set, as
-    /// for a drawing the save package does not have yet. Each shape takes the drawing id it was
-    /// written under once the save has succeeded.
+    /// for a drawing the save package does not have yet. Each shape takes the drawing id and the XML
+    /// it was written as once the save has succeeded.
     /// </summary>
     internal static void WriteShapes(DrawingsPart drawingsPart, XLShapes shapes, SaveContext context, DrawingIds ids,
         bool writeAll)
@@ -63,26 +63,78 @@ internal static class ShapeWriter
             if (!writeAll && !shape.HasUnsavedChanges)
                 continue;
 
-            uint id;
-            if (shape.IsInFile && !writeAll)
-            {
-                // A shape the file holds is patched or left alone, never written a second time: one
-                // the drawing no longer has under its id keeps what the drawing has.
-                if (ids.FindShape(shape.Id) is not { } existing)
-                    continue;
+            if (WriteShape(drawing, shape, ids, writeAll) is not { } written)
+                continue;
 
-                ShapePatcher.Patch(existing.Anchor, existing.Shape, shape);
-                id = (uint)shape.Id;
-            }
-            else
-            {
-                id = ids.NextDrawingId();
-                drawing.Append(DrawingAnchorFactory.Create(shape.Placement, GeometryOf(shape), NewShapeElement(shape, id)));
-            }
-
-            var saved = shape;
-            context.KeepAfterSave.Add(() => saved.MarkSaved((int)id));
+            var (id, xml) = written;
+            context.KeepAfterSave.Add(() => shape.MarkSaved((int)id, xml));
         }
+    }
+
+    /// <summary>
+    /// Writes one shape: patched into the <c>xdr:sp</c> the drawing holds for it, or into a fresh
+    /// anchor, from the XML the file had for it when there is any. Returns the drawing id and the XML
+    /// written, or <c>null</c> when nothing was.
+    /// </summary>
+    private static (uint Id, string Xml)? WriteShape(Xdr.WorksheetDrawing drawing, XLShape shape, DrawingIds ids, bool writeAll)
+    {
+        if (shape.IsInFile && !writeAll)
+        {
+            // A shape the file holds is patched or left alone, never written a second time: one the
+            // drawing no longer has under its id keeps what the drawing has.
+            if (ids.FindShape(shape.Id) is not { } existing)
+                return null;
+
+            ShapePatcher.Patch(existing.Anchor, existing.Shape, shape);
+            return ((uint)shape.Id, existing.Shape.OuterXml);
+        }
+
+        var id = ids.NextDrawingId();
+        var element = (shape.TemplateXml is { } template ? FromTemplate(template, shape, id) : null)
+                      ?? NewShapeElement(shape, id);
+        drawing.Append(DrawingAnchorFactory.Create(shape.Placement, GeometryOf(shape), element));
+        return (id, element.OuterXml);
+    }
+
+    /// <summary>
+    /// The <c>xdr:sp</c> of a shape the drawing does not hold, written from the XML the file had for
+    /// it, so it keeps what XLibur does not model: a copy of the sheet, or a save of a workbook
+    /// opened as a template. Its id, name, size and every edit not saved yet are written over it.
+    /// <c>null</c> when the XML cannot be read back.
+    /// </summary>
+    private static Xdr.Shape? FromTemplate(string template, XLShape shape, uint id)
+    {
+        Xdr.Shape element;
+        try
+        {
+            element = new Xdr.Shape(template);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return null;
+        }
+
+        if (element.NonVisualShapeProperties?.NonVisualDrawingProperties is not { } properties)
+            return null;
+
+        properties.Id = id;
+        properties.Name = shape.Name;
+        DrawingTemplate.DropRelationshipReferences(element);
+
+        if (element.ShapeProperties?.Transform2D is { } transform)
+        {
+            var wb = shape.Worksheet.Workbook;
+            var offset = transform.Offset ?? transform.PrependChild(new A.Offset());
+            var free = shape.Placement == XLPicturePlacement.FreeFloating;
+            offset.X = free ? DrawingUnits.PixelsToEmu(shape.Left, wb.DpiX) : 0;
+            offset.Y = free ? DrawingUnits.PixelsToEmu(shape.Top, wb.DpiY) : 0;
+            var extents = transform.Extents ?? transform.InsertAfter(new A.Extents(), offset);
+            extents.Cx = DrawingUnits.PixelsToEmu(shape.Width, wb.DpiX);
+            extents.Cy = DrawingUnits.PixelsToEmu(shape.Height, wb.DpiY);
+        }
+
+        ShapePatcher.PatchContent(element, shape);
+        return element;
     }
 
     /// <summary>Where the model puts the shape. See <see cref="DrawingAnchorFactory"/> for the A1 fallbacks.</summary>
