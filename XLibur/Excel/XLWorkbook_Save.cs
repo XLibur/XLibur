@@ -257,6 +257,10 @@ public partial class XLWorkbook
     {
         _unkeptSave = null;
         var context = new SaveContext();
+
+        // Nothing edits the workbook while it is saved, so a formula that fails to calculate fails
+        // the same way every time another formula reads it (spec 04, #841).
+        using var failures = CalcEngine.RememberFailures();
         var workbookPart = document.WorkbookPart ?? document.AddWorkbookPart();
         var worksheets = WorksheetsInternal;
 

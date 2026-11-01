@@ -513,8 +513,8 @@ public class EvaluationOutcomeTests
 
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(6);
 
-        // The read fell back to a full pass, which walks every formula, B1 included.
-        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        // The read calculated the formulas it depends on, and never met B1 (spec 04, #841).
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(0);
         await Assert.That(ws.Cell("B1").NeedsRecalculation).IsTrue();
         await Assert.That(() => _ = ws.Cell("B1").Value).Throws<XLCircularReferenceException>();
     }
@@ -529,7 +529,7 @@ public class EvaluationOutcomeTests
 
         await Assert.That(ws.Cell("C1").TryGetValue(out double value)).IsTrue();
         await Assert.That(value).IsEqualTo(6);
-        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(1);
+        await Assert.That(wb.CalcEngine.PassCount).IsEqualTo(0);
         await Assert.That(ws.Cell("B1").TryGetValue(out double _)).IsFalse();
     }
 
@@ -831,10 +831,13 @@ public class EvaluationOutcomeTests
         ws.Cell("A4").FormulaA1 = "A5+1";
         ws.Cell("A5").FormulaA1 = "1";
 
-        await Assert.That(() => _ = ws.Cell("A4").Value).Throws<NullReferenceException>();
+        // A read calculates only what it depends on, so it takes a pass over the whole workbook to
+        // meet the defect (spec 04, #841).
+        await Assert.That(() => wb.RecalculateAllFormulas()).Throws<NullReferenceException>();
 
         ws.Cell("A3").Value = 7;
         ws.Cell("A2").Value = 0;
+        wb.RecalculateAllFormulas();
 
         await Assert.That(ws.Cell("A1").Value).IsEqualTo(14);
         await Assert.That(ws.Cell("A4").Value).IsEqualTo(2);
@@ -954,12 +957,12 @@ public class EvaluationOutcomeTests
     /// <summary>
     /// Review finding (low). Save calculated each dirty formula with a single-cell attempt, whose
     /// fallback already ran a full recalculation, and then ran a second one. Measured on main at
-    /// 1b476e8f with the same workbook: 6,002 passes. Once one full pass has run during a save,
-    /// every formula is either calculated or left dirty by it, and nothing edits the workbook
-    /// mid-save, so the rest of the save needs no further pass.
+    /// 1b476e8f with the same workbook: 6,002 passes. Since spec 04 (#841) a single-cell attempt
+    /// calculates the precedents it reads on demand and falls back to a pass only when it cannot, so
+    /// a cycle with thousands of dependents costs no pass at all.
     /// </summary>
     [Test]
-    public async Task Save_runs_one_calculation_pass_for_a_cycle_with_many_dependents()
+    public async Task Save_runs_no_calculation_pass_for_a_cycle_with_many_dependents()
     {
         const int dependents = 3000;
         using var wb = new XLWorkbook();
@@ -968,7 +971,7 @@ public class EvaluationOutcomeTests
         for (var row = 1; row <= dependents; row++)
             ws.Cell(row, 2).FormulaA1 = $"A1+{row}";
 
-        // Calculable, but only by a pass, because D1 is dirty too.
+        // Calculable on demand, because D1 is calculated when C1 reads it.
         ws.Cell("C1").FormulaA1 = "D1*2";
         ws.Cell("D1").FormulaA1 = "5";
 
@@ -976,7 +979,7 @@ public class EvaluationOutcomeTests
         using var stream = new MemoryStream();
         wb.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
 
-        await Assert.That(wb.CalcEngine.PassCount - before).IsEqualTo(1);
+        await Assert.That(wb.CalcEngine.PassCount - before).IsEqualTo(0);
         await Assert.That(CachedValueInFile(stream, "C1")).IsEqualTo("C1 <v>10</v>");
         await Assert.That(CachedValueInFile(stream, "A1")).IsEqualTo("A1 has no <v>");
         await Assert.That(CachedValueInFile(stream, "B3000")).IsEqualTo("B3000 has no <v>");
