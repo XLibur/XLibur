@@ -15,7 +15,7 @@ namespace XLibur.Tests.Excel.CalcEngine;
 /// </summary>
 /// <remarks>
 /// <c>LAMBDA</c> reads back as <c>_xlfn.LAMBDA</c>, as every function newer than Excel 2007 does in
-/// formula text XLibur writes.
+/// formula text XLibur writes, and its parameter <c>x</c> as <c>_xlpm.x</c>, as Excel writes it.
 /// </remarks>
 public class ExpressionCallTests
 {
@@ -29,7 +29,7 @@ public class ExpressionCallTests
         wb.SaveAs(saved);
         using var reloaded = new XLWorkbook(saved);
 
-        await Assert.That(reloaded.Worksheet(1).Cell("C3").FormulaA1).IsEqualTo("_xlfn.LAMBDA(x,x*A1)(B1)");
+        await Assert.That(reloaded.Worksheet(1).Cell("C3").FormulaA1).IsEqualTo("_xlfn.LAMBDA(_xlpm.x,_xlpm.x*A1)(B1)");
     }
 
     [Test]
@@ -39,7 +39,7 @@ public class ExpressionCallTests
         var ws = wb.AddWorksheet();
         ws.Cell("C3").FormulaA1 = "LAMBDA(x,x*A1)(B1)";
 
-        await Assert.That(ws.Cell("C3").FormulaR1C1).IsEqualTo("_xlfn.LAMBDA(x,x*R[-2]C[-2])(R[-2]C[-1])");
+        await Assert.That(ws.Cell("C3").FormulaR1C1).IsEqualTo("_xlfn.LAMBDA(_xlpm.x,_xlpm.x*R[-2]C[-2])(R[-2]C[-1])");
     }
 
     [Test]
@@ -51,7 +51,7 @@ public class ExpressionCallTests
 
         ws.Row(1).InsertRowsAbove(2);
 
-        await Assert.That(ws.Cell("C5").FormulaA1).IsEqualTo("_xlfn.LAMBDA(x,x*A3)(B3)");
+        await Assert.That(ws.Cell("C5").FormulaA1).IsEqualTo("_xlfn.LAMBDA(_xlpm.x,_xlpm.x*A3)(B3)");
     }
 
     [Test]
@@ -63,7 +63,7 @@ public class ExpressionCallTests
 
         ws.Cell("C3").CopyTo(ws.Cell("D4"));
 
-        await Assert.That(ws.Cell("D4").FormulaA1).IsEqualTo("_xlfn.LAMBDA(x,x*B2)(C2)");
+        await Assert.That(ws.Cell("D4").FormulaA1).IsEqualTo("_xlfn.LAMBDA(_xlpm.x,_xlpm.x*B2)(C2)");
     }
 
     /// <summary>

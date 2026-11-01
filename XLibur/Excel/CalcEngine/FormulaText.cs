@@ -319,9 +319,12 @@ internal static class FormulaText
         if (!MightContainFutureFunction(typed.AsSpan()))
             return typed;
 
-        return TryRewrite(typed, sheetName, origin, RemapFutureFunctions, out var prefixed, out _)
-            ? prefixed
+        var prefixed = TryRewrite(typed, sheetName, origin, RemapFutureFunctions, out var rewritten, out _)
+            ? rewritten
             : typed;
+
+        // LET and LAMBDA are future functions, and their parameters need prefixes of their own.
+        return LambdaParameterPrefixes.Add(prefixed);
     }
 
     /// <summary>
