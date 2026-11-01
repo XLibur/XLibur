@@ -40,12 +40,12 @@ internal static class ChartSeriesFormatXml
         var smooth = seriesElement.Elements<C.Smooth>().FirstOrDefault();
 
         series.SeedLoadedFormat(
-            fillColor: ReadSolidFillColor(shapeProperties),
-            lineColor: ReadSolidFillColor(outline),
+            fillColor: DrawingColorReader.ReadSolidFillColor(shapeProperties),
+            lineColor: DrawingColorReader.ReadSolidFillColor(outline),
             lineWidthPt: outline?.Width?.Value is { } width ? width / DrawingUnits.EmuPerPoint : null,
             markerStyle: ReadMarkerStyle(marker),
             markerSize: marker?.Elements<C.Size>().FirstOrDefault()?.Val?.Value,
-            markerFillColor: ReadSolidFillColor(markerFill),
+            markerFillColor: DrawingColorReader.ReadSolidFillColor(markerFill),
             // c:smooth defaults to true when the element is present without a val attribute.
             smooth: smooth != null && (smooth.Val?.Value ?? true),
             useSecondaryAxis: useSecondaryAxis);
@@ -410,42 +410,6 @@ internal static class ChartSeriesFormatXml
             parent.Append(element);
     }
 
-    private static XLColor? ReadSolidFillColor(OpenXmlCompositeElement? parent)
-    {
-        var solidFill = parent?.Elements<A.SolidFill>().FirstOrDefault();
-        if (solidFill == null)
-            return null;
-
-        var rgb = solidFill.Elements<A.RgbColorModelHex>().FirstOrDefault()?.Val?.Value;
-        if (IsHexRgb(rgb))
-            return XLColor.FromHexRgb(rgb!);
-
-        var scheme = solidFill.Elements<A.SchemeColor>().FirstOrDefault()?.Val;
-        if (scheme != null && TryMapThemeColor(scheme.Value, out var themeColor))
-            return XLColor.FromTheme(themeColor);
-
-        return null;
-    }
-
-    /// <summary>
-    /// Whether the value is a six digit hexadecimal RGB colour. Malformed chart XML must be read
-    /// as "no explicit colour" rather than throwing.
-    /// </summary>
-    private static bool IsHexRgb(string? value)
-    {
-        if (value is not { Length: 6 })
-            return false;
-
-        foreach (var c in value)
-        {
-            var isHexDigit = c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
-            if (!isHexDigit)
-                return false;
-        }
-
-        return true;
-    }
-
     private static XLMarkerStyle ReadMarkerStyle(C.Marker? marker)
     {
         var symbol = marker?.Elements<C.Symbol>().FirstOrDefault()?.Val;
@@ -495,49 +459,4 @@ internal static class ChartSeriesFormatXml
         XLMarkerStyle.X => C.MarkerStyleValues.X,
         _ => throw new ArgumentOutOfRangeException(nameof(style), style, "Unknown marker style.")
     };
-
-    /// <summary>
-    /// The scheme colours XLibur models, paired with the theme slot each maps onto. The first four
-    /// slots answer to two names apiece: <c>bg1</c>/<c>lt1</c> and <c>tx1</c>/<c>dk1</c> are the same
-    /// slot addressed from a colour map or from the theme itself, and a producer may write either.
-    /// </summary>
-    /// <remarks>
-    /// A plain array rather than a dictionary: <c>SchemeColorValues</c> is an Open XML SDK 3 enum
-    /// value type whose equality is defined by its <c>==</c> operator, not by GetHashCode, so a scan
-    /// over sixteen entries is both correct and cheaper than hashing.
-    /// </remarks>
-    private static readonly (A.SchemeColorValues Scheme, XLThemeColor Theme)[] ThemeColorMap =
-    [
-        (A.SchemeColorValues.Background1, XLThemeColor.Background1),
-        (A.SchemeColorValues.Light1, XLThemeColor.Background1),
-        (A.SchemeColorValues.Text1, XLThemeColor.Text1),
-        (A.SchemeColorValues.Dark1, XLThemeColor.Text1),
-        (A.SchemeColorValues.Background2, XLThemeColor.Background2),
-        (A.SchemeColorValues.Light2, XLThemeColor.Background2),
-        (A.SchemeColorValues.Text2, XLThemeColor.Text2),
-        (A.SchemeColorValues.Dark2, XLThemeColor.Text2),
-        (A.SchemeColorValues.Accent1, XLThemeColor.Accent1),
-        (A.SchemeColorValues.Accent2, XLThemeColor.Accent2),
-        (A.SchemeColorValues.Accent3, XLThemeColor.Accent3),
-        (A.SchemeColorValues.Accent4, XLThemeColor.Accent4),
-        (A.SchemeColorValues.Accent5, XLThemeColor.Accent5),
-        (A.SchemeColorValues.Accent6, XLThemeColor.Accent6),
-        (A.SchemeColorValues.Hyperlink, XLThemeColor.Hyperlink),
-        (A.SchemeColorValues.FollowedHyperlink, XLThemeColor.FollowedHyperlink),
-    ];
-
-    private static bool TryMapThemeColor(A.SchemeColorValues value, out XLThemeColor themeColor)
-    {
-        foreach (var (scheme, theme) in ThemeColorMap)
-        {
-            if (value == scheme)
-            {
-                themeColor = theme;
-                return true;
-            }
-        }
-
-        themeColor = default;
-        return false;
-    }
 }

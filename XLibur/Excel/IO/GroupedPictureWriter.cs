@@ -228,6 +228,7 @@ internal static class GroupedPictureWriter
             )
         );
 
+        PictureStyleWriter.Write(picElement, pic);
         groupElement.Append(picElement);
 
         // Reset the model so further edits/saves treat this as an existing grouped picture.
@@ -287,6 +288,7 @@ internal static class GroupedPictureWriter
         PictureContentWriter.WritePictureName(scope, picElement, pic.Name);
         RefeedGroupedPictureImage(drawingsPart, pic);
         UpdateGroupedPictureGeometry(picElement, pic, group);
+        PictureStyleWriter.Write(picElement, pic);
         return picElement;
     }
 

@@ -62,9 +62,67 @@ internal static class PictureAnchorWriter
             return found.Picture;
         }
 
-        var pictureElement = NewPictureElement(pic, embedId, ids.NextDrawingId());
+        var drawingId = ids.NextDrawingId();
+        var pictureElement = (pic.LoadedPictureXml is { } template ? FromTemplate(template, pic, embedId, drawingId) : null) ??
+                             NewPictureElement(pic, embedId, drawingId);
+        PictureStyleWriter.Write(pictureElement, pic);
         worksheetDrawing.Append(DrawingAnchorFactory.Create(pic.Placement, GeometryOf(pic), pictureElement));
         return pictureElement;
+    }
+
+    /// <summary>
+    /// The <c>xdr:pic</c> of a copy of a loaded picture: the <c>xdr:pic</c> the source was loaded from,
+    /// so the copy keeps what XLibur does not model, given the copy's id, name, image and size. Or
+    /// <c>null</c> when the source's XML cannot be read back.
+    /// </summary>
+    /// <remarks>
+    /// Anything else in it that names a relationship, as a hyperlink or an SVG form of the image
+    /// does, names one of the source's drawing part, so it is dropped rather than copied dangling.
+    /// </remarks>
+    private static Xdr.Picture? FromTemplate(string template, XLPicture pic, string embedId, uint drawingId)
+    {
+        Xdr.Picture picture;
+        try
+        {
+            picture = new Xdr.Picture(template);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return null;
+        }
+
+        if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties is not { } properties ||
+            picture.BlipFill?.Blip is not { } blip)
+            return null;
+
+        properties.Id = drawingId;
+        properties.Name = pic.Name;
+        blip.Link = null;
+        blip.Embed = embedId;
+
+        foreach (var element in picture.Descendants().ToList())
+        {
+            if (element == blip || element.Parent is null ||
+                !element.GetAttributes().Any(a => a.NamespaceUri == RelationshipsNs))
+                continue;
+
+            // An extension holding the reference goes whole: an empty a:ext says nothing.
+            var drawing = element.Parent.LocalName == "ext" ? element.Parent : element;
+            drawing.Remove();
+        }
+
+        if (picture.ShapeProperties?.Transform2D is { } transform)
+        {
+            var wb = pic.Worksheet.Workbook;
+            var offset = transform.Offset ?? transform.PrependChild(new Offset());
+            offset.X = 0;
+            offset.Y = 0;
+            var extents = transform.Extents ?? transform.InsertAfter(new Extents(), offset);
+            extents.Cx = DrawingUnits.PixelsToEmu(pic.Width, wb.DpiX);
+            extents.Cy = DrawingUnits.PixelsToEmu(pic.Height, wb.DpiY);
+        }
+
+        return picture;
     }
 
     /// <summary>
@@ -145,6 +203,7 @@ internal static class PictureAnchorWriter
         }
 
         PictureContentWriter.WritePictureNameAndImage(anchor, picture, pic.Name, embedId);
+        PictureStyleWriter.Write(picture, pic);
     }
 
     /// <summary>

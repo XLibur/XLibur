@@ -44,4 +44,26 @@ internal static class DrawingUnits
     /// written came out of. The result is <see cref="int"/> because that is what <c>a:ln/@w</c> is.
     /// </remarks>
     internal static int PointsToEmu(double points) => (int)Math.Round(points * EmuPerPoint);
+
+    /// <summary>A full turn in DrawingML angle units: 60,000ths of a degree.</summary>
+    internal const int FullCircle = 21600000;
+
+    /// <summary>
+    /// Converts degrees to DrawingML's angle unit, 60,000ths of a degree, brought into one turn,
+    /// 0 up to 360 degrees.
+    /// </summary>
+    internal static int DegreesToAngle(double degrees)
+    {
+        var angle = (long)Math.Round(degrees * 60000) % FullCircle;
+        return (int)(angle < 0 ? angle + FullCircle : angle);
+    }
+
+    /// <summary>Converts DrawingML's angle unit, 60,000ths of a degree, to degrees.</summary>
+    internal static double AngleToDegrees(int angle) => angle / 60000.0;
+
+    /// <summary>Converts a percentage to DrawingML's, thousandths of a percent.</summary>
+    internal static int PercentToThousandths(double percent) => (int)Math.Round(percent * 1000);
+
+    /// <summary>Converts EMU to points.</summary>
+    internal static double EmuToPoints(long emu) => emu / EmuPerPoint;
 }

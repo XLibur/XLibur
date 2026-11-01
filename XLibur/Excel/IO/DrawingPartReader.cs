@@ -117,8 +117,8 @@ internal static class DrawingPartReader
 
         // A picture deeper in the anchor than its wrapper's branches, as in a group inside the
         // wrapper, is left as the file has it (#787).
-        if (anchor.Descendants<Xdr.Picture>().FirstOrDefault() is { } first &&
-            !DrawingAnchorContent.IsAnchorPicture(first, anchor))
+        var first = anchor.Descendants<Xdr.Picture>().FirstOrDefault();
+        if (first is not null && !DrawingAnchorContent.IsAnchorPicture(first, anchor))
             return;
 
         var imgId = XLWorkbook.GetImageRelIdFromAnchor(anchor);
@@ -131,6 +131,9 @@ internal static class DrawingPartReader
             return;
 
         var picture = LoadPictureFromAnchor(anchor, imgId, imagePart, ws);
+        if (first is not null)
+            LoadPictureStyle(picture, first);
+
         LoadPictureTransform(picture, anchor, ws);
         LoadPicturePlacement(picture, anchor, ws, grid, layout);
         picture.MarkSaved();
@@ -250,6 +253,7 @@ internal static class DrawingPartReader
             GroupId = groupId,
             GroupKey = groupKey,
         };
+        LoadPictureStyle(xlPicture, pic);
         xlPicture.MarkSaved();
     }
 
@@ -277,6 +281,16 @@ internal static class DrawingPartReader
 
         picture.RelId = embed;
         return picture;
+    }
+
+    /// <summary>
+    /// Reads the picture's styling, and keeps its <c>xdr:pic</c>, which a copy of the picture starts
+    /// from so the copy keeps what XLibur does not model.
+    /// </summary>
+    private static void LoadPictureStyle(XLPicture picture, Xdr.Picture element)
+    {
+        PictureStyleReader.Read(element, picture.Style);
+        picture.LoadedPictureXml = element.OuterXml;
     }
 
     internal static XLMarker LoadMarker(XLWorksheet ws, Xdr.MarkerType marker)
