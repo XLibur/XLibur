@@ -114,7 +114,7 @@ Other notes:
   It replaced `XLibur.Fonts.SixLabors.V1` (SixLabors.Fonts 1.0.1). Keep it on a stable version:
   a prerelease dependency fails the pack with NU5104 under warnings-as-errors
 - **SixLabors.Fonts** 2.1.3 - Font handling in `XLibur.Fonts.SixLabors` only
-- **XLibur.ClosedXML.Parser** 5.0.2 - Parser utilities; our fork of ClosedXML.Parser.
+- **XLibur.ClosedXML.Parser** 5.1.0 - Parser utilities; our fork of ClosedXML.Parser.
   Since 5.0.0 the assembly is `XLibur.ClosedXML.Parser` and the namespace is `XLibur.Parser`
   (`using XLibur.Parser;`), so it loads side by side with upstream ClosedXML ([source](https://github.com/XLibur/ClosedXML.Parser),
   [upstream](https://github.com/ClosedXML/ClosedXML.Parser))

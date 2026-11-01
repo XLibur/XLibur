@@ -147,6 +147,12 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
         return None;
     }
 
+    // A call of the value of an expression, such as LAMBDA(x,x*2)(3), is not evaluated (#847), but the
+    // cells its target and arguments read are its precedents: the visitor's rule for a construct it
+    // reads and does not evaluate.
+    public int ExpressionCall(DependenciesContext context, SymbolRange range, int target, IReadOnlyList<int> arguments) =>
+        Push(context, DependenciesVisitor.ApplyUnsupported(context, new CallOperands(context, target, arguments)));
+
     public int StructureReference(DependenciesContext context, SymbolRange range, StructuredReferenceArea area,
         string? firstColumn, string? lastColumn)
         => Push(context, DependenciesVisitor.ApplyStructuredReference(context,
@@ -248,6 +254,15 @@ internal sealed class PrecedentsFactory : IAstFactory<int, int, DependenciesCont
         public int Count => nodes.Count;
 
         public ReferenceAreas Evaluate(int index) => context.GetNode(nodes[index]);
+    }
+
+    /// <summary>The target of a call of an expression, then its arguments.</summary>
+    private readonly struct CallOperands(DependenciesContext context, int target, IReadOnlyList<int> arguments)
+        : DependenciesVisitor.IFunctionArguments
+    {
+        public int Count => arguments.Count + 1;
+
+        public ReferenceAreas Evaluate(int index) => context.GetNode(index == 0 ? target : arguments[index - 1]);
     }
 
     private readonly struct WalkedName(PrecedentsFactory factory, DependenciesContext context)

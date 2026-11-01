@@ -68,6 +68,7 @@
 ### 🔧 Dependencies
 
 - **`ExcelNumberFormat` 1.1.0 is replaced by `XLibur.ExcelNumberFormat` 1.2.3**, our fork. The namespace is unchanged, so no source changes were needed for the swap.
+- **The formula parser is now `XLibur.ClosedXML.Parser` 5.1.0, which reads a call of the value of an expression, such as `LAMBDA(x,x*2)(3)`.** Before, such a formula was refused as unreadable. It is now kept, through a save, and its references convert to R1C1 and move when rows and columns are inserted or deleted, as in any other formula. The cells it reads are its precedents, so changing one makes a result Excel saved for it stale rather than leaving it to be read back. It is not evaluated until LET and LAMBDA are ([#847](https://github.com/XLibur/XLibur/issues/847)): evaluating it reports an unsupported feature, as a DDE formula does (XLibur/ClosedXML.Parser#67).
 - **`RBush.Signed` 4.0.0 is replaced by `XLibur.RBush` 5.0.0**, our fork, which the dependency tree uses as its spatial index. The namespace is `RBush` as before, so no source changes were needed. The assembly is named `XLibur.RBush`, and it is not strong-named, where `RBush.Signed` was. It ships `net8.0`, `net10.0` and `net11.0` builds, and `net9.0` uses the `net8.0` one ([#851](https://github.com/XLibur/XLibur/pull/851)).
 
 ## v0.730.0 - 2026-10-26
