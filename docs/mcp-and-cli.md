@@ -54,6 +54,8 @@ one line per row headed by its row number, with trailing blank cells dropped. A 
 `\n`, `\r` and `\\`. A cell that fails to calculate reads `!circular`, `!refused`, `!unsupported` or
 `!defect`.
 
+`convert` to `.csv` or `.tsv` prefixes a single quote to any text cell that begins with `=`, `+`, `-`, `@`, a tab or a return, so Excel does not run it as a formula when the file is opened. Numbers, including negative ones, are not changed.
+
 Pass `--json` to the CLI, or `"format": "json"` to a tool, for the structured result. In JSON a blank
 cell is `null`, and an error value, a date and a duration are tagged: `{"error":"#N/A"}`,
 `{"date":"2026-01-31"}`, `{"time":"01:30:00"}`.

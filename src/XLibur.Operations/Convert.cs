@@ -257,11 +257,17 @@ internal static class Delimited
             {
                 if (c > 0)
                     text.Append(separator);
-                var value = Rendering.ToText(row[c]);
-                if (separator == '\t')
-                    text.Append(value);
+                var cell = row[c];
+                if (cell.IsText)
+                {
+                    var safe = NeutraliseFormula(cell.GetText());
+                    text.Append(separator == '\t' ? Rendering.Escape(safe) : CsvField(safe));
+                }
                 else
-                    text.Append(CsvField(row[c].IsText ? row[c].GetText() : value));
+                {
+                    var value = Rendering.ToText(cell);
+                    text.Append(separator == '\t' ? value : CsvField(value));
+                }
             }
 
             text.Append("\r\n");
@@ -269,6 +275,10 @@ internal static class Delimited
 
         return text.ToString();
     }
+
+    /// <summary>Text that Excel would read as a formula when the file is opened gets a leading quote. Numbers never reach here.</summary>
+    private static string NeutraliseFormula(string text)
+        => text.Length > 0 && text[0] is '=' or '+' or '-' or '@' or '\t' or '\r' ? "'" + text : text;
 
     private static string CsvField(string value)
         => value.AsSpan().IndexOfAny(",\"\r\n") < 0 ? value : "\"" + value.Replace("\"", "\"\"") + "\"";

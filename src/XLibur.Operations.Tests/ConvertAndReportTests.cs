@@ -58,6 +58,32 @@ public class ConvertAndReportTests
     }
 
     [Test]
+    [Arguments("out.csv")]
+    [Arguments("out.tsv")]
+    public async Task Export_prefixes_formula_like_text_with_a_quote_but_not_numbers_or_plain_text(string output)
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "in.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.Cell("A1").Value = "=1+1";
+            ws.Cell("A2").Value = -5;
+            ws.Cell("A3").Value = "plain";
+            ws.Cell("A4").FormulaA1 = "\"=\"&\"1+1\"";
+            ws.Cell("A5").Value = "@SUM(A1)";
+            ws.Cell("A6").Value = "-x";
+            ws.Cell("A7").Value = "+x";
+        });
+        var context = Fixtures.Context(root);
+
+        var outcome = Fixtures.Run(context, Convert, new ConvertRequest { Input = "in.xlsx", Output = output, Recalculate = true }).Outcome;
+
+        await Assert.That(outcome.Error).IsNull();
+        await Assert.That(await File.ReadAllTextAsync(root.Combine(output)))
+            .IsEqualTo("'=1+1\r\n-5\r\nplain\r\n'=1+1\r\n'@SUM(A1)\r\n'-x\r\n'+x\r\n");
+    }
+
+    [Test]
     public async Task Conversion_refuses_to_replace_an_output_without_overwrite_and_xlsx_to_xlsm()
     {
         using var root = new TempDirectory();
