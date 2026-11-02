@@ -29,6 +29,7 @@
     <Project Path="src/XLibur.Report.Tests/XLibur.Report.Tests.csproj" />
   </Folder>
   <Folder Name="/XLibur.Operations/">
+    <Project Path="src/XLibur.Cli/XLibur.Cli.csproj" />
     <Project Path="src/XLibur.Operations.Tests/XLibur.Operations.Tests.csproj" />
     <Project Path="src/XLibur.Operations/XLibur.Operations.csproj" />
   </Folder>
