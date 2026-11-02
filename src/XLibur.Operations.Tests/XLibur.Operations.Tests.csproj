@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Plural on purpose: build-and-test.yml passes -p:TargetFrameworks=net10.0. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- An un-awaited TUnit assertion never runs, so CS4014 must fail the build. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+    <PackageReference Include="TUnit" Version="1.78.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur.Operations\XLibur.Operations.csproj" />
+  </ItemGroup>
+
+</Project>

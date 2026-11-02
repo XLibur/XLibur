@@ -192,6 +192,16 @@ jobs:
           --report-trx --report-trx-filename perfreport-test-results.trx
           --coverage --coverage-output-format xml --coverage-output perfreport-coverage.xml
 
+      - name: Test Operations (CLI and MCP server)
+        run: >
+          dotnet test src/XLibur.Operations.Tests/XLibur.Operations.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net10.0
+          -p:TargetFrameworks=net10.0
+          --report-trx --report-trx-filename operations-test-results.trx
+          --coverage --coverage-output-format xml --coverage-output operations-coverage.xml
+
       - name: End SonarCloud analysis
         if: env.SONAR_TOKEN != ''
         env:
@@ -208,6 +218,7 @@ jobs:
             **/TestResults/coverage.xml
             **/TestResults/report-coverage.xml
             **/TestResults/perfreport-coverage.xml
+            **/TestResults/operations-coverage.xml
 
   build-all-frameworks:
     runs-on: ubuntu-latest
