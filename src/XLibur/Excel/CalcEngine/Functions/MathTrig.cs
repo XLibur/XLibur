@@ -58,6 +58,7 @@ internal static class MathTrig
         ce.RegisterFunction("BASE", 2, 3, AdaptLastOptional(Base, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("CEILING", 2, 2, Adapt(Ceiling), FunctionFlags.Scalar);
         ce.RegisterFunction("CEILING.MATH", 1, 3, AdaptLastTwoOptional(CeilingMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("CEILING.PRECISE", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COMBIN", 2, 2, Adapt(Combin), FunctionFlags.Scalar);
         ce.RegisterFunction("COMBINA", 2, 2, Adapt(CombinA), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COS", 1, 1, Adapt(Cos), FunctionFlags.Scalar);
@@ -74,8 +75,10 @@ internal static class MathTrig
         ce.RegisterFunction("FACTDOUBLE", 1, 1, Adapt(FactDouble), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR", 2, 2, Adapt(Floor), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR.MATH", 1, 3, AdaptLastTwoOptional(FloorMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("FLOOR.PRECISE", 1, 2, AdaptLastOptional(FloorPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("GCD", 1, 255, Adapt(Gcd), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("INT", 1, 1, Adapt(Int), FunctionFlags.Scalar);
+        ce.RegisterFunction("ISO.CEILING", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar);
         ce.RegisterFunction("LCM", 1, 255, Adapt(Lcm), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("LN", 1, 1, Adapt(Ln), FunctionFlags.Scalar);
         ce.RegisterFunction("LOG", 1, 2, AdaptLastOptional(Log, 10), FunctionFlags.Scalar);
@@ -351,6 +354,11 @@ internal static class MathTrig
         return Math.Ceiling(number / significance) * significance;
     }
 
+    private static ScalarValue CeilingPrecise(CalcContext ctx, double number, double significance)
+    {
+        return CeilingMath(number, significance, 0);
+    }
+
     private static ScalarValue Combin(CalcContext ctx, double number, double numberChosen)
     {
         var combinationsResult = XLMath.CombinChecked(number, numberChosen);
@@ -544,6 +552,11 @@ internal static class MathTrig
 
         // Mode !0 truncates negative number, i.e. closer to zero
         return Math.Truncate(number / significance) * significance;
+    }
+
+    private static ScalarValue FloorPrecise(CalcContext ctx, double number, double significance)
+    {
+        return FloorMath(number, significance, 0);
     }
 
     private static ScalarValue Gcd(CalcContext ctx, List<Array> arrays)
