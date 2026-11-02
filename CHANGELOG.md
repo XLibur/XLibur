@@ -26,6 +26,10 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **An `xlibur` command and an MCP server, `xlibur-mcp`, over one shared operations layer.** Both read, query, edit, recalculate and compare workbooks with XLibur's formula engine and return the computed values. The ten operations are `inspect`, `read_range`, `find`, `check_formula`, `recalc`, `validate`, `diff`, `edit`, `convert` and `render_report`. `read_range` returns TSV, paged by whole rows with a `next` address to continue. On a 1,022-cell sheet the values are 3,745 characters, 8.3 times fewer than a per-cell JSON list. `edit` applies all its changes or none, recalculates, saves atomically, and returns each edited cell's value, every formula that turned into an error, and the dependent values that changed. `diff` exits 0 when two workbooks are identical and 1 when they differ, so it can check XLibur's own round trips. The server confines every path to its `--root` directories. It refuses device and UNC paths, alternate data streams, reserved device names, and links that lead out of the roots, and it checks containment on the open file handle. Writes are off unless it is started with `--allow-write`. Packages are size-checked before parsing, so a zip bomb is refused. Both tools target .NET 10; see [docs/mcp-and-cli.md](docs/mcp-and-cli.md).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes
