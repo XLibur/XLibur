@@ -523,6 +523,7 @@ public class MathTrigTests
     [Test]
     [Arguments(6.7, -1)]
     [Arguments(0.1, -0.2)]
+    [Arguments(0.07, -0.01)]
     public async Task Ceiling_returns_error_on_different_number_and_significance(double input, double significance)
     {
         // Spec says "if x and significance have different signs, #NUM! is returned.",
@@ -613,6 +614,23 @@ public class MathTrigTests
     }
 
     [Test]
+    [Arguments("CEILING(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING(-0.07, -0.01)", -0.07)]
+    [Arguments("CEILING(-0.7, 0.1)", -0.7000000000000001)]
+    [Arguments("CEILING(1.1, 0.1)", 1.1)]
+    [Arguments("CEILING(4.35, 0.05)", 4.3500000000000005)]
+    [Arguments("FLOOR(0.3, 0.1)", 0.30000000000000004)]
+    [Arguments("FLOOR(0.7, 0.1)", 0.7000000000000001)]
+    [Arguments("FLOOR(-0.3, -0.1)", -0.30000000000000004)]
+    [Arguments("FLOOR(-0.07, 0.01)", -0.07)]
+    [Arguments("FLOOR(4.35, 0.05)", 4.3500000000000005)]
+    public async Task Ceiling_and_floor_keep_an_exact_decimal_multiple_in_the_legacy_functions(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
     [Arguments("CEILING.PRECISE(0.30000001, 0.1)", 0.4)]
     [Arguments("CEILING.PRECISE(0.3+1E-15, 0.1)", 0.4)]
     [Arguments("FLOOR.PRECISE(0.3-1E-15, 0.1)", 0.2)]
@@ -633,6 +651,21 @@ public class MathTrigTests
     {
         var actual = (double)XLWorkbook.EvaluateExpr(formula);
         await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING(0.3+1E-15, 0.1)", 0.4)]
+    [Arguments("CEILING(3+11*2^-51, 1)", 3)]
+    [Arguments("CEILING(3+12*2^-51, 1)", 4)]
+    [Arguments("CEILING(-(3+11*2^-51), -1)", -3)]
+    [Arguments("FLOOR(3-11*2^-51, 1)", 3)]
+    [Arguments("FLOOR(3-12*2^-51, 1)", 2)]
+    [Arguments("FLOOR(-(3-11*2^-51), -1)", -3)]
+    [Arguments("FLOOR(0.3-1E-15, 0.1)", 0.2)]
+    public async Task Ceiling_and_floor_round_the_quotient_to_15_significant_digits_in_the_legacy_functions(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
@@ -1237,6 +1270,7 @@ public class MathTrigTests
     [Test]
     [Arguments(6.7, 0)]
     [Arguments(-6.7, 0)]
+    [Arguments(0.3, 0)]
     public async Task Floor_ThrowsDivisionByZeroOnZeroSignificance(double input, double significance)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"FLOOR({input}, {significance})")).IsEqualTo(XLError.DivisionByZero);
@@ -1244,6 +1278,7 @@ public class MathTrigTests
 
     [Test]
     [Arguments(6.7, -1)]
+    [Arguments(0.3, -0.1)]
     public async Task Floor_ThrowsNumberExceptionOnInvalidInput(double input, double significance)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"FLOOR({input}, {significance})")).IsEqualTo(XLError.NumberInvalid);
@@ -1776,9 +1811,32 @@ public class MathTrigTests
     [Test]
     [Arguments(123456.123, -10)]
     [Arguments(-123456.123, 5)]
+    [Arguments(0.15, -0.1)]
+    [Arguments(-0.15, 0.1)]
     public async Task MRoundExceptions(double number, double multiple)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"MROUND({number}, {multiple})")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    [Arguments("MROUND(0.15, 0.1)", 0.2)]
+    [Arguments("MROUND(-0.15, -0.1)", -0.2)]
+    [Arguments("MROUND(0.45, 0.1)", 0.5)]
+    [Arguments("MROUND(0.15-1E-15, 0.1)", 0.1)]
+    [Arguments("MROUND(2.5-11*2^-51, 1)", 3)]
+    [Arguments("MROUND(2.5-12*2^-51, 1)", 2)]
+    [Arguments("MROUND(-(2.5-11*2^-51), -1)", -3)]
+    [Arguments("MROUND(0.5-90*2^-54, 1)", 1)]
+    [Arguments("MROUND(0.5-91*2^-54, 1)", 0)]
+    [Arguments("MROUND(10.5-2*2^-49, 1)", 11)]
+    [Arguments("MROUND(10.5-3*2^-49, 1)", 10)]
+    [Arguments("MROUND(100.5-2^-46, 1)", 100)]
+    [Arguments("MROUND(1.005, 0.01)", 1)]
+    [Arguments("MROUND(4.05, 0.1)", 4)]
+    public async Task MRound_rounds_the_fraction_of_the_quotient_to_14_decimal_places(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]

@@ -32,6 +32,8 @@
 
 - **`CEILING.MATH` and `FLOOR.MATH` keep a number that is already a multiple of a decimal significance.** `FLOOR.MATH(0.3,0.1)` was 0.2 and `CEILING.MATH(0.07,0.01)` was 0.08, because `0.3/0.1` is `2.9999999999999996` in floating point. Excel rounds that quotient to 15 significant digits before it rounds to a multiple, and both functions, as well as `CEILING.PRECISE`, `ISO.CEILING` and `FLOOR.PRECISE`, now do the same: the results are 0.3 and 0.07. A quotient that differs from a whole number within its first 15 digits still moves, so `CEILING.PRECISE(0.30000001,0.1)` is 0.4. The rule was measured in Excel over COM, including the smallest difference that moves a result ([#877](https://github.com/XLibur/XLibur/issues/877)).
 
+- **`CEILING`, `FLOOR` and `MROUND` keep a number that is already a multiple of a decimal significance.** `CEILING(0.07,0.01)` was 0.08, `FLOOR(0.3,0.1)` was 0.2 and `MROUND(0.15,0.1)` was 0.1, because each divided two doubles and rounded the raw quotient. `CEILING` and `FLOOR` now round the quotient to 15 significant digits first, as `CEILING.MATH` and `FLOOR.MATH` do. `MROUND` follows a different Excel rule: it rounds the fraction of the quotient to 14 decimal places before it rounds half away from zero, so `MROUND(0.15,0.1)` is 0.2 but `MROUND(1.005,0.01)` stays 1. The sign rules and errors are unchanged. All three were compared with Excel over COM on about 2,800 inputs, and the results match ([#882](https://github.com/XLibur/XLibur/issues/882)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes
