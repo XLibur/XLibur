@@ -11,6 +11,7 @@ internal sealed class TallyAll : ITally
 {
     private readonly bool _ignoreArrayText;
     private readonly bool _includeErrors;
+    private readonly bool _ignoreErrors;
     // Null reads a reference through the context's struct enumerator, which allocates nothing.
     private readonly Func<CalcContext, Reference, IEnumerable<ScalarValue>>? _getNonBlankValues;
 
@@ -54,17 +55,32 @@ internal sealed class TallyAll : ITally
     /// </summary>
     internal static readonly ITally Subtotal100 = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalOnly, skipHiddenRows: true));
 
-    /// <summary>Tally algorithm for <c>AGGREGATE</c> function 3 (COUNTA).</summary>
-    internal static readonly ITally AggregateCountA = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate));
+    /// <summary>
+    /// The eight tally algorithms <c>AGGREGATE</c> function 3 (COUNTA) needs, indexed like
+    /// <see cref="TallyNumbers.Aggregate"/> by skipped nested subtotals, skipped hidden rows and
+    /// ignored errors.
+    /// </summary>
+    private static readonly TallyAll[] AggregateVariants =
+    [
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.NoFunctions)),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.NoFunctions), ignoreErrors: true),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.NoFunctions, skipHiddenRows: true)),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.NoFunctions, skipHiddenRows: true), ignoreErrors: true),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate)),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate), ignoreErrors: true),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate, skipHiddenRows: true)),
+        new(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate, skipHiddenRows: true), ignoreErrors: true),
+    ];
 
-    /// <summary>Tally algorithm for <c>AGGREGATE</c> function 3 with an option that hides rows.</summary>
-    internal static readonly ITally AggregateCountAVisible = new TallyAll(getNonBlankValues: static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, TallyNumbers.SubtotalAndAggregate, skipHiddenRows: true));
+    internal static ITally AggregateCountA(bool skipNested, bool skipHiddenRows, bool ignoreErrors)
+        => AggregateVariants[(skipNested ? 4 : 0) + (skipHiddenRows ? 2 : 0) + (ignoreErrors ? 1 : 0)];
 
-    private TallyAll(bool ignoreArrayText = true, bool includeErrors = false, Func<CalcContext, Reference, IEnumerable<ScalarValue>>? getNonBlankValues = null)
+    private TallyAll(bool ignoreArrayText = true, bool includeErrors = false, Func<CalcContext, Reference, IEnumerable<ScalarValue>>? getNonBlankValues = null, bool ignoreErrors = false)
     {
         _ignoreArrayText = ignoreArrayText;
         _includeErrors = includeErrors;
         _getNonBlankValues = getNonBlankValues;
+        _ignoreErrors = ignoreErrors;
     }
 
     public OneOf<T, XLError> Tally<T>(CalcContext ctx, Span<AnyValue> args, T initialState)
@@ -162,6 +178,9 @@ internal sealed class TallyAll : ITally
     private OneOf<bool, XLError> TallyError<T>(XLError error, ref T state)
         where T : ITallyState<T>
     {
+        if (_ignoreErrors)
+            return true;
+
         if (!_includeErrors)
             return error;
 
