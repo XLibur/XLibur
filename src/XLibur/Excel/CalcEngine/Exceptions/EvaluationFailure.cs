@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace XLibur.Excel.CalcEngine.Exceptions;
 
@@ -53,4 +54,52 @@ internal static class EvaluationFailure
         GettingDataException => EvaluationFailureKind.Pending,
         _ => EvaluationFailureKind.Defect,
     };
+
+    /// <summary>
+    /// Whether <paramref name="kind"/> is an expected failure (ADR 0001): something in the workbook's
+    /// content that save and the public <c>TryEvaluate</c> methods tolerate, as opposed to a defect or
+    /// the engine's own signals. It is the one definition of "expected": a failure is expected exactly
+    /// when it has a <see cref="XLFormulaIssueKind"/>, so adding one is a change to
+    /// <see cref="TryGetIssueKind"/> only.
+    /// </summary>
+    internal static bool IsExpected(EvaluationFailureKind kind) => TryGetIssueKind(kind, out _);
+
+    /// <summary>
+    /// The public name of an expected failure.
+    /// </summary>
+    /// <returns><c>false</c> when <paramref name="kind"/> is not an expected failure.</returns>
+    internal static bool TryGetIssueKind(EvaluationFailureKind kind, out XLFormulaIssueKind issueKind)
+    {
+        switch (kind)
+        {
+            case EvaluationFailureKind.Cycle:
+                issueKind = XLFormulaIssueKind.CircularReference;
+                return true;
+            case EvaluationFailureKind.Unsupported:
+                issueKind = XLFormulaIssueKind.UnsupportedFeature;
+                return true;
+            case EvaluationFailureKind.Refused:
+                issueKind = XLFormulaIssueKind.RefusedFormula;
+                return true;
+            default:
+                issueKind = default;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Describes an expected failure as the public issue a caller of <c>TryEvaluate</c> gets.
+    /// </summary>
+    /// <returns><c>false</c> when <paramref name="exception"/> is not an expected failure.</returns>
+    internal static bool TryCreateIssue(Exception exception, [NotNullWhen(true)] out XLFormulaIssue? issue)
+    {
+        if (TryGetIssueKind(Classify(exception), out var issueKind))
+        {
+            issue = new XLFormulaIssue(issueKind, exception.Message, exception, FormulaRefusal.PositionOf(exception));
+            return true;
+        }
+
+        issue = null;
+        return false;
+    }
 }

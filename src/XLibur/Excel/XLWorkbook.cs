@@ -1305,6 +1305,9 @@ public partial class XLWorkbook : IXLWorkbook
         return CalcEngine.EvaluateFormula(expression, this, recursive: true).ToCellValue();
     }
 
+    public XLEvaluationResult TryEvaluate(string expression)
+        => EvaluationPolicy.TryEvaluate((Book: this, Expression: expression), static s => s.Book.Evaluate(s.Expression));
+
     /// <summary>
     /// Force recalculation of all cell formulas.
     /// </summary>

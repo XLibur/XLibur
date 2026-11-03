@@ -1800,6 +1800,11 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return CalcEngine.EvaluateFormula(expression, Workbook, this, point, true).ToCellValue();
     }
 
+    public XLEvaluationResult TryEvaluate(string expression, string? formulaAddress = null)
+        => EvaluationPolicy.TryEvaluate(
+            (Sheet: this, Expression: expression, Address: formulaAddress),
+            static s => s.Sheet.Evaluate(s.Expression, s.Address));
+
     public void RecalculateAllFormulas()
     {
         Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);

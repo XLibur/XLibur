@@ -31,6 +31,9 @@ internal enum EvaluationEntryPoint
 
     /// <summary>Save, with <c>SaveOptions.EvaluateFormulasBeforeSaving</c>.</summary>
     Save,
+
+    /// <summary><c>TryEvaluate</c> on a cell, a worksheet and a workbook.</summary>
+    TryEvaluate,
 }
 
 /// <summary>
@@ -56,6 +59,12 @@ internal enum EvaluationOutcome
     /// cells. Save writes the cell with no cached value, so Excel recalculates it on open.
     /// </summary>
     LeaveDirty,
+
+    /// <summary>
+    /// The call returns the failure as an <see cref="XLFormulaIssue"/> instead of throwing. The cell
+    /// is left as the throwing path leaves it: dirty, with no new value.
+    /// </summary>
+    Report,
 }
 
 /// <summary>
@@ -92,10 +101,8 @@ internal static class EvaluationPolicy
         EvaluationEntryPoint.TolerantRead => kind switch
         {
             // #459: only what a formula can legitimately produce is tolerated.
-            EvaluationFailureKind.Cycle
-                or EvaluationFailureKind.Unsupported
-                or EvaluationFailureKind.Refused
-                or EvaluationFailureKind.NoContext => EvaluationOutcome.NoValue,
+            _ when EvaluationFailure.IsExpected(kind) || kind == EvaluationFailureKind.NoContext
+                => EvaluationOutcome.NoValue,
             _ => EvaluationOutcome.Throw,
         },
 
@@ -107,16 +114,38 @@ internal static class EvaluationPolicy
         // cell on open.
         //
         // In both, anything else throws, a defect above all (D61).
-        EvaluationEntryPoint.Recalculation or EvaluationEntryPoint.Save => kind switch
-        {
-            EvaluationFailureKind.Cycle
-                or EvaluationFailureKind.Unsupported
-                or EvaluationFailureKind.Refused => EvaluationOutcome.LeaveDirty,
-            _ => EvaluationOutcome.Throw,
-        },
+        EvaluationEntryPoint.Recalculation or EvaluationEntryPoint.Save =>
+            EvaluationFailure.IsExpected(kind) ? EvaluationOutcome.LeaveDirty : EvaluationOutcome.Throw,
+
+        // TryEvaluate reports the same expected failures as a value, and throws the rest. The public
+        // API draws the line ADR 0001 drew for save, and IsExpected is the only place it is drawn.
+        EvaluationEntryPoint.TryEvaluate =>
+            EvaluationFailure.IsExpected(kind) ? EvaluationOutcome.Report : EvaluationOutcome.Throw,
 
         _ => EvaluationOutcome.Throw,
     };
+
+    /// <summary>
+    /// Runs <paramref name="evaluate"/>, which is the throwing public path, and returns an expected
+    /// failure as an issue instead. Anything else, a defect or a missing context, propagates.
+    /// </summary>
+    /// <remarks>
+    /// The state is passed in rather than captured, so a caller can use static lambdas and the
+    /// success path allocates nothing beyond what the throwing path does.
+    /// </remarks>
+    internal static XLEvaluationResult TryEvaluate<TState>(TState state, Func<TState, XLCellValue> evaluate)
+    {
+        try
+        {
+            return new XLEvaluationResult(evaluate(state));
+        }
+        catch (Exception ex) when (For(EvaluationEntryPoint.TryEvaluate, ex) == EvaluationOutcome.Report)
+        {
+            // The filter let only an expected failure in, so an issue always exists.
+            EvaluationFailure.TryCreateIssue(ex, out var issue);
+            return new XLEvaluationResult(issue!);
+        }
+    }
 
     /// <summary>
     /// Runs <paramref name="evaluate"/>, and reports the calc engine's internal missing-context

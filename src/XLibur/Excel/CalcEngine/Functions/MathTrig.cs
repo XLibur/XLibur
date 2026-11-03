@@ -58,6 +58,7 @@ internal static class MathTrig
         ce.RegisterFunction("BASE", 2, 3, AdaptLastOptional(Base, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("CEILING", 2, 2, Adapt(Ceiling), FunctionFlags.Scalar);
         ce.RegisterFunction("CEILING.MATH", 1, 3, AdaptLastTwoOptional(CeilingMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("CEILING.PRECISE", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COMBIN", 2, 2, Adapt(Combin), FunctionFlags.Scalar);
         ce.RegisterFunction("COMBINA", 2, 2, Adapt(CombinA), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COS", 1, 1, Adapt(Cos), FunctionFlags.Scalar);
@@ -74,8 +75,10 @@ internal static class MathTrig
         ce.RegisterFunction("FACTDOUBLE", 1, 1, Adapt(FactDouble), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR", 2, 2, Adapt(Floor), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR.MATH", 1, 3, AdaptLastTwoOptional(FloorMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("FLOOR.PRECISE", 1, 2, AdaptLastOptional(FloorPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("GCD", 1, 255, Adapt(Gcd), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("INT", 1, 1, Adapt(Int), FunctionFlags.Scalar);
+        ce.RegisterFunction("ISO.CEILING", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar);
         ce.RegisterFunction("LCM", 1, 255, Adapt(Lcm), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("LN", 1, 1, Adapt(Ln), FunctionFlags.Scalar);
         ce.RegisterFunction("LOG", 1, 2, AdaptLastOptional(Log, 10), FunctionFlags.Scalar);
@@ -329,10 +332,7 @@ internal static class MathTrig
         if (significance < 0 && number > 0)
             return XLError.NumberInvalid;
 
-        if (number < 0)
-            return -Math.Ceiling(-number / -significance) * -significance;
-
-        return Math.Ceiling(number / significance) * significance;
+        return Math.Ceiling(RoundedQuotient(number, significance)) * significance;
     }
 
     private static ScalarValue CeilingMath(double number, double significance, double mode)
@@ -341,14 +341,49 @@ internal static class MathTrig
             return 0;
 
         significance = Math.Abs(significance);
+        var quotient = RoundedQuotient(number, significance);
 
         // Mode 1 very similar to behavior of CEILING function, i.e. ceil
         // away from zero even for negative numbers. Mode 1 is not the same
         // as CEILING, e.g. CEILING(-5.5, 2.1) vs CEILING.MATH(-5.5, 2.1, 1)).
         if (number < 0 && mode != 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
-        return Math.Ceiling(number / significance) * significance;
+        return Math.Ceiling(quotient) * significance;
+    }
+
+    // Excel rounds the quotient to 15 significant digits, half away from zero, before it rounds
+    // to a multiple, so 0.3 / 0.1 = 2.9999999999999996 counts as 3.
+    private static double RoundedQuotient(double number, double significance)
+    {
+        var quotient = number / significance;
+        var magnitude = Math.Abs(quotient);
+        var tooSmallToRoundToAnInteger = magnitude < 0.1;
+        if (tooSmallToRoundToAnInteger || !double.IsFinite(quotient))
+            return quotient;
+
+        var digits = 14 - (int)Math.Floor(Math.Log10(magnitude));
+        if (digits < 0)
+            return XLMath.Round(quotient, digits);
+
+        var scale = XLMath.Power10[digits];
+        return RoundExactProductHalfAwayFromZero(quotient, scale) / scale;
+    }
+
+    private static double RoundExactProductHalfAwayFromZero(double value, double scale)
+    {
+        var product = value * scale;
+        var productRoundingError = Math.FusedMultiplyAdd(value, scale, -product);
+        var exactProductFallsShortOfTheHalf = Math.Abs(product - Math.Truncate(product)) == 0.5
+            && productRoundingError * product < 0;
+        return exactProductFallsShortOfTheHalf
+            ? Math.Truncate(product)
+            : Math.Round(product, MidpointRounding.AwayFromZero);
+    }
+
+    private static ScalarValue CeilingPrecise(CalcContext ctx, double number, double significance)
+    {
+        return CeilingMath(number, significance, 0);
     }
 
     private static ScalarValue Combin(CalcContext ctx, double number, double numberChosen)
@@ -523,10 +558,7 @@ internal static class MathTrig
         if (significance == 0)
             return XLError.DivisionByZero;
 
-        if (significance < 0)
-            return -Math.Floor(-number / -significance) * -significance;
-
-        return Math.Floor(number / significance) * significance;
+        return Math.Floor(RoundedQuotient(number, significance)) * significance;
     }
 
     private static ScalarValue FloorMath(double number, double significance, double mode)
@@ -535,15 +567,21 @@ internal static class MathTrig
             return 0d;
 
         significance = Math.Abs(significance);
+        var quotient = RoundedQuotient(number, significance);
         if (number >= 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
         // Mode 0 floors numbers to lower number.
         if (mode == 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
         // Mode !0 truncates negative number, i.e. closer to zero
-        return Math.Truncate(number / significance) * significance;
+        return Math.Truncate(quotient) * significance;
+    }
+
+    private static ScalarValue FloorPrecise(CalcContext ctx, double number, double significance)
+    {
+        return FloorMath(number, significance, 0);
     }
 
     private static ScalarValue Gcd(CalcContext ctx, List<Array> arrays)
@@ -756,19 +794,43 @@ internal static class MathTrig
         if (divisor == 0)
             return XLError.DivisionByZero;
 
-        return number - Math.Floor(number / divisor) * divisor;
+        // Excel's limit, measured: 1125899999999.75 still has a result, 1125900000000 is #NUM!.
+        if (Math.Abs(number / divisor) >= 1.1259e12)
+            return XLError.NumberInvalid;
+
+        var remainder = number % divisor;
+        if (remainder == 0)
+            return 0;
+
+        var result = (remainder < 0) != (divisor < 0) ? remainder + divisor : remainder;
+
+        // Excel has no subnormal numbers, and gives #NUM! when either step produces one.
+        if (double.IsSubnormal(remainder) || double.IsSubnormal(result))
+            return XLError.NumberInvalid;
+
+        // Excel gives 0, not the divisor, when moving the sign rounds to the divisor.
+        return result == divisor ? 0 : result;
     }
 
     private static ScalarValue MRound(CalcContext ctx, double number, double multiple)
     {
-        if (multiple == 0)
+        if (multiple == 0 || number == 0)
             return 0;
 
         if (Math.Sign(number) != Math.Sign(multiple))
             return XLError.NumberInvalid;
 
-        return Math.Round(number / multiple, MidpointRounding.AwayFromZero) * multiple;
+        // Excel rounds the fraction of the quotient to 14 decimal places, not the quotient to 15
+        // significant digits as CEILING and FLOOR do, so MROUND(0.15, 0.1) is 0.2 but
+        // MROUND(1.005, 0.01) is 1.
+        var quotient = number / multiple;
+        var whole = Math.Floor(quotient);
+        var reachesTheHalf = RoundFractionTo14Decimals(quotient - whole) >= 0.5;
+        return (reachesTheHalf ? whole + 1 : whole) * multiple;
     }
+
+    // Not Math.Round(fraction, 14, ...): from .NET 11 that rounds the exact binary value, not the scaled one Excel rounds.
+    private static double RoundFractionTo14Decimals(double fraction) => XLMath.Round(fraction, 14);
 
     private static ScalarValue Multinomial(CalcContext ctx, List<IEnumerable<ScalarValue>> numberCollections)
     {

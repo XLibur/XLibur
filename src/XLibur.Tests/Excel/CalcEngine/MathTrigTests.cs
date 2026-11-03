@@ -3,6 +3,7 @@ using XLibur.Excel;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -522,6 +523,7 @@ public class MathTrigTests
     [Test]
     [Arguments(6.7, -1)]
     [Arguments(0.1, -0.2)]
+    [Arguments(0.07, -0.01)]
     public async Task Ceiling_returns_error_on_different_number_and_significance(double input, double significance)
     {
         // Spec says "if x and significance have different signs, #NUM! is returned.",
@@ -566,6 +568,132 @@ public class MathTrigTests
 
         var actual = (double)XLWorkbook.EvaluateExpr($"CEILING.MATH({parameters})");
         await Assert.That(actual).IsEqualTo(expectedResult).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(4.3)", 5)]
+    [Arguments("CEILING.PRECISE(4.3, 1)", 5)]
+    [Arguments("CEILING.PRECISE(-4.3)", -4)]
+    [Arguments("CEILING.PRECISE(4.3, -2)", 6)]
+    [Arguments("CEILING.PRECISE(-4.3, -2)", -4)]
+    [Arguments("CEILING.PRECISE(4.3, 0)", 0)]
+    [Arguments("CEILING.PRECISE(-4.3, 0)", 0)]
+    [Arguments("ISO.CEILING(4.3)", 5)]
+    [Arguments("ISO.CEILING(4.3, -2)", 6)]
+    [Arguments("ISO.CEILING(-4.3, -2)", -4)]
+    [Arguments("ISO.CEILING(4.3, 0)", 0)]
+    [Arguments("FLOOR.PRECISE(3.2)", 3)]
+    [Arguments("FLOOR.PRECISE(-3.2)", -4)]
+    [Arguments("FLOOR.PRECISE(3.2, -1)", 3)]
+    [Arguments("FLOOR.PRECISE(-3.2, -1)", -4)]
+    [Arguments("FLOOR.PRECISE(-3.2, 0)", 0)]
+    [Arguments("FLOOR.PRECISE(3.2, 0)", 0)]
+    public async Task Precise_rounding_ignores_the_sign_of_significance(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("FLOOR.PRECISE(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.PRECISE(0.7, 0.1)", 0.7)]
+    [Arguments("FLOOR.PRECISE(4.35, 0.05)", 4.35)]
+    [Arguments("FLOOR.PRECISE(-0.07, 0.01)", -0.07)]
+    [Arguments("CEILING.PRECISE(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.PRECISE(1.1, 0.1)", 1.1)]
+    [Arguments("CEILING.PRECISE(-0.7, 0.1)", -0.7)]
+    [Arguments("ISO.CEILING(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(-0.07, 0.01, 1)", -0.07)]
+    [Arguments("FLOOR.MATH(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.MATH(-0.7, 0.1, 1)", -0.7)]
+    public async Task Ceiling_and_floor_keep_an_exact_decimal_multiple(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING(-0.07, -0.01)", -0.07)]
+    [Arguments("CEILING(-0.7, 0.1)", -0.7000000000000001)]
+    [Arguments("CEILING(1.1, 0.1)", 1.1)]
+    [Arguments("CEILING(4.35, 0.05)", 4.3500000000000005)]
+    [Arguments("FLOOR(0.3, 0.1)", 0.30000000000000004)]
+    [Arguments("FLOOR(0.7, 0.1)", 0.7000000000000001)]
+    [Arguments("FLOOR(-0.3, -0.1)", -0.30000000000000004)]
+    [Arguments("FLOOR(-0.07, 0.01)", -0.07)]
+    [Arguments("FLOOR(4.35, 0.05)", 4.3500000000000005)]
+    public async Task Ceiling_and_floor_keep_an_exact_decimal_multiple_in_the_legacy_functions(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(0.30000001, 0.1)", 0.4)]
+    [Arguments("CEILING.PRECISE(0.3+1E-15, 0.1)", 0.4)]
+    [Arguments("FLOOR.PRECISE(0.3-1E-15, 0.1)", 0.2)]
+    [Arguments("CEILING.PRECISE(3+11*2^-51, 1)", 3)]
+    [Arguments("CEILING.PRECISE(3+12*2^-51, 1)", 4)]
+    [Arguments("FLOOR.PRECISE(1-4*2^-53, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(1-5*2^-53, 1)", 0)]
+    [Arguments("CEILING.PRECISE(9+2*2^-49, 1)", 9)]
+    [Arguments("CEILING.PRECISE(9+3*2^-49, 1)", 10)]
+    [Arguments("CEILING.PRECISE(1E-20, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(-1E-20, 1)", -1)]
+    [Arguments("CEILING.PRECISE(1E-300, 1E300)", 0)]
+    [Arguments("CEILING.PRECISE(1E15+3, 1)", 1e15)]
+    [Arguments("FLOOR.PRECISE(123456789012345+0.75, 1)", 123456789012346)]
+    [Arguments("FLOOR.PRECISE(123456789012344+0.5, 1)", 123456789012345)]
+    [Arguments("CEILING.PRECISE(-(123456789012344+0.5), 1)", -123456789012345)]
+    public async Task Ceiling_and_floor_round_the_quotient_to_15_significant_digits(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING(0.3+1E-15, 0.1)", 0.4)]
+    [Arguments("CEILING(3+11*2^-51, 1)", 3)]
+    [Arguments("CEILING(3+12*2^-51, 1)", 4)]
+    [Arguments("CEILING(-(3+11*2^-51), -1)", -3)]
+    [Arguments("FLOOR(3-11*2^-51, 1)", 3)]
+    [Arguments("FLOOR(3-12*2^-51, 1)", 2)]
+    [Arguments("FLOOR(-(3-11*2^-51), -1)", -3)]
+    [Arguments("FLOOR(0.3-1E-15, 0.1)", 0.2)]
+    public async Task Ceiling_and_floor_round_the_quotient_to_15_significant_digits_in_the_legacy_functions(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(\"a\")")]
+    [Arguments("CEILING.PRECISE(4.3, \"a\")")]
+    [Arguments("ISO.CEILING(\"a\")")]
+    [Arguments("FLOOR.PRECISE(\"a\")")]
+    [Arguments("FLOOR.PRECISE(3.2, \"a\")")]
+    public async Task Precise_rounding_of_text_is_a_value_error(string formula)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(4.3,-2)", "_xlfn.CEILING.PRECISE(4.3,-2)", 6)]
+    [Arguments("FLOOR.PRECISE(-3.2)", "_xlfn.FLOOR.PRECISE(-3.2)", -4)]
+    [Arguments("ISO.CEILING(4.3,-2)", "ISO.CEILING(4.3,-2)", 6)]
+    public async Task Precise_rounding_formula_keeps_its_prefix_through_a_save(string typed, string stored, double expected)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet().Cell("A1").FormulaA1 = typed;
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        var cell = reloaded.Worksheet(1).Cell("A1");
+
+        await Assert.That(cell.FormulaA1).IsEqualTo(stored);
+        await Assert.That(cell.GetDouble()).IsEqualTo(expected).Within(tolerance);
     }
 
     [Test]
@@ -1142,6 +1270,7 @@ public class MathTrigTests
     [Test]
     [Arguments(6.7, 0)]
     [Arguments(-6.7, 0)]
+    [Arguments(0.3, 0)]
     public async Task Floor_ThrowsDivisionByZeroOnZeroSignificance(double input, double significance)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"FLOOR({input}, {significance})")).IsEqualTo(XLError.DivisionByZero);
@@ -1149,6 +1278,7 @@ public class MathTrigTests
 
     [Test]
     [Arguments(6.7, -1)]
+    [Arguments(0.3, -0.1)]
     public async Task Floor_ThrowsNumberExceptionOnInvalidInput(double input, double significance)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"FLOOR({input}, {significance})")).IsEqualTo(XLError.NumberInvalid);
@@ -1629,26 +1759,50 @@ public class MathTrigTests
     }
 
     [Test]
-    [Arguments(1.5, 1, 0.5)]
-    [Arguments(3, 2, 1)]
-    [Arguments(-3, 2, 1)]
-    [Arguments(-3, -2, -1)]
-    [Arguments(-4.3, -0.5, -0.3)]
-    [Arguments(6.9, -0.2, -0.1)]
-    [Arguments(0.7, 0.6, 0.1)]
-    [Arguments(6.2, 1.1, 0.7)]
-    public async Task Mod(double x, double y, double result)
+    [Arguments("MOD(1.5, 1)", 0.5)]
+    [Arguments("MOD(3, 2)", 1)]
+    [Arguments("MOD(-3, 2)", 1)]
+    [Arguments("MOD(-3, -2)", -1)]
+    [Arguments("MOD(-4.3, -0.5)", -0.2999999999999998)]
+    [Arguments("MOD(6.9, -0.2)", -0.10000000000000003)]
+    [Arguments("MOD(0.7, 0.6)", 0.09999999999999998)]
+    [Arguments("MOD(6.2, 1.1)", 0.6999999999999997)]
+    [Arguments("MOD(1, 0.1)", 0.09999999999999995)]
+    [Arguments("MOD(0.07, 0.01)", 5.204170427930421E-18)]
+    [Arguments("MOD(1.1, 0.1)", 2.7755575615628914E-17)]
+    [Arguments("MOD(-0.3, 0.1)", 2.7755575615628914E-17)]
+    [Arguments("MOD(-1, 1)", 0)]
+    [Arguments("MOD(-0.3, -0.1)", -0.09999999999999998)]
+    [Arguments("MOD(-1E-20, 1)", 0)]
+    [Arguments("MOD(1E-20, -1)", 0)]
+    [Arguments("MOD(-1E-16, 1)", 0.9999999999999999)]
+    [Arguments("MOD(1125899999999.75, 1)", 0.75)]
+    [Arguments("MOD(1.0995116277765E+22, 10000000000)", 4999610368)]
+    [Arguments("MOD(-109.95116277765, 1E-10)", 5.0006213111919355E-11)]
+    [Arguments("MOD(\"7\", \"2\")", 1)]
+    [Arguments("MOD(TRUE, 2)", 1)]
+    public async Task Mod_matches_excel_bit_for_bit(string formula, double expected)
     {
-        var actual = (double)XLWorkbook.EvaluateExpr($"MOD({x}, {y})");
-        await Assert.That(actual).IsEqualTo(result).Within(tolerance);
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual.ToString("R", CultureInfo.InvariantCulture)).IsEqualTo(expected.ToString("R", CultureInfo.InvariantCulture));
     }
 
     [Test]
-    public async Task Mod_divisor_zero_returns_error()
+    [Arguments("MOD(1, 0)", XLError.DivisionByZero)]
+    [Arguments("MOD(0, 0)", XLError.DivisionByZero)]
+    [Arguments("MOD(7, FALSE)", XLError.DivisionByZero)]
+    [Arguments("MOD(1125900000000, 1)", XLError.NumberInvalid)]
+    [Arguments("MOD(-1125900000000, -1)", XLError.NumberInvalid)]
+    [Arguments("MOD(112590000000, 0.1)", XLError.NumberInvalid)]
+    [Arguments("MOD(1E+308, 1E-10)", XLError.NumberInvalid)]
+    [Arguments("MOD(2.5000000000000003E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(-7.5E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(-2.4999999999999993E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(\"a\", 2)", XLError.IncompatibleValue)]
+    [Arguments("MOD(#N/A, 0)", XLError.NoValueAvailable)]
+    public async Task Mod_returns_excel_errors(string formula, XLError expected)
     {
-        // Spec says that "If y is 0, the return value is unspecified", but Excel says #DIV/0!, so let's go with that.
-        await Assert.That(XLWorkbook.EvaluateExpr("MOD(1, 0)")).IsEqualTo(XLError.DivisionByZero);
-        await Assert.That(XLWorkbook.EvaluateExpr("MOD(0, 0)")).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(expected);
     }
 
     [Test]
@@ -1673,17 +1827,54 @@ public class MathTrigTests
     [Arguments(1.4, 0.5, 1.5)]
     [Arguments(3, 7, 0)]
     [Arguments(3, 0, 0)]
+    [Arguments(0, 0.1, 0)]
+    [Arguments(0, -0.1, 0)]
+    [Arguments(0, 5, 0)]
+    [Arguments(0, -5, 0)]
+    [Arguments(0, 0, 0)]
     public async Task MRound(double number, double multiple, double expected)
     {
         await Assert.That((double)XLWorkbook.EvaluateExpr($"MROUND({number}, {multiple})")).IsEqualTo(expected).Within(1e-12);
     }
 
     [Test]
+    [Arguments("MROUND(0, -5)")]
+    [Arguments("MROUND(-0.0, -5)")]
+    public async Task MRound_of_zero_is_positive_zero(string formula)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(BitConverter.DoubleToInt64Bits(actual)).IsEqualTo(0L);
+    }
+
+    [Test]
     [Arguments(123456.123, -10)]
     [Arguments(-123456.123, 5)]
+    [Arguments(0.15, -0.1)]
+    [Arguments(-0.15, 0.1)]
     public async Task MRoundExceptions(double number, double multiple)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"MROUND({number}, {multiple})")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    [Arguments("MROUND(0.15, 0.1)", 0.2)]
+    [Arguments("MROUND(-0.15, -0.1)", -0.2)]
+    [Arguments("MROUND(0.45, 0.1)", 0.5)]
+    [Arguments("MROUND(0.15-1E-15, 0.1)", 0.1)]
+    [Arguments("MROUND(2.5-11*2^-51, 1)", 3)]
+    [Arguments("MROUND(2.5-12*2^-51, 1)", 2)]
+    [Arguments("MROUND(-(2.5-11*2^-51), -1)", -3)]
+    [Arguments("MROUND(0.5-90*2^-54, 1)", 1)]
+    [Arguments("MROUND(0.5-91*2^-54, 1)", 0)]
+    [Arguments("MROUND(10.5-2*2^-49, 1)", 11)]
+    [Arguments("MROUND(10.5-3*2^-49, 1)", 10)]
+    [Arguments("MROUND(100.5-2^-46, 1)", 100)]
+    [Arguments("MROUND(1.005, 0.01)", 1)]
+    [Arguments("MROUND(4.05, 0.1)", 4)]
+    public async Task MRound_rounds_the_fraction_of_the_quotient_to_14_decimal_places(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected);
     }
 
     [Test]
