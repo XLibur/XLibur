@@ -524,6 +524,19 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     XLCellValue Evaluate(string expression, string? formulaAddress = null);
 
     /// <summary>
+    /// Evaluates a formula as <see cref="Evaluate"/> does, and returns a refused formula, a circular
+    /// reference and an unsupported feature as an <see cref="XLFormulaIssue"/> instead of throwing.
+    /// </summary>
+    /// <param name="expression">Formula to evaluate.</param>
+    /// <param name="formulaAddress">A cell address that is used to provide context for formula calculation (mostly implicit intersection).</param>
+    /// <remarks>
+    /// A successful result holds the value that <see cref="Evaluate"/> returns. A defect in XLibur is
+    /// still thrown, and so is <see cref="XLNoWorksheetContextException"/>: a missing
+    /// <paramref name="formulaAddress"/> is a mistake in the call, not a problem in the workbook.
+    /// </remarks>
+    XLEvaluationResult TryEvaluate(string expression, string? formulaAddress = null);
+
+    /// <summary>
     /// Force recalculation of all cell formulas in the sheet while leaving other sheets without change, even if their dirty cells.
     /// </summary>
     /// <remarks>

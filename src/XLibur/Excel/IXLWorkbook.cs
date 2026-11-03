@@ -195,6 +195,19 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     /// </exception>
     XLCellValue Evaluate(string expression);
 
+    /// <summary>
+    /// Evaluates a formula expression as <see cref="Evaluate"/> does, and returns a refused formula, a
+    /// circular reference and an unsupported feature as an <see cref="XLFormulaIssue"/> instead of
+    /// throwing.
+    /// </summary>
+    /// <param name="expression">Formula expression to evaluate.</param>
+    /// <remarks>
+    /// A successful result holds the value that <see cref="Evaluate"/> returns. A defect in XLibur is
+    /// still thrown, and so is <see cref="XLNoWorksheetContextException"/>: an expression that needs a
+    /// cell has none here, which is a mistake in the call, not a problem in the workbook.
+    /// </remarks>
+    XLEvaluationResult TryEvaluate(string expression);
+
     IXLCells FindCells(Func<IXLCell, bool> predicate);
 
     IXLColumns FindColumns(Func<IXLColumn, bool> predicate);

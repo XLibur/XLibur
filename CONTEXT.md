@@ -46,6 +46,10 @@ _Avoid_: not implemented
 A failure caused by a bug in XLibur rather than by the content of the workbook.
 _Avoid_: internal error
 
+**Formula issue**:
+The public description of an expected failure, which is a refused formula, a circular reference or an unsupported feature: a kind, a message and, when known, a position in the formula text. `TryParseFormula` and `TryEvaluate` return one as a value. A defect is never a formula issue, and neither is an error value.
+_Avoid_: formula error, evaluation error
+
 ### Names and sheets
 
 **Defined name**:

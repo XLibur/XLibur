@@ -427,6 +427,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         set => SetValue(value);
     }
 
+    public XLEvaluationResult TryEvaluate() => EvaluationPolicy.TryEvaluate(this, static cell => cell.Value);
+
     public IXLTable InsertTable<T>(IEnumerable<T> data)
     {
         return InsertTable(data, null, true);

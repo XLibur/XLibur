@@ -476,6 +476,26 @@ XLibur.Excel.IXLPageSetup.ClearVerticalPageBreaks() -> void
 XLibur.Excel.IXLPageSetup.RemoveHorizontalPageBreak(int row) -> bool
 XLibur.Excel.IXLPageSetup.RemoveVerticalPageBreak(int column) -> bool
 static XLibur.Excel.XLHelper.QuoteSheetName(string! sheetName) -> string!
+static XLibur.Excel.XLHelper.TryParseFormula(string! formula, out XLibur.Excel.XLFormulaIssue? issue) -> bool
+XLibur.Excel.IXLCell.TryEvaluate() -> XLibur.Excel.XLEvaluationResult
+XLibur.Excel.IXLWorkbook.TryEvaluate(string! expression) -> XLibur.Excel.XLEvaluationResult
+XLibur.Excel.IXLWorksheet.TryEvaluate(string! expression, string? formulaAddress = null) -> XLibur.Excel.XLEvaluationResult
+XLibur.Excel.XLEvaluationResult
+XLibur.Excel.XLEvaluationResult.IsSuccess.get -> bool
+XLibur.Excel.XLEvaluationResult.Issue.get -> XLibur.Excel.XLFormulaIssue?
+XLibur.Excel.XLEvaluationResult.Value.get -> XLibur.Excel.XLCellValue
+XLibur.Excel.XLEvaluationResult.XLEvaluationResult() -> void
+XLibur.Excel.XLFormulaIssue
+XLibur.Excel.XLFormulaIssue.Inner.get -> System.Exception?
+XLibur.Excel.XLFormulaIssue.Kind.get -> XLibur.Excel.XLFormulaIssueKind
+XLibur.Excel.XLFormulaIssue.Message.get -> string!
+XLibur.Excel.XLFormulaIssue.Position.get -> int?
+XLibur.Excel.XLFormulaIssueKind
+XLibur.Excel.XLFormulaIssueKind.CircularReference = 1 -> XLibur.Excel.XLFormulaIssueKind
+XLibur.Excel.XLFormulaIssueKind.RefusedFormula = 0 -> XLibur.Excel.XLFormulaIssueKind
+XLibur.Excel.XLFormulaIssueKind.UnsupportedFeature = 2 -> XLibur.Excel.XLFormulaIssueKind
+override XLibur.Excel.XLFormulaIssue.ToString() -> string!
+XLibur.Excel.XLWorkbook.TryEvaluate(string! expression) -> XLibur.Excel.XLEvaluationResult
 *REMOVED*XLibur.Excel.IXLAddressable.RangeAddress.get -> XLibur.Excel.IXLRangeAddress!
 *REMOVED*XLibur.Excel.IXLCell.Address.get -> XLibur.Excel.IXLAddress!
 *REMOVED*XLibur.Excel.IXLRangeAddress.FirstAddress.get -> XLibur.Excel.IXLAddress!
