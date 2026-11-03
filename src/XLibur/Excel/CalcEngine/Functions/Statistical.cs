@@ -415,7 +415,14 @@ internal static class Statistical
         var halfIndex = allNumbers.Count / 2;
         var hasEvenCount = allNumbers.Count % 2 == 0;
         if (hasEvenCount)
-            return (allNumbers[halfIndex - 1] + allNumbers[halfIndex]) / 2;
+        {
+            var lower = allNumbers[halfIndex - 1];
+            var upper = allNumbers[halfIndex];
+            var sum = lower + upper;
+
+            // Halve first only when the sum overflows, so ordinary results keep their exact bits.
+            return double.IsFinite(sum) ? sum / 2 : lower / 2 + upper / 2;
+        }
 
         return allNumbers[halfIndex];
     }

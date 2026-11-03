@@ -942,7 +942,10 @@ internal static class MathTrig
 
     private static ScalarValue Radians(double angle)
     {
-        return angle * Math.PI / 180.0;
+        var radians = angle * Math.PI / 180.0;
+
+        // The product overflows for angles near the top of the range even though the result does not.
+        return double.IsFinite(radians) ? radians : angle / 180.0 * Math.PI;
     }
 
     private static ScalarValue Rand()
@@ -996,18 +999,53 @@ internal static class MathTrig
     }
 
     private static ScalarValue RoundDown(CalcContext ctx, double value, double digits)
-    {
-        var coef = Math.Pow(10, Math.Truncate(digits));
-        return Math.Truncate(value * coef) / coef;
-    }
+        => RoundTowards(value, digits, awayFromZero: false);
 
     private static ScalarValue RoundUp(CalcContext ctx, double value, double digits)
-    {
-        var coef = Math.Pow(10, Math.Truncate(digits));
-        if (value >= 0)
-            return Math.Ceiling(value * coef) / coef;
+        => RoundTowards(value, digits, awayFromZero: true);
 
-        return Math.Floor(value * coef) / coef;
+    /// <summary>
+    /// ROUNDUP, ROUNDDOWN and TRUNC. Excel works on the 15 significant digit decimal form of the value,
+    /// which is what <c>(decimal)double</c> gives, so <c>ROUNDUP(2.345,5)</c> is 2.345 and not the
+    /// 2.34501 that scaling the binary value by 100000 and taking the ceiling gives.
+    /// </summary>
+    private static double RoundTowards(double value, double digits, bool awayFromZero)
+    {
+        var places = Math.Truncate(digits);
+
+        // No digit is left to round: a double holds 15 to 17 significant digits.
+        if (places > 27 || (places >= 0 && Math.Abs(value) >= 1e15))
+            return value;
+
+        try
+        {
+            var exact = (decimal)value;
+
+            // A magnitude below a decimal's 28 places converts to 0; the binary path still rounds it.
+            if (exact != 0 || value == 0)
+            {
+                var factor = 1m;
+                for (var i = 0; i < Math.Abs(places); i++)
+                    factor *= 10m;
+
+                var scaled = places >= 0 ? exact * factor : exact / factor;
+                var rounded = !awayFromZero ? decimal.Truncate(scaled)
+                    : scaled >= 0 ? decimal.Ceiling(scaled)
+                    : decimal.Floor(scaled);
+
+                return (double)(places >= 0 ? rounded / factor : rounded * factor);
+            }
+        }
+        catch (OverflowException)
+        {
+            // Too large for a decimal: fall through to the binary path.
+        }
+
+        var coef = Math.Pow(10, places);
+        if (!awayFromZero)
+            return Math.Truncate(value * coef) / coef;
+
+        return (value >= 0 ? Math.Ceiling(value * coef) : Math.Floor(value * coef)) / coef;
     }
 
     private static ScalarValue Sec(double angle)
@@ -1324,10 +1362,7 @@ internal static class MathTrig
     }
 
     private static ScalarValue Trunc(CalcContext ctx, double number, double digits)
-    {
-        var scaling = Math.Pow(10, digits);
-        return Math.Truncate(number * scaling) / scaling;
-    }
+        => RoundTowards(number, digits, awayFromZero: false);
 
     private static Dictionary<int, IReadOnlyList<(string Symbol, int Value)>> BuildRomanForms()
     {

@@ -48,6 +48,12 @@
 
 - **`MROUND` returns 0 when the number is 0.** `MROUND(0,0.1)` and `MROUND(0,-0.1)` gave `#NUM!` because the sign check treated 0 as a different sign from the multiple. Excel returns 0, and so does `MROUND(0,-5)`. A number and a multiple of opposite signs still give `#NUM!` ([#884](https://github.com/XLibur/XLibur/issues/884)).
 
+- **A formula whose result overflows is `#NUM!`, as in Excel.** `SUM(9E307,9E307)`, `PRODUCT(1E200,1E200)`, `PMT(0.05,1000000,1000)` and any arithmetic that reached infinity threw `ArgumentException` while a cell was read, and `ISNUMBER(9E307*10)` was TRUE. Excel holds no infinity or NaN. A number that is not finite is now `#NUM!` wherever a function or an operator produces it, so `IFERROR(9E307*10,"x")` is `"x"`. `RADIANS(9E307)` and `MEDIAN(9E307,9E307)` no longer overflow in a step before the result and give 1.5707963267948965E+306 and 9E307, as Excel does ([#894](https://github.com/XLibur/XLibur/issues/894)).
+
+- **`ROUNDUP`, `ROUNDDOWN` and `TRUNC` round the 15-digit decimal form of the number, as Excel does.** `ROUNDUP(2.345,5)` was 2.34501 because `2.345*100000` is `234500.00000000003`, and `ROUNDDOWN(0.29,2)` was 0.28 because `0.29*100` is `28.999999999999996`; both are now exact. `TRUNC(8.9,2.5)` was 8.898649335713818 because the digits argument was not truncated, and is 8.9. A value or a digits count with nothing left to round, such as `ROUNDUP(9E307,2)` or `ROUNDUP(2.345,1000000)`, threw an exception and is now returned unchanged, as in Excel ([#894](https://github.com/XLibur/XLibur/issues/894)).
+
+- **`BIN2DEC`, `HEX2DEC`, `OCT2DEC`, `BIN2HEX`, `HEX2BIN` and the other base conversions read an empty string or empty cell as 0, and refuse a minus sign with `#NUM!`.** An empty string gave `#NUM!`, and a text such as `"-1.5"` threw `ArgumentException`. A string of only spaces stays `#NUM!`, as in Excel. All three fixes came from comparing 4,810 formulas with the values Excel computes; see [docs/formula-conformance.md](docs/formula-conformance.md) ([#894](https://github.com/XLibur/XLibur/issues/894)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes

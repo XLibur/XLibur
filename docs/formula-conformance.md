@@ -154,6 +154,59 @@ Largest groups inside "other":
 These rows are observations, not diagnoses. The reasons in `known-diffs.tsv` for the 158 name the two answers
 and nothing more. Task 4 is the step that turns them into causes and fixes.
 
+## Task 4: triage and first fixes
+
+Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
+disagreed on 376. After them it disagrees on 333 (6.9%), in 80 of the 164 functions.
+
+Ranked by family, after the fixes:
+
+| Family | Disagreements | Rate |
+|---|---|---|
+| engineering | 93 of 463 | 20.1% |
+| lookup | 20 of 206 | 9.7% |
+| financial | 84 of 923 | 9.1% |
+| statistical | 52 of 680 | 7.6% |
+| date | 32 of 630 | 5.1% |
+| text | 24 of 534 | 4.5% |
+| logical | 5 of 113 | 4.4% |
+| math | 22 of 1,027 | 2.1% |
+| information | 1 of 234 | 0.4% |
+
+The functions with most disagreements: `RATE` 28, `INDEX` 15, `SLOPE` 14, `CORREL` 14, `YEARFRAC` 10,
+`HEX2BIN` 9, `BIN2HEX` 9, `RANK` 9.
+
+**Fixed here (43 cases removed, with regression tests in `ExcelConformanceFixesTests`).**
+
+- A non-finite number is `#NUM!`. `ScalarValue.From(double)` now turns NaN and infinity into `#NUM!`, which is
+  what Excel has (it holds no infinity). Before, `SUM(9E307,9E307)` and every other overflow threw
+  `ArgumentException` from `XLCellValue`, and `ISNUMBER(9E307*10)` was TRUE. One change at the single factory
+  cleared overflows in `SUM`, `PRODUCT`, `AVERAGE`, `PMT`, `FV`, `ERF` and others.
+- `ROUNDUP`, `ROUNDDOWN` and `TRUNC` work on the 15-significant-digit decimal form, like Excel. They
+  returned `2.34501` for `ROUNDUP(2.345,"5")` and `8.898649335713818` for `TRUNC(8.9,2.5)`, and they threw for
+  a huge value or a digits count of 1000000, where Excel returns the value unchanged.
+- `BIN2DEC`, `HEX2DEC`, `OCT2DEC`, `BIN2HEX`, `HEX2BIN` and the other base conversions: an empty string reads
+  as 0, a string of only spaces is `#NUM!`, and a minus sign is `#NUM!` and no longer throws.
+- `RADIANS` and `MEDIAN` no longer overflow in an intermediate step when the result fits.
+
+Twelve rows stayed as differences with a new XLibur answer: they returned a crash before and `#NUM!` now,
+where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Excel).
+
+**Remaining, in the order I would take them.**
+
+1. A boolean or multi-cell range argument where Excel returns `#VALUE!` (61 cases). Mostly the Analysis
+   ToolPak functions. A shared argument adapter would clear most of it.
+2. An array constant as an argument throws `UnsupportedFeatureException` (24).
+3. Which of two error arguments wins (28).
+4. `RATE` and `IRR` convergence (22). Excel and XLibur stop at different digits; this needs a decision on
+   tolerance and iteration count.
+5. The 150 rows that only state the two answers. The biggest are `INDEX` (15), `SLOPE` and `CORREL` (26),
+   `YEARFRAC` (10) and the engineering conversions.
+6. Singletons: surrogate pairs (3), number to text (5), `SIN`/`COS` of a huge argument (4), `OR` with a
+   text argument (4), `GCD`/`LCM` with an empty cell (3), `ROUND(1.005,2)`, `VALUE("5-")`, `AND("")`,
+   `DATE(1900,0,31)`, `ROMAN` with a boolean form, `SUMPRODUCT` with an error, `TYPE` of a range, the
+   unsorted approximate `VLOOKUP`.
+
 ## What the pilot does not cover
 
 - Array and spilling results. The recorder enters formulas with `Range.Formula`, which does not spill, and
