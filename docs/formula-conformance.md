@@ -161,7 +161,8 @@ and nothing more. Task 4 is the step that turns them into causes and fixes.
 ## Task 4: triage and first fixes
 
 Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
-disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions.
+disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions. A second round (logical arguments, below)
+brought it to 290 (6.0%).
 
 Ranked by family, after the fixes:
 
@@ -198,8 +199,12 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
 
 **Remaining, in the order I would take them.**
 
-1. A boolean or multi-cell range argument where Excel returns `#VALUE!` (71 cases). Mostly the Analysis
-   ToolPak functions. A shared argument adapter would clear most of it.
+1. A multi-cell range argument where Excel returns `#VALUE!` (32 cases, same Analysis ToolPak functions).
+   The boolean half is fixed: `SignatureAdapter.RejectLogical` wraps the registration and cleared 39 rows.
+   The range half is not an adapter job. These functions are registered as `Scalar`, so the engine
+   intersects a range down to one cell before the function runs, and Excel instead rejects it. Fixing it
+   means changing the flags of about 30 functions and their array-formula behavior, so it needs its own
+   decision.
 2. An array constant as an argument throws `UnsupportedFeatureException` (24).
 3. Which of two error arguments wins (28).
 4. `RATE` and `IRR` convergence (22). Excel and XLibur stop at different digits; this needs a decision on

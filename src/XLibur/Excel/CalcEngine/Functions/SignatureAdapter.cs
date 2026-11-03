@@ -1215,6 +1215,25 @@ internal static class SignatureAdapter
         };
     }
 
+    /// <summary>
+    /// Wraps a function so the listed numeric arguments give <c>#VALUE!</c> for a logical value. Excel
+    /// does this in the Analysis ToolPak style functions (EDATE, ERF, DEC2BIN and the like), where
+    /// ordinary math functions coerce TRUE to 1.
+    /// </summary>
+    public static CalcEngineFunction RejectLogical(CalcEngineFunction f, params int[] numericArgs)
+    {
+        return (ctx, args) =>
+        {
+            foreach (var index in numericArgs)
+            {
+                if (index < args.Length && args[index].IsLogical)
+                    return XLError.IncompatibleValue;
+            }
+
+            return f(ctx, args);
+        };
+    }
+
     #endregion
 
     #region Value converters
