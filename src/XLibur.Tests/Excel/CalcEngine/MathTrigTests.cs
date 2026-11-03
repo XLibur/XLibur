@@ -3,6 +3,7 @@ using XLibur.Excel;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -566,6 +567,100 @@ public class MathTrigTests
 
         var actual = (double)XLWorkbook.EvaluateExpr($"CEILING.MATH({parameters})");
         await Assert.That(actual).IsEqualTo(expectedResult).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(4.3)", 5)]
+    [Arguments("CEILING.PRECISE(4.3, 1)", 5)]
+    [Arguments("CEILING.PRECISE(-4.3)", -4)]
+    [Arguments("CEILING.PRECISE(4.3, -2)", 6)]
+    [Arguments("CEILING.PRECISE(-4.3, -2)", -4)]
+    [Arguments("CEILING.PRECISE(4.3, 0)", 0)]
+    [Arguments("CEILING.PRECISE(-4.3, 0)", 0)]
+    [Arguments("ISO.CEILING(4.3)", 5)]
+    [Arguments("ISO.CEILING(4.3, -2)", 6)]
+    [Arguments("ISO.CEILING(-4.3, -2)", -4)]
+    [Arguments("ISO.CEILING(4.3, 0)", 0)]
+    [Arguments("FLOOR.PRECISE(3.2)", 3)]
+    [Arguments("FLOOR.PRECISE(-3.2)", -4)]
+    [Arguments("FLOOR.PRECISE(3.2, -1)", 3)]
+    [Arguments("FLOOR.PRECISE(-3.2, -1)", -4)]
+    [Arguments("FLOOR.PRECISE(-3.2, 0)", 0)]
+    [Arguments("FLOOR.PRECISE(3.2, 0)", 0)]
+    public async Task Precise_rounding_ignores_the_sign_of_significance(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("FLOOR.PRECISE(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.PRECISE(0.7, 0.1)", 0.7)]
+    [Arguments("FLOOR.PRECISE(4.35, 0.05)", 4.35)]
+    [Arguments("FLOOR.PRECISE(-0.07, 0.01)", -0.07)]
+    [Arguments("CEILING.PRECISE(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.PRECISE(1.1, 0.1)", 1.1)]
+    [Arguments("CEILING.PRECISE(-0.7, 0.1)", -0.7)]
+    [Arguments("ISO.CEILING(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(-0.07, 0.01, 1)", -0.07)]
+    [Arguments("FLOOR.MATH(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.MATH(-0.7, 0.1, 1)", -0.7)]
+    public async Task Ceiling_and_floor_keep_an_exact_decimal_multiple(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(0.30000001, 0.1)", 0.4)]
+    [Arguments("CEILING.PRECISE(0.3+1E-15, 0.1)", 0.4)]
+    [Arguments("FLOOR.PRECISE(0.3-1E-15, 0.1)", 0.2)]
+    [Arguments("CEILING.PRECISE(3+11*2^-51, 1)", 3)]
+    [Arguments("CEILING.PRECISE(3+12*2^-51, 1)", 4)]
+    [Arguments("FLOOR.PRECISE(1-4*2^-53, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(1-5*2^-53, 1)", 0)]
+    [Arguments("CEILING.PRECISE(9+2*2^-49, 1)", 9)]
+    [Arguments("CEILING.PRECISE(9+3*2^-49, 1)", 10)]
+    [Arguments("CEILING.PRECISE(1E-20, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(-1E-20, 1)", -1)]
+    [Arguments("CEILING.PRECISE(1E-300, 1E300)", 0)]
+    [Arguments("CEILING.PRECISE(1E15+3, 1)", 1e15)]
+    [Arguments("FLOOR.PRECISE(123456789012345+0.75, 1)", 123456789012346)]
+    [Arguments("FLOOR.PRECISE(123456789012344+0.5, 1)", 123456789012345)]
+    [Arguments("CEILING.PRECISE(-(123456789012344+0.5), 1)", -123456789012345)]
+    public async Task Ceiling_and_floor_round_the_quotient_to_15_significant_digits(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(\"a\")")]
+    [Arguments("CEILING.PRECISE(4.3, \"a\")")]
+    [Arguments("ISO.CEILING(\"a\")")]
+    [Arguments("FLOOR.PRECISE(\"a\")")]
+    [Arguments("FLOOR.PRECISE(3.2, \"a\")")]
+    public async Task Precise_rounding_of_text_is_a_value_error(string formula)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(4.3,-2)", "_xlfn.CEILING.PRECISE(4.3,-2)", 6)]
+    [Arguments("FLOOR.PRECISE(-3.2)", "_xlfn.FLOOR.PRECISE(-3.2)", -4)]
+    [Arguments("ISO.CEILING(4.3,-2)", "ISO.CEILING(4.3,-2)", 6)]
+    public async Task Precise_rounding_formula_keeps_its_prefix_through_a_save(string typed, string stored, double expected)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet().Cell("A1").FormulaA1 = typed;
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+        using var reloaded = new XLWorkbook(saved);
+        var cell = reloaded.Worksheet(1).Cell("A1");
+
+        await Assert.That(cell.FormulaA1).IsEqualTo(stored);
+        await Assert.That(cell.GetDouble()).IsEqualTo(expected).Within(tolerance);
     }
 
     [Test]

@@ -26,6 +26,12 @@
 
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **`CEILING.PRECISE`, `ISO.CEILING` and `FLOOR.PRECISE` are evaluated.** They were known function names but not registered, so a formula using one gave `#NAME?`. Each takes a number and an optional significance (default 1), ignores the sign of the significance, and gives 0 for a significance of 0: `CEILING.PRECISE(4.3,-2)` is 6, `CEILING.PRECISE(-4.3,-2)` is -4 and `FLOOR.PRECISE(-3.2,-1)` is -4. Text for either argument is `#VALUE!`. The results and the file text were compared with Excel over COM: Excel stores `_xlfn.CEILING.PRECISE` and `_xlfn.FLOOR.PRECISE` but plain `ISO.CEILING`, and XLibur writes the same ([#877](https://github.com/XLibur/XLibur/issues/877)).
+
+- **`CEILING.MATH` and `FLOOR.MATH` keep a number that is already a multiple of a decimal significance.** `FLOOR.MATH(0.3,0.1)` was 0.2 and `CEILING.MATH(0.07,0.01)` was 0.08, because `0.3/0.1` is `2.9999999999999996` in floating point. Excel rounds that quotient to 15 significant digits before it rounds to a multiple, and both functions, as well as `CEILING.PRECISE`, `ISO.CEILING` and `FLOOR.PRECISE`, now do the same: the results are 0.3 and 0.07. A quotient that differs from a whole number within its first 15 digits still moves, so `CEILING.PRECISE(0.30000001,0.1)` is 0.4. The rule was measured in Excel over COM, including the smallest difference that moves a result ([#877](https://github.com/XLibur/XLibur/issues/877)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes
