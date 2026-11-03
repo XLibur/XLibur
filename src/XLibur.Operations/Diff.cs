@@ -137,8 +137,8 @@ internal static class WorkbookComparer
         var ignoredSheets = options.IgnoreSheets.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var ignoredRanges = options.IgnoreRanges.Select(ParseRange).ToList();
 
-        var leftSheets = left.Worksheets.Where(s => !ignoredSheets.Contains(s.Name)).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
-        var rightSheets = right.Worksheets.Where(s => !ignoredSheets.Contains(s.Name)).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
+        var leftSheets = Compared(left, ignoredSheets).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
+        var rightSheets = Compared(right, ignoredSheets).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
         var added = rightSheets.Keys.Where(n => !leftSheets.ContainsKey(n)).ToList();
         var removed = leftSheets.Keys.Where(n => !rightSheets.ContainsKey(n)).ToList();
 
@@ -161,11 +161,14 @@ internal static class WorkbookComparer
             }
         }
 
-        var names = CompareItems(DefinedNames(left), DefinedNames(right));
-        var tables = CompareItems(Tables(left), Tables(right));
+        var names = CompareItems(DefinedNames(left, ignoredSheets), DefinedNames(right, ignoredSheets));
+        var tables = CompareItems(Tables(left, ignoredSheets), Tables(right, ignoredSheets));
         var identical = added.Count == 0 && removed.Count == 0 && total == 0 && names.Count == 0 && tables.Count == 0;
         return new DiffResult(leftPath, rightPath, identical, added, removed, total, changes, names, tables);
     }
+
+    private static IEnumerable<IXLWorksheet> Compared(XLWorkbook workbook, HashSet<string> ignoredSheets)
+        => workbook.Worksheets.Where(s => !ignoredSheets.Contains(s.Name));
 
     private static IEnumerable<((int Row, int Column) Position, CellChange Change)> CompareSheets(
         IXLWorksheet left, IXLWorksheet right, ComparerOptions options)
@@ -217,14 +220,15 @@ internal static class WorkbookComparer
         return parts.Count == 0 ? "style" : string.Join(',', parts);
     }
 
-    private static Dictionary<string, string> DefinedNames(XLWorkbook workbook)
+    /// <summary>Workbook-scoped names, and the names scoped to every sheet that is not ignored.</summary>
+    private static Dictionary<string, string> DefinedNames(XLWorkbook workbook, HashSet<string> ignoredSheets)
         => workbook.DefinedNames.Select(n => (n.Name, n.RefersTo))
-            .Concat(workbook.Worksheets.SelectMany(ws => ws.DefinedNames.Select(n => ($"{ws.Name}!{n.Name}", n.RefersTo))))
+            .Concat(Compared(workbook, ignoredSheets).SelectMany(ws => ws.DefinedNames.Select(n => ($"{ws.Name}!{n.Name}", n.RefersTo))))
             .GroupBy(x => x.Item1, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().RefersTo, StringComparer.OrdinalIgnoreCase);
 
-    private static Dictionary<string, string> Tables(XLWorkbook workbook)
-        => workbook.Worksheets.SelectMany(ws => ws.Tables.Select(t => (t.Name, Range: $"{ws.Name}!{t.RangeAddress.ToStringRelative()}")))
+    private static Dictionary<string, string> Tables(XLWorkbook workbook, HashSet<string> ignoredSheets)
+        => Compared(workbook, ignoredSheets).SelectMany(ws => ws.Tables.Select(t => (t.Name, Range: $"{ws.Name}!{t.RangeAddress.ToStringRelative()}")))
             .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Range, StringComparer.OrdinalIgnoreCase);
 

@@ -79,6 +79,32 @@ public class DiffTests
     }
 
     [Test]
+    public async Task An_ignored_sheet_leaves_out_its_tables_and_sheet_scoped_names()
+    {
+        using var root = new TempDirectory();
+        var path = Fixtures.Sales(root);
+        using (var wb = new XLWorkbook(path))
+        {
+            var ws = wb.Worksheet("Sales");
+            ws.Table("SalesTable").Resize(ws.Range("A1:D5"));
+            ws.DefinedNames.Add("Local", "Sales!$A$1");
+            wb.SaveAs(root.Combine("changed.xlsx"), new SaveOptions { EvaluateFormulasBeforeSaving = true });
+        }
+
+        var context = Fixtures.Context(root);
+        var all = Fixtures.Run(context, Operation, new DiffRequest { Left = "sales.xlsx", Right = "changed.xlsx" }).Outcome;
+        var ignored = Fixtures.Run(context, Operation, new DiffRequest
+        {
+            Left = "sales.xlsx", Right = "changed.xlsx", IgnoreSheets = ["Sales"],
+        }).Outcome;
+
+        var result = (DiffResult)all.Result!;
+        await Assert.That(result.Tables.Count).IsEqualTo(1);
+        await Assert.That(result.DefinedNames.Select(n => n.Name)).Contains("Sales!Local");
+        await Assert.That(ignored.ExitCode).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Recalculated_mode_compares_what_the_engine_computes_not_what_the_file_cached()
     {
         using var root = new TempDirectory();
