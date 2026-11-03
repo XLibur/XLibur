@@ -20,3 +20,49 @@ SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM
 TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
 VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
+CLEAN	CLEAN#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+CODE	CODE#9	throws:UnsupportedFeatureException	number:49	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+CONCATENATE	CONCATENATE#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+CONCATENATE	CONCATENATE#25	throws:UnsupportedFeatureException	text:a1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+DEGREES	DEGREES#16	throws:ArgumentException	error:#NUM!	=DEGREES(9E307) with a huge argument: Excel returns error:#NUM!; XLibur throws ArgumentException	
+EXACT	EXACT#9	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+EXACT	EXACT#24	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+FACTDOUBLE	FACTDOUBLE#6	number:1	error:#VALUE!	=FACTDOUBLE(TRUE) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+FACTDOUBLE	FACTDOUBLE#8	number:1	error:#VALUE!	=FACTDOUBLE(A1:A3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
+LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
+LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
+LOWER	LOWER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+MROUND	MROUND#6	number:0	error:#VALUE!	=MROUND(TRUE,3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+MROUND	MROUND#8	number:0	error:#VALUE!	=MROUND(A1:A3,3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+MROUND	MROUND#21	number:10	error:#VALUE!	=MROUND(10,TRUE) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+MROUND	MROUND#23	number:10	error:#VALUE!	=MROUND(10,A1:A3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
+OR	OR#5	bool:FALSE	error:#VALUE!	=OR("x") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
+OR	OR#6	bool:FALSE	error:#VALUE!	=OR("") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
+OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
+PROPER	PROPER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+QUOTIENT	QUOTIENT#6	number:0	error:#VALUE!	=QUOTIENT(TRUE,2) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+QUOTIENT	QUOTIENT#8	number:0	error:#VALUE!	=QUOTIENT(A1:A3,2) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+QUOTIENT	QUOTIENT#21	number:7	error:#VALUE!	=QUOTIENT(7,TRUE) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+QUOTIENT	QUOTIENT#23	number:7	error:#VALUE!	=QUOTIENT(7,A1:A3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
+RADIANS	RADIANS#16	throws:ArgumentException	number:1.5707963267948965E+306	=RADIANS(9E307) with a huge argument: Excel returns number:1.5707963267948965E+306; XLibur throws ArgumentException	
+REPLACE	REPLACE#9	throws:UnsupportedFeatureException	text:1X	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
+REPLACE	REPLACE#54	throws:UnsupportedFeatureException	text:a1ef	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+REPT	REPT#9	throws:UnsupportedFeatureException	text:111	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+RIGHT	RIGHT#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
+ROUNDDOWN	ROUNDDOWN#16	throws:ArgumentException	number:9E+307	=ROUNDDOWN(9E307,2) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
+ROUNDDOWN	ROUNDDOWN#31	throws:ArgumentException	number:2.345	=ROUNDDOWN(2.345,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
+ROUNDUP	ROUNDUP#16	throws:ArgumentException	number:9E+307	=ROUNDUP(9E307,2) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
+ROUNDUP	ROUNDUP#18	number:2.34501	number:2.345	=ROUNDUP(2.345,"5") with a text or fractional digits argument: Excel returns 2.345 / 8.9; XLibur returns a float with noise (number:2.34501)	
+ROUNDUP	ROUNDUP#25	number:2.34501	number:2.345	=ROUNDUP(2.345,A1) with a text or fractional digits argument: Excel returns 2.345 / 8.9; XLibur returns a float with noise (number:2.34501)	
+ROUNDUP	ROUNDUP#31	throws:ArgumentException	number:2.345	=ROUNDUP(2.345,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
+SEARCH	SEARCH#10	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+SEARCH	SEARCH#25	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
+TRUNC	TRUNC#29	number:8.898649335713818	number:8.9	=TRUNC(8.9,2.5) with a text or fractional digits argument: Excel returns 2.345 / 8.9; XLibur returns a float with noise (number:8.898649335713818)	
+TRUNC	TRUNC#31	throws:ArgumentException	number:8.9	=TRUNC(8.9,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
+TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
+UPPER	UPPER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	

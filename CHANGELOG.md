@@ -54,6 +54,8 @@
 
 - **`MROUND` returns 0 when the number is 0.** `MROUND(0,0.1)` and `MROUND(0,-0.1)` gave `#NUM!` because the sign check treated 0 as a different sign from the multiple. Excel returns 0, and so does `MROUND(0,-5)`. A number and a multiple of opposite signs still give `#NUM!` ([#884](https://github.com/XLibur/XLibur/issues/884)).
 
+- **`SIN` and `COS` give `#NUM!` for an angle of 2^27 radians (134,217,728) or more, as Excel and `TAN` do.** `COS(1E15)` returned a number that differed between Windows and Linux, because each platform reduces a huge angle its own way, where Excel returns `#NUM!`. Below the limit the functions are unchanged: `SIN(134217727)` is -0.9559933287726706 in Excel. Measured over COM for the three functions on both sides of the limit ([#894](https://github.com/XLibur/XLibur/issues/894)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes
