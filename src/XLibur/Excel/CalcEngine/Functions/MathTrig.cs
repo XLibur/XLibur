@@ -72,7 +72,7 @@ internal static class MathTrig
         ce.RegisterFunction("EVEN", 1, 1, Adapt(Even), FunctionFlags.Scalar);
         ce.RegisterFunction("EXP", 1, 1, Adapt(Exp), FunctionFlags.Scalar);
         ce.RegisterFunction("FACT", 1, 1, Adapt(Fact), FunctionFlags.Scalar);
-        ce.RegisterFunction("FACTDOUBLE", 1, 1, RejectLogical(Adapt(FactDouble), 0), FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("FACTDOUBLE", 1, 1, Adapt(FactDouble), [0], FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR", 2, 2, Adapt(Floor), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR.MATH", 1, 3, AdaptLastTwoOptional(FloorMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("FLOOR.PRECISE", 1, 2, AdaptLastOptional(FloorPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
@@ -87,13 +87,13 @@ internal static class MathTrig
         ce.RegisterFunction("MINVERSE", 1, 1, Adapt(MInverse), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All);
         ce.RegisterFunction("MMULT", 2, 2, MMult, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All);
         ce.RegisterFunction("MOD", 2, 2, Adapt(Mod), FunctionFlags.Scalar);
-        ce.RegisterFunction("MROUND", 2, 2, RejectLogical(Adapt(MRound), 0, 1), FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("MROUND", 2, 2, Adapt(MRound), [0, 1], FunctionFlags.Scalar);
         ce.RegisterFunction("MULTINOMIAL", 1, 255, AdaptMultinomial(Multinomial), FunctionFlags.Scalar, AllowRange.All);
         ce.RegisterFunction("ODD", 1, 1, Adapt(Odd), FunctionFlags.Scalar);
         ce.RegisterFunction("PI", 0, 0, Adapt(Pi), FunctionFlags.Scalar);
         ce.RegisterFunction("POWER", 2, 2, Adapt(Power), FunctionFlags.Scalar);
         ce.RegisterFunction("PRODUCT", 1, 255, Product, FunctionFlags.Range, AllowRange.All);
-        ce.RegisterFunction("QUOTIENT", 2, 2, RejectLogical(Adapt(Quotient), 0, 1), FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("QUOTIENT", 2, 2, Adapt(Quotient), [0, 1], FunctionFlags.Scalar);
         ce.RegisterFunction("RADIANS", 1, 1, Adapt(Radians), FunctionFlags.Scalar);
         ce.RegisterFunction("RAND", 0, 0, Adapt(Rand), FunctionFlags.Scalar | FunctionFlags.Volatile);
         ce.RegisterFunction("RANDBETWEEN", 2, 2, Adapt(RandBetween), FunctionFlags.Scalar | FunctionFlags.Volatile);

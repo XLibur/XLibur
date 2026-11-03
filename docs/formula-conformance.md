@@ -162,7 +162,7 @@ and nothing more. Task 4 is the step that turns them into causes and fixes.
 
 Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
 disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions. A second round (logical arguments, below)
-brought it to 290 (6.0%), and array constants as text arguments to 266 (5.5%).
+brought it to 290 (6.0%), array constants as text arguments to 266 (5.5%), and a multi-cell range argument to 224 (4.7%).
 
 Ranked by family, after the fixes:
 
@@ -199,12 +199,15 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
 
 **Remaining, in the order I would take them.**
 
-1. A multi-cell range argument where Excel returns `#VALUE!` (32 cases, same Analysis ToolPak functions).
-   The boolean half is fixed: `SignatureAdapter.RejectLogical` wraps the registration and cleared 39 rows.
-   The range half is not an adapter job. These functions are registered as `Scalar`, so the engine
-   intersects a range down to one cell before the function runs, and Excel instead rejects it. Fixing it
-   means changing the flags of about 30 functions and their array-formula behavior, so it needs its own
-   decision.
+1. Done: a logical or multi-cell range argument where Excel returns `#VALUE!` (71 cases, the Analysis ToolPak
+   functions). `FunctionRegistry.RegisterStrictNumeric` registers 23 functions with the numeric parameters
+   that reject a logical value (checked per element) and a multi-cell reference (checked in
+   `FunctionDefinition` before intersection or lifting). Measured over COM: these functions give `#VALUE!`
+   for `A1:A3` under `Formula`, `Formula2` and `FormulaArray`, from any row, where `SIN(A1:A3)`
+   intersects or lifts, so the rule needs no array-formula special case. An array constant is not
+   rejected: Excel uses its first element, and lifts over it in an array formula (`DEC2BIN({1,2,3})` gives
+   1, 10, 11). A single-cell range is not rejected. Not measured: a range in a text parameter such as the
+   unit of `CONVERT`, which stays as it was.
 2. Done: `ToText` used to throw `UnsupportedFeatureException` for an array constant, where `ToNumber` took its first element. It now takes the first element too, which cleared all 24 rows (`UPPER({1,2,3})`, `SEARCH`, `BIN2DEC` and others).
 3. Which of two error arguments wins (28).
 4. `RATE` and `IRR` convergence (22). Excel and XLibur stop at different digits; this needs a decision on
