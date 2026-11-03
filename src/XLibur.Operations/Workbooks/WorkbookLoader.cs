@@ -3,6 +3,7 @@ using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using XLibur.Excel.Exceptions;
+using XLibur.Excel.IO;
 using XLibur.Fonts.PinataLabs;
 
 namespace XLibur.Operations.Workbooks;
@@ -34,8 +35,8 @@ internal static class WorkbookLoader
         {
             throw OperationException.Unsupported("unsupported_workbook", $"'{displayPath}' uses a feature XLibur does not load: {e.Message}", e);
         }
-        catch (Exception e) when (e is XLiburException or XmlException or InvalidDataException or FileFormatException
-                                      or OpenXmlPackageException or FormatException)
+        catch (Exception e) when (e is XLiburException or PartStructureException or XmlException or InvalidDataException
+                                      or FileFormatException or OpenXmlPackageException or FormatException)
         {
             throw OperationException.BadInput("unreadable_workbook", $"'{displayPath}' cannot be loaded: {e.Message}", e);
         }

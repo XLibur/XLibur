@@ -79,6 +79,15 @@ public class ZipGuardTests
         await Assert.That(ordinary.Length).IsGreaterThan(0);
     }
 
+    [Test]
+    public async Task A_zip_the_guard_passes_but_that_holds_no_workbook_is_unreadable_input()
+    {
+        var notAWorkbook = Zip(("readme.txt", 10));
+
+        await Expect.Refused(() => WorkbookLoader.Load(notAWorkbook, "readme.xlsx", Small, recalculate: false),
+            ErrorKind.BadInput, "unreadable_workbook");
+    }
+
     private static byte[] Zip(params (string Name, int Bytes)[] entries)
     {
         using var buffer = new MemoryStream();
