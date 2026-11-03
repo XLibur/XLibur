@@ -71,6 +71,29 @@ Ranked by number of cases. Every case is a row in `known-diffs.tsv` with its rea
 By family: math 8 of 137 cases, text 8 of 151, statistical 3 of 63, logical 2 of 63, information 1 of 40,
 lookup 1 of 57, date 1 of 38.
 
+## Task 3: generated cases for math, text, logical and information
+
+`tools/excel-conformance/New-CaseFile.ps1` expanded 56 more functions into 1,517 cases, recorded from the
+same Excel build. XLibur disagrees on 52 (3.4%), recorded in `known-diffs.tsv`. The whole conformance class
+(2,082 tests including the pilot) runs in about 2.5 s. The expansion is mechanical, so most cases are
+cheap and most agree. The disagreements come mostly from the argument variants.
+
+| Cause | Cases | Examples |
+|---|---|---|
+| Array constant as an argument: XLibur throws `UnsupportedFeatureException`, Excel uses the first element | 15 | `LOWER({1,2,3})`, `CONCATENATE("a",{1,2,3})`, `REPT({1,2,3},3)` |
+| `FACTDOUBLE`, `MROUND`, `QUOTIENT` take a boolean or multi-cell range: Excel `#VALUE!`, XLibur coerces | 10 | `QUOTIENT(7,TRUE)`, `MROUND(A1:A3,3)` |
+| Huge value or digits count: XLibur throws `ArgumentException` | 7 | `ROUNDUP(9E307,2)`, `ROUNDDOWN(2.345,1000000)`, `DEGREES(9E307)` |
+| `SIN`/`COS` of a huge argument: Excel `#NUM!`, XLibur a number | 4 | `SIN(1E15)`, `COS(9E307)` |
+| `OR` with a direct text argument: Excel `#VALUE!`, XLibur FALSE | 4 | `OR("x")`, `OR("")` |
+| `GCD`/`LCM` with an empty cell reference | 3 | `GCD(A1)` is `#VALUE!` in Excel and 0 in XLibur |
+| Text or fractional digits argument: XLibur returns float noise | 3 | `ROUNDUP(2.345,"5")` is 2.34501, `TRUNC(8.9,2.5)` is 8.898649335713818 |
+| `MROUND` of zero: Excel 0, XLibur `#NUM!` | 2 | `MROUND(0,3)` |
+| `ROMAN(1999,TRUE)`, `REPLACE` with an emoji, `SUMPRODUCT` with an error, `TYPE` of a range | 1 each | |
+
+By family: math 31 of 890, text 16 of 383, logical 4 of 50, information 1 of 194. The information functions
+agree almost everywhere. The text functions fail on arrays. Several causes share the pilot's themes
+(overflow, surrogate pairs, text direct arguments) and could join #894.
+
 ## What the pilot does not cover
 
 - Array and spilling results. The recorder enters formulas with `Range.Formula`, which does not spill, and

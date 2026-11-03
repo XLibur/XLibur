@@ -41,6 +41,20 @@ ids in `known-diffs.tsv` stop matching.
 The recorder enters formulas with `Range.Formula` (legacy semantics, no spilling), so array results are not
 covered yet. It refuses to run if Excel's decimal and thousands separators are not `.` and `,`.
 
+## Generate cases for a function family
+
+`signatures.psd1` lists each function with its argument kinds, typical values and minimum argument count.
+`New-CaseFile.ps1` expands it into `<family>.tsv` with empty answers. No Excel is needed for this step.
+
+Per function it writes the typical call, then each argument replaced by an empty cell, numeric text,
+non-numeric text, the empty string, a boolean, an error, a range, an array constant and a cell holding
+numeric text. It adds the kind's boundary values, which error wins when two arguments are errors, and calls
+with too few or too many arguments. Functions already in an existing file are skipped.
+
+Case ids are positional, so the script refuses to overwrite an existing file. `-Force` discards the recorded
+answers. To add a function, add it to the signature table, move the existing family file aside, and put the
+new cases in a new file. Then run the recorder on that file.
+
 ## Comparison rules
 
 Numbers match within relative 1e-12 (absolute 1e-300 near zero). Text is ordinal. An error must be the same
