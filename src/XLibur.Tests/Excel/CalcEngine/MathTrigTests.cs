@@ -1724,26 +1724,50 @@ public class MathTrigTests
     }
 
     [Test]
-    [Arguments(1.5, 1, 0.5)]
-    [Arguments(3, 2, 1)]
-    [Arguments(-3, 2, 1)]
-    [Arguments(-3, -2, -1)]
-    [Arguments(-4.3, -0.5, -0.3)]
-    [Arguments(6.9, -0.2, -0.1)]
-    [Arguments(0.7, 0.6, 0.1)]
-    [Arguments(6.2, 1.1, 0.7)]
-    public async Task Mod(double x, double y, double result)
+    [Arguments("MOD(1.5, 1)", 0.5)]
+    [Arguments("MOD(3, 2)", 1)]
+    [Arguments("MOD(-3, 2)", 1)]
+    [Arguments("MOD(-3, -2)", -1)]
+    [Arguments("MOD(-4.3, -0.5)", -0.2999999999999998)]
+    [Arguments("MOD(6.9, -0.2)", -0.10000000000000003)]
+    [Arguments("MOD(0.7, 0.6)", 0.09999999999999998)]
+    [Arguments("MOD(6.2, 1.1)", 0.6999999999999997)]
+    [Arguments("MOD(1, 0.1)", 0.09999999999999995)]
+    [Arguments("MOD(0.07, 0.01)", 5.204170427930421E-18)]
+    [Arguments("MOD(1.1, 0.1)", 2.7755575615628914E-17)]
+    [Arguments("MOD(-0.3, 0.1)", 2.7755575615628914E-17)]
+    [Arguments("MOD(-1, 1)", 0)]
+    [Arguments("MOD(-0.3, -0.1)", -0.09999999999999998)]
+    [Arguments("MOD(-1E-20, 1)", 0)]
+    [Arguments("MOD(1E-20, -1)", 0)]
+    [Arguments("MOD(-1E-16, 1)", 0.9999999999999999)]
+    [Arguments("MOD(1125899999999.75, 1)", 0.75)]
+    [Arguments("MOD(1.0995116277765E+22, 10000000000)", 4999610368)]
+    [Arguments("MOD(-109.95116277765, 1E-10)", 5.0006213111919355E-11)]
+    [Arguments("MOD(\"7\", \"2\")", 1)]
+    [Arguments("MOD(TRUE, 2)", 1)]
+    public async Task Mod_matches_excel_bit_for_bit(string formula, double expected)
     {
-        var actual = (double)XLWorkbook.EvaluateExpr($"MOD({x}, {y})");
-        await Assert.That(actual).IsEqualTo(result).Within(tolerance);
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual.ToString("R", CultureInfo.InvariantCulture)).IsEqualTo(expected.ToString("R", CultureInfo.InvariantCulture));
     }
 
     [Test]
-    public async Task Mod_divisor_zero_returns_error()
+    [Arguments("MOD(1, 0)", XLError.DivisionByZero)]
+    [Arguments("MOD(0, 0)", XLError.DivisionByZero)]
+    [Arguments("MOD(7, FALSE)", XLError.DivisionByZero)]
+    [Arguments("MOD(1125900000000, 1)", XLError.NumberInvalid)]
+    [Arguments("MOD(-1125900000000, -1)", XLError.NumberInvalid)]
+    [Arguments("MOD(112590000000, 0.1)", XLError.NumberInvalid)]
+    [Arguments("MOD(1E+308, 1E-10)", XLError.NumberInvalid)]
+    [Arguments("MOD(2.5000000000000003E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(-7.5E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(-2.4999999999999993E-308, 2.5E-308)", XLError.NumberInvalid)]
+    [Arguments("MOD(\"a\", 2)", XLError.IncompatibleValue)]
+    [Arguments("MOD(#N/A, 0)", XLError.NoValueAvailable)]
+    public async Task Mod_returns_excel_errors(string formula, XLError expected)
     {
-        // Spec says that "If y is 0, the return value is unspecified", but Excel says #DIV/0!, so let's go with that.
-        await Assert.That(XLWorkbook.EvaluateExpr("MOD(1, 0)")).IsEqualTo(XLError.DivisionByZero);
-        await Assert.That(XLWorkbook.EvaluateExpr("MOD(0, 0)")).IsEqualTo(XLError.DivisionByZero);
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(expected);
     }
 
     [Test]

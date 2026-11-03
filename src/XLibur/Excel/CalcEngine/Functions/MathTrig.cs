@@ -800,7 +800,22 @@ internal static class MathTrig
         if (divisor == 0)
             return XLError.DivisionByZero;
 
-        return number - Math.Floor(number / divisor) * divisor;
+        // Excel's limit, measured: 1125899999999.75 still has a result, 1125900000000 is #NUM!.
+        if (Math.Abs(number / divisor) >= 1.1259e12)
+            return XLError.NumberInvalid;
+
+        var remainder = number % divisor;
+        if (remainder == 0)
+            return 0;
+
+        var result = (remainder < 0) != (divisor < 0) ? remainder + divisor : remainder;
+
+        // Excel has no subnormal numbers, and gives #NUM! when either step produces one.
+        if (double.IsSubnormal(remainder) || double.IsSubnormal(result))
+            return XLError.NumberInvalid;
+
+        // Excel gives 0, not the divisor, when moving the sign rounds to the divisor.
+        return result == divisor ? 0 : result;
     }
 
     private static ScalarValue MRound(CalcContext ctx, double number, double multiple)

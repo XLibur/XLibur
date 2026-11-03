@@ -32,6 +32,8 @@
 
 - **`CEILING.MATH` and `FLOOR.MATH` keep a number that is already a multiple of a decimal significance.** `FLOOR.MATH(0.3,0.1)` was 0.2 and `CEILING.MATH(0.07,0.01)` was 0.08, because `0.3/0.1` is `2.9999999999999996` in floating point. Excel rounds that quotient to 15 significant digits before it rounds to a multiple, and both functions, as well as `CEILING.PRECISE`, `ISO.CEILING` and `FLOOR.PRECISE`, now do the same: the results are 0.3 and 0.07. A quotient that differs from a whole number within its first 15 digits still moves, so `CEILING.PRECISE(0.30000001,0.1)` is 0.4. The rule was measured in Excel over COM, including the smallest difference that moves a result ([#877](https://github.com/XLibur/XLibur/issues/877)).
 
+- **`MOD` gives the same result as Excel.** `MOD(1,0.1)` was 0 and is now 0.09999999999999995, and `MOD(6.2,1.1)` was 0.7000000000000002 and is now 0.6999999999999997. XLibur computed `n - FLOOR(n/d)*d` from a rounded quotient. Excel computes the remainder exactly and then moves it to the sign of the divisor, and XLibur now does the same. `MOD` also gives `#NUM!` where Excel does: when the quotient is 1.1259E+12 or more, and when the result would be smaller than the smallest positive normal number. A quotient that overflowed to infinity, such as `MOD(1E+308,1E-10)`, used to throw an exception during recalculation. The rule was measured in Excel over COM on about 19,800 inputs, and XLibur gives the same bits on all of them except 18 whose divisor is exactly ±2.2250738585072014E-308 ([#883](https://github.com/XLibur/XLibur/issues/883)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes
