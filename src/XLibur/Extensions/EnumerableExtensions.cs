@@ -1,24 +1,21 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Extensions;
 
 internal static class EnumerableExtensions
 {
+    [RequiresUnreferencedCode("Enumerates the interfaces of a runtime type, and trimming can remove an interface implementation that is never used.")]
     public static Type? GetItemType(this IEnumerable source)
     {
-        return GetGenericArgument(source.GetType());
+        var ienumerable = source.GetType().GetInterfaces()
+            .SingleOrDefault(i => i.GetGenericArguments().Length == 1 &&
+                                  i.Name == "IEnumerable`1");
 
-        Type? GetGenericArgument(Type collectionType)
-        {
-            var ienumerable = collectionType.GetInterfaces()
-                .SingleOrDefault(i => i.GetGenericArguments().Length == 1 &&
-                                      i.Name == "IEnumerable`1");
-
-            return ienumerable?.GetGenericArguments().FirstOrDefault();
-        }
+        return ienumerable?.GetGenericArguments().FirstOrDefault();
     }
 
     extension<T>(IEnumerable<T> source)

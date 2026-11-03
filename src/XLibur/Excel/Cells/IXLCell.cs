@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -409,6 +410,8 @@ public interface IXLCell
     /// Inserts the IEnumerable data elements and returns the range it occupies.
     /// </summary>
     /// <param name="data">The IEnumerable data.</param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange? InsertData(IEnumerable data);
 
     /// <summary>
@@ -416,6 +419,8 @@ public interface IXLCell
     /// </summary>
     /// <param name="data">The IEnumerable data.</param>
     /// <param name="transpose">if set to <c>true</c> the data will be transposed before inserting.</param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange? InsertData(IEnumerable data, bool transpose);
 
     /// <summary>
@@ -430,6 +435,8 @@ public interface IXLCell
     /// <para>The new table will receive a generic name: Table#</para>
     /// </summary>
     /// <param name="data">The table data.</param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLTable InsertTable<T>(IEnumerable<T> data);
 
     /// <summary>
@@ -441,6 +448,8 @@ public interface IXLCell
     /// if set to <c>true</c> it will create an Excel table.
     /// <para>if set to <c>false</c> the table will be created in memory.</para>
     /// </param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLTable InsertTable<T>(IEnumerable<T> data, bool createTable);
 
     /// <summary>
@@ -448,6 +457,8 @@ public interface IXLCell
     /// </summary>
     /// <param name="data">The table data.</param>
     /// <param name="tableName">Name of the table.</param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLTable InsertTable<T>(IEnumerable<T> data, string tableName);
 
     /// <summary>
@@ -459,6 +470,8 @@ public interface IXLCell
     /// if set to <c>true</c> it will create an Excel table.
     /// <para>if set to <c>false</c> the table will be created in memory.</para>
     /// </param>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLTable InsertTable<T>(IEnumerable<T> data, string tableName, bool createTable);
 
     /// <summary>

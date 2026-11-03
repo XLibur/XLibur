@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -67,6 +68,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange? AppendData(IEnumerable data, bool propagateExtraColumns = false);
 
     /// <summary>
@@ -78,6 +81,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange? AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns);
 
     /// <summary>
@@ -98,6 +103,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The range of the new rows.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange? AppendData<T>(IEnumerable<T> data);
 
     /// <summary>
@@ -108,6 +115,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The table's data range.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange ReplaceData(IEnumerable data, bool propagateExtraColumns = false);
 
     /// <summary>
@@ -119,6 +128,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The table's data range.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange ReplaceData(IEnumerable data, bool transpose, bool propagateExtraColumns);
 
     /// <summary>
@@ -140,6 +151,8 @@ public interface IXLTable : IXLRange
     /// <returns>
     /// The table's data range.
     /// </returns>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     IXLRange ReplaceData<T>(IEnumerable<T> data, bool propagateExtraColumns = false);
 
     /// <summary>

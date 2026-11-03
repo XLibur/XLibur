@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -429,26 +430,36 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
     public XLEvaluationResult TryEvaluate() => EvaluationPolicy.TryEvaluate(this, static cell => cell.Value);
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLTable InsertTable<T>(IEnumerable<T> data)
     {
         return InsertTable(data, null, true);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLTable InsertTable<T>(IEnumerable<T> data, bool createTable)
     {
         return InsertTable(data, null, createTable);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLTable InsertTable<T>(IEnumerable<T> data, string tableName)
     {
         return InsertTable(data, tableName, true);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLTable InsertTable<T>(IEnumerable<T> data, string? tableName, bool createTable)
     {
         return InsertTable(data, tableName, createTable, addHeadings: true, transpose: false);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLTable InsertTable<T>(IEnumerable<T> data, string? tableName, bool createTable, bool addHeadings,
         bool transpose)
     {
@@ -494,11 +505,15 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return XLTableCellType.Data;
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange? InsertData(IEnumerable data)
     {
         return data is null or string ? null : InsertData(data, transpose: false);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange? InsertData(IEnumerable data, bool transpose)
     {
         if (data is null or string)
