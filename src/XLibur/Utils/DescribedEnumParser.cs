@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
 namespace XLibur.Utils;
 
-internal static class DescribedEnumParser<T> where T : notnull
+internal static class DescribedEnumParser<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] T>
+    where T : notnull
 {
     private static readonly Lazy<IDictionary<string, T>> FromDescriptions = new(() =>
     {

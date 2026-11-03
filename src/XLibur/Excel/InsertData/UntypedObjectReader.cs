@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace XLibur.Excel.InsertData;
@@ -9,6 +10,8 @@ internal sealed class UntypedObjectReader : IInsertDataReader
 {
     private readonly IEnumerable<IInsertDataReader> _readers;
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item types by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public UntypedObjectReader(IEnumerable data)
     {
         var data1 = (data ?? Array.Empty<object>()).Cast<object>();
@@ -19,6 +22,8 @@ internal sealed class UntypedObjectReader : IInsertDataReader
     /// Splits <paramref name="data"/> into runs of items of the same type and yields one reader
     /// per run.
     /// </summary>
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item types by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     private static IEnumerable<IInsertDataReader> CreateReaders(IEnumerable<object> data)
     {
         if (!data.Any())
@@ -46,6 +51,8 @@ internal sealed class UntypedObjectReader : IInsertDataReader
         }
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item types by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     private static IInsertDataReader CreateReader(List<object> itemsOfSameType, Type? itemType)
     {
         if (itemType == null)

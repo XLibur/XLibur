@@ -117,7 +117,7 @@ jobs:
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.vscoveragexml.reportsPaths="**/*coverage.xml"
           /d:sonar.exclusions="docs-website/**,**/*.xlsx,**/*.xlsm,**/*.ttf,**/*.png,**/*.jpg,**/*.bmp,**/*.webp,**/*.gif,**/*.tiff,**/*.wmf,**/*.emf"
-          /d:sonar.coverage.exclusions="src/XLibur.Examples/**,src/XLibur.Benchmarks/**,src/XLibur.Report.Examples/**,src/XLibur.Report.Benchmarks/**,tools/**"
+          /d:sonar.coverage.exclusions="src/XLibur.Examples/**,src/XLibur.Benchmarks/**,src/XLibur.Report.Examples/**,src/XLibur.Report.Benchmarks/**,src/XLibur.AotSmoke/**,tools/**"
           /d:sonar.cpd.exclusions="src/XLibur/Excel/CalcEngine/Functions/SignatureAdapter.cs,src/XLibur/Excel/CalcEngine/Functions/Distributions.cs,src/XLibur/Excel/CalcEngine/Functions/Regression.cs"
           /d:sonar.issue.ignore.multicriteria=e1
           /d:sonar.issue.ignore.multicriteria.e1.ruleKey=csharpsquid:S3220
