@@ -6,13 +6,17 @@ XLibur on the same day. How the corpus works and how to refresh it is in
 
 ## Result
 
-XLibur disagrees with Excel on 21 of 549 cases (3.8%). 17 of the 25 functions have at least one
-disagreement. The 21 fall into 12 distinct causes. The sample is weighted toward edge cases on purpose
+XLibur disagrees with Excel on 20 of 549 cases (3.6%). 16 of the 25 functions have at least one
+disagreement. The 20 fall into 11 distinct causes. The sample is weighted toward edge cases on purpose
 (coercion, errors, boundaries, wrong argument counts), so this overstates the rate for ordinary use.
 
 The first run found 24 disagreements in 13 causes. The three `MOD` cases (`MOD(1E15,7)`, `MOD(1E20,7)`,
 `MOD(3,1E-20)`) were fixed on `main` by #889 while this work was in review, and the runner reported their
 known-difference rows as stale. That is the mechanism working as designed.
+
+A fourth case, `COUNTIF(1,1)`, stopped counting when the comparison rules changed: Excel refuses that formula
+at entry, and a refused formula now matches XLibur returning any error. A workbook Excel wrote cannot contain
+such a formula, so an error value is the same outcome.
 
 The spec's gate sets two outcomes: under about 2%, stop at Task 3 scope; far higher, prioritise Task 4. This
 result is between them. It is high enough that the unit tests were agreeing with the code and not with
@@ -31,7 +35,7 @@ the cost of the full corpus is in doubt, since it runs 565 tests in about 1.6 se
 | POWER | math | 20 | 1 |
 | ABS | math | 20 | 0 |
 | AVERAGE | statistical | 20 | 1 |
-| COUNTIF | statistical | 23 | 1 |
+| COUNTIF | statistical | 23 | 0 |
 | MEDIAN | statistical | 20 | 1 |
 | LEFT | text | 20 | 1 |
 | MID | text | 20 | 1 |
@@ -48,7 +52,7 @@ the cost of the full corpus is in doubt, since it runs 565 tests in about 1.6 se
 | VLOOKUP | lookup | 28 | 1 |
 | MATCH | lookup | 29 | 0 |
 | DATE | date | 38 | 1 |
-| **Total** | | **549** | **21** |
+| **Total** | | **549** | **20** |
 
 Recorded answer types: 271 number, 126 error, 86 text, 33 bool, 33 rejected (Excel refused the formula).
 
@@ -69,7 +73,6 @@ Ranked by number of cases. Every case is a row in `known-diffs.tsv` with its rea
 | `AND("")` | 1 | `#VALUE!` in Excel, TRUE in XLibur |
 | `DATE(1900,0,31)` | 1 | `#NUM!` in Excel, 0 in XLibur |
 | `VLOOKUP` approximate on unsorted data | 1 | `c` in Excel, `#N/A` in XLibur |
-| `COUNTIF(1,1)` | 1 | Excel refuses at entry, XLibur returns `#VALUE!` |
 
 By family: math 8 of 137 cases, text 8 of 151, statistical 3 of 63, logical 2 of 63, information 1 of 40,
 lookup 1 of 57, date 1 of 38.
