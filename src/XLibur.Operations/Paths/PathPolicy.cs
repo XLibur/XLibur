@@ -241,22 +241,34 @@ public sealed class PathPolicy
         var body = path;
         if (body.StartsWith(@"\\?\", StringComparison.Ordinal) || body.StartsWith(@"\\.\", StringComparison.Ordinal))
             body = body[4..];
-        var colon = body.IndexOf(':');
-        var driveColon = colon == 1 && char.IsAsciiLetter(body[0]);
-        if (colon >= 0 && (!driveColon || body.IndexOf(':', 2) >= 0))
+        if (HasStreamColon(body))
             throw OperationException.Forbidden("alternate_data_stream", $"'{path}' holds a ':' outside a drive letter (an alternate data stream).");
 
         foreach (var segment in body.Split('/', '\\'))
         {
-            if (segment.Length == 0 || segment is "." or "..")
-                continue;
-            if (segment[^1] is '.' or ' ')
-                throw OperationException.Forbidden("trailing_dot_or_space", $"'{path}' has a component ending in a dot or a space, which Windows strips.");
-
-            var stem = segment.Split('.')[0].TrimEnd(' ');
-            if (ReservedNames.Contains(stem))
-                throw OperationException.Forbidden("reserved_device_name", $"'{path}' uses the reserved device name '{stem}'.");
+            if (segment.Length > 0 && segment is not ("." or ".."))
+                CheckSegment(segment, path);
         }
+    }
+
+    /// <summary>Whether a ':' appears anywhere but straight after a leading drive letter.</summary>
+    private static bool HasStreamColon(string body)
+    {
+        var colon = body.IndexOf(':');
+        if (colon < 0)
+            return false;
+        var driveColon = colon == 1 && char.IsAsciiLetter(body[0]);
+        return !driveColon || body.IndexOf(':', 2) >= 0;
+    }
+
+    private static void CheckSegment(string segment, string path)
+    {
+        if (segment[^1] is '.' or ' ')
+            throw OperationException.Forbidden("trailing_dot_or_space", $"'{path}' has a component ending in a dot or a space, which Windows strips.");
+
+        var stem = segment.Split('.')[0].TrimEnd(' ');
+        if (ReservedNames.Contains(stem))
+            throw OperationException.Forbidden("reserved_device_name", $"'{path}' uses the reserved device name '{stem}'.");
     }
 
     private static bool IsDeviceOrUnc(string path)
@@ -268,22 +280,14 @@ public sealed class PathPolicy
     private string ResolveLinksInsideRoots(string full)
     {
         var current = NativePaths.ExpandShortNames(full);
-        for (var hops = 0; ; hops++)
+        var hops = 0;
+        while (FirstLink(current) is { } link)
         {
-            var link = FirstLink(current);
-            if (link is null)
-                break;
-            if (hops >= MaxLinkHops)
+            if (hops++ >= MaxLinkHops)
                 throw OperationException.Forbidden("link_loop", $"'{full}' goes through more than {MaxLinkHops} links.");
 
-            var (linkPath, target, rest) = link.Value;
-            if (target.StartsWith(@"\??\", StringComparison.Ordinal) || target.StartsWith(@"\\?\", StringComparison.Ordinal))
-                target = target[4..];
-            if (IsDeviceOrUnc(target))
-                throw OperationException.Forbidden("link_outside_roots", $"'{linkPath}' links to the network or device path '{target}'.");
-
-            var absolute = Path.IsPathRooted(target) ? target : Path.Combine(Path.GetDirectoryName(linkPath)!, target);
-            current = Path.GetFullPath(rest.Length == 0 ? absolute : Path.Combine(absolute, rest));
+            var destination = LinkDestination(link.LinkPath, link.Target);
+            current = Path.GetFullPath(link.Remainder.Length == 0 ? destination : Path.Combine(destination, link.Remainder));
             if (!IsInsideRootsByName(current))
                 throw OutsideRoots(full);
             current = NativePaths.ExpandShortNames(current);
@@ -292,6 +296,16 @@ public sealed class PathPolicy
         if (!IsInsideRootsByName(current))
             throw OutsideRoots(full);
         return current;
+    }
+
+    /// <summary>Where a link points, made absolute; a link to a device or the network is refused.</summary>
+    private static string LinkDestination(string linkPath, string target)
+    {
+        if (target.StartsWith(@"\??\", StringComparison.Ordinal) || target.StartsWith(@"\\?\", StringComparison.Ordinal))
+            target = target[4..];
+        if (IsDeviceOrUnc(target))
+            throw OperationException.Forbidden("link_outside_roots", $"'{linkPath}' links to the network or device path '{target}'.");
+        return Path.IsPathRooted(target) ? target : Path.Combine(Path.GetDirectoryName(linkPath)!, target);
     }
 
     private static (string LinkPath, string Target, string Remainder)? FirstLink(string path)
