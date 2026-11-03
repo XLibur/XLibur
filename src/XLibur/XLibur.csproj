@@ -5,6 +5,7 @@
         <RootNamespace>XLibur</RootNamespace>
         <Company>XLibur</Company>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)'=='Release'">
