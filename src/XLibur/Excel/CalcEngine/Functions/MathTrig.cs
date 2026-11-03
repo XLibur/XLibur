@@ -58,6 +58,7 @@ internal static class MathTrig
         ce.RegisterFunction("BASE", 2, 3, AdaptLastOptional(Base, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("CEILING", 2, 2, Adapt(Ceiling), FunctionFlags.Scalar);
         ce.RegisterFunction("CEILING.MATH", 1, 3, AdaptLastTwoOptional(CeilingMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("CEILING.PRECISE", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COMBIN", 2, 2, Adapt(Combin), FunctionFlags.Scalar);
         ce.RegisterFunction("COMBINA", 2, 2, Adapt(CombinA), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("COS", 1, 1, Adapt(Cos), FunctionFlags.Scalar);
@@ -74,8 +75,10 @@ internal static class MathTrig
         ce.RegisterFunction("FACTDOUBLE", 1, 1, Adapt(FactDouble), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR", 2, 2, Adapt(Floor), FunctionFlags.Scalar);
         ce.RegisterFunction("FLOOR.MATH", 1, 3, AdaptLastTwoOptional(FloorMath, 1, 0), FunctionFlags.Scalar | FunctionFlags.Future);
+        ce.RegisterFunction("FLOOR.PRECISE", 1, 2, AdaptLastOptional(FloorPrecise, 1), FunctionFlags.Scalar | FunctionFlags.Future);
         ce.RegisterFunction("GCD", 1, 255, Adapt(Gcd), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("INT", 1, 1, Adapt(Int), FunctionFlags.Scalar);
+        ce.RegisterFunction("ISO.CEILING", 1, 2, AdaptLastOptional(CeilingPrecise, 1), FunctionFlags.Scalar);
         ce.RegisterFunction("LCM", 1, 255, Adapt(Lcm), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("LN", 1, 1, Adapt(Ln), FunctionFlags.Scalar);
         ce.RegisterFunction("LOG", 1, 2, AdaptLastOptional(Log, 10), FunctionFlags.Scalar);
@@ -341,14 +344,49 @@ internal static class MathTrig
             return 0;
 
         significance = Math.Abs(significance);
+        var quotient = RoundedQuotient(number, significance);
 
         // Mode 1 very similar to behavior of CEILING function, i.e. ceil
         // away from zero even for negative numbers. Mode 1 is not the same
         // as CEILING, e.g. CEILING(-5.5, 2.1) vs CEILING.MATH(-5.5, 2.1, 1)).
         if (number < 0 && mode != 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
-        return Math.Ceiling(number / significance) * significance;
+        return Math.Ceiling(quotient) * significance;
+    }
+
+    // Excel rounds the quotient to 15 significant digits, half away from zero, before it rounds
+    // to a multiple, so 0.3 / 0.1 = 2.9999999999999996 counts as 3.
+    private static double RoundedQuotient(double number, double significance)
+    {
+        var quotient = number / significance;
+        var magnitude = Math.Abs(quotient);
+        var tooSmallToRoundToAnInteger = magnitude < 0.1;
+        if (tooSmallToRoundToAnInteger || !double.IsFinite(quotient))
+            return quotient;
+
+        var digits = 14 - (int)Math.Floor(Math.Log10(magnitude));
+        if (digits < 0)
+            return XLMath.Round(quotient, digits);
+
+        var scale = XLMath.Power10[digits];
+        return RoundExactProductHalfAwayFromZero(quotient, scale) / scale;
+    }
+
+    private static double RoundExactProductHalfAwayFromZero(double value, double scale)
+    {
+        var product = value * scale;
+        var productRoundingError = Math.FusedMultiplyAdd(value, scale, -product);
+        var exactProductFallsShortOfTheHalf = Math.Abs(product - Math.Truncate(product)) == 0.5
+            && productRoundingError * product < 0;
+        return exactProductFallsShortOfTheHalf
+            ? Math.Truncate(product)
+            : Math.Round(product, MidpointRounding.AwayFromZero);
+    }
+
+    private static ScalarValue CeilingPrecise(CalcContext ctx, double number, double significance)
+    {
+        return CeilingMath(number, significance, 0);
     }
 
     private static ScalarValue Combin(CalcContext ctx, double number, double numberChosen)
@@ -535,15 +573,21 @@ internal static class MathTrig
             return 0d;
 
         significance = Math.Abs(significance);
+        var quotient = RoundedQuotient(number, significance);
         if (number >= 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
         // Mode 0 floors numbers to lower number.
         if (mode == 0)
-            return Math.Floor(number / significance) * significance;
+            return Math.Floor(quotient) * significance;
 
         // Mode !0 truncates negative number, i.e. closer to zero
-        return Math.Truncate(number / significance) * significance;
+        return Math.Truncate(quotient) * significance;
+    }
+
+    private static ScalarValue FloorPrecise(CalcContext ctx, double number, double significance)
+    {
+        return FloorMath(number, significance, 0);
     }
 
     private static ScalarValue Gcd(CalcContext ctx, List<Array> arrays)
