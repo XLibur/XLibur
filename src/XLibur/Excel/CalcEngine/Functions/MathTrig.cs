@@ -418,6 +418,9 @@ internal static class MathTrig
 
     private static ScalarValue Cos(double number)
     {
+        if (ExceedsTrigLimit(number))
+            return XLError.NumberInvalid;
+
         return Math.Cos(number);
     }
 
@@ -1088,6 +1091,9 @@ internal static class MathTrig
 
     private static ScalarValue Sin(double radians)
     {
+        if (ExceedsTrigLimit(radians))
+            return XLError.NumberInvalid;
+
         return Math.Sin(radians);
     }
 
@@ -1347,14 +1353,20 @@ internal static class MathTrig
 
     private static ScalarValue Tan(double radians)
     {
-        // Cutoff point for Excel. .NET Core allows all values and .NET Fx ~< 1e+19.
-        // To ensure consistent behavior for all platforms, respect Excel limit. It's
-        // lower than both the .NET Core and the .NET Fx one.
-        if (Math.Abs(radians) >= 134217728)
+        if (ExceedsTrigLimit(radians))
             return XLError.NumberInvalid;
 
         return Math.Tan(radians);
     }
+
+    /// <summary>
+    /// Cutoff point for Excel's SIN, COS and TAN: 2^27 radians and above is <c>#NUM!</c>, and the
+    /// largest value below it still has a result. .NET Core allows all values and .NET Fx ~&lt; 1e+19.
+    /// To ensure consistent behavior for all platforms, respect Excel limit. It's lower than both the
+    /// .NET Core and the .NET Fx one, and without it the result for a huge angle differs between
+    /// operating systems.
+    /// </summary>
+    private static bool ExceedsTrigLimit(double radians) => Math.Abs(radians) >= 134217728;
 
     private static ScalarValue Tanh(double number)
     {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using XLibur.Attributes;
@@ -18,6 +19,7 @@ internal sealed class ObjectReader : IInsertDataReader
     private readonly MemberInfo[] _members;
     private readonly bool[] _staticMembers;
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
     public ObjectReader(IEnumerable data)
     {
         _data = data.Cast<object>();

@@ -413,19 +413,22 @@ bug in XLibur, and the save now throws it. Please report it.
 `ArgumentException`, because an empty string is not a missing argument. `null` still throws
 `ArgumentNullException`. A `catch (ArgumentException)` catches both, as before.
 
-## Deprecations
+## Removed in this release
 
-Three groups of `[Obsolete]` members that shipped in ClosedXML 0.105 are **removed in the next
-minor version**, so port them now rather than on the upgrade after this one:
+Three groups of `[Obsolete]` members that shipped in ClosedXML 0.105 are removed. Each has a
+replacement that already exists, so porting is a rename:
 
-| Deprecated | Replacement |
+| Removed | Replacement |
 |---|---|
-| `IXLWorkbook.NamedRanges`, `IXLWorksheet.NamedRanges`, `IXLDefinedNames.NamedRange` | `DefinedNames` / `DefinedName` |
-| `IXLCell.DataValidation`, `IXLRangeBase.DataValidation` | `GetDataValidation()` to read, `CreateDataValidation()` to create |
+| `IXLWorkbook.NamedRanges`, `IXLWorksheet.NamedRanges` | `DefinedNames` |
+| `IXLWorkbook.NamedRange`, `IXLWorksheet.NamedRange`, `IXLDefinedNames.NamedRange` | `DefinedName` |
+| `IXLRangeBase.SetDataValidation()` | `GetDataValidation()` to read, `CreateDataValidation()` to create |
 | `IXLRanges.SetDataValidation()` | `CreateDataValidation()` |
 | `XLFontCharSet.Hangeul` | `XLFontCharSet.Hangul` |
 
-`XLColor.NoColor` is the exception: it is deprecated but stays.
+## Deprecations
+
+`XLColor.NoColor` is deprecated in favor of `XLColor.Automatic`, but it stays.
 
 One interface is newly deprecated in XLibur. `IXLBaseCollection<TSingle, TMultiple>` is an orphan —
 nothing in the library implements, extends or consumes it, and the collections it looks like it

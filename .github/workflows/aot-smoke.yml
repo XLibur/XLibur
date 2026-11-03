@@ -1,0 +1,51 @@
+name: AOT and trimming smoke
+
+# Publishes src/XLibur.AotSmoke trimmed and with NativeAOT, runs both binaries, and compares what they
+# save with a JIT run. "No warnings" is not "works": the font probe used to build clean and then throw.
+# Publishing builds XLibur with the trim and AOT analyzers on, so a new reflective call in the core
+# also fails here (and in every build, through IsAotCompatible).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/XLibur/**'
+      - 'src/XLibur.AotSmoke/**'
+      - 'src/XLibur.Fonts.*/**'
+      - 'src/XLibur.Report/**'
+      - '.github/workflows/aot-smoke.yml'
+      - 'Directory.Build.*'
+      - 'global.json'
+
+jobs:
+  smoke:
+    name: ${{ matrix.os }} / ${{ matrix.engine }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # SkiaZeroConfig is the zero-config default; Pinata is the managed engine and needs a call.
+        engine: [SkiaZeroConfig, Pinata]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.100-rc.2.26504.105
+
+      - name: Install the native AOT toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Smoke (JIT, trimmed, native AOT)
+        shell: pwsh
+        run: ./src/XLibur.AotSmoke/run-smoke.ps1 -Engine ${{ matrix.engine }}

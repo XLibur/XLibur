@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ internal sealed class SimpleTypeReader : IInsertDataReader
     private readonly IEnumerable<object> _data;
     private readonly Type _itemType;
 
+    [RequiresUnreferencedCode("Enumerates the interfaces of a runtime type, and trimming can remove an interface implementation that is never used.")]
     public SimpleTypeReader(IEnumerable data)
     {
         _data = data?.Cast<object>() ?? throw new ArgumentNullException(nameof(data));
