@@ -283,19 +283,19 @@ public class EvaluationOutcomeTests
     }
 
     /// <summary>
-    /// D59. Excel returns 2; XLibur does not apply a scalar function over an array argument yet
-    /// (spec 30). Until it does, this is an unsupported feature, not a defect.
+    /// D59. XLibur does not evaluate every formula node yet. Until it does, such a formula is an
+    /// unsupported feature, not a defect. (An array constant given to a scalar function used to
+    /// be the example; <c>LEN({"ab","c"})</c> now returns 2 as Excel does.)
     /// </summary>
     [Test]
-    public async Task D59_an_array_passed_to_a_scalar_parameter_is_an_unsupported_feature()
+    public async Task D59_an_unsupported_formula_node_is_an_unsupported_feature()
     {
         using var wb = new XLWorkbook();
         var cell = wb.AddWorksheet(SheetName).Cell("A1");
-        cell.FormulaA1 = "LEN({\"ab\",\"c\"})";
+        cell.FormulaA1 = UnsupportedFormula;
 
         var ex = await Assert.That(() => _ = cell.Value).Throws<NotImplementedException>();
-        await Assert.That(ex!.Message).IsEqualTo("Array formulas not implemented.");
-        await Assert.That(EvaluationFailure.Classify(ex)).IsEqualTo(EvaluationFailureKind.Unsupported);
+        await Assert.That(EvaluationFailure.Classify(ex!)).IsEqualTo(EvaluationFailureKind.Unsupported);
     }
 
     /// <summary>
