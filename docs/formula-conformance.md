@@ -80,25 +80,29 @@ lookup 1 of 57, date 1 of 38.
 ## Task 3: generated cases for math, text, logical and information
 
 `tools/excel-conformance/New-CaseFile.ps1` expanded 56 more functions into 1,517 cases, recorded from the
-same Excel build. XLibur disagrees on 50 (3.3%), recorded in `known-diffs.tsv`. The whole conformance class
+same Excel build. XLibur disagrees on 46 (3.0%), recorded in `known-diffs.tsv`. The whole conformance class
 (2,082 tests including the pilot) runs in about 2.5 s. The expansion is mechanical, so most cases are
 cheap and most agree. The disagreements come mostly from the argument variants.
 
 The first run found 52. Two `MROUND` cases (`MROUND(0,3)` and `MROUND` of an empty cell) were fixed on `main`
 by #885 while this was in review, and the runner reported their rows as stale.
 
+Four `SIN`/`COS` cases failed CI on Linux: XLibur's answer for `COS(1E15)` is a number that differs between
+Windows and Linux, so a known-difference row pinning it could not be stable. Excel returns `#NUM!` for an
+angle of 2^27 (134,217,728) or more and a value just below it, for `SIN`, `COS` and `TAN` alike (measured
+over COM). `TAN` already had that cutoff; `SIN` and `COS` now do too, and the four rows are gone.
+
 | Cause | Cases | Examples |
 |---|---|---|
 | Array constant as an argument: XLibur throws `UnsupportedFeatureException`, Excel uses the first element | 15 | `LOWER({1,2,3})`, `CONCATENATE("a",{1,2,3})`, `REPT({1,2,3},3)` |
 | `FACTDOUBLE`, `MROUND`, `QUOTIENT` take a boolean or multi-cell range: Excel `#VALUE!`, XLibur coerces | 10 | `QUOTIENT(7,TRUE)`, `MROUND(A1:A3,3)` |
 | Huge value or digits count: XLibur throws `ArgumentException` | 7 | `ROUNDUP(9E307,2)`, `ROUNDDOWN(2.345,1000000)`, `DEGREES(9E307)` |
-| `SIN`/`COS` of a huge argument: Excel `#NUM!`, XLibur a number | 4 | `SIN(1E15)`, `COS(9E307)` |
 | `OR` with a direct text argument: Excel `#VALUE!`, XLibur FALSE | 4 | `OR("x")`, `OR("")` |
 | `GCD`/`LCM` with an empty cell reference | 3 | `GCD(A1)` is `#VALUE!` in Excel and 0 in XLibur |
 | Text or fractional digits argument: XLibur returns float noise | 3 | `ROUNDUP(2.345,"5")` is 2.34501, `TRUNC(8.9,2.5)` is 8.898649335713818 |
 | `ROMAN(1999,TRUE)`, `REPLACE` with an emoji, `SUMPRODUCT` with an error, `TYPE` of a range | 1 each | |
 
-By family: math 29 of 890, text 16 of 383, logical 4 of 50, information 1 of 194. The information functions
+By family: math 25 of 890, text 16 of 383, logical 4 of 50, information 1 of 194. The information functions
 agree almost everywhere. The text functions fail on arrays. Several causes share the pilot's themes
 (overflow, surrogate pairs, text direct arguments) and could join #894.
 
@@ -157,7 +161,7 @@ and nothing more. Task 4 is the step that turns them into causes and fixes.
 ## Task 4: triage and first fixes
 
 Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
-disagreed on 376. After them it disagrees on 333 (6.9%), in 80 of the 164 functions.
+disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions.
 
 Ranked by family, after the fixes:
 
@@ -170,7 +174,7 @@ Ranked by family, after the fixes:
 | date | 32 of 630 | 5.1% |
 | text | 24 of 534 | 4.5% |
 | logical | 5 of 113 | 4.4% |
-| math | 22 of 1,027 | 2.1% |
+| math | 18 of 1,027 | 1.8% |
 | information | 1 of 234 | 0.4% |
 
 The functions with most disagreements: `RATE` 28, `INDEX` 15, `SLOPE` 14, `CORREL` 14, `YEARFRAC` 10,
@@ -189,12 +193,12 @@ The functions with most disagreements: `RATE` 28, `INDEX` 15, `SLOPE` 14, `CORRE
   as 0, a string of only spaces is `#NUM!`, and a minus sign is `#NUM!` and no longer throws.
 - `RADIANS` and `MEDIAN` no longer overflow in an intermediate step when the result fits.
 
-Twelve rows stayed as differences with a new XLibur answer: they returned a crash before and `#NUM!` now,
+Ten rows stayed as differences with a new XLibur answer: they returned a crash before and `#NUM!` now,
 where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Excel).
 
 **Remaining, in the order I would take them.**
 
-1. A boolean or multi-cell range argument where Excel returns `#VALUE!` (61 cases). Mostly the Analysis
+1. A boolean or multi-cell range argument where Excel returns `#VALUE!` (71 cases). Mostly the Analysis
    ToolPak functions. A shared argument adapter would clear most of it.
 2. An array constant as an argument throws `UnsupportedFeatureException` (24).
 3. Which of two error arguments wins (28).
@@ -202,8 +206,7 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
    tolerance and iteration count.
 5. The 150 rows that only state the two answers. The biggest are `INDEX` (15), `SLOPE` and `CORREL` (26),
    `YEARFRAC` (10) and the engineering conversions.
-6. Singletons: surrogate pairs (3), number to text (5), `SIN`/`COS` of a huge argument (4), `OR` with a
-   text argument (4), `GCD`/`LCM` with an empty cell (3), `ROUND(1.005,2)`, `VALUE("5-")`, `AND("")`,
+6. Singletons: surrogate pairs (3), number to text (5), `OR` with a text argument (4), `GCD`/`LCM` with an empty cell (3), `ROUND(1.005,2)`, `VALUE("5-")`, `AND("")`,
    `DATE(1900,0,31)`, `ROMAN` with a boolean form, `SUMPRODUCT` with an error, `TYPE` of a range, the
    unsorted approximate `VLOOKUP`.
 
