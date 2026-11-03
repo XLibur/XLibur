@@ -26,13 +26,13 @@ internal static class DateAndTime
         ce.RegisterFunction("DAY", 1, 1, Adapt(GetDay), FunctionFlags.Scalar); // Converts a serial number to a day of the month
         ce.RegisterFunction("DAYS", 2, 2, Adapt(Days), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the number of days between two dates.
         ce.RegisterFunction("DAYS360", 2, 3, AdaptLastOptional(Days360, false), FunctionFlags.Scalar); // Calculates the number of days between two dates based on a 360-day year
-        ce.RegisterFunction("EDATE", 2, 2, Adapt(EDate), FunctionFlags.Scalar); // Returns the serial number of the date that is the indicated number of months before or after the start date
-        ce.RegisterFunction("EOMONTH", 2, 2, Adapt(Eomonth), FunctionFlags.Scalar); // Returns the serial number of the last day of the month before or after a specified number of months
+        ce.RegisterFunction("EDATE", 2, 2, RejectLogical(Adapt(EDate), 0, 1), FunctionFlags.Scalar); // Returns the serial number of the date that is the indicated number of months before or after the start date
+        ce.RegisterFunction("EOMONTH", 2, 2, RejectLogical(Adapt(Eomonth), 0, 1), FunctionFlags.Scalar); // Returns the serial number of the last day of the month before or after a specified number of months
         ce.RegisterFunction("HOUR", 1, 1, Adapt(Hour), FunctionFlags.Scalar); // Converts a serial number to an hour
         ce.RegisterFunction("ISOWEEKNUM", 1, 1, Adapt(IsoWeekNum), FunctionFlags.Scalar | FunctionFlags.Future); // Returns number of the ISO week number of the year for a given date.
         ce.RegisterFunction("MINUTE", 1, 1, Adapt(Minute), FunctionFlags.Scalar); // Converts a serial number to a minute
         ce.RegisterFunction("MONTH", 1, 1, Adapt(GetMonth), FunctionFlags.Scalar); // Converts a serial number to a month
-        ce.RegisterFunction("NETWORKDAYS", 2, 3, AdaptLastOptional(NetWorkDays), FunctionFlags.Range, AllowRange.Only, 2); // Returns the number of whole workdays between two dates
+        ce.RegisterFunction("NETWORKDAYS", 2, 3, RejectLogical(AdaptLastOptional(NetWorkDays), 0, 1), FunctionFlags.Range, AllowRange.Only, 2); // Returns the number of whole workdays between two dates
         ce.RegisterFunction("NETWORKDAYS.INTL", 2, 4, NetWorkDaysIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // Whole workdays between two dates, with a configurable weekend
         ce.RegisterFunction("NOW", 0, 0, Adapt(Now), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of the current date and time
         ce.RegisterFunction("SECOND", 1, 1, Adapt(Second), FunctionFlags.Scalar); // Converts a serial number to a second
@@ -40,11 +40,11 @@ internal static class DateAndTime
         ce.RegisterFunction("TIMEVALUE", 1, 1, Adapt(timeValue), FunctionFlags.Scalar); // Converts a time in the form of text to a serial number
         ce.RegisterFunction("TODAY", 0, 0, Adapt(Today), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of today's date
         ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
-        ce.RegisterFunction("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
-        ce.RegisterFunction("WORKDAY", 2, 3, AdaptLastOptional(Workday), FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
+        ce.RegisterFunction("WEEKNUM", 1, 2, RejectLogical(AdaptLastOptional(WeekNum, 1), 0, 1), FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
+        ce.RegisterFunction("WORKDAY", 2, 3, RejectLogical(AdaptLastOptional(Workday), 0, 1), FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
         ce.RegisterFunction("WORKDAY.INTL", 2, 4, WorkdayIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // The date a number of workdays away, with a configurable weekend
         ce.RegisterFunction("YEAR", 1, 1, Adapt(GetYear), FunctionFlags.Scalar); // Converts a serial number to a year
-        ce.RegisterFunction("YEARFRAC", 2, 3, AdaptLastOptional(YearFrac, 0), FunctionFlags.Scalar); // Returns the year fraction representing the number of whole days between start_date and end_date
+        ce.RegisterFunction("YEARFRAC", 2, 3, RejectLogical(AdaptLastOptional(YearFrac, 0), 0, 1, 2), FunctionFlags.Scalar); // Returns the year fraction representing the number of whole days between start_date and end_date
     }
 
     private static ScalarValue Date(CalcContext ctx, double year, double month, double day)
