@@ -332,10 +332,7 @@ internal static class MathTrig
         if (significance < 0 && number > 0)
             return XLError.NumberInvalid;
 
-        if (number < 0)
-            return -Math.Ceiling(-number / -significance) * -significance;
-
-        return Math.Ceiling(number / significance) * significance;
+        return Math.Ceiling(RoundedQuotient(number, significance)) * significance;
     }
 
     private static ScalarValue CeilingMath(double number, double significance, double mode)
@@ -561,10 +558,7 @@ internal static class MathTrig
         if (significance == 0)
             return XLError.DivisionByZero;
 
-        if (significance < 0)
-            return -Math.Floor(-number / -significance) * -significance;
-
-        return Math.Floor(number / significance) * significance;
+        return Math.Floor(RoundedQuotient(number, significance)) * significance;
     }
 
     private static ScalarValue FloorMath(double number, double significance, double mode)
@@ -820,14 +814,23 @@ internal static class MathTrig
 
     private static ScalarValue MRound(CalcContext ctx, double number, double multiple)
     {
-        if (multiple == 0)
+        if (multiple == 0 || number == 0)
             return 0;
 
         if (Math.Sign(number) != Math.Sign(multiple))
             return XLError.NumberInvalid;
 
-        return Math.Round(number / multiple, MidpointRounding.AwayFromZero) * multiple;
+        // Excel rounds the fraction of the quotient to 14 decimal places, not the quotient to 15
+        // significant digits as CEILING and FLOOR do, so MROUND(0.15, 0.1) is 0.2 but
+        // MROUND(1.005, 0.01) is 1.
+        var quotient = number / multiple;
+        var whole = Math.Floor(quotient);
+        var reachesTheHalf = RoundFractionTo14Decimals(quotient - whole) >= 0.5;
+        return (reachesTheHalf ? whole + 1 : whole) * multiple;
     }
+
+    // Not Math.Round(fraction, 14, ...): from .NET 11 that rounds the exact binary value, not the scaled one Excel rounds.
+    private static double RoundFractionTo14Decimals(double fraction) => XLMath.Round(fraction, 14);
 
     private static ScalarValue Multinomial(CalcContext ctx, List<IEnumerable<ScalarValue>> numberCollections)
     {

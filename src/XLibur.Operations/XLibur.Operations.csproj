@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>XLibur.Operations</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- LibraryImport generates unsafe marshalling code for the path canonicalisation calls. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" />
+    <ProjectReference Include="..\XLibur.Report\XLibur.Report.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="XLibur.Operations.Tests" />
+  </ItemGroup>
+
+</Project>
