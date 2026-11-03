@@ -207,9 +207,6 @@ public partial class XLWorkbook : IXLWorkbook
 
     internal XLDefinedNames DefinedNamesInternal { get; }
 
-    [Obsolete($"Use {nameof(DefinedNames)} instead.")]
-    public IXLDefinedNames NamedRanges => DefinedNamesInternal;
-
     /// <summary>
     ///   Gets an object to manipulate this workbook's named ranges.
     /// </summary>
@@ -360,9 +357,6 @@ public partial class XLWorkbook : IXLWorkbook
             FollowedHyperlink = XLColor.FromHtml("#FF800080")
         };
     }
-
-    [Obsolete($"Use {nameof(DefinedName)} instead.")]
-    public IXLDefinedName? NamedRange(string name) => DefinedName(name);
 
     /// <inheritdoc/>
     public IXLDefinedName? DefinedName(string name)

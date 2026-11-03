@@ -61,9 +61,6 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
 
     bool LockWindows { get; set; }
 
-    [Obsolete($"Use {nameof(DefinedNames)} instead.")]
-    IXLDefinedNames NamedRanges { get; }
-
     /// <summary>
     ///   Gets an object to manipulate this workbook's defined names.
     /// </summary>
@@ -213,9 +210,6 @@ public interface IXLWorkbook : IXLProtectable<IXLWorkbookProtection, XLWorkbookP
     IXLColumns FindColumns(Func<IXLColumn, bool> predicate);
 
     IXLRows FindRows(Func<IXLRow, bool> predicate);
-
-    [Obsolete($"Use {nameof(DefinedName)} instead.")]
-    IXLDefinedName? NamedRange(string name);
 
     /// <summary>
     /// Try to find a defined name. If <paramref name="name"/> specifies a sheet, try to find

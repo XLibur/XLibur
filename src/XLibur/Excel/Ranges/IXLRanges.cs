@@ -57,9 +57,6 @@ public interface IXLRanges : IEnumerable<IXLRange>
     /// </summary>
     IXLDataValidation CreateDataValidation();
 
-    [Obsolete("Use CreateDataValidation() instead.")]
-    IXLDataValidation SetDataValidation();
-
     /// <summary>
     /// Creates a named range out of these ranges.
     /// <para>If the named range exists, it will add these ranges to that named range.</para>

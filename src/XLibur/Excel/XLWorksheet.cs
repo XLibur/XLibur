@@ -128,9 +128,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     #endregion Constructor
 
-    [Obsolete($"Use {nameof(DefinedNames)} instead.")]
-    IXLDefinedNames IXLWorksheet.NamedRanges => DefinedNames;
-
     IXLDefinedNames IXLWorksheet.DefinedNames => DefinedNames;
 
     internal XLDefinedNames DefinedNames { get; }
@@ -698,9 +695,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     public void Delete() => Workbook.WorksheetsInternal.Delete(this);
 
-
-    [Obsolete($"Use {nameof(DefinedName)} instead.")]
-    IXLDefinedName IXLWorksheet.NamedRange(string rangeName) => DefinedName(rangeName);
 
     IXLDefinedName IXLWorksheet.DefinedName(string name) => DefinedName(name);
 
