@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>XLibur.Cli</RootNamespace>
+    <!-- Not 'xlibur': on a case-insensitive file system it would overwrite the core XLibur.dll in the output. -->
+    <AssemblyName>XLibur.Cli</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>xlibur</ToolCommandName>
+    <PackageId>XLibur.Cli</PackageId>
+    <Description>The xlibur command: inspect, read, find, edit, recalculate, validate, diff and convert Excel workbooks, and render XLibur.Report templates, with XLibur's calculation engine.</Description>
+    <PackageTags>Excel OpenXml xlsx cli diff recalc</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\resources\logo\nuget-logo.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur.Operations\XLibur.Operations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

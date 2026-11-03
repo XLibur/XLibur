@@ -26,6 +26,10 @@
 
 ## Unreleased
 
+### ✨ New Features
+
+- **An `xlibur` command and an MCP server, `xlibur-mcp`, over one shared operations layer.** Both read, query, edit, recalculate and compare workbooks with XLibur's formula engine and return the computed values. The ten operations are `inspect`, `read_range`, `find`, `check_formula`, `recalc`, `validate`, `diff`, `edit`, `convert` and `render_report`. `read_range` returns TSV, paged by whole rows with a `next` address to continue. On a 1,022-cell sheet the values are 3,745 characters, 8.3 times fewer than a per-cell JSON list. `edit` applies all its changes or none, recalculates, saves atomically, and returns each edited cell's value, every formula that turned into an error, and the dependent values that changed. `diff` exits 0 when two workbooks are identical and 1 when they differ, so it can check XLibur's own round trips. The server confines every path to its `--root` directories. It refuses device and UNC paths, alternate data streams, reserved device names, and links that lead out of the roots, and it checks containment on the open file handle. Writes are off unless it is started with `--allow-write`. CSV and TSV export prefixes a quote to text that begins with `=`, `+`, `-` or `@`, so a spreadsheet does not run it as a formula. Packages are size-checked before parsing, so a zip bomb is refused. Both tools target .NET 10; see [docs/mcp-and-cli.md](docs/mcp-and-cli.md).
+
 ### 🐛 Bug Fixes
 
 - **`CEILING.PRECISE`, `ISO.CEILING` and `FLOOR.PRECISE` are evaluated.** They were known function names but not registered, so a formula using one gave `#NAME?`. Each takes a number and an optional significance (default 1), ignores the sign of the significance, and gives 0 for a significance of 0: `CEILING.PRECISE(4.3,-2)` is 6, `CEILING.PRECISE(-4.3,-2)` is -4 and `FLOOR.PRECISE(-3.2,-1)` is -4. Text for either argument is `#VALUE!`. The results and the file text were compared with Excel over COM: Excel stores `_xlfn.CEILING.PRECISE` and `_xlfn.FLOOR.PRECISE` but plain `ISO.CEILING`, and XLibur writes the same ([#877](https://github.com/XLibur/XLibur/issues/877)).
