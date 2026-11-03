@@ -1074,17 +1074,17 @@ internal static class MathTrig
         if (functionNumber is < 1 or > 19 || options is < 0 or > 7)
             return XLError.IncompatibleValue;
 
-        // Options 1, 3, 5 and 7 hide rows; 2, 3, 6 and 7 ignore errors. Nested SUBTOTAL and
-        // AGGREGATE are skipped under every option — the "ignore nothing" of option 4 is about
-        // hidden rows and errors, not about double counting.
+        // Options 0 to 3 skip nested SUBTOTAL and AGGREGATE; 4 to 7 skip nothing nested. Options
+        // 1, 3, 5 and 7 hide rows; 2, 3, 6 and 7 ignore errors.
+        var skipNested = options is <= 3;
         var skipHiddenRows = options is 1 or 3 or 5 or 7;
         var ignoreErrors = options is 2 or 3 or 6 or 7;
-        var tally = TallyNumbers.Aggregate(skipHiddenRows, ignoreErrors);
+        var tally = TallyNumbers.Aggregate(skipNested, skipHiddenRows, ignoreErrors);
 
         // Functions 1..13 take any number of ranges.
         if (functionNumber <= 13)
         {
-            var countA = skipHiddenRows ? TallyAll.AggregateCountAVisible : TallyAll.AggregateCountA;
+            var countA = TallyAll.AggregateCountA(skipNested, skipHiddenRows, ignoreErrors);
             return ApplySubtotalFunction(ctx, (int)functionNumber, args[2..], tally, countA);
         }
 
