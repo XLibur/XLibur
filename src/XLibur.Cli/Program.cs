@@ -19,36 +19,18 @@ public static class Program
 
     public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error)
     {
-        var rest = new List<string>();
-        var roots = new List<string>();
-        var json = false;
-        var help = false;
-        for (var i = 0; i < args.Count; i++)
+        var options = GlobalOptions.Parse(args);
+        if (options.Version)
         {
-            switch (args[i])
-            {
-                case "--root" when i + 1 < args.Count:
-                    roots.Add(args[++i]);
-                    break;
-                case "--json":
-                    json = true;
-                    break;
-                case "--help" or "-h" or "help":
-                    help = true;
-                    break;
-                case "--version":
-                    output.WriteLine(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
-                    return 0;
-                default:
-                    rest.Add(args[i]);
-                    break;
-            }
+            output.WriteLine(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+            return 0;
         }
 
+        var rest = options.Rest;
         if (rest.Count == 0)
         {
-            (help ? output : error).Write(Overview());
-            return help ? 0 : 2;
+            (options.Help ? output : error).Write(Overview());
+            return options.Help ? 0 : 2;
         }
 
         var operation = OperationRegistry.Find(rest[0]);
@@ -59,7 +41,7 @@ public static class Program
             return 2;
         }
 
-        if (help)
+        if (options.Help)
         {
             output.Write(RequestBinder.Help(operation));
             return 0;
@@ -68,7 +50,7 @@ public static class Program
         PathPolicy policy;
         try
         {
-            policy = roots.Count == 0 ? PathPolicy.Unrestricted() : PathPolicy.Restricted(roots, allowWrite: true);
+            policy = options.Roots.Count == 0 ? PathPolicy.Unrestricted() : PathPolicy.Restricted(options.Roots, allowWrite: true);
         }
         catch (DirectoryNotFoundException e)
         {
@@ -76,7 +58,7 @@ public static class Program
             return 2;
         }
 
-        var format = json ? ResultFormat.Json : ResultFormat.Text;
+        var format = options.Json ? ResultFormat.Json : ResultFormat.Text;
         object request;
         try
         {
@@ -95,6 +77,38 @@ public static class Program
         if (!rendered.EndsWith('\n'))
             writer.WriteLine();
         return outcome.ExitCode;
+    }
+
+    /// <summary>The options that apply to every command, wherever they appear; every other argument is the command's.</summary>
+    private sealed record GlobalOptions(List<string> Rest, List<string> Roots, bool Json, bool Help, bool Version)
+    {
+        public static GlobalOptions Parse(IReadOnlyList<string> args)
+        {
+            var options = new GlobalOptions([], [], false, false, false);
+            var queue = new Queue<string>(args);
+            while (queue.TryDequeue(out var arg))
+            {
+                switch (arg)
+                {
+                    case "--root" when queue.Count > 0:
+                        options.Roots.Add(queue.Dequeue());
+                        break;
+                    case "--json":
+                        options = options with { Json = true };
+                        break;
+                    case "--help" or "-h" or "help":
+                        options = options with { Help = true };
+                        break;
+                    case "--version":
+                        return options with { Version = true };
+                    default:
+                        options.Rest.Add(arg);
+                        break;
+                }
+            }
+
+            return options;
+        }
     }
 
     private static string Overview()

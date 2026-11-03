@@ -17,76 +17,96 @@ internal static class RequestBinder
 
     internal static object Bind(IOperation operation, IReadOnlyList<string> args)
     {
-        var type = operation.RequestType;
-        var properties = Properties(type);
-        var values = new Dictionary<PropertyInfo, object?>();
-        var lists = new Dictionary<PropertyInfo, List<object>>();
-        var positional = 0;
-
-        for (var i = 0; i < args.Count; i++)
+        var binding = new Binding(operation);
+        var queue = new Queue<string>(args);
+        while (queue.TryDequeue(out var arg))
         {
-            var arg = args[i];
             if (!arg.StartsWith("--", StringComparison.Ordinal) || arg == "--")
-            {
-                var target = properties.FirstOrDefault(p => p.GetCustomAttribute<ArgumentAttribute>()?.Position == positional)
-                             ?? throw Usage($"Unexpected argument '{arg}'.");
-                values[target] = Convert(target.PropertyType, arg, target);
-                positional++;
-                continue;
-            }
+                binding.Positional(arg);
+            else
+                binding.Option(arg, queue);
+        }
 
+        return binding.Build();
+    }
+
+    /// <summary>The values bound so far for one request. A repeated list option and a JSON list both add to one list.</summary>
+    private sealed class Binding(IOperation operation)
+    {
+        private readonly Type _type = operation.RequestType;
+        private readonly List<PropertyInfo> _properties = Properties(operation.RequestType);
+        private readonly Dictionary<PropertyInfo, object?> _values = [];
+        private readonly Dictionary<PropertyInfo, List<object>> _lists = [];
+        private int _positional;
+
+        public void Positional(string arg)
+        {
+            var target = _properties.FirstOrDefault(p => p.GetCustomAttribute<ArgumentAttribute>()?.Position == _positional)
+                         ?? throw Usage($"Unexpected argument '{arg}'.");
+            _values[target] = Convert(target.PropertyType, arg, target);
+            _positional++;
+        }
+
+        public void Option(string arg, Queue<string> rest)
+        {
             var (name, inline) = SplitOption(arg[2..]);
-            if (Shorthands.TryGetValue((type, name), out var shorthand))
+            if (Shorthands.TryGetValue((_type, name), out var shorthand))
             {
-                var listProperty = properties.Single(p => p.Name == shorthand.Property);
-                Add(lists, listProperty, shorthand.Parse(inline ?? Next(args, ref i, arg)));
-                continue;
+                Add(_properties.Single(p => p.Name == shorthand.Property), shorthand.Parse(inline ?? Next(rest, arg)));
+                return;
             }
 
             var negated = name.StartsWith("no-", StringComparison.Ordinal);
-            var property = Find(properties, name) ?? (negated ? Find(properties, name[3..]) : null)
+            var property = Find(_properties, name) ?? (negated ? Find(_properties, name[3..]) : null)
                            ?? throw Usage($"Unknown option '--{name}' for {operation.Name}.");
 
             if (Unwrap(property.PropertyType) == typeof(bool))
-            {
-                var flag = !negated;
-                if (inline is not null)
-                    flag = ParseBool(inline, arg);
-                else if (i + 1 < args.Count && bool.TryParse(args[i + 1], out var explicitValue))
-                {
-                    flag = explicitValue;
-                    i++;
-                }
+                _values[property] = Flag(!negated, inline, arg, rest);
+            else if (ElementType(property.PropertyType) == typeof(string))
+                Add(property, inline ?? Next(rest, arg));
+            else
+                _values[property] = Convert(property.PropertyType, inline ?? Next(rest, arg), property);
+        }
 
-                values[property] = flag;
-                continue;
+        public object Build()
+        {
+            foreach (var (property, items) in _lists)
+            {
+                var existing = _values.TryGetValue(property, out var parsed) && parsed is System.Collections.IEnumerable e
+                    ? e.Cast<object>()
+                    : [];
+                _values[property] = MakeList(property.PropertyType, existing.Concat(items));
             }
 
-            var raw = inline ?? Next(args, ref i, arg);
-            if (ElementType(property.PropertyType) is { } element && element == typeof(string))
-                Add(lists, property, raw);
-            else
-                values[property] = Convert(property.PropertyType, raw, property);
+            if (_properties.Where(IsRequired).FirstOrDefault(p => !_values.ContainsKey(p)) is { } missing)
+                throw Usage($"{operation.Name} needs {Spelling(missing)}.");
+
+            var request = Activator.CreateInstance(_type)!;
+            foreach (var (property, value) in _values)
+                property.SetValue(request, value);
+            return request;
         }
 
-        foreach (var (property, items) in lists)
+        /// <summary>A flag is on unless negated, or takes an inline value, or a following true or false.</summary>
+        private static bool Flag(bool on, string? inline, string arg, Queue<string> rest)
         {
-            var existing = values.TryGetValue(property, out var parsed) && parsed is System.Collections.IEnumerable e
-                ? e.Cast<object>()
-                : [];
-            values[property] = MakeList(property.PropertyType, existing.Concat(items));
+            if (inline is not null)
+                return ParseBool(inline, arg);
+            if (rest.TryPeek(out var next) && bool.TryParse(next, out var explicitValue))
+            {
+                rest.Dequeue();
+                return explicitValue;
+            }
+
+            return on;
         }
 
-        foreach (var required in properties.Where(IsRequired))
+        private void Add(PropertyInfo property, object item)
         {
-            if (!values.ContainsKey(required))
-                throw Usage($"{operation.Name} needs {Spelling(required)}.");
+            if (!_lists.TryGetValue(property, out var list))
+                _lists[property] = list = [];
+            list.Add(item);
         }
-
-        var request = Activator.CreateInstance(type)!;
-        foreach (var (property, value) in values)
-            property.SetValue(request, value);
-        return request;
     }
 
     internal static string Help(IOperation operation)
@@ -146,18 +166,11 @@ internal static class RequestBinder
         return equals < 0 ? (option, null) : (option[..equals], option[(equals + 1)..]);
     }
 
-    private static string Next(IReadOnlyList<string> args, ref int i, string option)
-        => ++i < args.Count ? args[i] : throw Usage($"{option} needs a value.");
+    private static string Next(Queue<string> rest, string option)
+        => rest.TryDequeue(out var value) ? value : throw Usage($"{option} needs a value.");
 
     private static bool ParseBool(string text, string option)
         => bool.TryParse(text, out var value) ? value : throw Usage($"{option} takes true or false.");
-
-    private static void Add(Dictionary<PropertyInfo, List<object>> lists, PropertyInfo property, object item)
-    {
-        if (!lists.TryGetValue(property, out var list))
-            lists[property] = list = [];
-        list.Add(item);
-    }
 
     private static Type Unwrap(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 

@@ -40,12 +40,20 @@ internal sealed class OperationTool : McpServerTool
 
     public override IReadOnlyList<object> Metadata => [];
 
-    public override async ValueTask<CallToolResult> InvokeAsync(RequestContext<CallToolRequestParams> request,
+    public override ValueTask<CallToolResult> InvokeAsync(RequestContext<CallToolRequestParams> request,
         CancellationToken cancellationToken = default)
+        => CallAsync(request.Params?.Arguments, cancellationToken);
+
+    /// <summary>
+    /// Binds the call's arguments to the request type, then runs the operation under the shared gate. A
+    /// <c>format</c> argument picks text or JSON; an argument the request type does not have is an error.
+    /// </summary>
+    internal async ValueTask<CallToolResult> CallAsync(IEnumerable<KeyValuePair<string, JsonElement>>? callArguments,
+        CancellationToken cancellationToken)
     {
         var arguments = new JsonObject();
         var format = ResultFormat.Text;
-        foreach (var (name, value) in request.Params?.Arguments ?? new Dictionary<string, JsonElement>())
+        foreach (var (name, value) in callArguments ?? [])
         {
             if (name == FormatArgument)
             {

@@ -17,33 +17,16 @@ public static class Program
 
     public static async Task<int> Main(string[] args)
     {
-        var roots = new List<string>();
-        var allowWrite = false;
-        var limits = Limits.Default with { MaxResultChars = 200_000 };
-        for (var i = 0; i < args.Length; i++)
+        if (!ServerOptions.TryParse(args, out var options, out var unknown))
         {
-            switch (args[i])
-            {
-                case "--root" when i + 1 < args.Length:
-                    roots.Add(args[++i]);
-                    break;
-                case "--allow-write":
-                    allowWrite = true;
-                    break;
-                case "--max-input-mb" when i + 1 < args.Length && int.TryParse(args[i + 1], CultureInfo.InvariantCulture, out var mb) && mb > 0:
-                    limits = limits with { MaxInputBytes = mb * 1024L * 1024 };
-                    i++;
-                    break;
-                default:
-                    await Console.Error.WriteLineAsync($"Unknown argument '{args[i]}'.\n{Usage}");
-                    return 2;
-            }
+            await Console.Error.WriteLineAsync($"Unknown argument '{unknown}'.\n{Usage}");
+            return 2;
         }
 
         PathPolicy policy;
         try
         {
-            policy = PathPolicy.Restricted(roots.Count == 0 ? [Directory.GetCurrentDirectory()] : roots, allowWrite);
+            policy = PathPolicy.Restricted(options.Roots.Count == 0 ? [Directory.GetCurrentDirectory()] : options.Roots, options.AllowWrite);
         }
         catch (DirectoryNotFoundException e)
         {
@@ -51,12 +34,7 @@ public static class Program
             return 2;
         }
 
-        var context = new OperationContext(policy, limits);
-        var gate = new SemaphoreSlim(1, 1);
-        var tools = OperationRegistry.All
-            .Where(o => allowWrite || o.Effect == OperationEffect.ReadOnly)
-            .Select(o => new OperationTool(o, context, gate))
-            .ToList();
+        var tools = Tools(new OperationContext(policy, options.Limits));
 
         var builder = Host.CreateApplicationBuilder([]);
         builder.Logging.ClearProviders();
@@ -79,11 +57,53 @@ public static class Program
         return 0;
     }
 
-    private static string Instructions(PathPolicy policy)
+    /// <summary>One tool per operation, sharing one gate so calls run one at a time; a write-off policy gets no writing tool.</summary>
+    internal static List<OperationTool> Tools(OperationContext context)
+    {
+        var gate = new SemaphoreSlim(1, 1);
+        return OperationRegistry.All
+            .Where(o => context.Paths.AllowWrite || o.Effect == OperationEffect.ReadOnly)
+            .Select(o => new OperationTool(o, context, gate))
+            .ToList();
+    }
+
+    internal static string Instructions(PathPolicy policy)
         => "Excel workbooks (.xlsx, .xlsm) read, edited and recalculated with XLibur's formula engine. " +
            "Call inspect first, then read_range for cells; its 'next' pages a large range. " +
            $"Paths must be inside: {string.Join("; ", policy.Roots!)}. A relative path is relative to the first. " +
            (policy.AllowWrite
                ? "Writes are on: edit saves over the source unless outputPath is given."
                : "Writes are off: edit, convert and render_report are not available. Restart with --allow-write for them.");
+}
+
+internal sealed record ServerOptions(List<string> Roots, bool AllowWrite, Limits Limits)
+{
+    /// <summary>False, with the argument it stopped at, for an unknown argument or a --max-input-mb that is not a positive whole number.</summary>
+    internal static bool TryParse(IReadOnlyList<string> args, out ServerOptions options, out string? unknown)
+    {
+        options = new ServerOptions([], false, Limits.Default with { MaxResultChars = 200_000 });
+        var queue = new Queue<string>(args);
+        while (queue.TryDequeue(out var arg))
+        {
+            switch (arg)
+            {
+                case "--root" when queue.Count > 0:
+                    options.Roots.Add(queue.Dequeue());
+                    break;
+                case "--allow-write":
+                    options = options with { AllowWrite = true };
+                    break;
+                case "--max-input-mb" when queue.TryPeek(out var next) && int.TryParse(next, CultureInfo.InvariantCulture, out var mb) && mb > 0:
+                    options = options with { Limits = options.Limits with { MaxInputBytes = mb * 1024L * 1024 } };
+                    queue.Dequeue();
+                    break;
+                default:
+                    unknown = arg;
+                    return false;
+            }
+        }
+
+        unknown = null;
+        return true;
+    }
 }
