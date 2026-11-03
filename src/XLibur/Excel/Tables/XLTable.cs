@@ -916,6 +916,7 @@ internal sealed class XLTable : XLRange, IXLTable
     /// The <see cref="DataTable"/> column type for <paramref name="f"/>: the type of its first data
     /// cell when every cell has the same type, otherwise <see cref="object"/>.
     /// </summary>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
     private Type NativeColumnType(XLTableField f)
     {
         var type = typeof(object);
@@ -992,11 +993,15 @@ internal sealed class XLTable : XLRange, IXLTable
 
     #region Append and replace data
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange? AppendData(IEnumerable data, bool propagateExtraColumns = false)
     {
         return AppendData(data, transpose: false, propagateExtraColumns: propagateExtraColumns);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange? AppendData(IEnumerable data, bool transpose, bool propagateExtraColumns)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -1017,11 +1022,15 @@ internal sealed class XLTable : XLRange, IXLTable
         return insertedRange;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Every item is a DataRow, which is read through DataTableReader and never reaches the reflection-based readers.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Every item is a DataRow, which is read through DataTableReader and never reaches the reflection-based readers.")]
     public IXLRange? AppendData(DataTable dataTable, bool propagateExtraColumns = false)
     {
         return AppendData(dataTable.Rows.Cast<DataRow>());
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange? AppendData<T>(IEnumerable<T> data)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -1040,11 +1049,15 @@ internal sealed class XLTable : XLRange, IXLTable
         return insertedRange;
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange ReplaceData(IEnumerable data, bool propagateExtraColumns = false)
     {
         return ReplaceData(data, transpose: false, propagateExtraColumns: propagateExtraColumns);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange ReplaceData(IEnumerable data, bool transpose, bool propagateExtraColumns)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -1087,11 +1100,15 @@ internal sealed class XLTable : XLRange, IXLTable
         return replacedRange;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Every item is a DataRow, which is read through DataTableReader and never reaches the reflection-based readers.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Every item is a DataRow, which is read through DataTableReader and never reaches the reflection-based readers.")]
     public IXLRange ReplaceData(DataTable dataTable, bool propagateExtraColumns = false)
     {
         return ReplaceData(dataTable.Rows.Cast<DataRow>(), propagateExtraColumns: propagateExtraColumns);
     }
 
+    [RequiresUnreferencedCode("Reads the public fields and properties of the item type by reflection, which trimming can remove.")]
+    [RequiresDynamicCode("Builds arrays of the items' runtime types, which native AOT cannot always precompile.")]
     public IXLRange ReplaceData<T>(IEnumerable<T> data, bool propagateExtraColumns = false)
     {
         ArgumentNullException.ThrowIfNull(data);

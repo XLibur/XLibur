@@ -780,3 +780,13 @@ XLibur.Excel.Drawings.XLTextVerticalAlignment.Bottom = 2 -> XLibur.Excel.Drawing
 XLibur.Excel.Drawings.XLTextVerticalAlignment.Center = 1 -> XLibur.Excel.Drawings.XLTextVerticalAlignment
 XLibur.Excel.Drawings.XLTextVerticalAlignment.Top = 0 -> XLibur.Excel.Drawings.XLTextVerticalAlignment
 XLibur.Excel.IXLWorksheet.Shapes.get -> XLibur.Excel.Drawings.IXLShapes!
+*REMOVED*XLibur.Excel.IXLDefinedNames.NamedRange(string! name) -> XLibur.Excel.IXLDefinedName!
+*REMOVED*XLibur.Excel.IXLRangeBase.SetDataValidation() -> XLibur.Excel.IXLDataValidation!
+*REMOVED*XLibur.Excel.IXLRanges.SetDataValidation() -> XLibur.Excel.IXLDataValidation!
+*REMOVED*XLibur.Excel.IXLWorkbook.NamedRange(string! name) -> XLibur.Excel.IXLDefinedName?
+*REMOVED*XLibur.Excel.IXLWorkbook.NamedRanges.get -> XLibur.Excel.IXLDefinedNames!
+*REMOVED*XLibur.Excel.IXLWorksheet.NamedRange(string! rangeName) -> XLibur.Excel.IXLDefinedName!
+*REMOVED*XLibur.Excel.IXLWorksheet.NamedRanges.get -> XLibur.Excel.IXLDefinedNames!
+*REMOVED*XLibur.Excel.XLFontCharSet.Hangeul = 129 -> XLibur.Excel.XLFontCharSet
+*REMOVED*XLibur.Excel.XLWorkbook.NamedRange(string! name) -> XLibur.Excel.IXLDefinedName?
+*REMOVED*XLibur.Excel.XLWorkbook.NamedRanges.get -> XLibur.Excel.IXLDefinedNames!

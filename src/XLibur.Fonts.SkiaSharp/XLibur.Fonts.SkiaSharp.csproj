@@ -5,6 +5,7 @@
         <RootNamespace>XLibur.Fonts.SkiaSharp</RootNamespace>
         <Description>SkiaSharp implementation of IXLFontEngine for XLibur.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <IsAotCompatible>true</IsAotCompatible>
         <PackageTags>Excel OpenXml xlsx Font SkiaSharp</PackageTags>
     </PropertyGroup>
 
