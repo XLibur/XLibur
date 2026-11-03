@@ -799,7 +799,7 @@ internal static class MathTrig
 
     private static ScalarValue MRound(CalcContext ctx, double number, double multiple)
     {
-        if (multiple == 0)
+        if (multiple == 0 || number == 0)
             return 0;
 
         if (Math.Sign(number) != Math.Sign(multiple))

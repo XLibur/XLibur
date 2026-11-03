@@ -34,6 +34,8 @@
 
 - **`CEILING`, `FLOOR` and `MROUND` keep a number that is already a multiple of a decimal significance.** `CEILING(0.07,0.01)` was 0.08, `FLOOR(0.3,0.1)` was 0.2 and `MROUND(0.15,0.1)` was 0.1, because each divided two doubles and rounded the raw quotient. `CEILING` and `FLOOR` now round the quotient to 15 significant digits first, as `CEILING.MATH` and `FLOOR.MATH` do. `MROUND` follows a different Excel rule: it rounds the fraction of the quotient to 14 decimal places before it rounds half away from zero, so `MROUND(0.15,0.1)` is 0.2 but `MROUND(1.005,0.01)` stays 1. The sign rules and errors are unchanged. All three were compared with Excel over COM on about 2,800 inputs, and the results match ([#882](https://github.com/XLibur/XLibur/issues/882)).
 
+- **`MROUND` returns 0 when the number is 0.** `MROUND(0,0.1)` and `MROUND(0,-0.1)` gave `#NUM!` because the sign check treated 0 as a different sign from the multiple. Excel returns 0, and so does `MROUND(0,-5)`. A number and a multiple of opposite signs still give `#NUM!` ([#884](https://github.com/XLibur/XLibur/issues/884)).
+
 ## v0.800.0 - 2026-11-01
 
 ### ⚠️ Breaking Changes

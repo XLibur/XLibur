@@ -1803,9 +1803,23 @@ public class MathTrigTests
     [Arguments(1.4, 0.5, 1.5)]
     [Arguments(3, 7, 0)]
     [Arguments(3, 0, 0)]
+    [Arguments(0, 0.1, 0)]
+    [Arguments(0, -0.1, 0)]
+    [Arguments(0, 5, 0)]
+    [Arguments(0, -5, 0)]
+    [Arguments(0, 0, 0)]
     public async Task MRound(double number, double multiple, double expected)
     {
         await Assert.That((double)XLWorkbook.EvaluateExpr($"MROUND({number}, {multiple})")).IsEqualTo(expected).Within(1e-12);
+    }
+
+    [Test]
+    [Arguments("MROUND(0, -5)")]
+    [Arguments("MROUND(-0.0, -5)")]
+    public async Task MRound_of_zero_is_positive_zero(string formula)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(BitConverter.DoubleToInt64Bits(actual)).IsEqualTo(0L);
     }
 
     [Test]
