@@ -14,7 +14,7 @@ public sealed record ValidateRequest
     [Description("Save the workbook to memory, load it again, and compare the two. Default true.")]
     public bool RoundTrip { get; init; } = true;
 
-    [Description("The most cells to list in each category. Default 20.")]
+    [Description("The most cells to list in each category; 0 lists only the counts. Default 20.")]
     public int MaxIssues { get; init; } = 20;
 }
 

@@ -10,7 +10,7 @@ public sealed record RecalcRequest
     [Argument(0), Description("The .xlsx or .xlsm file.")]
     public required string Path { get; init; }
 
-    [Description("The most cells to list in each category. Default 50.")]
+    [Description("The most cells to list in each category; 0 lists only the counts. Default 50.")]
     public int MaxIssues { get; init; } = 50;
 
     [Description("A recalculated number equals the cached one when they differ by at most this times the larger magnitude (or times 1 below 1). Default 1e-12.")]
@@ -40,15 +40,18 @@ public sealed record RecalcResult(
             .Append(Unsupported.Total).Append(" unsupported, ")
             .Append(Defects.Total).Append(" defects, ")
             .Append(Changed.Total).Append(" differ from cached\n");
-        foreach (var list in new[] { ErrorValues, Circular, Refused, Unsupported, Defects })
-            list.WriteText(text);
+        ErrorValues.WriteText(text, IssueKind.ErrorValue);
+        Circular.WriteText(text, IssueKind.Circular);
+        Refused.WriteText(text, IssueKind.Refused);
+        Unsupported.WriteText(text, IssueKind.Unsupported);
+        Defects.WriteText(text, IssueKind.Defect);
         Changed.WriteText(text);
     }
 }
 
 public sealed record IssueList(int Total, IReadOnlyList<CellIssue> Cells)
 {
-    internal void WriteText(StringBuilder text)
+    internal void WriteText(StringBuilder text, IssueKind kind)
     {
         foreach (var issue in Cells)
         {
@@ -61,7 +64,7 @@ public sealed record IssueList(int Total, IReadOnlyList<CellIssue> Cells)
         }
 
         if (Total > Cells.Count)
-            text.Append(Total - Cells.Count).Append(" more ").Append(Rendering.Name(Cells[0].Kind)).Append('\n');
+            text.Append(Total - Cells.Count).Append(" more ").Append(Rendering.Name(kind)).Append('\n');
     }
 
     internal static IssueList From(IEnumerable<CellIssue> issues, int max)
@@ -99,6 +102,9 @@ public sealed class RecalcOperation : Operation<RecalcRequest, RecalcResult>
 
     internal static RecalcResult Run(string path, XLWorkbook workbook, int maxIssues, double tolerance)
     {
+        if (maxIssues < 0)
+            throw OperationException.BadInput("bad_max_issues", "maxIssues cannot be negative.");
+
         var cells = FormulaCells.All(workbook).ToList();
         var cached = cells.Select(c => new CellRead(c.CachedValue, null, null)).ToList();
         workbook.RecalculateAllFormulas();

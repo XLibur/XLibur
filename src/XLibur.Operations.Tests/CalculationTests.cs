@@ -33,6 +33,24 @@ public class CalculationTests
     }
 
     [Test]
+    public async Task Recalc_and_validate_with_max_issues_0_report_only_the_counts()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "errors.xlsx", wb => wb.AddWorksheet("S").Cell("A1").FormulaA1 = "1/0");
+        var context = Fixtures.Context(root);
+
+        var (recalc, recalcText) = Fixtures.Run(context, new RecalcOperation(), new RecalcRequest { Path = "errors.xlsx", MaxIssues = 0 });
+        var (validate, validateText) = Fixtures.Run(context, new ValidateOperation(), new ValidateRequest { Path = "errors.xlsx", MaxIssues = 0 });
+        var negative = Fixtures.Run(context, new RecalcOperation(), new RecalcRequest { Path = "errors.xlsx", MaxIssues = -1 }).Outcome;
+
+        await Assert.That(recalc.Error).IsNull();
+        await Assert.That(recalcText).Contains("1 more errorValue\n");
+        await Assert.That(validate.Error).IsNull();
+        await Assert.That(validateText).Contains("1 more errorValue\n");
+        await Assert.That(negative.Error!.Code).IsEqualTo("bad_max_issues");
+    }
+
+    [Test]
     public async Task Check_formula_evaluates_against_the_workbook_without_writing()
     {
         using var root = new TempDirectory();
