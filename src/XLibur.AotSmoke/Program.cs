@@ -77,6 +77,31 @@ using (var wb = new XLWorkbook(path))
     Check("border", ws.Cell("A1").Style.Border.TopBorder, XLBorderStyleValues.Thin);
 }
 
+#if REPORT
+{
+    var templatePath = Path.ChangeExtension(path, ".template.xlsx");
+    using (var tw = new XLWorkbook())
+    {
+        var sheet = tw.Worksheets.Add("Sales");
+        sheet.Cell("A1").Value = "{{ Company }}";
+        sheet.Cell("A3").Value = "{{ item.Product }}";
+        sheet.Cell("B3").Value = "{{ item.Quantity }}";
+        tw.DefinedNames.Add("Sales", sheet.Range("A3:B4"));
+        tw.SaveAs(templatePath);
+    }
+
+    using var template = new XLibur.Report.XLTemplate(templatePath);
+    template.AddVariable("Company", "Contoso");
+    template.AddVariable("Sales", new[] { new Sale("Pen", 3), new Sale("Ink", 5) });
+    var result = template.Generate();
+    Check("report errors", result.HasErrors, false);
+    var generated = template.Workbook.Worksheet("Sales");
+    Check("report title", generated.Cell("A1").GetFormattedString(), "Contoso");
+    Check("report row 1", generated.Cell("A3").GetFormattedString() + generated.Cell("B3").GetFormattedString(), "Pen3");
+    Check("report row 2", generated.Cell("A4").GetFormattedString() + generated.Cell("B4").GetFormattedString(), "Ink5");
+}
+#endif
+
 if (failures.Count > 0)
 {
     foreach (var f in failures) Console.Error.WriteLine("FAIL " + f);
@@ -85,3 +110,7 @@ if (failures.Count > 0)
 
 Console.WriteLine("OK");
 return 0;
+
+#if REPORT
+internal sealed record Sale(string Product, int Quantity);
+#endif

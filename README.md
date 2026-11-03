@@ -66,6 +66,37 @@ template.SaveAs("SalesReport-2026.xlsx");
 See [docs/report-templating.md](docs/report-templating.md) for the template language and tag
 reference, and [XLibur.Report.Examples](src/XLibur.Report.Examples/README.md) for ten worked examples.
 
+## Trimming and native AOT
+
+`XLibur` and the three font packages build with the trim and AOT analyzers on (`IsAotCompatible`) and
+produce no warnings. A smoke app, [src/XLibur.AotSmoke](src/XLibur.AotSmoke), is published trimmed
+(`PublishTrimmed`, `TrimMode=full`) and with `PublishAot`, run, and compared with a JIT run in CI. It
+creates a workbook with values, styles, formulas, a table and a chart, saves it, reloads it and checks
+the result.
+
+| Package | Trimmed | Native AOT | Notes |
+|---|---|---|---|
+| `XLibur` | supported | supported | `InsertData`, `InsertTable`, `AppendData` and `ReplaceData` over your own types warn: see below. |
+| `XLibur.Fonts.SkiaSharp` | supported | supported | The default engine. Referencing the package is enough; no registration call. |
+| `XLibur.Fonts.PinataLabs` | supported | supported | Call `PinataLabsFontBootstrap.Register()` at start-up. |
+| `XLibur.Fonts.SixLabors` | supported | supported | Set `LoadOptions.DefaultFontEngine` at start-up. |
+| `XLibur.Report` | not supported | not supported | See below. |
+
+**Font engines.** With the SkiaSharp package referenced, `new XLWorkbook()` works in a trimmed or AOT app
+with no setup. With any other engine, register it before you create a workbook, as you do without
+trimming.
+
+**Your own types.** `InsertData`, `InsertTable`, `AppendData` and `ReplaceData` read the public fields and
+properties of the item type by reflection. They carry `[RequiresUnreferencedCode]` and
+`[RequiresDynamicCode]`, so a trimmed or AOT app that calls them gets a warning. The trimmer can remove a
+property that nothing else uses, and the column then goes missing without an error. Keep the members you
+insert (for example with `[DynamicallyAccessedMembers]` on your type, or a trimmer descriptor), or insert
+a `DataTable`, whose overloads do not read your types.
+
+**`XLibur.Report`.** The template engine (Scriban) reads your data objects by reflection. In a native AOT
+app the report generates without an error but the repeated rows are empty, so it is not supported. In a
+trimmed app it can lose members the same way. Use `XLibur.Report` in a normal (JIT) app.
+
 ## Benchmarks
 
 Published results are available at

@@ -58,6 +58,8 @@ internal static class DefaultFontEngineProbe
     }
 
     [DynamicDependency(FactoryMethodName, BootstrapTypeName, AssemblyName)]
+    [UnconditionalSuppressMessage("Trimming", "IL2035",
+        Justification = "The default font package is optional. When the app does not reference it the dependency has nothing to keep, and the probe reports that no engine is available.")]
     [UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "DynamicDependency above keeps the bootstrap type and its CreateDefault method in the font package whenever that package is part of the app.")]
     [UnconditionalSuppressMessage("Trimming", "IL2075",

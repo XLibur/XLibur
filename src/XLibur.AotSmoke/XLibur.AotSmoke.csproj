@@ -13,6 +13,9 @@
   <PropertyGroup Condition="'$(Engine)' == 'Pinata'">
     <DefineConstants>$(DefineConstants);ENGINE_PINATA</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Report)' == 'true'">
+    <DefineConstants>$(DefineConstants);REPORT</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Engine)' == 'SixLabors'">
     <DefineConstants>$(DefineConstants);ENGINE_SIXLABORS</DefineConstants>
   </PropertyGroup>
@@ -22,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    <ProjectReference Include="..\XLibur.Report\XLibur.Report.csproj" Condition="'$(Report)' == 'true'" />
     <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" Condition="'$(Engine)' == 'Pinata'" />
     <ProjectReference Include="..\XLibur.Fonts.SixLabors\XLibur.Fonts.SixLabors.csproj" Condition="'$(Engine)' == 'SixLabors'" />
     <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" Condition="'$(Engine)' == 'SkiaExplicit' or '$(Engine)' == 'SkiaZeroConfig'" />
