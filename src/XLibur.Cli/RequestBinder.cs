@@ -30,7 +30,6 @@ internal static class RequestBinder
         return binding.Build();
     }
 
-    /// <summary>The values bound so far for one request. A repeated list option and a JSON list both add to one list.</summary>
     private sealed class Binding(IOperation operation)
     {
         private readonly Type _type = operation.RequestType;
@@ -87,8 +86,7 @@ internal static class RequestBinder
             return request;
         }
 
-        /// <summary>A flag is on unless negated, or takes an inline value, or a following true or false.</summary>
-        private static bool Flag(bool on, string? inline, string arg, Queue<string> rest)
+        private static bool Flag(bool bareValue, string? inline, string arg, Queue<string> rest)
         {
             if (inline is not null)
                 return ParseBool(inline, arg);
@@ -98,7 +96,7 @@ internal static class RequestBinder
                 return explicitValue;
             }
 
-            return on;
+            return bareValue;
         }
 
         private void Add(PropertyInfo property, object item)

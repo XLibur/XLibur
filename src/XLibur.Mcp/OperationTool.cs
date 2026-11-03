@@ -44,10 +44,6 @@ internal sealed class OperationTool : McpServerTool
         CancellationToken cancellationToken = default)
         => CallAsync(request.Params?.Arguments, cancellationToken);
 
-    /// <summary>
-    /// Binds the call's arguments to the request type, then runs the operation under the shared gate. A
-    /// <c>format</c> argument picks text or JSON; an argument the request type does not have is an error.
-    /// </summary>
     internal async ValueTask<CallToolResult> CallAsync(IEnumerable<KeyValuePair<string, JsonElement>>? callArguments,
         CancellationToken cancellationToken)
     {

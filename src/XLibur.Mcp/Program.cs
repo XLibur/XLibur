@@ -17,9 +17,9 @@ public static class Program
 
     public static async Task<int> Main(string[] args)
     {
-        if (!ServerOptions.TryParse(args, out var options, out var unknown))
+        if (!ServerOptions.TryParse(args, out var options, out var rejected))
         {
-            await Console.Error.WriteLineAsync($"Unknown argument '{unknown}'.\n{Usage}");
+            await Console.Error.WriteLineAsync($"Unknown argument, or an option without a valid value: '{rejected}'.\n{Usage}");
             return 2;
         }
 
@@ -57,7 +57,6 @@ public static class Program
         return 0;
     }
 
-    /// <summary>One tool per operation, sharing one gate so calls run one at a time; a write-off policy gets no writing tool.</summary>
     internal static List<OperationTool> Tools(OperationContext context)
     {
         var gate = new SemaphoreSlim(1, 1);
@@ -78,8 +77,7 @@ public static class Program
 
 internal sealed record ServerOptions(List<string> Roots, bool AllowWrite, Limits Limits)
 {
-    /// <summary>False, with the argument it stopped at, for an unknown argument or a --max-input-mb that is not a positive whole number.</summary>
-    internal static bool TryParse(IReadOnlyList<string> args, out ServerOptions options, out string? unknown)
+    internal static bool TryParse(IReadOnlyList<string> args, out ServerOptions options, out string? rejected)
     {
         options = new ServerOptions([], false, Limits.Default with { MaxResultChars = 200_000 });
         var queue = new Queue<string>(args);
@@ -98,12 +96,12 @@ internal sealed record ServerOptions(List<string> Roots, bool AllowWrite, Limits
                     queue.Dequeue();
                     break;
                 default:
-                    unknown = arg;
+                    rejected = arg;
                     return false;
             }
         }
 
-        unknown = null;
+        rejected = null;
         return true;
     }
 }

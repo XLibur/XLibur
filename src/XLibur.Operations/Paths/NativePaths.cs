@@ -126,9 +126,8 @@ internal static partial class NativePaths
     private static partial class Linux
     {
         /// <summary>
-        /// The target of the handle's /proc/self/fd link, or null when there is none. The handle is
-        /// duplicated to learn a descriptor number, so the marshaller holds a reference on it for the
-        /// call and the number never outlives the duplicate.
+        /// The handle is duplicated to learn a descriptor number, so the marshaller holds a reference on
+        /// it for the call and the number never outlives the duplicate.
         /// </summary>
         internal static string? PathOfHandle(SafeFileHandle handle)
         {

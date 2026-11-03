@@ -2,7 +2,6 @@ using XLibur.Excel;
 
 namespace XLibur.Operations.Tests;
 
-/// <summary>Each operation refuses a request it cannot carry out with a stable code, and writes nothing.</summary>
 public class RefusalTests
 {
     public static IEnumerable<Func<(IOperation Operation, object Request, string Code)>> Cases()

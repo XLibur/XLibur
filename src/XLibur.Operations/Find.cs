@@ -99,7 +99,6 @@ public sealed class FindOperation : Operation<FindRequest, FindResult>
         return new FindResult(matches, total);
     }
 
-    /// <summary>Whether a cell, given its read value and its formula text, matches the request's one criterion.</summary>
     private static Func<CellRead, string?, bool> HitTest(FindRequest request)
     {
         if (request.Errors)

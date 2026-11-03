@@ -251,7 +251,6 @@ public sealed class PathPolicy
         }
     }
 
-    /// <summary>Whether a ':' appears anywhere but straight after a leading drive letter.</summary>
     private static bool HasStreamColon(string body)
     {
         var colon = body.IndexOf(':');
@@ -298,7 +297,6 @@ public sealed class PathPolicy
         return current;
     }
 
-    /// <summary>Where a link points, made absolute; a link to a device or the network is refused.</summary>
     private static string LinkDestination(string linkPath, string target)
     {
         if (target.StartsWith(@"\??\", StringComparison.Ordinal) || target.StartsWith(@"\\?\", StringComparison.Ordinal))

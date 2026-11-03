@@ -36,7 +36,6 @@ public sealed record SheetSummary(
     IReadOnlyList<ChartSummary> Charts,
     int Pictures)
 {
-    /// <summary>One line: position, name, visibility when not visible, counts, then each kind of object the sheet has.</summary>
     internal void WriteText(StringBuilder text)
     {
         text.Append(Position).Append(' ').Append(Name);

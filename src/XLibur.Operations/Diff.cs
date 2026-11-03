@@ -220,7 +220,6 @@ internal static class WorkbookComparer
         return parts.Count == 0 ? "style" : string.Join(',', parts);
     }
 
-    /// <summary>Workbook-scoped names, and the names scoped to every sheet that is not ignored.</summary>
     private static Dictionary<string, string> DefinedNames(XLWorkbook workbook, HashSet<string> ignoredSheets)
         => workbook.DefinedNames.Select(n => (n.Name, n.RefersTo))
             .Concat(Compared(workbook, ignoredSheets).SelectMany(ws => ws.DefinedNames.Select(n => ($"{ws.Name}!{n.Name}", n.RefersTo))))

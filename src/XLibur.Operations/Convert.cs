@@ -88,7 +88,6 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
         return new ConvertResult(destination, format.Name, grid.Count, columns, failures);
     }
 
-    /// <summary>A workbook saved again in its own format, recalculated when the request asks.</summary>
     private static ConvertResult Resave(ConvertRequest request, OperationContext context, WriteTarget target)
     {
         var extension = Path.GetExtension(target.FullPath);
@@ -166,7 +165,6 @@ internal static class Delimited
 {
     internal static List<XLCellValue[]> Read(string text, char separator) => new Reader(text, separator).ReadAll();
 
-    /// <summary>One pass over the text. A quote opens a quoted field only at a field's start, and only in CSV.</summary>
     private sealed class Reader(string text, char separator)
     {
         private readonly List<XLCellValue[]> _rows = [];
@@ -175,12 +173,14 @@ internal static class Delimited
         private bool _wasQuoted;
         private int _next;
 
+        private bool IsCsv => separator == ',';
+
         public List<XLCellValue[]> ReadAll()
         {
             while (_next < text.Length)
             {
                 var c = text[_next++];
-                if (c == '"' && _field.Length == 0 && separator == ',')
+                if (c == '"' && _field.Length == 0 && IsCsv)
                     ReadQuoted();
                 else if (c == separator)
                     EndField();
@@ -226,7 +226,7 @@ internal static class Delimited
 
         private void EndField()
         {
-            var value = separator == '\t' ? Unescape(_field.ToString()) : _field.ToString();
+            var value = IsCsv ? _field.ToString() : Unescape(_field.ToString());
             _row.Add(_wasQuoted ? value : Unquoted(value));
             _field.Clear();
             _wasQuoted = false;
@@ -240,7 +240,6 @@ internal static class Delimited
         }
     }
 
-    /// <summary>What an unquoted field reads as: blank, a number, a boolean, or else text.</summary>
     private static XLCellValue Unquoted(string text)
     {
         if (text.Length == 0)
@@ -293,20 +292,22 @@ internal static class Delimited
         if (!cell.IsText)
         {
             var value = Rendering.ToText(cell);
-            return separator == '\t' ? value : CsvField(value, quote: false);
+            return separator == '\t' ? value : CsvField(value, forceQuote: false);
         }
 
         var safe = NeutraliseFormula(cell.GetText());
-        return separator == '\t' ? Rendering.Escape(safe) : CsvField(safe, quote: !Unquoted(safe).IsText);
+        if (separator == '\t')
+            return Rendering.Escape(safe);
+        var readsBackAsAnotherType = !Unquoted(safe).IsText;
+        return CsvField(safe, forceQuote: readsBackAsAnotherType);
     }
 
     /// <summary>Text that Excel would read as a formula when the file is opened gets a leading quote. Numbers never reach here.</summary>
     private static string NeutraliseFormula(string text)
         => text.Length > 0 && text[0] is '=' or '+' or '-' or '@' or '\t' or '\r' ? "'" + text : text;
 
-    /// <param name="quote">Quote even a plain value, so text that would read back as a number, boolean or blank stays text.</param>
-    private static string CsvField(string value, bool quote)
-        => !quote && value.AsSpan().IndexOfAny(",\"\r\n") < 0 ? value : "\"" + value.Replace("\"", "\"\"") + "\"";
+    private static string CsvField(string value, bool forceQuote)
+        => !forceQuote && value.AsSpan().IndexOfAny(",\"\r\n") < 0 ? value : "\"" + value.Replace("\"", "\"\"") + "\"";
 }
 
 internal static class JsonTable
@@ -345,7 +346,6 @@ internal static class JsonTable
         return JsonSerializer.Serialize(rows, Rendering.JsonOptions);
     }
 
-    /// <summary>The header row's values as keys, <c>columnN</c> for a blank header or a column past the header row.</summary>
     private static string[] Keys(XLCellValue[] header, int width)
     {
         var keys = new string[width];

@@ -79,7 +79,6 @@ public static class Program
         return outcome.ExitCode;
     }
 
-    /// <summary>The options that apply to every command, wherever they appear; every other argument is the command's.</summary>
     private sealed record GlobalOptions(List<string> Rest, List<string> Roots, bool Json, bool Help, bool Version)
     {
         public static GlobalOptions Parse(IReadOnlyList<string> args)
