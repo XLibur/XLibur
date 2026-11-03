@@ -80,25 +80,29 @@ lookup 1 of 57, date 1 of 38.
 ## Task 3: generated cases for math, text, logical and information
 
 `tools/excel-conformance/New-CaseFile.ps1` expanded 56 more functions into 1,517 cases, recorded from the
-same Excel build. XLibur disagrees on 50 (3.3%), recorded in `known-diffs.tsv`. The whole conformance class
+same Excel build. XLibur disagrees on 46 (3.0%), recorded in `known-diffs.tsv`. The whole conformance class
 (2,082 tests including the pilot) runs in about 2.5 s. The expansion is mechanical, so most cases are
 cheap and most agree. The disagreements come mostly from the argument variants.
 
 The first run found 52. Two `MROUND` cases (`MROUND(0,3)` and `MROUND` of an empty cell) were fixed on `main`
 by #885 while this was in review, and the runner reported their rows as stale.
 
+Four `SIN`/`COS` cases failed CI on Linux: XLibur's answer for `COS(1E15)` is a number that differs between
+Windows and Linux, so a known-difference row pinning it could not be stable. Excel returns `#NUM!` for an
+angle of 2^27 (134,217,728) or more and a value just below it, for `SIN`, `COS` and `TAN` alike (measured
+over COM). `TAN` already had that cutoff; `SIN` and `COS` now do too, and the four rows are gone.
+
 | Cause | Cases | Examples |
 |---|---|---|
 | Array constant as an argument: XLibur throws `UnsupportedFeatureException`, Excel uses the first element | 15 | `LOWER({1,2,3})`, `CONCATENATE("a",{1,2,3})`, `REPT({1,2,3},3)` |
 | `FACTDOUBLE`, `MROUND`, `QUOTIENT` take a boolean or multi-cell range: Excel `#VALUE!`, XLibur coerces | 10 | `QUOTIENT(7,TRUE)`, `MROUND(A1:A3,3)` |
 | Huge value or digits count: XLibur throws `ArgumentException` | 7 | `ROUNDUP(9E307,2)`, `ROUNDDOWN(2.345,1000000)`, `DEGREES(9E307)` |
-| `SIN`/`COS` of a huge argument: Excel `#NUM!`, XLibur a number | 4 | `SIN(1E15)`, `COS(9E307)` |
 | `OR` with a direct text argument: Excel `#VALUE!`, XLibur FALSE | 4 | `OR("x")`, `OR("")` |
 | `GCD`/`LCM` with an empty cell reference | 3 | `GCD(A1)` is `#VALUE!` in Excel and 0 in XLibur |
 | Text or fractional digits argument: XLibur returns float noise | 3 | `ROUNDUP(2.345,"5")` is 2.34501, `TRUNC(8.9,2.5)` is 8.898649335713818 |
 | `ROMAN(1999,TRUE)`, `REPLACE` with an emoji, `SUMPRODUCT` with an error, `TYPE` of a range | 1 each | |
 
-By family: math 29 of 890, text 16 of 383, logical 4 of 50, information 1 of 194. The information functions
+By family: math 25 of 890, text 16 of 383, logical 4 of 50, information 1 of 194. The information functions
 agree almost everywhere. The text functions fail on arrays. Several causes share the pilot's themes
 (overflow, surrogate pairs, text direct arguments) and could join #894.
 

@@ -33,6 +33,28 @@ $errorNames = @{
     2047 = '#BLOCKED!'; 2048 = '#UNKNOWN!'; 2049 = '#FIELD!'; 2050 = '#CALC!'
 }
 
+# The text of a quoted setup value, starting just after the opening quote. "" is a quote.
+# Returns the text and the index after the closing quote.
+function Read-QuotedText([string] $setup, [int] $start) {
+    $sb = New-Object System.Text.StringBuilder
+    $i = $start
+    while ($true) {
+        $isQuote = $setup[$i] -eq '"'
+        if ($isQuote -and ($i + 1) -lt $setup.Length -and $setup[$i + 1] -eq '"') { [void]$sb.Append('"'); $i += 2 }
+        elseif ($isQuote) { return @{ Text = $sb.ToString(); Next = $i + 1 } }
+        else { [void]$sb.Append($setup[$i]); $i++ }
+    }
+}
+
+# An unquoted setup value: a number, TRUE or FALSE, an error such as #N/A, or =formula. Empty is an empty cell.
+function ConvertTo-SetupEntry([string] $ref, [string] $raw) {
+    if ($raw.Length -eq 0) { return $null }
+    if ($raw -eq 'TRUE' -or $raw -eq 'FALSE') { return @{ Ref = $ref; Kind = 'formula'; Value = "=$raw" } }
+    if ($raw.StartsWith('=')) { return @{ Ref = $ref; Kind = 'formula'; Value = $raw } }
+    if ($raw.StartsWith('#')) { return @{ Ref = $ref; Kind = 'formula'; Value = "=$raw" } }
+    return @{ Ref = $ref; Kind = 'number'; Value = [double]::Parse($raw, $inv) }
+}
+
 function ConvertFrom-Setup([string] $setup) {
     # A1=5;A2="x";A3=#N/A;A4=TRUE;A5==SUM(1,2)  ->  list of @{ Ref; Kind; Value }
     $entries = New-Object System.Collections.Generic.List[object]
@@ -43,58 +65,51 @@ function ConvertFrom-Setup([string] $setup) {
         $ref = $setup.Substring($i, $eq - $i).Trim()
         $i = $eq + 1
         if ($setup[$i] -eq '"') {
-            $sb = New-Object System.Text.StringBuilder
-            $i++
-            while ($true) {
-                if ($setup[$i] -eq '"') {
-                    if ($i + 1 -lt $setup.Length -and $setup[$i + 1] -eq '"') { [void]$sb.Append('"'); $i += 2; continue }
-                    $i++; break
-                }
-                [void]$sb.Append($setup[$i]); $i++
-            }
-            $entries.Add(@{ Ref = $ref; Kind = 'text'; Value = $sb.ToString() })
+            $quoted = Read-QuotedText $setup ($i + 1)
+            $entries.Add(@{ Ref = $ref; Kind = 'text'; Value = $quoted.Text })
+            $i = $quoted.Next
         }
         else {
             $end = $setup.IndexOf(';', $i)
             if ($end -lt 0) { $end = $setup.Length }
-            $raw = $setup.Substring($i, $end - $i)
+            $entry = ConvertTo-SetupEntry $ref $setup.Substring($i, $end - $i)
+            if ($entry) { $entries.Add($entry) }
             $i = $end
-            if ($raw.Length -eq 0) { }
-            elseif ($raw -eq 'TRUE' -or $raw -eq 'FALSE') { $entries.Add(@{ Ref = $ref; Kind = 'formula'; Value = "=$raw" }) }
-            elseif ($raw.StartsWith('=')) { $entries.Add(@{ Ref = $ref; Kind = 'formula'; Value = $raw }) }
-            elseif ($raw.StartsWith('#')) { $entries.Add(@{ Ref = $ref; Kind = 'formula'; Value = "=$raw" }) }
-            else { $entries.Add(@{ Ref = $ref; Kind = 'number'; Value = [double]::Parse($raw, $inv) }) }
         }
         if ($i -lt $setup.Length -and $setup[$i] -eq ';') { $i++ }
     }
     return , $entries
 }
 
+# Escapes \ tab LF CR, and a surrogate that is not half of a valid pair as \uXXXX.
+function ConvertTo-EscapedText([string] $value) {
+    $sb = New-Object System.Text.StringBuilder
+    for ($i = 0; $i -lt $value.Length; $i++) {
+        $ch = $value[$i]
+        $isPair = [char]::IsHighSurrogate($ch) -and ($i + 1) -lt $value.Length -and [char]::IsLowSurrogate($value[$i + 1])
+        if ($ch -eq '\') { [void]$sb.Append('\\') }
+        elseif ($ch -eq "`t") { [void]$sb.Append('\t') }
+        elseif ($ch -eq "`n") { [void]$sb.Append('\n') }
+        elseif ($ch -eq "`r") { [void]$sb.Append('\r') }
+        elseif ($isPair) { [void]$sb.Append($ch).Append($value[$i + 1]); $i++ }
+        elseif ([char]::IsSurrogate($ch)) { [void]$sb.Append('\u' + ([int]$ch).ToString('X4')) }
+        else { [void]$sb.Append($ch) }
+    }
+    return $sb.ToString()
+}
+
+function ConvertTo-ErrorName([int] $value) {
+    $code = $value -band 0xFFFF
+    if (-not $errorNames.ContainsKey($code)) { throw "Unknown Excel error code $value" }
+    return $errorNames[$code]
+}
+
 function ConvertTo-Cell($value) {
     if ($null -eq $value) { return @('', 'empty') }
     if ($value -is [double]) { return @($value.ToString('R', $inv), 'number') }
     if ($value -is [bool]) { return @($(if ($value) { 'TRUE' } else { 'FALSE' }), 'bool') }
-    if ($value -is [int]) {
-        $code = $value -band 0xFFFF
-        if ($errorNames.ContainsKey($code)) { return @($errorNames[$code], 'error') }
-        throw "Unknown Excel error code $value"
-    }
-    if ($value -is [string]) {
-        $sb = New-Object System.Text.StringBuilder
-        for ($i = 0; $i -lt $value.Length; $i++) {
-            $ch = $value[$i]
-            if ($ch -eq '\') { [void]$sb.Append('\\') }
-            elseif ($ch -eq "`t") { [void]$sb.Append('\t') }
-            elseif ($ch -eq "`n") { [void]$sb.Append('\n') }
-            elseif ($ch -eq "`r") { [void]$sb.Append('\r') }
-            elseif ([char]::IsHighSurrogate($ch) -and ($i + 1) -lt $value.Length -and [char]::IsLowSurrogate($value[$i + 1])) {
-                [void]$sb.Append($ch).Append($value[$i + 1]); $i++
-            }
-            elseif ([char]::IsSurrogate($ch)) { [void]$sb.Append('\u' + ([int]$ch).ToString('X4')) }
-            else { [void]$sb.Append($ch) }
-        }
-        return @($sb.ToString(), 'text')
-    }
+    if ($value -is [int]) { return @((ConvertTo-ErrorName $value), 'error') }
+    if ($value -is [string]) { return @((ConvertTo-EscapedText $value), 'text') }
     throw "Unexpected Value2 type $($value.GetType().FullName)"
 }
 
