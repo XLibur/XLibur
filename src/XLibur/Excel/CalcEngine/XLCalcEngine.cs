@@ -1288,6 +1288,21 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </remarks>
     private static readonly FunctionRegistry FunctionTable = GetFunctionTable();
 
+    /// <summary>
+    /// Parses with the built-in functions and no workbook, for a check of formula text alone. The
+    /// parser keeps no state between calls, so one is shared.
+    /// </summary>
+    private static readonly FormulaParser BuiltInParser = new(FunctionTable);
+
+    /// <summary>
+    /// Whether the engine would take <paramref name="text"/>: the same parse a cell's formula gets, so
+    /// the parser's refusals and a factory's (a wrong number of arguments) are both found.
+    /// </summary>
+    /// <param name="text">The formula text in A1 notation. A leading <c>=</c> is allowed.</param>
+    /// <param name="refusal">Why the text was refused, when it was.</param>
+    internal static bool TryParseWithBuiltInFunctions(string text, out FormulaRefusal refusal)
+        => BuiltInParser.TryGetAst(text, isA1: true, out _, out refusal);
+
     private static FunctionRegistry GetFunctionTable()
     {
         var fr = new FunctionRegistry();
