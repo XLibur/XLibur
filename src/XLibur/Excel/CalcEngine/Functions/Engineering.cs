@@ -448,6 +448,11 @@ internal static class Engineering
     private static bool TryParseBase(string text, int fromBase, int bitWidth, out long value)
     {
         value = 0;
+
+        // Excel reads an empty string (and an empty cell) as 0, but a string of only spaces is #NUM!.
+        if (text.Length == 0)
+            return true;
+
         text = text.Trim();
         if (text.Length == 0 || text.Length > 10)
             return false;
@@ -462,6 +467,11 @@ internal static class Engineering
         }
         catch (OverflowException)
         {
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            // Convert.ToInt64 rejects a minus sign in any base but 10.
             return false;
         }
 

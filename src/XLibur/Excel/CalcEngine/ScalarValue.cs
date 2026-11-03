@@ -66,7 +66,13 @@ internal readonly struct ScalarValue
 
     public static ScalarValue From(bool logical) => new(LogicalValue, logical, default, default, default);
 
-    public static ScalarValue From(double number) => new(NumberValue, default, number, default, default);
+    /// <summary>
+    /// A number. Excel has no NaN or infinity value: an overflow or an undefined result is <c>#NUM!</c>.
+    /// </summary>
+    public static ScalarValue From(double number)
+        => double.IsFinite(number)
+            ? new ScalarValue(NumberValue, default, number, default, default)
+            : new ScalarValue(ErrorValue, default, default, default, XLError.NumberInvalid);
 
     public static ScalarValue From(string text)
     {
