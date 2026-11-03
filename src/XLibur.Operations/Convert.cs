@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using XLibur.Excel;
+using XLibur.Operations.Paths;
 using XLibur.Operations.Workbooks;
 
 namespace XLibur.Operations;
@@ -65,14 +66,7 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
         var outputExtension = Path.GetExtension(destination);
 
         if (inputIsWorkbook && outputIsWorkbook)
-        {
-            if (!string.Equals(Path.GetExtension(request.Input), outputExtension, StringComparison.OrdinalIgnoreCase))
-                throw OperationException.Unsupported("xlsx_xlsm_conversion", "Converting between .xlsx and .xlsm is not supported; the macro part would be lost or invented.");
-            using var loaded = context.LoadWorkbook(request.Input, request.Recalculate);
-            var used = Addressing.Sheet(loaded.Workbook, request.Sheet).RangeUsed(XLCellsUsedOptions.Contents);
-            context.SaveWorkbook(loaded.Workbook, target);
-            return new ConvertResult(destination, outputExtension.TrimStart('.'), used?.RowCount() ?? 0, used?.ColumnCount() ?? 0, 0);
-        }
+            return Resave(request, context, target);
 
         if (outputIsWorkbook && !string.Equals(outputExtension, ".xlsx", StringComparison.OrdinalIgnoreCase))
             throw OperationException.Unsupported("table_to_xlsm", "A table converts to .xlsx only; a new workbook has no macros to make it an .xlsm.");
@@ -83,14 +77,7 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
         if (outputIsWorkbook)
         {
             using var workbook = WorkbookLoader.Create();
-            var sheet = workbook.AddWorksheet(request.Sheet ?? "Sheet1");
-            for (var r = 0; r < grid.Count; r++)
-            for (var c = 0; c < grid[r].Length; c++)
-            {
-                if (!grid[r][c].IsBlank)
-                    sheet.Cell(r + 1, c + 1).Value = grid[r][c];
-            }
-
+            Fill(workbook.AddWorksheet(request.Sheet ?? "Sheet1"), grid);
             context.SaveWorkbook(workbook, target);
             return new ConvertResult(destination, outputExtension.TrimStart('.'), grid.Count, columns, failures);
         }
@@ -99,6 +86,30 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
         var bytes = Encoding.UTF8.GetBytes(format.Write(grid, request.Header));
         context.Paths.WriteAtomically(target, stream => stream.Write(bytes));
         return new ConvertResult(destination, format.Name, grid.Count, columns, failures);
+    }
+
+    /// <summary>A workbook saved again in its own format, recalculated when the request asks.</summary>
+    private static ConvertResult Resave(ConvertRequest request, OperationContext context, WriteTarget target)
+    {
+        var extension = Path.GetExtension(target.FullPath);
+        if (!string.Equals(Path.GetExtension(request.Input), extension, StringComparison.OrdinalIgnoreCase))
+            throw OperationException.Unsupported("xlsx_xlsm_conversion", "Converting between .xlsx and .xlsm is not supported; the macro part would be lost or invented.");
+        using var loaded = context.LoadWorkbook(request.Input, request.Recalculate);
+        var used = Addressing.Sheet(loaded.Workbook, request.Sheet).RangeUsed(XLCellsUsedOptions.Contents);
+        context.SaveWorkbook(loaded.Workbook, target);
+        return new ConvertResult(target.FullPath, extension.TrimStart('.'), used?.RowCount() ?? 0, used?.ColumnCount() ?? 0, 0);
+    }
+
+    private static void Fill(IXLWorksheet sheet, List<XLCellValue[]> grid)
+    {
+        for (var r = 0; r < grid.Count; r++)
+        {
+            for (var c = 0; c < grid[r].Length; c++)
+            {
+                if (!grid[r][c].IsBlank)
+                    sheet.Cell(r + 1, c + 1).Value = grid[r][c];
+            }
+        }
     }
 
     private static (List<XLCellValue[]> Grid, int Failures) ReadWorkbook(OperationContext context, ConvertRequest request)
@@ -153,69 +164,80 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
 /// <summary>RFC 4180 CSV, and TSV with the escapes read_range uses (\t, \n, \r, \\).</summary>
 internal static class Delimited
 {
-    internal static List<XLCellValue[]> Read(string text, char separator)
+    internal static List<XLCellValue[]> Read(string text, char separator) => new Reader(text, separator).ReadAll();
+
+    /// <summary>One pass over the text. A quote opens a quoted field only at a field's start, and only in CSV.</summary>
+    private sealed class Reader(string text, char separator)
     {
-        var rows = new List<XLCellValue[]>();
-        var row = new List<XLCellValue>();
-        var field = new StringBuilder();
-        var quoted = false;
-        var wasQuoted = false;
-        for (var i = 0; i < text.Length; i++)
+        private readonly List<XLCellValue[]> _rows = [];
+        private readonly List<XLCellValue> _row = [];
+        private readonly StringBuilder _field = new();
+        private bool _wasQuoted;
+        private int _next;
+
+        public List<XLCellValue[]> ReadAll()
         {
-            var c = text[i];
-            if (quoted)
+            while (_next < text.Length)
             {
-                if (c == '"' && i + 1 < text.Length && text[i + 1] == '"')
+                var c = text[_next++];
+                if (c == '"' && _field.Length == 0 && separator == ',')
+                    ReadQuoted();
+                else if (c == separator)
+                    EndField();
+                else if (c is '\n' or '\r')
                 {
-                    field.Append('"');
-                    i++;
+                    if (c == '\r')
+                        Skip('\n');
+                    EndRecord();
                 }
-                else if (c == '"')
-                    quoted = false;
                 else
-                    field.Append(c);
+                    _field.Append(c);
             }
-            else if (c == '"' && field.Length == 0 && separator == ',')
-            {
-                quoted = true;
-                wasQuoted = true;
-            }
-            else if (c == separator)
-            {
-                row.Add(Value(field, wasQuoted, separator));
-                wasQuoted = false;
-            }
-            else if (c is '\n' or '\r')
-            {
-                if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-                    i++;
-                row.Add(Value(field, wasQuoted, separator));
-                wasQuoted = false;
-                rows.Add([.. row]);
-                row.Clear();
-            }
-            else
-                field.Append(c);
+
+            if (_field.Length > 0 || _row.Count > 0 || _wasQuoted)
+                EndRecord();
+            return _rows;
         }
 
-        if (quoted)
-            throw new FormatException("A quoted field is not closed.");
-        if (field.Length > 0 || row.Count > 0 || wasQuoted)
+        private void ReadQuoted()
         {
-            row.Add(Value(field, wasQuoted, separator));
-            rows.Add([.. row]);
+            _wasQuoted = true;
+            while (_next < text.Length)
+            {
+                var c = text[_next++];
+                if (c != '"')
+                    _field.Append(c);
+                else if (Skip('"'))
+                    _field.Append('"');
+                else
+                    return;
+            }
+
+            throw new FormatException("A quoted field is not closed.");
         }
 
-        return rows;
-    }
+        private bool Skip(char expected)
+        {
+            if (_next >= text.Length || text[_next] != expected)
+                return false;
+            _next++;
+            return true;
+        }
 
-    private static XLCellValue Value(StringBuilder field, bool quoted, char separator)
-    {
-        var text = field.ToString();
-        field.Clear();
-        if (separator == '\t')
-            text = Unescape(text);
-        return quoted ? text : Unquoted(text);
+        private void EndField()
+        {
+            var value = separator == '\t' ? Unescape(_field.ToString()) : _field.ToString();
+            _row.Add(_wasQuoted ? value : Unquoted(value));
+            _field.Clear();
+            _wasQuoted = false;
+        }
+
+        private void EndRecord()
+        {
+            EndField();
+            _rows.Add([.. _row]);
+            _row.Clear();
+        }
     }
 
     /// <summary>What an unquoted field reads as: blank, a number, a boolean, or else text.</summary>
@@ -235,15 +257,17 @@ internal static class Delimited
         if (!text.Contains('\\'))
             return text;
         var result = new StringBuilder(text.Length);
-        for (var i = 0; i < text.Length; i++)
+        var next = 0;
+        while (next < text.Length)
         {
-            if (text[i] != '\\' || i + 1 == text.Length)
+            var c = text[next++];
+            if (c != '\\' || next == text.Length)
             {
-                result.Append(text[i]);
+                result.Append(c);
                 continue;
             }
 
-            result.Append(text[++i] switch
+            result.Append(text[next++] switch
             {
                 't' => '\t',
                 'n' => '\n',

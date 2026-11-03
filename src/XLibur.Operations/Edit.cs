@@ -115,13 +115,7 @@ public sealed class EditOperation : Operation<EditRequest, EditResult>
         if (request.Edits.Count == 0)
             throw OperationException.BadInput("no_edits", "Give at least one edit.");
         foreach (var edit in request.Edits)
-        {
-            var parts = (edit.Value is not null ? 1 : 0) + (edit.Formula is not null ? 1 : 0) + (edit.Clear ? 1 : 0);
-            if (parts != 1)
-                throw OperationException.BadInput("bad_edit", $"The edit of '{edit.Cell}' must have exactly one of value, formula or clear.");
-            if (edit.Formula is { } formula && FormulaCells.Refusal(FormulaCells.WithoutEquals(formula)) is { } refusal)
-                throw OperationException.BadInput("formula_refused", $"XLibur cannot read the formula for '{edit.Cell}': {refusal}");
-        }
+            Check(edit);
 
         var target = context.Paths.ResolveWrite(request.OutputPath ?? request.Path, overwrite: request.OutputPath is null || request.Overwrite);
         using var loaded = context.LoadWorkbook(request.Path);
@@ -133,14 +127,7 @@ public sealed class EditOperation : Operation<EditRequest, EditResult>
 
         var before = FormulaCells.ReadAll(workbook);
         foreach (var (edit, cell) in targets)
-        {
-            if (edit.Clear)
-                cell.Clear(XLClearOptions.Contents);
-            else if (edit.Formula is { } formula)
-                cell.FormulaA1 = FormulaCells.WithoutEquals(formula);
-            else
-                cell.Value = edit.Value!.Value;
-        }
+            Apply(edit, cell);
 
         var edited = targets
             .Select(t => new EditedCell(Rendering.Address(t.Cell), CellReader.Read(t.Cell).ToText(), t.Cell.HasFormula ? t.Cell.FormulaA1 : null))
@@ -149,23 +136,38 @@ public sealed class EditOperation : Operation<EditRequest, EditResult>
 
         var issues = new List<CellIssue>();
         var changed = new List<ValueChange>();
-        var changedTotal = 0;
         foreach (var cell in FormulaCells.All(workbook))
         {
             var key = FormulaCells.Key(cell);
             var after = CellReader.Read(cell);
             var had = before.TryGetValue(key, out var old);
-            if (FormulaCells.IsProblem(after) && (!had || !FormulaCells.IsProblem(old) || editedKeys.Contains(key)))
+            var isEdited = editedKeys.Contains(key);
+            if (FormulaCells.IsProblem(after) && (!had || !FormulaCells.IsProblem(old) || isEdited))
                 issues.Add(FormulaCells.IssueOf(cell, after)!);
-            else if (had && !editedKeys.Contains(key) && !FormulaCells.Same(old, after, 0))
-            {
-                changedTotal++;
-                if (changed.Count < request.MaxChanges)
-                    changed.Add(new ValueChange(Rendering.Address(cell), old.ToText(), after.ToText()));
-            }
+            else if (had && !isEdited && !FormulaCells.Same(old, after, 0))
+                changed.Add(new ValueChange(Rendering.Address(cell), old.ToText(), after.ToText()));
         }
 
         context.SaveWorkbook(workbook, target);
-        return new EditResult(target.FullPath, edited, issues, changed, changedTotal);
+        return new EditResult(target.FullPath, edited, issues, changed.Take(request.MaxChanges).ToList(), changed.Count);
+    }
+
+    private static void Check(CellEdit edit)
+    {
+        var parts = (edit.Value is not null ? 1 : 0) + (edit.Formula is not null ? 1 : 0) + (edit.Clear ? 1 : 0);
+        if (parts != 1)
+            throw OperationException.BadInput("bad_edit", $"The edit of '{edit.Cell}' must have exactly one of value, formula or clear.");
+        if (edit.Formula is { } formula && FormulaCells.Refusal(FormulaCells.WithoutEquals(formula)) is { } refusal)
+            throw OperationException.BadInput("formula_refused", $"XLibur cannot read the formula for '{edit.Cell}': {refusal}");
+    }
+
+    private static void Apply(CellEdit edit, IXLCell cell)
+    {
+        if (edit.Clear)
+            cell.Clear(XLClearOptions.Contents);
+        else if (edit.Formula is { } formula)
+            cell.FormulaA1 = FormulaCells.WithoutEquals(formula);
+        else
+            cell.Value = edit.Value!.Value;
     }
 }

@@ -166,7 +166,7 @@ public sealed class ReadRangeOperation : Operation<ReadRangeRequest, ReadRangeRe
         return address[..address.LastIndexOf('!')];
     }
 
-    private static (int Top, int Left, int Bottom, int Right)? Intersect(IXLRangeAddress a, IXLRangeAddress b)
+    private static (int Top, int Left, int Bottom, int Right)? Intersect(XLRangeAddress a, XLRangeAddress b)
     {
         var top = Math.Max(a.FirstAddress.RowNumber, b.FirstAddress.RowNumber);
         var left = Math.Max(a.FirstAddress.ColumnNumber, b.FirstAddress.ColumnNumber);

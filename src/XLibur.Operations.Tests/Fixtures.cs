@@ -8,7 +8,7 @@ namespace XLibur.Operations.Tests;
 public static class TestDefaults
 {
     [Before(HookType.Assembly)]
-    public static void GlobalSetup() => Fonts.PinataLabs.PinataLabsFontBootstrap.Register();
+    public static void GlobalSetup(AssemblyHookContext _) => Fonts.PinataLabs.PinataLabsFontBootstrap.Register();
 }
 
 internal static class Fixtures

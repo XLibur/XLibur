@@ -17,23 +17,7 @@ public sealed record InspectResult(string Path, IReadOnlyList<SheetSummary> Shee
     {
         text.Append(Path).Append('\n');
         foreach (var sheet in Sheets)
-        {
-            text.Append(sheet.Position).Append(' ').Append(sheet.Name);
-            if (sheet.Visibility != "visible")
-                text.Append(" (").Append(sheet.Visibility).Append(')');
-            text.Append(" used=").Append(sheet.UsedRange ?? "empty")
-                .Append(" cells=").Append(sheet.Cells)
-                .Append(" formulas=").Append(sheet.Formulas);
-            if (sheet.Tables.Count > 0)
-                text.Append(" tables=").AppendJoin(',', sheet.Tables.Select(t => $"{t.Name}({t.Range})"));
-            if (sheet.Pivots.Count > 0)
-                text.Append(" pivots=").AppendJoin(',', sheet.Pivots.Select(p => $"{p.Name}@{p.TargetCell}"));
-            if (sheet.Charts.Count > 0)
-                text.Append(" charts=").AppendJoin(',', sheet.Charts.Select(c => c.Title is null ? c.Type : $"{c.Type}:{c.Title}"));
-            if (sheet.Pictures > 0)
-                text.Append(" pictures=").Append(sheet.Pictures);
-            text.Append('\n');
-        }
+            sheet.WriteText(text);
 
         foreach (var name in DefinedNames)
             text.Append("name ").Append(name.Sheet is null ? name.Name : $"{name.Sheet}!{name.Name}").Append(" = ").Append(name.RefersTo).Append('\n');
@@ -50,7 +34,32 @@ public sealed record SheetSummary(
     IReadOnlyList<TableSummary> Tables,
     IReadOnlyList<PivotSummary> Pivots,
     IReadOnlyList<ChartSummary> Charts,
-    int Pictures);
+    int Pictures)
+{
+    /// <summary>One line: position, name, visibility when not visible, counts, then each kind of object the sheet has.</summary>
+    internal void WriteText(StringBuilder text)
+    {
+        text.Append(Position).Append(' ').Append(Name);
+        if (Visibility != "visible")
+            text.Append(" (").Append(Visibility).Append(')');
+        text.Append(" used=").Append(UsedRange ?? "empty")
+            .Append(" cells=").Append(Cells)
+            .Append(" formulas=").Append(Formulas);
+        AppendList(text, "tables", Tables.Select(t => $"{t.Name}({t.Range})"));
+        AppendList(text, "pivots", Pivots.Select(p => $"{p.Name}@{p.TargetCell}"));
+        AppendList(text, "charts", Charts.Select(c => c.Title is null ? c.Type : $"{c.Type}:{c.Title}"));
+        if (Pictures > 0)
+            text.Append(" pictures=").Append(Pictures);
+        text.Append('\n');
+    }
+
+    private static void AppendList(StringBuilder text, string label, IEnumerable<string> items)
+    {
+        var list = items.ToList();
+        if (list.Count > 0)
+            text.Append(' ').Append(label).Append('=').AppendJoin(',', list);
+    }
+}
 
 public sealed record TableSummary(string Name, string Range);
 
@@ -100,7 +109,7 @@ public sealed class InspectOperation : Operation<InspectRequest, InspectResult>
                 formulas,
                 ws.Tables.Select(t => new TableSummary(t.Name, t.RangeAddress.ToStringRelative())).ToList(),
                 ws.PivotTables.Select(p => new PivotSummary(p.Name, p.TargetCell.Address.ToStringRelative())).ToList(),
-                ws.Charts.Select(c => new ChartSummary(c.ChartType.ToString(), c.Title, c.Series.Count())).ToList(),
+                ws.Charts.Select(c => new ChartSummary(c.ChartType.ToString(), c.Title, c.Series.Count)).ToList(),
                 ws.Pictures.Count);
         }).ToList();
 

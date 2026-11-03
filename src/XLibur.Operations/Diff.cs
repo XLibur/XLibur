@@ -77,8 +77,8 @@ public sealed record DiffResult(
     public void WriteText(StringBuilder text)
     {
         var count = SheetsAdded.Count + SheetsRemoved.Count + CellChangeTotal + DefinedNames.Count + Tables.Count;
-        text.Append(Left).Append(" vs ").Append(Right).Append(": ")
-            .Append(Identical ? "identical" : $"{count} difference{(count == 1 ? "" : "s")}").Append('\n');
+        var differences = count == 1 ? "1 difference" : $"{count} differences";
+        text.Append(Left).Append(" vs ").Append(Right).Append(": ").Append(Identical ? "identical" : differences).Append('\n');
         foreach (var sheet in SheetsAdded)
             text.Append("sheet added ").Append(sheet).Append('\n');
         foreach (var sheet in SheetsRemoved)

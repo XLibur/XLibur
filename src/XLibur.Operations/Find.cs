@@ -76,7 +76,7 @@ public sealed class FindOperation : Operation<FindRequest, FindResult>
         if (request.MaxResults < 1)
             throw OperationException.BadInput("bad_max_results", "maxResults must be at least 1.");
 
-        var matcher = Matcher(request);
+        var isHit = HitTest(request);
         using var loaded = context.LoadWorkbook(request.Path);
         var sheets = request.Sheet is null
             ? loaded.Workbook.Worksheets.ToList()
@@ -88,11 +88,7 @@ public sealed class FindOperation : Operation<FindRequest, FindResult>
         {
             var read = CellReader.Read(cell);
             var formula = cell.HasFormula ? cell.FormulaA1 : null;
-            var hit = request.Errors
-                ? read.Failure is not null || read.Value.IsError
-                : matcher!(read.Value.ToString(CultureInfo.InvariantCulture))
-                  || request.InFormulas && formula is not null && matcher(formula);
-            if (!hit)
+            if (!isHit(read, formula))
                 continue;
 
             total++;
@@ -103,7 +99,18 @@ public sealed class FindOperation : Operation<FindRequest, FindResult>
         return new FindResult(matches, total);
     }
 
-    private static Func<string, bool>? Matcher(FindRequest request)
+    /// <summary>Whether a cell, given its read value and its formula text, matches the request's one criterion.</summary>
+    private static Func<CellRead, string?, bool> HitTest(FindRequest request)
+    {
+        if (request.Errors)
+            return (read, _) => read.Failure is not null || read.Value.IsError;
+
+        var matches = Matcher(request);
+        return (read, formula) => matches(read.Value.ToString(CultureInfo.InvariantCulture))
+                                  || request.InFormulas && formula is not null && matches(formula);
+    }
+
+    private static Func<string, bool> Matcher(FindRequest request)
     {
         if (request.Text is { } text)
         {
@@ -111,8 +118,7 @@ public sealed class FindOperation : Operation<FindRequest, FindResult>
             return value => value.Contains(text, comparison);
         }
 
-        if (request.Regex is not { } pattern)
-            return null;
+        var pattern = request.Regex!;
 
         Regex regex;
         try
