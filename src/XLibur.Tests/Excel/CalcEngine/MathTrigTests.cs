@@ -594,6 +594,48 @@ public class MathTrigTests
     }
 
     [Test]
+    [Arguments("FLOOR.PRECISE(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.PRECISE(0.7, 0.1)", 0.7)]
+    [Arguments("FLOOR.PRECISE(4.35, 0.05)", 4.35)]
+    [Arguments("FLOOR.PRECISE(-0.07, 0.01)", -0.07)]
+    [Arguments("CEILING.PRECISE(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.PRECISE(1.1, 0.1)", 1.1)]
+    [Arguments("CEILING.PRECISE(-0.7, 0.1)", -0.7)]
+    [Arguments("ISO.CEILING(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(0.07, 0.01)", 0.07)]
+    [Arguments("CEILING.MATH(-0.07, 0.01, 1)", -0.07)]
+    [Arguments("FLOOR.MATH(0.3, 0.1)", 0.3)]
+    [Arguments("FLOOR.MATH(-0.7, 0.1, 1)", -0.7)]
+    public async Task Ceiling_and_floor_keep_an_exact_decimal_multiple(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
+    [Arguments("CEILING.PRECISE(0.30000001, 0.1)", 0.4)]
+    [Arguments("CEILING.PRECISE(0.3+1E-15, 0.1)", 0.4)]
+    [Arguments("FLOOR.PRECISE(0.3-1E-15, 0.1)", 0.2)]
+    [Arguments("CEILING.PRECISE(3+11*2^-51, 1)", 3)]
+    [Arguments("CEILING.PRECISE(3+12*2^-51, 1)", 4)]
+    [Arguments("FLOOR.PRECISE(1-4*2^-53, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(1-5*2^-53, 1)", 0)]
+    [Arguments("CEILING.PRECISE(9+2*2^-49, 1)", 9)]
+    [Arguments("CEILING.PRECISE(9+3*2^-49, 1)", 10)]
+    [Arguments("CEILING.PRECISE(1E-20, 1)", 1)]
+    [Arguments("FLOOR.PRECISE(-1E-20, 1)", -1)]
+    [Arguments("CEILING.PRECISE(1E-300, 1E300)", 0)]
+    [Arguments("CEILING.PRECISE(1E15+3, 1)", 1e15)]
+    [Arguments("FLOOR.PRECISE(123456789012345+0.75, 1)", 123456789012346)]
+    [Arguments("FLOOR.PRECISE(123456789012344+0.5, 1)", 123456789012345)]
+    [Arguments("CEILING.PRECISE(-(123456789012344+0.5), 1)", -123456789012345)]
+    public async Task Ceiling_and_floor_round_the_quotient_to_15_significant_digits(string formula, double expected)
+    {
+        var actual = (double)XLWorkbook.EvaluateExpr(formula);
+        await Assert.That(actual).IsEqualTo(expected).Within(tolerance);
+    }
+
+    [Test]
     [Arguments("CEILING.PRECISE(\"a\")")]
     [Arguments("CEILING.PRECISE(4.3, \"a\")")]
     [Arguments("ISO.CEILING(\"a\")")]
