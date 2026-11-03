@@ -133,6 +133,54 @@ public class ConvertAndReportTests
     }
 
     [Test]
+    public async Task Converting_a_workbook_to_its_own_format_with_recalculate_saves_fresh_cached_values()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "stale.xlsx", wb => wb.AddWorksheet("S").Cell("A1").FormulaA1 = "1+1");
+        using (var wb = new XLWorkbook(root.Combine("stale.xlsx")))
+        {
+            wb.Worksheet("S").Cell("A1").FormulaA1 = "2+2";
+            wb.SaveAs(root.Combine("stale.xlsx"), new SaveOptions { EvaluateFormulasBeforeSaving = false });
+        }
+
+        var (outcome, text) = Fixtures.Run(Fixtures.Context(root), Convert,
+            new ConvertRequest { Input = "stale.xlsx", Output = "fresh.xlsx", Recalculate = true });
+
+        await Assert.That(outcome.Error).IsNull();
+        await Assert.That(text).EndsWith("(xlsx, 1 rows x 1 columns)\n");
+        using var fresh = new XLWorkbook(root.Combine("fresh.xlsx"));
+        await Assert.That(fresh.Worksheet("S").Cell("A1").CachedValue).IsEqualTo((XLCellValue)4d);
+    }
+
+    [Test]
+    public async Task Report_data_keeps_JSON_booleans_nulls_large_numbers_and_lists()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "template.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("R");
+            ws.Cell("A1").Value = "{{ On }}";
+            ws.Cell("B1").Value = "{{ Off }}";
+            ws.Cell("C1").Value = "{{ Big }}";
+            ws.Cell("D1").Value = "{{ Missing }}";
+            ws.Cell("E1").Value = "{{ Tags.size }}";
+        });
+        root.File("data.json", "{\"On\":true,\"Off\":false,\"Big\":1e300,\"Missing\":null,\"Tags\":[\"a\",\"b\"]}");
+
+        var outcome = Fixtures.Run(Fixtures.Context(root), new RenderReportOperation(),
+            new RenderReportRequest { Template = "template.xlsx", Data = "data.json", Output = "report.xlsx" }).Outcome;
+
+        await Assert.That(outcome.ExitCode).IsEqualTo(0);
+        using var report = new XLWorkbook(root.Combine("report.xlsx"));
+        var row = report.Worksheet("R").Row(1);
+        await Assert.That(row.Cell(1).Value.IsBoolean && row.Cell(1).Value.GetBoolean()).IsTrue();
+        await Assert.That(row.Cell(2).Value.IsBoolean && !row.Cell(2).Value.GetBoolean()).IsTrue();
+        await Assert.That(row.Cell(3).Value).IsEqualTo((XLCellValue)1e300);
+        await Assert.That(row.Cell(4).Value.IsBlank).IsTrue();
+        await Assert.That(row.Cell(5).Value).IsEqualTo((XLCellValue)2d);
+    }
+
+    [Test]
     public async Task Report_data_must_be_one_JSON_object()
     {
         using var root = new TempDirectory();

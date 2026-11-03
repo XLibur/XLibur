@@ -39,6 +39,30 @@ public class ReadRangeTests
     }
 
     [Test]
+    public async Task A_quoted_sheet_name_a_sheet_scoped_name_and_an_empty_sheet_all_read()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "names.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("It's Q1");
+            ws.Cell("A1").Value = "a";
+            ws.Cell("B2").Value = 2;
+            ws.DefinedNames.Add("Corner", "'It''s Q1'!$B$2");
+            wb.AddWorksheet("Blank");
+        });
+        var context = Fixtures.Context(root);
+
+        var quoted = Fixtures.Run(context, Operation, new ReadRangeRequest { Path = "names.xlsx", Range = "'It''s Q1'!A1:B2" });
+        var local = (ReadRangeResult)Fixtures.Run(context, Operation,
+            new ReadRangeRequest { Path = "names.xlsx", Sheet = "It's Q1", Range = "Corner" }).Outcome.Result!;
+        var empty = Fixtures.Run(context, Operation, new ReadRangeRequest { Path = "names.xlsx", Sheet = "Blank" });
+
+        await Assert.That(quoted.Text).IsEqualTo("'It''s Q1'!A1:B2\n\tA\tB\n1\ta\n2\t\t2\n");
+        await Assert.That(local.Values[0][0]).IsEqualTo((XLCellValue)2d);
+        await Assert.That(empty.Text).IsEqualTo("Blank: empty\n");
+    }
+
+    [Test]
     public async Task A_large_range_is_paged_by_whole_rows_and_next_reads_the_rest()
     {
         using var root = new TempDirectory();

@@ -35,6 +35,31 @@ public class EditTests
     }
 
     [Test]
+    public async Task Max_changes_caps_the_listed_dependents_but_not_their_count()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Sales(root);
+
+        var (outcome, text) = Fixtures.Run(Fixtures.Context(root), Operation, new EditRequest
+        {
+            Path = "sales.xlsx",
+            Edits = [new CellEdit { Cell = "Sales!B2", Value = 10 }],
+            MaxChanges = 0,
+        });
+
+        var result = (EditResult)outcome.Result!;
+        await Assert.That(result.Changed.Count).IsEqualTo(0);
+        await Assert.That(result.ChangedTotal).IsEqualTo(3);
+        await Assert.That(text).EndsWith("\n3 more changed\n");
+    }
+
+    [Test]
+    public async Task A_shorthand_edit_without_an_equals_sign_is_bad_input()
+    {
+        await Expect.Refused(() => CellEdit.Parse("B2"), ErrorKind.BadInput, "bad_edit");
+    }
+
+    [Test]
     public async Task One_bad_edit_applies_none_and_writes_nothing()
     {
         using var root = new TempDirectory();

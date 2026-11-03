@@ -51,6 +51,74 @@ public class CalculationTests
     }
 
     [Test]
+    public async Task Recalc_lists_a_formula_it_cannot_read_and_counts_values_that_differ_from_the_cache()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "stale.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").FormulaA1 = "SUM(";
+            ws.Cell("A2").FormulaA1 = "1+1";
+            ws.Cell("A3").FormulaA1 = "2+2";
+        });
+        using (var wb = new XLWorkbook(root.Combine("stale.xlsx")))
+        {
+            wb.Worksheet("S").Cell("A2").FormulaA1 = "1+2";
+            wb.Worksheet("S").Cell("A3").FormulaA1 = "2+3";
+            wb.SaveAs(root.Combine("stale.xlsx"), new SaveOptions { EvaluateFormulasBeforeSaving = false });
+        }
+
+        var (outcome, text) = Fixtures.Run(Fixtures.Context(root), new RecalcOperation(), new RecalcRequest { Path = "stale.xlsx", MaxIssues = 1 });
+
+        var result = (RecalcResult)outcome.Result!;
+        await Assert.That(result.Refused.Cells.Select(c => c.Cell)).IsEquivalentTo(["S!A1"]);
+        await Assert.That(result.Changed.Total).IsEqualTo(2);
+        await Assert.That(text).Contains("\n1 more differ\n");
+    }
+
+    [Test]
+    public async Task Check_formula_says_whether_a_formula_parses_and_why_it_does_not_evaluate()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "cycle.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").FormulaA1 = "B1";
+            ws.Cell("B1").Value = 1;
+        });
+        using (var wb = new XLWorkbook(root.Combine("cycle.xlsx")))
+        {
+            wb.Worksheet("S").Cell("B1").FormulaA1 = "A1";
+            wb.Save();
+        }
+
+        var context = Fixtures.Context(root);
+
+        var parses = Fixtures.Run(context, new CheckFormulaOperation(), new CheckFormulaRequest { Formula = "SUM(1,2)", Evaluate = false });
+        var circular = Fixtures.Run(context, new CheckFormulaOperation(),
+            new CheckFormulaRequest { Formula = "A1+1", Path = "cycle.xlsx", Cell = "C1" });
+
+        await Assert.That(parses.Text).IsEqualTo("parses\n");
+        await Assert.That(parses.Outcome.ExitCode).IsEqualTo(0);
+        await Assert.That(circular.Text).StartsWith("parses; evaluation circular: ");
+        await Assert.That(circular.Outcome.ExitCode).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Find_counts_every_match_but_lists_at_most_max_results()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Sales(root);
+
+        var (outcome, text) = Fixtures.Run(Fixtures.Context(root), new FindOperation(), new FindRequest { Path = "sales.xlsx", Regex = "^[AB]", MaxResults = 1 });
+
+        var result = (FindResult)outcome.Result!;
+        await Assert.That(result.Total).IsEqualTo(2);
+        await Assert.That(result.Matches.Count).IsEqualTo(1);
+        await Assert.That(text).EndsWith("\n2 matches, first 1 shown\n");
+    }
+
+    [Test]
     public async Task Check_formula_evaluates_against_the_workbook_without_writing()
     {
         using var root = new TempDirectory();

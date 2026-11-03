@@ -65,18 +65,16 @@ internal sealed class OperationTool : McpServerTool
             arguments[name] = JsonNode.Parse(value.GetRawText());
         }
 
-        object? parsed;
+        object parsed;
         try
         {
-            parsed = arguments.Deserialize(_operation.RequestType, Rendering.JsonOptions);
+            parsed = arguments.Deserialize(_operation.RequestType, Rendering.JsonOptions)
+                     ?? throw new JsonException("The arguments are empty.");
         }
         catch (JsonException e)
         {
             return Error(new OperationError(ErrorKind.BadInput, "bad_arguments", e.Message), format);
         }
-
-        if (parsed is null)
-            return Error(new OperationError(ErrorKind.BadInput, "bad_arguments", "The arguments are empty."), format);
 
         await _gate.WaitAsync(cancellationToken);
         try

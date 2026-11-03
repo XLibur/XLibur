@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\XLibur.Operations\XLibur.Operations.csproj" />
     <ProjectReference Include="..\XLibur.Cli\XLibur.Cli.csproj" />
+    <ProjectReference Include="..\XLibur.Mcp\XLibur.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

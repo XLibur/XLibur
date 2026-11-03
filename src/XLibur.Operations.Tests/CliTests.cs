@@ -90,6 +90,20 @@ public class CliTests
     }
 
     [Test]
+    public async Task Version_prints_the_version_and_a_missing_root_is_an_error()
+    {
+        using var root = new TempDirectory();
+
+        var version = Run("--version");
+        var missing = Run("--root", root.Combine("nowhere"), "inspect", "a.xlsx");
+
+        await Assert.That(version.Exit).IsEqualTo(0);
+        await Assert.That(version.Output.Trim()).IsNotEmpty();
+        await Assert.That(missing.Exit).IsEqualTo(2);
+        await Assert.That(missing.Error).Contains("is not an existing directory");
+    }
+
+    [Test]
     public async Task A_root_confines_the_CLI_as_it_does_the_server()
     {
         using var root = new TempDirectory();

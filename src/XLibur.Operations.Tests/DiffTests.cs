@@ -79,6 +79,32 @@ public class DiffTests
     }
 
     [Test]
+    public async Task Added_and_removed_sheets_and_each_style_part_are_named()
+    {
+        using var root = new TempDirectory();
+        var path = Fixtures.Sales(root);
+        using (var wb = new XLWorkbook(path))
+        {
+            var ws = wb.Worksheet("Sales");
+            ws.Cell("A1").Style.Font.Bold = true;
+            ws.Cell("A1").Style.Border.TopBorder = XLBorderStyleValues.Thin;
+            ws.Cell("A1").Style.NumberFormat.Format = "0.00";
+            ws.Cell("A1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Cell("A1").Style.Protection.Locked = false;
+            wb.AddWorksheet("Notes");
+            wb.SaveAs(root.Combine("changed.xlsx"), new SaveOptions { EvaluateFormulasBeforeSaving = true });
+        }
+
+        var context = Fixtures.Context(root);
+        var forward = Fixtures.Run(context, Operation, new DiffRequest { Left = "sales.xlsx", Right = "changed.xlsx" });
+        var backward = Fixtures.Run(context, Operation, new DiffRequest { Left = "changed.xlsx", Right = "sales.xlsx" });
+
+        await Assert.That(forward.Text).Contains("sheet added Notes\n");
+        await Assert.That(forward.Text).Contains("style Sales!A1\tfont,border,numberFormat(|0.00),alignment,protection\n");
+        await Assert.That(backward.Text).Contains("sheet removed Notes\n");
+    }
+
+    [Test]
     public async Task An_ignored_sheet_leaves_out_its_tables_and_sheet_scoped_names()
     {
         using var root = new TempDirectory();
