@@ -17,5 +17,8 @@ public sealed record Limits
     /// <summary>The most cells one read_range call returns, whatever the request asks for.</summary>
     public int MaxCells { get; init; } = 10_000;
 
+    /// <summary>The most cells convert holds for one sheet: every row and column from A1 to the last used cell.</summary>
+    public long MaxGridCells { get; init; } = 10_000_000;
+
     public int MaxResultChars { get; init; } = 1_000_000;
 }

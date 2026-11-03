@@ -111,6 +111,9 @@ public sealed class ConvertOperation : Operation<ConvertRequest, ConvertResult>
 
         var rows = used.RangeAddress.LastAddress.RowNumber;
         var columns = used.RangeAddress.LastAddress.ColumnNumber;
+        if ((long)rows * columns > context.Limits.MaxGridCells)
+            throw OperationException.BadInput("grid_too_large",
+                $"Sheet '{sheet.Name}' spans {rows:N0} rows by {columns:N0} columns from A1; convert holds at most {context.Limits.MaxGridCells:N0} cells.");
         var grid = Enumerable.Range(0, rows).Select(_ => new XLCellValue[columns]).ToList();
         var failures = 0;
         foreach (var cell in used.CellsUsed(XLCellsUsedOptions.Contents))
@@ -197,7 +200,7 @@ internal static class Delimited
 
         if (quoted)
             throw new FormatException("A quoted field is not closed.");
-        if (field.Length > 0 || row.Count > 0)
+        if (field.Length > 0 || row.Count > 0 || wasQuoted)
         {
             row.Add(Value(field, wasQuoted, separator));
             rows.Add([.. row]);
@@ -212,8 +215,12 @@ internal static class Delimited
         field.Clear();
         if (separator == '\t')
             text = Unescape(text);
-        if (quoted)
-            return text;
+        return quoted ? text : Unquoted(text);
+    }
+
+    /// <summary>What an unquoted field reads as: blank, a number, a boolean, or else text.</summary>
+    private static XLCellValue Unquoted(string text)
+    {
         if (text.Length == 0)
             return Blank.Value;
         if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
@@ -252,36 +259,30 @@ internal static class Delimited
     {
         var text = new StringBuilder();
         foreach (var row in grid)
-        {
-            for (var c = 0; c < row.Length; c++)
-            {
-                if (c > 0)
-                    text.Append(separator);
-                var cell = row[c];
-                if (cell.IsText)
-                {
-                    var safe = NeutraliseFormula(cell.GetText());
-                    text.Append(separator == '\t' ? Rendering.Escape(safe) : CsvField(safe));
-                }
-                else
-                {
-                    var value = Rendering.ToText(cell);
-                    text.Append(separator == '\t' ? value : CsvField(value));
-                }
-            }
-
-            text.Append("\r\n");
-        }
+            text.AppendJoin(separator, row.Select(cell => Field(cell, separator))).Append("\r\n");
 
         return text.ToString();
+    }
+
+    private static string Field(XLCellValue cell, char separator)
+    {
+        if (!cell.IsText)
+        {
+            var value = Rendering.ToText(cell);
+            return separator == '\t' ? value : CsvField(value, quote: false);
+        }
+
+        var safe = NeutraliseFormula(cell.GetText());
+        return separator == '\t' ? Rendering.Escape(safe) : CsvField(safe, quote: !Unquoted(safe).IsText);
     }
 
     /// <summary>Text that Excel would read as a formula when the file is opened gets a leading quote. Numbers never reach here.</summary>
     private static string NeutraliseFormula(string text)
         => text.Length > 0 && text[0] is '=' or '+' or '-' or '@' or '\t' or '\r' ? "'" + text : text;
 
-    private static string CsvField(string value)
-        => value.AsSpan().IndexOfAny(",\"\r\n") < 0 ? value : "\"" + value.Replace("\"", "\"\"") + "\"";
+    /// <param name="quote">Quote even a plain value, so text that would read back as a number, boolean or blank stays text.</param>
+    private static string CsvField(string value, bool quote)
+        => !quote && value.AsSpan().IndexOfAny(",\"\r\n") < 0 ? value : "\"" + value.Replace("\"", "\"\"") + "\"";
 }
 
 internal static class JsonTable
@@ -313,14 +314,26 @@ internal static class JsonTable
         if (!header || grid.Count == 0)
             return JsonSerializer.Serialize(grid, Rendering.JsonOptions);
 
-        var keys = grid[0].Select((v, i) => v.IsBlank ? $"column{i + 1}" : v.ToString(CultureInfo.InvariantCulture)).ToArray();
-        var rows = grid.Skip(1).Select(row =>
-        {
-            var item = new Dictionary<string, XLCellValue>();
-            for (var c = 0; c < keys.Length; c++)
-                item[keys[c]] = c < row.Length ? row[c] : Blank.Value;
-            return item;
-        });
+        var keys = Keys(grid[0], grid.Max(r => r.Length));
+        var rows = grid.Skip(1).Select(row => keys
+            .Select((key, c) => KeyValuePair.Create(key, c < row.Length ? row[c] : Blank.Value))
+            .ToDictionary());
         return JsonSerializer.Serialize(rows, Rendering.JsonOptions);
+    }
+
+    /// <summary>The header row's values as keys, <c>columnN</c> for a blank header or a column past the header row.</summary>
+    private static string[] Keys(XLCellValue[] header, int width)
+    {
+        var keys = new string[width];
+        var seen = new HashSet<string>();
+        for (var c = 0; c < width; c++)
+        {
+            keys[c] = c < header.Length && !header[c].IsBlank ? header[c].ToString(CultureInfo.InvariantCulture) : $"column{c + 1}";
+            if (!seen.Add(keys[c]))
+                throw OperationException.BadInput("duplicate_header",
+                    $"The header '{keys[c]}' names more than one column; rename it, or export without header.");
+        }
+
+        return keys;
     }
 }

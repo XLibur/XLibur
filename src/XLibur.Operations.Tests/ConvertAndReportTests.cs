@@ -147,6 +147,85 @@ public class ConvertAndReportTests
     }
 
     [Test]
+    public async Task Export_refuses_a_grid_over_the_cell_limit_and_writes_nothing()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "far.xlsx", wb => wb.AddWorksheet("S").Cell("J11").Value = 1);
+        var context = Fixtures.Context(root, limits: Limits.Default with { MaxGridCells = 100 });
+
+        var outcome = Fixtures.Run(context, Convert, new ConvertRequest { Input = "far.xlsx", Output = "far.csv" }).Outcome;
+
+        await Assert.That(outcome.Error!.Code).IsEqualTo("grid_too_large");
+        await Assert.That(File.Exists(root.Combine("far.csv"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Export_of_one_cell_at_XFD1048576_is_refused_by_the_default_limit()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "corner.xlsx", wb => wb.AddWorksheet("S").Cell("XFD1048576").Value = 1);
+
+        var outcome = Fixtures.Run(Fixtures.Context(root), Convert, new ConvertRequest { Input = "corner.xlsx", Output = "corner.json" }).Outcome;
+
+        await Assert.That(outcome.Error!.Code).IsEqualTo("grid_too_large");
+    }
+
+    [Test]
+    public async Task Header_keyed_JSON_refuses_duplicate_headers_and_keys_columns_past_the_header()
+    {
+        using var root = new TempDirectory();
+        root.File("dup.csv", "Name,Name\r\nAlice,Bob\r\n");
+        root.File("wide.csv", "Name\r\nAlice,30\r\n");
+        var context = Fixtures.Context(root);
+
+        var duplicate = Fixtures.Run(context, Convert, new ConvertRequest { Input = "dup.csv", Output = "dup.json", Header = true }).Outcome;
+        var wide = Fixtures.Run(context, Convert, new ConvertRequest { Input = "wide.csv", Output = "wide.json", Header = true }).Outcome;
+
+        await Assert.That(duplicate.Error!.Code).IsEqualTo("duplicate_header");
+        await Assert.That(File.Exists(root.Combine("dup.json"))).IsFalse();
+        await Assert.That(wide.Error).IsNull();
+        await Assert.That(await File.ReadAllTextAsync(root.Combine("wide.json"))).IsEqualTo("[{\"Name\":\"Alice\",\"column2\":30}]");
+    }
+
+    [Test]
+    public async Task CSV_export_quotes_text_that_would_import_as_another_type()
+    {
+        using var root = new TempDirectory();
+        Fixtures.Build(root, "in.xlsx", wb =>
+        {
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").Value = "007";
+            ws.Cell("B1").Value = "TRUE";
+            ws.Cell("C1").Value = "1e3";
+            ws.Cell("D1").Value = 7;
+            ws.Cell("E1").Value = true;
+        });
+        var context = Fixtures.Context(root);
+
+        Fixtures.Run(context, Convert, new ConvertRequest { Input = "in.xlsx", Output = "out.csv" });
+        Fixtures.Run(context, Convert, new ConvertRequest { Input = "out.csv", Output = "back.xlsx" });
+
+        await Assert.That(await File.ReadAllTextAsync(root.Combine("out.csv"))).IsEqualTo("\"007\",\"TRUE\",\"1e3\",7,TRUE\r\n");
+        using var back = new XLWorkbook(root.Combine("back.xlsx"));
+        var row = back.Worksheet("Sheet1").Row(1);
+        await Assert.That(row.Cell(1).Value).IsEqualTo((XLCellValue)"007");
+        await Assert.That(row.Cell(2).Value).IsEqualTo((XLCellValue)"TRUE");
+        await Assert.That(row.Cell(4).Value).IsEqualTo((XLCellValue)7d);
+        await Assert.That(row.Cell(5).Value.IsBoolean && row.Cell(5).Value.GetBoolean()).IsTrue();
+    }
+
+    [Test]
+    public async Task A_last_CSV_record_of_one_quoted_empty_field_is_kept_without_a_trailing_newline()
+    {
+        using var root = new TempDirectory();
+        root.File("in.csv", "a\r\n\"\"");
+
+        Fixtures.Run(Fixtures.Context(root), Convert, new ConvertRequest { Input = "in.csv", Output = "out.json" });
+
+        await Assert.That(await File.ReadAllTextAsync(root.Combine("out.json"))).IsEqualTo("[[\"a\"],[\"\"]]");
+    }
+
+    [Test]
     public async Task Text_output_is_UTF8_without_a_byte_order_mark()
     {
         using var root = new TempDirectory();
