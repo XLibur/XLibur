@@ -1360,29 +1360,6 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         return Worksheet.RangeColumn(new XLRangeAddress(firstCellAddress, lastCellAddress));
     }
 
-    // S1133 reads as a reminder to delete this. It is shipped public API, listed in
-    // PublicAPI.Shipped.txt, so it goes when the next major version does and not before.
-#pragma warning disable S1133
-    [Obsolete("Use GetDataValidation() to access the existing rule, or CreateDataValidation() to create a new one.")]
-#pragma warning restore S1133
-    public IXLDataValidation SetDataValidation()
-    {
-        var existingValidation = GetDataValidation();
-        if (existingValidation != null && existingValidation.Ranges.Any(r => r == this))
-            return existingValidation;
-
-        var dataValidationToCopy = Worksheet.DataValidations.GetAllInRange(RangeAddress)
-            .FirstOrDefault();
-
-        var newRange = AsRange();
-        var dataValidation = new XLDataValidation(newRange);
-        if (dataValidationToCopy != null)
-            dataValidation.CopyFrom(dataValidationToCopy);
-
-        Worksheet.DataValidations.Add(dataValidation);
-        return dataValidation;
-    }
-
     public IXLConditionalFormat AddConditionalFormat()
     {
         var cf = new XLConditionalFormat(AsRange());

@@ -5,6 +5,7 @@
         <RootNamespace>XLibur.Fonts.PinataLabs</RootNamespace>
         <Description>PinataLabs.Typography implementation of IXLFontEngine for XLibur. PinataLabs.Typography is a maintained, Apache 2.0 fork of SixLabors.Fonts 1.x; this package replaces XLibur.Fonts.SixLabors.V1.</Description>
         <PackageReadmeFile>NUGET_README.md</PackageReadmeFile>
+        <IsAotCompatible>true</IsAotCompatible>
         <PackageTags>Excel OpenXml xlsx Font PinataLabs Typography</PackageTags>
     </PropertyGroup>
 

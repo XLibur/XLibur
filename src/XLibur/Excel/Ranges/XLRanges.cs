@@ -298,12 +298,6 @@ internal sealed class XLRanges : XLStylizedBase, IXLRanges, IXLStylized, IEquata
         return dataValidation;
     }
 
-    [Obsolete("Use CreateDataValidation() instead.")]
-    public IXLDataValidation SetDataValidation()
-    {
-        return CreateDataValidation();
-    }
-
     public void Select()
     {
         foreach (var range in this)

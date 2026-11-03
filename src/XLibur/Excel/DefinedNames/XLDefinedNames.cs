@@ -114,9 +114,6 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
 
     #region IXLNamedRanges Members
 
-    [Obsolete("Use DefinedName instead.")]
-    IXLDefinedName IXLDefinedNames.NamedRange(string name) => DefinedName(name);
-
     IXLDefinedName IXLDefinedNames.DefinedName(string name) => DefinedName(name);
 
     internal XLDefinedName DefinedName(string name)
