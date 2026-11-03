@@ -36,10 +36,8 @@ GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel re
 LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
 LOWER	LOWER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-MROUND	MROUND#2	error:#NUM!	number:0	=MROUND(A1,3) with a zero value (an empty cell or 0): Excel returns 0; XLibur returns #NUM!	
 MROUND	MROUND#6	number:0	error:#VALUE!	=MROUND(TRUE,3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
 MROUND	MROUND#8	number:0	error:#VALUE!	=MROUND(A1:A3,3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
-MROUND	MROUND#11	error:#NUM!	number:0	=MROUND(0,3) with a zero value (an empty cell or 0): Excel returns 0; XLibur returns #NUM!	
 MROUND	MROUND#21	number:10	error:#VALUE!	=MROUND(10,TRUE) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
 MROUND	MROUND#23	number:10	error:#VALUE!	=MROUND(10,A1:A3) rejects a boolean or a multi-cell range argument with #VALUE! in Excel; XLibur coerces it	
 OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
