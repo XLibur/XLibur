@@ -48,12 +48,15 @@ $boundaries = @{
     bool = @('FALSE')
     any  = @('0', '-1', '"0"', '0.5')
     ref  = @()
+    # Serial dates: the epoch, the phantom 1900-02-29, the day after it, the last date and one past it.
+    date = @('0', '1', '60', '61', '2958465', '2958466', '-1', '0.5')
 }
 
-function New-Variants([string] $kind) {
+# $emptyRef must be a cell the function's typical setup leaves empty.
+function New-Variants([string] $kind, [string] $emptyRef) {
     $rangeSetup = if ($kind -eq 'text') { 'A1="a";A2="b";A3="c"' } else { 'A1=1;A2=2;A3=3' }
     $v = @(
-        @{ Arg = 'A1'; Setup = ''; Note = 'empty cell' }
+        @{ Arg = $emptyRef; Setup = ''; Note = 'empty cell' }
         @{ Arg = '"5"'; Setup = ''; Note = 'numeric text' }
         @{ Arg = '"x"'; Setup = ''; Note = 'non-numeric text' }
         @{ Arg = '""'; Setup = ''; Note = 'empty string' }
@@ -81,7 +84,10 @@ foreach ($sig in $functions) {
     $min = if ($sig.ContainsKey('Min')) { $sig.Min } else { $kinds.Count }
     $rows = New-Object System.Collections.Generic.List[object]
     $seen = New-Object System.Collections.Generic.HashSet[string]
+    # S is the function's typical table; a case's own setup is written after it and so wins.
+    $emptyRef = if ($sig.ContainsKey('S')) { 'J10' } else { 'A1' }
     function Add-Row([string] $setup, [string] $formula, [string] $note) {
+        $setup = (@($sig.S, $setup) | Where-Object { $_ }) -join ';'
         if ($seen.Add("$setup|$formula")) { $rows.Add(@{ Setup = $setup; Formula = $formula; Note = $note }) }
     }
 
@@ -90,7 +96,7 @@ foreach ($sig in $functions) {
     if ($kinds.Count -gt $min) { Add-Row '' (Get-Call $sig.N $typical) 'typical, all arguments' }
 
     for ($i = 0; $i -lt $kinds.Count; $i++) {
-        foreach ($variant in (New-Variants $kinds[$i])) {
+        foreach ($variant in (New-Variants $kinds[$i] $emptyRef)) {
             $callArgs = @($typical); $callArgs[$i] = $variant.Arg
             $callArgs = Select-Take $callArgs ([Math]::Max($min, $i + 1))
             Add-Row $variant.Setup (Get-Call $sig.N $callArgs) "arg $($i + 1) $($variant.Note)"

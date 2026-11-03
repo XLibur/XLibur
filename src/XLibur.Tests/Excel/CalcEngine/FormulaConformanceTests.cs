@@ -32,8 +32,22 @@ public class FormulaConformanceTests
 
         await Assert.That(matches).IsFalse()
             .Because($"{c.Id} now agrees with Excel, so its {KnownDiffsFile} row is stale. Remove it.");
-        await Assert.That(actual.ToString()).IsEqualTo(known.XliburAnswer)
-            .Because($"{c.Id} is a known difference, but XLibur's answer changed.");
+        await Assert.That(IsRecordedAnswer(known.XliburAnswer, actual)).IsTrue()
+            .Because($"{c.Id} is a known difference, but XLibur's answer changed: the row has {known.XliburAnswer}, it is now {actual}.");
+    }
+
+    [Test]
+    [Arguments("number:10.469848430762868", "number", "10.469848430762866", true)]
+    [Arguments("number:10.469848430762868", "number", "10.47", false)]
+    [Arguments("number:1", "text", "1", false)]
+    [Arguments("throws:ArgumentException", "throws", "ArgumentException", true)]
+    [Arguments("throws:ArgumentException", "throws", "InvalidCastException", false)]
+    [Arguments("error:#NUM!", "error", "#NUM!", true)]
+    [Arguments("error:#NUM!", "error", "#VALUE!", false)]
+    [Arguments("rejected:", "error", "#NAME?", false)]
+    public async Task A_recorded_xlibur_answer_tolerates_only_last_digit_noise(string recorded, string type, string value, bool expected)
+    {
+        await Assert.That(IsRecordedAnswer(recorded, new Answer(type, value))).IsEqualTo(expected);
     }
 
     [Test]
