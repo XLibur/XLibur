@@ -99,6 +99,55 @@ By family: math 29 of 890, text 16 of 383, logical 4 of 50, information 1 of 194
 agree almost everywhere. The text functions fail on arrays. Several causes share the pilot's themes
 (overflow, surrogate pairs, text direct arguments) and could join #894.
 
+## Task 5: date, lookup, statistical, financial and engineering
+
+74 more functions, 2,744 cases, same Excel build. XLibur disagrees on 359 (13.1%), in 53 of the 74 functions.
+This is four times the rate of the first four families. The whole conformance class (4,826 tests) runs in
+about 4.8 s.
+
+| Family | Cases | Disagreements |
+|---|---|---|
+| engineering | 463 | 109 |
+| financial | 923 | 95 |
+| statistical | 617 | 93 |
+| lookup | 149 | 31 |
+| date | 592 | 31 |
+
+**Three functions are not implemented.** `ADDRESS`, `CHOOSE` and `LOOKUP` return `#NAME?` for every call
+(their registrations in `Lookup.cs` are commented out). 134 generated cases measured only that, so they were
+removed from the corpus and the signature table, and are listed here instead. They belong to spec 07's
+coverage count and need no known-difference rows.
+
+How the 359 split, by the rule that classified them:
+
+| Mechanism | Cases | Examples |
+|---|---|---|
+| Boolean or multi-cell range where a number is expected: Excel `#VALUE!`, XLibur coerces | 61 | `WEEKNUM(TRUE)`, `EDATE(43831,TRUE)`, `DELTA(5,TRUE)`, `ERF(1,A1:A3)` |
+| Excel refuses the formula at entry, XLibur evaluates it to an error | 54 | `SUMIF(A1:A5,">2","5")`, `ROW("x")`, `COUNTBLANK("")` |
+| Two error arguments: a different argument's error wins | 28 | `GESTEP(#N/A,#DIV/0!)`, `SMALL(#N/A,#DIV/0!)` |
+| Huge magnitude or count: XLibur throws `ArgumentException` | 27 | `PMT(0.05,1000000,1000)`, `ERF(9E307)`, `PV(-1,10,-100)` |
+| Last digits differ: RATE and IRR converge differently | 22 | `RATE(10,-100,800)` is 0.042774978035587 in Excel and 0.0427749780351 in XLibur |
+| Array constant as an argument: `UnsupportedFeatureException` | 9 | `HEX2BIN({1,2,3})`, `CONVERT(1,{1,2,3},"ft")` |
+| Other, each recorded as the pair of answers | 158 | below |
+
+Largest groups inside "other":
+
+- **Engineering base conversion.** `BIN2DEC`, `HEX2DEC`, `OCT2DEC` return 0 for an empty cell or empty string in
+  Excel and `#NUM!` in XLibur. `DEC2HEX(255,A1)` with an empty cell for the digits argument is `#NUM!` in Excel
+  and `FF` in XLibur. `BIN2DEC("-1.5")` and similar throw `ArgumentException`.
+- **Statistical text coercion.** `RANK` with a cell holding numeric text is `#VALUE!` in XLibur and a rank in
+  Excel. `SMALL(A1:A5,2.5)` is 1 in Excel and 3 in XLibur. `CORREL` and `SLOPE` swap `#N/A` and `#VALUE!` for
+  an empty cell, a text argument or an empty string. `MODE` differs in how it treats a text direct argument.
+- **Financial edge cases.** `PMT(1E-10,10,1000)` is -100.000000055 in Excel and -99.9999918 in XLibur, which
+  looks like cancellation in the closed form for a tiny rate. `NPER` and `PV` differ on a negative or huge rate.
+- **Lookup.** `INDEX(A1:B3,2)` is `#REF!` in Excel and `#VALUE!` in XLibur. `HLOOKUP` with a text or empty
+  table is `#VALUE!` in Excel and `#N/A` in XLibur.
+- **Others.** `YEARFRAC` basis 0 differs near the 1900 leap-day boundary. `TIME(12,-1,0)` is 0.4993 in Excel and
+  `#NUM!` in XLibur. `WEEKDAY(43831,A1)` with an empty return type is `#NUM!` in Excel and 4 in XLibur.
+
+These rows are observations, not diagnoses. The reasons in `known-diffs.tsv` for the 158 name the two answers
+and nothing more. Task 4 is the step that turns them into causes and fixes.
+
 ## What the pilot does not cover
 
 - Array and spilling results. The recorder enters formulas with `Range.Formula`, which does not spill, and

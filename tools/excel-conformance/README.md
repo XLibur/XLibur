@@ -51,6 +51,11 @@ non-numeric text, the empty string, a boolean, an error, a range, an array const
 numeric text. It adds the kind's boundary values, which error wins when two arguments are errors, and calls
 with too few or too many arguments. Functions already in an existing file are skipped.
 
+Optional table `S` gives a function the cells every case starts from (lookup and statistical functions); a
+case's own setup is written after it. With `S`, the empty-cell variant uses `J10` instead of `A1`. Kind `date`
+adds serial-date boundaries: 0, 1, 60, 61, 2958465, 2958466. A function XLibur has not implemented yet (it
+returns `#NAME?`) is left out of the table, because its cases would measure only that.
+
 Case ids are positional, so the script refuses to overwrite an existing file. `-Force` discards the recorded
 answers. To add a function, add it to the signature table, move the existing family file aside, and put the
 new cases in a new file. Then run the recorder on that file.

@@ -71,3 +71,362 @@ TRUNC	TRUNC#29	number:8.898649335713818	number:8.9	=TRUNC(8.9,2.5) with a text o
 TRUNC	TRUNC#31	throws:ArgumentException	number:8.9	=TRUNC(8.9,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
 UPPER	UPPER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
+AVERAGEIF	AVERAGEIF#4	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF("5",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#5	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF("x",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#6	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF("",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#7	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(TRUE,">2") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#8	error:#N/A	rejected:	Excel refuses =AVERAGEIF(#N/A,">2") at entry; XLibur accepts it and returns error:#N/A	
+AVERAGEIF	AVERAGEIF#10	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF({1,2,3},">2") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#26	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2","5") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#27	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2","x") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#28	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2","") at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#29	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2",TRUE) at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#30	error:#N/A	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2",#N/A) at entry; XLibur accepts it and returns error:#N/A	
+AVERAGEIF	AVERAGEIF#32	error:#VALUE!	rejected:	Excel refuses =AVERAGEIF(A1:A5,">2",{1,2,3}) at entry; XLibur accepts it and returns error:#VALUE!	
+AVERAGEIF	AVERAGEIF#34	error:#N/A	rejected:	Excel refuses =AVERAGEIF(#N/A,#DIV/0!) at entry; XLibur accepts it and returns error:#N/A	
+AVERAGEIF	AVERAGEIF#35	error:#DIV/0!	rejected:	Excel refuses =AVERAGEIF(#DIV/0!,#N/A) at entry; XLibur accepts it and returns error:#DIV/0!	
+BIN2DEC	BIN2DEC#2	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+BIN2DEC	BIN2DEC#5	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+BIN2DEC	BIN2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
+BIN2DEC	BIN2DEC#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+BIN2HEX	BIN2HEX#3	error:#NUM!	text:0	Excel returns text:0; XLibur returns error:#NUM!	
+BIN2HEX	BIN2HEX#6	error:#NUM!	text:0	Excel returns text:0; XLibur returns error:#NUM!	
+BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+BIN2HEX	BIN2HEX#9	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+BIN2HEX	BIN2HEX#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel returns text:1; XLibur throws UnsupportedFeatureException	
+BIN2HEX	BIN2HEX#17	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+BIN2HEX	BIN2HEX#18	text:A	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:A	
+BIN2HEX	BIN2HEX#22	text:A	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:A	
+BIN2HEX	BIN2HEX#24	text:A	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:A	
+BIN2HEX	BIN2HEX#27	text:A	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:A	
+BIN2HEX	BIN2HEX#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+BIN2HEX	BIN2HEX#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+COLUMN	COLUMN#4	error:#VALUE!	rejected:	Excel refuses =COLUMN("5") at entry; XLibur accepts it and returns error:#VALUE!	
+COLUMN	COLUMN#5	error:#VALUE!	rejected:	Excel refuses =COLUMN("x") at entry; XLibur accepts it and returns error:#VALUE!	
+COLUMN	COLUMN#6	error:#VALUE!	rejected:	Excel refuses =COLUMN("") at entry; XLibur accepts it and returns error:#VALUE!	
+COLUMN	COLUMN#7	error:#VALUE!	rejected:	Excel refuses =COLUMN(TRUE) at entry; XLibur accepts it and returns error:#VALUE!	
+COLUMN	COLUMN#8	error:#N/A	rejected:	Excel refuses =COLUMN(#N/A) at entry; XLibur accepts it and returns error:#N/A	
+COLUMN	COLUMN#10	error:#VALUE!	rejected:	Excel refuses =COLUMN({1,2,3}) at entry; XLibur accepts it and returns error:#VALUE!	
+COMPLEX	COMPLEX#6	text:1+4i	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1+4i	
+COMPLEX	COMPLEX#8	text:1+4i	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1+4i	
+COMPLEX	COMPLEX#14	text:1E-10+4i	text:0.0000000001+4i	Excel returns text:0.0000000001+4i; XLibur returns text:1E-10+4i	
+COMPLEX	COMPLEX#15	text:1E+15+4i	text:1000000000000000+4i	Excel returns text:1000000000000000+4i; XLibur returns text:1E+15+4i	
+COMPLEX	COMPLEX#21	text:3+i	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:3+i	
+COMPLEX	COMPLEX#23	text:3+i	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:3+i	
+COMPLEX	COMPLEX#29	text:3+1E-10i	text:3+0.0000000001i	Excel returns text:3+0.0000000001i; XLibur returns text:3+1E-10i	
+COMPLEX	COMPLEX#30	text:3+1E+15i	text:3+1000000000000000i	Excel returns text:3+1000000000000000i; XLibur returns text:3+1E+15i	
+CONVERT	CONVERT#6	number:3.280839895013124	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:3.280839895013124	
+CONVERT	CONVERT#8	number:3.280839895013124	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:3.280839895013124	
+CONVERT	CONVERT#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+CONVERT	CONVERT#21	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CONVERT	CONVERT#23	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CONVERT	CONVERT#24	throws:UnsupportedFeatureException	error:#N/A	An array constant as an argument: Excel returns error:#N/A; XLibur throws UnsupportedFeatureException	
+CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CONVERT	CONVERT#38	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CONVERT	CONVERT#39	throws:UnsupportedFeatureException	error:#N/A	An array constant as an argument: Excel returns error:#N/A; XLibur throws UnsupportedFeatureException	
+CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CORREL	CORREL#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#7	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+CORREL	CORREL#12	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#13	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#14	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#15	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#16	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+CORREL	CORREL#20	error:#VALUE!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#VALUE! (a different argument's error wins)	
+CORREL	CORREL#21	error:#VALUE!	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#VALUE! (a different argument's error wins)	
+COUNTBLANK	COUNTBLANK#3	error:#VALUE!	rejected:	Excel refuses =COUNTBLANK("5") at entry; XLibur accepts it and returns error:#VALUE!	
+COUNTBLANK	COUNTBLANK#4	error:#VALUE!	rejected:	Excel refuses =COUNTBLANK("x") at entry; XLibur accepts it and returns error:#VALUE!	
+COUNTBLANK	COUNTBLANK#5	error:#VALUE!	rejected:	Excel refuses =COUNTBLANK("") at entry; XLibur accepts it and returns error:#VALUE!	
+COUNTBLANK	COUNTBLANK#6	error:#VALUE!	rejected:	Excel refuses =COUNTBLANK(TRUE) at entry; XLibur accepts it and returns error:#VALUE!	
+COUNTBLANK	COUNTBLANK#7	error:#N/A	rejected:	Excel refuses =COUNTBLANK(#N/A) at entry; XLibur accepts it and returns error:#N/A	
+COUNTBLANK	COUNTBLANK#9	error:#VALUE!	rejected:	Excel refuses =COUNTBLANK({1,2,3}) at entry; XLibur accepts it and returns error:#VALUE!	
+DATEDIF	DATEDIF#43	throws:UnsupportedFeatureException	error:#NUM!	An array constant as an argument: Excel returns error:#NUM!; XLibur throws UnsupportedFeatureException	
+DB	DB#17	throws:ArgumentException	number:9E+307	An out-of-range magnitude or count: Excel returns number:9E+307; XLibur throws ArgumentException	
+DDB	DDB#47	number:0.0019999999999527063	number:0.002	Last digits differ: Excel number:0.002, XLibur number:0.0019999999999527063	
+DDB	DDB#74	number:1.0000007932831068E-08	number:1E-08	Excel returns number:1E-08; XLibur returns number:1.0000007932831068E-08	
+DDB	DDB#76	number:900	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:900	
+DEC2BIN	DEC2BIN#7	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2BIN	DEC2BIN#9	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2BIN	DEC2BIN#18	text:1010	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:1010	
+DEC2BIN	DEC2BIN#22	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2BIN	DEC2BIN#24	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2BIN	DEC2BIN#27	text:1010	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:1010	
+DEC2BIN	DEC2BIN#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+DEC2BIN	DEC2BIN#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+DEC2HEX	DEC2HEX#7	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2HEX	DEC2HEX#9	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2HEX	DEC2HEX#17	text:FF	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:FF	
+DEC2HEX	DEC2HEX#21	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2HEX	DEC2HEX#23	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2HEX	DEC2HEX#26	text:FF	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:FF	
+DEC2HEX	DEC2HEX#32	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+DEC2HEX	DEC2HEX#33	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+DEC2OCT	DEC2OCT#7	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2OCT	DEC2OCT#9	text:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1	
+DEC2OCT	DEC2OCT#18	text:100	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:100	
+DEC2OCT	DEC2OCT#22	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2OCT	DEC2OCT#24	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+DEC2OCT	DEC2OCT#27	text:100	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:100	
+DEC2OCT	DEC2OCT#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+DEC2OCT	DEC2OCT#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+DELTA	DELTA#7	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+DELTA	DELTA#9	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+DELTA	DELTA#22	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+DELTA	DELTA#24	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+DELTA	DELTA#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+DELTA	DELTA#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+EDATE	EDATE#6	number:32	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:32	
+EDATE	EDATE#8	number:32	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:32	
+EDATE	EDATE#23	number:43862	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43862	
+EDATE	EDATE#25	number:43862	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43862	
+EFFECT	EFFECT#6	number:1.44140625	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1.44140625	
+EFFECT	EFFECT#8	number:1.44140625	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1.44140625	
+EFFECT	EFFECT#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+EFFECT	EFFECT#21	number:0.050000000000000044	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.050000000000000044	
+EFFECT	EFFECT#23	number:0.050000000000000044	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.050000000000000044	
+EFFECT	EFFECT#31	number:0.05127109497591076	number:0.0512710949426225	Last digits differ: Excel number:0.0512710949426225, XLibur number:0.05127109497591076	
+EOMONTH	EOMONTH#6	number:59	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:59	
+EOMONTH	EOMONTH#8	number:59	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:59	
+EOMONTH	EOMONTH#23	number:43890	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43890	
+EOMONTH	EOMONTH#25	number:43890	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43890	
+ERF	ERF#7	number:0.8427007929497154	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.8427007929497154	
+ERF	ERF#9	number:0.8427007929497154	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.8427007929497154	
+ERF	ERF#17	throws:ArgumentException	number:1	An out-of-range magnitude or count: Excel returns number:1; XLibur throws ArgumentException	
+ERF	ERF#22	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+ERF	ERF#24	number:0	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0	
+ERF	ERF#32	throws:ArgumentException	number:0.1572992070502851	An out-of-range magnitude or count: Excel returns number:0.1572992070502851; XLibur throws ArgumentException	
+ERFC	ERFC#6	number:0.15729920705028455	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.15729920705028455	
+ERFC	ERFC#8	number:0.15729920705028455	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.15729920705028455	
+ERFC	ERFC#16	throws:ArgumentException	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur throws ArgumentException	
+FV	FV#17	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+FV	FV#32	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+FV	FV#47	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+GESTEP	GESTEP#7	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+GESTEP	GESTEP#9	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+GESTEP	GESTEP#22	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+GESTEP	GESTEP#24	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+GESTEP	GESTEP#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+GESTEP	GESTEP#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+HEX2BIN	HEX2BIN#3	error:#NUM!	text:0	Excel returns text:0; XLibur returns error:#NUM!	
+HEX2BIN	HEX2BIN#6	error:#NUM!	text:0	Excel returns text:0; XLibur returns error:#NUM!	
+HEX2BIN	HEX2BIN#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+HEX2BIN	HEX2BIN#9	text:1010	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns text:1010	
+HEX2BIN	HEX2BIN#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel returns text:1; XLibur throws UnsupportedFeatureException	
+HEX2BIN	HEX2BIN#17	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+HEX2BIN	HEX2BIN#18	text:11111111	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:11111111	
+HEX2BIN	HEX2BIN#22	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+HEX2BIN	HEX2BIN#24	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+HEX2BIN	HEX2BIN#27	text:11111111	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:11111111	
+HEX2BIN	HEX2BIN#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+HEX2BIN	HEX2BIN#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+HEX2DEC	HEX2DEC#2	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+HEX2DEC	HEX2DEC#5	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+HEX2DEC	HEX2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+HEX2DEC	HEX2DEC#8	number:10	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:10	
+HEX2DEC	HEX2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
+HEX2DEC	HEX2DEC#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
+HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
+IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
+IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+IMABS	IMABS#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
+IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
+INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#8	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
+INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#13	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#16	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#18	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#19	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#20	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#21	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#23	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#24	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#25	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#26	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
+INDEX	INDEX#42	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+INDEX	INDEX#43	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+IPMT	IPMT#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+IPMT	IPMT#45	throws:ArgumentException	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur throws ArgumentException	
+IPMT	IPMT#60	number:-4.5000000000000006E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-4.5000000000000006E+306	
+IRR	IRR#1	number:0.12321245982833762	number:0.12321245982864903	Last digits differ: Excel number:0.12321245982864903, XLibur number:0.12321245982833762	
+IRR	IRR#2	number:0.12321245982833762	number:0.12321245982864903	Last digits differ: Excel number:0.12321245982864903, XLibur number:0.12321245982833762	
+IRR	IRR#13	error:#NUM!	number:0.12321245982845053	Excel returns number:0.12321245982845053; XLibur returns error:#NUM!	
+IRR	IRR#22	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+IRR	IRR#23	number:0.12321245981112457	number:0.1232124598289166	Last digits differ: Excel number:0.1232124598289166, XLibur number:0.12321245981112457	
+IRR	IRR#25	error:#NUM!	number:0.12321245982867746	Excel returns number:0.12321245982867746; XLibur returns error:#NUM!	
+IRR	IRR#26	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+LARGE	LARGE#26	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+LARGE	LARGE#27	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+MODE	MODE#3	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+MODE	MODE#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+MODE	MODE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+MODE	MODE#16	number:1	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:1	
+MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
+MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
+NETWORKDAYS	NETWORKDAYS#8	number:31330	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:31330	
+NETWORKDAYS	NETWORKDAYS#25	number:-31308	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:-31308	
+NOMINAL	NOMINAL#6	number:0.7568284600108841	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.7568284600108841	
+NOMINAL	NOMINAL#8	number:0.7568284600108841	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.7568284600108841	
+NOMINAL	NOMINAL#21	number:0.050000000000000044	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.050000000000000044	
+NOMINAL	NOMINAL#23	number:0.050000000000000044	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:0.050000000000000044	
+NPER	NPER#13	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
+NPER	NPER#64	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
+NPER	NPER#71	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
+NPER	NPER#72	number:15.314857298602103	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:15.314857298602103	
+NPER	NPER#74	number:12.047236874648158	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:12.047236874648158	
+NPER	NPER#75	number:0.7591954712781256	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:0.7591954712781256	
+NPER	NPER#76	number:0.00020495626879943595	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:0.00020495626879943595	
+NPV	NPV#12	error:#NUM!	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns error:#NUM!	
+NPV	NPV#16	number:-1.1111111111111111E-306	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns number:-1.1111111111111111E-306	
+NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454545; XLibur returns number:0	
+NPV	NPV#19	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
+NPV	NPV#20	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
+NPV	NPV#21	number:0	number:0.9090909090909091	Excel returns number:0.9090909090909091; XLibur returns number:0	
+OCT2DEC	OCT2DEC#2	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+OCT2DEC	OCT2DEC#5	error:#NUM!	number:0	Excel returns number:0; XLibur returns error:#NUM!	
+OCT2DEC	OCT2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+OCT2DEC	OCT2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
+OCT2DEC	OCT2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
+OCT2DEC	OCT2DEC#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+PERCENTILE	PERCENTILE#26	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+PERCENTILE	PERCENTILE#27	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+PMT	PMT#15	number:-99.99999182596359	number:-100.000000055	Excel returns number:-100.000000055; XLibur returns number:-99.99999182596359	
+PMT	PMT#17	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+PMT	PMT#32	throws:ArgumentException	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur throws ArgumentException	
+PMT	PMT#47	number:-1.1655411746891096E+307	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.1655411746891096E+307	
+PMT	PMT#62	number:-7.155411746891096E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-7.155411746891096E+306	
+PPMT	PPMT#3	number:-8.269085992651526E-05	number:-8.269085980715676E-05	Last digits differ: Excel number:-8.269085980715676E-05, XLibur number:-8.269085992651526E-05	
+PPMT	PPMT#10	number:-8.269085992651526E-05	number:-8.269085980715676E-05	Last digits differ: Excel number:-8.269085980715676E-05, XLibur number:-8.269085992651526E-05	
+PPMT	PPMT#14	number:-99.9999917259636	number:-99.999999955	Excel returns number:-99.999999955; XLibur returns number:-99.9999917259636	
+PPMT	PPMT#15	number:-128	number:-1.0000000000000117E-132	Excel returns number:-1.0000000000000117E-132; XLibur returns number:-128	
+PPMT	PPMT#16	throws:ArgumentException	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur throws ArgumentException	
+PPMT	PPMT#44	number:-0.0001975606550601583	number:-0.00019756065505475442	Last digits differ: Excel number:-0.00019756065505475442, XLibur number:-0.0001975606550601583	
+PPMT	PPMT#45	throws:ArgumentException	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur throws ArgumentException	
+PPMT	PPMT#60	number:-7.155411746891095E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-7.155411746891095E+306	
+PV	PV#13	throws:ArgumentException	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur throws ArgumentException	
+PV	PV#17	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+PV	PV#32	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+PV	PV#47	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+PV	PV#64	number:965.2168661481021	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:965.2168661481021	
+PV	PV#71	number:965.2168661481021	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:965.2168661481021	
+PV	PV#72	number:733.5648182725574	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:733.5648182725574	
+PV	PV#74	number:868.6951795332918	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:868.6951795332918	
+PV	PV#75	number:10617.385527629123	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:10617.385527629123	
+PV	PV#76	number:38609446.819417	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:38609446.819417	
+QUARTILE	QUARTILE#25	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+QUARTILE	QUARTILE#26	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+RANK	RANK#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+RANK	RANK#9	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
+RANK	RANK#10	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
+RANK	RANK#11	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
+RANK	RANK#19	error:#N/A	rejected:	Excel refuses =RANK(3,"5") at entry; XLibur accepts it and returns error:#N/A	
+RANK	RANK#20	error:#VALUE!	rejected:	Excel refuses =RANK(3,"x") at entry; XLibur accepts it and returns error:#VALUE!	
+RANK	RANK#21	error:#VALUE!	rejected:	Excel refuses =RANK(3,"") at entry; XLibur accepts it and returns error:#VALUE!	
+RANK	RANK#22	error:#N/A	rejected:	Excel refuses =RANK(3,TRUE) at entry; XLibur accepts it and returns error:#N/A	
+RANK	RANK#23	error:#N/A	rejected:	Excel refuses =RANK(3,#N/A) at entry; XLibur accepts it and returns error:#N/A	
+RANK	RANK#25	number:1	rejected:	Excel refuses =RANK(3,{1,2,3}) at entry; XLibur accepts it and returns number:1	
+RANK	RANK#27	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
+RANK	RANK#28	number:3	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:3	
+RANK	RANK#33	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
+RANK	RANK#34	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
+RANK	RANK#41	error:#N/A	rejected:	Excel refuses =RANK(#N/A,#DIV/0!) at entry; XLibur accepts it and returns error:#N/A	
+RANK	RANK#42	error:#DIV/0!	rejected:	Excel refuses =RANK(#DIV/0!,#N/A) at entry; XLibur accepts it and returns error:#DIV/0!	
+RATE	RATE#1	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
+RATE	RATE#2	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
+RATE	RATE#4	number:-0.13866837021563216	number:-0.13866837020870196	Last digits differ: Excel number:-0.13866837020870196, XLibur number:-0.13866837021563216	
+RATE	RATE#11	number:-0.13866837021563216	number:-0.13866837020870196	Last digits differ: Excel number:-0.13866837020870196, XLibur number:-0.13866837021563216	
+RATE	RATE#18	number:-0.9210270444535512	number:-0.999998742518659	Excel returns number:-0.999998742518659; XLibur returns number:-0.9210270444535512	
+RATE	RATE#27	number:-0.9210270444535512	number:-0.999998742518659	Excel returns number:-0.999998742518659; XLibur returns number:-0.9210270444535512	
+RATE	RATE#28	number:-0.44435706814224324	number:-0.44435706813995224	Last digits differ: Excel number:-0.44435706813995224, XLibur number:-0.44435706814224324	
+RATE	RATE#30	number:-0.9210951121986823	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-0.9210951121986823	
+RATE	RATE#31	number:-2.00000000000016	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-2.00000000000016	
+RATE	RATE#33	number:-1.9999999999994622	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999994622	
+RATE	RATE#34	number:-1.9905567847968422	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9905567847968422	
+RATE	RATE#37	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
+RATE	RATE#39	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
+RATE	RATE#40	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
+RATE	RATE#41	number:-1.9905567847968422	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9905567847968422	
+RATE	RATE#42	number:-1.9999999999994622	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999994622	
+RATE	RATE#43	number:-2.002024382750959	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-2.002024382750959	
+RATE	RATE#44	number:-1.9990059534095075	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9990059534095075	
+RATE	RATE#45	number:-1.9999999999992624	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999992624	
+RATE	RATE#48	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
+RATE	RATE#49	number:0.04193931678481145	number:0.04193931678544776	Last digits differ: Excel number:0.04193931678544776, XLibur number:0.04193931678481145	
+RATE	RATE#52	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
+RATE	RATE#54	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
+RATE	RATE#55	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
+RATE	RATE#56	number:0.04193931678481145	number:0.04193931678544776	Last digits differ: Excel number:0.04193931678544776, XLibur number:0.04193931678481145	
+RATE	RATE#57	number:0.0429411290166496	number:0.04294112901709528	Last digits differ: Excel number:0.04294112901709528, XLibur number:0.0429411290166496	
+RATE	RATE#58	number:0.042691780698984653	number:0.04269178069947137	Last digits differ: Excel number:0.04269178069947137, XLibur number:0.042691780698984653	
+RATE	RATE#59	number:0.04277497803509664	number:0.04277497803557046	Last digits differ: Excel number:0.04277497803557046, XLibur number:0.04277497803509664	
+ROW	ROW#4	error:#VALUE!	rejected:	Excel refuses =ROW("5") at entry; XLibur accepts it and returns error:#VALUE!	
+ROW	ROW#5	error:#VALUE!	rejected:	Excel refuses =ROW("x") at entry; XLibur accepts it and returns error:#VALUE!	
+ROW	ROW#6	error:#VALUE!	rejected:	Excel refuses =ROW("") at entry; XLibur accepts it and returns error:#VALUE!	
+ROW	ROW#7	error:#VALUE!	rejected:	Excel refuses =ROW(TRUE) at entry; XLibur accepts it and returns error:#VALUE!	
+ROW	ROW#8	error:#N/A	rejected:	Excel refuses =ROW(#N/A) at entry; XLibur accepts it and returns error:#N/A	
+ROW	ROW#10	error:#VALUE!	rejected:	Excel refuses =ROW({1,2,3}) at entry; XLibur accepts it and returns error:#VALUE!	
+SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+SLOPE	SLOPE#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#7	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
+SLOPE	SLOPE#12	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#13	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#14	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#15	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#16	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
+SLOPE	SLOPE#20	error:#VALUE!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#VALUE! (a different argument's error wins)	
+SLOPE	SLOPE#21	error:#VALUE!	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#VALUE! (a different argument's error wins)	
+SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
+SMALL	SMALL#26	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
+SMALL	SMALL#27	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
+SUMIF	SUMIF#4	error:#VALUE!	rejected:	Excel refuses =SUMIF("5",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#5	error:#VALUE!	rejected:	Excel refuses =SUMIF("x",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#6	error:#VALUE!	rejected:	Excel refuses =SUMIF("",">2") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#7	error:#VALUE!	rejected:	Excel refuses =SUMIF(TRUE,">2") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#8	error:#N/A	rejected:	Excel refuses =SUMIF(#N/A,">2") at entry; XLibur accepts it and returns error:#N/A	
+SUMIF	SUMIF#10	error:#VALUE!	rejected:	Excel refuses =SUMIF({1,2,3},">2") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#26	error:#VALUE!	rejected:	Excel refuses =SUMIF(A1:A5,">2","5") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#27	error:#VALUE!	rejected:	Excel refuses =SUMIF(A1:A5,">2","x") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#28	error:#VALUE!	rejected:	Excel refuses =SUMIF(A1:A5,">2","") at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#29	error:#VALUE!	rejected:	Excel refuses =SUMIF(A1:A5,">2",TRUE) at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#30	error:#N/A	rejected:	Excel refuses =SUMIF(A1:A5,">2",#N/A) at entry; XLibur accepts it and returns error:#N/A	
+SUMIF	SUMIF#32	error:#VALUE!	rejected:	Excel refuses =SUMIF(A1:A5,">2",{1,2,3}) at entry; XLibur accepts it and returns error:#VALUE!	
+SUMIF	SUMIF#34	error:#N/A	rejected:	Excel refuses =SUMIF(#N/A,#DIV/0!) at entry; XLibur accepts it and returns error:#N/A	
+SUMIF	SUMIF#35	error:#DIV/0!	rejected:	Excel refuses =SUMIF(#DIV/0!,#N/A) at entry; XLibur accepts it and returns error:#DIV/0!	
+SYD	SYD#16	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
+SYD	SYD#31	throws:ArgumentException	error:#NUM!	An out-of-range magnitude or count: Excel returns error:#NUM!; XLibur throws ArgumentException	
+SYD	SYD#46	throws:ArgumentException	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur throws ArgumentException	
+TIME	TIME#27	error:#NUM!	number:0.49930555555555556	Excel returns number:0.49930555555555556; XLibur returns error:#NUM!	
+TIME	TIME#41	error:#NUM!	number:0.5208217592592592	Excel returns number:0.5208217592592592; XLibur returns error:#NUM!	
+WEEKDAY	WEEKDAY#20	number:4	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:4	
+WEEKNUM	WEEKNUM#7	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+WEEKNUM	WEEKNUM#9	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+WEEKNUM	WEEKNUM#24	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+WEEKNUM	WEEKNUM#26	number:1	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1	
+WORKDAY	WORKDAY#8	number:13	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:13	
+WORKDAY	WORKDAY#23	number:43832	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43832	
+WORKDAY	WORKDAY#25	number:43832	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:43832	
+YEARFRAC	YEARFRAC#7	number:121	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:121	
+YEARFRAC	YEARFRAC#9	number:121	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:121	
+YEARFRAC	YEARFRAC#14	number:120.83611111111111	number:120.83888888888889	Excel returns number:120.83888888888889; XLibur returns number:120.83611111111111	
+YEARFRAC	YEARFRAC#16	number:7978.997222222222	number:7979	Excel returns number:7979; XLibur returns number:7978.997222222222	
+YEARFRAC	YEARFRAC#24	number:120	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:120	
+YEARFRAC	YEARFRAC#26	number:120	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:120	
+YEARFRAC	YEARFRAC#41	number:1.0013679890560876	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1.0013679890560876	
+YEARFRAC	YEARFRAC#43	number:1.0013679890560876	error:#VALUE!	A boolean or multi-cell range argument: Excel returns #VALUE!; XLibur coerces it and returns number:1.0013679890560876	
+YEARFRAC	YEARFRAC#44	number:1.0013679890560876	number:1	Excel returns number:1; XLibur returns number:1.0013679890560876	
+YEARFRAC	YEARFRAC#47	number:1.0013679890560876	number:1	Excel returns number:1; XLibur returns number:1.0013679890560876	
