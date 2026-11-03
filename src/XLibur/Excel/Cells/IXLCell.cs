@@ -151,6 +151,19 @@ public interface IXLCell
     /// </summary>
     XLCellValue Value { get; set; }
 
+    /// <summary>
+    /// Reads <see cref="Value"/>, evaluating the formula first if the cell
+    /// <see cref="NeedsRecalculation"/>, and returns a refused formula, a circular reference and an
+    /// unsupported feature as an <see cref="XLFormulaIssue"/> instead of throwing.
+    /// </summary>
+    /// <remarks>
+    /// A successful result holds the value that <see cref="Value"/> returns, an Excel error value such
+    /// as <c>#DIV/0!</c> included. After a failure the cell is left as <see cref="Value"/> leaves it:
+    /// dirty, with no new cached value, so repeating the call gives the same issue. A defect in XLibur
+    /// is still thrown.
+    /// </remarks>
+    XLEvaluationResult TryEvaluate();
+
     IXLWorksheet Worksheet { get; }
 
     /// <summary>

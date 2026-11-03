@@ -504,9 +504,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     private bool RememberFailure(XLCellFormula formula, Exception exception)
     {
-        if (_failureScopes > 0
-            && EvaluationFailure.Classify(exception) is EvaluationFailureKind.Cycle
-                or EvaluationFailureKind.Unsupported or EvaluationFailureKind.Refused)
+        if (_failureScopes > 0 && EvaluationFailure.IsExpected(EvaluationFailure.Classify(exception)))
         {
             (_demandFailures ??= new Dictionary<XLCellFormula, Exception>(ReferenceEqualityComparer.Instance))
                 [formula] = exception;
