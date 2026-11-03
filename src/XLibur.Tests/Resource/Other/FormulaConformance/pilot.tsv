@@ -1,0 +1,552 @@
+# excel_build: 16.0.20430 (Microsoft Excel on Microsoft Windows NT 10.0.22631.0)
+# recorded: 2026-11-03
+# Spec 59 pilot. function, family, setup, formula, excel_value, excel_type, note. Recorded by tools/excel-conformance/Record-Corpus.ps1.
+SUM	math	A1=1;A2=2;A3=3	=SUM(A1:A3)	6	number	typical
+SUM	math	A1=1;A2="5";A3=3	=SUM(A1:A3)	4	number	text in range is ignored
+SUM	math	A1=1;A2=2	=SUM(A1,"5")	6	number	text number as direct argument is coerced
+SUM	math	A1=1	=SUM(A1,"x")	#VALUE!	error	non-numeric text direct argument
+SUM	math	A1=1	=SUM(A1,TRUE)	2	number	boolean direct argument counts
+SUM	math	A1=TRUE;A2=2	=SUM(A1:A2)	2	number	boolean in range is ignored
+SUM	math	A1=1;A2=#N/A;A3=#DIV/0!	=SUM(A1:A3)	#N/A	error	first error wins
+SUM	math	A1=#DIV/0!;A2=#N/A	=SUM(A1:A2)	#DIV/0!	error	first error wins reversed
+SUM	math	A1=1	=SUM(A1:A3)	1	number	empty cells
+SUM	math		=SUM()		rejected	no arguments is rejected
+SUM	math		=SUM(9E307,9E307)	#NUM!	error	overflow
+SUM	math		=SUM(0.1,0.2)	0.30000000000000004	number	float rounding
+SUM	math		=SUM(0.1,0.2)-0.3	0	number	float residue near zero
+SUM	math	A1=1;A2=2	=SUM(A1:A2,A1:A2)	6	number	overlapping ranges counted twice
+SUM	math	A1=""	=SUM(A1)	0	number	empty string cell
+SUM	math		=SUM(-1,1)	0	number	cancels to zero
+SUM	math		=SUM(1E-300,1E-300)	2E-300	number	tiny values
+SUM	math		=SUM(,)	0	number	empty arguments are zero
+SUM	math		=SUM(TRUE,TRUE,"2")	4	number	booleans and text
+SUM	math		=SUM("")	#VALUE!	error	empty string direct argument
+PRODUCT	math	A1=2;A2=3;A3=4	=PRODUCT(A1:A3)	24	number	typical
+PRODUCT	math	A1=2;A2="3"	=PRODUCT(A1:A2)	2	number	text in range ignored
+PRODUCT	math	A1=2	=PRODUCT(A1,"3")	6	number	text number direct
+PRODUCT	math	A1=2	=PRODUCT(A1,"x")	#VALUE!	error	non-numeric text direct
+PRODUCT	math		=PRODUCT(A1:A3)	0	number	all empty
+PRODUCT	math		=PRODUCT()		rejected	no arguments rejected
+PRODUCT	math		=PRODUCT(TRUE,5)	5	number	boolean direct
+PRODUCT	math	A1=TRUE;A2=5	=PRODUCT(A1:A2)	5	number	boolean in range
+PRODUCT	math		=PRODUCT(1E200,1E200)	#NUM!	error	overflow
+PRODUCT	math		=PRODUCT(0,-1)	0	number	negative zero
+PRODUCT	math	A1=#N/A;A2=#VALUE!	=PRODUCT(A1:A2)	#N/A	error	first error wins
+PRODUCT	math		=PRODUCT(0.1,3)	0.30000000000000004	number	float
+PRODUCT	math		=PRODUCT(-2,-3)	6	number	negatives
+PRODUCT	math		=PRODUCT("")	#VALUE!	error	empty string direct
+PRODUCT	math		=PRODUCT(1E-200,1E-200)	0	number	underflow
+PRODUCT	math		=PRODUCT(,5)	5	number	empty argument
+PRODUCT	math	A1=""	=PRODUCT(A1)	0	number	empty string cell
+ROUND	math		=ROUND(2.5,0)	3	number	half away from zero
+ROUND	math		=ROUND(-2.5,0)	-3	number	negative half
+ROUND	math		=ROUND(1.005,2)	1.01	number	binary representation
+ROUND	math		=ROUND(2.675,2)	2.68	number	binary representation
+ROUND	math		=ROUND(1234.5678,-2)	1200	number	negative digits
+ROUND	math		=ROUND(1234.5678,-5)	0	number	digits beyond magnitude
+ROUND	math		=ROUND(0.5,0)	1	number	half
+ROUND	math		=ROUND(1.45,1)	1.5	number	half at one digit
+ROUND	math		=ROUND(1E15+0.5,0)	1000000000000000	number	large
+ROUND	math		=ROUND(5,2.9)	5	number	digits truncated
+ROUND	math		=ROUND(5.555,2.9)	5.56	number	digits truncated before use
+ROUND	math		=ROUND("2.5",0)	3	number	text number
+ROUND	math		=ROUND("x",0)	#VALUE!	error	non-numeric text
+ROUND	math		=ROUND(TRUE,0)	1	number	boolean
+ROUND	math		=ROUND(#N/A,0)	#N/A	error	error argument
+ROUND	math		=ROUND(1)		rejected	wrong argument count
+ROUND	math		=ROUND(2.5,400)	2.5	number	very many digits
+ROUND	math		=ROUND(2.5,-400)	0	number	very negative digits
+ROUND	math	A1=	=ROUND(A1,2)	0	number	empty cell
+ROUND	math		=ROUND(-0.4,0)	0	number	negative zero result
+MOD	math		=MOD(10,3)	1	number	typical
+MOD	math		=MOD(-10,3)	2	number	negative dividend
+MOD	math		=MOD(10,-3)	-2	number	negative divisor
+MOD	math		=MOD(-10,-3)	-1	number	both negative
+MOD	math		=MOD(10,0)	#DIV/0!	error	division by zero
+MOD	math		=MOD(5.5,2)	1.5	number	fractional
+MOD	math		=MOD(0,5)	0	number	zero dividend
+MOD	math		=MOD("10",3)	1	number	text number
+MOD	math		=MOD("x",3)	#VALUE!	error	non-numeric text
+MOD	math		=MOD(TRUE,3)	1	number	boolean
+MOD	math		=MOD(1E15,7)	#NUM!	error	large dividend
+MOD	math		=MOD(1E20,7)	#NUM!	error	beyond exact range
+MOD	math		=MOD(3,1E-20)	#NUM!	error	tiny divisor
+MOD	math		=MOD(#N/A,0)	#N/A	error	error before div zero
+MOD	math		=MOD(1,#N/A)	#N/A	error	error divisor
+MOD	math	A1=	=MOD(A1,3)	0	number	empty cell
+MOD	math		=MOD(0.3,0.1)	0.09999999999999998	number	float residue
+MOD	math		=MOD(10)		rejected	wrong argument count
+MOD	math		=MOD(-0.5,1)	0.5	number	negative fraction
+MOD	math		=MOD(2,3.5)	2	number	divisor larger
+INT	math		=INT(2.7)	2	number	typical
+INT	math		=INT(-2.7)	-3	number	floors negatives
+INT	math		=INT(-0.0001)	-1	number	negative tiny
+INT	math		=INT(0)	0	number	zero
+INT	math		=INT("3.9")	3	number	text number
+INT	math		=INT("x")	#VALUE!	error	non-numeric text
+INT	math		=INT(TRUE)	1	number	boolean
+INT	math		=INT(#N/A)	#N/A	error	error
+INT	math		=INT(9E307)	9E+307	number	huge
+INT	math		=INT(-9E307)	-9E+307	number	huge negative
+INT	math		=INT(0.99999999999999989)	0	number	just below one
+INT	math		=INT(2.9999999999999996)	2	number	float edge
+INT	math		=INT(1E-300)	0	number	tiny
+INT	math	A1=	=INT(A1)	0	number	empty cell
+INT	math	A1=""	=INT(A1)	#VALUE!	error	empty string cell
+INT	math		=INT()		rejected	wrong argument count
+INT	math		=INT(1,2)		rejected	too many arguments
+INT	math		=INT(-5)	-5	number	negative integer
+INT	math		=INT(4.5E15+0.5)	4500000000000000	number	beyond fractional range
+INT	math		=INT(DATE(2020,1,1)+0.75)	43831	number	date with time
+POWER	math		=POWER(2,10)	1024	number	typical
+POWER	math		=POWER(2,-1)	0.5	number	negative exponent
+POWER	math		=POWER(0,0)	#NUM!	error	zero to zero
+POWER	math		=POWER(0,-1)	#DIV/0!	error	zero to negative
+POWER	math		=POWER(-8,1/3)	-1.9999999999999998	number	negative base fractional
+POWER	math		=POWER(-2,3)	-8	number	negative base odd
+POWER	math		=POWER(-2,2)	4	number	negative base even
+POWER	math		=POWER(2,0.5)	1.4142135623730951	number	root
+POWER	math		=POWER(10,308)	1E+308	number	near overflow
+POWER	math		=POWER(10,309)	#NUM!	error	overflow
+POWER	math		=POWER(10,-324)	0	number	underflow
+POWER	math		=POWER("2",3)	8	number	text number
+POWER	math		=POWER("x",3)	#VALUE!	error	non-numeric text
+POWER	math		=POWER(TRUE,3)	1	number	boolean
+POWER	math		=POWER(#N/A,#DIV/0!)	#N/A	error	two errors
+POWER	math	A1=	=POWER(A1,2)	0	number	empty cell
+POWER	math		=POWER(1,9E307)	1	number	one to huge
+POWER	math		=POWER(2)		rejected	wrong argument count
+POWER	math		=POWER(0,5)	0	number	zero base
+POWER	math		=POWER(-1,0.5)	#NUM!	error	negative sqrt
+ABS	math		=ABS(-5)	5	number	typical
+ABS	math		=ABS(5)	5	number	positive
+ABS	math		=ABS(0)	0	number	zero
+ABS	math		=ABS("-5")	5	number	text number
+ABS	math		=ABS("x")	#VALUE!	error	non-numeric text
+ABS	math		=ABS(TRUE)	1	number	boolean
+ABS	math		=ABS(#N/A)	#N/A	error	error
+ABS	math	A1=	=ABS(A1)	0	number	empty cell
+ABS	math	A1=""	=ABS(A1)	#VALUE!	error	empty string cell
+ABS	math		=ABS(-9E307)	9E+307	number	huge
+ABS	math		=ABS(-0)	0	number	negative zero
+ABS	math		=ABS()		rejected	wrong argument count
+ABS	math		=ABS(1,2)		rejected	too many arguments
+ABS	math		=ABS(-1E-300)	1E-300	number	tiny
+ABS	math	A1=-3;A2=4	=ABS(A1:A2)	3	number	range under implicit intersection
+ABS	math	A1=-3;A2=4;K2=0	=ABS(A1:A2)	3	number	range outside intersection row
+ABS	math		=ABS("")	#VALUE!	error	empty string
+ABS	math		=ABS(DATE(1900,1,1)-5)	4	number	negative date
+ABS	math		=ABS(-0.1-0.2)	0.30000000000000004	number	float
+ABS	math		=ABS("1E3")	1000	number	scientific text
+AVERAGE	statistical	A1=1;A2=2;A3=6	=AVERAGE(A1:A3)	3	number	typical
+AVERAGE	statistical	A1=1;A2="x";A3=5	=AVERAGE(A1:A3)	3	number	text in range ignored
+AVERAGE	statistical		=AVERAGE(A1:A3)	#DIV/0!	error	all empty
+AVERAGE	statistical		=AVERAGE("x")	#VALUE!	error	text direct
+AVERAGE	statistical		=AVERAGE("4",6)	5	number	text number direct
+AVERAGE	statistical		=AVERAGE(TRUE,3)	2	number	boolean direct
+AVERAGE	statistical	A1=TRUE;A2=3	=AVERAGE(A1:A2)	3	number	boolean in range ignored
+AVERAGE	statistical	A1=1;A2=#N/A	=AVERAGE(A1:A2)	#N/A	error	error in range
+AVERAGE	statistical	A1=#DIV/0!;A2=#N/A	=AVERAGE(A1:A2)	#DIV/0!	error	first error wins
+AVERAGE	statistical	A1=0;A2=0	=AVERAGE(A1:A2)	0	number	zeros
+AVERAGE	statistical		=AVERAGE()		rejected	no arguments rejected
+AVERAGE	statistical	A1=1;A2=""	=AVERAGE(A1:A2)	1	number	empty string cell ignored
+AVERAGE	statistical		=AVERAGE(9E307,9E307)	#NUM!	error	overflow in sum
+AVERAGE	statistical		=AVERAGE(0.1,0.2,0.3)	0.20000000000000004	number	float
+AVERAGE	statistical	A1=2	=AVERAGE(A1,A2)	2	number	single reference to empty cell
+AVERAGE	statistical	A1=2	=AVERAGE(A1,A2:A3)	2	number	empty range ignored
+AVERAGE	statistical		=AVERAGE("")	#VALUE!	error	empty string direct
+AVERAGE	statistical	A1=-1;A2=1	=AVERAGE(A1:A2)	0	number	cancels
+AVERAGE	statistical		=AVERAGE(,)	0	number	empty arguments
+AVERAGE	statistical		=AVERAGE(1,,3)	1.3333333333333333	number	empty argument inside
+COUNTIF	statistical	A1=1;A2=2;A3=3	=COUNTIF(A1:A3,2)	1	number	equal number
+COUNTIF	statistical	A1=1;A2=2;A3=3	=COUNTIF(A1:A3,">1")	2	number	greater than
+COUNTIF	statistical	A1=1;A2=2;A3=3	=COUNTIF(A1:A3,"<>2")	2	number	not equal
+COUNTIF	statistical	A1="apple";A2="Apple";A3="banana"	=COUNTIF(A1:A3,"apple")	2	number	case insensitive
+COUNTIF	statistical	A1="apple";A2="apricot";A3="banana"	=COUNTIF(A1:A3,"ap*")	2	number	wildcard star
+COUNTIF	statistical	A1="ab";A2="ac";A3="abc"	=COUNTIF(A1:A3,"a?")	2	number	wildcard question
+COUNTIF	statistical	A1="a*b";A2="aXb"	=COUNTIF(A1:A2,"a~*b")	1	number	escaped wildcard
+COUNTIF	statistical	A1=1;A2="1";A3=1	=COUNTIF(A1:A3,"1")	3	number	text criterion matches number and text
+COUNTIF	statistical	A1=1;A2="1";A3=1	=COUNTIF(A1:A3,1)	3	number	number criterion matches text number
+COUNTIF	statistical	A1=;A2="";A3=0	=COUNTIF(A1:A3,"")	2	number	empty criterion
+COUNTIF	statistical	A1=;A2="";A3=0	=COUNTIF(A1:A3,"=")	1	number	equals nothing
+COUNTIF	statistical	A1=;A2="";A3=0	=COUNTIF(A1:A3,"<>")	2	number	not empty
+COUNTIF	statistical	A1=;A2="";A3=0	=COUNTIF(A1:A3,0)	1	number	zero criterion
+COUNTIF	statistical	A1=TRUE;A2=1;A3=FALSE	=COUNTIF(A1:A3,TRUE)	1	number	boolean criterion
+COUNTIF	statistical	A1=#N/A;A2=1	=COUNTIF(A1:A2,#N/A)	1	number	error criterion
+COUNTIF	statistical	A1=#N/A;A2=#DIV/0!	=COUNTIF(A1:A2,"#N/A")	1	number	error text criterion
+COUNTIF	statistical	A1=5;A2=10	=COUNTIF(A1:A2,">=5")	2	number	greater or equal
+COUNTIF	statistical	A1=5;A2=10	=COUNTIF(A1:A2,">x")	0	number	numeric against text comparison
+COUNTIF	statistical	A1="b";A2="c"	=COUNTIF(A1:A2,">a")	2	number	text comparison
+COUNTIF	statistical	A1=1	=COUNTIF(A1)		rejected	wrong argument count
+COUNTIF	statistical	A1=1	=COUNTIF(1,1)		rejected	non-reference range
+COUNTIF	statistical	A1=1;A2=2	=COUNTIF(A1:A2,#DIV/0!)	0	number	error criterion no match
+COUNTIF	statistical	A1=1.5;A2=1.50	=COUNTIF(A1:A2,"1.5")	2	number	decimal text criterion
+MEDIAN	statistical	A1=3;A2=1;A3=2	=MEDIAN(A1:A3)	2	number	odd count
+MEDIAN	statistical	A1=4;A2=1;A3=2;A4=3	=MEDIAN(A1:A4)	2.5	number	even count
+MEDIAN	statistical	A1=1;A2="x";A3=3	=MEDIAN(A1:A3)	2	number	text in range ignored
+MEDIAN	statistical		=MEDIAN(A1:A3)	#NUM!	error	all empty
+MEDIAN	statistical		=MEDIAN("x")	#VALUE!	error	text direct
+MEDIAN	statistical		=MEDIAN("4",6)	5	number	text number direct
+MEDIAN	statistical		=MEDIAN(TRUE,3)	2	number	boolean direct
+MEDIAN	statistical	A1=TRUE;A2=3;A3=9	=MEDIAN(A1:A3)	6	number	boolean in range ignored
+MEDIAN	statistical	A1=1;A2=#N/A	=MEDIAN(A1:A2)	#N/A	error	error in range
+MEDIAN	statistical	A1=#DIV/0!;A2=#N/A	=MEDIAN(A1:A2)	#DIV/0!	error	first error wins
+MEDIAN	statistical		=MEDIAN()		rejected	no arguments rejected
+MEDIAN	statistical		=MEDIAN(5)	5	number	single
+MEDIAN	statistical		=MEDIAN(1,2)	1.5	number	two values
+MEDIAN	statistical		=MEDIAN(-1,-3,-2)	-2	number	negatives
+MEDIAN	statistical		=MEDIAN(9E307,9E307)	9E+307	number	overflow in midpoint
+MEDIAN	statistical		=MEDIAN(0.1,0.2)	0.15000000000000002	number	float midpoint
+MEDIAN	statistical	A1=1;A2=""	=MEDIAN(A1:A2)	1	number	empty string cell ignored
+MEDIAN	statistical		=MEDIAN("")	#VALUE!	error	empty string direct
+MEDIAN	statistical	A1=1;A2=2;A3=3;A4=100	=MEDIAN(A1:A4)	2.5	number	outlier
+MEDIAN	statistical	A1=2;A2=2;A3=2	=MEDIAN(A1:A3)	2	number	all equal
+LEFT	text	A1="hello"	=LEFT(A1,2)	he	text	typical
+LEFT	text	A1="hello"	=LEFT(A1)	h	text	default count
+LEFT	text	A1="hello"	=LEFT(A1,0)		text	zero count
+LEFT	text	A1="hello"	=LEFT(A1,10)	hello	text	count beyond length
+LEFT	text	A1="hello"	=LEFT(A1,-1)	#VALUE!	error	negative count
+LEFT	text	A1="hello"	=LEFT(A1,2.9)	he	text	count truncated
+LEFT	text	A1="hello"	=LEFT(A1,"2")	he	text	text count
+LEFT	text	A1="hello"	=LEFT(A1,"x")	#VALUE!	error	non-numeric count
+LEFT	text	A1="hello"	=LEFT(A1,TRUE)	h	text	boolean count
+LEFT	text	A1=12345	=LEFT(A1,2)	12	text	number coerced to text
+LEFT	text	A1=1.5	=LEFT(A1,2)	1.	text	decimal number
+LEFT	text	A1=TRUE	=LEFT(A1,2)	TR	text	boolean text
+LEFT	text	A1=#N/A	=LEFT(A1,2)	#N/A	error	error text
+LEFT	text		=LEFT(A1,2)		text	empty cell
+LEFT	text	A1=""	=LEFT(A1,2)		text	empty string
+LEFT	text	A1="hello"	=LEFT(A1,#DIV/0!)	#DIV/0!	error	error count
+LEFT	text	A1="hello"	=LEFT(A1,1E10)	hello	text	huge count
+LEFT	text		=LEFT("😀a",1)	😀	text	surrogate pair
+LEFT	text		=LEFT(0.1+0.2,5)	0.3	text	float to text
+LEFT	text		=LEFT(1E21,3)	1E+	text	large number to text
+MID	text	A1="hello"	=MID(A1,2,3)	ell	text	typical
+MID	text	A1="hello"	=MID(A1,1,0)		text	zero length
+MID	text	A1="hello"	=MID(A1,0,2)	#VALUE!	error	start zero
+MID	text	A1="hello"	=MID(A1,6,2)		text	start just past end
+MID	text	A1="hello"	=MID(A1,7,2)		text	start beyond end
+MID	text	A1="hello"	=MID(A1,2,-1)	#VALUE!	error	negative length
+MID	text	A1="hello"	=MID(A1,-1,2)	#VALUE!	error	negative start
+MID	text	A1="hello"	=MID(A1,2,100)	ello	text	length beyond end
+MID	text	A1="hello"	=MID(A1,1.9,2.9)	he	text	fractions truncated
+MID	text	A1="hello"	=MID(A1,"2","3")	ell	text	text numbers
+MID	text	A1="hello"	=MID(A1,"x",1)	#VALUE!	error	non-numeric start
+MID	text	A1="hello"	=MID(A1,2)		rejected	wrong argument count
+MID	text	A1=12345	=MID(A1,2,2)	23	text	number coerced
+MID	text		=MID(A1,1,2)		text	empty cell
+MID	text	A1=#N/A	=MID(A1,1,2)	#N/A	error	error text
+MID	text	A1="hello"	=MID(A1,TRUE,TRUE)	h	text	boolean arguments
+MID	text	A1="hello"	=MID(A1,1,#VALUE!)	#VALUE!	error	error length
+MID	text		=MID("😀ab",2,1)	a	text	surrogate pair
+MID	text	A1="hello"	=MID(A1,1E10,1)	#VALUE!	error	huge start
+MID	text	A1="hello"	=MID(A1,1,1E10)	#VALUE!	error	huge length
+LEN	text	A1="hello"	=LEN(A1)	5	number	typical
+LEN	text		=LEN(A1)	0	number	empty cell
+LEN	text	A1=""	=LEN(A1)	0	number	empty string
+LEN	text	A1=12345	=LEN(A1)	5	number	number
+LEN	text	A1=1.50	=LEN(A1)	3	number	trailing zero number
+LEN	text	A1=0.1	=LEN(A1)	3	number	decimal
+LEN	text	A1=TRUE	=LEN(A1)	4	number	boolean
+LEN	text	A1=#N/A	=LEN(A1)	#N/A	error	error
+LEN	text		=LEN(1/3)	17	number	long decimal text
+LEN	text		=LEN(1E21)	5	number	scientific text
+LEN	text		=LEN(1E-5)	7	number	small scientific text
+LEN	text		=LEN(123456789012345678)	18	number	beyond 15 digits
+LEN	text		=LEN("😀")	1	number	surrogate pair
+LEN	text		=LEN("a"&CHAR(10)&"b")	3	number	newline
+LEN	text		=LEN(" a ")	3	number	spaces
+LEN	text		=LEN()		rejected	wrong argument count
+LEN	text		=LEN("a","b")		rejected	too many arguments
+LEN	text		=LEN(-1)	2	number	negative number
+LEN	text		=LEN(DATE(2020,1,1))	5	number	date serial
+LEN	text	A1=1;A2=2	=LEN(A1:A2)	1	number	range under implicit intersection
+FIND	text		=FIND("l","hello")	3	number	typical
+FIND	text		=FIND("L","hello")	#VALUE!	error	case sensitive
+FIND	text		=FIND("l","hello",4)	4	number	start position
+FIND	text		=FIND("l","hello",5)	#VALUE!	error	start past match
+FIND	text		=FIND("","hello")	1	number	empty needle
+FIND	text		=FIND("","hello",6)	6	number	empty needle at end
+FIND	text		=FIND("","hello",7)	#VALUE!	error	empty needle past end
+FIND	text		=FIND("l","hello",0)	#VALUE!	error	start zero
+FIND	text		=FIND("l","hello",-1)	#VALUE!	error	start negative
+FIND	text		=FIND("l","hello",1.9)	3	number	start truncated
+FIND	text		=FIND("h*","hello")	#VALUE!	error	wildcard literal
+FIND	text		=FIND("?","hello?")	6	number	question literal
+FIND	text		=FIND(1,"a12")	2	number	number needle
+FIND	text		=FIND("1",12)	1	number	number haystack
+FIND	text		=FIND("x",A1)	#VALUE!	error	empty haystack cell
+FIND	text		=FIND("x","hello")	#VALUE!	error	not found
+FIND	text		=FIND(#N/A,"hello")	#N/A	error	error needle
+FIND	text		=FIND("l",#DIV/0!)	#DIV/0!	error	error haystack
+FIND	text		=FIND("l","hello","x")	#VALUE!	error	non-numeric start
+FIND	text		=FIND("l")		rejected	wrong argument count
+FIND	text		=FIND("ll","hello")	3	number	multi char
+FIND	text		=FIND("😀","a😀b")	2	number	surrogate pair
+FIND	text		=FIND("é","cafe"&UNICHAR(769))	#VALUE!	error	combining accent
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","o")	bonono	text	typical
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","o",2)	banona	text	instance number
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","o",4)	banana	text	instance beyond count
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","o",0)	#VALUE!	error	instance zero
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","o",-1)	#VALUE!	error	instance negative
+SUBSTITUTE	text		=SUBSTITUTE("banana","A","o")	banana	text	case sensitive
+SUBSTITUTE	text		=SUBSTITUTE("banana","","o")	banana	text	empty old text
+SUBSTITUTE	text		=SUBSTITUTE("banana","a","")	bnn	text	empty new text
+SUBSTITUTE	text		=SUBSTITUTE("","a","o")		text	empty source
+SUBSTITUTE	text		=SUBSTITUTE("aaa","aa","b")	ba	text	overlap
+SUBSTITUTE	text		=SUBSTITUTE(12345,3,"x")	12x45	text	number source and old
+SUBSTITUTE	text		=SUBSTITUTE("a.b","*","x")	a.b	text	wildcard literal
+SUBSTITUTE	text		=SUBSTITUTE("abc","b",1)	a1c	text	number replacement
+SUBSTITUTE	text		=SUBSTITUTE(#N/A,"a","b")	#N/A	error	error source
+SUBSTITUTE	text		=SUBSTITUTE("abc",#N/A,"b")	#N/A	error	error old
+SUBSTITUTE	text		=SUBSTITUTE("abc","a","b","x")	#VALUE!	error	non-numeric instance
+SUBSTITUTE	text		=SUBSTITUTE("abc","a")		rejected	wrong argument count
+SUBSTITUTE	text		=SUBSTITUTE("abcabc","abc","x",2.9)	abcx	text	instance truncated
+SUBSTITUTE	text		=SUBSTITUTE(TRUE,"T","t")	tRUE	text	boolean source
+SUBSTITUTE	text		=SUBSTITUTE("😀a","a","b")	😀b	text	surrogate pair
+VALUE	text		=VALUE("123")	123	number	typical
+VALUE	text		=VALUE("1,234")	1234	number	thousands separator
+VALUE	text		=VALUE("1.5E3")	1500	number	scientific
+VALUE	text		=VALUE(" 5 ")	5	number	spaces
+VALUE	text		=VALUE("")	#VALUE!	error	empty string
+VALUE	text		=VALUE("x")	#VALUE!	error	non-numeric
+VALUE	text		=VALUE("12%")	0.12	number	percent
+VALUE	text		=VALUE("$5")	5	number	currency
+VALUE	text		=VALUE("(5)")	-5	number	parenthesised negative
+VALUE	text		=VALUE("-5")	-5	number	negative
+VALUE	text		=VALUE("+5")	5	number	plus sign
+VALUE	text		=VALUE("5-")	#VALUE!	error	trailing minus
+VALUE	text		=VALUE("1e3")	1000	number	lowercase exponent
+VALUE	text		=VALUE(".5")	0.5	number	leading dot
+VALUE	text		=VALUE("5.")	5	number	trailing dot
+VALUE	text		=VALUE("0x10")	#VALUE!	error	hex text
+VALUE	text		=VALUE("1 2")	#VALUE!	error	embedded space
+VALUE	text		=VALUE(TRUE)	#VALUE!	error	boolean
+VALUE	text		=VALUE(5)	5	number	number
+VALUE	text		=VALUE(#N/A)	#N/A	error	error
+VALUE	text		=VALUE("1:30")	0.0625	number	time text
+VALUE	text		=VALUE("12:00 PM")	0.5	number	time with meridian
+VALUE	text		=VALUE("1E400")	#VALUE!	error	overflow text
+VALUE	text		=VALUE("NaN")	#VALUE!	error	NaN text
+VALUE	text		=VALUE("Infinity")	#VALUE!	error	infinity text
+VALUE	text		=VALUE("00123")	123	number	leading zeros
+VALUE	text		=VALUE("1,2")	#VALUE!	error	misplaced thousands
+VALUE	text		=VALUE("5 %")	0.05	number	space before percent
+TRIM	text		=TRIM("  a  b  ")	a b	text	inner spaces collapsed
+TRIM	text		=TRIM("a")	a	text	no spaces
+TRIM	text		=TRIM("")		text	empty string
+TRIM	text		=TRIM("   ")		text	only spaces
+TRIM	text		=TRIM(A1)		text	empty cell
+TRIM	text		=TRIM(CHAR(160)&"a")	 a	text	non-breaking space kept
+TRIM	text		=TRIM(CHAR(9)&"a")	\ta	text	tab kept
+TRIM	text		=TRIM("a"&CHAR(10)&"b")	a\nb	text	newline kept
+TRIM	text		=TRIM(12)	12	text	number
+TRIM	text		=TRIM(" 1.50 ")	1.50	text	text number
+TRIM	text		=TRIM(TRUE)	TRUE	text	boolean
+TRIM	text		=TRIM(#N/A)	#N/A	error	error
+TRIM	text		=TRIM()		rejected	wrong argument count
+TRIM	text		=TRIM(" a ", " b ")		rejected	too many arguments
+TRIM	text		=TRIM(UNICHAR(8195)&"a")	 a	text	em space kept
+TRIM	text		=TRIM("a   b")	a b	text	multiple inner spaces
+TRIM	text		=TRIM(" "&" "&"a")	a	text	concatenated spaces
+TRIM	text		=TRIM(0.1+0.2)	0.3	text	float
+TRIM	text		=TRIM(-5)	-5	text	negative
+TRIM	text		=TRIM("😀 ")	😀	text	surrogate pair
+IF	logical		=IF(TRUE,1,2)	1	number	typical
+IF	logical		=IF(FALSE,1,2)	2	number	false branch
+IF	logical		=IF(FALSE,1)	FALSE	bool	missing false branch
+IF	logical		=IF(TRUE,1)	1	number	missing false branch not used
+IF	logical		=IF(1,"y","n")	y	text	number condition
+IF	logical		=IF(0,"y","n")	n	text	zero condition
+IF	logical		=IF(-1,"y","n")	y	text	negative condition
+IF	logical		=IF("TRUE","y","n")	y	text	text TRUE
+IF	logical		=IF("true","y","n")	y	text	lowercase text true
+IF	logical		=IF("x","y","n")	#VALUE!	error	other text
+IF	logical		=IF("","y","n")	#VALUE!	error	empty string
+IF	logical		=IF(A1,"y","n")	n	text	empty cell
+IF	logical		=IF(#N/A,"y","n")	#N/A	error	error condition
+IF	logical		=IF(TRUE,#N/A,"n")	#N/A	error	error branch
+IF	logical		=IF(FALSE,#N/A,"n")	n	text	unused error branch
+IF	logical		=IF(TRUE,,"n")	0	number	empty true branch
+IF	logical		=IF(FALSE,"y",)	0	number	empty false branch
+IF	logical		=IF(FALSE,"y",,)		rejected	trailing empty
+IF	logical		=IF()		rejected	no arguments
+IF	logical		=IF(TRUE,1,2,3)		rejected	too many arguments
+IF	logical	A1=1;A2=0	=IF(A1:A2,"y","n")	y	text	range under implicit intersection
+IF	logical		=IF(1/3,"y","n")	y	text	fraction
+IF	logical		=IF(0.0000001,"y","n")	y	text	tiny
+AND	logical		=AND(TRUE,TRUE)	TRUE	bool	typical
+AND	logical		=AND(TRUE,FALSE)	FALSE	bool	false
+AND	logical		=AND(1,1)	TRUE	bool	numbers
+AND	logical		=AND(1,0)	FALSE	bool	zero
+AND	logical		=AND("TRUE",TRUE)	TRUE	bool	text true direct
+AND	logical		=AND("x",TRUE)	TRUE	bool	other text direct
+AND	logical	A1="TRUE";A2=TRUE	=AND(A1:A2)	TRUE	bool	text true in range ignored
+AND	logical	A1="x";A2=TRUE	=AND(A1:A2)	TRUE	bool	text in range ignored
+AND	logical	A1="x"	=AND(A1)	#VALUE!	error	only text in range
+AND	logical		=AND(A1:A3)	#VALUE!	error	all empty
+AND	logical	A1=0;A2=""	=AND(A1:A2)	FALSE	bool	false then empty string
+AND	logical		=AND(#N/A,FALSE)	#N/A	error	error before false
+AND	logical		=AND(FALSE,#N/A)	#N/A	error	false before error
+AND	logical	A1=#N/A;A2=0	=AND(A1:A2)	#N/A	error	error in range
+AND	logical		=AND()		rejected	no arguments
+AND	logical		=AND(2)	TRUE	bool	nonzero number
+AND	logical		=AND(-1,0.5)	TRUE	bool	negative and fraction
+AND	logical		=AND("")	#VALUE!	error	empty string direct
+AND	logical		=AND(,TRUE)	FALSE	bool	empty argument
+AND	logical	A1=1;A2=2	=AND(A1:A2>0)	TRUE	bool	array comparison under implicit intersection
+IFERROR	logical		=IFERROR(1,2)	1	number	no error
+IFERROR	logical		=IFERROR(1/0,2)	2	number	div zero
+IFERROR	logical		=IFERROR(#N/A,"x")	x	text	na
+IFERROR	logical		=IFERROR(#REF!,"x")	x	text	ref
+IFERROR	logical		=IFERROR(NA(),NA())	#N/A	error	error fallback
+IFERROR	logical		=IFERROR(1,1/0)	1	number	unused fallback error
+IFERROR	logical		=IFERROR(A1,"x")	0	number	empty cell
+IFERROR	logical		=IFERROR("","x")		text	empty string
+IFERROR	logical		=IFERROR(,"x")	0	number	empty value argument
+IFERROR	logical		=IFERROR(1/0,)	0	number	empty fallback
+IFERROR	logical		=IFERROR(1)		rejected	wrong argument count
+IFERROR	logical		=IFERROR(1,2,3)		rejected	too many arguments
+IFERROR	logical		=IFERROR(VALUE("x"),"bad")	bad	text	nested error
+IFERROR	logical		=IFERROR(SQRT(-1),"nan")	nan	text	num error
+IFERROR	logical		=IFERROR(UNKNOWNFUNC(1),"x")	x	text	unknown function
+IFERROR	logical		=IFERROR(TRUE,1)	TRUE	bool	boolean value
+IFERROR	logical		=IFERROR("a"+1,"x")	x	text	text arithmetic
+IFERROR	logical		=IFERROR(9E307*10,"x")	x	text	overflow
+IFERROR	logical	A1=#DIV/0!	=IFERROR(A1,"x")	x	text	error in cell
+IFERROR	logical	A1=1;A2=#N/A	=IFERROR(A1:A2,"x")	1	number	range under implicit intersection
+ISNUMBER	information		=ISNUMBER(1)	TRUE	bool	typical
+ISNUMBER	information		=ISNUMBER("1")	FALSE	bool	text number
+ISNUMBER	information		=ISNUMBER(TRUE)	FALSE	bool	boolean
+ISNUMBER	information		=ISNUMBER(A1)	FALSE	bool	empty cell
+ISNUMBER	information	A1=""	=ISNUMBER(A1)	FALSE	bool	empty string
+ISNUMBER	information	A1=5	=ISNUMBER(A1)	TRUE	bool	number cell
+ISNUMBER	information	A1="5"	=ISNUMBER(A1)	FALSE	bool	text cell
+ISNUMBER	information	A1=#N/A	=ISNUMBER(A1)	FALSE	bool	error cell
+ISNUMBER	information		=ISNUMBER(#N/A)	FALSE	bool	error literal
+ISNUMBER	information		=ISNUMBER(DATE(2020,1,1))	TRUE	bool	date
+ISNUMBER	information		=ISNUMBER(1/0)	FALSE	bool	computed error
+ISNUMBER	information		=ISNUMBER(NOW())	TRUE	bool	volatile number
+ISNUMBER	information		=ISNUMBER()		rejected	no arguments
+ISNUMBER	information		=ISNUMBER(1,2)		rejected	too many arguments
+ISNUMBER	information		=ISNUMBER("")	FALSE	bool	empty string literal
+ISNUMBER	information		=ISNUMBER(-0)	TRUE	bool	negative zero
+ISNUMBER	information		=ISNUMBER(9E307*10)	FALSE	bool	overflow error
+ISNUMBER	information	A1=1;A2=2	=ISNUMBER(A1:A2)	TRUE	bool	range under implicit intersection
+ISNUMBER	information		=ISNUMBER(N("x"))	TRUE	bool	N of text
+ISNUMBER	information		=ISNUMBER(VALUE("5"))	TRUE	bool	value
+N	information		=N(5)	5	number	number
+N	information		=N("5")	0	number	text number
+N	information		=N("x")	0	number	text
+N	information		=N(TRUE)	1	number	true
+N	information		=N(FALSE)	0	number	false
+N	information		=N(A1)	0	number	empty cell
+N	information	A1=""	=N(A1)	0	number	empty string cell
+N	information	A1=#N/A	=N(A1)	#N/A	error	error cell
+N	information		=N(#DIV/0!)	#DIV/0!	error	error literal
+N	information		=N(DATE(2020,1,1))	43831	number	date
+N	information		=N("")	0	number	empty string
+N	information		=N()		rejected	no arguments
+N	information		=N(1,2)		rejected	too many arguments
+N	information		=N(-0.5)	-0.5	number	negative
+N	information		=N(9E307)	9E+307	number	huge
+N	information	A1=5;A2=6	=N(A1:A2)	5	number	range under implicit intersection
+N	information	A1="5"	=N(A1)	0	number	text cell number-like
+N	information		=N(1/3)	0.3333333333333333	number	fraction
+N	information		=N(TRUE+TRUE)	2	number	boolean arithmetic
+N	information		=N("TRUE")	0	number	text boolean
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(2,A1:B3,2,FALSE)	b	text	exact
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(2.5,A1:B3,2,TRUE)	b	text	approximate
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(2.5,A1:B3,2)	b	text	default approximate
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(0,A1:B3,2,TRUE)	#N/A	error	below first
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(9,A1:B3,2,TRUE)	c	text	above last
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b";A3=3;B3="c"	=VLOOKUP(9,A1:B3,2,FALSE)	#N/A	error	exact missing
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b"	=VLOOKUP(1,A1:B2,3,FALSE)	#REF!	error	column beyond range
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b"	=VLOOKUP(1,A1:B2,0,FALSE)	#VALUE!	error	column zero
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b"	=VLOOKUP(1,A1:B2,-1,FALSE)	#VALUE!	error	column negative
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b"	=VLOOKUP(1,A1:B2,1.9,FALSE)	1	number	column truncated
+VLOOKUP	lookup	A1=1;B1="a";A2=2;B2="b"	=VLOOKUP("1",A1:B2,2,FALSE)	#N/A	error	text key against numbers
+VLOOKUP	lookup	A1="1";B1="a";A2=2;B2="b"	=VLOOKUP(1,A1:B2,2,FALSE)	#N/A	error	number key against text
+VLOOKUP	lookup	A1="Apple";B1=1;A2="banana";B2=2	=VLOOKUP("apple",A1:B2,2,FALSE)	1	number	case insensitive
+VLOOKUP	lookup	A1="Apple";B1=1;A2="banana";B2=2	=VLOOKUP("ba*",A1:B2,2,FALSE)	2	number	wildcard exact
+VLOOKUP	lookup	A1="Apple";B1=1;A2="banana";B2=2	=VLOOKUP("ba*",A1:B2,2,TRUE)	1	number	wildcard approximate
+VLOOKUP	lookup	A1=1;B1="a";A2=1;B2="b"	=VLOOKUP(1,A1:B2,2,FALSE)	a	text	first duplicate
+VLOOKUP	lookup	A1=1;B1="a";A2=1;B2="b"	=VLOOKUP(1,A1:B2,2,TRUE)	b	text	duplicate approximate
+VLOOKUP	lookup	A1=3;B1="a";A2=1;B2="b";A3=2;B3="c"	=VLOOKUP(2,A1:B3,2,TRUE)	c	text	unsorted approximate
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP(A5,A1:B1,2,FALSE)	#N/A	error	empty lookup value
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP(#N/A,A1:B1,2,FALSE)	#N/A	error	error lookup value
+VLOOKUP	lookup	A1=1;B1=#DIV/0!	=VLOOKUP(1,A1:B1,2,FALSE)	#DIV/0!	error	error in result
+VLOOKUP	lookup	A1=1;B1=	=VLOOKUP(1,A1:B1,2,FALSE)	0	number	empty result cell
+VLOOKUP	lookup	A1=TRUE;B1="t";A2=1;B2="n"	=VLOOKUP(TRUE,A1:B2,2,FALSE)	t	text	boolean key
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP(1,A1:B1,2,"x")	#VALUE!	error	non-boolean flag
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP(1,A1:B1,2,0)	a	text	numeric flag
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP(1,A1:B1)		rejected	wrong argument count
+VLOOKUP	lookup		=VLOOKUP(1,5,1,FALSE)	#N/A	error	non-range table
+VLOOKUP	lookup	A1=1;B1="a"	=VLOOKUP("",A1:B1,2,FALSE)	#N/A	error	empty string key
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(20,A1:A3,0)	2	number	exact
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(25,A1:A3,1)	2	number	approximate ascending
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(25,A1:A3)	2	number	default type
+MATCH	lookup	A1=30;A2=20;A3=10	=MATCH(25,A1:A3,-1)	1	number	descending
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(5,A1:A3,1)	#N/A	error	below first
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(99,A1:A3,0)	#N/A	error	exact missing
+MATCH	lookup	A1=10;A2=20;A3=30	=MATCH(99,A1:A3,1)	3	number	above last
+MATCH	lookup	A1="a";A2="B";A3="c"	=MATCH("b",A1:A3,0)	2	number	case insensitive
+MATCH	lookup	A1="apple";A2="banana"	=MATCH("ban*",A1:A2,0)	2	number	wildcard
+MATCH	lookup	A1="apple";A2="banana"	=MATCH("ban*",A1:A2,1)	1	number	wildcard approximate
+MATCH	lookup	A1="a?c";A2="abc"	=MATCH("a~?c",A1:A2,0)	1	number	escaped wildcard
+MATCH	lookup	A1=1;A2="1"	=MATCH("1",A1:A2,0)	2	number	text key skips numbers
+MATCH	lookup	A1=1;A2="1"	=MATCH(1,A1:A2,0)	1	number	number key skips text
+MATCH	lookup	A1=10;A2=10	=MATCH(10,A1:A2,0)	1	number	first duplicate
+MATCH	lookup	A1=10;A2=10	=MATCH(10,A1:A2,1)	2	number	last duplicate ascending
+MATCH	lookup	A1=10;A2=20	=MATCH(10,A1:B2,0)	#N/A	error	two-dimensional range
+MATCH	lookup	A1=10;B1=20	=MATCH(20,A1:B1,0)	2	number	horizontal range
+MATCH	lookup		=MATCH(A5,A1:A3,0)	#N/A	error	empty lookup value
+MATCH	lookup	A1=10	=MATCH(#N/A,A1:A3,0)	#N/A	error	error lookup value
+MATCH	lookup	A1=#N/A;A2=5	=MATCH(5,A1:A2,0)	2	number	error in range skipped
+MATCH	lookup	A1=#N/A;A2=5	=MATCH(#N/A,A1:A2,0)	#N/A	error	error matches error
+MATCH	lookup	A1=10	=MATCH(10,A1:A3,2)	1	number	match type two
+MATCH	lookup	A1=10	=MATCH(10,A1:A3,"x")	#VALUE!	error	non-numeric type
+MATCH	lookup	A1=10	=MATCH(10,A1:A3,0.5)	1	number	fractional type
+MATCH	lookup	A1=10	=MATCH(10)		rejected	wrong argument count
+MATCH	lookup		=MATCH(1,5,0)	#N/A	error	non-range
+MATCH	lookup	A1=TRUE;A2=1	=MATCH(TRUE,A1:A2,0)	1	number	boolean key
+MATCH	lookup	A1="";A2="a"	=MATCH("",A1:A2,0)	1	number	empty string key
+MATCH	lookup	A1="b";A2="a"	=MATCH("a",A1:A2,-1)	2	number	text descending
+DATE	date		=DATE(2020,1,1)	43831	number	typical
+DATE	date		=DATE(2020,13,1)	44197	number	month overflow
+DATE	date		=DATE(2020,0,1)	43800	number	month zero
+DATE	date		=DATE(2020,-1,1)	43770	number	month negative
+DATE	date		=DATE(2020,1,0)	43830	number	day zero
+DATE	date		=DATE(2020,1,-1)	43829	number	day negative
+DATE	date		=DATE(2020,1,32)	43862	number	day overflow
+DATE	date		=DATE(2020,2,30)	43891	number	february overflow
+DATE	date		=DATE(2019,2,29)	43525	number	non-leap february
+DATE	date		=DATE(1900,1,1)	1	number	epoch
+DATE	date		=DATE(1900,2,29)	60	number	phantom leap day
+DATE	date		=DATE(1900,3,1)	61	number	after phantom
+DATE	date		=DATE(1900,1,0)	0	number	day zero in epoch
+DATE	date		=DATE(1899,12,31)	693962	number	before epoch year
+DATE	date		=DATE(0,1,1)	1	number	year zero
+DATE	date		=DATE(-1,1,1)	#NUM!	error	year negative
+DATE	date		=DATE(50,1,1)	18264	number	two-digit year
+DATE	date		=DATE(29,1,1)	10594	number	two-digit year 29
+DATE	date		=DATE(30,1,1)	10959	number	two-digit year 30
+DATE	date		=DATE(99,1,1)	36161	number	two-digit year 99
+DATE	date		=DATE(100,1,1)	36526	number	year 100
+DATE	date		=DATE(1899,1,1)	693598	number	year 1899
+DATE	date		=DATE(9999,12,31)	2958465	number	maximum
+DATE	date		=DATE(9999,12,32)	#NUM!	error	beyond maximum
+DATE	date		=DATE(10000,1,1)	#NUM!	error	year 10000
+DATE	date		=DATE(2020.9,1.9,1.9)	43831	number	fractions truncated
+DATE	date		=DATE("2020","1","1")	43831	number	text numbers
+DATE	date		=DATE("x",1,1)	#VALUE!	error	non-numeric year
+DATE	date		=DATE(TRUE,1,1)	367	number	boolean year
+DATE	date		=DATE(2020,1)		rejected	wrong argument count
+DATE	date		=DATE(#N/A,1,1)	#N/A	error	error year
+DATE	date		=DATE(A1,A2,A3)	#NUM!	error	empty cells
+DATE	date		=DATE(2020,1,1.5)	43831	number	fractional day
+DATE	date		=DATE(2020,25,1)	44562	number	month beyond two years
+DATE	date		=DATE(2020,-13,1)	43405	number	month far negative
+DATE	date		=DATE(2020,1,-400)	43430	number	day far negative
+DATE	date		=DATE(1900,-1,1)	#NUM!	error	epoch with negative month
+DATE	date		=DATE(1900,0,31)	#NUM!	error	before epoch via month
