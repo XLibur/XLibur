@@ -131,10 +131,16 @@ public static class FormulaConformance
     /// <summary>
     /// Whether XLibur's answer agrees with the stored Excel answer. Numbers match within relative
     /// 1e-12 (absolute 1e-300 near zero). Everything else must be identical: the type, the text
-    /// ordinally, and the error code, so empty, zero and the empty string stay distinct.
+    /// ordinally, and the error code, so empty, zero and the empty string stay distinct. The one
+    /// exception is a formula Excel rejects, which matches a rejection or any error from XLibur.
     /// </summary>
     internal static bool Matches(Answer excel, Answer actual)
     {
+        // A formula Excel refuses at entry cannot exist in a workbook Excel wrote, so XLibur refusing
+        // it or evaluating it to an error value are the same outcome. Evaluating it to a value is not.
+        if (excel.Type == "rejected")
+            return actual.Type is "rejected" or "error";
+
         if (excel.Type != actual.Type)
             return false;
 

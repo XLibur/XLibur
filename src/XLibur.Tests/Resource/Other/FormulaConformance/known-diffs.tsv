@@ -2,7 +2,6 @@
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
 AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibur	
 AVERAGE	AVERAGE#13	throws:ArgumentException	error:#NUM!	Overflow of a double: Excel returns #NUM!; XLibur throws ArgumentException	
-COUNTIF	COUNTIF#21	error:#VALUE!	rejected:	Excel refuses COUNTIF with a non-reference first argument at entry; XLibur accepts it and returns #VALUE!	
 DATE	DATE#38	number:0	error:#NUM!	DATE(1900,0,31) is #NUM! in Excel and serial 0 in XLibur	
 IFERROR	IFERROR#18	throws:ArgumentException	text:x	Overflow of a double: Excel returns #NUM!; XLibur throws ArgumentException, so IFERROR never reaches its fallback	
 ISNUMBER	ISNUMBER#17	bool:TRUE	bool:FALSE	Overflow of a double: Excel returns #NUM!; XLibur lets infinity through as a number	

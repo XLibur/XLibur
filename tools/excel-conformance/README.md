@@ -60,6 +60,10 @@ new cases in a new file. Then run the recorder on that file.
 Numbers match within relative 1e-12 (absolute 1e-300 near zero). Text is ordinal. An error must be the same
 code. Empty, zero and the empty string are different types. Dates are compared as serial numbers.
 
+One exception: a formula Excel refuses at entry (`rejected`) matches XLibur refusing it or evaluating it to any
+error value, because such a formula cannot exist in a workbook Excel wrote. XLibur evaluating it to a number,
+text or boolean is still a difference.
+
 A known-differences row fails the run when the case now agrees with Excel (the row is stale), when XLibur's
 answer changed, or when Excel's stored answer no longer matches the row.
 
