@@ -12,7 +12,7 @@ public class CalculationTests
         {
             var ws = wb.AddWorksheet("S");
             ws.Cell("A1").FormulaA1 = "1/0";
-            ws.Cell("A2").FormulaA1 = "_xlfn.CEILING.PRECISE(2.5,1)";
+            ws.Cell("A2").FormulaA1 = "BAHTTEXT(2.5)";
             ws.Cell("A3").FormulaA1 = "A4+1";
             ws.Cell("A4").Value = 1;
             ws.Cell("A5").FormulaA1 = "SUM(1,2)";
@@ -27,7 +27,7 @@ public class CalculationTests
 
         await Assert.That(result.Formulas).IsEqualTo(5);
         await Assert.That(result.ErrorValues.Cells.Select(c => c.Cell)).IsEquivalentTo(["S!A1"]);
-        await Assert.That(result.Unsupported.Cells.Single().Detail).Contains("CEILING.PRECISE");
+        await Assert.That(result.Unsupported.Cells.Single().Detail).Contains("BAHTTEXT");
         await Assert.That(result.Circular.Cells.Select(c => c.Cell)).IsEquivalentTo(["S!A3", "S!A4"]);
         await Assert.That(result.Defects.Total).IsEqualTo(0);
     }
