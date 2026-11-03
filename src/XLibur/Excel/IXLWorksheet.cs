@@ -303,16 +303,10 @@ public interface IXLWorksheet : IXLRangeBase, IXLProtectable<IXLSheetProtection,
     /// </summary>
     void Delete();
 
-    [Obsolete($"Use {nameof(DefinedNames)} instead.")]
-    IXLDefinedNames NamedRanges { get; }
-
     /// <summary>
     /// Gets an object to manage this worksheet's defined names.
     /// </summary>
     IXLDefinedNames DefinedNames { get; }
-
-    [Obsolete($"Use {nameof(DefinedName)} instead.")]
-    IXLDefinedName NamedRange(string rangeName);
 
     /// <summary>
     /// Gets the specified defined name.

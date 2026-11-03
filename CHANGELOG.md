@@ -26,6 +26,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking Changes
+
+- **The `[Obsolete]` members that shipped in ClosedXML 0.105 are removed.** These are the three groups the v0.200.0 deprecation notice announced for this release. Each replacement already exists, so porting is a rename. `IXLWorkbook.NamedRanges`, `IXLWorksheet.NamedRanges` and `XLWorkbook.NamedRanges` become `DefinedNames`. `NamedRange(name)` on `IXLWorkbook`, `IXLWorksheet`, `IXLDefinedNames` and `XLWorkbook` becomes `DefinedName(name)`. `IXLRangeBase.SetDataValidation()` becomes `GetDataValidation()` to read the existing rule or `CreateDataValidation()` to make a new one, and `IXLRanges.SetDataValidation()` becomes `CreateDataValidation()`. `XLFontCharSet.Hangeul` becomes `XLFontCharSet.Hangul`, which has the same value (129). `XLColor.NoColor` and `IXLBaseCollection<TSingle, TMultiple>` are still deprecated and stay for now. See the [migration guide](docs-website/docs/migration.md#removed-in-this-release).
+
 ### 🐛 Bug Fixes
 
 - **`AGGREGATE` options 4 to 7 no longer skip nested `SUBTOTAL` and `AGGREGATE` cells, and `AGGREGATE(3, …)` ignores errors when the option says to.** Only options 0 to 3 skip nested subtotals; XLibur skipped them under every option, so `AGGREGATE(1, 4, C1:C11)` over a range holding a `SUBTOTAL` gave 49 where Excel gives 49.504. `COUNTA` (function 3) with option 2, 3, 6 or 7 returned the first error in the range instead of counting the other values. A copy of `functions-excel-2010.xlsx` recalculated in Excel and in XLibur now agrees on all 171 cells of its `AGGREGATE` block, and the 53 that differed were the two causes above ([#879](https://github.com/XLibur/XLibur/issues/879)).

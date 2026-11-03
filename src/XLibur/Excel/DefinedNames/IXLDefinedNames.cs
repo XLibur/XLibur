@@ -6,10 +6,6 @@ namespace XLibur.Excel;
 
 public interface IXLDefinedNames : IEnumerable<IXLDefinedName>
 {
-    /// <inheritdoc cref="DefinedName"/>
-    [Obsolete($"Use {nameof(DefinedName)} instead.")]
-    IXLDefinedName NamedRange(string name);
-
     /// <summary>
     /// Gets the specified defined name.
     /// </summary>

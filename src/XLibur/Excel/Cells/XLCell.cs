@@ -984,12 +984,6 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
         return validation;
     }
 
-    [Obsolete("Use GetDataValidation() to access the existing rule, or CreateDataValidation() to create a new one.")]
-    public IXLDataValidation SetDataValidation()
-    {
-        return GetDataValidation();
-    }
-
     public void Select()
     {
         AsRange().Select();
