@@ -158,7 +158,7 @@ public static partial class XLHelper
             return true;
         }
 
-        issue = refusal.ToIssue();
+        issue = refusal.ToIssue(formula.StartsWith('=') ? 1 : 0);
         return false;
     }
 

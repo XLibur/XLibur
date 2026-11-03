@@ -28,7 +28,28 @@ public class TryParseFormulaTests
         await Assert.That(issue!.Kind).IsEqualTo(XLFormulaIssueKind.RefusedFormula);
         await Assert.That(issue.Message).IsNotEmpty();
         await Assert.That(issue.Inner).IsTypeOf<ParsingException>();
-        await Assert.That(issue.Position).IsNull();
+        await Assert.That(issue.Position).IsEqualTo(4);
+    }
+
+    [Test]
+    [Arguments("1+", 2)]
+    [Arguments("=1+", 3)]
+    [Arguments("SUM(", 4)]
+    [Arguments("=SUM(", 5)]
+    [Arguments("A1+#", 3)]
+    public async Task The_position_indexes_the_text_as_the_caller_passed_it(string formula, int expected)
+    {
+        await Assert.That(XLHelper.TryParseFormula(formula, out var issue)).IsFalse();
+
+        await Assert.That(issue!.Position).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task A_part_a_factory_refuses_has_no_position()
+    {
+        await Assert.That(XLHelper.TryParseFormula("ABS(1,2)", out var issue)).IsFalse();
+
+        await Assert.That(issue!.Position).IsNull();
     }
 
     [Test]

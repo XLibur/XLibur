@@ -95,7 +95,7 @@ internal static class EvaluationFailure
     {
         if (TryGetIssueKind(Classify(exception), out var issueKind))
         {
-            issue = new XLFormulaIssue(issueKind, exception.Message, exception);
+            issue = new XLFormulaIssue(issueKind, exception.Message, exception, FormulaRefusal.PositionOf(exception));
             return true;
         }
 

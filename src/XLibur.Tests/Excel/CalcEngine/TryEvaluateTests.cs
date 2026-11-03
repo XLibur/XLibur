@@ -65,7 +65,7 @@ public class TryEvaluateTests
 
         await Assert.That(issue!.Message).IsEqualTo(thrown!.Message);
         await Assert.That(issue.Inner).IsTypeOf<ExpressionParseException>();
-        await Assert.That(issue.Position).IsNull();
+        await Assert.That(issue.Position).IsEqualTo(2);
     }
 
     [Test]
@@ -259,7 +259,12 @@ public class TryEvaluateTests
         await Assert.That(result.Issue!.Kind).IsEqualTo(expected);
         await Assert.That(result.Issue.Message).IsNotEmpty();
         await Assert.That(result.Issue.Inner).IsNotNull();
-        await Assert.That(result.Issue.Position).IsNull();
+
+        // Only a refusal by the parser has a place in the text.
+        if (expected == XLFormulaIssueKind.RefusedFormula)
+            await Assert.That(result.Issue.Position).IsNotNull();
+        else
+            await Assert.That(result.Issue.Position).IsNull();
     }
 
     private static string Expression(Kind failure, bool qualified) => failure switch
