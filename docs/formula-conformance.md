@@ -162,7 +162,7 @@ and nothing more. Task 4 is the step that turns them into causes and fixes.
 
 Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
 disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions. A second round (logical arguments, below)
-brought it to 290 (6.0%), and array constants as text arguments to 266 (5.5%).
+brought it to 290 (6.0%), array constants as text arguments to 266 (5.5%), and a multi-cell range argument to 224 (4.7%).
 
 Ranked by family, after the fixes:
 
@@ -199,16 +199,37 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
 
 **Remaining, in the order I would take them.**
 
-1. A multi-cell range argument where Excel returns `#VALUE!` (32 cases, same Analysis ToolPak functions).
-   The boolean half is fixed: `SignatureAdapter.RejectLogical` wraps the registration and cleared 39 rows.
-   The range half is not an adapter job. These functions are registered as `Scalar`, so the engine
-   intersects a range down to one cell before the function runs, and Excel instead rejects it. Fixing it
-   means changing the flags of about 30 functions and their array-formula behavior, so it needs its own
-   decision.
+1. Done: a logical or multi-cell range argument where Excel returns `#VALUE!` (71 cases, the Analysis ToolPak
+   functions). `FunctionRegistry.RegisterStrictNumeric` registers 23 functions with the numeric parameters
+   that reject a logical value (checked per element) and a multi-cell reference (checked in
+   `FunctionDefinition` before intersection or lifting). Measured over COM: these functions give `#VALUE!`
+   for `A1:A3` under `Formula`, `Formula2` and `FormulaArray`, from any row, where `SIN(A1:A3)`
+   intersects or lifts, so the rule needs no array-formula special case. An array constant is not
+   rejected: Excel uses its first element, and lifts over it in an array formula (`DEC2BIN({1,2,3})` gives
+   1, 10, 11). A single-cell range is not rejected. Not measured: a range in a text parameter such as the
+   unit of `CONVERT`, which stays as it was.
 2. Done: `ToText` used to throw `UnsupportedFeatureException` for an array constant, where `ToNumber` took its first element. It now takes the first element too, which cleared all 24 rows (`UPPER({1,2,3})`, `SEARCH`, `BIN2DEC` and others).
 3. Which of two error arguments wins (28).
-4. `RATE` and `IRR` convergence (22). Excel and XLibur stop at different digits; this needs a decision on
-   tolerance and iteration count.
+4. `RATE` and `IRR` (35 rows in `known-diffs.tsv`, tracked in #915). These are not one problem, and XLibur is
+   the more accurate of the two where the digits differ. For `RATE(10,-100,800)` the root, solved to 60
+   digits, is 0.0427749780351114616. XLibur returns 0.042774978035113674 (error about 2e-15) and Excel
+   0.042774978035587 (about 5e-13). Excel documents a 1e-7 stop, and its own `IRR` answers differ in the
+   13th digit depending on the guess. Decision: **do not copy Excel's iteration count or stopping rule**.
+   Loosen the comparison and fix the real defects.
+
+   | Rows | Pattern | Action |
+   |---|---|---|
+   | 17 | Last digits differ, at most 1.4e-10 relative | Per-function relative tolerance of 1e-9 for `RATE`, `IRR` and similar, an explicit list with its reason (default stays 1e-12) |
+   | 11 `RATE` | XLibur returns a rate below -1, Excel `#NUM!` | Library fix: a rate at or below -1 is `#NUM!` |
+   | 1 `RATE` | XLibur finds -0.921, Excel `#NUM!` (its iteration cap) | Permanent known difference, "Excel gives up" |
+   | 2 `RATE` | Different root: -0.9210 against -0.99999874 | Diagnose; likely several roots |
+   | 2 `IRR` | Excel finds a root, XLibur `#NUM!` | Library fix: bracketing fallback when Newton fails |
+   | 2 `IRR` | `#VALUE!` against `#NUM!` | Library fix: error code |
+
+   1e-9 covers the largest observed gap with a margin of about 7, is far tighter than Excel's 1e-7, and
+   still fails on a wrong root. Separately, `SolveIrr` stops on an absolute `|npv| < 1e-7`, which is scale
+   dependent (cash flows near 1e6 stop too early, near 1e-3 stop at once), so it should use a relative
+   step. The tolerance rule and the below -1 fix clear 28 of the 35 rows.
 5. The 150 rows that only state the two answers. The biggest are `INDEX` (15), `SLOPE` and `CORREL` (26),
    `YEARFRAC` (10) and the engineering conversions.
 6. Singletons: surrogate pairs (3), number to text (5), `OR` with a text argument (4), `GCD`/`LCM` with an empty cell (3), `ROUND(1.005,2)`, `VALUE("5-")`, `AND("")`,

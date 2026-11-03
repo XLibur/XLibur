@@ -21,7 +21,16 @@ internal sealed class FunctionDefinition
     /// </summary>
     private readonly IReadOnlyCollection<int> _markedParams;
 
-    public FunctionDefinition(int minParams, int maxParams, CalcEngineFunction function, FunctionFlags flags, AllowRange allowRanges, IReadOnlyCollection<int> markedParams)
+    /// <summary>
+    /// Parameters for which a reference of more than one cell gives <c>#VALUE!</c>, before implicit
+    /// intersection or array lifting would touch it. Excel does this for the Analysis ToolPak style
+    /// functions (EDATE, ERF, DEC2BIN and the like) in a cell and in an array formula alike, where
+    /// SIN(A1:A3) intersects or lifts.
+    /// </summary>
+    private readonly IReadOnlyCollection<int> _rejectRangeParams;
+
+    public FunctionDefinition(int minParams, int maxParams, CalcEngineFunction function, FunctionFlags flags, AllowRange allowRanges, IReadOnlyCollection<int> markedParams,
+        IReadOnlyCollection<int>? rejectRangeParams = null)
     {
         if (allowRanges == AllowRange.None && markedParams.Count > 0)
             throw new ArgumentException("Marked params must be empty when AllowRange is None.", nameof(markedParams));
@@ -30,6 +39,7 @@ internal sealed class FunctionDefinition
         MaxParams = maxParams;
         _allowRanges = allowRanges;
         _markedParams = markedParams;
+        _rejectRangeParams = rejectRangeParams ?? [];
         _function = function;
         _flags = flags;
     }
@@ -40,6 +50,9 @@ internal sealed class FunctionDefinition
 
     public AnyValue CallFunction(CalcContext ctx, Span<AnyValue> args)
     {
+        if (HasRejectedRange(args))
+            return XLError.IncompatibleValue;
+
         if (CalcContext.UseImplicitIntersection)
             IntersectArguments(ctx, args);
 
@@ -51,6 +64,9 @@ internal sealed class FunctionDefinition
     /// </summary>
     public AnyValue CallAsArray(CalcContext ctx, Span<AnyValue> args)
     {
+        if (HasRejectedRange(args))
+            return XLError.IncompatibleValue;
+
         if (_flags.HasFlag(FunctionFlags.ReturnsArray) && _allowRanges == AllowRange.All)
             return _function(ctx, args);
 
@@ -60,6 +76,19 @@ internal sealed class FunctionDefinition
         var (totalRows, totalColumns) = GetScalarArgsMaxSize(args);
         NormalizeArguments(ctx, args, totalRows, totalColumns);
         return EvaluateArrayElements(ctx, args, totalRows, totalColumns);
+    }
+
+    private bool HasRejectedRange(Span<AnyValue> args)
+    {
+        foreach (var index in _rejectRangeParams)
+        {
+            if (index < args.Length
+                && args[index].TryPickReference(out var reference, out _)
+                && (reference!.AreaCount > 1 || reference[0].NumberOfCells > 1))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

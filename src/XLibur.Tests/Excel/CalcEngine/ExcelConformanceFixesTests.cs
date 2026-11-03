@@ -76,4 +76,52 @@ public class ExcelConformanceFixesTests
     {
         await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.NumberInvalid);
     }
+
+    [Test]
+    [Arguments("DEC2BIN(A1:A3)")]
+    [Arguments("EDATE(A1:A3,1)")]
+    [Arguments("ERF(A1:A3)")]
+    public async Task A_multi_cell_range_gives_value_error_in_a_cell_and_in_an_array_formula(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 2;
+        ws.Cell("A3").Value = 3;
+
+        ws.Cell("K1").FormulaA1 = formula;
+        ws.Cell("K6").FormulaA1 = formula;
+        ws.Range("M1:M3").FormulaArrayA1 = formula;
+
+        await Assert.That(ws.Cell("K1").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("K6").Value).IsEqualTo(XLError.IncompatibleValue);
+        await Assert.That(ws.Cell("M2").Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task A_single_cell_range_and_ordinary_math_functions_are_unchanged()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 1;
+        ws.Cell("A2").Value = 2;
+        ws.Cell("A3").Value = 3;
+        ws.Cell("K1").FormulaA1 = "DEC2BIN(A2:A2)";
+        ws.Range("M1:M3").FormulaArrayA1 = "SIN(A1:A3)";
+
+        await Assert.That(ws.Cell("K1").Value).IsEqualTo("10");
+        await Assert.That(ws.Cell("M3").Value.GetNumber()).IsEqualTo(System.Math.Sin(3));
+    }
+
+    [Test]
+    public async Task An_array_constant_still_lifts_a_strict_function_in_an_array_formula()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("K1:M1").FormulaArrayA1 = "DEC2BIN({1,2,3})";
+
+        await Assert.That(ws.Cell("K1").Value).IsEqualTo("1");
+        await Assert.That(ws.Cell("L1").Value).IsEqualTo("10");
+        await Assert.That(ws.Cell("M1").Value).IsEqualTo("11");
+    }
 }

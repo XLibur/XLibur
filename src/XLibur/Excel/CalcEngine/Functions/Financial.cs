@@ -20,7 +20,7 @@ internal static class Financial
         ce.RegisterFunction("DISC", 4, 5, AdaptLastOptional(Disc, 0), FunctionFlags.Scalar); // Returns the discount rate for a security
         ce.RegisterFunction("DOLLARDE", 2, 2, Adapt(DollarDe), FunctionFlags.Scalar); // Converts a dollar price, expressed as a fraction, into a dollar price, expressed as a decimal number
         ce.RegisterFunction("DOLLARFR", 2, 2, Adapt(DollarFr), FunctionFlags.Scalar); // Converts a dollar price, expressed as a decimal number, into a dollar price, expressed as a fraction
-        ce.RegisterFunction("EFFECT", 2, 2, RejectLogical(Adapt(Effect), 0, 1), FunctionFlags.Scalar); // Returns the effective annual interest rate
+        ce.RegisterStrictNumeric("EFFECT", 2, 2, Adapt(Effect), [0, 1], FunctionFlags.Scalar); // Returns the effective annual interest rate
         ce.RegisterFunction("FV", 3, 5, AdaptLastTwoOptional(Fv, 0, 0), FunctionFlags.Scalar); // Returns the future value of an investment
         ce.RegisterFunction("FVSCHEDULE", 2, 2, FvSchedule, FunctionFlags.Range, AllowRange.Only, 1); // Returns the future value of an initial principal after applying a series of compound interest rates
         ce.RegisterFunction("INTRATE", 4, 5, AdaptLastOptional(IntRate, 0), FunctionFlags.Scalar); // Returns the interest rate for a fully invested security
@@ -28,7 +28,7 @@ internal static class Financial
         ce.RegisterFunction("IRR", 1, 2, Irr, FunctionFlags.Range, AllowRange.Only, 0); // Returns the internal rate of return for a series of cash flows
         ce.RegisterFunction("ISPMT", 4, 4, Adapt(IsPmt), FunctionFlags.Scalar); // Calculates the interest paid during a specific period of an investment
         ce.RegisterFunction("MIRR", 3, 3, Mirr, FunctionFlags.Range, AllowRange.Only, 0); // Returns the internal rate of return where positive and negative cash flows are financed at different rates
-        ce.RegisterFunction("NOMINAL", 2, 2, RejectLogical(Adapt(Nominal), 0, 1), FunctionFlags.Scalar); // Returns the annual nominal interest rate
+        ce.RegisterStrictNumeric("NOMINAL", 2, 2, Adapt(Nominal), [0, 1], FunctionFlags.Scalar); // Returns the annual nominal interest rate
         ce.RegisterFunction("NPER", 3, 5, AdaptLastTwoOptional(Nper, 0, 0), FunctionFlags.Scalar); // Returns the number of periods for an investment
         ce.RegisterFunction("NPV", 2, 255, Npv, FunctionFlags.Range, AllowRange.Except, 0); // Returns the net present value of an investment based on a series of periodic cash flows and a discount rate
         ce.RegisterFunction("PDURATION", 3, 3, Adapt(PDuration), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the number of periods required by an investment to reach a specified value

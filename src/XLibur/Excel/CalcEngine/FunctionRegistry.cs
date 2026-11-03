@@ -81,4 +81,32 @@ internal sealed class FunctionRegistry
     {
         _func.Add(functionName, new FunctionDefinition(minParams, maxParams, fn, flags, allowRanges, markedParams));
     }
+
+    /// <summary>
+    /// Add a function whose listed numeric parameters give <c>#VALUE!</c> for a logical value and for a
+    /// reference of more than one cell, as Excel does in EDATE, ERF, DEC2BIN and the like. Ordinary math
+    /// functions read TRUE as 1 and intersect or lift a range, so they are registered with
+    /// <see cref="RegisterFunction"/>. An array constant is accepted: Excel uses its first element, or
+    /// lifts the function over it in an array formula.
+    /// </summary>
+    public void RegisterStrictNumeric(string functionName, int minParams, int maxParams, CalcEngineFunction fn,
+        int[] numericParams, FunctionFlags flags, AllowRange allowRanges = AllowRange.None, params int[] markedParams)
+    {
+        _func.Add(functionName, new FunctionDefinition(minParams, maxParams, RejectLogical(fn, numericParams), flags,
+            allowRanges, markedParams, numericParams));
+    }
+
+    private static CalcEngineFunction RejectLogical(CalcEngineFunction f, int[] numericParams)
+    {
+        return (ctx, args) =>
+        {
+            foreach (var index in numericParams)
+            {
+                if (index < args.Length && args[index].IsLogical)
+                    return XLError.IncompatibleValue;
+            }
+
+            return f(ctx, args);
+        };
+    }
 }
