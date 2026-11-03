@@ -66,6 +66,18 @@ public class CliTests
     }
 
     [Test]
+    public async Task A_tagged_value_of_the_wrong_JSON_type_is_a_usage_error()
+    {
+        using var root = new TempDirectory();
+        var path = Fixtures.Sales(root);
+
+        var (exit, _, error) = Run("edit", path, "--edits", "[{\"cell\":\"A1\",\"value\":{\"date\":123}}]");
+
+        await Assert.That(exit).IsEqualTo(2);
+        await Assert.That(error).Contains("error[usage]");
+    }
+
+    [Test]
     public async Task Help_lists_every_operation_and_a_command_lists_its_options()
     {
         var overview = Run("--help");
