@@ -23,6 +23,7 @@
     <EmbeddedResource Include="Resource\Images\**\*.*" />
     <EmbeddedResource Include="Resource\Fonts\*.*" />
     <EmbeddedResource Include="Resource\Other\Unicode\let_it_go_in_emoji.txt" />
+    <EmbeddedResource Include="Resource\Other\FormulaConformance\*.tsv" />
     <EmbeddedResource Include="Resource\Other\FormulaShifterCorpus.tsv" />
     <EmbeddedResource Include="Resource\Other\FormulaTextCorpus.tsv" />
     <!-- The chart golden corpus. Embedded rather than copied to the output directory: a release
