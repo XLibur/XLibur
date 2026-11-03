@@ -158,6 +158,24 @@ public static class FormulaConformance
     internal static Answer Stored(Case c) => new(c.ExcelType, c.ExcelValue);
 
     /// <summary>
+    /// Whether XLibur's answer is the one a known-differences row recorded (<c>type:value</c>).
+    /// Numbers match within the comparison tolerance, because the maths library rounds the last
+    /// digit differently between platforms; everything else must be identical.
+    /// </summary>
+    public static bool IsRecordedAnswer(string recorded, Answer actual)
+    {
+        var split = recorded.IndexOf(':', StringComparison.Ordinal);
+        var known = split < 0
+            ? new Answer(recorded, string.Empty)
+            : new Answer(recorded[..split], recorded[(split + 1)..]);
+
+        if (known.Type == "number" && actual.Type == "number")
+            return Matches(known, actual);
+
+        return known.Type == actual.Type && string.Equals(known.Value, actual.Value, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Evaluates a case in XLibur through the public API: the setup cells, the formula in
     /// <c>K1</c>, then the cell's value. A formula the parser refuses, at either step, is
     /// <c>rejected</c>, the counterpart of Excel refusing the entry. Any other exception is
