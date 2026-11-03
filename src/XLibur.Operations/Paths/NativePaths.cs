@@ -14,17 +14,8 @@ internal static partial class NativePaths
     internal static string FinalPath(SafeFileHandle handle, string openedPath)
     {
         if (OperatingSystem.IsWindows())
-            return Windows.FinalPath(handle);
-
-        var procLink = $"/proc/self/fd/{handle.DangerousGetHandle()}";
-        if (File.Exists(procLink) || Directory.Exists(procLink))
-        {
-            var target = new FileInfo(procLink).LinkTarget;
-            if (target is not null)
-                return target;
-        }
-
-        return Unix.ResolveLinks(openedPath);
+            return Windows.PathOfHandle(handle);
+        return (OperatingSystem.IsLinux() ? Linux.PathOfHandle(handle) : null) ?? Unix.ResolveLinks(openedPath);
     }
 
     internal static string FinalDirectoryPath(string directory)
@@ -33,7 +24,7 @@ internal static partial class NativePaths
             return Unix.ResolveLinks(directory);
 
         using var handle = Windows.OpenDirectory(directory);
-        return Windows.FinalPath(handle);
+        return Windows.PathOfHandle(handle);
     }
 
     /// <summary>
@@ -86,7 +77,7 @@ internal static partial class NativePaths
             return handle;
         }
 
-        internal static string FinalPath(SafeFileHandle handle)
+        internal static string PathOfHandle(SafeFileHandle handle)
         {
             var buffer = new char[1024];
             while (true)
@@ -129,6 +120,37 @@ internal static partial class NativePaths
 
         [LibraryImport("kernel32.dll")]
         internal static partial uint GetFileType(SafeFileHandle file);
+    }
+
+    [SupportedOSPlatform("linux")]
+    private static partial class Linux
+    {
+        /// <summary>
+        /// The target of the handle's /proc/self/fd link, or null when there is none. The handle is
+        /// duplicated to learn a descriptor number, so the marshaller holds a reference on it for the
+        /// call and the number never outlives the duplicate.
+        /// </summary>
+        internal static string? PathOfHandle(SafeFileHandle handle)
+        {
+            var descriptor = Dup(handle);
+            if (descriptor < 0)
+                throw new IOException($"Cannot duplicate a file handle (errno {Marshal.GetLastPInvokeError()}).");
+            try
+            {
+                var procLink = $"/proc/self/fd/{descriptor}";
+                return File.Exists(procLink) || Directory.Exists(procLink) ? new FileInfo(procLink).LinkTarget : null;
+            }
+            finally
+            {
+                Close(descriptor);
+            }
+        }
+
+        [LibraryImport("libc", EntryPoint = "dup", SetLastError = true)]
+        private static partial int Dup(SafeFileHandle descriptor);
+
+        [LibraryImport("libc", EntryPoint = "close")]
+        private static partial int Close(int descriptor);
     }
 
     private static class Unix
