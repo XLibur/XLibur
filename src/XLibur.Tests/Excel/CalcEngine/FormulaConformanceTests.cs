@@ -95,7 +95,11 @@ public class FormulaConformanceTests
     [Arguments("text", "a", "text", "A", false)]
     [Arguments("error", "#N/A", "error", "#VALUE!", false)]
     [Arguments("error", "#N/A", "error", "#N/A", true)]
-    [Arguments("rejected", "", "error", "#NAME?", false)]
+    [Arguments("rejected", "", "error", "#NAME?", true)]
+    [Arguments("rejected", "", "rejected", "", true)]
+    [Arguments("rejected", "", "number", "0", false)]
+    [Arguments("rejected", "", "text", "", false)]
+    [Arguments("error", "#N/A", "rejected", "", false)]
     public async Task Comparison_rules(string eType, string eValue, string aType, string aValue, bool expected)
     {
         await Assert.That(Matches(new Answer(eType, eValue), new Answer(aType, aValue))).IsEqualTo(expected);
