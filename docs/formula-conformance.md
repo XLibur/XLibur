@@ -104,16 +104,19 @@ agree almost everywhere. The text functions fail on arrays. Several causes share
 
 ## Task 5: date, lookup, statistical, financial and engineering
 
-74 more functions, 2,744 cases, same Excel build. XLibur disagrees on 359 (13.1%), in 53 of the 74 functions.
-This is four times the rate of the first four families. The whole conformance class (4,826 tests) runs in
-about 4.8 s.
+74 more functions, 2,744 cases, same Excel build. XLibur disagrees on 306 (11.2%), in 48 of the 74 functions.
+This is more than three times the rate of the first four families. The whole conformance class (about 4,830
+tests) runs in about 4.8 s.
+
+The first run found 359. Fifty-three were formulas Excel refuses at entry where XLibur returned an error value.
+Once a refused formula matched any error, those stopped counting.
 
 | Family | Cases | Disagreements |
 |---|---|---|
 | engineering | 463 | 109 |
 | financial | 923 | 95 |
-| statistical | 617 | 93 |
-| lookup | 149 | 31 |
+| statistical | 617 | 52 |
+| lookup | 149 | 19 |
 | date | 592 | 31 |
 
 **Three functions are not implemented.** `ADDRESS`, `CHOOSE` and `LOOKUP` return `#NAME?` for every call
@@ -121,12 +124,12 @@ about 4.8 s.
 removed from the corpus and the signature table, and are listed here instead. They belong to spec 07's
 coverage count and need no known-difference rows.
 
-How the 359 split, by the rule that classified them:
+How the 306 split, by the rule that classified them:
 
 | Mechanism | Cases | Examples |
 |---|---|---|
 | Boolean or multi-cell range where a number is expected: Excel `#VALUE!`, XLibur coerces | 61 | `WEEKNUM(TRUE)`, `EDATE(43831,TRUE)`, `DELTA(5,TRUE)`, `ERF(1,A1:A3)` |
-| Excel refuses the formula at entry, XLibur evaluates it to an error | 54 | `SUMIF(A1:A5,">2","5")`, `ROW("x")`, `COUNTBLANK("")` |
+| Excel refuses the formula at entry, XLibur evaluates it to a value | 1 | `RANK(3,{1,2,3})` is 1 in XLibur |
 | Two error arguments: a different argument's error wins | 28 | `GESTEP(#N/A,#DIV/0!)`, `SMALL(#N/A,#DIV/0!)` |
 | Huge magnitude or count: XLibur throws `ArgumentException` | 27 | `PMT(0.05,1000000,1000)`, `ERF(9E307)`, `PV(-1,10,-100)` |
 | Last digits differ: RATE and IRR converge differently | 22 | `RATE(10,-100,800)` is 0.042774978035587 in Excel and 0.0427749780351 in XLibur |
