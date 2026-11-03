@@ -64,6 +64,9 @@ internal readonly record struct FormulaRefusal
     /// </summary>
     internal ExpressionParseException ToException()
         => Cause as ExpressionParseException ?? new ExpressionParseException(Cause.Message, Cause);
+
+    /// <summary>The refusal as a caller of <c>XLHelper.TryParseFormula</c> sees it.</summary>
+    internal XLFormulaIssue ToIssue() => new(XLFormulaIssueKind.RefusedFormula, Message, Cause);
 }
 
 /// <summary>

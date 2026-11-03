@@ -207,7 +207,8 @@ public class EvaluationOutcomeTests
             + "Evaluate: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "FunctionLibrary: Throw, Throw, Throw, Throw, Throw, Throw\n"
             + "Recalculation: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw\n"
-            + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw");
+            + "Save: LeaveDirty, LeaveDirty, LeaveDirty, Throw, Throw, Throw\n"
+            + "TryEvaluate: Report, Report, Report, Throw, Throw, Throw");
     }
 
     /// <summary>
