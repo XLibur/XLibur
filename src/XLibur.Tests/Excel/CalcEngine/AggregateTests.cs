@@ -228,6 +228,55 @@ public class AggregateTests
     }
 
     [Test]
+    [Arguments(0, 7d, 3d)]
+    [Arguments(1, 7d, 3d)]
+    [Arguments(2, 7d, 3d)]
+    [Arguments(3, 7d, 3d)]
+    [Arguments(4, 13d, 5d)]
+    [Arguments(5, 13d, 5d)]
+    [Arguments(6, 13d, 5d)]
+    [Arguments(7, 13d, 5d)]
+    public async Task Aggregate_SkipsNestedSubtotalsOnlyForOptions0To3(int option, double expectedSum, double expectedCountA)
+    {
+        // Excel: options 0..3 ignore nested SUBTOTAL and AGGREGATE, options 4..7 ignore nothing nested.
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("A3").FormulaA1 = "SUBTOTAL(9, A1:A2)";
+            ws.Cell("A4").FormulaA1 = "AGGREGATE(9, 0, A1:A2)";
+            ws.Cell("A5").Value = 4;
+
+            ws.Cell("C1").FormulaA1 = $"AGGREGATE(9, {option}, A1:A5)";
+            ws.Cell("C2").FormulaA1 = $"AGGREGATE(3, {option}, A1:A5)";
+
+            await Assert.That((double)ws.Cell("C1").Value).IsEqualTo(expectedSum);
+            await Assert.That((double)ws.Cell("C2").Value).IsEqualTo(expectedCountA);
+        }
+    }
+
+    [Test]
+    [Arguments(2)]
+    [Arguments(3)]
+    [Arguments(6)]
+    [Arguments(7)]
+    public async Task Aggregate_CountAIgnoresErrorsWhenAskedTo(int option)
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").FormulaA1 = "1/0";
+            ws.Cell("A3").Value = "text";
+
+            ws.Cell("C1").FormulaA1 = $"AGGREGATE(3, {option}, A1:A3)";
+
+            await Assert.That((double)ws.Cell("C1").Value).IsEqualTo(2d);
+        }
+    }
+
+    [Test]
     public async Task Aggregate_TakesSeveralRanges()
     {
         var ws = NewSheet(out var wb);

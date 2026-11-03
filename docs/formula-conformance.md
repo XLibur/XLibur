@@ -6,9 +6,13 @@ XLibur on the same day. How the corpus works and how to refresh it is in
 
 ## Result
 
-XLibur disagrees with Excel on 24 of 549 cases (4.4%). 18 of the 25 functions have at least one
-disagreement. The 24 fall into 13 distinct causes. The sample is weighted toward edge cases on purpose
-(coercion, errors, boundaries, wrong argument counts), so 4.4% overstates the rate for ordinary use.
+XLibur disagrees with Excel on 21 of 549 cases (3.8%). 17 of the 25 functions have at least one
+disagreement. The 21 fall into 12 distinct causes. The sample is weighted toward edge cases on purpose
+(coercion, errors, boundaries, wrong argument counts), so this overstates the rate for ordinary use.
+
+The first run found 24 disagreements in 13 causes. The three `MOD` cases (`MOD(1E15,7)`, `MOD(1E20,7)`,
+`MOD(3,1E-20)`) were fixed on `main` by #889 while this work was in review, and the runner reported their
+known-difference rows as stale. That is the mechanism working as designed.
 
 The spec's gate sets two outcomes: under about 2%, stop at Task 3 scope; far higher, prioritise Task 4. This
 result is between them. It is high enough that the unit tests were agreeing with the code and not with
@@ -22,7 +26,7 @@ the cost of the full corpus is in doubt, since it runs 565 tests in about 1.6 se
 | SUM | math | 20 | 2 |
 | PRODUCT | math | 17 | 1 |
 | ROUND | math | 20 | 1 |
-| MOD | math | 20 | 3 |
+| MOD | math | 20 | 0 |
 | INT | math | 20 | 0 |
 | POWER | math | 20 | 1 |
 | ABS | math | 20 | 0 |
@@ -44,7 +48,7 @@ the cost of the full corpus is in doubt, since it runs 565 tests in about 1.6 se
 | VLOOKUP | lookup | 28 | 1 |
 | MATCH | lookup | 29 | 0 |
 | DATE | date | 38 | 1 |
-| **Total** | | **549** | **24** |
+| **Total** | | **549** | **21** |
 
 Recorded answer types: 271 number, 126 error, 86 text, 33 bool, 33 rejected (Excel refused the formula).
 
@@ -56,7 +60,6 @@ Ranked by number of cases. Every case is a row in `known-diffs.tsv` with its rea
 |---|---|---|
 | Double overflow: Excel returns `#NUM!`, XLibur throws `ArgumentException` or passes infinity through | 5 | `SUM(9E307,9E307)`, `PRODUCT(1E200,1E200)`, `IFERROR(9E307*10,"x")`, `ISNUMBER(9E307*10)` |
 | Number to text: Excel uses 15 significant digits in plain decimal form | 5 | `LEN(1/3)` is 17 in Excel and 18 in XLibur; `LEN(1E-5)` is 7 and 5; `TRIM(0.1+0.2)` is `0.3` and `0.30000000000000004` |
-| `MOD` with a very large quotient: Excel returns `#NUM!` | 3 | `MOD(1E15,7)`, `MOD(1E20,7)`, `MOD(3,1E-20)` |
 | Surrogate pair counted as one character by Excel | 2 | `LEN("😀")` is 1 and 2; `MID("😀ab",2,1)` is `a` and half an emoji. XLibur's `LEFT` and `FIND` already agree with Excel |
 | `ROUND(1.005,2)` | 1 | 1.01 in Excel, 1 in XLibur |
 | `SUM(0.1,0.2)-0.3` | 1 | exactly 0 in Excel, 5.55E-17 in XLibur |

@@ -131,6 +131,38 @@ public static partial class XLHelper
     }
 
     /// <summary>
+    /// Checks formula text without a workbook and without throwing for text that is refused.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the check that evaluating a cell's formula starts with: the syntax, and the number of
+    /// arguments of each function. It does not resolve defined names, sheets or tables, so a formula
+    /// that names a sheet that does not exist is accepted.
+    /// </para>
+    /// <para>
+    /// Both kinds of refusal are reported the same way, as <see cref="XLFormulaIssueKind.RefusedFormula"/>:
+    /// text the parser cannot read, and text with a part the calc engine cannot take. An Excel error
+    /// value written in the text, such as <c>#DIV/0!</c>, is accepted.
+    /// </para>
+    /// </remarks>
+    /// <param name="formula">The formula text. A leading <c>=</c> is allowed.</param>
+    /// <param name="issue">Why the text was refused, or <c>null</c> when it is accepted.</param>
+    /// <returns><c>true</c> when the text is accepted.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="formula"/> is <c>null</c>.</exception>
+    public static bool TryParseFormula(string formula, [NotNullWhen(false)] out XLFormulaIssue? issue)
+    {
+        ArgumentNullException.ThrowIfNull(formula);
+        if (CalcEngine.XLCalcEngine.TryParseWithBuiltInFunctions(formula, out var refusal))
+        {
+            issue = null;
+            return true;
+        }
+
+        issue = refusal.ToIssue(formula.StartsWith('=') ? 1 : 0);
+        return false;
+    }
+
+    /// <summary>
     /// Test a sheet name against the same rules as <see cref="ValidateSheetName"/>, reporting the
     /// reason rather than throwing.
     /// </summary>

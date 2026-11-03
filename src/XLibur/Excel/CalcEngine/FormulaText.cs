@@ -64,6 +64,23 @@ internal readonly record struct FormulaRefusal
     /// </summary>
     internal ExpressionParseException ToException()
         => Cause as ExpressionParseException ?? new ExpressionParseException(Cause.Message, Cause);
+
+    /// <summary>The refusal as a caller of <c>XLHelper.TryParseFormula</c> sees it.</summary>
+    /// <param name="textOffset">
+    /// How many characters the caller's text had before the text the parser read, so that the position
+    /// indexes the caller's text. A leading <c>=</c> is one.
+    /// </param>
+    internal XLFormulaIssue ToIssue(int textOffset = 0)
+        => new(XLFormulaIssueKind.RefusedFormula, Message, Cause, PositionOf(Cause, textOffset));
+
+    /// <summary>
+    /// Where the parser stopped, or <c>null</c> when <paramref name="cause"/> is not the parser's own
+    /// refusal (a factory refused a part the parser had read).
+    /// </summary>
+    internal static int? PositionOf(Exception? cause, int textOffset = 0)
+        => (cause as ExpressionParseException)?.InnerException is ParsingException wrapped
+            ? wrapped.Position + textOffset
+            : (cause as ParsingException)?.Position + textOffset;
 }
 
 /// <summary>

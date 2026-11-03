@@ -13,9 +13,6 @@ LEN	LEN#12	number:22	number:18	Number to text: Excel gives the 15-significant-di
 LEN	LEN#13	number:2	number:1	Excel counts an emoji (surrogate pair) as one character; XLibur counts UTF-16 units. LEFT and FIND in XLibur already treat the pair as one	
 MEDIAN	MEDIAN#15	throws:ArgumentException	number:9E+307	Excel returns 9E307 for the median of two 9E307 values; XLibur throws ArgumentException (probably summing before halving)	
 MID	MID#18	text:\uDE00	text:a	Excel indexes an emoji (surrogate pair) as one character; XLibur indexes UTF-16 units and splits the pair	
-MOD	MOD#11	number:6	error:#NUM!	Excel returns #NUM! for MOD(1E15,7); XLibur returns the remainder	
-MOD	MOD#12	number:0	error:#NUM!	Excel returns #NUM! for MOD(1E20,7); XLibur returns the remainder	
-MOD	MOD#13	number:0	error:#NUM!	Excel returns #NUM! for MOD(3,1E-20); XLibur returns the remainder	
 POWER	POWER#5	error:#NUM!	number:-1.9999999999999998	Excel returns the real cube root for a negative base with exponent 1/3; XLibur returns #NUM!	
 PRODUCT	PRODUCT#9	throws:ArgumentException	error:#NUM!	Overflow of a double: Excel returns #NUM!; XLibur throws ArgumentException	
 ROUND	ROUND#3	number:1	number:1.01	Excel rounds 1.005 to 1.01; XLibur rounds the binary value to 1 (Excel probably rounds the 15-digit decimal form)	

@@ -36,20 +36,27 @@ internal sealed class TallyNumbers : ITally
     /// </summary>
     internal static readonly TallyNumbers Subtotal100 = new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalOnly, skipHiddenRows: true));
 
+    /// <summary>No function names: the nesting check finds nothing, so nested subtotals count.</summary>
+    internal static readonly string[] NoFunctions = [];
+
     /// <summary>
-    /// The four tally algorithms <c>AGGREGATE</c> needs, indexed by whether its options ask for
-    /// hidden rows to be skipped and for errors to be ignored.
+    /// The eight tally algorithms <c>AGGREGATE</c> needs, indexed by whether its options ask for
+    /// nested SUBTOTAL/AGGREGATE to be skipped, hidden rows to be skipped and errors to be ignored.
     /// </summary>
     private static readonly TallyNumbers[] AggregateVariants =
     [
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, NoFunctions)),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, NoFunctions), ignoreErrors: true),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, NoFunctions, skipHiddenRows: true)),
+        new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, NoFunctions, skipHiddenRows: true), ignoreErrors: true),
         new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate)),
         new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate), ignoreErrors: true),
         new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate, skipHiddenRows: true)),
         new(static (ctx, reference) => ctx.GetFilteredNonBlankValues(reference, SubtotalAndAggregate, skipHiddenRows: true), ignoreErrors: true),
     ];
 
-    internal static TallyNumbers Aggregate(bool skipHiddenRows, bool ignoreErrors)
-        => AggregateVariants[(skipHiddenRows ? 2 : 0) + (ignoreErrors ? 1 : 0)];
+    internal static TallyNumbers Aggregate(bool skipNested, bool skipHiddenRows, bool ignoreErrors)
+        => AggregateVariants[(skipNested ? 4 : 0) + (skipHiddenRows ? 2 : 0) + (ignoreErrors ? 1 : 0)];
 
     /// <summary>
     /// Tally numbers. Any error (including conversion), logical, text is ignored and not tallied.
