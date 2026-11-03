@@ -24,8 +24,6 @@ CLEAN	CLEAN#9	throws:UnsupportedFeatureException	text:1	An array constant as an 
 CODE	CODE#9	throws:UnsupportedFeatureException	number:49	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 CONCATENATE	CONCATENATE#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 CONCATENATE	CONCATENATE#25	throws:UnsupportedFeatureException	text:a1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-COS	COS#15	number:-0.5131937377869702	error:#NUM!	=COS(1E15) is #NUM! in Excel for an argument this large; XLibur returns a number	
-COS	COS#16	number:-0.9608648775262758	error:#NUM!	=COS(9E307) is #NUM! in Excel for an argument this large; XLibur returns a number	
 DEGREES	DEGREES#16	throws:ArgumentException	error:#NUM!	=DEGREES(9E307) with a huge argument: Excel returns error:#NUM!; XLibur throws ArgumentException	
 EXACT	EXACT#9	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 EXACT	EXACT#24	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
@@ -63,8 +61,6 @@ ROUNDUP	ROUNDUP#25	number:2.34501	number:2.345	=ROUNDUP(2.345,A1) with a text or
 ROUNDUP	ROUNDUP#31	throws:ArgumentException	number:2.345	=ROUNDUP(2.345,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
 SEARCH	SEARCH#10	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 SEARCH	SEARCH#25	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-SIN	SIN#15	number:0.8582727931702359	error:#NUM!	=SIN(1E15) is #NUM! in Excel for an argument this large; XLibur returns a number	
-SIN	SIN#16	number:-0.2770174852539367	error:#NUM!	=SIN(9E307) is #NUM! in Excel for an argument this large; XLibur returns a number	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TRUNC	TRUNC#29	number:8.898649335713818	number:8.9	=TRUNC(8.9,2.5) with a text or fractional digits argument: Excel returns 2.345 / 8.9; XLibur returns a float with noise (number:8.898649335713818)	
 TRUNC	TRUNC#31	throws:ArgumentException	number:8.9	=TRUNC(8.9,1000000) with a huge value or a digits count of 1000000: Excel returns the value unchanged; XLibur throws ArgumentException	
