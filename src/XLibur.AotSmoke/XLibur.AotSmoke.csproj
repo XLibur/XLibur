@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Engine Condition="'$(Engine)' == ''">Pinata</Engine>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Engine)' == 'Pinata'">
+    <DefineConstants>$(DefineConstants);ENGINE_PINATA</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Engine)' == 'SixLabors'">
+    <DefineConstants>$(DefineConstants);ENGINE_SIXLABORS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Engine)' == 'SkiaExplicit'">
+    <DefineConstants>$(DefineConstants);ENGINE_SKIA</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XLibur\XLibur.csproj" />
+    <ProjectReference Include="..\XLibur.Fonts.PinataLabs\XLibur.Fonts.PinataLabs.csproj" Condition="'$(Engine)' == 'Pinata'" />
+    <ProjectReference Include="..\XLibur.Fonts.SixLabors\XLibur.Fonts.SixLabors.csproj" Condition="'$(Engine)' == 'SixLabors'" />
+    <ProjectReference Include="..\XLibur.Fonts.SkiaSharp\XLibur.Fonts.SkiaSharp.csproj" Condition="'$(Engine)' == 'SkiaExplicit' or '$(Engine)' == 'SkiaZeroConfig'" />
+  </ItemGroup>
+
+</Project>
