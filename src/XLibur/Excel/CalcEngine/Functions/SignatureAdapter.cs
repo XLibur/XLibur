@@ -1274,8 +1274,8 @@ internal static class SignatureAdapter
         if (value.TryPickScalar(out var scalar, out var collection))
             return scalar.ToText(ctx.Culture);
 
-        if (collection.TryPickT0(out _, out var reference))
-            throw new UnsupportedFeatureException("Array formulas not implemented.");
+        if (collection.TryPickT0(out var array, out var reference))
+            return array[0, 0].ToText(ctx.Culture);
 
         if (reference.TryGetSingleCellValue(out var scalarValue, ctx))
             return scalarValue.ToText(ctx.Culture);

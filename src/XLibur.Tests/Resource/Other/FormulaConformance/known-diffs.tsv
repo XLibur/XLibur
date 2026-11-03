@@ -14,43 +14,26 @@ SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM
 TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
 VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
-CLEAN	CLEAN#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-CODE	CODE#9	throws:UnsupportedFeatureException	number:49	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-CONCATENATE	CONCATENATE#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-CONCATENATE	CONCATENATE#25	throws:UnsupportedFeatureException	text:a1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-EXACT	EXACT#9	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-EXACT	EXACT#24	throws:UnsupportedFeatureException	bool:FALSE	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 FACTDOUBLE	FACTDOUBLE#8	number:1	error:#VALUE!	=FACTDOUBLE(A1:A3) rejects a multi-cell range argument with #VALUE! in Excel; XLibur uses one cell of it	
 GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
-LOWER	LOWER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 MROUND	MROUND#8	number:0	error:#VALUE!	=MROUND(A1:A3,3) rejects a multi-cell range argument with #VALUE! in Excel; XLibur uses one cell of it	
 MROUND	MROUND#23	number:10	error:#VALUE!	=MROUND(10,A1:A3) rejects a multi-cell range argument with #VALUE! in Excel; XLibur uses one cell of it	
 OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#5	bool:FALSE	error:#VALUE!	=OR("x") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#6	bool:FALSE	error:#VALUE!	=OR("") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-PROPER	PROPER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 QUOTIENT	QUOTIENT#8	number:0	error:#VALUE!	=QUOTIENT(A1:A3,2) rejects a multi-cell range argument with #VALUE! in Excel; XLibur uses one cell of it	
 QUOTIENT	QUOTIENT#23	number:7	error:#VALUE!	=QUOTIENT(7,A1:A3) rejects a multi-cell range argument with #VALUE! in Excel; XLibur uses one cell of it	
-REPLACE	REPLACE#9	throws:UnsupportedFeatureException	text:1X	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
-REPLACE	REPLACE#54	throws:UnsupportedFeatureException	text:a1ef	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-REPT	REPT#9	throws:UnsupportedFeatureException	text:111	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-RIGHT	RIGHT#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
-SEARCH	SEARCH#10	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
-SEARCH	SEARCH#25	throws:UnsupportedFeatureException	error:#VALUE!	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
-UPPER	UPPER#9	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel uses its first element (or #VALUE! for SEARCH); XLibur throws UnsupportedFeatureException	
 BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2DEC	BIN2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
 BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2HEX	BIN2HEX#9	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2HEX	BIN2HEX#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel returns text:1; XLibur throws UnsupportedFeatureException	
 BIN2HEX	BIN2HEX#18	text:A	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:A	
 BIN2HEX	BIN2HEX#24	text:A	error:#VALUE!	A multi-cell range argument: Excel returns #VALUE!; XLibur uses one cell of it and returns text:A	
 BIN2HEX	BIN2HEX#27	text:A	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:A	
@@ -65,10 +48,8 @@ COMPLEX	COMPLEX#30	text:3+1E+15i	text:3+1000000000000000i	Excel returns text:3+1
 CONVERT	CONVERT#8	number:3.280839895013124	error:#VALUE!	A multi-cell range argument: Excel returns #VALUE!; XLibur uses one cell of it and returns number:3.280839895013124	
 CONVERT	CONVERT#21	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CONVERT	CONVERT#23	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#24	throws:UnsupportedFeatureException	error:#N/A	An array constant as an argument: Excel returns error:#N/A; XLibur throws UnsupportedFeatureException	
 CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CONVERT	CONVERT#38	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#39	throws:UnsupportedFeatureException	error:#N/A	An array constant as an argument: Excel returns error:#N/A; XLibur throws UnsupportedFeatureException	
 CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
@@ -83,7 +64,6 @@ CORREL	CORREL#15	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur retur
 CORREL	CORREL#16	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#20	error:#VALUE!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#VALUE! (a different argument's error wins)	
 CORREL	CORREL#21	error:#VALUE!	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#VALUE! (a different argument's error wins)	
-DATEDIF	DATEDIF#43	throws:UnsupportedFeatureException	error:#NUM!	An array constant as an argument: Excel returns error:#NUM!; XLibur throws UnsupportedFeatureException	
 DB	DB#17	error:#NUM!	number:9E+307	An out-of-range magnitude or count: Excel returns number:9E+307; XLibur returns #NUM!	
 DDB	DDB#47	number:0.0019999999999527063	number:0.002	Last digits differ: Excel number:0.002, XLibur number:0.0019999999999527063	
 DDB	DDB#74	number:1.0000007932831068E-08	number:1E-08	Excel returns number:1E-08; XLibur returns number:1.0000007932831068E-08	
@@ -128,14 +108,12 @@ GESTEP	GESTEP#24	number:1	error:#VALUE!	A multi-cell range argument: Excel retur
 GESTEP	GESTEP#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
 GESTEP	GESTEP#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
 HEX2BIN	HEX2BIN#9	text:1010	error:#VALUE!	A multi-cell range argument: Excel returns #VALUE!; XLibur uses one cell of it and returns text:1010	
-HEX2BIN	HEX2BIN#10	throws:UnsupportedFeatureException	text:1	An array constant as an argument: Excel returns text:1; XLibur throws UnsupportedFeatureException	
 HEX2BIN	HEX2BIN#18	text:11111111	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:11111111	
 HEX2BIN	HEX2BIN#24	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 HEX2BIN	HEX2BIN#27	text:11111111	error:#NUM!	Excel returns error:#NUM!; XLibur returns text:11111111	
 HEX2BIN	HEX2BIN#33	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
 HEX2BIN	HEX2BIN#34	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
 HEX2DEC	HEX2DEC#8	number:10	error:#VALUE!	A multi-cell range argument: Excel returns #VALUE!; XLibur uses one cell of it and returns number:10	
-HEX2DEC	HEX2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
@@ -143,7 +121,6 @@ HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur retur
 IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-IMABS	IMABS#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
 IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#8	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
@@ -196,7 +173,6 @@ NPV	NPV#20	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns nu
 NPV	NPV#21	number:0	number:0.9090909090909091	Excel returns number:0.9090909090909091; XLibur returns number:0	
 OCT2DEC	OCT2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 OCT2DEC	OCT2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-OCT2DEC	OCT2DEC#9	throws:UnsupportedFeatureException	number:1	An array constant as an argument: Excel returns number:1; XLibur throws UnsupportedFeatureException	
 PERCENTILE	PERCENTILE#26	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
 PERCENTILE	PERCENTILE#27	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
 PMT	PMT#15	number:-99.99999182596359	number:-100.000000055	Excel returns number:-100.000000055; XLibur returns number:-99.99999182596359	

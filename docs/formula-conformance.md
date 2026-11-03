@@ -162,7 +162,7 @@ and nothing more. Task 4 is the step that turns them into causes and fixes.
 
 Across the three recordings the corpus has 4,810 cases for 164 functions. Before the fixes below, XLibur
 disagreed on 372. After them it disagrees on 329 (6.8%), in 78 of the 164 functions. A second round (logical arguments, below)
-brought it to 290 (6.0%).
+brought it to 290 (6.0%), and array constants as text arguments to 266 (5.5%).
 
 Ranked by family, after the fixes:
 
@@ -205,7 +205,7 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
    intersects a range down to one cell before the function runs, and Excel instead rejects it. Fixing it
    means changing the flags of about 30 functions and their array-formula behavior, so it needs its own
    decision.
-2. An array constant as an argument throws `UnsupportedFeatureException` (24).
+2. Done: `ToText` used to throw `UnsupportedFeatureException` for an array constant, where `ToNumber` took its first element. It now takes the first element too, which cleared all 24 rows (`UPPER({1,2,3})`, `SEARCH`, `BIN2DEC` and others).
 3. Which of two error arguments wins (28).
 4. `RATE` and `IRR` convergence (22). Excel and XLibur stop at different digits; this needs a decision on
    tolerance and iteration count.
