@@ -293,11 +293,10 @@ internal static class PivotTableDefinitionPartWriter2
                     xml.WriteAttribute("action", ToAttr(format.Action.ToOpenXml()));
 
                 // DxfId is optional.
-                if (format.DxfStyleValue != XLStyleValue.Default)
-                {
-                    var dxfId = context.DifferentialFormats[format.DxfStyleValue];
-                    xml.WriteAttribute("dxfId", dxfId);
-                }
+                if (format.LoadedDxfXml is { } loadedDxfXml)
+                    xml.WriteAttribute("dxfId", context.LoadedDxfIds[loadedDxfXml]);
+                else if (format.DxfStyleValue != XLStyleValue.Default)
+                    xml.WriteAttribute("dxfId", context.DifferentialFormats[format.DxfStyleValue]);
 
                 var pivotArea = format.PivotArea;
                 WritePivotArea(xml, pivotArea);

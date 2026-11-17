@@ -469,6 +469,15 @@ internal static class WorkbookStylesPartWriter
         {
             AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
         }
+
+        foreach (var format in pt.Formats)
+        {
+            if (format.LoadedDxfXml is not { } dxfXml || context.LoadedDxfIds.ContainsKey(dxfXml))
+                continue;
+
+            differentialFormats.Append(new DifferentialFormat(dxfXml));
+            context.LoadedDxfIds.Add(dxfXml, differentialFormats.ChildElements.Count - 1);
+        }
     }
 
     private static void AddPivotTableConditionalFormatDxfs(DifferentialFormats differentialFormats,

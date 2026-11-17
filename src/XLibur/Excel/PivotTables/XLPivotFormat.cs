@@ -25,5 +25,27 @@ internal sealed class XLPivotFormat
     /// <see cref="Action"/> is blank. Empty dxf is represented by <see cref="XLStyle.Default"/>,
     /// until we get better dxf representation.
     /// </summary>
-    internal XLStyleValue DxfStyleValue { get; set; } = XLStyle.Default.Value;
+    internal XLStyleValue DxfStyleValue
+    {
+        get;
+        set
+        {
+            field = value;
+            _loadedDxfXml = null;
+        }
+    } = XLStyle.Default.Value;
+
+    private string? _loadedDxfXml;
+
+    /// <summary>
+    /// The dxf the format was loaded with, verbatim, when it decodes to an empty
+    /// <see cref="DxfStyleValue"/>. Such a dxf can still say something the style model cannot:
+    /// that a fill, a border side or the number format is cleared. Setting
+    /// <see cref="DxfStyleValue"/> drops it.
+    /// </summary>
+    internal string? LoadedDxfXml
+    {
+        get => _loadedDxfXml;
+        init => _loadedDxfXml = value;
+    }
 }
