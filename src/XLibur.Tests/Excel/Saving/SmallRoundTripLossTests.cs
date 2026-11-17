@@ -7,9 +7,6 @@ using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Saving;
 
-/// <summary>
-/// Content a load and save used to drop or change (#910).
-/// </summary>
 public class SmallRoundTripLossTests
 {
     private const string ConditionalFormatThemeColor = @"TryToLoad\LO\xlsx\condformat_theme_color.xlsx";
@@ -41,7 +38,6 @@ public class SmallRoundTripLossTests
     [Test]
     public async Task Header_text_with_no_section_code_stays_centred()
     {
-        // The fixture's first sheet has <oddHeader>&A</oddHeader> and <oddFooter>Page &P</oddFooter>.
         using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsm\tdf111974.xlsm");
         using var wb = new XLWorkbook(saved);
 
@@ -55,8 +51,6 @@ public class SmallRoundTripLossTests
     [Test]
     public async Task List_validation_in_alternate_content_keeps_its_items()
     {
-        // The rule holds <x12ac:list>1,"2,3",4</x12ac:list> with <formula1>"1,2,3,4"</formula1> as the
-        // fallback for readers that do not know x12ac. Excel writes this form when an item has a comma.
         using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsx\tdf104310-2.xlsx");
 
         var dataValidation = XDocument.Parse(saved.Sheet1Xml()).Descendants(Main + "dataValidation").Single();

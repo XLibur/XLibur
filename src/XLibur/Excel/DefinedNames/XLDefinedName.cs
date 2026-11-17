@@ -105,10 +105,6 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
     public bool Visible { get; set; }
 
-    /// <summary>
-    /// The attributes of the loaded <c>definedName</c> this library has no model for, by name, such as
-    /// <c>function</c> and <c>xlm</c> on an XLM macro name. A save writes them back.
-    /// </summary>
     internal IReadOnlyList<KeyValuePair<string, string>> UnmodelledAttributes { get; set; } = [];
 
     public XLNamedRangeScope Scope => _container.Scope;

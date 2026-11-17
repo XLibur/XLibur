@@ -246,7 +246,7 @@ internal static class DataValidationMapping
         public static DataValidation Write(in DataValidationSettings settings, string sqref)
         {
             var element = WriteAttributes(new DataValidation(), settings);
-            if (settings.QuotedItems is { } quotedItems && quotedItems.Spells(settings))
+            if (settings.QuotedItems is { } quotedItems && quotedItems.StillMatches(settings))
                 element.AppendChild(QuotedItemsElement(quotedItems));
             else if (FormulaOrNull(settings.MinValue) is { } min)
                 element.Formula1 = new Formula1(min);
@@ -256,7 +256,6 @@ internal static class DataValidationMapping
             return element;
         }
 
-        /// <summary>The <c>mc:AlternateContent</c> Excel writes in place of <c>formula1</c> for such a list.</summary>
         private static AlternateContent QuotedItemsElement(QuotedItemList quotedItems)
         {
             var alternateContent = new AlternateContent();
