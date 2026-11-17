@@ -131,6 +131,22 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         }
     }
 
+    /// <summary>
+    /// Is <see cref="Height"/> one Excel fitted to the row's contents and cached in the file
+    /// (<c>ht</c> without <c>customHeight</c>), rather than one the user set?
+    /// </summary>
+    internal bool HeightIsAuto
+    {
+        get => _flags.HasFlag(XlRowFlags.HeightIsAuto);
+        private set
+        {
+            if (value)
+                _flags |= XlRowFlags.HeightIsAuto;
+            else
+                _flags &= ~XlRowFlags.HeightIsAuto;
+        }
+    }
+
     #region IXLRow Members
 
     public double Height
@@ -139,8 +155,15 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         set
         {
             HeightChanged = true;
+            HeightIsAuto = false;
             _height = value;
         }
+    }
+
+    internal void SetAutoHeight(double height)
+    {
+        Height = height;
+        HeightIsAuto = true;
     }
 
     /// <summary>
@@ -578,6 +601,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     {
         target._height = _height;
         target.HeightChanged = HeightChanged;
+        target.HeightIsAuto = HeightIsAuto;
         target.InnerStyle = GetStyle();
         target.IsHidden = IsHidden;
     }
@@ -735,6 +759,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         Collapsed = 1,
         IsHidden = 2,
         ShowPhonetic = 4,
-        HeightChanged = 8
+        HeightChanged = 8,
+        HeightIsAuto = 16
     }
 }

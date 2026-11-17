@@ -595,8 +595,8 @@ internal static class SheetDataWriter
             w.WriteNumberValue(height);
             w.WriteEndAttribute();
 
-            // Note that dyDescent automatically implies custom height
-            w.WriteAttributeString("customHeight", TrueValue);
+            if (!xlRow.HeightIsAuto)
+                w.WriteAttributeString("customHeight", TrueValue);
         }
 
         if (xlRow.IsHidden)
