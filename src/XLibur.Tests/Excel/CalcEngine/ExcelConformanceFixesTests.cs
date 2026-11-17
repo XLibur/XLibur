@@ -140,6 +140,28 @@ public class ExcelConformanceFixesTests
         await Assert.That(XLWorkbook.EvaluateExpr("RATE(10,1E-10,800)")).IsEqualTo(XLError.NumberInvalid);
     }
 
+    // Expected roots are solved in 80-digit decimal arithmetic from the arguments' exact double values.
+    [Test]
+    [Arguments("RATE(12,-100,1200)", 0d)]
+    [Arguments("RATE(4,-250,1000)", 0d)]
+    [Arguments("RATE(4,-250,1000,0,1)", 0d)]
+    [Arguments("RATE(360,-1000,360000)", 0d)]
+    [Arguments("RATE(10,-1000,10000,0,0,0.5)", 0d)]
+    [Arguments("RATE(60,-1000,60000,0,0,0.01)", 0d)]
+    [Arguments("RATE(12,-100,1199.9999)", 1.2820513584333892e-08)]
+    [Arguments("RATE(12,-100,1200.0001)", -1.2820512050255435e-08)]
+    [Arguments("RATE(360,-1000,359999)", 1.5389379147213583e-08)]
+    public async Task A_rate_near_zero_is_solved(string formula, double root)
+    {
+        await Assert.That((double)XLWorkbook.EvaluateExpr(formula)).IsEqualTo(root).Within(1e-15);
+    }
+
+    [Test]
+    public async Task A_typical_loan_rate_is_accurate_to_the_last_digits()
+    {
+        await Assert.That((double)XLWorkbook.EvaluateExpr("RATE(360,-1073.64,200000)")).IsEqualTo(0.004166644536345542).Within(1e-17);
+    }
+
     private static readonly double IrrOfMinus100_50_70 = (50 + System.Math.Sqrt(30500)) / 200 - 1;
 
     [Test]
