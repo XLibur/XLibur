@@ -672,6 +672,7 @@ internal static class PivotTableDefinitionPartReader
             xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;
             xlPivotTable.Description = ptExt2010.AltTextSummary?.Value ?? string.Empty;
             xlPivotTable.EnableCellEditing = ptExt2010.EnableEdit?.Value ?? false;
+            xlPivotTable.FillDownLabelsDefault = ptExt2010.FillDownLabelsDefault?.Value ?? false;
             var hideValuesRow = ptExt2010.HideValuesRow?.Value ?? false;
             xlPivotTable.ShowValuesRow = !hideValuesRow;
             LoadExtensionConditionalFormats(ptExt2010.ConditionalFormats, xlPivotTable);

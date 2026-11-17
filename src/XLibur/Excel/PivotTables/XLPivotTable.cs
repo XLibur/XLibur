@@ -145,6 +145,13 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     internal List<string> OtherExtensionsXml { get; } = new();
 
+    /// <summary>
+    /// The <c>x14</c> <c>fillDownLabelsDefault</c> flag: a field added to the table repeats its
+    /// item labels. The fields already in the table keep their own
+    /// <see cref="IXLPivotField.RepeatItemLabels"/>.
+    /// </summary>
+    internal bool FillDownLabelsDefault { get; set; }
+
     internal void SetCustomTheme(string name)
     {
         Theme = XLPivotTableTheme.None;
@@ -222,6 +229,7 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         newPivotTable.Description = Description;
         newPivotTable.ShowValuesRow = ShowValuesRow;
         newPivotTable.EnableCellEditing = EnableCellEditing;
+        newPivotTable.FillDownLabelsDefault = FillDownLabelsDefault;
         newPivotTable.ShowRowHeaders = ShowRowHeaders;
         newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
         newPivotTable.ShowRowStripes = ShowRowStripes;
