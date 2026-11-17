@@ -27,10 +27,6 @@ public class NoteAnchorTests
         await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.Absolute);
         await Assert.That(note.Style.Properties.Positioning).IsEqualTo(note.Anchor);
 
-        // Both directions, because "the two agree" is not the property under test — "the two are
-        // one value" is. Two separate fields that both happened to default to Absolute would
-        // satisfy the assertions above, and that is D17 restored in exactly the shape that kept
-        // it invisible for as long as it did.
         note.Style.Properties.Positioning = XLDrawingAnchor.MoveAndSizeWithCells;
         await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
 
@@ -49,8 +45,8 @@ public class NoteAnchorTests
             wb.SaveAs(ms);
         }
 
-        // Counterintuitive, exactly as VmlDrawingPartWriter's own comment records it: True here
-        // means the note does *not* move, and does *not* resize, with its cells.
+        // Excel inverts these flags (MS-OI29500 2.1.1881): True means the note does not move or
+        // resize with its cells.
         var clientData = ReadNoteClientData(ms);
         await Assert.That(clientData.Element(ExcelVml + "MoveWithCells")?.Value).IsEqualTo("True");
         await Assert.That(clientData.Element(ExcelVml + "SizeWithCells")?.Value).IsEqualTo("True");

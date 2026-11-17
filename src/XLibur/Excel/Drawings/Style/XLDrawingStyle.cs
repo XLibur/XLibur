@@ -49,8 +49,7 @@ internal sealed class XLDrawingStyle : IXLDrawingStyle
                 .Alignment.SetVertical(XLDrawingVerticalAlignment.Top)
                 .Alignment.SetDirection(XLDrawingTextDirection.LeftToRight)
                 .Alignment.SetOrientation(XLDrawingTextOrientation.LeftToRight)
-                // Excel creates every note free-floating ("Don't move or size with cells"). The
-                // callout still follows its cell when rows or columns are inserted or deleted.
+                // Excel creates every note free-floating ("Don't move or size with cells").
                 .Properties.SetPositioning(XLDrawingAnchor.Absolute)
                 .Protection.SetLocked()
                 .Protection.SetLockText();

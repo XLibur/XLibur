@@ -439,10 +439,7 @@ internal static class DrawingPartReader
         LoadDrawingVAlignment(drawing, clientData);
     }
 
-    /// <summary>
-    /// A VML client-data boolean: <c>null</c> when the element is absent, otherwise true when it is
-    /// empty or its text starts with <c>t</c>. Excel writes a set flag as an empty element.
-    /// </summary>
+    // ST_TrueFalseBlank: an element without a value means true, and Excel writes a set flag that way.
     private static bool? ClientDataFlag(XElement clientData, string name)
     {
         var element = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == name);
