@@ -1,4 +1,5 @@
 using System;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.CustomProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
@@ -39,11 +40,7 @@ internal static class CustomFilePropertiesPartWriter
             }
             else if (p.Type == XLCustomPropertyType.Number)
             {
-                var vTDouble1 = new VTDouble
-                {
-                    Text = p.GetValue<double>().ToInvariantString()
-                };
-                customDocumentProperty.AppendChild(vTDouble1);
+                customDocumentProperty.AppendChild(CreateNumber(p));
             }
             else
             {
@@ -53,6 +50,30 @@ internal static class CustomFilePropertiesPartWriter
             properties.AppendChild(customDocumentProperty);
         }
 
+        foreach (var unmodeled in workbook.CustomPropertiesInternal.UnmodeledPropertiesToSave)
+        {
+            propertyId++;
+            var customDocumentProperty = (CustomDocumentProperty)unmodeled.CloneNode(true);
+            customDocumentProperty.PropertyId = propertyId;
+            properties.AppendChild(customDocumentProperty);
+        }
+
         customFilePropertiesPart.Properties = properties;
+    }
+
+    private static OpenXmlLeafTextElement CreateNumber(IXLCustomProperty property)
+    {
+        return property.Value switch
+        {
+            sbyte v => new VTByte { Text = v.ToInvariantString() },
+            short v => new VTShort { Text = v.ToInvariantString() },
+            int v => new VTInt32 { Text = v.ToInvariantString() },
+            long v => new VTInt64 { Text = v.ToInvariantString() },
+            byte v => new VTUnsignedByte { Text = v.ToInvariantString() },
+            ushort v => new VTUnsignedShort { Text = v.ToInvariantString() },
+            uint v => new VTUnsignedInt32 { Text = v.ToInvariantString() },
+            ulong v => new VTUnsignedInt64 { Text = v.ToInvariantString() },
+            _ => new VTDouble { Text = property.GetValue<double>().ToInvariantString() }
+        };
     }
 }

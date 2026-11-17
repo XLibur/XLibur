@@ -1011,7 +1011,7 @@ public partial class XLWorkbook
             ThemePartWriter.GenerateContent(themePart, (XLTheme)Theme);
         }
 
-        if (CustomProperties.Any())
+        if (CustomPropertiesInternal.HasAnyToSave)
         {
             var customFilePropertiesPart =
                 document.CustomFilePropertiesPart ??

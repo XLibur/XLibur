@@ -299,7 +299,9 @@ public partial class XLWorkbook : IXLWorkbook
     /// </summary>
     public XLReferenceStyle ReferenceStyle { get; set; }
 
-    public IXLCustomProperties CustomProperties { get; private set; }
+    public IXLCustomProperties CustomProperties => CustomPropertiesInternal;
+
+    internal XLCustomProperties CustomPropertiesInternal { get; private set; }
 
     public bool ShowFormulas { get; set; }
 
@@ -1134,7 +1136,7 @@ public partial class XLWorkbook : IXLWorkbook
         WorksheetsInternal = new XLWorksheets(this);
         DefinedNamesInternal = new XLDefinedNames(this);
         PivotCachesInternal = new XLPivotCaches(this);
-        CustomProperties = new XLCustomProperties(this);
+        CustomPropertiesInternal = new XLCustomProperties(this);
         ShapeIdManager = new XLIdManager();
         Author = Environment.UserName;
     }
