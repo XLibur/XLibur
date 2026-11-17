@@ -106,11 +106,10 @@ internal static class DefinedNameReader
     {
         var text = definedName.Text;
         var comment = definedName.Comment;
+        XLDefinedNames names;
         if (localSheetId == -1)
         {
-            if (xlWorkbook.DefinedNamesInternal.All<XLDefinedName>(nr => nr.Name != name))
-                xlWorkbook.DefinedNamesInternal.Add(name, text, comment, validateName: false, validateRangeAddress: false)
-                    .Visible = visible;
+            names = xlWorkbook.DefinedNamesInternal;
         }
         else
         {
@@ -121,11 +120,24 @@ internal static class DefinedNameReader
             if (SheetAt(sheetsByPosition, localSheetId) is not { } sheet)
                 return;
 
-            if (sheet.DefinedNames.All<XLDefinedName>(nr => nr.Name != name))
-                sheet.DefinedNames.Add(name, text, comment, validateName: false, validateRangeAddress: false)
-                    .Visible = visible;
+            names = sheet.DefinedNames;
         }
+
+        if (names.Any<XLDefinedName>(nr => nr.Name == name))
+            return;
+
+        var xlDefinedName = (XLDefinedName)names.Add(name, text, comment, validateName: false, validateRangeAddress: false);
+        xlDefinedName.Visible = visible;
+        xlDefinedName.UnmodelledAttributes = UnmodelledAttributes(definedName);
     }
+
+    private static readonly HashSet<string> ModelledAttributes = ["name", "comment", "localSheetId", "hidden"];
+
+    private static KeyValuePair<string, string>[] UnmodelledAttributes(DefinedName definedName) =>
+        definedName.GetAttributes()
+            .Where(a => string.IsNullOrEmpty(a.NamespaceUri) && !ModelledAttributes.Contains(a.LocalName))
+            .Select(a => KeyValuePair.Create(a.LocalName, a.Value ?? string.Empty))
+            .ToArray();
 
     private static void LoadPrintAreas(DefinedName definedName, XLWorkbook xlWorkbook, XLWorksheet? sheet)
     {
