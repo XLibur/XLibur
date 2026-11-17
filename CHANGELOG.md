@@ -32,6 +32,7 @@
 
 ### 🐛 Bug Fixes
 
+- **A workbook saved as ISO/IEC 29500 Strict loads its cells, and a save keeps them.** Excel writes a Strict workbook when you choose "Strict Open XML Spreadsheet" in Save As. XLibur loaded such a workbook with no cell values and no shared strings, and gave no error. A save with no edit then wrote every sheet with no cells. The cell reader and the shared-string reader now accept the Strict namespace as well as the Transitional one. The save still writes the workbook as Transitional ([#900](https://github.com/XLibur/XLibur/issues/900)).
 - **`AGGREGATE` options 4 to 7 no longer skip nested `SUBTOTAL` and `AGGREGATE` cells, and `AGGREGATE(3, …)` ignores errors when the option says to.** Only options 0 to 3 skip nested subtotals; XLibur skipped them under every option, so `AGGREGATE(1, 4, C1:C11)` over a range holding a `SUBTOTAL` gave 49 where Excel gives 49.504. `COUNTA` (function 3) with option 2, 3, 6 or 7 returned the first error in the range instead of counting the other values. A copy of `functions-excel-2010.xlsx` recalculated in Excel and in XLibur now agrees on all 171 cells of its `AGGREGATE` block, and the 53 that differed were the two causes above ([#879](https://github.com/XLibur/XLibur/issues/879)).
 ### ✨ New Features
 
