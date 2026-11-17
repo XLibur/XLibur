@@ -203,36 +203,99 @@ internal static class Financial
     }
 
     /// <summary>
-    /// Newton's method on the NPV of <paramref name="cashflows"/> from the <paramref name="guess"/>.
+    /// Excel answers <c>#VALUE!</c> for a guess at or below -1 or above about 2^53 (measured: 9E15
+    /// is solved, 9.0072E15 is not).
     /// </summary>
     private static AnyValue SolveIrr(List<double> cashflows, double guess)
     {
-        const int maxIterations = 50;
-        const double tolerance = 1e-7;
-        var rate = guess;
-        for (var iteration = 0; iteration < maxIterations; iteration++)
-        {
-            double npv = 0, derivative = 0;
-            for (var t = 0; t < cashflows.Count; t++)
-            {
-                var factor = Math.Pow(1 + rate, t);
-                npv += cashflows[t] / factor;
-                derivative -= t * cashflows[t] / (factor * (1 + rate));
-            }
+        const double maxGuess = 9007199254740992d; // 2^53
+        if (guess <= -1 || guess > maxGuess)
+            return XLError.IncompatibleValue;
 
-            if (Math.Abs(npv) < tolerance)
-                return rate;
-            if (derivative == 0.0)
-                break;
-
-            var nextRate = rate - npv / derivative;
-            if (Math.Abs(nextRate - rate) < tolerance)
-                return nextRate;
-
-            rate = nextRate;
-        }
+        if (TryNewtonRoot(rate => NpvWithDerivative(cashflows, rate), guess, out var root) || TryBisectNpv(cashflows, out root))
+            return root;
 
         return XLError.NumberInvalid;
+    }
+
+    private static (double Value, double Derivative) NpvWithDerivative(List<double> cashflows, double rate)
+    {
+        double npv = 0, derivative = 0;
+        for (var t = 0; t < cashflows.Count; t++)
+        {
+            var factor = Math.Pow(1 + rate, t);
+            npv += cashflows[t] / factor;
+            derivative -= t * cashflows[t] / (factor * (1 + rate));
+        }
+
+        return (npv, derivative);
+    }
+
+    private static bool TryNewtonRoot(Func<double, (double Value, double Derivative)> function, double guess, out double root)
+    {
+        const int maxIterations = 100;
+        const double relativeStep = 1e-12;
+        root = guess;
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            var (value, derivative) = function(root);
+            if (value == 0.0)
+                return true;
+
+            var step = value / derivative;
+            if (!double.IsFinite(step))
+                return false;
+
+            root -= step;
+            if (Math.Abs(step) <= relativeStep * Math.Max(1, Math.Abs(root)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryBisectNpv(List<double> cashflows, out double root)
+    {
+        for (var d = 0; d < 30; d++)
+        {
+            if (TryBisectNpv(cashflows, Math.ScaleB(1, d) - 1, Math.ScaleB(1, d + 1) - 1, out root)
+                || TryBisectNpv(cashflows, Math.ScaleB(1, -d - 1) - 1, Math.ScaleB(1, -d) - 1, out root))
+                return true;
+        }
+
+        root = default;
+        return false;
+    }
+
+    private static bool TryBisectNpv(List<double> cashflows, double low, double high, out double root)
+    {
+        root = default;
+        var lowValue = NpvWithDerivative(cashflows, low).Value;
+        var highValue = NpvWithDerivative(cashflows, high).Value;
+        if (!double.IsFinite(lowValue) || !double.IsFinite(highValue) || Math.Sign(lowValue) == Math.Sign(highValue))
+            return false;
+
+        while (true)
+        {
+            var middle = low + (high - low) / 2;
+            if (middle <= low || middle >= high)
+            {
+                root = Math.Abs(lowValue) <= Math.Abs(highValue) ? low : high;
+                return true;
+            }
+
+            var value = NpvWithDerivative(cashflows, middle).Value;
+            if (value == 0.0)
+            {
+                root = middle;
+                return true;
+            }
+
+            if (Math.Sign(value) == Math.Sign(lowValue))
+                (low, lowValue) = (middle, value);
+            else
+                (high, highValue) = (middle, value);
+        }
     }
 
     private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
@@ -267,33 +330,21 @@ internal static class Financial
     }
 
     /// <summary>
-    /// Newton's method on the time-value-of-money residual from the <paramref name="guess"/>, with
-    /// a numeric derivative.
+    /// Excel answers <c>#NUM!</c> when the rate is at or below -1.
     /// </summary>
     private static AnyValue SolveRate(double nper, double pmt, double pv, double fv, double type, double guess)
     {
-        const int maxIterations = 100;
-        const double tolerance = 1e-8;
         const double delta = 1e-6;
-        var rate = guess;
-        for (var iteration = 0; iteration < maxIterations; iteration++)
+        (double, double) Residual(double rate)
         {
             var value = TvmEquation(rate, nper, pmt, pv, fv, type);
-            if (Math.Abs(value) < tolerance)
-                return rate;
-
-            var derivative = (TvmEquation(rate + delta, nper, pmt, pv, fv, type) - value) / delta;
-            if (derivative == 0.0)
-                break;
-
-            var nextRate = rate - value / derivative;
-            if (Math.Abs(nextRate - rate) < tolerance)
-                return nextRate;
-
-            rate = nextRate;
+            return (value, (TvmEquation(rate + delta, nper, pmt, pv, fv, type) - value) / delta);
         }
 
-        return XLError.NumberInvalid;
+        if (!TryNewtonRoot(Residual, guess, out var root) || root <= -1)
+            return XLError.NumberInvalid;
+
+        return root;
     }
 
     /// <summary>

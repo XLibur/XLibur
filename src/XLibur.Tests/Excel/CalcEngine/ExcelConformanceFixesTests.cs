@@ -137,7 +137,6 @@ public class ExcelConformanceFixesTests
     [Test]
     public async Task A_rate_with_no_root_above_minus_one_is_a_number_error()
     {
-        // 800(1+r)^10 + 1E-10·((1+r)^10-1)/r is positive for every r above -1.
         await Assert.That(XLWorkbook.EvaluateExpr("RATE(10,1E-10,800)")).IsEqualTo(XLError.NumberInvalid);
     }
 

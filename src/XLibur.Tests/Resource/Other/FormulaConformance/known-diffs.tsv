@@ -108,13 +108,6 @@ INDEX	INDEX#42	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error
 INDEX	INDEX#43	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
 IPMT	IPMT#45	error:#NUM!	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur returns #NUM!	
 IPMT	IPMT#60	number:-4.5000000000000006E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-4.5000000000000006E+306	
-IRR	IRR#1	number:0.12321245982833762	number:0.12321245982864903	Last digits differ: Excel number:0.12321245982864903, XLibur number:0.12321245982833762	
-IRR	IRR#2	number:0.12321245982833762	number:0.12321245982864903	Last digits differ: Excel number:0.12321245982864903, XLibur number:0.12321245982833762	
-IRR	IRR#13	error:#NUM!	number:0.12321245982845053	Excel returns number:0.12321245982845053; XLibur returns error:#NUM!	
-IRR	IRR#22	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-IRR	IRR#23	number:0.12321245981112457	number:0.1232124598289166	Last digits differ: Excel number:0.1232124598289166, XLibur number:0.12321245981112457	
-IRR	IRR#25	error:#NUM!	number:0.12321245982867746	Excel returns number:0.12321245982867746; XLibur returns error:#NUM!	
-IRR	IRR#26	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 LARGE	LARGE#26	error:#DIV/0!	error:#N/A	Two error arguments: Excel returns error:#N/A, XLibur returns error:#DIV/0! (a different argument's error wins)	
 LARGE	LARGE#27	error:#N/A	error:#DIV/0!	Two error arguments: Excel returns error:#DIV/0!, XLibur returns error:#N/A (a different argument's error wins)	
 MODE	MODE#3	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
@@ -170,34 +163,8 @@ RANK	RANK#27	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error
 RANK	RANK#28	number:3	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:3	
 RANK	RANK#33	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
 RANK	RANK#34	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
-RATE	RATE#1	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
-RATE	RATE#2	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
-RATE	RATE#4	number:-0.13866837021563216	number:-0.13866837020870196	Last digits differ: Excel number:-0.13866837020870196, XLibur number:-0.13866837021563216	
-RATE	RATE#11	number:-0.13866837021563216	number:-0.13866837020870196	Last digits differ: Excel number:-0.13866837020870196, XLibur number:-0.13866837021563216	
-RATE	RATE#18	number:-0.9210270444535512	number:-0.999998742518659	Excel returns number:-0.999998742518659; XLibur returns number:-0.9210270444535512	
-RATE	RATE#27	number:-0.9210270444535512	number:-0.999998742518659	Excel returns number:-0.999998742518659; XLibur returns number:-0.9210270444535512	
-RATE	RATE#28	number:-0.44435706814224324	number:-0.44435706813995224	Last digits differ: Excel number:-0.44435706813995224, XLibur number:-0.44435706814224324	
-RATE	RATE#30	number:-0.9210951121986823	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-0.9210951121986823	
-RATE	RATE#31	number:-2.00000000000016	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-2.00000000000016	
-RATE	RATE#33	number:-1.9999999999994622	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999994622	
-RATE	RATE#34	number:-1.9905567847968422	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9905567847968422	
-RATE	RATE#37	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
-RATE	RATE#39	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
-RATE	RATE#40	number:-1.9980236305008583	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9980236305008583	
-RATE	RATE#41	number:-1.9905567847968422	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9905567847968422	
-RATE	RATE#42	number:-1.9999999999994622	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999994622	
-RATE	RATE#43	number:-2.002024382750959	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-2.002024382750959	
-RATE	RATE#44	number:-1.9990059534095075	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9990059534095075	
-RATE	RATE#45	number:-1.9999999999992624	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.9999999999992624	
-RATE	RATE#48	number:0.042774978035113674	number:0.042774978035587	Last digits differ: Excel number:0.042774978035587, XLibur number:0.042774978035113674	
-RATE	RATE#49	number:0.04193931678481145	number:0.04193931678544776	Last digits differ: Excel number:0.04193931678544776, XLibur number:0.04193931678481145	
-RATE	RATE#52	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
-RATE	RATE#54	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
-RATE	RATE#55	number:0.042608501893344544	number:0.042608501893846254	Last digits differ: Excel number:0.042608501893846254, XLibur number:0.042608501893344544	
-RATE	RATE#56	number:0.04193931678481145	number:0.04193931678544776	Last digits differ: Excel number:0.04193931678544776, XLibur number:0.04193931678481145	
-RATE	RATE#57	number:0.0429411290166496	number:0.04294112901709528	Last digits differ: Excel number:0.04294112901709528, XLibur number:0.0429411290166496	
-RATE	RATE#58	number:0.042691780698984653	number:0.04269178069947137	Last digits differ: Excel number:0.04269178069947137, XLibur number:0.042691780698984653	
-RATE	RATE#59	number:0.04277497803509664	number:0.04277497803557046	Last digits differ: Excel number:0.04277497803557046, XLibur number:0.04277497803509664	
+RATE	RATE#18	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
+RATE	RATE#27	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
 SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 SLOPE	SLOPE#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	

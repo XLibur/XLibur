@@ -230,6 +230,21 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
    still fails on a wrong root. Separately, `SolveIrr` stops on an absolute `|npv| < 1e-7`, which is scale
    dependent (cash flows near 1e6 stop too early, near 1e-3 stop at once), so it should use a relative
    step. The tolerance rule and the below -1 fix clear 28 of the 35 rows.
+
+   Done: 33 of the 35 rows cleared, 2 kept. The runner compares `RATE`, `IRR` and `XIRR` within relative 1e-9
+   (`FormulaConformance.ToleranceFor`). `RATE` and `IRR` share one Newton loop that stops on a step below
+   1e-12 of the rate, so the answer no longer depends on the scale of the values: `IRR` at 1e-3 scale was off
+   by 5e-7 and now matches the exact root, as Excel does. `RATE` at or below -1 is `#NUM!`. When Newton
+   fails, `IRR` bisects a sign change found on a doubling grid of `1+rate`. Measured in Excel 16.0 over COM:
+   `IRR` is `#VALUE!` for a guess at or below -1 or above about 2^53 (9E15 is solved, 9.0072E15 is not), and
+   that is now XLibur's rule too.
+
+   The diagnosis changed two rows from the table above. `RATE(10,1E-10,800)` ("Excel gives up") has no root
+   above -1, because every term of its equation is positive there; XLibur's -0.921 was a false stop on an
+   absolute residual below 1e-8, and it now gives `#NUM!` like Excel. The two "different root" rows are
+   `RATE(10,0,800)`, which is 800(1+r)^10 = 0: one ten-fold root at -1, not several roots. XLibur gives
+   `#NUM!`, and Excel stops short of -1 at an answer that moves with the guess (-0.99999874 by default,
+   -0.99999872 from 0.5). They stay in `known-diffs.tsv` with that reason.
 5. The 150 rows that only state the two answers. The biggest are `INDEX` (15), `SLOPE` and `CORREL` (26),
    `YEARFRAC` (10) and the engineering conversions.
 6. Singletons: surrogate pairs (3), number to text (5), `OR` with a text argument (4), `GCD`/`LCM` with an empty cell (3), `ROUND(1.005,2)`, `VALUE("5-")`, `AND("")`,
