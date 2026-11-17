@@ -1,3 +1,4 @@
+using System;
 using System.IO.Compression;
 
 namespace XLibur.Excel;
@@ -36,6 +37,20 @@ public class SaveOptions
     public bool ConsolidateConditionalFormatRanges { get; set; } = true;
 
     public bool ConsolidateDataValidationRanges { get; set; } = true;
+
+    /// <summary>
+    /// Remove the workbook's VBA project when it is saved to a macro-free type (<c>.xlsx</c> or
+    /// <c>.xltx</c>). Defaults to <c>false</c>.
+    /// </summary>
+    /// <remarks>
+    /// Excel does not open a macro-free file that holds a VBA project. By default, saving a workbook
+    /// that holds one to a macro-free type throws an <see cref="InvalidOperationException"/> that names
+    /// the macro parts, so the macros are not lost without notice. Set this to <c>true</c> to remove
+    /// the VBA project (<c>vbaProject.bin</c>), its signatures (<c>vbaProjectSignature*.bin</c>) and
+    /// their relationships instead, as Excel's own Save As does. Saving to a macro-enabled type
+    /// (<c>.xlsm</c> or <c>.xltm</c>) keeps the VBA project whatever this is set to.
+    /// </remarks>
+    public bool DiscardVbaProject { get; set; }
 
     /// <summary>
     /// Evaluate a cell with a formula and save the calculated value along with the formula.
