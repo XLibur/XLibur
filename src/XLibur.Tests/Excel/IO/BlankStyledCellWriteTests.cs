@@ -6,10 +6,6 @@ using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.IO;
 
-/// <summary>
-/// A blank cell is written when its style differs from the one a missing cell would get on load,
-/// which is its column's when the row has no style of its own (#906).
-/// </summary>
 public class BlankStyledCellWriteTests
 {
     [Test]
@@ -43,10 +39,6 @@ public class BlankStyledCellWriteTests
         await Assert.That(reloadedSheet.Cell("C2").Style.Font.Bold).IsTrue();
     }
 
-    /// <summary>
-    /// Cells of files from the test corpus whose own style differs from their column's. Only an
-    /// edited sheet is written from the model, so another cell of the sheet is edited first.
-    /// </summary>
     [Test]
     [Arguments(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx", "K2")]
     [Arguments(@"TryToLoad\LoadImageWithoutTransform2D.xlsx", "A426")]
@@ -54,7 +46,6 @@ public class BlankStyledCellWriteTests
     [Arguments(@"TryToLoad\LO\xlsm\tdf111974.xlsm", "F194")]
     public async Task A_blank_cell_of_an_edited_sheet_keeps_the_style_the_file_gave_it(string resource, string address)
     {
-        // Not disposed before the save: a loaded workbook saves by copying the stream it was loaded from.
         using var input = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource));
         using var wb = new XLWorkbook(input);
 

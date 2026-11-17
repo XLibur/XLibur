@@ -48,7 +48,6 @@ internal static class SheetDataWriter
             SharedFormulas = sharedFormulas,
             Use1904DateSystem = xlWorksheet.Workbook.Use1904DateSystem,
         };
-        uint rowStyleId = 0;
         XLStyleValue? lastCachedStyle = null;
         uint lastCachedStyleId = 0;
         var enumerator = new XLCellsCollection.SlicesEnumerator(Area.Full, cellCtx.CellsCollection);
@@ -74,9 +73,9 @@ internal static class SheetDataWriter
                 if (rowState.IsRowOpened)
                     xml.WriteEndElement(); // row
 
-                rowStyleId = ResolveRowStyleId(xlWorksheet, currentRowNumber, ref rowState.RowPropIndex, context);
+                if (xlWorksheet.Internals.RowsCollection.TryGetValue(currentRowNumber, out var row))
+                    rowState.RowPropIndex++;
 
-                xlWorksheet.Internals.RowsCollection.TryGetValue(currentRowNumber, out var row);
                 WriteStartRow(xml, row, currentRowNumber, maxColumn, context);
 
                 rowState.IsRowOpened = true;
@@ -90,7 +89,7 @@ internal static class SheetDataWriter
                 continue;
 
             rawCells?.Flush(xml);
-            WriteCellAtPoint(xml, ref cellCtx, point, rowStyleId, cellStyleId, cellValue, shareString);
+            WriteCellAtPoint(xml, ref cellCtx, point, cellStyleId, cellValue, shareString);
         }
 
         rawCells?.Flush(xml);
@@ -234,10 +233,12 @@ internal static class SheetDataWriter
     {
         return xlRow.HeightChanged ||
                xlRow.IsHidden ||
-               xlRow.StyleValue != xlRow.Worksheet.StyleValue ||
+               WritesRowStyle(xlRow) ||
                xlRow.Collapsed ||
                xlRow.OutlineLevel > 0;
     }
+
+    private static bool WritesRowStyle(XLRow xlRow) => xlRow.StyleValue != xlRow.Worksheet.StyleValue;
 
     private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, Point point)
     {
@@ -249,18 +250,6 @@ internal static class SheetDataWriter
                               & ~XLCellsUsedOptions.ConditionalFormats
                               & ~XLCellsUsedOptions.DataValidation
                               & ~XLCellsUsedOptions.MergedRanges);
-    }
-
-    private static uint ResolveRowStyleId(XLWorksheet xlWorksheet, int currentRowNumber,
-        ref int rowPropIndex, SaveContext context)
-    {
-        if (xlWorksheet.Internals.RowsCollection.TryGetValue(currentRowNumber, out var row))
-        {
-            rowPropIndex++;
-            return context.SharedStyles[row.StyleValue].StyleId;
-        }
-
-        return 0;
     }
 
     private static uint ResolveCellStyleId(XLWorksheet xlWorksheet, Point point,
@@ -276,7 +265,7 @@ internal static class SheetDataWriter
     }
 
     private static void WriteCellAtPoint(XmlWriter xml, ref CellWriteContext ctx,
-        Point point, uint rowStyleId, uint cellStyleId, XLCellValue cellValue, bool shareString)
+        Point point, uint cellStyleId, XLCellValue cellValue, bool shareString)
     {
         var formula = ctx.CellsCollection.FormulaSlice.Get(point);
         if (formula is not null)
@@ -294,10 +283,21 @@ internal static class SheetDataWriter
             else
                 WriteValueOnlyCell(xml, ref ctx, point, cellStyleId, cellValue, shareString);
         }
-        else if (rowStyleId != cellStyleId)
+        else if (cellStyleId != MissingCellStyleId(ref ctx, point))
         {
             WriteBlankStyledCell(xml, ref ctx, point, cellStyleId);
         }
+    }
+
+    private static uint MissingCellStyleId(ref CellWriteContext ctx, Point point)
+    {
+        var ws = ctx.CellsCollection.Worksheet;
+        var style = ws.Internals.RowsCollection.TryGetValue(point.Row, out var row) && WritesRowStyle(row)
+            ? row.StyleValue
+            : ws.Internals.ColumnsCollection.TryGetValue(point.Column, out var column)
+                ? column.StyleValue
+                : ws.StyleValue;
+        return ctx.SaveContext.SharedStyles[style].StyleId;
     }
 
     /// <summary>
@@ -602,7 +602,7 @@ internal static class SheetDataWriter
         if (xlRow.IsHidden)
             w.WriteAttributeString("hidden", TrueValue);
 
-        if (xlRow.StyleValue != xlRow.Worksheet.StyleValue)
+        if (WritesRowStyle(xlRow))
         {
             var styleIndex = context.SharedStyles[xlRow.StyleValue].StyleId;
             w.WriteAttribute("s", styleIndex);
