@@ -185,6 +185,7 @@ internal static class PivotTableDefinitionPartReader
         {
             var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
             var dxfStyleValue = XLStyleValue.Default;
+            string? loadedDxfXml = null;
             if (format.FormatId is not null)
             {
                 var df = differentialFormats[checked((int)format.FormatId.Value)];
@@ -195,6 +196,8 @@ internal static class PivotTableDefinitionPartReader
                 // than through a throwaway XLStyle, because the value is all this needs.
                 var key = StyleDecoder.Decode(df, XLStyle.Default.Key);
                 dxfStyleValue = XLStyleValue.FromKey(ref key);
+                if (dxfStyleValue.Equals(XLStyleValue.Default))
+                    loadedDxfXml = df.OuterXml;
             }
 
             var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
@@ -203,6 +206,7 @@ internal static class PivotTableDefinitionPartReader
             {
                 Action = action,
                 DxfStyleValue = dxfStyleValue,
+                LoadedDxfXml = loadedDxfXml,
             };
             xlPivotTable.AddFormat(xlFormat);
         }
@@ -589,10 +593,13 @@ internal static class PivotTableDefinitionPartReader
     {
         if (pivotTableStyle is not null)
         {
-            xlPivotTable.Theme = pivotTableStyle.Name is not null &&
-                                 Enum.TryParse<XLPivotTableTheme>(pivotTableStyle.Name, out var xlPivotTableTheme)
-                ? xlPivotTableTheme
-                : XLPivotTableTheme.None;
+            if (pivotTableStyle.Name?.Value is not { } styleName)
+                xlPivotTable.Theme = XLPivotTableTheme.None;
+            else if (Enum.TryParse<XLPivotTableTheme>(styleName, out var xlPivotTableTheme))
+                xlPivotTable.Theme = xlPivotTableTheme;
+            else
+                xlPivotTable.SetCustomTheme(styleName);
+
             xlPivotTable.ShowRowHeaders = pivotTableStyle.ShowRowHeaders?.Value ?? false;
             xlPivotTable.ShowColumnHeaders = pivotTableStyle.ShowColumnHeaders?.Value ?? false;
             xlPivotTable.ShowRowStripes = pivotTableStyle.ShowRowStripes?.Value ?? false;
@@ -650,15 +657,22 @@ internal static class PivotTableDefinitionPartReader
     private static void LoadExtensionList(PivotTableDefinition pivotTable, XLPivotTable xlPivotTable)
     {
         // The x14 extension need not come first: an extList holds its extensions in any order.
-        var ptExt2010 = pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>()?
-            .Elements<PivotTableDefinitionExtension>()
-            .Select(ext => ext.GetFirstChild<X14.PivotTableDefinition>())
-            .FirstOrDefault(definition => definition is not null);
+        X14.PivotTableDefinition? ptExt2010 = null;
+        foreach (var extension in pivotTable.GetFirstChild<PivotTableDefinitionExtensionList>()?
+                     .Elements<PivotTableDefinitionExtension>() ?? [])
+        {
+            if (ptExt2010 is null && extension.GetFirstChild<X14.PivotTableDefinition>() is { } definition)
+                ptExt2010 = definition;
+            else
+                xlPivotTable.OtherExtensionsXml.Add(extension.OuterXml);
+        }
+
         if (ptExt2010 is not null)
         {
             xlPivotTable.Title = ptExt2010.AltText?.Value ?? string.Empty;
             xlPivotTable.Description = ptExt2010.AltTextSummary?.Value ?? string.Empty;
             xlPivotTable.EnableCellEditing = ptExt2010.EnableEdit?.Value ?? false;
+            xlPivotTable.FillDownLabelsDefault = ptExt2010.FillDownLabelsDefault?.Value ?? false;
             var hideValuesRow = ptExt2010.HideValuesRow?.Value ?? false;
             xlPivotTable.ShowValuesRow = !hideValuesRow;
             LoadExtensionConditionalFormats(ptExt2010.ConditionalFormats, xlPivotTable);

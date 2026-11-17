@@ -278,6 +278,11 @@ internal static class WorkbookStylesPartWriter
             pivotCustomFormats.UnionWith(xlPivotTableFieldFormats);
         }
 
+        pivotCustomFormats.UnionWith(workbook.PivotCachesInternal
+            .SelectMany<XLPivotCache, XLNumberFormatValue>(cache => cache.FieldNumberFormats)
+            .Where(numberFormat => !string.IsNullOrEmpty(numberFormat.Format))
+            .Select(numberFormat => numberFormat.Format));
+
         return (styles, pivotCustomFormats);
     }
 
@@ -496,6 +501,15 @@ internal static class WorkbookStylesPartWriter
                                  !context.DifferentialFormats.ContainsKey(s)))
         {
             AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
+        }
+
+        foreach (var format in pt.Formats)
+        {
+            if (format.LoadedDxfXml is not { } dxfXml || context.LoadedDxfIds.ContainsKey(dxfXml))
+                continue;
+
+            differentialFormats.Append(new DifferentialFormat(dxfXml));
+            context.LoadedDxfIds.Add(dxfXml, differentialFormats.ChildElements.Count - 1);
         }
     }
 

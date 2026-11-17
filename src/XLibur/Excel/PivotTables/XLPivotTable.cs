@@ -120,7 +120,27 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Table theme this pivot table will use.
     /// </summary>
-    public XLPivotTableTheme Theme { get; set; }
+    public XLPivotTableTheme Theme
+    {
+        get;
+        set
+        {
+            field = value;
+            CustomThemeName = null;
+        }
+    }
+
+    internal string? CustomThemeName { get; private set; }
+
+    internal List<string> OtherExtensionsXml { get; } = new();
+
+    internal bool FillDownLabelsDefault { get; set; }
+
+    internal void SetCustomTheme(string name)
+    {
+        Theme = XLPivotTableTheme.None;
+        CustomThemeName = name;
+    }
 
     /// <summary>
     /// All fields reflected in the pivot cache.
@@ -193,12 +213,18 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         newPivotTable.Description = Description;
         newPivotTable.ShowValuesRow = ShowValuesRow;
         newPivotTable.EnableCellEditing = EnableCellEditing;
+        newPivotTable.FillDownLabelsDefault = FillDownLabelsDefault;
         newPivotTable.ShowRowHeaders = ShowRowHeaders;
         newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
         newPivotTable.ShowRowStripes = ShowRowStripes;
         newPivotTable.ShowColumnStripes = ShowColumnStripes;
         newPivotTable.ShowLastColumn = ShowLastColumn;
         newPivotTable.Theme = Theme;
+        if (CustomThemeName is { } customThemeName)
+            newPivotTable.SetCustomTheme(customThemeName);
+
+        newPivotTable.OtherExtensionsXml.AddRange(OtherExtensionsXml);
+
         return newPivotTable;
     }
 

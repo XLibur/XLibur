@@ -304,7 +304,7 @@ public partial class XLWorkbook
 
         DefinedNameReader.LoadDefinedNames(workbookPart.Workbook, this);
 
-        PivotTableCacheDefinitionPartReader.Load(workbookPart, this);
+        PivotTableCacheDefinitionPartReader.Load(workbookPart, this, context);
 
         LoadPivotTables(workbookPart, sheets!, context);
 

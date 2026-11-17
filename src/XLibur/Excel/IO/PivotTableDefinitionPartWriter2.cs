@@ -74,6 +74,7 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteAttributeString("xmlns", "x14", null, X14Main2009SsNs);
         xml.WriteAttributeString("uri", "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}");
         xml.WriteStartElement("pivotTableDefinition", X14Main2009SsNs);
+        xml.WriteAttributeDefault("fillDownLabelsDefault", pt.FillDownLabelsDefault, false);
         xml.WriteAttributeOptional("altText", pt.Title);
         xml.WriteAttributeOptional("altTextSummary", pt.Description);
         xml.WriteAttribute("enableEdit", pt.EnableCellEditing);
@@ -81,6 +82,9 @@ internal static class PivotTableDefinitionPartWriter2
         WriteExtensionConditionalFormats(xml, pt);
         xml.WriteEndElement(); // pivotTableDefinition
         xml.WriteEndElement(); // ext
+
+        foreach (var extensionXml in pt.OtherExtensionsXml)
+            new PivotTableDefinitionExtension(extensionXml).WriteTo(xml);
 
         xml.WriteEndElement(); // extList
 
@@ -293,11 +297,10 @@ internal static class PivotTableDefinitionPartWriter2
                     xml.WriteAttribute("action", ToAttr(format.Action.ToOpenXml()));
 
                 // DxfId is optional.
-                if (format.DxfStyleValue != XLStyleValue.Default)
-                {
-                    var dxfId = context.DifferentialFormats[format.DxfStyleValue];
-                    xml.WriteAttribute("dxfId", dxfId);
-                }
+                if (format.LoadedDxfXml is { } loadedDxfXml)
+                    xml.WriteAttribute("dxfId", context.LoadedDxfIds[loadedDxfXml]);
+                else if (format.DxfStyleValue != XLStyleValue.Default)
+                    xml.WriteAttribute("dxfId", context.DifferentialFormats[format.DxfStyleValue]);
 
                 var pivotArea = format.PivotArea;
                 WritePivotArea(xml, pivotArea);
@@ -486,11 +489,13 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WritePivotTableStyleInfo(XmlWriter xml, XLPivotTable pt)
     {
         var hasDefaultTheme =
-            pt is { Theme: XLPivotTableTheme.None, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
+            pt is { Theme: XLPivotTableTheme.None, CustomThemeName: null, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
         if (!hasDefaultTheme)
         {
             xml.WriteStartElement("pivotTableStyleInfo", Main2006SsNs);
-            if (pt.Theme != XLPivotTableTheme.None)
+            if (pt.CustomThemeName is { } customThemeName)
+                xml.WriteAttribute("name", customThemeName);
+            else if (pt.Theme != XLPivotTableTheme.None)
                 xml.WriteAttribute("name", pt.Theme.ToString());
 
             xml.WriteAttributeDefault("showRowHeaders", pt.ShowRowHeaders, false);

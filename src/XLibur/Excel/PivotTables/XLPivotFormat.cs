@@ -25,5 +25,15 @@ internal sealed class XLPivotFormat
     /// <see cref="Action"/> is blank. Empty dxf is represented by <see cref="XLStyle.Default"/>,
     /// until we get better dxf representation.
     /// </summary>
-    internal XLStyleValue DxfStyleValue { get; set; } = XLStyle.Default.Value;
+    internal XLStyleValue DxfStyleValue
+    {
+        get;
+        set
+        {
+            field = value;
+            LoadedDxfXml = null;
+        }
+    } = XLStyle.Default.Value;
+
+    internal string? LoadedDxfXml { get; set; }
 }
