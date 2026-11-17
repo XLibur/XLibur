@@ -124,4 +124,75 @@ public class ExcelConformanceFixesTests
         await Assert.That(ws.Cell("L1").Value).IsEqualTo("10");
         await Assert.That(ws.Cell("M1").Value).IsEqualTo("11");
     }
+
+    [Test]
+    [Arguments("RATE(10,-100,0)")]
+    [Arguments("RATE(10,-100,0.5)")]
+    [Arguments("RATE(10,1E15,800)")]
+    public async Task A_rate_at_or_below_minus_one_is_a_number_error(string formula)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(formula)).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    public async Task A_rate_with_no_root_above_minus_one_is_a_number_error()
+    {
+        // 800(1+r)^10 + 1E-10·((1+r)^10-1)/r is positive for every r above -1.
+        await Assert.That(XLWorkbook.EvaluateExpr("RATE(10,1E-10,800)")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    private static readonly double IrrOfMinus100_50_70 = (50 + System.Math.Sqrt(30500)) / 200 - 1;
+
+    [Test]
+    [Arguments(1e6)]
+    [Arguments(1)]
+    [Arguments(1e-3)]
+    public async Task Irr_is_accurate_at_any_cash_flow_scale(double scale)
+    {
+        var ws = CashFlows(out var wb, -100 * scale, 50 * scale, 70 * scale);
+        using (wb)
+            await Assert.That((double)ws.Evaluate("IRR(A1:A3)")).IsEqualTo(IrrOfMinus100_50_70).Within(1e-15);
+    }
+
+    [Test]
+    [Arguments("5")]
+    [Arguments("1E15")]
+    public async Task Irr_finds_the_root_when_newton_from_the_guess_fails(string guess)
+    {
+        var ws = CashFlows(out var wb, -100, 50, 70);
+        using (wb)
+            await Assert.That((double)ws.Evaluate($"IRR(A1:A3,{guess})")).IsEqualTo(IrrOfMinus100_50_70).Within(1e-15);
+    }
+
+    [Test]
+    [Arguments("-1")]
+    [Arguments("-2")]
+    [Arguments("1E16")]
+    [Arguments("9E307")]
+    public async Task An_irr_guess_outside_the_range_excel_accepts_is_a_value_error(string guess)
+    {
+        var ws = CashFlows(out var wb, -100, 50, 70);
+        using (wb)
+            await Assert.That(ws.Evaluate($"IRR(A1:A3,{guess})")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    [Arguments("-0.999999")]
+    [Arguments("9E15")]
+    public async Task An_irr_guess_just_inside_the_range_excel_accepts_is_solved(string guess)
+    {
+        var ws = CashFlows(out var wb, -100, 50, 70);
+        using (wb)
+            await Assert.That((double)ws.Evaluate($"IRR(A1:A3,{guess})")).IsEqualTo(IrrOfMinus100_50_70).Within(1e-15);
+    }
+
+    private static IXLWorksheet CashFlows(out XLWorkbook wb, params double[] flows)
+    {
+        wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        for (var i = 0; i < flows.Length; i++)
+            ws.Cell(i + 1, 1).Value = flows[i];
+
+        return ws;
+    }
 }
