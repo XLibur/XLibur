@@ -31,15 +31,9 @@ internal sealed class XLPivotFormat
         set
         {
             field = value;
-            _loadedDxfXml = null;
+            LoadedDxfXml = null;
         }
     } = XLStyle.Default.Value;
 
-    private string? _loadedDxfXml;
-
-    internal string? LoadedDxfXml
-    {
-        get => _loadedDxfXml;
-        init => _loadedDxfXml = value;
-    }
+    internal string? LoadedDxfXml { get; set; }
 }
