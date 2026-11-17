@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Spreadsheet;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel.IO;
 
@@ -25,6 +26,11 @@ namespace XLibur.Excel.IO;
 /// totals of a hidden totals row need the same column names, since a totals formula names columns by
 /// name.
 /// </para>
+/// <para>
+/// The sort state is also dropped once a sort through the model moved cells of the table, since the
+/// rows are then in an order it does not describe and Excel's Reapply would undo that sort. An edit of
+/// a value keeps it, as Excel does.
+/// </para>
 /// </remarks>
 internal static class TablePartCarryOver
 {
@@ -37,8 +43,9 @@ internal static class TablePartCarryOver
 
     private static readonly HashSet<string> LoadedRangeAttributes = ["insertRow", "insertRowShift"];
 
-    internal static void Apply(Table loaded, Table written, bool showTotalsRow, LoadedDifferentialFormats? dxfs)
+    internal static void Apply(Table loaded, Table written, XLTable xlTable, LoadedDifferentialFormats? dxfs)
     {
+        var showTotalsRow = xlTable.ShowTotalsRow;
         var sameRange = loaded.Reference?.Value == written.Reference?.Value &&
                         Columns(loaded).Select(c => c.Id?.Value).SequenceEqual(Columns(written).Select(c => c.Id?.Value));
         var keepTotals = !showTotalsRow &&
@@ -59,7 +66,7 @@ internal static class TablePartCarryOver
         if (!showTotalsRow)
             written.TotalsRowShown = loaded.TotalsRowShown?.Value is { } shown ? shown : null;
 
-        if (sameRange && loaded.SortState?.CloneNode(true) is SortState sortState && TryRemapDxfIds(sortState, dxfs))
+        if (sameRange && !xlTable.SortedByModel && loaded.SortState?.CloneNode(true) is SortState sortState && TryRemapDxfIds(sortState, dxfs))
             written.SortState = sortState;
 
         if (loaded.TableExtensionList is { } extensions)

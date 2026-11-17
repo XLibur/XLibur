@@ -157,6 +157,12 @@ internal sealed class XLTable : XLRange, IXLTable
     /// </summary>
     internal uint? Id { get; set; }
 
+    /// <summary>
+    /// Whether a sort through the model moved cells of the table, so the sort state its loaded part
+    /// remembers no longer describes the order of its rows.
+    /// </summary>
+    internal bool SortedByModel { get; set; }
+
     public IXLTableRange? DataRange
     {
         get

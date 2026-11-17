@@ -123,7 +123,7 @@ internal static class TablePartWriter
         table.AppendChild(tableStyleInfo1);
 
         if (loaded is not null)
-            TablePartCarryOver.Apply(loaded, table, xlTable.ShowTotalsRow, context.LoadedDxfs);
+            TablePartCarryOver.Apply(loaded, table, xlTable, context.LoadedDxfs);
 
         tableDefinitionPart.Table = table;
     }
