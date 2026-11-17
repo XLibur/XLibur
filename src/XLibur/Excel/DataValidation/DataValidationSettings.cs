@@ -47,6 +47,13 @@ internal readonly record struct DataValidationSettings(
         ErrorMessage: string.Empty,
         ErrorStyle: XLErrorStyle.Stop);
 
+    /// <summary>
+    /// The list a file gave in <c>x12ac:list</c>, or null. It is not a setting of its own: it is how
+    /// <see cref="MinValue"/> is spelled when an item holds a comma, so it is internal where the settings
+    /// are public.
+    /// </summary>
+    internal QuotedItemList? QuotedItems { get; init; }
+
     /// <summary>The settings of <paramref name="dataValidation"/>, which can be any implementation.</summary>
     public static DataValidationSettings From(IXLDataValidation dataValidation) =>
         dataValidation is XLDataValidation xl
@@ -98,4 +105,21 @@ internal readonly record struct DataValidationSettings(
         IsDirty()
         || !string.IsNullOrWhiteSpace(InputTitle) || !string.IsNullOrWhiteSpace(InputMessage)
         || !string.IsNullOrWhiteSpace(ErrorTitle) || !string.IsNullOrWhiteSpace(ErrorMessage);
+}
+
+/// <summary>
+/// A list rule's items as Excel 2010 and later spell them in <c>x12ac:list</c>, where an item that holds
+/// a comma is in quotes, as in <c>1,"2,3",4</c>. Excel writes this form only for such a list, with
+/// <c>formula1</c> as the fallback for older readers, which splits every comma: <c>"1,2,3,4"</c>.
+/// </summary>
+/// <param name="Items">The text of <c>x12ac:list</c>.</param>
+/// <param name="Fallback">The <c>formula1</c> read with it, which a rule's <c>MinValue</c> holds.</param>
+internal readonly record struct QuotedItemList(string Items, string Fallback)
+{
+    /// <summary>
+    /// Whether <paramref name="settings"/> still has the list this was read with. A rule whose list was
+    /// changed after the load is written as its new <c>formula1</c> alone.
+    /// </summary>
+    public bool Spells(in DataValidationSettings settings) =>
+        settings.AllowedValues == XLAllowedValues.List && settings.MinValue == Fallback;
 }
