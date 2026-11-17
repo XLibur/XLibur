@@ -8,15 +8,6 @@ using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Loading;
 
-/// <summary>
-/// An Excel Binary Workbook (.xlsb) is an OPC package like an .xlsx, but its parts are BIFF12
-/// records, not XML. Opening one must say the format is unsupported, so a caller can tell it from a
-/// corrupt file (#911).
-///
-/// The package is synthesised with the shape Excel writes: a binary workbook part whose
-/// relationship names a binary worksheet. The part contents are placeholders, since the loader
-/// refuses the package before it reads them.
-/// </summary>
 public class BinaryWorkbookLoadingTests
 {
     private const string BinaryWorkbookContentType = "application/vnd.ms-excel.sheet.binary.macroEnabled.main";
@@ -48,10 +39,16 @@ public class BinaryWorkbookLoadingTests
         await AssertRefusedAsXlsb(() => XLWorkbook.OpenFromTemplate(file.Path));
     }
 
-    /// <summary>
-    /// An .xlsx with one binary worksheet fails in the package reader the same way an .xlsb does.
-    /// It is a damaged file, not an .xlsb, and must not be reported as one.
-    /// </summary>
+    [Test]
+    public async Task Saving_as_an_xlsb_is_refused_as_not_supported()
+    {
+        using var workbook = new XLWorkbook();
+        workbook.AddWorksheet();
+        using var file = new TemporaryFile(Path.ChangeExtension(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()), "xlsb"));
+
+        await AssertRefusedAsXlsb(() => workbook.SaveAs(file.Path));
+    }
+
     [Test]
     public async Task Xlsx_with_a_part_of_unexpected_content_type_is_not_reported_as_an_xlsb()
     {
@@ -62,9 +59,9 @@ public class BinaryWorkbookLoadingTests
         await Assert.That(exception).IsNotTypeOf<NotSupportedException>();
     }
 
-    private static async Task AssertRefusedAsXlsb(Func<XLWorkbook> open)
+    private static async Task AssertRefusedAsXlsb(Action action)
     {
-        var exception = await Assert.That(open).ThrowsExactly<NotSupportedException>();
+        var exception = await Assert.That(action).ThrowsExactly<NotSupportedException>();
 
         await Assert.That(exception!.Message).Contains(".xlsb");
         await Assert.That(exception.Message).Contains(".xlsx");

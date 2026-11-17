@@ -68,6 +68,9 @@ public partial class XLWorkbook
         if (package is null)
             return false;
 
+        if (BinaryWorkbook.IsBinaryWorkbook(package))
+            throw BinaryWorkbook.NotSupported();
+
         using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(package));
         LoadSpreadsheetDocument(dSpreadsheet);
         return true;
@@ -92,7 +95,7 @@ public partial class XLWorkbook
 
     private void LoadSheetsFromTemplate(string fileName)
     {
-        using (var dSpreadsheet = SpreadsheetDocument.CreateFromTemplate(fileName))
+        using (var dSpreadsheet = CreateFromTemplate(fileName))
         {
             LoadSpreadsheetDocument(dSpreadsheet);
 
@@ -107,6 +110,18 @@ public partial class XLWorkbook
         // The original file will NOT be copied into place before changes are applied
         // Hence all loaded RelIds have to be cleared
         ResetAllRelIds();
+    }
+
+    private static SpreadsheetDocument CreateFromTemplate(string fileName)
+    {
+        try
+        {
+            return SpreadsheetDocument.CreateFromTemplate(fileName);
+        }
+        catch (OpenXmlPackageException) when (BinaryWorkbook.IsBinaryWorkbook(fileName))
+        {
+            throw BinaryWorkbook.NotSupported();
+        }
     }
 
     private static byte[] ClonePackage(SpreadsheetDocument document)
