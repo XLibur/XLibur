@@ -140,7 +140,6 @@ public class ExcelConformanceFixesTests
         await Assert.That(XLWorkbook.EvaluateExpr("RATE(10,1E-10,800)")).IsEqualTo(XLError.NumberInvalid);
     }
 
-    // Expected roots are solved in 80-digit decimal arithmetic from the arguments' exact double values.
     [Test]
     [Arguments("RATE(12,-100,1200)", 0d)]
     [Arguments("RATE(4,-250,1000)", 0d)]

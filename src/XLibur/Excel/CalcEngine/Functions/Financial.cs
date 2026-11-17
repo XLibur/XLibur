@@ -334,30 +334,72 @@ internal static class Financial
     /// </summary>
     private static AnyValue SolveRate(double nper, double pmt, double pv, double fv, double type, double guess)
     {
-        const double delta = 1e-6;
-        (double, double) Residual(double rate)
-        {
-            var value = TvmEquation(rate, nper, pmt, pv, fv, type);
-            return (value, (TvmEquation(rate + delta, nper, pmt, pv, fv, type) - value) / delta);
-        }
-
-        if (!TryNewtonRoot(Residual, guess, out var root) || root <= -1)
+        if (!TryNewtonRoot(rate => TvmEquation(rate, nper, pmt, pv, fv, type), guess, out var root) || root <= -1)
             return XLError.NumberInvalid;
 
         return root;
     }
 
-    /// <summary>
-    /// The time-value-of-money residual: <c>pv·(1+rate)^nper + pmt·(1+rate·type)·((1+rate)^nper−1)/rate + fv</c>,
-    /// which is zero at the solved rate. Used by <see cref="Rate"/>.
-    /// </summary>
-    private static double TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
+    private static (double Value, double Derivative) TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
     {
-        if (rate == 0.0)
-            return pv + pmt * nper + fv;
+        var (growth, annuity, annuityDerivative) = GrowthAndAnnuity(rate, nper);
+        var value = pv * growth + pmt * (1 + rate * type) * annuity + fv;
+        var derivative = pv * nper * Math.Pow(1 + rate, nper - 1) + pmt * (type * annuity + (1 + rate * type) * annuityDerivative);
+        return (value, derivative);
+    }
 
-        var pow = Math.Pow(1 + rate, nper);
-        return pv * pow + pmt * (1 + rate * type) * (pow - 1) / rate + fv;
+    private static (double Growth, double Annuity, double AnnuityDerivative) GrowthAndAnnuity(double rate, double nper)
+    {
+        const double binomialSeriesRadius = 1e-5;
+        if (Math.Abs(rate) * Math.Max(1, Math.Abs(nper)) < binomialSeriesRadius)
+            return BinomialSeriesGrowthAndAnnuity(rate, nper);
+
+        var (growth, growthMinusOne) = GrowthWithoutCancellation(rate, nper);
+        var annuity = growthMinusOne / rate;
+        return (growth, annuity, (nper * Math.Pow(1 + rate, nper - 1) - annuity) / rate);
+    }
+
+    private static (double Growth, double Annuity, double AnnuityDerivative) BinomialSeriesGrowthAndAnnuity(double rate, double nper)
+    {
+        var c2 = nper * (nper - 1) / 2;
+        var c3 = c2 * (nper - 2) / 3;
+        var c4 = c3 * (nper - 3) / 4;
+        var annuity = nper + rate * (c2 + rate * (c3 + rate * c4));
+        return (1 + rate * annuity, annuity, c2 + rate * (2 * c3 + rate * 3 * c4));
+    }
+
+    private static (double Growth, double GrowthMinusOne) GrowthWithoutCancellation(double rate, double nper)
+    {
+        const double cancellingLogGrowth = 0.5;
+        var logGrowth = rate > -1 ? nper * LogOnePlus(rate) : double.NaN;
+        if (Math.Abs(logGrowth) <= cancellingLogGrowth)
+        {
+            var growthMinusOne = ExpMinusOne(logGrowth);
+            return (1 + growthMinusOne, growthMinusOne);
+        }
+
+        var growth = Math.Pow(1 + rate, nper);
+        return (growth, growth - 1);
+    }
+
+    /// <summary>
+    /// <c>ln(1+x)</c> accurate for small <c>x</c>; <see cref="double.LogP1"/> is <c>Math.Log(x + 1)</c>, which
+    /// loses the digits of <c>x</c> to rounding.
+    /// </summary>
+    private static double LogOnePlus(double x)
+    {
+        var u = 1 + x;
+        return u == 1 ? x : Math.Log(u) * x / (u - 1);
+    }
+
+    /// <summary>
+    /// <c>e^x-1</c> accurate for small <c>x</c>; <see cref="double.ExpM1"/> is <c>Math.Exp(x) - 1</c>, which
+    /// cancels.
+    /// </summary>
+    private static double ExpMinusOne(double x)
+    {
+        var u = Math.Exp(x);
+        return u == 1 ? x : (u - 1) * x / Math.Log(u);
     }
 
     #region Depreciation

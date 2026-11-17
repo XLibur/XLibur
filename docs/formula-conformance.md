@@ -233,8 +233,11 @@ where Excel returns a number (for example `PMT(0.05,1000000,1000)` is -50 in Exc
 
    Done: 33 of the 35 rows cleared, 2 kept. The runner compares `RATE`, `IRR` and `XIRR` within relative 1e-9
    (`FormulaConformance.ToleranceFor`). `RATE` and `IRR` share one Newton loop that stops on a step below
-   1e-12 of the rate, so the answer no longer depends on the scale of the values: `IRR` at 1e-3 scale was off
-   by 5e-7 and now matches the exact root, as Excel does. `RATE` at or below -1 is `#NUM!`. When Newton
+   1e-12 times the larger of 1 and the rate, so the answer no longer depends on the scale of the values: `IRR`
+   at 1e-3 scale was off by 5e-7 and now matches the exact root, as Excel does. That stop needs a residual free
+   of rounding noise, so `RATE` computes `((1+rate)^nper-1)/rate` from `expm1(nper*log1p(rate))` near 0 and
+   from its binomial series closest to 0, with an analytic derivative; `(1+rate)^nper-1` cancelled to noise
+   of about 1e-5 there, and `RATE(12,-100,1200)` never converged. `RATE` at or below -1 is `#NUM!`. When Newton
    fails, `IRR` bisects a sign change found on a doubling grid of `1+rate`. Measured in Excel 16.0 over COM:
    `IRR` is `#VALUE!` for a guess at or below -1 or above about 2^53 (9E15 is solved, 9.0072E15 is not), and
    that is now XLibur's rule too.
