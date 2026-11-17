@@ -88,6 +88,8 @@ public class PivotTableSaveFidelityTests
     [Test]
     [Arguments(@"TryToLoad\Timelines_Missing_21232.xlsx")]
     [Arguments(@"TryToLoad\DialogSheet.xlsx")]
+    [Arguments(@"Other\ExcelAuthored\PivotFilters.xlsx")]
+    [Arguments(@"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx")]
     public async Task Save_keeps_cache_field_number_formats(string resource)
     {
         var source = ReadCacheFieldNumberFormats(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)));
@@ -145,16 +147,28 @@ public class PivotTableSaveFidelityTests
         return result;
     }
 
-    private static Dictionary<string, List<uint?>> ReadCacheFieldNumberFormats(Stream stream)
+    /// <summary>
+    /// The number format of each cache field: the id of a built-in format, the format code of a
+    /// custom one, whose id the save renumbers.
+    /// </summary>
+    private static Dictionary<string, List<string?>> ReadCacheFieldNumberFormats(Stream stream)
     {
-        var result = new Dictionary<string, List<uint?>>();
+        var result = new Dictionary<string, List<string?>>();
         using var document = SpreadsheetDocument.Open(stream, false);
         var workbookPart = document.WorkbookPart!;
+        var customFormats = workbookPart.WorkbookStylesPart?.Stylesheet?.NumberingFormats?
+            .Elements<NumberingFormat>()
+            .ToDictionary(nf => nf.NumberFormatId!.Value, nf => nf.FormatCode!.Value) ?? [];
         foreach (var pivotCache in workbookPart.Workbook!.PivotCaches?.Elements<PivotCache>() ?? [])
         {
             var part = (PivotTableCacheDefinitionPart)workbookPart.GetPartById(pivotCache.Id!.Value!);
             result.Add(pivotCache.Id.Value!, part.PivotCacheDefinition!.CacheFields!.Elements<CacheField>()
-                .Select(f => f.NumberFormatId?.Value)
+                .Select(f => f.NumberFormatId?.Value switch
+                {
+                    null => null,
+                    >= 164 and var id => customFormats[id],
+                    var id => id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                })
                 .ToList());
         }
 

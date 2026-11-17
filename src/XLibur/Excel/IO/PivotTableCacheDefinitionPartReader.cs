@@ -13,14 +13,14 @@ namespace XLibur.Excel.IO;
 
 internal static class PivotTableCacheDefinitionPartReader
 {
-    internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook)
+    internal static void Load(WorkbookPart workbookPart, XLWorkbook workbook, LoadContext context)
     {
         foreach (var pivotTableCacheDefinitionPart in workbookPart.GetPartsOfType<PivotTableCacheDefinitionPart>())
-            LoadCache(workbookPart, workbook, pivotTableCacheDefinitionPart);
+            LoadCache(workbookPart, workbook, pivotTableCacheDefinitionPart, context);
     }
 
     private static void LoadCache(WorkbookPart workbookPart, XLWorkbook workbook,
-        PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart)
+        PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart, LoadContext context)
     {
         var cacheDefinition = pivotTableCacheDefinitionPart.PivotCacheDefinition;
         if (cacheDefinition?.CacheSource is not { } cacheSource)
@@ -46,7 +46,7 @@ internal static class PivotTableCacheDefinitionPartReader
 
         if (cacheDefinition.CacheFields is { } cacheFields)
         {
-            ReadCacheFields(cacheFields, pivotCache);
+            ReadCacheFields(cacheFields, pivotCache, context);
             if (pivotTableCacheDefinitionPart.PivotTableCacheRecordsPart?.PivotCacheRecords is { } recordsPart)
             {
                 PivotTableCacheRecordsPartReader.Read(recordsPart, pivotCache);
@@ -236,7 +236,7 @@ internal static class PivotTableCacheDefinitionPartReader
         }
     }
 
-    private static void ReadCacheFields(CacheFields cacheFields, XLPivotCache pivotCache)
+    private static void ReadCacheFields(CacheFields cacheFields, XLPivotCache pivotCache, LoadContext context)
     {
         foreach (var cacheField in cacheFields.Elements<CacheField>())
         {
@@ -258,6 +258,9 @@ internal static class PivotTableCacheDefinitionPartReader
             pivotCache.AddCachedField(fieldName, fieldValues);
 
             var fieldIndex = pivotCache.FieldCount - 1;
+
+            if (context.GetNumberFormat(checked((int?)cacheField.NumberFormatId?.Value)) is { } numberFormat)
+                pivotCache.SetFieldNumberFormat(fieldIndex, numberFormat);
 
             // A calculated field has a formula and DatabaseField=false. It doesn't have
             // records in the cache records part — its values are computed by Excel.

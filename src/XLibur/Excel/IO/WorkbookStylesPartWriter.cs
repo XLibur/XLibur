@@ -278,6 +278,11 @@ internal static class WorkbookStylesPartWriter
             pivotCustomFormats.UnionWith(xlPivotTableFieldFormats);
         }
 
+        pivotCustomFormats.UnionWith(workbook.PivotCachesInternal
+            .SelectMany<XLPivotCache, XLNumberFormatValue>(cache => cache.FieldNumberFormats)
+            .Where(numberFormat => !string.IsNullOrEmpty(numberFormat.Format))
+            .Select(numberFormat => numberFormat.Format));
+
         return (styles, pivotCustomFormats);
     }
 

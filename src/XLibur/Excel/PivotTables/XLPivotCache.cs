@@ -37,6 +37,12 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly Dictionary<int, string> _fieldGroupXml = new();
 
+    /// <summary>
+    /// The <c>numFmtId</c> of a cache field, keyed by field index: the number format of the
+    /// source column, which a field newly added to a pivot table takes.
+    /// </summary>
+    private readonly Dictionary<int, XLNumberFormatValue> _fieldNumberFormats = new();
+
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)
     {
         _workbook = workbook;
@@ -117,6 +123,7 @@ internal sealed class XLPivotCache : IXLPivotCache
         _calculatedFieldFormulas.Clear();
         _nonDatabaseFieldIndexes.Clear();
         _fieldGroupXml.Clear();
+        _fieldNumberFormats.Clear();
 
         var valueSlice = sheet.Internals.CellsCollection.ValueSlice;
         var area = foundArea.Value;
@@ -281,6 +288,18 @@ internal sealed class XLPivotCache : IXLPivotCache
     {
         _fieldGroupXml[fieldIndex] = fieldGroupXml;
     }
+
+    internal void SetFieldNumberFormat(int fieldIndex, XLNumberFormatValue numberFormat)
+    {
+        _fieldNumberFormats[fieldIndex] = numberFormat;
+    }
+
+    internal XLNumberFormatValue? GetFieldNumberFormat(int fieldIndex)
+    {
+        return _fieldNumberFormats.GetValueOrDefault(fieldIndex);
+    }
+
+    internal IEnumerable<XLNumberFormatValue> FieldNumberFormats => _fieldNumberFormats.Values;
 
     /// <summary>
     /// The <c>fieldGroup</c> element of a grouped field, or null if the field is not grouped.

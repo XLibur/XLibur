@@ -85,6 +85,7 @@ internal static class PivotTableCacheDefinitionPartWriter
         }
 
         WriteCacheFields(pivotCache, cacheFields);
+        WriteCacheFieldNumberFormats(pivotCache, cacheFields, context);
 
         // End CacheFields
 
@@ -259,6 +260,18 @@ internal static class PivotTableCacheDefinitionPartWriter
             }
 
             WriteRegularCacheField(pivotCache, cacheFields, fieldIdx, cacheFieldName);
+        }
+    }
+
+    private static void WriteCacheFieldNumberFormats(XLPivotCache pivotCache, CacheFields cacheFields,
+        SaveContext context)
+    {
+        foreach (var cacheField in cacheFields.Elements<CacheField>())
+        {
+            if (cacheField.Name?.Value is { } name &&
+                pivotCache.TryGetFieldIndex(name, out var fieldIndex) &&
+                context.GetNumberFormat(pivotCache.GetFieldNumberFormat(fieldIndex)) is { } numberFormatId)
+                cacheField.NumberFormatId = checked((uint)numberFormatId);
         }
     }
 
