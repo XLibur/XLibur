@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
@@ -28,6 +29,7 @@ public class MacroFreeSaveTests
 
         await Assert.That(ex!.Message).Contains("/xl/vbaProject.bin");
         await Assert.That(ex.Message).Contains(nameof(SaveOptions.DiscardVbaProject));
+        await Assert.That(File.Exists(target.Path)).IsFalse();
     }
 
     [Test]
@@ -40,6 +42,7 @@ public class MacroFreeSaveTests
         var ex = await Assert.That(() => wb.SaveAs(target.Path)).Throws<InvalidOperationException>();
 
         await Assert.That(ex!.Message).Contains("/xl/vbaProject.bin");
+        await Assert.That(File.Exists(target.Path)).IsFalse();
     }
 
     [Test]
@@ -50,10 +53,9 @@ public class MacroFreeSaveTests
         using (var wb = new XLWorkbook(source.Path))
             wb.SaveAs(target.Path, new SaveOptions { DiscardVbaProject = true });
 
-        using var package = SpreadsheetDocument.Open(target.Path, false);
-        await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Workbook);
-        await Assert.That(package.WorkbookPart!.VbaProjectPart).IsNull();
-        await Assert.That(PartNames(package).Any(n => n.Contains("vba", StringComparison.OrdinalIgnoreCase))).IsFalse();
+        using (var package = SpreadsheetDocument.Open(target.Path, false))
+            await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Workbook);
+        await Assert.That(VbaTraces(target.Path)).IsEmpty();
     }
 
     [Test]
@@ -73,12 +75,7 @@ public class MacroFreeSaveTests
     public async Task DiscardVbaProject_removes_the_signature_parts_with_the_project()
     {
         using var source = CopyFixtureToFile();
-        using (var package = SpreadsheetDocument.Open(source.Path, true))
-        {
-            var signature = package.WorkbookPart!.VbaProjectPart!.AddExtendedPart(SignatureRelType, SignatureContentType, ".bin");
-            using var data = new MemoryStream([1, 2, 3]);
-            signature.FeedData(data);
-        }
+        AddVbaProjectSignature(source.Path);
 
         using var target = new TemporaryFile();
         using var wb = new XLWorkbook(source.Path);
@@ -87,8 +84,7 @@ public class MacroFreeSaveTests
 
         wb.SaveAs(target.Path, new SaveOptions { DiscardVbaProject = true });
 
-        using var saved = SpreadsheetDocument.Open(target.Path, false);
-        await Assert.That(PartNames(saved).Any(n => n.Contains("vba", StringComparison.OrdinalIgnoreCase))).IsFalse();
+        await Assert.That(VbaTraces(target.Path)).IsEmpty();
     }
 
     [Test]
@@ -129,9 +125,52 @@ public class MacroFreeSaveTests
         return file;
     }
 
+    /// <summary>
+    /// Signs the VBA project the way Excel lays it out: the signature part, its relationship from
+    /// <c>vbaProject.bin</c>, and its content type.
+    /// </summary>
+    private static void AddVbaProjectSignature(string path)
+    {
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Update);
+
+        using (var signature = zip.CreateEntry("xl/vbaProjectSignature.bin").Open())
+            signature.Write([1, 2, 3]);
+
+        using (var rels = new StreamWriter(zip.CreateEntry("xl/_rels/vbaProject.bin.rels").Open()))
+            rels.Write($"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{SignatureRelType}" Target="vbaProjectSignature.bin"/></Relationships>""");
+
+        var contentTypes = zip.GetEntry("[Content_Types].xml")!;
+        string xml;
+        using (var reader = new StreamReader(contentTypes.Open()))
+            xml = reader.ReadToEnd();
+        contentTypes.Delete();
+        using var writer = new StreamWriter(zip.CreateEntry("[Content_Types].xml").Open());
+        writer.Write(xml.Replace("</Types>", $"""<Override PartName="/xl/vbaProjectSignature.bin" ContentType="{SignatureContentType}"/></Types>"""));
+    }
+
     private static string TempPath(string extension) =>
         Path.ChangeExtension(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()), extension);
 
-    private static string[] PartNames(OpenXmlPackage package) =>
-        package.GetAllParts().Select(p => p.Uri.OriginalString).ToArray();
+    /// <summary>
+    /// A <c>Default</c> content type for <c>.bin</c> may stay: Excel opened the files saved for #902
+    /// with it, over COM.
+    /// </summary>
+    private static string[] VbaTraces(string path)
+    {
+        using var zip = ZipFile.OpenRead(path);
+        return zip.Entries
+            .Where(e => MentionsVba(e.FullName)
+                        || (e.FullName.EndsWith(".rels", StringComparison.Ordinal) && MentionsVba(Read(e)))
+                        || (e.FullName == "[Content_Types].xml" && Read(e).Contains("PartName=\"/xl/vba", StringComparison.OrdinalIgnoreCase)))
+            .Select(e => e.FullName)
+            .ToArray();
+
+        static bool MentionsVba(string text) => text.Contains("vba", StringComparison.OrdinalIgnoreCase);
+
+        static string Read(ZipArchiveEntry entry)
+        {
+            using var reader = new StreamReader(entry.Open());
+            return reader.ReadToEnd();
+        }
+    }
 }

@@ -630,30 +630,40 @@ public partial class XLWorkbook : IXLWorkbook
             return;
         }
 
-        if (_loadSource == XLLoadSource.New)
+        var overwritesOrigin = _loadSource == XLLoadSource.File &&
+                               string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) == 0;
+        try
         {
-            if (File.Exists(file))
-                File.Delete(file);
-
-            CreatePackage(file, GetSpreadsheetDocumentType(file), options);
-        }
-        else if (_loadSource == XLLoadSource.File)
-        {
-            if (string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
+            if (_loadSource == XLLoadSource.New)
             {
-                File.Copy(_originalFile, file, true);
-                File.SetAttributes(file, FileAttributes.Normal);
+                if (File.Exists(file))
+                    File.Delete(file);
+
+                CreatePackage(file, GetSpreadsheetDocumentType(file), options);
             }
+            else if (_loadSource == XLLoadSource.File)
+            {
+                if (!overwritesOrigin)
+                {
+                    File.Copy(_originalFile!, file, true);
+                    File.SetAttributes(file, FileAttributes.Normal);
+                }
 
-            CreatePackage(file, GetSpreadsheetDocumentType(file), options);
+                CreatePackage(file, GetSpreadsheetDocumentType(file), options);
+            }
+            else if (_loadSource == XLLoadSource.Stream)
+            {
+                _originalStream!.Position = 0;
+
+                using var fileStream = File.Create(file);
+                CopyStream(_originalStream, fileStream);
+                EditPackage(fileStream, GetSpreadsheetDocumentType(file), options);
+            }
         }
-        else if (_loadSource == XLLoadSource.Stream)
+        catch (VbaProjectRefusedException) when (!overwritesOrigin)
         {
-            _originalStream!.Position = 0;
-
-            using var fileStream = File.Create(file);
-            CopyStream(_originalStream, fileStream);
-            CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
+            File.Delete(file);
+            throw;
         }
 
         _loadSource = XLLoadSource.File;
