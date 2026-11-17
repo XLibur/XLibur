@@ -242,6 +242,52 @@ public class TablePartRoundTripTests
     }
 
     [Test]
+    public async Task A_sort_of_the_table_drops_the_sort_state_it_replaced()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
+        {
+            wb.Table("HateIndex").DataRange!.Sort(1, XLSortOrder.Descending);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(TableXml(saved, "HateIndex").Element(Main + "sortState")).IsNull()
+            .Because("The loaded sort state names column D, and Excel would re-sort the rows by it on Reapply.");
+    }
+
+    [Test]
+    public async Task A_sort_of_a_range_overlapping_the_table_drops_its_sort_state()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
+        {
+            var ws = wb.Table("HateIndex").Worksheet;
+            ws.Range("A5:E10").Sort(2);
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(TableXml(saved, "HateIndex").Element(Main + "sortState")).IsNull();
+    }
+
+    [Test]
+    public async Task A_sort_or_an_edit_that_leaves_the_table_order_alone_keeps_its_sort_state()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
+        {
+            var ws = wb.Table("HateIndex").Worksheet;
+            ws.Cell("H1").Value = 2;
+            ws.Cell("H2").Value = 1;
+            ws.Range("H1:H2").Sort();
+            ws.Cell("C3").Value = 999;
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(TableXml(saved, "HateIndex").Element(Main + "sortState")).IsNotNull()
+            .Because("Excel keeps a table's sort state when a value in it changes, and Reapply sorts again.");
+    }
+
+    [Test]
     public async Task A_renamed_column_keeps_its_id_the_table_formats_and_the_sort_state()
     {
         using var saved = new MemoryStream();
