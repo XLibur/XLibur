@@ -769,7 +769,7 @@ public partial class XLWorkbook
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheetData")
                 continue;
 
-            return reader.NamespaceURI == OpenXmlConst.Main2006SsNs && reader.Depth == 1 && reader.Prefix == prefix;
+            return OpenXmlConst.IsMainSsNs(reader.NamespaceURI) && reader.Depth == 1 && reader.Prefix == prefix;
         }
 
         return false;
@@ -812,7 +812,7 @@ public partial class XLWorkbook
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheetData"
-                || reader.NamespaceURI != OpenXmlConst.Main2006SsNs)
+                || !OpenXmlConst.IsMainSsNs(reader.NamespaceURI))
                 continue;
 
             if (reader.IsEmptyElement)

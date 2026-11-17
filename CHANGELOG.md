@@ -38,6 +38,8 @@
 
 ### 🐛 Bug Fixes
 
+- **A workbook saved as ISO/IEC 29500 Strict loads its cells, and a save keeps them.** Excel writes a Strict workbook when you choose "Strict Open XML Spreadsheet" in Save As. XLibur loaded such a workbook with no cell values and no shared strings, and gave no error. A save with no edit then wrote every sheet with no cells. The cell reader and the shared-string reader now accept the Strict namespace as well as the Transitional one. The save still writes the workbook as Transitional ([#900](https://github.com/XLibur/XLibur/issues/900)).
+
 - **Four smaller round-trip losses are fixed.** A load and save of an unchanged workbook no longer changes these:
   - A data bar or colour scale colour that is a theme shade keeps its tint. Before, the save wrote only the theme colour, so the shade turned darker.
   - Header or footer text that has no `&L`, `&C` or `&R` code is read as centred, as Excel shows it. Before, the save wrote `&A` as `&L&A`, so the header moved to the left.

@@ -228,7 +228,7 @@ internal static class WorksheetSheetDataReader
     private static bool IsMainElement(XmlReader reader, string localName)
         => reader.NodeType == XmlNodeType.Element
            && reader.LocalName == localName
-           && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+           && OpenXmlConst.IsMainSsNs(reader.NamespaceURI);
 
     /// <summary>
     /// Reads the attributes of a <c>&lt;row&gt;</c>, leaving the reader back on the element itself.
