@@ -249,6 +249,8 @@ XLibur.Excel.LoadOptions.Password.get -> string?
 XLibur.Excel.LoadOptions.Password.set -> void
 XLibur.Excel.SaveOptions.CompressionLevel.get -> System.IO.Compression.CompressionLevel
 XLibur.Excel.SaveOptions.CompressionLevel.set -> void
+XLibur.Excel.SaveOptions.DiscardVbaProject.get -> bool
+XLibur.Excel.SaveOptions.DiscardVbaProject.set -> void
 XLibur.Excel.SaveOptions.Password.get -> string?
 XLibur.Excel.SaveOptions.Password.set -> void
 XLibur.Excel.SaveOptions.RewriteUnchangedSheets.get -> bool

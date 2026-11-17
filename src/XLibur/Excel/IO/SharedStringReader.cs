@@ -64,7 +64,7 @@ internal static class SharedStringReader
         {
             if (reader.NodeType == XmlNodeType.Element
                 && reader.LocalName == "sst"
-                && reader.NamespaceURI == OpenXmlConst.Main2006SsNs)
+                && OpenXmlConst.IsMainSsNs(reader.NamespaceURI))
             {
                 return ReadSst(reader);
             }
@@ -360,12 +360,12 @@ internal static class SharedStringReader
 
     private const string XmlnsNamespace = "http://www.w3.org/2000/xmlns/";
 
-    private static bool IsMainNamespace(XmlReader reader) => reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+    private static bool IsMainNamespace(XmlReader reader) => OpenXmlConst.IsMainSsNs(reader.NamespaceURI);
 
     private static bool IsMainElement(XmlReader reader, string localName)
         => reader.NodeType == XmlNodeType.Element
            && reader.LocalName == localName
-           && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+           && IsMainNamespace(reader);
 
     /// <summary>
     /// Advances over whitespace and other non-structural nodes so the reader lands on the next

@@ -203,36 +203,99 @@ internal static class Financial
     }
 
     /// <summary>
-    /// Newton's method on the NPV of <paramref name="cashflows"/> from the <paramref name="guess"/>.
+    /// Excel answers <c>#VALUE!</c> for a guess at or below -1 or above about 2^53 (measured: 9E15
+    /// is solved, 9.0072E15 is not).
     /// </summary>
     private static AnyValue SolveIrr(List<double> cashflows, double guess)
     {
-        const int maxIterations = 50;
-        const double tolerance = 1e-7;
-        var rate = guess;
-        for (var iteration = 0; iteration < maxIterations; iteration++)
-        {
-            double npv = 0, derivative = 0;
-            for (var t = 0; t < cashflows.Count; t++)
-            {
-                var factor = Math.Pow(1 + rate, t);
-                npv += cashflows[t] / factor;
-                derivative -= t * cashflows[t] / (factor * (1 + rate));
-            }
+        const double maxGuess = 9007199254740992d; // 2^53
+        if (guess <= -1 || guess > maxGuess)
+            return XLError.IncompatibleValue;
 
-            if (Math.Abs(npv) < tolerance)
-                return rate;
-            if (derivative == 0.0)
-                break;
-
-            var nextRate = rate - npv / derivative;
-            if (Math.Abs(nextRate - rate) < tolerance)
-                return nextRate;
-
-            rate = nextRate;
-        }
+        if (TryNewtonRoot(rate => NpvWithDerivative(cashflows, rate), guess, out var root) || TryBisectNpv(cashflows, out root))
+            return root;
 
         return XLError.NumberInvalid;
+    }
+
+    private static (double Value, double Derivative) NpvWithDerivative(List<double> cashflows, double rate)
+    {
+        double npv = 0, derivative = 0;
+        for (var t = 0; t < cashflows.Count; t++)
+        {
+            var factor = Math.Pow(1 + rate, t);
+            npv += cashflows[t] / factor;
+            derivative -= t * cashflows[t] / (factor * (1 + rate));
+        }
+
+        return (npv, derivative);
+    }
+
+    private static bool TryNewtonRoot(Func<double, (double Value, double Derivative)> function, double guess, out double root)
+    {
+        const int maxIterations = 100;
+        const double relativeStep = 1e-12;
+        root = guess;
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            var (value, derivative) = function(root);
+            if (value == 0.0)
+                return true;
+
+            var step = value / derivative;
+            if (!double.IsFinite(step))
+                return false;
+
+            root -= step;
+            if (Math.Abs(step) <= relativeStep * Math.Max(1, Math.Abs(root)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryBisectNpv(List<double> cashflows, out double root)
+    {
+        for (var d = 0; d < 30; d++)
+        {
+            if (TryBisectNpv(cashflows, Math.ScaleB(1, d) - 1, Math.ScaleB(1, d + 1) - 1, out root)
+                || TryBisectNpv(cashflows, Math.ScaleB(1, -d - 1) - 1, Math.ScaleB(1, -d) - 1, out root))
+                return true;
+        }
+
+        root = default;
+        return false;
+    }
+
+    private static bool TryBisectNpv(List<double> cashflows, double low, double high, out double root)
+    {
+        root = default;
+        var lowValue = NpvWithDerivative(cashflows, low).Value;
+        var highValue = NpvWithDerivative(cashflows, high).Value;
+        if (!double.IsFinite(lowValue) || !double.IsFinite(highValue) || Math.Sign(lowValue) == Math.Sign(highValue))
+            return false;
+
+        while (true)
+        {
+            var middle = low + (high - low) / 2;
+            if (middle <= low || middle >= high)
+            {
+                root = Math.Abs(lowValue) <= Math.Abs(highValue) ? low : high;
+                return true;
+            }
+
+            var value = NpvWithDerivative(cashflows, middle).Value;
+            if (value == 0.0)
+            {
+                root = middle;
+                return true;
+            }
+
+            if (Math.Sign(value) == Math.Sign(lowValue))
+                (low, lowValue) = (middle, value);
+            else
+                (high, highValue) = (middle, value);
+        }
     }
 
     private static AnyValue Rate(CalcContext ctx, Span<AnyValue> args)
@@ -267,46 +330,76 @@ internal static class Financial
     }
 
     /// <summary>
-    /// Newton's method on the time-value-of-money residual from the <paramref name="guess"/>, with
-    /// a numeric derivative.
+    /// Excel answers <c>#NUM!</c> when the rate is at or below -1.
     /// </summary>
     private static AnyValue SolveRate(double nper, double pmt, double pv, double fv, double type, double guess)
     {
-        const int maxIterations = 100;
-        const double tolerance = 1e-8;
-        const double delta = 1e-6;
-        var rate = guess;
-        for (var iteration = 0; iteration < maxIterations; iteration++)
+        if (!TryNewtonRoot(rate => TvmEquation(rate, nper, pmt, pv, fv, type), guess, out var root) || root <= -1)
+            return XLError.NumberInvalid;
+
+        return root;
+    }
+
+    private static (double Value, double Derivative) TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
+    {
+        var (growth, annuity, annuityDerivative) = GrowthAndAnnuity(rate, nper);
+        var value = pv * growth + pmt * (1 + rate * type) * annuity + fv;
+        var derivative = pv * nper * Math.Pow(1 + rate, nper - 1) + pmt * (type * annuity + (1 + rate * type) * annuityDerivative);
+        return (value, derivative);
+    }
+
+    private static (double Growth, double Annuity, double AnnuityDerivative) GrowthAndAnnuity(double rate, double nper)
+    {
+        const double binomialSeriesRadius = 1e-5;
+        if (Math.Abs(rate) * Math.Max(1, Math.Abs(nper)) < binomialSeriesRadius)
+            return BinomialSeriesGrowthAndAnnuity(rate, nper);
+
+        var (growth, growthMinusOne) = GrowthWithoutCancellation(rate, nper);
+        var annuity = growthMinusOne / rate;
+        return (growth, annuity, (nper * Math.Pow(1 + rate, nper - 1) - annuity) / rate);
+    }
+
+    private static (double Growth, double Annuity, double AnnuityDerivative) BinomialSeriesGrowthAndAnnuity(double rate, double nper)
+    {
+        var c2 = nper * (nper - 1) / 2;
+        var c3 = c2 * (nper - 2) / 3;
+        var c4 = c3 * (nper - 3) / 4;
+        var annuity = nper + rate * (c2 + rate * (c3 + rate * c4));
+        return (1 + rate * annuity, annuity, c2 + rate * (2 * c3 + rate * 3 * c4));
+    }
+
+    private static (double Growth, double GrowthMinusOne) GrowthWithoutCancellation(double rate, double nper)
+    {
+        const double cancellingLogGrowth = 0.5;
+        var logGrowth = rate > -1 ? nper * LogOnePlus(rate) : double.NaN;
+        if (Math.Abs(logGrowth) <= cancellingLogGrowth)
         {
-            var value = TvmEquation(rate, nper, pmt, pv, fv, type);
-            if (Math.Abs(value) < tolerance)
-                return rate;
-
-            var derivative = (TvmEquation(rate + delta, nper, pmt, pv, fv, type) - value) / delta;
-            if (derivative == 0.0)
-                break;
-
-            var nextRate = rate - value / derivative;
-            if (Math.Abs(nextRate - rate) < tolerance)
-                return nextRate;
-
-            rate = nextRate;
+            var growthMinusOne = ExpMinusOne(logGrowth);
+            return (1 + growthMinusOne, growthMinusOne);
         }
 
-        return XLError.NumberInvalid;
+        var growth = Math.Pow(1 + rate, nper);
+        return (growth, growth - 1);
     }
 
     /// <summary>
-    /// The time-value-of-money residual: <c>pv·(1+rate)^nper + pmt·(1+rate·type)·((1+rate)^nper−1)/rate + fv</c>,
-    /// which is zero at the solved rate. Used by <see cref="Rate"/>.
+    /// <c>ln(1+x)</c> accurate for small <c>x</c>; <see cref="double.LogP1"/> is <c>Math.Log(x + 1)</c>, which
+    /// loses the digits of <c>x</c> to rounding.
     /// </summary>
-    private static double TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
+    private static double LogOnePlus(double x)
     {
-        if (rate == 0.0)
-            return pv + pmt * nper + fv;
+        var u = 1 + x;
+        return u == 1 ? x : Math.Log(u) * x / (u - 1);
+    }
 
-        var pow = Math.Pow(1 + rate, nper);
-        return pv * pow + pmt * (1 + rate * type) * (pow - 1) / rate + fv;
+    /// <summary>
+    /// <c>e^x-1</c> accurate for small <c>x</c>; <see cref="double.ExpM1"/> is <c>Math.Exp(x) - 1</c>, which
+    /// cancels.
+    /// </summary>
+    private static double ExpMinusOne(double x)
+    {
+        var u = Math.Exp(x);
+        return u == 1 ? x : (u - 1) * x / Math.Log(u);
     }
 
     #region Depreciation
