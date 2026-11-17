@@ -194,6 +194,109 @@ public class MacroFreeSaveTests
         await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Template);
     }
 
+    [Test]
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task SaveAs_onto_a_target_held_open_throws_IOException_and_leaves_it_intact(bool fromStream)
+    {
+        using var source = PlainWorkbookFile();
+        using var target = new TemporaryFile();
+        byte[] sentinel = [1, 2, 3, 4, 5];
+        File.WriteAllBytes(target.Path, sentinel);
+        using var sourceStream = fromStream ? File.OpenRead(source.Path) : null;
+        using var wb = sourceStream is null ? new XLWorkbook(source.Path) : new XLWorkbook(sourceStream);
+        using var tempFolder = new PrivateTempFolder();
+
+        using (new FileStream(target.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var ex = await Assert.That(() => wb.SaveAs(target.Path)).Throws<IOException>();
+            await Assert.That(ex!.Message).Contains(target.Path);
+        }
+
+        await Assert.That(File.ReadAllBytes(target.Path)).IsEquivalentTo(sentinel);
+        await Assert.That(Directory.GetFiles(Path.GetDirectoryName(target.Path)!, Path.GetFileName(target.Path) + "*"))
+            .IsEquivalentTo([target.Path]);
+        await Assert.That(tempFolder.Files).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task SaveAs_leaves_no_temporary_file_behind(bool refused)
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile();
+        using var wb = new XLWorkbook(source.Path);
+        using var tempFolder = new PrivateTempFolder();
+
+        if (refused)
+            await Assert.That(() => wb.SaveAs(target.Path)).Throws<InvalidOperationException>();
+        else
+            wb.SaveAs(target.Path, new SaveOptions { DiscardVbaProject = true });
+
+        string[] expected = refused ? [] : [target.Path];
+        await Assert.That(tempFolder.Files).IsEmpty();
+        await Assert.That(Directory.GetFiles(Path.GetDirectoryName(target.Path)!, Path.GetFileName(target.Path) + "*"))
+            .IsEquivalentTo(expected);
+    }
+
+    [Test]
+    [RunOn(TUnit.Core.Enums.OS.Windows)]
+    [Arguments("forward slashes")]
+    [Arguments("upper case")]
+    public async Task SaveAs_to_another_spelling_of_the_loaded_file_writes_the_edit(string spelling)
+    {
+        using var source = PlainWorkbookFile();
+        var otherSpelling = spelling == "upper case"
+            ? source.Path.ToUpperInvariant()
+            : source.Path.Replace('\\', '/');
+
+        using (var wb = new XLWorkbook(source.Path))
+        {
+            wb.Worksheets.First().Cell("Z1").Value = "edited";
+            wb.SaveAs(otherSpelling);
+        }
+
+        await Assert.That(ReadZ1(source.Path)).IsEqualTo("edited");
+    }
+
+    private static TemporaryFile PlainWorkbookFile()
+    {
+        var file = new TemporaryFile();
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet().Cell("A1").Value = 1;
+        wb.SaveAs(file.Path);
+        return file;
+    }
+
+    /// <summary>
+    /// Points <see cref="Path.GetTempPath"/> at an empty folder of its own, so a test can see every
+    /// temporary file a save leaves there. The suite runs serially, so changing the process
+    /// environment is safe.
+    /// </summary>
+    private sealed class PrivateTempFolder : IDisposable
+    {
+        private static readonly string[] Variables = ["TMP", "TEMP", "TMPDIR"];
+        private readonly string?[] _previous = Variables.Select(Environment.GetEnvironmentVariable).ToArray();
+        private readonly string _folder = Directory.CreateTempSubdirectory("xlibur-save-").FullName;
+
+        public PrivateTempFolder()
+        {
+            foreach (var variable in Variables)
+                Environment.SetEnvironmentVariable(variable, _folder);
+        }
+
+        public string[] Files => Directory.GetFileSystemEntries(_folder);
+
+        public void Dispose()
+        {
+            for (var i = 0; i < Variables.Length; i++)
+                Environment.SetEnvironmentVariable(Variables[i], _previous[i]);
+            Directory.Delete(_folder, recursive: true);
+        }
+    }
+
     private static string ReadZ1(string path)
     {
         using var wb = new XLWorkbook(path);
