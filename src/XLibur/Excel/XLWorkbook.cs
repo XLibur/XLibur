@@ -794,6 +794,7 @@ public partial class XLWorkbook : IXLWorkbook
             "xltm" => SpreadsheetDocumentType.MacroEnabledTemplate,
             "xlsx" => SpreadsheetDocumentType.Workbook,
             "xltx" => SpreadsheetDocumentType.Template,
+            "xlsb" => throw IO.BinaryWorkbook.NotSupported(),
             _ => throw new ArgumentException(
                 $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.")
         };

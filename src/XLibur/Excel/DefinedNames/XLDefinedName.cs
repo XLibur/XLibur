@@ -105,6 +105,8 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
 
     public bool Visible { get; set; }
 
+    internal IReadOnlyList<KeyValuePair<string, string>> UnmodelledAttributes { get; set; } = [];
+
     public XLNamedRangeScope Scope => _container.Scope;
 
     public string RefersTo
