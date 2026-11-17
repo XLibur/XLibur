@@ -114,7 +114,93 @@ public class MacroFreeSaveTests
         await Assert.That(package.WorkbookPart!.VbaProjectPart).IsNotNull();
     }
 
-    private static Stream FixtureStream() => TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(VbaFixture));
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task Refused_SaveAs_leaves_an_existing_target_untouched(bool fromStream)
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile();
+        byte[] sentinel = [1, 2, 3, 4, 5];
+        File.WriteAllBytes(target.Path, sentinel);
+        using var sourceStream = fromStream ? File.OpenRead(source.Path) : null;
+        using var wb = sourceStream is null ? new XLWorkbook(source.Path) : new XLWorkbook(sourceStream);
+
+        await Assert.That(() => wb.SaveAs(target.Path)).Throws<InvalidOperationException>();
+
+        await Assert.That(File.ReadAllBytes(target.Path)).IsEquivalentTo(sentinel);
+        await Assert.That(Directory.GetFiles(Path.GetDirectoryName(target.Path)!, Path.GetFileName(target.Path) + "*"))
+            .IsEquivalentTo([target.Path]);
+    }
+
+    [Test]
+    public async Task Save_after_a_discarding_SaveAs_keeps_the_file_macro_free_and_writes_the_edit()
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile();
+        using (var wb = new XLWorkbook(source.Path))
+        {
+            wb.SaveAs(target.Path, new SaveOptions { DiscardVbaProject = true });
+            wb.Worksheets.First().Cell("Z1").Value = "edited";
+            wb.Save();
+        }
+
+        using (var package = SpreadsheetDocument.Open(target.Path, false))
+            await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Workbook);
+        await Assert.That(VbaTraces(target.Path)).IsEmpty();
+        await Assert.That(ReadZ1(target.Path)).IsEqualTo("edited");
+    }
+
+    [Test]
+    public async Task Save_after_SaveAs_xlsm_from_a_stream_keeps_the_vba_project_and_writes_the_edit()
+    {
+        using var source = FixtureStream();
+        using var target = new TemporaryFile(TempPath("xlsm"));
+        using (var wb = new XLWorkbook(source))
+        {
+            wb.SaveAs(target.Path);
+            wb.Worksheets.First().Cell("Z1").Value = "edited";
+            wb.Save();
+        }
+
+        using (var package = SpreadsheetDocument.Open(target.Path, false))
+        {
+            await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.MacroEnabledWorkbook);
+            await Assert.That(package.WorkbookPart!.VbaProjectPart).IsNotNull();
+        }
+
+        await Assert.That(ReadZ1(target.Path)).IsEqualTo("edited");
+    }
+
+    [Test]
+    public async Task Save_after_SaveAs_xltx_from_a_stream_keeps_the_template_type()
+    {
+        using var source = new MemoryStream();
+        using (var created = new XLWorkbook())
+        {
+            created.AddWorksheet();
+            created.SaveAs(source);
+        }
+
+        source.Position = 0;
+        using var target = new TemporaryFile(TempPath("xltx"));
+        using (var wb = new XLWorkbook(source))
+        {
+            wb.SaveAs(target.Path);
+            wb.Save();
+        }
+
+        using var package = SpreadsheetDocument.Open(target.Path, false);
+        await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Template);
+    }
+
+    private static string ReadZ1(string path)
+    {
+        using var wb = new XLWorkbook(path);
+        return wb.Worksheets.First().Cell("Z1").GetString();
+    }
+
+    private static Stream FixtureStream() =>TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(VbaFixture));
 
     private static TemporaryFile CopyFixtureToFile()
     {
