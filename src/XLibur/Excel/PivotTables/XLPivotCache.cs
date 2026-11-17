@@ -37,10 +37,6 @@ internal sealed class XLPivotCache : IXLPivotCache
     /// </summary>
     private readonly Dictionary<int, string> _fieldGroupXml = new();
 
-    /// <summary>
-    /// The <c>numFmtId</c> of a cache field, keyed by field index: the number format of the
-    /// source column, which a field newly added to a pivot table takes.
-    /// </summary>
     private readonly Dictionary<int, XLNumberFormatValue> _fieldNumberFormats = new();
 
     internal XLPivotCache(IXLPivotSource source, XLWorkbook workbook)

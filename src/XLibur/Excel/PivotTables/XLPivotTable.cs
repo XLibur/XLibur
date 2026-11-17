@@ -130,26 +130,10 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         }
     }
 
-    /// <summary>
-    /// The name of a custom pivot table style from the workbook's styles, which
-    /// <see cref="XLPivotTableTheme"/> has no member for. <see cref="Theme"/> is
-    /// <see cref="XLPivotTableTheme.None"/> while it is set, and setting <see cref="Theme"/>
-    /// clears it.
-    /// </summary>
     internal string? CustomThemeName { get; private set; }
 
-    /// <summary>
-    /// The extensions of the definition's <c>extLst</c> other than the <c>x14</c> one, verbatim.
-    /// XLibur does not read them, but a newer Excel keeps settings there, such as the subtotal
-    /// defaults of <c>xpdl:pivotTableDefinition16</c>.
-    /// </summary>
     internal List<string> OtherExtensionsXml { get; } = new();
 
-    /// <summary>
-    /// The <c>x14</c> <c>fillDownLabelsDefault</c> flag: a field added to the table repeats its
-    /// item labels. The fields already in the table keep their own
-    /// <see cref="IXLPivotField.RepeatItemLabels"/>.
-    /// </summary>
     internal bool FillDownLabelsDefault { get; set; }
 
     internal void SetCustomTheme(string name)

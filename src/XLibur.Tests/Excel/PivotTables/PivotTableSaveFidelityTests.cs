@@ -10,11 +10,9 @@ using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace XLibur.Tests.Excel.PivotTables;
 
-/// <summary>
-/// A pivot table loaded and saved with no edits keeps what its definition and cache said (#908).
-/// </summary>
 public class PivotTableSaveFidelityTests
 {
+    private const uint FirstCustomNumberFormatId = 164;
     private const string X14PivotTableDefinitionUri = "{962EF5D1-5CA2-4c93-8EF4-DBF5C05439D2}";
 
     [Test]
@@ -41,10 +39,6 @@ public class PivotTableSaveFidelityTests
         await Assert.That(names.Values.Single()).IsEqualTo("PivotStyleMedium2");
     }
 
-    /// <summary>
-    /// A dxf that only clears a property (no fill, an empty border side) looks like no dxf to the
-    /// style model, but the format still points at it.
-    /// </summary>
     [Test]
     [Arguments(@"Other\Lion\PivotTables\PivotWithStyles.xlsx")]
     [Arguments(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx")]
@@ -74,7 +68,7 @@ public class PivotTableSaveFidelityTests
             definition => string.Join("\n", definition.GetFirstChild<PivotTableDefinitionExtensionList>()?
                 .Elements<PivotTableDefinitionExtension>()
                 .Where(ext => ext.Uri?.Value != X14PivotTableDefinitionUri)
-                .Select(ext => Canonical(ext.OuterXml)) ?? []));
+                .Select(ext => WithoutNamespaceDeclarations(ext.OuterXml)) ?? []));
     }
 
     [Test]
@@ -113,7 +107,7 @@ public class PivotTableSaveFidelityTests
     private static List<string?> FormatDxfs(PivotTableDefinition definition, DifferentialFormat[] dxfs)
     {
         return definition.Formats?.Elements<Format>()
-            .Select(format => format.FormatId?.Value is { } id ? Canonical(dxfs[id].OuterXml) : null)
+            .Select(format => format.FormatId?.Value is { } id ? WithoutNamespaceDeclarations(dxfs[id].OuterXml) : null)
             .ToList() ?? [];
     }
 
@@ -147,10 +141,6 @@ public class PivotTableSaveFidelityTests
         return result;
     }
 
-    /// <summary>
-    /// The number format of each cache field: the id of a built-in format, the format code of a
-    /// custom one, whose id the save renumbers.
-    /// </summary>
     private static Dictionary<string, List<string?>> ReadCacheFieldNumberFormats(Stream stream)
     {
         var result = new Dictionary<string, List<string?>>();
@@ -166,7 +156,7 @@ public class PivotTableSaveFidelityTests
                 .Select(f => f.NumberFormatId?.Value switch
                 {
                     null => null,
-                    >= 164 and var id => customFormats[id],
+                    >= FirstCustomNumberFormatId and var id => customFormats[id],
                     var id => id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 })
                 .ToList());
@@ -185,11 +175,7 @@ public class PivotTableSaveFidelityTests
         return saved;
     }
 
-    /// <summary>
-    /// The element without its namespace declarations, which say where the namespace was declared
-    /// rather than what the element holds.
-    /// </summary>
-    private static string Canonical(string xml)
+    private static string WithoutNamespaceDeclarations(string xml)
     {
         var element = XElement.Parse(xml);
         element.DescendantsAndSelf().Attributes().Where(a => a.IsNamespaceDeclaration).Remove();

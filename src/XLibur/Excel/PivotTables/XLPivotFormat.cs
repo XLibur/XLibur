@@ -37,12 +37,6 @@ internal sealed class XLPivotFormat
 
     private string? _loadedDxfXml;
 
-    /// <summary>
-    /// The dxf the format was loaded with, verbatim, when it decodes to an empty
-    /// <see cref="DxfStyleValue"/>. Such a dxf can still say something the style model cannot:
-    /// that a fill, a border side or the number format is cleared. Setting
-    /// <see cref="DxfStyleValue"/> drops it.
-    /// </summary>
     internal string? LoadedDxfXml
     {
         get => _loadedDxfXml;

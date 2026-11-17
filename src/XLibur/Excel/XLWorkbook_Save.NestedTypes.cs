@@ -35,9 +35,6 @@ public partial class XLWorkbook
         /// </summary>
         public Dictionary<(XLColorKey Color, bool ByCellColor), int> ColorFilterDxfIds { get; private set; }
 
-        /// <summary>
-        /// Maps a pivot format's <see cref="XLPivotFormat.LoadedDxfXml"/> to the index it was written at.
-        /// </summary>
         public Dictionary<string, int> LoadedDxfIds { get; } = new(StringComparer.Ordinal);
 
         public RelIdGenerator RelIdGenerator { get; private set; }
