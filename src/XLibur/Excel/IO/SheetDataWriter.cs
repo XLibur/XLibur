@@ -73,9 +73,7 @@ internal static class SheetDataWriter
                 if (rowState.IsRowOpened)
                     xml.WriteEndElement(); // row
 
-                if (xlWorksheet.Internals.RowsCollection.TryGetValue(currentRowNumber, out var row))
-                    rowState.RowPropIndex++;
-
+                var row = TakeRowProps(xlWorksheet, currentRowNumber, ref rowState.RowPropIndex);
                 WriteStartRow(xml, row, currentRowNumber, maxColumn, context);
 
                 rowState.IsRowOpened = true;
@@ -240,6 +238,15 @@ internal static class SheetDataWriter
 
     private static bool WritesRowStyle(XLRow xlRow) => xlRow.StyleValue != xlRow.Worksheet.StyleValue;
 
+    private static XLRow? TakeRowProps(XLWorksheet xlWorksheet, int rowNumber, ref int rowPropIndex)
+    {
+        if (!xlWorksheet.Internals.RowsCollection.TryGetValue(rowNumber, out var row))
+            return null;
+
+        rowPropIndex++;
+        return row;
+    }
+
     private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, Point point)
     {
         if (cellValue.Type != XLDataType.Blank)
@@ -291,13 +298,15 @@ internal static class SheetDataWriter
 
     private static uint MissingCellStyleId(ref CellWriteContext ctx, Point point)
     {
+        var styles = ctx.SaveContext.SharedStyles;
         var ws = ctx.CellsCollection.Worksheet;
-        var style = ws.Internals.RowsCollection.TryGetValue(point.Row, out var row) && WritesRowStyle(row)
-            ? row.StyleValue
-            : ws.Internals.ColumnsCollection.TryGetValue(point.Column, out var column)
-                ? column.StyleValue
-                : ws.StyleValue;
-        return ctx.SaveContext.SharedStyles[style].StyleId;
+        if (ws.Internals.RowsCollection.TryGetValue(point.Row, out var row) && WritesRowStyle(row))
+            return styles[row.StyleValue].StyleId;
+
+        if (ws.Internals.ColumnsCollection.TryGetValue(point.Column, out var column))
+            return styles[column.StyleValue].StyleId;
+
+        return styles[ws.StyleValue].StyleId;
     }
 
     /// <summary>
