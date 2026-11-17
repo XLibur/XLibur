@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.CalcEngine.Visitors;
 using XLibur.Extensions;
 using XLibur.Utils;
+using ExcelAc = DocumentFormat.OpenXml.Office2010.ExcelAc;
 using OfficeExcel = DocumentFormat.OpenXml.Office.Excel;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
@@ -225,20 +226,45 @@ internal static class DataValidationMapping
         public static DataValidationSettings Read(DataValidation element)
         {
             var settings = ReadAttributes(element);
+            var formula1 = element.Formula1?.Text;
+            QuotedItemList? quotedItems = null;
+            if (element.GetFirstChild<AlternateContent>() is { } alternateContent)
+            {
+                formula1 = alternateContent.Descendants<Formula1>().FirstOrDefault()?.Text;
+                if (alternateContent.Descendants<ExcelAc.List>().FirstOrDefault()?.Text is { } items && formula1 is not null)
+                    quotedItems = new QuotedItemList(items, formula1);
+            }
+
             return settings with
             {
-                MinValue = element.Formula1 is null ? settings.MinValue : element.Formula1.Text,
+                MinValue = formula1 ?? settings.MinValue,
                 MaxValue = element.Formula2 is null ? settings.MaxValue : element.Formula2.Text,
+                QuotedItems = quotedItems,
             };
         }
 
         public static DataValidation Write(in DataValidationSettings settings, string sqref)
         {
             var element = WriteAttributes(new DataValidation(), settings);
-            if (FormulaOrNull(settings.MinValue) is { } min) element.Formula1 = new Formula1(min);
+            if (settings.QuotedItems is { } quotedItems && quotedItems.StillMatches(settings))
+                element.AppendChild(QuotedItemsElement(quotedItems));
+            else if (FormulaOrNull(settings.MinValue) is { } min)
+                element.Formula1 = new Formula1(min);
+
             if (FormulaOrNull(settings.MaxValue) is { } max) element.Formula2 = new Formula2(max);
             element.SequenceOfReferences = new ListValue<StringValue> { InnerText = sqref };
             return element;
+        }
+
+        private static AlternateContent QuotedItemsElement(QuotedItemList quotedItems)
+        {
+            var alternateContent = new AlternateContent();
+            alternateContent.AddNamespaceDeclaration("x12ac", OpenXmlConst.X12Ac2011SsNs);
+            alternateContent.AddNamespaceDeclaration("mc", OpenXmlConst.MarkupCompatibilityNs);
+            alternateContent.Append(
+                new AlternateContentChoice(new ExcelAc.List(quotedItems.Items)) { Requires = "x12ac" },
+                new AlternateContentFallback(new Formula1(quotedItems.Fallback)));
+            return alternateContent;
         }
     }
 

@@ -1,5 +1,6 @@
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Extensions;
+using XLibur.Utils;
 
 namespace XLibur.Excel;
 
@@ -23,29 +24,7 @@ internal sealed class XLCFColorScaleConverter : IXLCFConverter
         }
 
         for (int i = 1; i <= cf.Colors.Count; i++)
-        {
-            var xlColor = cf.Colors[i];
-            var color = new Color();
-            switch (xlColor.ColorType)
-            {
-                case XLColorType.Automatic:
-                    color.Auto = true;
-                    break;
-
-                case XLColorType.Color:
-                    color.Rgb = xlColor.Color.ToHex();
-                    break;
-                case XLColorType.Theme:
-                    color.Theme = System.Convert.ToUInt32(xlColor.ThemeColor);
-                    break;
-
-                case XLColorType.Indexed:
-                    color.Indexed = System.Convert.ToUInt32(xlColor.Indexed);
-                    break;
-            }
-
-            colorScale.Append(color);
-        }
+            colorScale.Append(new Color().FromXLiburColor<Color>(cf.Colors[i]));
 
         conditionalFormattingRule.Append(colorScale);
 
