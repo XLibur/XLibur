@@ -194,8 +194,7 @@ internal static class Regression
     }
 
     /// <summary>
-    /// The paired sums for a function written (known_y, known_x). Excel reads the arguments in the
-    /// order they are written, so an error given as known_y wins over one given as known_x.
+    /// Excel reads known_y before known_x, so an error given as known_y wins over one given as known_x.
     /// </summary>
     private static bool TryGetRegressionSums(CalcContext ctx, in AnyValue yArg, in AnyValue xArg, out PairedSums sums, out XLError error)
     {
