@@ -193,8 +193,7 @@ fixture:
 - **Noise.** Each entry gives the reason the loss is not one, such as a schema default, a count
   attribute, or a style record nothing refers to. A key such as `row@hidden=false` covers only that
   value, so dropping `hidden="1"` still fails.
-- **Known losses.** Each entry describes a real gap and the issue for it, or `TBD` until that issue is
-  filed. The test stays green, and the gap stays in plain view. When a fix lands, the test fails on the entry until it is removed.
+- **Known losses.** Each entry describes a real gap and names the issue that tracks it. The test stays green, and the gap stays in plain view. When a fix lands, the test fails on the entry until it is removed.
 
 Every known loss, and every noise entry for a key a user still sees (columns, conditional formats,
 data validations, `f@ref`, `f@dtr`, print areas and titles, `sheet@state=hidden`), has a bound: the
