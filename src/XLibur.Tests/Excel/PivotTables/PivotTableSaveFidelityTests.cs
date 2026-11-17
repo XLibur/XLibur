@@ -95,6 +95,117 @@ public class PivotTableSaveFidelityTests
             await Assert.That(saved[relId]).IsEquivalentTo(sourceFormats, TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
+    [Test]
+    public async Task Every_dxf_reference_names_the_dxf_it_had_after_two_saves()
+    {
+        var source = WithCustomTableStyle(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx", dxfIds: [4, 5, 365]);
+        var expected = ReadDxfReferences(source);
+        var first = new MemoryStream();
+        var second = new MemoryStream();
+        using (var wb = new XLWorkbook(source))
+        {
+            wb.SaveAs(first);
+            wb.SaveAs(second);
+        }
+
+        var firstSaved = ReadDxfReferences(first);
+        var verbatim = expected.Where(reference => IsCarriedVerbatim(reference.Key, reference.Value))
+            .ToDictionary(reference => reference.Key, reference => reference.Value);
+
+        await Assert.That(verbatim.Keys.Select(key => key.Split(' ')[0]).Distinct())
+            .IsEquivalentTo(["pivotFormat", "cfRule", "tableStyle", "table"]);
+        await Assert.That(expected.Keys.Except(firstSaved.Keys)).IsEmpty();
+        await Assert.That(Mismatches(verbatim, firstSaved.Where(r => verbatim.ContainsKey(r.Key)).ToDictionary())).IsEmpty();
+        await Assert.That(Mismatches(firstSaved, ReadDxfReferences(second))).IsEmpty();
+    }
+
+    // A pivot format that sets a property, and a table column's dataDxfId, are written again from
+    // the style model, which renumbers custom number formats and drops readingOrder="0". The save
+    // also adds a dataDxfId to a column whose cells share one style.
+    private static bool IsCarriedVerbatim(string key, string dxf) => key.Split(' ')[0] switch
+    {
+        "pivotFormat" => Clears(dxf),
+        "table" => !key.EndsWith(" dataDxfId", System.StringComparison.Ordinal),
+        _ => true,
+    };
+
+    private static List<string> Mismatches(Dictionary<string, string> expected, Dictionary<string, string> actual)
+    {
+        return expected.Keys.Union(actual.Keys)
+            .Where(key => expected.GetValueOrDefault(key) != actual.GetValueOrDefault(key))
+            .Select(key => $"{key}: {expected.GetValueOrDefault(key)} -> {actual.GetValueOrDefault(key)}")
+            .ToList();
+    }
+
+    private static MemoryStream WithCustomTableStyle(string resource, uint[] dxfIds)
+    {
+        var stream = new MemoryStream();
+        using (var resourceStream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)))
+            resourceStream.CopyTo(stream);
+
+        using (var document = SpreadsheetDocument.Open(stream, true))
+        {
+            var stylesheet = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+            var style = new TableStyle { Name = "Custom", Pivot = false, Count = (uint)dxfIds.Length };
+            TableStyleValues[] types = [TableStyleValues.WholeTable, TableStyleValues.HeaderRow, TableStyleValues.TotalRow];
+            for (var i = 0; i < dxfIds.Length; i++)
+                style.Append(new TableStyleElement { Type = types[i], FormatId = dxfIds[i] });
+
+            stylesheet.TableStyles!.Append(style);
+            stylesheet.TableStyles.Count = 1;
+        }
+
+        stream.Position = 0;
+        return stream;
+    }
+
+    private static Dictionary<string, string> ReadDxfReferences(Stream stream)
+    {
+        stream.Position = 0;
+        var result = new Dictionary<string, string>();
+        using var document = SpreadsheetDocument.Open(stream, false);
+        var workbookPart = document.WorkbookPart!;
+        var stylesheet = workbookPart.WorkbookStylesPart!.Stylesheet!;
+        var dxfs = stylesheet.DifferentialFormats?.Elements<DifferentialFormat>().ToArray() ?? [];
+        string Dxf(uint id) => WithoutNamespaceDeclarations(dxfs[id].OuterXml);
+
+        foreach (var style in stylesheet.TableStyles?.Elements<TableStyle>() ?? [])
+            foreach (var element in style.Elements<TableStyleElement>())
+                result.Add($"tableStyle {style.Name!.Value} {element.Type!.InnerText}", Dxf(element.FormatId!.Value));
+
+        foreach (var sheet in workbookPart.Workbook!.Sheets!.Elements<Sheet>())
+        {
+            if (workbookPart.GetPartById(sheet.Id!.Value!) is not WorksheetPart worksheetPart)
+                continue;
+
+            var rules = worksheetPart.Worksheet!.Elements<ConditionalFormatting>()
+                .SelectMany(cf => cf.Elements<ConditionalFormattingRule>()
+                    .Select((rule, i) => (Key: $"{cf.SequenceOfReferences!.InnerText} {i}", rule.FormatId)));
+            foreach (var (key, formatId) in rules)
+                result.Add($"cfRule {sheet.Name!.Value}!{key}", Dxf(formatId!.Value));
+
+            foreach (var pivotTablePart in worksheetPart.PivotTableParts)
+            {
+                var definition = pivotTablePart.PivotTableDefinition!;
+                var formats = definition.Formats?.Elements<Format>().ToList() ?? [];
+                for (var i = 0; i < formats.Count; i++)
+                    if (formats[i].FormatId?.Value is { } id)
+                        result.Add($"pivotFormat {sheet.Name!.Value}!{definition.Name!.Value} {i}", Dxf(id));
+            }
+
+            foreach (var tablePart in worksheetPart.TableDefinitionParts)
+            {
+                var table = tablePart.Table!;
+                foreach (var element in table.Descendants().Prepend(table))
+                    foreach (var attribute in element.GetAttributes().Where(a => a.LocalName.EndsWith("DxfId", System.StringComparison.Ordinal)))
+                        result.Add($"table {sheet.Name!.Value}!{table.Name!.Value} {element.LocalName} {element.GetAttribute("name", "").Value} {attribute.LocalName}",
+                            Dxf(uint.Parse(attribute.Value!, System.Globalization.CultureInfo.InvariantCulture)));
+            }
+        }
+
+        return result;
+    }
+
     private static async Task AssertSameAfterSave<T>(string resource, System.Func<PivotTableDefinition, T> read)
     {
         var source = ReadPivotTables(resource, (definition, _) => read(definition));
