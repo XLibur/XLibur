@@ -59,7 +59,7 @@ public class NoteVmlRoundTripTests
         await Assert.That(shapes).Count().IsEqualTo(5);
         foreach (var shape in shapes)
         {
-            await Assert.That(shape.Element(Vml + "shadow")?.Attribute("on")?.Value).IsEqualTo("t");
+            await Assert.That(shape.Element(Vml + "shadow")?.Attribute("on")?.Value).IsEqualTo("true");
 
             var clientData = shape.Element(ExcelVml + "ClientData")!;
             await Assert.That(clientData.Element(ExcelVml + "MoveWithCells")?.Value).IsEqualTo("True");
