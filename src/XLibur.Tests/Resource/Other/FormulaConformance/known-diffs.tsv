@@ -44,13 +44,11 @@ CORREL	CORREL#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur return
 CORREL	CORREL#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-CORREL	CORREL#7	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#12	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#13	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#14	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 CORREL	CORREL#15	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-CORREL	CORREL#16	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 DB	DB#17	error:#NUM!	number:9E+307	An out-of-range magnitude or count: Excel returns number:9E+307; XLibur returns #NUM!	
 DDB	DDB#47	number:0.0019999999999527063	number:0.002	Last digits differ: Excel number:0.002, XLibur number:0.0019999999999527063	
 DDB	DDB#74	number:1.0000007932831068E-08	number:1E-08	Excel returns number:1E-08; XLibur returns number:1.0000007932831068E-08	
@@ -76,7 +74,6 @@ IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur retu
 IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#8	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#13	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#16	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
@@ -179,13 +176,11 @@ SLOPE	SLOPE#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns 
 SLOPE	SLOPE#4	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-SLOPE	SLOPE#7	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 SLOPE	SLOPE#12	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#13	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#14	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SLOPE	SLOPE#15	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-SLOPE	SLOPE#16	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
 SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
 SYD	SYD#46	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
