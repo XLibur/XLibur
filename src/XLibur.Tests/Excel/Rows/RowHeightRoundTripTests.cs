@@ -7,10 +7,6 @@ using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.Rows;
 
-/// <summary>
-/// Excel writes <c>ht</c> without <c>customHeight</c> for a row it auto-fitted. Such a height is a
-/// cache Excel may recompute, not a height the user pinned (#907).
-/// </summary>
 public class RowHeightRoundTripTests
 {
     private static XElement SavedRow(Stream xlsx, int rowNumber)
