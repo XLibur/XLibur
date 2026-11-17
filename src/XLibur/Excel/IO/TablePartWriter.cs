@@ -162,7 +162,7 @@ internal static class TablePartWriter
             field.Id = ++lastId;
     }
 
-    private static TableColumn BuildTableColumn(IXLTableField xlField, uint columnId, XLTable xlTable, SaveContext context)
+    private static TableColumn BuildTableColumn(XLTableField xlField, uint columnId, XLTable xlTable, SaveContext context)
     {
         var fieldName = xlField.Name;
         var tableColumn = new TableColumn

@@ -79,19 +79,23 @@ internal static class TablePartCarryOver
 
         foreach (var column in Columns(written))
         {
-            if (column.Id?.Value is not { } id || !loadedColumns.TryGetValue(id, out var loadedColumn))
+            if (column.Id?.Value is { } id && loadedColumns.TryGetValue(id, out var loadedColumn))
+                ApplyColumn(loadedColumn, column, keepTotals, dxfs);
+        }
+    }
+
+    private static void ApplyColumn(TableColumn loaded, TableColumn written, bool keepTotals,
+        LoadedDifferentialFormats? dxfs)
+    {
+        CopyAttributes(loaded, written,
+            name => !ModelColumnAttributes.Contains(name) && (keepTotals || !ShownTotalsRowAttributes.Contains(name)), dxfs);
+
+        foreach (var child in loaded.ChildElements)
+        {
+            if (child is CalculatedColumnFormula || (child is TotalsRowFormula && !keepTotals))
                 continue;
 
-            CopyAttributes(loadedColumn, column,
-                name => !ModelColumnAttributes.Contains(name) && (keepTotals || !ShownTotalsRowAttributes.Contains(name)), dxfs);
-
-            foreach (var child in loadedColumn.ChildElements)
-            {
-                if (child is CalculatedColumnFormula || (child is TotalsRowFormula && !keepTotals))
-                    continue;
-
-                column.AppendChild(child.CloneNode(true));
-            }
+            written.AppendChild(child.CloneNode(true));
         }
     }
 

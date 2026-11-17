@@ -29,8 +29,8 @@ internal sealed class LoadedDifferentialFormats
             return null;
 
         var differentialFormats = _stylesheet.DifferentialFormats ??= new DifferentialFormats();
+        keptId = (uint)differentialFormats.Elements<DifferentialFormat>().Count();
         differentialFormats.AppendChild((DifferentialFormat)_loaded[loadedId].CloneNode(true));
-        keptId = (uint)differentialFormats.Elements<DifferentialFormat>().Count() - 1;
         differentialFormats.Count = keptId + 1;
         _kept.Add(loadedId, keptId);
         return keptId;
