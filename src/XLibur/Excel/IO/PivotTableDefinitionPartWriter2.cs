@@ -82,6 +82,9 @@ internal static class PivotTableDefinitionPartWriter2
         xml.WriteEndElement(); // pivotTableDefinition
         xml.WriteEndElement(); // ext
 
+        foreach (var extensionXml in pt.OtherExtensionsXml)
+            new PivotTableDefinitionExtension(extensionXml).WriteTo(xml);
+
         xml.WriteEndElement(); // extList
 
         xml.WriteEndElement(); // pivotTableDefinition

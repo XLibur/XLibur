@@ -138,6 +138,13 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// </summary>
     internal string? CustomThemeName { get; private set; }
 
+    /// <summary>
+    /// The extensions of the definition's <c>extLst</c> other than the <c>x14</c> one, verbatim.
+    /// XLibur does not read them, but a newer Excel keeps settings there, such as the subtotal
+    /// defaults of <c>xpdl:pivotTableDefinition16</c>.
+    /// </summary>
+    internal List<string> OtherExtensionsXml { get; } = new();
+
     internal void SetCustomTheme(string name)
     {
         Theme = XLPivotTableTheme.None;
@@ -223,6 +230,8 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         newPivotTable.Theme = Theme;
         if (CustomThemeName is { } customThemeName)
             newPivotTable.SetCustomTheme(customThemeName);
+
+        newPivotTable.OtherExtensionsXml.AddRange(OtherExtensionsXml);
 
         return newPivotTable;
     }

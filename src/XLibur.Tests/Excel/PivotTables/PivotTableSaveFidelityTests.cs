@@ -179,8 +179,6 @@ public class PivotTableSaveFidelityTests
     {
         var element = XElement.Parse(xml);
         element.DescendantsAndSelf().Attributes().Where(a => a.IsNamespaceDeclaration).Remove();
-        foreach (var e in element.DescendantsAndSelf())
-            e.Name = e.Name.LocalName;
         return element.ToString(System.Xml.Linq.SaveOptions.DisableFormatting);
     }
 }
