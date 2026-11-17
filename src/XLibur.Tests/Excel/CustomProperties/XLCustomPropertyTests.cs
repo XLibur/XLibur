@@ -1,6 +1,8 @@
 using System.IO;
+using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using System.Threading.Tasks;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.CustomProperties;
 
@@ -59,5 +61,125 @@ public class XLCustomPropertyTests
 
         var prop = wb.CustomProperty("Count");
         await Assert.That(prop.Type).IsEqualTo(XLCustomPropertyType.Number);
+    }
+
+    [Test]
+    public async Task Integer_property_from_a_file_survives_a_round_trip()
+    {
+        using var saved = TestHelper.LoadAndSave(@"TryToLoad\LO\xlsx\ceiling-floor.xlsx");
+
+        await Assert.That(saved.ReadPart("docProps/custom.xml")).Contains("name=\"DocSecurity\"><vt:i4>0</vt:i4>");
+
+        using var wb = new XLWorkbook(saved);
+        var prop = wb.CustomProperty("DocSecurity");
+        await Assert.That(prop.Type).IsEqualTo(XLCustomPropertyType.Number);
+        await Assert.That(prop.Value).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Integer_added_in_code_is_written_as_an_integer()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.CustomProperties.Add("Count", 42);
+            wb.SaveAs(ms);
+        }
+
+        await Assert.That(ms.ReadPart("docProps/custom.xml")).Contains("<vt:i4>42</vt:i4>");
+    }
+
+    [Test]
+    [Arguments("i1", "-5", (sbyte)-5)]
+    [Arguments("i2", "-300", (short)-300)]
+    [Arguments("i4", "-70000", -70000)]
+    [Arguments("i8", "9000000000", 9000000000L)]
+    [Arguments("ui1", "200", (byte)200)]
+    [Arguments("ui2", "60000", (ushort)60000)]
+    [Arguments("ui4", "4000000000", 4000000000U)]
+    [Arguments("ui8", "18000000000000000000", 18000000000000000000UL)]
+    public async Task Integer_variant_types_load_as_numbers_and_keep_their_type(string vt, string text, object expected)
+    {
+        using var saved = RoundTripCustomProperties($"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\"><vt:{vt}>{text}</vt:{vt}></property>");
+
+        await Assert.That(saved.ReadPart("docProps/custom.xml")).Contains($"<vt:{vt}>{text}</vt:{vt}>");
+
+        using var wb = new XLWorkbook(saved);
+        var prop = wb.CustomProperty("P");
+        await Assert.That(prop.Type).IsEqualTo(XLCustomPropertyType.Number);
+        await Assert.That(prop.Value).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("<vt:lpstr>ansi text</vt:lpstr>")]
+    [Arguments("<vt:decimal>12.5</vt:decimal>")]
+    [Arguments("<vt:cy>1234.5600</vt:cy>")]
+    [Arguments("<vt:r4>1.5</vt:r4>")]
+    public async Task Unmodeled_variant_types_survive_a_round_trip(string variant)
+    {
+        using var saved = RoundTripCustomProperties($"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\">{variant}</property>");
+
+        await Assert.That(saved.ReadPart("docProps/custom.xml")).Contains($"name=\"P\">{variant}</");
+    }
+
+    [Test]
+    public async Task Deleting_an_unmodeled_property_removes_it()
+    {
+        using var source = RoundTripCustomProperties(
+            $"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\"><vt:lpstr>ansi text</vt:lpstr></property>");
+        using var wb = new XLWorkbook(source);
+        wb.CustomProperties.Delete("P");
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        await Assert.That(saved.PartExists("docProps/custom.xml")).IsFalse();
+    }
+
+    [Test]
+    public async Task A_property_added_in_code_replaces_an_unmodeled_one_of_the_same_name()
+    {
+        using var source = RoundTripCustomProperties(
+            $"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\"><vt:lpstr>ansi text</vt:lpstr></property>");
+        using var wb = new XLWorkbook(source);
+        wb.CustomProperties.Add("P", "replaced");
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        var xml = saved.ReadPart("docProps/custom.xml");
+        await Assert.That(xml).Contains("<vt:lpwstr>replaced</vt:lpwstr>");
+        await Assert.That(xml).DoesNotContain("ansi text");
+    }
+
+    private const string FormatId = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
+
+    private static MemoryStream RoundTripCustomProperties(string propertiesXml)
+    {
+        var source = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.CustomProperties.Add("Placeholder", "x");
+            wb.SaveAs(source);
+        }
+
+        using (var document = SpreadsheetDocument.Open(source, true))
+        {
+            var xml = "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" " +
+                      "xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" +
+                      propertiesXml + "</Properties>";
+            using var partStream = document.CustomFilePropertiesPart!.GetStream(FileMode.Create);
+            using var writer = new StreamWriter(partStream);
+            writer.Write(xml);
+        }
+
+        source.Position = 0;
+        using var loaded = new XLWorkbook(source);
+        var saved = new MemoryStream();
+        loaded.SaveAs(saved);
+        saved.Position = 0;
+        return saved;
     }
 }

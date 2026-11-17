@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.VariantTypes;
 using XLibur.Excel.Drawings;
 using XLibur.Excel.IO;
 using XLibur.Excel.RichText;
@@ -66,6 +68,9 @@ public partial class XLWorkbook
         if (package is null)
             return false;
 
+        if (BinaryWorkbook.IsBinaryWorkbook(package))
+            throw BinaryWorkbook.NotSupported();
+
         using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(package));
         LoadSpreadsheetDocument(dSpreadsheet);
         return true;
@@ -90,7 +95,7 @@ public partial class XLWorkbook
 
     private void LoadSheetsFromTemplate(string fileName)
     {
-        using (var dSpreadsheet = SpreadsheetDocument.CreateFromTemplate(fileName))
+        using (var dSpreadsheet = CreateFromTemplate(fileName))
         {
             LoadSpreadsheetDocument(dSpreadsheet);
 
@@ -105,6 +110,18 @@ public partial class XLWorkbook
         // The original file will NOT be copied into place before changes are applied
         // Hence all loaded RelIds have to be cleared
         ResetAllRelIds();
+    }
+
+    private static SpreadsheetDocument CreateFromTemplate(string fileName)
+    {
+        try
+        {
+            return SpreadsheetDocument.CreateFromTemplate(fileName);
+        }
+        catch (OpenXmlPackageException) when (BinaryWorkbook.IsBinaryWorkbook(fileName))
+        {
+            throw BinaryWorkbook.NotSupported();
+        }
     }
 
     private static byte[] ClonePackage(SpreadsheetDocument document)
@@ -318,19 +335,33 @@ public partial class XLWorkbook
 
     private void AddCustomProperty(string name, Op.CustomDocumentProperty m)
     {
-        if (m.VTLPWSTR != null)
-            CustomProperties.Add(name, m.VTLPWSTR.Text);
-        else if (m.VTFileTime != null)
+        object? value = m.FirstChild switch
         {
-            CustomProperties.Add(name,
-                DateTime.ParseExact(m.VTFileTime.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK",
-                    CultureInfo.InvariantCulture));
-        }
-        else if (m.VTDouble != null)
-            CustomProperties.Add(name, double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
-        else if (m.VTBool != null)
-            CustomProperties.Add(name, m.VTBool.Text == "true");
+            VTLPWSTR v => v.Text,
+            VTFileTime v => DateTime.ParseExact(v.Text, "yyyy'-'MM'-'dd'T'HH':'mm':'ssK", CultureInfo.InvariantCulture),
+            VTDouble v => double.Parse(v.Text, CultureInfo.InvariantCulture),
+            VTBool v => v.Text == "true",
+            VTByte v => ParseInteger<sbyte>(v.Text),
+            VTShort v => ParseInteger<short>(v.Text),
+            VTInt32 v => ParseInteger<int>(v.Text),
+            VTInteger v => ParseInteger<int>(v.Text),
+            VTInt64 v => ParseInteger<long>(v.Text),
+            VTUnsignedByte v => ParseInteger<byte>(v.Text),
+            VTUnsignedShort v => ParseInteger<ushort>(v.Text),
+            VTUnsignedInt32 v => ParseInteger<uint>(v.Text),
+            VTUnsignedInteger v => ParseInteger<uint>(v.Text),
+            VTUnsignedInt64 v => ParseInteger<ulong>(v.Text),
+            _ => null
+        };
+
+        if (value is not null)
+            CustomProperties.Add(name, value);
+        else
+            CustomPropertiesInternal.AddUnmodeled(name, (Op.CustomDocumentProperty)m.CloneNode(true));
     }
+
+    private static object? ParseInteger<T>(string text) where T : struct, IBinaryInteger<T> =>
+        T.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
 
     private void LoadCalculationProperties(CalculationProperties? calculationProperties)
     {
