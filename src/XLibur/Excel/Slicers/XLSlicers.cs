@@ -113,8 +113,6 @@ internal sealed class XLSlicers : IXLSlicers
         if (found == 0)
             throw new ArgumentException($"The table '{table.Name}' has no column named '{columnName}'.", nameof(columnName));
 
-        // Both ids are assigned while the parts are written, not modelled, so only the position is
-        // knowable now. The writer fills in TableId and TableColumnId from what it actually emits.
         var slicerCache = new XLSlicerCache(NextCacheName(columnName), columnName, XLSlicerSourceKind.Table)
         {
             IsNew = true,

@@ -374,7 +374,9 @@ internal static class WorkbookStylesPartWriter
     /// pivot formats through <see cref="SaveContext.DifferentialFormats"/>, table fields through
     /// the same map, and auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>.
     /// Custom table styles are not in the object model: <c>&lt;tableStyles&gt;</c> is written as
-    /// loaded, so its ids are remapped onto the rebuilt collection instead (#901).
+    /// loaded, so its ids are remapped onto the rebuilt collection instead (#901). A table part's
+    /// formats that the model does not hold are carried over from the loaded file, and
+    /// <see cref="SaveContext.LoadedDxfs"/> appends each dxf they name once they are written (#904).
     /// </para>
     /// <para>
     /// Until this was fixed the method opened by clearing the collection and then calling a
@@ -391,6 +393,7 @@ internal static class WorkbookStylesPartWriter
         stylesheet.DifferentialFormats ??= new DifferentialFormats();
 
         var differentialFormats = stylesheet.DifferentialFormats;
+        context.LoadedDxfs = new LoadedDifferentialFormats(stylesheet);
         var loadedDxfs = differentialFormats.Elements<DifferentialFormat>().ToList();
         differentialFormats.RemoveAllChildren();
 

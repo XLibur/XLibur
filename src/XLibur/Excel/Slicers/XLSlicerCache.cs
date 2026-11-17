@@ -120,10 +120,5 @@ internal sealed class XLSlicerCache : IXLPivotDependentCache
     /// The 1-based position of the filtered column within <see cref="Table"/>, resolved from
     /// <see cref="TableColumnId"/> while reading the table part.
     /// </summary>
-    /// <remarks>
-    /// A column's id is stable across column moves and is therefore not its position, but auto
-    /// filter columns are addressed by position — and XLibur does not model column ids, so the
-    /// translation has to happen while the table part is still in hand.
-    /// </remarks>
     internal int? TableColumnPosition { get; set; }
 }

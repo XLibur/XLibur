@@ -131,8 +131,6 @@ internal static class SlicerReader
                 continue;
             }
 
-            // Table ids are assigned per package, not modelled, so the map is built from the table
-            // parts themselves — and only when a table slicer actually needs it.
             tables ??= TablesById(workbookPart, sheets, worksheets);
             BindTable(cache, tables);
         }
@@ -154,11 +152,6 @@ internal static class SlicerReader
     /// Maps each table's <c>table/@id</c> to the table and to the position of each of its columns by
     /// <c>tableColumn/@id</c>.
     /// </summary>
-    /// <remarks>
-    /// Neither id is modelled: XLibur renumbers tables and their columns on save. Both have to be
-    /// read back off the table parts, which the load path has already materialised, so this costs a
-    /// walk and no extra parsing.
-    /// </remarks>
     private static Dictionary<uint, (XLTable Table, Dictionary<uint, int> ColumnPositions)> TablesById(
         WorkbookPart workbookPart, Sheets sheets, XLWorksheets worksheets)
     {

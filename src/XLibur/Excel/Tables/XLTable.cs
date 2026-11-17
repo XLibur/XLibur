@@ -151,6 +151,18 @@ internal sealed class XLTable : XLRange, IXLTable
 
     internal string? RelId { get; set; }
 
+    /// <summary>
+    /// The <c>table/@id</c> the table was loaded or last saved with, unique in the workbook. A
+    /// table slicer's cache names its table by it (#903).
+    /// </summary>
+    internal uint? Id { get; set; }
+
+    /// <summary>
+    /// Whether a sort through the model moved cells of the table, so the sort state its loaded part
+    /// remembers no longer describes the order of its rows.
+    /// </summary>
+    internal bool SortedByModel { get; set; }
+
     public IXLTableRange? DataRange
     {
         get

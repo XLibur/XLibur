@@ -891,6 +891,7 @@ public partial class XLWorkbook
         }
 
         xlTable.RelId = relId;
+        LoadTableIds(dTable, xlTable);
 
         if (dTable.TotalsRowCount is not null && dTable.TotalsRowCount.Value > 0)
             xlTable.HydrateShowTotalsRow(true);
@@ -898,6 +899,21 @@ public partial class XLWorkbook
         LoadTableStyleInfo(dTable, xlTable);
         LoadTableAutoFilter(dTable, xlTable);
         LoadTableTotalsRow(dTable, xlTable);
+    }
+
+    private static void LoadTableIds(Table dTable, XLTable xlTable)
+    {
+        xlTable.Id = dTable.Id?.Value;
+
+        var columnCount = xlTable.ColumnCount();
+        var position = 0;
+        foreach (var tableColumn in dTable.TableColumns?.Elements<TableColumn>() ?? [])
+        {
+            if (position == columnCount)
+                break;
+
+            ((XLTableField)xlTable.Field(position++)).Id = tableColumn.Id?.Value;
+        }
     }
 
     private static void LoadTableAutoFilter(Table dTable, XLTable xlTable)

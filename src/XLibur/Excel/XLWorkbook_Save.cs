@@ -309,6 +309,7 @@ public partial class XLWorkbook
         foreach (var ws in WorksheetsInternal)
             orderedWorksheets.Add(ws);
         orderedWorksheets.Sort(static (a, b) => a.Position.CompareTo(b.Position));
+        IO.TablePartWriter.AssignTableIds(orderedWorksheets, context);
 
         foreach (var worksheet in orderedWorksheets)
         {
@@ -328,8 +329,8 @@ public partial class XLWorkbook
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
-        // After the worksheets: a table slicer cache quotes the table/@id the table part was
-        // written under, and a pivot slicer cache the identifier its pivot cache was written with.
+        // After the worksheets: a pivot slicer cache quotes the identifier its pivot cache was
+        // written with.
         SlicerCacheWriter.WriteSlicerCaches(workbookPart, this, context);
         TimelineCacheWriter.WriteTimelineCaches(workbookPart, this, context);
 
