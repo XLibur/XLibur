@@ -369,13 +369,12 @@ internal static class WorkbookStylesPartWriter
     /// <remarks>
     /// <para>
     /// The collection is rebuilt wholesale rather than appended to, so a dxf that nothing
-    /// references any longer does not survive the save. That is safe because <b>every</b>
-    /// <c>dxfId</c> XLibur emits is re-derived here from the object model in the same pass —
-    /// conditional-format rules and pivot formats through
-    /// <see cref="SaveContext.DifferentialFormats"/>, table fields through the same map, and
-    /// auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>. No
-    /// reference is carried over from the loaded file, so no index has to stay stable across a
-    /// save.
+    /// references any longer does not survive the save. Every <c>dxfId</c> XLibur emits is
+    /// re-derived here from the object model in the same pass — conditional-format rules and
+    /// pivot formats through <see cref="SaveContext.DifferentialFormats"/>, table fields through
+    /// the same map, and auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>.
+    /// Custom table styles are not in the object model: <c>&lt;tableStyles&gt;</c> is written as
+    /// loaded, so its ids are remapped onto the rebuilt collection instead (#901).
     /// </para>
     /// <para>
     /// Until this was fixed the method opened by clearing the collection and then calling a
@@ -392,6 +391,7 @@ internal static class WorkbookStylesPartWriter
         stylesheet.DifferentialFormats ??= new DifferentialFormats();
 
         var differentialFormats = stylesheet.DifferentialFormats;
+        var loadedDxfs = differentialFormats.Elements<DifferentialFormat>().ToList();
         differentialFormats.RemoveAllChildren();
 
         foreach (var ws in workbook.WorksheetsInternal)
@@ -402,9 +402,34 @@ internal static class WorkbookStylesPartWriter
             AddAutoFilterColorFilterDxfs(differentialFormats, ws, context);
         }
 
+        RemapTableStyleDxfIds(differentialFormats, stylesheet.TableStyles, loadedDxfs);
+
         differentialFormats.Count = (uint)differentialFormats.ChildElements.Count;
         if (differentialFormats.Count == 0)
             stylesheet.DifferentialFormats = null;
+    }
+
+    private static void RemapTableStyleDxfIds(DifferentialFormats differentialFormats, TableStyles? tableStyles,
+        List<DifferentialFormat> loadedDxfs)
+    {
+        if (tableStyles is null)
+            return;
+
+        var newIds = new Dictionary<uint, uint>();
+        foreach (var element in tableStyles.Descendants<TableStyleElement>())
+        {
+            if (element.FormatId is not { } formatId || formatId.Value >= loadedDxfs.Count)
+                continue;
+
+            if (!newIds.TryGetValue(formatId.Value, out var newId))
+            {
+                differentialFormats.Append(loadedDxfs[(int)formatId.Value]);
+                newId = (uint)differentialFormats.ChildElements.Count - 1;
+                newIds.Add(formatId.Value, newId);
+            }
+
+            element.FormatId = newId;
+        }
     }
 
     private static void AddConditionalFormatDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,

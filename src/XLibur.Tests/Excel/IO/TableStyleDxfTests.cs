@@ -32,10 +32,6 @@ internal class TableStyleDxfTests
         await Assert.That(actual).IsEquivalentTo(expected);
     }
 
-    /// <summary>
-    /// Each <c>tableStyleElement</c> with a <c>dxfId</c>, keyed by its table style and type, with the
-    /// XML of the dxf it points at, or <c>&lt;missing&gt;</c> when the id is outside <c>&lt;dxfs&gt;</c>.
-    /// </summary>
     private static List<string> ReadTableStyleDxfs(Stream package)
     {
         using var document = SpreadsheetDocument.Open(package, false);
