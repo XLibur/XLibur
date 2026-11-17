@@ -149,7 +149,7 @@ public partial class XLWorkbook
         {
             var parts = string.Join(", ", new[] { vbaProject }.Concat(vbaProject.Parts.Select(p => p.OpenXmlPart))
                 .Select(p => p.Uri.OriginalString));
-            throw new VbaProjectRefusedException(
+            throw new InvalidOperationException(
                 $"The workbook holds a VBA project ({parts}), which a macro-free file cannot hold. " +
                 $"Save it as .xlsm or .xltm to keep the macros, or set {nameof(SaveOptions)}.{nameof(SaveOptions.DiscardVbaProject)} to remove them.");
         }
@@ -157,8 +157,6 @@ public partial class XLWorkbook
         // Open XML SDK DeletePart also deletes the child parts nothing else references: the signatures.
         workbookPart.DeletePart(vbaProject);
     }
-
-    private sealed class VbaProjectRefusedException(string message) : InvalidOperationException(message);
 
     /// <summary>
     /// Opens the copy of the loaded package that the save edits. A Strict package is first written

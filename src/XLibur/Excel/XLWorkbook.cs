@@ -484,7 +484,7 @@ public partial class XLWorkbook : IXLWorkbook
             CreatePackage(_originalStream!, false, _spreadsheetDocumentType, options);
         }
         else
-            CreatePackage(_originalFile!, _spreadsheetDocumentType, options);
+            CreatePackage(_originalFile!, GetSpreadsheetDocumentType(_originalFile!), options);
 
         KeepWhatTheSaveWrote();
     }
@@ -630,40 +630,21 @@ public partial class XLWorkbook : IXLWorkbook
             return;
         }
 
-        var overwritesOrigin = _loadSource == XLLoadSource.File &&
-                               string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) == 0;
-        try
+        if (_loadSource == XLLoadSource.New)
         {
-            if (_loadSource == XLLoadSource.New)
-            {
-                if (File.Exists(file))
-                    File.Delete(file);
+            if (File.Exists(file))
+                File.Delete(file);
 
-                CreatePackage(file, GetSpreadsheetDocumentType(file), options);
-            }
-            else if (_loadSource == XLLoadSource.File)
-            {
-                if (!overwritesOrigin)
-                {
-                    File.Copy(_originalFile!, file, true);
-                    File.SetAttributes(file, FileAttributes.Normal);
-                }
-
-                CreatePackage(file, GetSpreadsheetDocumentType(file), options);
-            }
-            else if (_loadSource == XLLoadSource.Stream)
-            {
-                _originalStream!.Position = 0;
-
-                using var fileStream = File.Create(file);
-                CopyStream(_originalStream, fileStream);
-                EditPackage(fileStream, GetSpreadsheetDocumentType(file), options);
-            }
+            CreatePackage(file, GetSpreadsheetDocumentType(file), options);
         }
-        catch (VbaProjectRefusedException) when (!overwritesOrigin)
+        else if (_loadSource == XLLoadSource.File &&
+                 string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) == 0)
         {
-            File.Delete(file);
-            throw;
+            CreatePackage(file, GetSpreadsheetDocumentType(file), options);
+        }
+        else
+        {
+            SaveCopyThenReplace(file, options);
         }
 
         _loadSource = XLLoadSource.File;
@@ -672,6 +653,37 @@ public partial class XLWorkbook : IXLWorkbook
         _templateSheetSource = null;
         ClearEncryptedOrigin();
         KeepWhatTheSaveWrote();
+    }
+
+    /// <summary>
+    /// Saves a copy of the loaded package beside <paramref name="file"/> and moves it over
+    /// <paramref name="file"/> only once the save succeeded, so a save that fails, such as one refused
+    /// for its VBA project, leaves a file already at that path as it was.
+    /// </summary>
+    private void SaveCopyThenReplace(string file, SaveOptions options)
+    {
+        var copy = $"{file}.{Path.GetRandomFileName()}.tmp";
+        try
+        {
+            if (_loadSource == XLLoadSource.File)
+            {
+                File.Copy(_originalFile!, copy);
+                File.SetAttributes(copy, FileAttributes.Normal);
+            }
+            else
+            {
+                _originalStream!.Position = 0;
+                using var copyStream = File.Create(copy);
+                CopyStream(_originalStream, copyStream);
+            }
+
+            CreatePackage(copy, GetSpreadsheetDocumentType(file), options);
+            File.Move(copy, file, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(copy);
+        }
     }
 
     /// <summary>
