@@ -46,7 +46,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-            11.0.100-rc.2.26504.105
+            11.0.100
 
       - name: Show computed version
         run: |

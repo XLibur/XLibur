@@ -86,7 +86,7 @@ jobs:
           # global.json pins the .NET 11 SDK, which builds net10.0 with the 10.0 runtime.
           dotnet-version: |
             10.0.x
-            11.0.100-rc.2.26504.105
+            11.0.100
 
       - name: Restore tools
         run: dotnet tool restore
