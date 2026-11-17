@@ -16,6 +16,12 @@ internal sealed class XLTableField : IXLTableField
     private IXLRangeColumn? _column;
     private string _name;
 
+    /// <summary>
+    /// The <c>tableColumn/@id</c> the column was loaded or last saved with, unique in its table. It
+    /// is not the column's position: a table slicer's cache names its column by it (#903).
+    /// </summary>
+    internal uint? Id { get; set; }
+
     public XLTableField(XLTable table, string name)
     {
         _table = table;

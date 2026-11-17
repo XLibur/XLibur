@@ -79,9 +79,8 @@ internal static class SlicerCacheWriter
     /// workbook's extension list.
     /// </summary>
     /// <remarks>
-    /// Runs after the worksheets, because a table slicer cache quotes the <c>table/@id</c> the
-    /// table part was written under and a pivot slicer cache quotes the pivot cache identifier —
-    /// neither of which exists until those parts have been generated.
+    /// Runs after the worksheets, because a pivot slicer cache quotes the pivot cache identifier,
+    /// which does not exist until the pivot parts have been generated.
     /// </remarks>
     internal static void WriteSlicerCaches(WorkbookPart workbookPart, XLWorkbook workbook, SaveContext context)
     {
@@ -206,14 +205,12 @@ internal static class SlicerCacheWriter
     private static void AppendTableBinding(
         X14.SlicerCacheDefinition definition, XLSlicerCache cache, SaveContext context)
     {
-        // Both ids come from what the table part was actually written as, not from the model: the
-        // table id is a counter over the tables in write order and the column id is the column's
-        // position. A table slicer created against a table that was somehow not written has
-        // nothing to bind to, and is left unbound rather than pointed at the wrong table.
         if (cache.Table is XLTable table && context.TableIds.TryGetValue(table, out var tableId))
         {
             cache.TableId = tableId;
-            cache.TableColumnId = (uint?)cache.TableColumnPosition;
+            cache.TableColumnId = cache.TableColumnPosition is { } position
+                ? table.Fields.Cast<XLTableField>().ElementAtOrDefault(position - 1)?.Id
+                : null;
         }
 
         var tableSlicerCache = new X15.TableSlicerCache

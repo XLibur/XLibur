@@ -373,9 +373,10 @@ internal static class WorkbookStylesPartWriter
     /// <c>dxfId</c> XLibur emits is re-derived here from the object model in the same pass —
     /// conditional-format rules and pivot formats through
     /// <see cref="SaveContext.DifferentialFormats"/>, table fields through the same map, and
-    /// auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>. No
-    /// reference is carried over from the loaded file, so no index has to stay stable across a
-    /// save.
+    /// auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>. A table
+    /// part's formats that the model does not hold are carried over from the loaded file, and
+    /// <see cref="SaveContext.LoadedDxfs"/> appends each dxf they name once they are written, so
+    /// no index has to stay stable across a save either.
     /// </para>
     /// <para>
     /// Until this was fixed the method opened by clearing the collection and then calling a
@@ -392,6 +393,7 @@ internal static class WorkbookStylesPartWriter
         stylesheet.DifferentialFormats ??= new DifferentialFormats();
 
         var differentialFormats = stylesheet.DifferentialFormats;
+        context.LoadedDxfs = new LoadedDifferentialFormats(stylesheet);
         differentialFormats.RemoveAllChildren();
 
         foreach (var ws in workbook.WorksheetsInternal)

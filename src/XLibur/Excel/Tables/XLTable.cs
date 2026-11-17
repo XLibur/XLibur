@@ -151,6 +151,12 @@ internal sealed class XLTable : XLRange, IXLTable
 
     internal string? RelId { get; set; }
 
+    /// <summary>
+    /// The <c>table/@id</c> the table was loaded or last saved with, unique in the workbook. A
+    /// table slicer's cache names its table by it (#903).
+    /// </summary>
+    internal uint? Id { get; set; }
+
     public IXLTableRange? DataRange
     {
         get

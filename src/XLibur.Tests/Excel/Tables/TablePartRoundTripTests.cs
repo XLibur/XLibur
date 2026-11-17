@@ -11,11 +11,6 @@ using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Tables;
 
-/// <summary>
-/// A save keeps what a loaded table part holds: the ids of the table and its columns (#903), and
-/// what the model does not hold, such as the sort state, header and border formats, the totals a
-/// hidden totals row remembers, named cell styles and the insert row (#904).
-/// </summary>
 public class TablePartRoundTripTests
 {
     private const string Slicers = @"TryToLoad\SlicersOnPivotAndTable.xlsx";
@@ -25,8 +20,6 @@ public class TablePartRoundTripTests
     private const string Timelines = @"TryToLoad\Timelines_Missing_21232.xlsx";
 
     private static readonly XNamespace Main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-    // ── Ids (#903) ──────────────────────────────────────────────────────
 
     [Test]
     public async Task A_table_slicer_still_finds_its_table_after_a_save_when_the_table_id_is_not_1()
@@ -89,7 +82,7 @@ public class TablePartRoundTripTests
         using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
         {
             var table = wb.Table("HateIndex");
-            table.Column(5).InsertColumnsAfter(1);
+            table.Resize(table.Worksheet.Range("A1:F10"));
             wb.SaveAs(saved);
         }
 
@@ -105,7 +98,7 @@ public class TablePartRoundTripTests
         {
             var table = wb.Table("HateIndex");
             table.Field("abs").Delete();
-            table.Column(4).InsertColumnsAfter(1);
+            table.Resize(table.Worksheet.Range("A1:E10"));
             wb.SaveAs(saved);
         }
 
@@ -130,16 +123,14 @@ public class TablePartRoundTripTests
         await Assert.That(cache).Contains("column=\"2\"");
     }
 
-    // ── What the model does not hold (#904) ─────────────────────────────
-
     [Test]
     [Arguments(ColumnStyle, "HateIndex", "A2:E10")]
-    [Arguments(ImageReference, null, "E2:E16")]
-    public async Task A_save_keeps_the_sort_state(string fixture, string? tableName, string sortRef)
+    [Arguments(ImageReference, "Таблица1", "E2:E16")]
+    public async Task A_save_keeps_the_sort_state(string fixture, string tableName, string sortRef)
     {
         using var saved = TestHelper.OpenResource(fixture).LoadAndSave();
 
-        var table = tableName is null ? TableXmls(saved).Single() : TableXml(saved, tableName);
+        var table = TableXml(saved, tableName);
         await Assert.That(table.Element(Main + "sortState")?.Attribute("ref")?.Value).IsEqualTo(sortRef);
     }
 
@@ -235,10 +226,8 @@ public class TablePartRoundTripTests
         await Assert.That(errors).IsEmpty();
     }
 
-    // ── A table the model changed ───────────────────────────────────────
-
     [Test]
-    public async Task A_resized_table_drops_its_sort_state_and_insert_row()
+    public async Task A_resized_table_drops_its_sort_state()
     {
         using var saved = new MemoryStream();
         using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
@@ -253,7 +242,7 @@ public class TablePartRoundTripTests
     }
 
     [Test]
-    public async Task A_renamed_column_keeps_its_id_and_cell_style_and_drops_the_sort_state()
+    public async Task A_renamed_column_keeps_its_id_the_table_formats_and_the_sort_state()
     {
         using var saved = new MemoryStream();
         using (var wb = TestHelper.LoadWorkbook(ColumnStyle))
@@ -265,7 +254,8 @@ public class TablePartRoundTripTests
         var table = TableXml(saved, "HateIndex");
         await Assert.That(Column(table, "Hate").Attribute("id")?.Value).IsEqualTo("2");
         await Assert.That(table.Attribute("headerRowDxfId")).IsNotNull();
-        await Assert.That(table.Element(Main + "sortState")).IsNull();
+        await Assert.That(table.Element(Main + "sortState")).IsNotNull()
+            .Because("A sort condition names its column by cell reference, which a rename leaves where it was.");
     }
 
     [Test]
@@ -297,8 +287,6 @@ public class TablePartRoundTripTests
         await Assert.That(Dxf(twice, after.Attribute("headerRowDxfId")!.Value))
             .IsEqualTo(Dxf(source, before.Attribute("headerRowDxfId")!.Value));
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private static MemoryStream TableIdFive()
     {
