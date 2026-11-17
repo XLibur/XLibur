@@ -173,10 +173,19 @@ Both directions are pinned by tests, because each is invisible to the other's.
 
 `RoundTripFidelityTests` checks named content with `Contains`, so it cannot see an attribute or a
 child that a save drops from a part XLibur writes. `RoundTripCensusTests` closes that gap for every
-workbook under `XLibur.Tests/Resource`. It loads each one and saves it twice: once untouched, and once
-after it puts a value in the last cell of each sheet, so the save writes that sheet's cells from the
-model. For each part content type it counts every element and every `element@attribute` before and
-after, and it hashes each part that is not XML. A count that goes down is a loss.
+workbook under `XLibur.Tests/Resource` (438, after four files that are not packages XLibur can open).
+It loads each one and saves it twice: once untouched, and once after it puts a value in the last cell
+of each sheet, so the save writes that sheet's cells from the model. For each part content type it
+counts every element and every `element@attribute` before and after, and it hashes each part that is
+not XML. A count that goes down is a loss.
+
+A count of `c@s` cannot see a cell that loses its style, because a save renumbers style records and
+drops the index of a cell whose style is the default. So the census also resolves the style of every
+cell, by sheet name and address, to what its record holds: the number format code, the font, fill and
+border records, the alignment, the protection, `quotePrefix` and the named cell style. A cell with no
+`c` element takes the style of its row (when the row has `customFormat`) or else of its column. Each of
+these eight parts is its own key, `c@s->numFmt`, `c@s->font` and so on, and its count is the number of
+cells that resolve to the same value after the save.
 
 `RoundTripCensusAllowList` lists the losses the test accepts, by content type and key, never by
 fixture:
@@ -184,11 +193,19 @@ fixture:
 - **Noise.** Each entry gives the reason the loss is not one, such as a schema default, a count
   attribute, or a style record nothing refers to. A key such as `row@hidden=false` covers only that
   value, so dropping `hidden="1"` still fails.
-- **Known losses.** Each entry names the issue that tracks it. The test stays green, and the gap stays
-  in plain view. When a fix lands, the test fails on the entry until it is removed.
+- **Known losses.** Each entry describes a real gap and the issue for it, or `TBD` until that issue is
+  filed. The test stays green, and the gap stays in plain view. When a fix lands, the test fails on the entry until it is removed.
 
-To check that the instrument works, a seed control deletes an element and changes an attribute to its
-default in a copy of a fixture, and asserts that the census reports both. A new loss fails the test
+Every known loss, and every noise entry for a key a user still sees (columns, conditional formats,
+data validations, `f@ref`, `f@dtr`, print areas and titles, `sheet@state=hidden`), has a bound: the
+total of that key the whole corpus lost, over every fixture and both saves, when the list was made.
+The test fails when the total goes over the bound, so an entry cannot hide a new loss of the same key
+in another fixture. The bound is a ceiling, not an exact count, so a fix that only lowers a total
+does not fail the test.
+
+To check that the instrument works, a seed control deletes an element, changes an attribute to its
+default and removes the style of one cell in a copy of a fixture, and asserts that the census reports
+all three. A new loss fails the test
 and names the fixture, the content type, the key and both counts.
 
 ## Threaded comments

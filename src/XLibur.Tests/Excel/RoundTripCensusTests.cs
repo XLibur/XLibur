@@ -15,7 +15,7 @@ public class RoundTripCensusTests
     private static readonly Dictionary<string, string> Unreadable = new()
     {
         ["Encrypted.Encrypted_XL365.xlsx"] = "an encrypted package, which is a compound file rather than a zip",
-        ["TryToLoad.LO.xlsm.pass.CVE-2016-0122-1.xlsm"] = "an encrypted package, which is a compound file rather than a zip",
+        ["TryToLoad.LO.xlsm.pass.CVE-2016-0122-1.xlsm"] = "not a package: its bytes start 19 1E D1 A8, which is neither a zip nor a compound file",
         ["TryToLoad.LO.xlsx.tdf100709.xlsx"] = "a package with no workbook part",
         ["TryToLoad.SheetsWithoutRelId.xlsx"] = "two sheets with an empty r:id, so their parts, and the pivot cache only they use, cannot be reached",
     };
@@ -24,7 +24,7 @@ public class RoundTripCensusTests
         TestHelper.ListResourceFiles(IsWorkbook).Where(f => !Unreadable.ContainsKey(f));
 
     [Test]
-    public async Task The_census_reports_a_deleted_element_and_an_attribute_changed_to_its_default()
+    public async Task The_census_reports_a_deleted_element_an_attribute_changed_to_its_default_and_a_cell_that_lost_its_style()
     {
         var qualified = new HashSet<(string, string)> { ("spreadsheetml.worksheet", "col@customWidth=false") };
         using var original = TestHelper.OpenResource(SeedFixture);
@@ -43,6 +43,7 @@ public class RoundTripCensusTests
             var main = sheet.Root!.Name.Namespace;
             sheet.Descendants(main + "mergeCell").First().Remove();
             sheet.Descendants(main + "col").First(c => (string?)c.Attribute("customWidth") == "1").SetAttributeValue("customWidth", "0");
+            sheet.Descendants(main + "c").First(c => (string?)c.Attribute("r") == "B2").SetAttributeValue("s", null);
 
             entry.Delete();
             using var rewritten = zip.CreateEntry("xl/worksheets/sheet1.xml").Open();
@@ -50,10 +51,15 @@ public class RoundTripCensusTests
         }
 
         damaged.Position = 0;
-        var losses = RoundTripCensus.Losses(before, RoundTripCensus.Of(damaged, qualified)).Select(l => l.ToString());
+        var losses = RoundTripCensus.Losses(before, RoundTripCensus.Of(damaged, qualified)).Select(l => (l with { Example = null }).ToString());
 
         await Assert.That(losses).IsEquivalentTo(new[]
         {
+            "spreadsheetml.worksheet c@s: 21 -> 20",
+            "spreadsheetml.worksheet c@s->alignment: 21 -> 20",
+            "spreadsheetml.worksheet c@s->border: 21 -> 20",
+            "spreadsheetml.worksheet c@s->fill: 21 -> 20",
+            "spreadsheetml.worksheet c@s->font: 21 -> 20",
             "spreadsheetml.worksheet col@customWidth: 7 -> 6",
             "spreadsheetml.worksheet mergeCell: 9 -> 8",
             "spreadsheetml.worksheet mergeCell@ref: 9 -> 8",
@@ -64,7 +70,7 @@ public class RoundTripCensusTests
     public async Task Saving_a_fixture_drops_nothing_the_allow_list_does_not_explain()
     {
         var unexplained = new StringBuilder();
-        var explained = new HashSet<(string, string)>();
+        var lost = new Dictionary<(string ContentType, string Key), int>();
         foreach (var fixture in Fixtures())
         {
             using var original = TestHelper.OpenResource(fixture);
@@ -74,18 +80,26 @@ public class RoundTripCensusTests
                 var after = TakeCensus(Save(original, edit));
                 foreach (var loss in RoundTripCensus.Losses(before, after))
                 {
+                    var key = (loss.ContentType, RoundTripCensusAllowList.Normalise(loss.Key));
                     if (RoundTripCensusAllowList.Explains(loss.ContentType, loss.Key))
-                        explained.Add((loss.ContentType, RoundTripCensusAllowList.Normalise(loss.Key)));
+                        lost[key] = lost.GetValueOrDefault(key) + loss.Before - loss.After;
                     else
                         unexplained.AppendLine($"{fixture} ({(edit ? "edited" : "untouched")}): {loss}");
                 }
             }
         }
 
-        var stale = RoundTripCensusAllowList.Keys.Where(k => !explained.Contains(k)).Select(k => $"{k.ContentType} {k.Key}");
+        var stale = RoundTripCensusAllowList.Keys.Where(k => !lost.ContainsKey(k)).Select(k => $"{k.ContentType} {k.Key}");
+        var exceeded = RoundTripCensusAllowList.Bounds
+            .Where(b => lost.GetValueOrDefault(b.Key) > b.Value)
+            .Select(b => $"{b.Key.ContentType} {b.Key.Key}: lost {lost[b.Key]}, bound {b.Value}{Environment.NewLine}");
 
-        await Assert.That(unexplained.ToString()).IsEmpty();
-        await Assert.That(stale).IsEmpty().Because("an allow-list entry no fixture needs any more should be removed");
+        using (Assert.Multiple())
+        {
+            await Assert.That(unexplained.ToString()).IsEmpty();
+            await Assert.That(string.Concat(exceeded)).IsEmpty().Because("a bounded allow-list entry covers only as much loss as the corpus had when it was measured");
+            await Assert.That(stale).IsEmpty().Because("an allow-list entry no fixture needs any more should be removed");
+        }
     }
 
     private const string SeedFixture = @"Other\StyleReferenceFiles\MergedCellsBorder\inputfile.xlsx";

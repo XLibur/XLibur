@@ -66,15 +66,23 @@ internal sealed class RoundTripCensus
     private static readonly string[] ContentTypePrefixes =
         ["application/vnd.openxmlformats-officedocument.", "application/vnd.openxmlformats-", "application/vnd.", "application/"];
 
-    private readonly Dictionary<(string ContentType, string Key), int> _counts;
+    private const string Worksheet = "spreadsheetml.worksheet";
 
-    private RoundTripCensus(Dictionary<(string ContentType, string Key), int> counts) => _counts = counts;
+    private readonly Dictionary<(string ContentType, string Key), int> _counts;
+    private readonly RoundTripCensusCellStyles _cellStyles;
+
+    private RoundTripCensus(Dictionary<(string ContentType, string Key), int> counts, RoundTripCensusCellStyles cellStyles)
+    {
+        _counts = counts;
+        _cellStyles = cellStyles;
+    }
 
     internal static RoundTripCensus Of(Stream package, IReadOnlySet<(string ContentType, string Key)> qualified)
     {
         var counts = new Dictionary<(string, string), int>();
         using var zip = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
         var contentTypes = ContentTypeMap.Read(zip);
+        var parts = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in zip.Entries)
         {
             if (entry.FullName.EndsWith('/'))
@@ -82,17 +90,19 @@ internal sealed class RoundTripCensus
 
             var contentType = Shorten(contentTypes.Of(entry.FullName));
             var bytes = ReadAll(entry);
+            parts[entry.FullName] = bytes;
             if (!TryCountXml(bytes, contentType, qualified, counts))
                 Add(counts, contentType, BinaryKeyPrefix + Convert.ToHexString(SHA256.HashData(bytes))[..16]);
         }
 
-        return new RoundTripCensus(counts);
+        return new RoundTripCensus(counts, RoundTripCensusCellStyles.Read(parts));
     }
 
     internal static IReadOnlyList<CensusLoss> Losses(RoundTripCensus before, RoundTripCensus after) =>
         before._counts
             .Where(kv => after._counts.GetValueOrDefault(kv.Key) < kv.Value)
             .Select(kv => new CensusLoss(kv.Key.ContentType, kv.Key.Key, kv.Value, after._counts.GetValueOrDefault(kv.Key)))
+            .Concat(RoundTripCensusCellStyles.Losses(Worksheet, before._cellStyles, after._cellStyles))
             .OrderBy(l => l.ContentType, StringComparer.Ordinal)
             .ThenBy(l => l.Key, StringComparer.Ordinal)
             .ToList();
@@ -271,7 +281,7 @@ internal sealed class RoundTripCensus
     }
 }
 
-internal sealed record CensusLoss(string ContentType, string Key, int Before, int After)
+internal sealed record CensusLoss(string ContentType, string Key, int Before, int After, string? Example = null)
 {
-    public override string ToString() => $"{ContentType} {Key}: {Before} -> {After}";
+    public override string ToString() => $"{ContentType} {Key}: {Before} -> {After}" + (Example is null ? "" : $" (first: {Example})");
 }
