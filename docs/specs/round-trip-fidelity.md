@@ -169,6 +169,28 @@ picture out of that tree, and answering from the stream would leave an emptied p
 
 Both directions are pinned by tests, because each is invisible to the other's.
 
+## The census
+
+`RoundTripFidelityTests` checks named content with `Contains`, so it cannot see an attribute or a
+child that a save drops from a part XLibur writes. `RoundTripCensusTests` closes that gap for every
+workbook under `XLibur.Tests/Resource`. It loads each one and saves it twice: once untouched, and once
+after it puts a value in the last cell of each sheet, so the save writes that sheet's cells from the
+model. For each part content type it counts every element and every `element@attribute` before and
+after, and it hashes each part that is not XML. A count that goes down is a loss.
+
+`RoundTripCensusAllowList` lists the losses the test accepts, by content type and key, never by
+fixture:
+
+- **Noise.** Each entry gives the reason the loss is not one, such as a schema default, a count
+  attribute, or a style record nothing refers to. A key such as `row@hidden=false` covers only that
+  value, so dropping `hidden="1"` still fails.
+- **Known losses.** Each entry names the issue that tracks it. The test stays green, and the gap stays
+  in plain view. When a fix lands, the test fails on the entry until it is removed.
+
+To check that the instrument works, a seed control deletes an element and changes an attribute to its
+default in a copy of a fixture, and asserts that the census reports both. A new loss fails the test
+and names the fixture, the content type, the key and both counts.
+
 ## Threaded comments
 
 As of spec 09 threaded comments are modelled rather than preserved, so they are the exception to
