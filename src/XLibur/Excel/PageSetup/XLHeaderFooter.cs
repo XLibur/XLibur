@@ -73,7 +73,8 @@ internal sealed class XLHeaderFooter : IXLHeaderFooter
         Func<int, bool> IsAtPositionIndicator = i => i < text.Length - 1 && text[i] == '&' && Enumerable.Contains(SourceArray, text[i + 1]);
 
         var parsedElements = new List<ParsedHeaderFooterElement>();
-        var currentPosition = 'L'; // default is LEFT
+        // Excel centres text that comes before any &L, &C or &R, as LibreOffice and Apache POI read it.
+        var currentPosition = 'C';
         var hfElement = new StringBuilder();
 
         var i = 0;
