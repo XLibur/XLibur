@@ -24,22 +24,22 @@ public class NoteAnchorTests
         var note = (XLComment)ws.Cell("C10").CreateComment();
         note.AddText("note");
 
-        await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
+        await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.Absolute);
         await Assert.That(note.Style.Properties.Positioning).IsEqualTo(note.Anchor);
 
         // Both directions, because "the two agree" is not the property under test — "the two are
-        // one value" is. Two separate fields that both happened to default to
-        // MoveAndSizeWithCells would satisfy the assertions above, and that is D17 restored in
-        // exactly the shape that kept it invisible for as long as it did.
-        note.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
-        await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.Absolute);
+        // one value" is. Two separate fields that both happened to default to Absolute would
+        // satisfy the assertions above, and that is D17 restored in exactly the shape that kept
+        // it invisible for as long as it did.
+        note.Style.Properties.Positioning = XLDrawingAnchor.MoveAndSizeWithCells;
+        await Assert.That(note.Anchor).IsEqualTo(XLDrawingAnchor.MoveAndSizeWithCells);
 
         note.Anchor = XLDrawingAnchor.MoveWithCells;
         await Assert.That(note.Style.Properties.Positioning).IsEqualTo(XLDrawingAnchor.MoveWithCells);
     }
 
     [Test]
-    public async Task A_new_note_is_written_as_moving_and_sizing_with_its_cell()
+    public async Task A_new_note_is_written_free_floating_as_Excel_creates_it()
     {
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -49,11 +49,11 @@ public class NoteAnchorTests
             wb.SaveAs(ms);
         }
 
-        // Counterintuitive, exactly as VmlDrawingPartWriter's own comment records it: False here
-        // means the note *does* move, and *does* resize, with its cells.
+        // Counterintuitive, exactly as VmlDrawingPartWriter's own comment records it: True here
+        // means the note does *not* move, and does *not* resize, with its cells.
         var clientData = ReadNoteClientData(ms);
-        await Assert.That(clientData.Element(ExcelVml + "MoveWithCells")?.Value).IsEqualTo("False");
-        await Assert.That(clientData.Element(ExcelVml + "SizeWithCells")?.Value).IsEqualTo("False");
+        await Assert.That(clientData.Element(ExcelVml + "MoveWithCells")?.Value).IsEqualTo("True");
+        await Assert.That(clientData.Element(ExcelVml + "SizeWithCells")?.Value).IsEqualTo("True");
     }
 
     [Test]

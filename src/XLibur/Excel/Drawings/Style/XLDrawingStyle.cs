@@ -49,9 +49,9 @@ internal sealed class XLDrawingStyle : IXLDrawingStyle
                 .Alignment.SetVertical(XLDrawingVerticalAlignment.Top)
                 .Alignment.SetDirection(XLDrawingTextDirection.LeftToRight)
                 .Alignment.SetOrientation(XLDrawingTextOrientation.LeftToRight)
-                // A note's callout moves and sizes with its cell, which is what Excel does and what
-                // XLComment.Anchor - the same value, stored here - has always said (D17).
-                .Properties.SetPositioning(XLDrawingAnchor.MoveAndSizeWithCells)
+                // Excel creates every note free-floating ("Don't move or size with cells"). The
+                // callout still follows its cell when rows or columns are inserted or deleted.
+                .Properties.SetPositioning(XLDrawingAnchor.Absolute)
                 .Protection.SetLocked()
                 .Protection.SetLockText();
 
