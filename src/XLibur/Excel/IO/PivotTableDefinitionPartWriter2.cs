@@ -486,11 +486,13 @@ internal static class PivotTableDefinitionPartWriter2
     private static void WritePivotTableStyleInfo(XmlWriter xml, XLPivotTable pt)
     {
         var hasDefaultTheme =
-            pt is { Theme: XLPivotTableTheme.None, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
+            pt is { Theme: XLPivotTableTheme.None, CustomThemeName: null, ShowRowHeaders: false, ShowColumnHeaders: false, ShowRowStripes: false, ShowColumnStripes: false, ShowLastColumn: false };
         if (!hasDefaultTheme)
         {
             xml.WriteStartElement("pivotTableStyleInfo", Main2006SsNs);
-            if (pt.Theme != XLPivotTableTheme.None)
+            if (pt.CustomThemeName is { } customThemeName)
+                xml.WriteAttribute("name", customThemeName);
+            else if (pt.Theme != XLPivotTableTheme.None)
                 xml.WriteAttribute("name", pt.Theme.ToString());
 
             xml.WriteAttributeDefault("showRowHeaders", pt.ShowRowHeaders, false);

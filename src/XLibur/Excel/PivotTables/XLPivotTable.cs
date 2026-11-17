@@ -120,7 +120,29 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
     /// <summary>
     /// Table theme this pivot table will use.
     /// </summary>
-    public XLPivotTableTheme Theme { get; set; }
+    public XLPivotTableTheme Theme
+    {
+        get;
+        set
+        {
+            field = value;
+            CustomThemeName = null;
+        }
+    }
+
+    /// <summary>
+    /// The name of a custom pivot table style from the workbook's styles, which
+    /// <see cref="XLPivotTableTheme"/> has no member for. <see cref="Theme"/> is
+    /// <see cref="XLPivotTableTheme.None"/> while it is set, and setting <see cref="Theme"/>
+    /// clears it.
+    /// </summary>
+    internal string? CustomThemeName { get; private set; }
+
+    internal void SetCustomTheme(string name)
+    {
+        Theme = XLPivotTableTheme.None;
+        CustomThemeName = name;
+    }
 
     /// <summary>
     /// All fields reflected in the pivot cache.
@@ -199,6 +221,9 @@ internal sealed class XLPivotTable : IXLPivotTable, ISheetListener
         newPivotTable.ShowColumnStripes = ShowColumnStripes;
         newPivotTable.ShowLastColumn = ShowLastColumn;
         newPivotTable.Theme = Theme;
+        if (CustomThemeName is { } customThemeName)
+            newPivotTable.SetCustomTheme(customThemeName);
+
         return newPivotTable;
     }
 

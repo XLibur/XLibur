@@ -24,6 +24,23 @@ public class PivotTableSaveFidelityTests
             definition => definition.PivotTableStyle?.Name?.Value);
     }
 
+    [Test]
+    public async Task A_theme_set_in_code_replaces_a_custom_style_name()
+    {
+        using var stream = TestHelper.GetStreamFromResource(
+            TestHelper.GetResourcePath(@"Other\Lion\PivotTables\CustomPivotTheme.xlsx"));
+        var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.Worksheets.SelectMany(ws => ws.PivotTables).Single().Theme = XLPivotTableTheme.PivotStyleMedium2;
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        var names = ReadPivotTables(saved, (definition, _) => definition.PivotTableStyle?.Name?.Value);
+        await Assert.That(names.Values.Single()).IsEqualTo("PivotStyleMedium2");
+    }
+
     /// <summary>
     /// A dxf that only clears a property (no fill, an empty border side) looks like no dxf to the
     /// style model, but the format still points at it.

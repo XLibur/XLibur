@@ -589,10 +589,13 @@ internal static class PivotTableDefinitionPartReader
     {
         if (pivotTableStyle is not null)
         {
-            xlPivotTable.Theme = pivotTableStyle.Name is not null &&
-                                 Enum.TryParse<XLPivotTableTheme>(pivotTableStyle.Name, out var xlPivotTableTheme)
-                ? xlPivotTableTheme
-                : XLPivotTableTheme.None;
+            if (pivotTableStyle.Name?.Value is not { } styleName)
+                xlPivotTable.Theme = XLPivotTableTheme.None;
+            else if (Enum.TryParse<XLPivotTableTheme>(styleName, out var xlPivotTableTheme))
+                xlPivotTable.Theme = xlPivotTableTheme;
+            else
+                xlPivotTable.SetCustomTheme(styleName);
+
             xlPivotTable.ShowRowHeaders = pivotTableStyle.ShowRowHeaders?.Value ?? false;
             xlPivotTable.ShowColumnHeaders = pivotTableStyle.ShowColumnHeaders?.Value ?? false;
             xlPivotTable.ShowRowStripes = pivotTableStyle.ShowRowStripes?.Value ?? false;
