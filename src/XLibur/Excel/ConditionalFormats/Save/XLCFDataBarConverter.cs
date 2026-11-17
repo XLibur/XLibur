@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.IO;
 using XLibur.Extensions;
+using XLibur.Utils;
 using Color = DocumentFormat.OpenXml.Spreadsheet.Color;
 using ConditionalFormattingRule = DocumentFormat.OpenXml.Spreadsheet.ConditionalFormattingRule;
 using DataBar = DocumentFormat.OpenXml.Spreadsheet.DataBar;
@@ -20,29 +21,9 @@ internal sealed class XLCFDataBarConverter : IXLCFConverter
         var conditionalFormatValueObject1 = GetConditionalFormatValueObjectByIndex(cf, 1, ConditionalFormatValueObjectValues.Min);
         var conditionalFormatValueObject2 = GetConditionalFormatValueObjectByIndex(cf, 2, ConditionalFormatValueObjectValues.Max);
 
-        var color = new Color();
-        switch (cf.Colors[1].ColorType)
-        {
-            case XLColorType.Automatic:
-                color.Auto = true;
-                break;
-
-            case XLColorType.Color:
-                color.Rgb = cf.Colors[1].Color.ToHex();
-                break;
-
-            case XLColorType.Theme:
-                color.Theme = System.Convert.ToUInt32(cf.Colors[1].ThemeColor);
-                break;
-
-            case XLColorType.Indexed:
-                color.Indexed = System.Convert.ToUInt32(cf.Colors[1].Indexed);
-                break;
-        }
-
         dataBar.Append(conditionalFormatValueObject1);
         dataBar.Append(conditionalFormatValueObject2);
-        dataBar.Append(color);
+        dataBar.Append(new Color().FromXLiburColor<Color>(cf.Colors[1]));
 
         conditionalFormattingRule.Append(dataBar);
 

@@ -99,7 +99,7 @@ internal static class Regression
     /// <summary>SLOPE(known_y, known_x) — note that y comes first, as it does in every Excel regression function.</summary>
     private static AnyValue Slope(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetPairedSums(ctx, args[1], args[0], out var sums, out var error))
+        if (!TryGetRegressionSums(ctx, args[0], args[1], out var sums, out var error))
             return error;
 
         if (sums.Count < 2 || sums.SumXX == 0)
@@ -110,7 +110,7 @@ internal static class Regression
 
     private static AnyValue Intercept(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetPairedSums(ctx, args[1], args[0], out var sums, out var error))
+        if (!TryGetRegressionSums(ctx, args[0], args[1], out var sums, out var error))
             return error;
 
         if (sums.Count < 2 || sums.SumXX == 0)
@@ -125,7 +125,7 @@ internal static class Regression
     /// </summary>
     private static AnyValue SteyX(CalcContext ctx, Span<AnyValue> args)
     {
-        if (!TryGetPairedSums(ctx, args[1], args[0], out var sums, out var error))
+        if (!TryGetRegressionSums(ctx, args[0], args[1], out var sums, out var error))
             return error;
 
         if (sums.Count < 3 || sums.SumXX == 0)
@@ -139,7 +139,7 @@ internal static class Regression
     {
         if (!args[0].TryReduceToNumber(ctx, out var x, out var xError))
             return xError;
-        if (!TryGetPairedSums(ctx, args[2], args[1], out var sums, out var error))
+        if (!TryGetRegressionSums(ctx, args[1], args[2], out var sums, out var error))
             return error;
 
         if (sums.Count < 1 || sums.SumXX == 0)
@@ -193,17 +193,28 @@ internal static class Regression
         return true;
     }
 
+    /// <summary>
+    /// Excel reads known_y before known_x, so an error given as known_y wins over one given as known_x.
+    /// </summary>
+    private static bool TryGetRegressionSums(CalcContext ctx, in AnyValue yArg, in AnyValue xArg, out PairedSums sums, out XLError error)
+    {
+        if (yArg.TryPickError(out error))
+        {
+            sums = default;
+            return false;
+        }
+
+        return TryGetPairedSums(ctx, xArg, yArg, out sums, out error);
+    }
+
     private static bool TryGetPairs(CalcContext ctx, in AnyValue xArg, in AnyValue yArg, out List<double> xs, out List<double> ys, out XLError error)
     {
         xs = [];
         ys = [];
         error = default;
 
-        if (!xArg.TryPickCollectionArray(out var xArray, ctx) || !yArg.TryPickCollectionArray(out var yArray, ctx))
-        {
-            error = XLError.IncompatibleValue;
+        if (!TryPickPairArray(ctx, xArg, out var xArray, out error) || !TryPickPairArray(ctx, yArg, out var yArray, out error))
             return false;
-        }
 
         var xValues = Flatten(xArray!);
         var yValues = Flatten(yArray!);
@@ -226,6 +237,20 @@ internal static class Regression
         }
 
         return true;
+    }
+
+    private static bool TryPickPairArray(CalcContext ctx, in AnyValue arg, out Array? array, out XLError error)
+    {
+        if (arg.TryPickCollectionArray(out array, ctx))
+        {
+            error = default;
+            return true;
+        }
+
+        if (!arg.TryPickError(out error))
+            error = XLError.IncompatibleValue;
+
+        return false;
     }
 
     #endregion

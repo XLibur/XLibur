@@ -47,6 +47,8 @@ internal readonly record struct DataValidationSettings(
         ErrorMessage: string.Empty,
         ErrorStyle: XLErrorStyle.Stop);
 
+    internal QuotedItemList? QuotedItems { get; init; }
+
     /// <summary>The settings of <paramref name="dataValidation"/>, which can be any implementation.</summary>
     public static DataValidationSettings From(IXLDataValidation dataValidation) =>
         dataValidation is XLDataValidation xl
@@ -98,4 +100,15 @@ internal readonly record struct DataValidationSettings(
         IsDirty()
         || !string.IsNullOrWhiteSpace(InputTitle) || !string.IsNullOrWhiteSpace(InputMessage)
         || !string.IsNullOrWhiteSpace(ErrorTitle) || !string.IsNullOrWhiteSpace(ErrorMessage);
+}
+
+/// <summary>
+/// A list rule's items as Excel spells them in <c>x12ac:list</c>, where an item that holds
+/// a comma is in quotes, as in <c>1,"2,3",4</c>. Excel writes this form only for such a list, with
+/// <c>formula1</c> as the fallback for older readers, which splits every comma: <c>"1,2,3,4"</c>.
+/// </summary>
+internal readonly record struct QuotedItemList(string Items, string Fallback)
+{
+    public bool StillMatches(in DataValidationSettings settings) =>
+        settings.AllowedValues == XLAllowedValues.List && settings.MinValue == Fallback;
 }

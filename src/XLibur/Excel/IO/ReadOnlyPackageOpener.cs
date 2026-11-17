@@ -37,7 +37,7 @@ internal static class ReadOnlyPackageOpener
         try
         {
             package = Package.Open(stream, FileMode.Open, FileAccess.Read);
-            if (!NeedsUriRewriting(package))
+            if (BinaryWorkbook.IsBinaryWorkbook(package) || !NeedsUriRewriting(package))
                 return package;
         }
         catch (Exception e) when (e is FormatException or IOException or InvalidDataException or ArgumentException

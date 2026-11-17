@@ -433,13 +433,20 @@ internal static class DrawingPartReader
         LoadDrawingPositioning(drawing, clientData);
         LoadDrawingProtection(drawing, clientData);
 
-        var visible = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "Visible");
-        drawing.Visible = visible != null &&
-                          (string.IsNullOrEmpty(visible.Value) ||
-                           visible.Value.StartsWith("t", StringComparison.OrdinalIgnoreCase));
+        drawing.Visible = ClientDataFlag(clientData, "Visible") ?? false;
 
         LoadDrawingHAlignment(drawing, clientData);
         LoadDrawingVAlignment(drawing, clientData);
+    }
+
+    // ST_TrueFalseBlank: an element without a value means true, and Excel writes a set flag that way.
+    private static bool? ClientDataFlag(XElement clientData, string name)
+    {
+        var element = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == name);
+        if (element is null)
+            return null;
+
+        return element.Value.Length == 0 || element.Value.StartsWith("t", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static void LoadDrawingHAlignment<T>(IXLDrawing<T> drawing, XElement clientData)
@@ -460,20 +467,16 @@ internal static class DrawingPartReader
 
     internal static void LoadDrawingProtection<T>(IXLDrawing<T> drawing, XElement clientData)
     {
-        var lockedElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "Locked");
-        var lockTextElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "LockText");
-        var locked = lockedElement != null && lockedElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
-        var lockText = lockTextElement != null && lockTextElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
-        drawing.Style.Protection.Locked = locked;
-        drawing.Style.Protection.LockText = lockText;
+        // An object is locked, and its text is locked, unless the file says otherwise.
+        drawing.Style.Protection.Locked = ClientDataFlag(clientData, "Locked") ?? true;
+        drawing.Style.Protection.LockText = ClientDataFlag(clientData, "LockText") ?? true;
     }
 
     internal static void LoadDrawingPositioning<T>(IXLDrawing<T> drawing, XElement clientData)
     {
-        var moveWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "MoveWithCells");
-        var sizeWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "SizeWithCells");
-        var moveWithCells = !(moveWithCellsElement != null && moveWithCellsElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
-        var sizeWithCells = !(sizeWithCellsElement != null && sizeWithCellsElement.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+        // Inverted: a set MoveWithCells flag means the object does not move with its cells.
+        var moveWithCells = ClientDataFlag(clientData, "MoveWithCells") != true;
+        var sizeWithCells = ClientDataFlag(clientData, "SizeWithCells") != true;
         if (!moveWithCells)
             drawing.Style.Properties.Positioning = XLDrawingAnchor.Absolute;
         else if (sizeWithCells)

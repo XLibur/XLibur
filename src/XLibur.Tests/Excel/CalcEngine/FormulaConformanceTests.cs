@@ -20,7 +20,7 @@ public class FormulaConformanceTests
     {
         var excel = Stored(c);
         var actual = Evaluate(c);
-        var matches = Matches(excel, actual);
+        var matches = Matches(excel, actual, ToleranceFor(c.Function));
         var known = KnownDiffs().GetValueOrDefault(c.Id);
 
         if (known is null)
@@ -117,6 +117,19 @@ public class FormulaConformanceTests
     public async Task Comparison_rules(string eType, string eValue, string aType, string aValue, bool expected)
     {
         await Assert.That(Matches(new Answer(eType, eValue), new Answer(aType, aValue))).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("RATE", "0.042774978035587", "0.042774978035113674", true)]
+    [Arguments("IRR", "1", "1.0000000005", true)]
+    [Arguments("RATE", "-0.999998742518659", "-0.9210270444535512", false)]
+    [Arguments("IRR", "1", "1.000000002", false)]
+    [Arguments("SUM", "0.042774978035587", "0.042774978035113674", false)]
+    public async Task Iterative_functions_compare_within_1e_9_and_others_within_1e_12(string function, string excel, string xlibur, bool expected)
+    {
+        var matches = Matches(new Answer("number", excel), new Answer("number", xlibur), ToleranceFor(function));
+
+        await Assert.That(matches).IsEqualTo(expected);
     }
 
     private static Dictionary<string, KnownDiff> KnownDiffs() => ReadKnownDiffs().ToDictionary(x => x.Id);
