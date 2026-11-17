@@ -37,7 +37,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-            11.0.100-rc.2.26504.105
+            11.0.100
 
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
@@ -74,7 +74,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-            11.0.100-rc.2.26504.105
+            11.0.100
 
       - name: Set up JDK 17
         if: env.SONAR_TOKEN != ''
@@ -235,7 +235,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-            11.0.100-rc.2.26504.105
+            11.0.100
 
       - name: Restore dependencies
         run: dotnet restore XLibur.slnx
