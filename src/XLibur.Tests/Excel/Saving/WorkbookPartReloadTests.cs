@@ -90,10 +90,13 @@ public class WorkbookPartReloadTests
     [Test]
     public async Task A_strict_workbook_saves_a_package_with_no_relationship_to_a_part_it_deleted()
     {
-        // The source has a calcChain but no formulas, so the save deletes the calcChain part. The SDK
-        // put the Strict relationship to it back when it closed the package.
-        using var saved = TestHelper.LoadAndSave(StrictWorkbook);
+        using var wb = TestHelper.LoadWorkbook(StrictWorkbook);
+        wb.Worksheet("Sheet1").Range("C1:C4").Clear(XLClearOptions.Contents);
 
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        await Assert.That(HasPart(saved, "/xl/calcChain.xml")).IsFalse();
         await Assert.That(DanglingRelationships(saved)).IsEmpty();
 
         saved.Position = 0;
@@ -172,6 +175,13 @@ public class WorkbookPartReloadTests
         return package.WorkbookPart!.Workbook!.DefinedNames!.Elements<DefinedName>()
             .Select(n => (n.Name!.Value!, n.LocalSheetId?.Value, n.Text))
             .ToList();
+    }
+
+    private static bool HasPart(MemoryStream saved, string partUri)
+    {
+        saved.Position = 0;
+        using var package = Package.Open(saved, FileMode.Open, FileAccess.Read);
+        return package.PartExists(new Uri(partUri, UriKind.Relative));
     }
 
     /// <summary>

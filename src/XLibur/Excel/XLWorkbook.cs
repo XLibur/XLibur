@@ -486,7 +486,7 @@ public partial class XLWorkbook : IXLWorkbook
             CreatePackage(_originalStream!, false, _spreadsheetDocumentType, options);
         }
         else
-            CreatePackage(_originalFile!, _spreadsheetDocumentType, options);
+            CreatePackage(_originalFile!, GetSpreadsheetDocumentType(_originalFile!), options);
 
         KeepWhatTheSaveWrote();
     }
@@ -639,23 +639,14 @@ public partial class XLWorkbook : IXLWorkbook
 
             CreatePackage(file, GetSpreadsheetDocumentType(file), options);
         }
-        else if (_loadSource == XLLoadSource.File)
+        else if (_loadSource == XLLoadSource.File &&
+                 string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) == 0)
         {
-            if (string.Compare(_originalFile!.Trim(), file.Trim(), StringComparison.OrdinalIgnoreCase) != 0)
-            {
-                File.Copy(_originalFile, file, true);
-                File.SetAttributes(file, FileAttributes.Normal);
-            }
-
             CreatePackage(file, GetSpreadsheetDocumentType(file), options);
         }
-        else if (_loadSource == XLLoadSource.Stream)
+        else
         {
-            _originalStream!.Position = 0;
-
-            using var fileStream = File.Create(file);
-            CopyStream(_originalStream, fileStream);
-            CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
+            SaveCopyThenReplace(file, options);
         }
 
         _loadSource = XLLoadSource.File;
@@ -664,6 +655,39 @@ public partial class XLWorkbook : IXLWorkbook
         _templateSheetSource = null;
         ClearEncryptedOrigin();
         KeepWhatTheSaveWrote();
+    }
+
+    /// <summary>
+    /// Saves a copy of the loaded package in the temp folder and copies it onto <paramref name="file"/>
+    /// only once the save succeeded, so a save that fails, such as one refused for its VBA project,
+    /// leaves a file already at that path as it was. Copying onto the target, rather than moving the
+    /// copy over it, writes through a symlink, keeps the target's attributes and ACL, and throws
+    /// <see cref="IOException"/> when another process (Excel) holds the target open.
+    /// </summary>
+    private void SaveCopyThenReplace(string file, SaveOptions options)
+    {
+        var copy = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            if (_loadSource == XLLoadSource.File)
+            {
+                File.Copy(_originalFile!, copy);
+                File.SetAttributes(copy, FileAttributes.Normal);
+            }
+            else
+            {
+                _originalStream!.Position = 0;
+                using var copyStream = File.Create(copy);
+                CopyStream(_originalStream, copyStream);
+            }
+
+            CreatePackage(copy, GetSpreadsheetDocumentType(file), options);
+            File.Copy(copy, file, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(copy);
+        }
     }
 
     /// <summary>
@@ -794,6 +818,7 @@ public partial class XLWorkbook : IXLWorkbook
             "xltm" => SpreadsheetDocumentType.MacroEnabledTemplate,
             "xlsx" => SpreadsheetDocumentType.Workbook,
             "xltx" => SpreadsheetDocumentType.Template,
+            "xlsb" => throw IO.BinaryWorkbook.NotSupported(),
             _ => throw new ArgumentException(
                 $"Extension '{extension}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.")
         };

@@ -317,7 +317,7 @@ internal static class WorkbookPartWriter
 
             if (!string.IsNullOrWhiteSpace(xlDefinedName.Comment))
                 definedName.Comment = xlDefinedName.Comment;
-            definedNames.AppendChild(definedName);
+            AppendDefinedName(definedNames, definedName, xlDefinedName);
         }
 
         return definedNames;
@@ -393,8 +393,16 @@ internal static class WorkbookPartWriter
 
             if (!string.IsNullOrWhiteSpace(xlDefinedName.Comment))
                 definedName.Comment = xlDefinedName.Comment;
-            definedNames.AppendChild(definedName);
+            AppendDefinedName(definedNames, definedName, xlDefinedName);
         }
+    }
+
+    private static void AppendDefinedName(DefinedNames definedNames, DefinedName definedName, XLDefinedName xlDefinedName)
+    {
+        foreach (var (name, value) in xlDefinedName.UnmodelledAttributes)
+            definedName.SetAttribute(new OpenXmlAttribute(name, string.Empty, value));
+
+        definedNames.AppendChild(definedName);
     }
 
     private static void AppendPrintTitlesDefinedName(DefinedNames definedNames, XLWorksheet worksheet, uint sheetId)

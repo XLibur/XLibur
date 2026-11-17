@@ -128,13 +128,30 @@ public static class FormulaConformance
         return rows;
     }
 
+    internal const double DefaultTolerance = 1e-12;
+
     /// <summary>
-    /// Whether XLibur's answer agrees with the stored Excel answer. Numbers match within relative
-    /// 1e-12 (absolute 1e-300 near zero). Everything else must be identical: the type, the text
+    /// Functions Excel solves by iteration, compared within relative 1e-9. Excel stops <c>RATE</c>
+    /// once the answer is within 1e-7, and its <c>IRR</c> answers for the same cash flows move in the
+    /// 13th digit with the guess, so the last digits are not a stable target (#915). 1e-9 covers the
+    /// largest gap observed (1.4e-10) and still fails on a wrong root.
+    /// </summary>
+    private static readonly Dictionary<string, double> IterativeTolerance = new(StringComparer.Ordinal)
+    {
+        ["RATE"] = 1e-9,
+        ["IRR"] = 1e-9,
+        ["XIRR"] = 1e-9,
+    };
+
+    internal static double ToleranceFor(string function) => IterativeTolerance.GetValueOrDefault(function, DefaultTolerance);
+
+    /// <summary>
+    /// Whether XLibur's answer agrees with the stored Excel answer. Numbers match within the relative
+    /// <paramref name="tolerance"/> (absolute 1e-300 near zero). Everything else must be identical: the type, the text
     /// ordinally, and the error code, so empty, zero and the empty string stay distinct. The one
     /// exception is a formula Excel rejects, which matches a rejection or any error from XLibur.
     /// </summary>
-    internal static bool Matches(Answer excel, Answer actual)
+    internal static bool Matches(Answer excel, Answer actual, double tolerance = DefaultTolerance)
     {
         // A formula Excel refuses at entry cannot exist in a workbook Excel wrote, so XLibur refusing
         // it or evaluating it to an error value are the same outcome. Evaluating it to a value is not.
@@ -152,7 +169,7 @@ public static class FormulaConformance
         if (e.Equals(a))
             return true;
 
-        return Math.Abs(e - a) <= Math.Max(1e-12 * Math.Max(Math.Abs(e), Math.Abs(a)), 1e-300);
+        return Math.Abs(e - a) <= Math.Max(tolerance * Math.Max(Math.Abs(e), Math.Abs(a)), 1e-300);
     }
 
     internal static Answer Stored(Case c) => new(c.ExcelType, c.ExcelValue);

@@ -5,6 +5,7 @@ using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Drawings;
+using XLibur.Excel.IO;
 using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
@@ -23,7 +24,6 @@ public partial class XLWorkbook
             SharedFonts = new Dictionary<XLFontValue, FontInfo>();
             SharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
             SharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
-            TableId = 0;
             TableNames = [];
             PivotCacheIds = new Dictionary<XLPivotCache, uint>();
         }
@@ -41,7 +41,6 @@ public partial class XLWorkbook
         public Dictionary<XLFontValue, FontInfo> SharedFonts { get; private set; }
         public Dictionary<XLNumberFormatValue, NumberFormatInfo> SharedNumberFormats { get; private set; }
         public Dictionary<XLStyleValue, StyleInfo> SharedStyles { get; private set; }
-        public uint TableId { get; set; }
         public HashSet<string> TableNames { get; private set; }
 
         /// <summary>
@@ -60,15 +59,16 @@ public partial class XLWorkbook
         public Dictionary<XLPivotCache, uint> PivotCacheIds { get; private set; }
 
         /// <summary>
-        /// The <c>table/@id</c> each table is written under, recorded as the table parts are
-        /// generated and read back when a table slicer's cache names the table it filters.
+        /// The <c>table/@id</c> each table is written under, assigned before any table part is
+        /// written and read back when a table slicer's cache names the table it filters.
         /// </summary>
         /// <remarks>
-        /// Like <see cref="PivotCacheIds"/>, the id belongs to the save rather than to the table:
-        /// it comes from <see cref="TableId"/>, a counter over the tables in write order, so it is
-        /// only knowable once the part has been written and only meaningful within one save.
+        /// A loaded table keeps the id it was loaded with, because a slicer cache the save does not
+        /// rewrite names the table by it (#903).
         /// </remarks>
         public Dictionary<XLTable, uint> TableIds { get; } = new();
+
+        internal LoadedDifferentialFormats? LoadedDxfs { get; set; }
 
         /// <summary>
         /// A map of shared string ids. The index is the actual index from sharedStringId, and

@@ -218,10 +218,9 @@ internal sealed class DrawingAnchorListener(XLWorksheet worksheet) : ISheetListe
         {
             var note = enumerator.Current.Comment;
 
-            // XLComment.Anchor is Style.Properties.Positioning — one value under two names since
-            // D17. Before that fix the two were separate fields that disagreed on every note
-            // XLibur created, and the VML writer read the style while this listener read Anchor.
-            if (note is null || note.Anchor == XLDrawingAnchor.Absolute)
+            // Every note follows its cell, whatever its anchoring mode: Excel moves a free-floating
+            // note's callout too when rows are inserted above it.
+            if (note is null)
                 continue;
 
             if (HasCellMoved(axis, enumerator.Point, editFirstCross, editLastCross, movedFrom))

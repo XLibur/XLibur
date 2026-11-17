@@ -61,7 +61,7 @@ internal static class Statistical
         //INTERCEPT	Returns the intercept of the linear regression line
         //KURT	Returns the kurtosis of a data set
         //LARGE	Returns the k-th largest value in a data set
-        ce.RegisterFunction("LARGE", 2, 2, Adapt(Large), FunctionFlags.Range, AllowRange.Only, 0);
+        ce.RegisterFunction("LARGE", 2, 2, AdaptArrayErrorFirst(Large), FunctionFlags.Range, AllowRange.Only, 0);
         //LINEST	Returns the parameters of a linear trend
         //LOGEST	Returns the parameters of an exponential trend
         //LOGINV	Returns the inverse of the lognormal distribution
@@ -82,8 +82,8 @@ internal static class Statistical
         //NORMSDIST	Returns the standard normal cumulative distribution
         //NORMSINV	Returns the inverse of the standard normal cumulative distribution
         //PEARSON	Returns the Pearson product moment correlation coefficient
-        ce.RegisterFunction("PERCENTILE", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th percentile of values in a range
-        ce.RegisterFunction("PERCENTILE.INC", 2, 2, Adapt(Percentile), FunctionFlags.Range, AllowRange.Only, 0);
+        ce.RegisterFunction("PERCENTILE", 2, 2, AdaptArrayErrorFirst(Percentile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th percentile of values in a range
+        ce.RegisterFunction("PERCENTILE.INC", 2, 2, AdaptArrayErrorFirst(Percentile), FunctionFlags.Range, AllowRange.Only, 0);
         ce.RegisterFunction("PERCENTILE.EXC", 2, 2, Adapt(PercentileExc), FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0); // The k-th percentile, exclusive of the endpoints
         ce.RegisterFunction("PERCENTRANK", 2, 3, PercentRankInc, FunctionFlags.Range, AllowRange.Only, 0); // Returns the percentage rank of a value in a data set
         ce.RegisterFunction("PERCENTRANK.INC", 2, 3, PercentRankInc, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0);
@@ -91,8 +91,8 @@ internal static class Statistical
         //PERMUT	Returns the number of permutations for a given number of objects
         //POISSON	Returns the Poisson distribution
         //PROB	Returns the probability that values in a range are between two limits
-        ce.RegisterFunction("QUARTILE", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the quartile of a data set
-        ce.RegisterFunction("QUARTILE.INC", 2, 2, Adapt(Quartile), FunctionFlags.Range, AllowRange.Only, 0);
+        ce.RegisterFunction("QUARTILE", 2, 2, AdaptArrayErrorFirst(Quartile), FunctionFlags.Range, AllowRange.Only, 0); // Returns the quartile of a data set
+        ce.RegisterFunction("QUARTILE.INC", 2, 2, AdaptArrayErrorFirst(Quartile), FunctionFlags.Range, AllowRange.Only, 0);
         ce.RegisterFunction("QUARTILE.EXC", 2, 2, Adapt(QuartileExc), FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 0); // The quartile, exclusive of the endpoints
         ce.RegisterFunction("RANK", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1); // Returns the rank of a number in a list of numbers
         ce.RegisterFunction("RANK.EQ", 2, 3, Rank, FunctionFlags.Range, AllowRange.Only, 1);
@@ -100,7 +100,7 @@ internal static class Statistical
         //RSQ	Returns the square of the Pearson product moment correlation coefficient
         //SKEW	Returns the skewness of a distribution
         //SLOPE	Returns the slope of the linear regression line
-        ce.RegisterFunction("SMALL", 2, 2, Adapt(Small), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th smallest value in a data set
+        ce.RegisterFunction("SMALL", 2, 2, AdaptArrayErrorFirst(Small), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th smallest value in a data set
         //STANDARDIZE	Returns a normalized value
         ce.RegisterFunction("STDEV", 1, int.MaxValue, StDev, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("STDEVA", 1, int.MaxValue, StDevA, FunctionFlags.Range, AllowRange.All);

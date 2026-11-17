@@ -251,6 +251,26 @@ internal static class SignatureAdapter
         };
     }
 
+    /// <summary>
+    /// Like <c>Adapt</c> for an array and a number, but an error given as the array wins over an
+    /// error in the number, as it does in Excel's LARGE, SMALL, PERCENTILE and QUARTILE.
+    /// </summary>
+    public static CalcEngineFunction AdaptArrayErrorFirst(Func<CalcContext, AnyValue, double, AnyValue> f)
+    {
+        return (ctx, args) =>
+        {
+            var arg0 = args[0];
+            if (arg0.TryPickError(out var err0))
+                return err0;
+
+            var arg1Converted = ToNumber(args[1], ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            return f(ctx, arg0, arg1);
+        };
+    }
+
     public static CalcEngineFunction Adapt(Func<CalcContext, string, ScalarValue?, AnyValue> f)
     {
         return (ctx, args) =>
@@ -527,6 +547,43 @@ internal static class SignatureAdapter
         };
     }
 
+    /// <summary>
+    /// Like <c>AdaptLastOptional</c>, but converts the last argument first, so its error wins when
+    /// both arguments are errors. Excel does this in DEC2BIN, DELTA, GESTEP and the like.
+    /// </summary>
+    public static CalcEngineFunction AdaptLastOptionalLastFirst(Func<CalcContext, double, double, ScalarValue> f, double lastDefault)
+    {
+        return (ctx, args) =>
+        {
+            var arg1Converted = ToNumber(args.Length > 1 ? args[1] : lastDefault, ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            return f(ctx, arg0, arg1).ToAnyValue();
+        };
+    }
+
+    /// <inheritdoc cref="AdaptLastOptionalLastFirst(Func{CalcContext, double, double, ScalarValue}, double)"/>
+    public static CalcEngineFunction AdaptLastOptionalLastFirst(Func<CalcContext, string, double, ScalarValue> f, double lastDefault)
+    {
+        return (ctx, args) =>
+        {
+            var arg1Converted = ToNumber(args.Length > 1 ? args[1] : lastDefault, ctx);
+            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                return err1;
+
+            var arg0Converted = ToText(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            return f(ctx, arg0, arg1).ToAnyValue();
+        };
+    }
+
     public static CalcEngineFunction AdaptLastOptional(Func<double, double, double, ScalarValue> f, double lastDefault)
     {
         return (ctx, args) =>
@@ -681,6 +738,9 @@ internal static class SignatureAdapter
         return (ctx, args) =>
         {
             var arg0 = args[0];
+            if (arg0.TryPickError(out var err0))
+                return err0;
+
             var numbers = new List<int>(args.Length - 1);
             for (var i = 1; i < args.Length; ++i)
             {

@@ -68,6 +68,9 @@ public partial class XLWorkbook
         if (package is null)
             return false;
 
+        if (BinaryWorkbook.IsBinaryWorkbook(package))
+            throw BinaryWorkbook.NotSupported();
+
         using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(package));
         LoadSpreadsheetDocument(dSpreadsheet);
         return true;
@@ -92,7 +95,7 @@ public partial class XLWorkbook
 
     private void LoadSheetsFromTemplate(string fileName)
     {
-        using (var dSpreadsheet = SpreadsheetDocument.CreateFromTemplate(fileName))
+        using (var dSpreadsheet = CreateFromTemplate(fileName))
         {
             LoadSpreadsheetDocument(dSpreadsheet);
 
@@ -107,6 +110,18 @@ public partial class XLWorkbook
         // The original file will NOT be copied into place before changes are applied
         // Hence all loaded RelIds have to be cleared
         ResetAllRelIds();
+    }
+
+    private static SpreadsheetDocument CreateFromTemplate(string fileName)
+    {
+        try
+        {
+            return SpreadsheetDocument.CreateFromTemplate(fileName);
+        }
+        catch (OpenXmlPackageException) when (BinaryWorkbook.IsBinaryWorkbook(fileName))
+        {
+            throw BinaryWorkbook.NotSupported();
+        }
     }
 
     private static byte[] ClonePackage(SpreadsheetDocument document)
@@ -754,7 +769,7 @@ public partial class XLWorkbook
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheetData")
                 continue;
 
-            return reader.NamespaceURI == OpenXmlConst.Main2006SsNs && reader.Depth == 1 && reader.Prefix == prefix;
+            return OpenXmlConst.IsMainSsNs(reader.NamespaceURI) && reader.Depth == 1 && reader.Prefix == prefix;
         }
 
         return false;
@@ -797,7 +812,7 @@ public partial class XLWorkbook
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheetData"
-                || reader.NamespaceURI != OpenXmlConst.Main2006SsNs)
+                || !OpenXmlConst.IsMainSsNs(reader.NamespaceURI))
                 continue;
 
             if (reader.IsEmptyElement)
@@ -876,6 +891,7 @@ public partial class XLWorkbook
         }
 
         xlTable.RelId = relId;
+        LoadTableIds(dTable, xlTable);
 
         if (dTable.TotalsRowCount is not null && dTable.TotalsRowCount.Value > 0)
             xlTable.HydrateShowTotalsRow(true);
@@ -883,6 +899,21 @@ public partial class XLWorkbook
         LoadTableStyleInfo(dTable, xlTable);
         LoadTableAutoFilter(dTable, xlTable);
         LoadTableTotalsRow(dTable, xlTable);
+    }
+
+    private static void LoadTableIds(Table dTable, XLTable xlTable)
+    {
+        xlTable.Id = dTable.Id?.Value;
+
+        var columnCount = xlTable.ColumnCount();
+        var position = 0;
+        foreach (var tableColumn in dTable.TableColumns?.Elements<TableColumn>() ?? [])
+        {
+            if (position == columnCount)
+                break;
+
+            ((XLTableField)xlTable.Field(position++)).Id = tableColumn.Id?.Value;
+        }
     }
 
     private static void LoadTableAutoFilter(Table dTable, XLTable xlTable)

@@ -106,6 +106,7 @@ internal static class WorksheetSheetDataReader
     /// </summary>
     private readonly record struct RowProperties(
         double? Height,
+        bool CustomHeight,
         double? DyDescent,
         bool Hidden,
         bool Collapsed,
@@ -227,7 +228,7 @@ internal static class WorksheetSheetDataReader
     private static bool IsMainElement(XmlReader reader, string localName)
         => reader.NodeType == XmlNodeType.Element
            && reader.LocalName == localName
-           && reader.NamespaceURI == OpenXmlConst.Main2006SsNs;
+           && OpenXmlConst.IsMainSsNs(reader.NamespaceURI);
 
     /// <summary>
     /// Reads the attributes of a <c>&lt;row&gt;</c>, leaving the reader back on the element itself.
@@ -239,12 +240,12 @@ internal static class WorksheetSheetDataReader
         rowIndex = 0;
         double? height = null;
         double? dyDescent = null;
-        bool hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
+        bool customHeight = false, hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
         int? outlineLevel = null;
         int? styleIndex = null;
 
         if (!reader.HasAttributes)
-            return new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+            return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
 
         while (reader.MoveToNextAttribute())
         {
@@ -266,6 +267,9 @@ internal static class WorksheetSheetDataReader
                     break;
                 case "ht":
                     height = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
+                    break;
+                case "customHeight":
+                    customHeight = ParseXmlBool(value);
                     break;
                 case "dyDescent":
                     dyDescent = double.Parse(value, NumberStyles.Float, XLHelper.ParseCulture);
@@ -292,7 +296,7 @@ internal static class WorksheetSheetDataReader
         }
 
         reader.MoveToElement();
-        return new RowProperties(height, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+        return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
     }
 
     /// <summary>
@@ -302,7 +306,7 @@ internal static class WorksheetSheetDataReader
     private static bool IsKnownRowAttribute(string ns, string localName)
     {
         return ns.Length == 0
-            ? localName is "r" or "ht" or "hidden" or "collapsed" or "outlineLevel"
+            ? localName is "r" or "ht" or "customHeight" or "hidden" or "collapsed" or "outlineLevel"
                 or "ph" or "customFormat" or "s"
             : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
     }
@@ -1115,7 +1119,10 @@ internal static class WorksheetSheetDataReader
 
         if (props.Height is not null)
         {
-            xlRow.Height = props.Height.Value;
+            if (props.CustomHeight)
+                xlRow.Height = props.Height.Value;
+            else
+                xlRow.SetAutoHeight(props.Height.Value);
         }
         else
         {

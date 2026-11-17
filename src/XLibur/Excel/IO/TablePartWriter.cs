@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -37,6 +38,36 @@ internal static class TablePartWriter
         }
     }
 
+    /// <summary>
+    /// Gives each table the <c>table/@id</c> it is written under, unique in the workbook. A loaded
+    /// table keeps its id (#903), and a new table, or one whose id an earlier table took, gets one
+    /// past every id kept.
+    /// </summary>
+    internal static void AssignTableIds(IEnumerable<XLWorksheet> worksheets, SaveContext context)
+    {
+        var kept = new HashSet<uint>();
+        var unassigned = new List<XLTable>();
+        uint lastId = 0;
+        foreach (var xlTable in worksheets.SelectMany(ws => ws.Tables.Cast<XLTable>()))
+        {
+            if (xlTable.Id is { } id && id > 0 && kept.Add(id))
+            {
+                context.TableIds[xlTable] = id;
+                lastId = Math.Max(lastId, id);
+            }
+            else
+            {
+                unassigned.Add(xlTable);
+            }
+        }
+
+        foreach (var xlTable in unassigned)
+        {
+            xlTable.Id = ++lastId;
+            context.TableIds[xlTable] = lastId;
+        }
+    }
+
     internal static void GenerateTableParts(XLTables tables, WorksheetPart worksheetPart, SaveContext context)
     {
         foreach (var xlTable in tables.Cast<XLTable>())
@@ -49,11 +80,7 @@ internal static class TablePartWriter
 
     private static void GenerateTableDefinitionPartContent(TableDefinitionPart tableDefinitionPart, XLTable xlTable, SaveContext context)
     {
-        context.TableId++;
-
-        // A table slicer's cache names the table by this id. It is a counter over the tables in
-        // write order rather than anything the model holds, so it is only knowable here.
-        context.TableIds[xlTable] = context.TableId;
+        var loaded = tableDefinitionPart.Table;
 
         // Normalise per axis so a table created over a reversed selection is written as "B2:E5"
         // rather than "B5:E2" verbatim. Normalize() is the address-level twin of
@@ -66,7 +93,7 @@ internal static class TablePartWriter
         var tableName = GetTableName(xlTable.Name, context);
         var table = new Table
         {
-            Id = context.TableId,
+            Id = context.TableIds[xlTable],
             Name = tableName,
             DisplayName = tableName,
             Reference = reference
@@ -80,7 +107,7 @@ internal static class TablePartWriter
         else
             table.TotalsRowShown = false;
 
-        var tableColumns = BuildTableColumns(xlTable, context);
+        var tableColumns = BuildTableColumns(xlTable, loaded, context);
 
         var tableStyleInfo1 = BuildTableStyleInfo(xlTable);
 
@@ -95,24 +122,47 @@ internal static class TablePartWriter
         table.AppendChild(tableColumns);
         table.AppendChild(tableStyleInfo1);
 
+        if (loaded is not null)
+            TablePartCarryOver.Apply(loaded, table, xlTable, context.LoadedDxfs);
+
         tableDefinitionPart.Table = table;
     }
 
-    private static TableColumns BuildTableColumns(XLTable xlTable, SaveContext context)
+    private static TableColumns BuildTableColumns(XLTable xlTable, Table? loaded, SaveContext context)
     {
-        var tableColumns = new TableColumns { Count = (uint)xlTable.ColumnCount() };
-        uint columnId = 0;
-        foreach (var xlField in xlTable.Fields)
-        {
-            columnId++;
-            var tableColumn = BuildTableColumn(xlField, columnId, xlTable, context);
-            tableColumns.AppendChild(tableColumn);
-        }
+        var fields = xlTable.Fields.Cast<XLTableField>().ToList();
+        AssignColumnIds(fields, loaded);
+
+        var tableColumns = new TableColumns { Count = (uint)fields.Count };
+        foreach (var xlField in fields)
+            tableColumns.AppendChild(BuildTableColumn(xlField, xlField.Id!.Value, xlTable, context));
 
         return tableColumns;
     }
 
-    private static TableColumn BuildTableColumn(IXLTableField xlField, uint columnId, XLTable xlTable, SaveContext context)
+    /// <summary>
+    /// Gives each column the <c>tableColumn/@id</c> it is written under, unique in its table. A
+    /// loaded column keeps its id (#903), and a new one gets one past every id the table has or its
+    /// loaded part had, so a column removed since the load does not lend its id to a new one.
+    /// </summary>
+    private static void AssignColumnIds(List<XLTableField> fields, Table? loaded)
+    {
+        var lastId = loaded?.TableColumns?.Elements<TableColumn>().Select(c => c.Id?.Value ?? 0).DefaultIfEmpty().Max() ?? 0;
+        var kept = new HashSet<uint>();
+        var unassigned = new List<XLTableField>();
+        foreach (var field in fields)
+        {
+            if (field.Id is { } id && id > 0 && kept.Add(id))
+                lastId = Math.Max(lastId, id);
+            else
+                unassigned.Add(field);
+        }
+
+        foreach (var field in unassigned)
+            field.Id = ++lastId;
+    }
+
+    private static TableColumn BuildTableColumn(XLTableField xlField, uint columnId, XLTable xlTable, SaveContext context)
     {
         var fieldName = xlField.Name;
         var tableColumn = new TableColumn

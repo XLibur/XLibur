@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.Tables;
 
 namespace XLibur.Excel;
 
@@ -60,10 +61,18 @@ internal static class XLRangeSortHelper
     /// A sort moves cell contents between the cells' slices directly, not through the setters an edit
     /// uses, so it tells the calc engine itself, as a range value write does. Every formula that reads
     /// a cell of the sorted area is marked dirty. A formula the sort moved is a new, dirty formula
-    /// already (#504).
+    /// already (#504). Each table the sort moved cells of is marked too, so a save drops the sort
+    /// state its loaded part remembers (#904).
     /// </summary>
     private static void MarkSortedDirty(XLRangeBase range, Area sortRange)
-        => range.Worksheet.Workbook.CalcEngine.MarkDirty(range.Worksheet, sortRange);
+    {
+        range.Worksheet.Workbook.CalcEngine.MarkDirty(range.Worksheet, sortRange);
+        foreach (var table in range.Worksheet.Tables.Cast<XLTable>())
+        {
+            if (table.SheetRange.Intersects(sortRange))
+                table.SortedByModel = true;
+        }
+    }
 
     internal static IEnumerable<XLSortElement> ParseSortOrder(string columnsToSortBy, XLSortOrder defaultSortOrder, bool matchCase, bool ignoreBlanks)
     {

@@ -122,7 +122,12 @@ public partial class XLWorkbook
             using (package)
             {
                 if (spreadsheetDocumentType is { } type && package.DocumentType != type)
+                {
+                    if (type is SpreadsheetDocumentType.Workbook or SpreadsheetDocumentType.Template)
+                        RemoveVbaProjectOrRefuse(package.WorkbookPart!, options);
+
                     package.ChangeDocumentType(type);
+                }
 
                 package.CompressionOption = ToCompressionOption(level);
                 CreateParts(package, options);
@@ -133,6 +138,24 @@ public partial class XLWorkbook
         {
             zip.Close();
         }
+    }
+
+    private static void RemoveVbaProjectOrRefuse(WorkbookPart workbookPart, SaveOptions options)
+    {
+        if (workbookPart.VbaProjectPart is not { } vbaProject)
+            return;
+
+        if (!options.DiscardVbaProject)
+        {
+            var parts = string.Join(", ", new[] { vbaProject }.Concat(vbaProject.Parts.Select(p => p.OpenXmlPart))
+                .Select(p => p.Uri.OriginalString));
+            throw new InvalidOperationException(
+                $"The workbook holds a VBA project ({parts}), which a macro-free file cannot hold. " +
+                $"Save it as .xlsm or .xltm to keep the macros, or set {nameof(SaveOptions)}.{nameof(SaveOptions.DiscardVbaProject)} to remove them.");
+        }
+
+        // Open XML SDK DeletePart also deletes the child parts nothing else references: the signatures.
+        workbookPart.DeletePart(vbaProject);
     }
 
     /// <summary>
@@ -286,6 +309,7 @@ public partial class XLWorkbook
         foreach (var ws in WorksheetsInternal)
             orderedWorksheets.Add(ws);
         orderedWorksheets.Sort(static (a, b) => a.Position.CompareTo(b.Position));
+        IO.TablePartWriter.AssignTableIds(orderedWorksheets, context);
 
         foreach (var worksheet in orderedWorksheets)
         {
@@ -305,8 +329,8 @@ public partial class XLWorkbook
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
-        // After the worksheets: a table slicer cache quotes the table/@id the table part was
-        // written under, and a pivot slicer cache the identifier its pivot cache was written with.
+        // After the worksheets: a pivot slicer cache quotes the identifier its pivot cache was
+        // written with.
         SlicerCacheWriter.WriteSlicerCaches(workbookPart, this, context);
         TimelineCacheWriter.WriteTimelineCaches(workbookPart, this, context);
 

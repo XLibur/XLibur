@@ -7,11 +7,15 @@ internal static class OpenXmlConst
 {
     public const string Main2006SsNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
+    public const string StrictMainSsNs = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+
     public const string XmMain2006 = "http://schemas.microsoft.com/office/excel/2006/main";
 
     public const string X14Main2009SsNs = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main";
 
     public const string X14Ac2009SsNs = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac";
+
+    public const string X12Ac2011SsNs = "http://schemas.microsoft.com/office/spreadsheetml/2011/1/ac";
 
     public const string Xml1998Ns = "http://www.w3.org/XML/1998/namespace";
 
@@ -27,6 +31,13 @@ internal static class OpenXmlConst
 
     /// <summary>DrawingML main namespace, used by the theme part.</summary>
     public const string DrawingMain2006Ns = "http://schemas.openxmlformats.org/drawingml/2006/main";
+
+    /// <summary>
+    /// A raw <see cref="System.Xml.XmlReader"/> sees the namespace as the file wrote it; the SDK's own
+    /// readers translate Strict to Transitional.
+    /// </summary>
+    public static bool IsMainSsNs(string namespaceUri) =>
+        namespaceUri == Main2006SsNs || namespaceUri == StrictMainSsNs;
 
     /// <summary>
     /// Valid and shorter than normal true.
