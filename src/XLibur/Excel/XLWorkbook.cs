@@ -656,13 +656,15 @@ public partial class XLWorkbook : IXLWorkbook
     }
 
     /// <summary>
-    /// Saves a copy of the loaded package beside <paramref name="file"/> and moves it over
-    /// <paramref name="file"/> only once the save succeeded, so a save that fails, such as one refused
-    /// for its VBA project, leaves a file already at that path as it was.
+    /// Saves a copy of the loaded package in the temp folder and copies it onto <paramref name="file"/>
+    /// only once the save succeeded, so a save that fails, such as one refused for its VBA project,
+    /// leaves a file already at that path as it was. Copying onto the target, rather than moving the
+    /// copy over it, writes through a symlink, keeps the target's attributes and ACL, and throws
+    /// <see cref="IOException"/> when another process (Excel) holds the target open.
     /// </summary>
     private void SaveCopyThenReplace(string file, SaveOptions options)
     {
-        var copy = $"{file}.{Path.GetRandomFileName()}.tmp";
+        var copy = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try
         {
             if (_loadSource == XLLoadSource.File)
@@ -678,7 +680,7 @@ public partial class XLWorkbook : IXLWorkbook
             }
 
             CreatePackage(copy, GetSpreadsheetDocumentType(file), options);
-            File.Move(copy, file, overwrite: true);
+            File.Copy(copy, file, overwrite: true);
         }
         finally
         {
