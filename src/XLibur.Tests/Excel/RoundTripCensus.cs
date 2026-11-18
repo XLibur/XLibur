@@ -68,13 +68,17 @@ internal sealed class RoundTripCensus
 
     private const string Worksheet = "spreadsheetml.worksheet";
 
+    private const string Styles = "spreadsheetml.styles";
+
     private readonly Dictionary<(string ContentType, string Key), int> _counts;
     private readonly RoundTripCensusCellStyles _cellStyles;
+    private readonly RoundTripCensusDxfs _dxfs;
 
-    private RoundTripCensus(Dictionary<(string ContentType, string Key), int> counts, RoundTripCensusCellStyles cellStyles)
+    private RoundTripCensus(Dictionary<(string ContentType, string Key), int> counts, RoundTripCensusCellStyles cellStyles, RoundTripCensusDxfs dxfs)
     {
         _counts = counts;
         _cellStyles = cellStyles;
+        _dxfs = dxfs;
     }
 
     internal static RoundTripCensus Of(Stream package, IReadOnlySet<(string ContentType, string Key)> qualified)
@@ -83,6 +87,8 @@ internal sealed class RoundTripCensus
         using var zip = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
         var contentTypes = ContentTypeMap.Read(zip);
         var parts = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        var dxfReferences = new List<(string, string, string)>();
+        byte[]? styles = null;
         foreach (var entry in zip.Entries)
         {
             if (entry.FullName.EndsWith('/'))
@@ -91,11 +97,14 @@ internal sealed class RoundTripCensus
             var contentType = Shorten(contentTypes.Of(entry.FullName));
             var bytes = ReadAll(entry);
             parts[entry.FullName] = bytes;
-            if (!TryCountXml(bytes, contentType, qualified, counts))
+            if (contentType == Styles)
+                styles = bytes;
+
+            if (!TryCountXml(bytes, contentType, qualified, counts, dxfReferences))
                 Add(counts, contentType, BinaryKeyPrefix + Convert.ToHexString(SHA256.HashData(bytes))[..16]);
         }
 
-        return new RoundTripCensus(counts, RoundTripCensusCellStyles.Read(parts));
+        return new RoundTripCensus(counts, RoundTripCensusCellStyles.Read(parts), RoundTripCensusDxfs.Resolve(dxfReferences, styles));
     }
 
     internal static IReadOnlyList<CensusLoss> Losses(RoundTripCensus before, RoundTripCensus after) =>
@@ -103,6 +112,7 @@ internal sealed class RoundTripCensus
             .Where(kv => after._counts.GetValueOrDefault(kv.Key) < kv.Value)
             .Select(kv => new CensusLoss(kv.Key.ContentType, kv.Key.Key, kv.Value, after._counts.GetValueOrDefault(kv.Key)))
             .Concat(RoundTripCensusCellStyles.Losses(Worksheet, before._cellStyles, after._cellStyles))
+            .Concat(RoundTripCensusDxfs.Losses(before._dxfs, after._dxfs))
             .OrderBy(l => l.ContentType, StringComparer.Ordinal)
             .ThenBy(l => l.Key, StringComparer.Ordinal)
             .ToList();
@@ -130,9 +140,11 @@ internal sealed class RoundTripCensus
         return ms.ToArray();
     }
 
-    private static bool TryCountXml(byte[] bytes, string contentType, IReadOnlySet<(string, string)> qualified, Dictionary<(string, string), int> counts)
+    private static bool TryCountXml(byte[] bytes, string contentType, IReadOnlySet<(string, string)> qualified, Dictionary<(string, string), int> counts,
+        List<(string, string, string)> dxfReferences)
     {
         var local = new Dictionary<(string, string), int>();
+        var localReferences = new List<(string, string, string)>();
         var attributes = new List<(string Name, string Value)>();
         var previousSibling = new List<string?>();
         try
@@ -181,6 +193,9 @@ internal sealed class RoundTripCensus
                 Add(local, contentType, elementKey);
                 foreach (var (name, value) in attributes)
                 {
+                    if (RoundTripCensusDxfs.IsReference(name))
+                        localReferences.Add((contentType, element + "@" + name, value));
+
                     if (name == qualifiedBy)
                         continue;
 
@@ -197,6 +212,7 @@ internal sealed class RoundTripCensus
         foreach (var (key, count) in local)
             counts[key] = counts.GetValueOrDefault(key) + count;
 
+        dxfReferences.AddRange(localReferences);
         return true;
     }
 

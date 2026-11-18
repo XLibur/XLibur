@@ -187,20 +187,34 @@ border records, the alignment, the protection, `quotePrefix` and the named cell 
 these eight parts is its own key, `c@s->numFmt`, `c@s->font` and so on, and its count is the number of
 cells that resolve to the same value after the save.
 
+A conditional format, a table, a table column, a pivot format and a table or slicer style element
+point at a differential format (dxf) by index, and a save prunes, merges and renumbers the dxfs. So the
+census resolves every `dxfId` and `*DxfId` attribute to the dxf it points to, and counts each part of
+that dxf (font, number format, fill, alignment, border, protection) under its own key, such as
+`cfRule@dxfId->fill` or `tableColumn@dataDxfId->numFmt`. A reference is kept when the same canonical
+value is still referenced as often after the save. A dxf states only what it overrides, so the cell
+format defaults do not apply: a toggle with `val="0"` turns the property off, and a pattern fill with no
+`patternType` is solid. A conditional format rule in the x14 extension holds its dxf inline, so the
+element counts of the worksheet already see it.
+
 `RoundTripCensusAllowList` lists the losses the test accepts, by content type and key, never by
 fixture:
 
 - **Noise.** Each entry gives the reason the loss is not one, such as a schema default, a count
   attribute, or a style record nothing refers to. A key such as `row@hidden=false` covers only that
   value, so dropping `hidden="1"` still fails.
-- **Known losses.** Each entry describes a real gap and names the issue that tracks it. The test stays green, and the gap stays in plain view. When a fix lands, the test fails on the entry until it is removed.
+- **Known losses.** Each entry describes a real gap and names the issue that tracks it. The test
+  stays green, and the gap stays in plain view.
 
-Every known loss, and every noise entry for a key a user still sees (columns, conditional formats,
-data validations, `f@ref`, `f@dtr`, print areas and titles, `sheet@state=hidden`), has a bound: the
-total of that key the whole corpus lost, over every fixture and both saves, when the list was made.
-The test fails when the total goes over the bound, so an entry cannot hide a new loss of the same key
-in another fixture. The bound is a ceiling, not an exact count, so a fix that only lowers a total
-does not fail the test.
+Every known loss, every key of the styles part, every resolved dxf key, and every noise entry for a
+key a user still sees (columns, conditional formats, data validations, `f@ref`, `f@dtr`, print areas
+and titles, `sheet@state=hidden`), has a bound: the total of that key the whole corpus lost, over every
+fixture and both saves, when the list was made. The test fails when the total goes over the bound, so
+an entry cannot hide a new loss of the same key in another fixture. A bound is a ceiling, not an exact
+count. A fix that lowers a total does not fail the test; lower the bound to the new total in the same
+change, so the gap cannot grow back unseen, and remove the entry when the total reaches zero. The test
+fails on an entry no fixture loses any more, and writes each bound that sits above its measured total
+to its output.
 
 To check that the instrument works, a seed control deletes an element, changes an attribute to its
 default and removes the style of one cell in a copy of a fixture, and asserts that the census reports

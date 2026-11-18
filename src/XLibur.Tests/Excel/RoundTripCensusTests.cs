@@ -26,32 +26,13 @@ public class RoundTripCensusTests
     [Test]
     public async Task The_census_reports_a_deleted_element_an_attribute_changed_to_its_default_and_a_cell_that_lost_its_style()
     {
-        var qualified = new HashSet<(string, string)> { ("spreadsheetml.worksheet", "col@customWidth=false") };
-        using var original = TestHelper.OpenResource(SeedFixture);
-        var before = RoundTripCensus.Of(original, qualified);
-
-        using var damaged = new MemoryStream();
-        original.Position = 0;
-        original.CopyTo(damaged);
-        using (var zip = new ZipArchive(damaged, ZipArchiveMode.Update, leaveOpen: true))
+        var losses = CensusOfDamage(SeedFixture, "xl/worksheets/sheet1.xml", sheet =>
         {
-            var entry = zip.GetEntry("xl/worksheets/sheet1.xml")!;
-            XDocument sheet;
-            using (var stream = entry.Open())
-                sheet = XDocument.Load(stream);
-
             var main = sheet.Root!.Name.Namespace;
             sheet.Descendants(main + "mergeCell").First().Remove();
             sheet.Descendants(main + "col").First(c => (string?)c.Attribute("customWidth") == "1").SetAttributeValue("customWidth", "0");
             sheet.Descendants(main + "c").First(c => (string?)c.Attribute("r") == "B2").SetAttributeValue("s", null);
-
-            entry.Delete();
-            using var rewritten = zip.CreateEntry("xl/worksheets/sheet1.xml").Open();
-            sheet.Save(rewritten);
-        }
-
-        damaged.Position = 0;
-        var losses = RoundTripCensus.Losses(before, RoundTripCensus.Of(damaged, qualified)).Select(l => (l with { Example = null }).ToString());
+        });
 
         await Assert.That(losses).IsEquivalentTo(new[]
         {
@@ -63,6 +44,20 @@ public class RoundTripCensusTests
             "spreadsheetml.worksheet col@customWidth: 7 -> 6",
             "spreadsheetml.worksheet mergeCell: 9 -> 8",
             "spreadsheetml.worksheet mergeCell@ref: 9 -> 8",
+        });
+    }
+
+    [Test]
+    public async Task The_census_reports_a_conditional_format_whose_dxf_lost_its_fill_colour()
+    {
+        var losses = CensusOfDamage(@"Examples\ConditionalFormatting\CFEqualsNumber.xlsx", "xl/styles.xml", styles =>
+            styles.Descendants(styles.Root!.Name.Namespace + "bgColor").Single().Remove());
+
+        await Assert.That(losses).IsEquivalentTo(new[]
+        {
+            "spreadsheetml.styles bgColor: 1 -> 0",
+            "spreadsheetml.styles bgColor@rgb: 1 -> 0",
+            "spreadsheetml.worksheet cfRule@dxfId->fill: 1 -> 0",
         });
     }
 
@@ -93,6 +88,8 @@ public class RoundTripCensusTests
         var exceeded = RoundTripCensusAllowList.Bounds
             .Where(b => lost.GetValueOrDefault(b.Key) > b.Value)
             .Select(b => $"{b.Key.ContentType} {b.Key.Key}: lost {lost[b.Key]}, bound {b.Value}{Environment.NewLine}");
+        foreach (var (key, bound) in RoundTripCensusAllowList.Bounds.Where(b => lost.GetValueOrDefault(b.Key) < b.Value))
+            Console.WriteLine($"Bound above the measured loss, lower it: {key.ContentType} {key.Key}: lost {lost.GetValueOrDefault(key)}, bound {bound}");
 
         using (Assert.Multiple())
         {
@@ -100,6 +97,33 @@ public class RoundTripCensusTests
             await Assert.That(string.Concat(exceeded)).IsEmpty().Because("a bounded allow-list entry covers only as much loss as the corpus had when it was measured");
             await Assert.That(stale).IsEmpty().Because("an allow-list entry no fixture needs any more should be removed");
         }
+    }
+
+    /// <summary>The losses the census reports when <paramref name="damage"/> edits one part of a copy of a fixture.</summary>
+    private static IEnumerable<string> CensusOfDamage(string fixture, string part, Action<XDocument> damage)
+    {
+        var qualified = new HashSet<(string, string)> { ("spreadsheetml.worksheet", "col@customWidth=false") };
+        using var original = TestHelper.OpenResource(fixture);
+        var before = RoundTripCensus.Of(original, qualified);
+
+        using var damaged = new MemoryStream();
+        original.Position = 0;
+        original.CopyTo(damaged);
+        using (var zip = new ZipArchive(damaged, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = zip.GetEntry(part)!;
+            XDocument document;
+            using (var stream = entry.Open())
+                document = XDocument.Load(stream);
+
+            damage(document);
+            entry.Delete();
+            using var rewritten = zip.CreateEntry(part).Open();
+            document.Save(rewritten);
+        }
+
+        damaged.Position = 0;
+        return RoundTripCensus.Losses(before, RoundTripCensus.Of(damaged, qualified)).Select(l => (l with { Example = null }).ToString()).ToList();
     }
 
     private const string SeedFixture = @"Other\StyleReferenceFiles\MergedCellsBorder\inputfile.xlsx";
