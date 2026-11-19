@@ -186,7 +186,7 @@ public static partial class XLHelper
         if (length > 3)
             return false;
 
-        var theColumn = column.ToUpper();
+        var theColumn = column.ToUpperInvariant();
 
         var isValid = IsUpperLetter(theColumn[0]);
         if (length == 1)

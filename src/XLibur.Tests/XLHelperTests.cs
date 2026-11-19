@@ -25,6 +25,41 @@ public class XLHelperTests
     }
 
     [Test]
+    [SetCulture("tr-TR")]
+    public async Task IsValidColumn_IsCultureInvariant_UnderTurkishCulture()
+    {
+        await Assert.That(XLHelper.IsValidColumn("i")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("ia")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("aIi")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("xfd")).IsTrue();
+        await Assert.That(XLHelper.IsValidColumn("xfe")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("ı")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("İ")).IsFalse();
+        await Assert.That(XLHelper.IsValidColumn("aı")).IsFalse();
+    }
+
+    [Test]
+    [SetCulture("tr-TR")]
+    public async Task IsValidA1Address_IsCultureInvariant_UnderTurkishCulture()
+    {
+        await Assert.That(XLHelper.IsValidA1Address("i5")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("$i$5")).IsTrue();
+        await Assert.That(XLHelper.IsValidA1Address("ı5")).IsFalse();
+    }
+
+    [Test]
+    [SetCulture("tr-TR")]
+    public async Task LowercaseAddressWithI_ResolvesToSameCells_UnderTurkishCulture()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        await Assert.That(ws.Cell("i5").Address.ToString()).IsEqualTo("I5");
+        await Assert.That(ws.Range("i5:j6").RangeAddress.ToString()).IsEqualTo("I5:J6");
+        await Assert.That(ws.Range("ai1:bi2").RangeAddress.ToString()).IsEqualTo("AI1:BI2");
+    }
+
+    [Test]
     public async Task ReplaceRelative1()
     {
         var result = XLHelper.ReplaceRelative("A1", 2, "B");
