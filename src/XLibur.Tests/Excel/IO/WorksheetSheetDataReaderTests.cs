@@ -42,6 +42,50 @@ public class WorksheetSheetDataReaderTests
         await Assert.That(result).IsNull();
     }
 
+    /// <summary>
+    /// A quote or bracket that is never closed makes the format unknown. It must not send the
+    /// scan back to the start of the format, which looped forever in ClosedXML.
+    /// </summary>
+    [Test]
+    [Arguments("x\"")]
+    [Arguments("\"abc")]
+    [Arguments("\"abc\"x\"")]
+    [Arguments("[Red")]
+    [Arguments("x[")]
+    public async Task GetDataTypeFromFormat_returns_null_for_an_unclosed_quote_or_bracket(string format)
+    {
+        // On another thread so a regression fails the test instead of hanging the run.
+        var result = await Task.Run(() => WorksheetSheetDataReader.GetDataTypeFromFormat(format))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task A_number_format_with_an_unclosed_quote_loads_the_cell_as_a_number()
+    {
+        using var package = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A1").Style.NumberFormat.Format = "x\"";
+            wb.SaveAs(package);
+        }
+
+        package.Position = 0;
+
+        // Load on another thread so a regression fails the test instead of hanging the run.
+        var load = Task.Run(() =>
+        {
+            using var wb = new XLWorkbook(package);
+            return wb.Worksheet("Sheet1").Cell("A1").Value;
+        });
+        var value = await load.WaitAsync(TimeSpan.FromSeconds(30));
+
+        await Assert.That(value.Type).IsEqualTo(XLDataType.Number);
+        await Assert.That(value.GetNumber()).IsEqualTo(1d);
+    }
+
     [Test]
     public async Task LoadRow_tracks_last_row_so_rows_without_r_attribute_increment_correctly()
     {
