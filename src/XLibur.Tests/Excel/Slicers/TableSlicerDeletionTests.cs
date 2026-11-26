@@ -70,6 +70,21 @@ public class TableSlicerDeletionTests
     }
 
     [Test]
+    public async Task Deleting_the_sliced_worksheet_column_of_a_headerless_table_takes_its_slicer_with_it()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var data = wb.Worksheet("Data");
+            data.Table("SalesTable").ShowHeaderRow = false;
+            data.Column("A").Delete();
+            wb.SaveAs(saved);
+        }
+
+        await AssertTableSlicerGone(saved);
+    }
+
+    [Test]
     public async Task A_new_table_slicer_follows_its_column_when_a_column_to_its_left_is_deleted()
     {
         using var saved = new MemoryStream();
