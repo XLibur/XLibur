@@ -674,4 +674,32 @@ public class RegressionTests
                 await Assert.That((double)ws.Cell(5, column).Value).IsEqualTo(2d * column + 1).Within(1e-9);
         }
     }
+
+    // Excel reads a number given where these functions expect an array as a one-element array (#968).
+    [Test]
+    [Arguments("SLOPE(5,6)")]
+    [Arguments("FORECAST(3,5,6)")]
+    [Arguments("FORECAST.LINEAR(3,5,6)")]
+    [Arguments("INTERCEPT(5,6)")]
+    [Arguments("STEYX(5,6)")]
+    [Arguments("CORREL(5,6)")]
+    [Arguments("PEARSON(5,6)")]
+    [Arguments("RSQ(5,6)")]
+    [Arguments("COVARIANCE.S(5,6)")]
+    public async Task PairedArrays_NumberIsOneElementArray_DivisionByZero(string formula)
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+            await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.DivisionByZero);
+    }
+
+    [Test]
+    [Arguments("COVAR(5,6)")]
+    [Arguments("COVARIANCE.P(5,6)")]
+    public async Task PopulationCovariance_OfTwoNumbers_IsZero(string formula)
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+            await Assert.That(ws.Evaluate(formula)).IsEqualTo(0);
+    }
 }

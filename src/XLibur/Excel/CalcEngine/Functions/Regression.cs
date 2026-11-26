@@ -239,17 +239,26 @@ internal static class Regression
         return true;
     }
 
+    /// <summary>
+    /// Excel reads a single value given for an array as a one-element array, so SLOPE(5,6) is
+    /// #DIV/0! and COVAR(5,6) is 0. An error stays an error.
+    /// </summary>
     private static bool TryPickPairArray(CalcContext ctx, in AnyValue arg, out Array? array, out XLError error)
     {
+        error = default;
         if (arg.TryPickCollectionArray(out array, ctx))
+            return true;
+
+        if (arg.TryPickError(out error))
+            return false;
+
+        if (arg.TryPickScalar(out var scalar, out _))
         {
-            error = default;
+            array = new ScalarArray(scalar, 1, 1);
             return true;
         }
 
-        if (!arg.TryPickError(out error))
-            error = XLError.IncompatibleValue;
-
+        error = XLError.IncompatibleValue;
         return false;
     }
 

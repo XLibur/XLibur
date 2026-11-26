@@ -287,4 +287,66 @@ public class EngineeringTests
     }
 
     #endregion
+
+    #region Excel conformance (#968)
+
+    // D2 is blank. Excel reads a blank places as 0, which is out of range. Only an omitted
+    // places means "as few characters as needed".
+    [Test]
+    [Arguments("DEC2HEX(5,D2)")]
+    [Arguments("DEC2OCT(5,D2)")]
+    [Arguments("DEC2BIN(5,D2)")]
+    [Arguments("BIN2HEX(\"101\",D2)")]
+    [Arguments("HEX2BIN(\"101\",D2)")]
+    [Arguments("BIN2OCT(\"101\",D2)")]
+    [Arguments("HEX2OCT(\"101\",D2)")]
+    [Arguments("OCT2BIN(\"101\",D2)")]
+    [Arguments("OCT2HEX(\"101\",D2)")]
+    [Arguments("DEC2HEX(5,0)")]
+    [Arguments("HEX2BIN(\"101\",0)")]
+    public async Task BaseConversion_BlankOrZeroPlaces_ReturnsNumError(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    [Arguments("DEC2HEX(5)", "5")]
+    [Arguments("HEX2BIN(\"101\")", "100000001")]
+    [Arguments("OCT2HEX(\"101\")", "41")]
+    public async Task BaseConversion_OmittedPlaces_UsesFewestCharacters(string formula, string expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("DELTA(TRUE,#DIV/0!)", XLError.DivisionByZero)]
+    [Arguments("DELTA(FALSE,#N/A)", XLError.NoValueAvailable)]
+    [Arguments("GESTEP(TRUE,#DIV/0!)", XLError.DivisionByZero)]
+    [Arguments("GESTEP(FALSE,#N/A)", XLError.NoValueAvailable)]
+    [Arguments("DELTA(TRUE)", XLError.IncompatibleValue)]
+    [Arguments("GESTEP(1,TRUE)", XLError.IncompatibleValue)]
+    public async Task DeltaGeStep_BooleanAndError(string formula, XLError expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("BIN2OCT(#N/A,#DIV/0!)")]
+    [Arguments("HEX2OCT(#N/A,#DIV/0!)")]
+    [Arguments("OCT2BIN(#N/A,#DIV/0!)")]
+    [Arguments("OCT2HEX(#N/A,#DIV/0!)")]
+    public async Task BaseConversion_TwoErrors_SecondArgumentWins(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.DivisionByZero);
+    }
+
+    #endregion
 }
