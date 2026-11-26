@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -694,9 +695,7 @@ internal static class WorkbookStylesPartWriter
             numberFormat.NumberFormatId = (uint)(styleNumberFormat.NumberFormatId);
             if (!string.IsNullOrEmpty(styleNumberFormat.Format))
                 numberFormat.FormatCode = styleNumberFormat.Format;
-            else if (XLPredefinedFormat.FormatCodes.TryGetValue(styleNumberFormat.NumberFormatId,
-                         out var formatCode)
-                     || DifferentialOnlyFormatCodes.TryGetValue(styleNumberFormat.NumberFormatId, out formatCode))
+            else if (TryGetDifferentialFormatCode(styleNumberFormat.NumberFormatId, out var formatCode))
                 numberFormat.FormatCode = formatCode;
             else
                 // CT_NumFmt requires formatCode, and Excel refuses to open a dxf <numFmt> without
@@ -705,6 +704,16 @@ internal static class WorkbookStylesPartWriter
         }
 
         return numberFormat;
+    }
+
+    /// <summary>
+    /// The <c>formatCode</c> a dxf <c>&lt;numFmt&gt;</c> is written with for the built-in format
+    /// <paramref name="numberFormatId"/>, or <c>false</c> for an id with no known code.
+    /// </summary>
+    internal static bool TryGetDifferentialFormatCode(int numberFormatId, [NotNullWhen(true)] out string? formatCode)
+    {
+        return XLPredefinedFormat.FormatCodes.TryGetValue(numberFormatId, out formatCode)
+               || DifferentialOnlyFormatCodes.TryGetValue(numberFormatId, out formatCode);
     }
 
     /// <summary>

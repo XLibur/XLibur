@@ -63,7 +63,6 @@ internal static class RoundTripCensusAllowList
 
     private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
     private const string LostAConditionalFormatSDxfLoses = "a conditional format's dxf loses the alignment, fill and font overrides the conditional format style does not model";
-    private const string LostAPivotTableFormatIsGiven = "a pivot table format is given another pivot table's number format";
     private const string LostASolidFillInTheSystem = "a solid fill in the system background colour (indexed 65) written as no fill when the sheet is written from the model";
     private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
@@ -343,7 +342,6 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->alignment", "#979", LostAConditionalFormatSDxfLoses, 1300),
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->fill", "#979", LostAConditionalFormatSDxfLoses, 1312),
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->font", "#979", LostAConditionalFormatSDxfLoses, 1328),
-        new(SpreadsheetmlPivotTable, "format@dxfId->numFmt", "#980", LostAPivotTableFormatIsGiven, 2),
         new(SpreadsheetmlWorksheet, "c@s->fill", "#957", LostASolidFillInTheSystem, 2),
         new(SpreadsheetmlWorksheet, "f/v", "#962", LostCachedValueOfAFormulaXLibur, 1),
         new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
