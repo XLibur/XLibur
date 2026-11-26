@@ -42,16 +42,16 @@ internal static class Engineering
         ce.RegisterFunction("BITXOR", 2, 2, Adapt(BitXor), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'Exclusive Or' of two numbers
         ce.RegisterStrictNumeric("COMPLEX", 2, 3, AdaptLastOptional(Complex, "i"), [0, 1], FunctionFlags.Scalar); // Converts real and imaginary coefficients into a complex number
         ce.RegisterStrictNumeric("CONVERT", 3, 3, Adapt(ConvertUnit), [0], FunctionFlags.Scalar); // Converts a number from one measurement system to another
-        ce.RegisterStrictNumeric("DEC2BIN", 1, 2, AdaptLastOptionalLastFirst(Dec2Bin), [0, 1], FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("DEC2HEX", 1, 2, AdaptLastOptionalLastFirst(Dec2Hex), [0, 1], FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("DEC2OCT", 1, 2, AdaptLastOptionalLastFirst(Dec2Oct), [0, 1], FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("DELTA", 1, 2, AdaptLastOptionalLastFirst(Delta, 0), [0, 1], FunctionFlags.Scalar); // Tests whether two values are equal
+        ce.RegisterStrictNumeric("DEC2BIN", 1, 2, AdaptLastOptionalLastFirst(Dec2Bin), [1, 0], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DEC2HEX", 1, 2, AdaptLastOptionalLastFirst(Dec2Hex), [1, 0], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DEC2OCT", 1, 2, AdaptLastOptionalLastFirst(Dec2Oct), [1, 0], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DELTA", 1, 2, AdaptLastOptionalLastFirst(Delta, 0), [1, 0], FunctionFlags.Scalar); // Tests whether two values are equal
         ce.RegisterStrictNumeric("ERF", 1, 2, AdaptLastOptional(Erf), [0, 1], FunctionFlags.Scalar); // Returns the error function
         ce.RegisterFunction("ERF.PRECISE", 1, 1, Adapt(ErfPrecise), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the error function
         ce.RegisterStrictNumeric("ERFC", 1, 1, Adapt(Erfc), [0], FunctionFlags.Scalar); // Returns the complementary error function
         ce.RegisterFunction("ERFC.PRECISE", 1, 1, Adapt(Erfc), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the complementary ERF function integrated between x and infinity
-        ce.RegisterStrictNumeric("GESTEP", 1, 2, AdaptLastOptionalLastFirst(GeStep, 0), [0, 1], FunctionFlags.Scalar); // Tests whether a number is greater than a threshold value
-        ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin), [0, 1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("GESTEP", 1, 2, AdaptLastOptionalLastFirst(GeStep, 0), [1, 0], FunctionFlags.Scalar); // Tests whether a number is greater than a threshold value
+        ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin), [1, 0], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("HEX2DEC", 1, 1, Adapt(Hex2Dec), [0], FunctionFlags.Scalar);
         ce.RegisterFunction("HEX2OCT", 1, 2, AdaptLastOptionalLastFirst(Hex2Oct), FunctionFlags.Scalar);
         ce.RegisterFunction("IMABS", 1, 1, Adapt(ImAbs), FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number

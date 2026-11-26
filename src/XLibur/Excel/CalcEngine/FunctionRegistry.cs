@@ -88,6 +88,9 @@ internal sealed class FunctionRegistry
     /// functions read TRUE as 1 and intersect or lift a range, so they are registered with
     /// <see cref="RegisterFunction"/>. An array constant is accepted: Excel uses its first element, or
     /// lifts the function over it in an array formula.
+    /// List <paramref name="numericParams"/> in the order <paramref name="fn"/> converts them: the
+    /// first of them that is a logical value or an error decides the result, so an error that
+    /// <paramref name="fn"/> meets first wins over a logical value after it.
     /// </summary>
     public void RegisterStrictNumeric(string functionName, int minParams, int maxParams, CalcEngineFunction fn,
         int[] numericParams, FunctionFlags flags, AllowRange allowRanges = AllowRange.None, params int[] markedParams)
@@ -102,7 +105,13 @@ internal sealed class FunctionRegistry
         {
             foreach (var index in numericParams)
             {
-                if (index < args.Length && args[index].IsLogical)
+                if (index >= args.Length)
+                    continue;
+
+                if (args[index].IsError)
+                    break;
+
+                if (args[index].IsLogical)
                     return XLError.IncompatibleValue;
             }
 
