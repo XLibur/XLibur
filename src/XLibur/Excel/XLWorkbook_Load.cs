@@ -1358,7 +1358,7 @@ public partial class XLWorkbook
                 break;
 
             if (reader.NodeType != XmlNodeType.Element ||
-                reader.NamespaceURI != OpenXmlConst.DrawingMain2006Ns)
+                !OpenXmlConst.IsDrawingMainNs(reader.NamespaceURI))
                 continue;
 
             LoadThemeSlot(reader, theme);
@@ -1429,7 +1429,7 @@ public partial class XLWorkbook
             if (reader.NodeType == XmlNodeType.Element &&
                 reader.Depth == depth &&
                 reader.LocalName == localName &&
-                reader.NamespaceURI == OpenXmlConst.DrawingMain2006Ns)
+                OpenXmlConst.IsDrawingMainNs(reader.NamespaceURI))
                 return true;
         }
 
@@ -1456,7 +1456,7 @@ public partial class XLWorkbook
             if (hex is null &&
                 reader.NodeType == XmlNodeType.Element &&
                 reader.LocalName == "srgbClr" &&
-                reader.NamespaceURI == OpenXmlConst.DrawingMain2006Ns)
+                OpenXmlConst.IsDrawingMainNs(reader.NamespaceURI))
                 hex = reader.GetAttribute("val");
         }
 

@@ -32,12 +32,19 @@ internal static class OpenXmlConst
     /// <summary>DrawingML main namespace, used by the theme part.</summary>
     public const string DrawingMain2006Ns = "http://schemas.openxmlformats.org/drawingml/2006/main";
 
+    /// <summary>DrawingML main namespace of ISO Strict.</summary>
+    public const string StrictDrawingMainNs = "http://purl.oclc.org/ooxml/drawingml/main"; // NOSONAR: a namespace name, never fetched
+
     /// <summary>
     /// A raw <see cref="System.Xml.XmlReader"/> sees the namespace as the file wrote it; the SDK's own
     /// readers translate Strict to Transitional.
     /// </summary>
     public static bool IsMainSsNs(string namespaceUri) =>
         namespaceUri == Main2006SsNs || namespaceUri == StrictMainSsNs;
+
+    /// <inheritdoc cref="IsMainSsNs"/>
+    public static bool IsDrawingMainNs(string namespaceUri) =>
+        namespaceUri == DrawingMain2006Ns || namespaceUri == StrictDrawingMainNs;
 
     /// <summary>
     /// Valid and shorter than normal true.
