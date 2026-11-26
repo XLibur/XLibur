@@ -567,13 +567,32 @@ internal static class SignatureAdapter
         };
     }
 
-    /// <inheritdoc cref="AdaptLastOptionalLastFirst(Func{CalcContext, double, double, ScalarValue}, double)"/>
-    public static CalcEngineFunction AdaptLastOptionalLastFirst(Func<CalcContext, string, double, ScalarValue> f, double lastDefault)
+    /// <summary>
+    /// Like <see cref="AdaptLastOptionalLastFirst(Func{CalcContext, double, double, ScalarValue}, double)"/>,
+    /// but the callee gets <c>null</c> for an omitted last argument. A supplied one, a blank cell
+    /// included, is converted to a number, so the callee can tell it from a left-out one.
+    /// </summary>
+    public static CalcEngineFunction AdaptLastOptionalLastFirst(Func<CalcContext, double, double?, ScalarValue> f)
     {
         return (ctx, args) =>
         {
-            var arg1Converted = ToNumber(args.Length > 1 ? args[1] : lastDefault, ctx);
-            if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+            if (!TryConvertOptionalNumber(args, 1, ctx, out var arg1, out var err1))
+                return err1;
+
+            var arg0Converted = ToNumber(args[0], ctx);
+            if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                return err0;
+
+            return f(ctx, arg0, arg1).ToAnyValue();
+        };
+    }
+
+    /// <inheritdoc cref="AdaptLastOptionalLastFirst(Func{CalcContext, double, double?, ScalarValue})"/>
+    public static CalcEngineFunction AdaptLastOptionalLastFirst(Func<CalcContext, string, double?, ScalarValue> f)
+    {
+        return (ctx, args) =>
+        {
+            if (!TryConvertOptionalNumber(args, 1, ctx, out var arg1, out var err1))
                 return err1;
 
             var arg0Converted = ToText(args[0], ctx);
@@ -582,6 +601,20 @@ internal static class SignatureAdapter
 
             return f(ctx, arg0, arg1).ToAnyValue();
         };
+    }
+
+    private static bool TryConvertOptionalNumber(Span<AnyValue> args, int index, CalcContext ctx, out double? number, out XLError error)
+    {
+        number = null;
+        error = default;
+        if (args.Length <= index)
+            return true;
+
+        if (!ToNumber(args[index], ctx).TryPickT0(out var supplied, out error))
+            return false;
+
+        number = supplied;
+        return true;
     }
 
     public static CalcEngineFunction AdaptLastOptional(Func<double, double, double, ScalarValue> f, double lastDefault)

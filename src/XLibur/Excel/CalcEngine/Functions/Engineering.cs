@@ -33,8 +33,8 @@ internal static class Engineering
         ce.RegisterFunction("BESSELK", 2, 2, Adapt(BesselK), FunctionFlags.Scalar); // Returns the modified Bessel function Kn(x)
         ce.RegisterFunction("BESSELY", 2, 2, Adapt(BesselY), FunctionFlags.Scalar); // Returns the Bessel function Yn(x)
         ce.RegisterFunction("BIN2DEC", 1, 1, Adapt(Bin2Dec), FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("BIN2HEX", 1, 2, AdaptLastOptionalLastFirst(Bin2Hex, 0), [1], FunctionFlags.Scalar);
-        ce.RegisterFunction("BIN2OCT", 1, 2, AdaptLastOptional(Bin2Oct, 0), FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("BIN2HEX", 1, 2, AdaptLastOptionalLastFirst(Bin2Hex), [1], FunctionFlags.Scalar);
+        ce.RegisterFunction("BIN2OCT", 1, 2, AdaptLastOptionalLastFirst(Bin2Oct), FunctionFlags.Scalar);
         ce.RegisterFunction("BITAND", 2, 2, Adapt(BitAnd), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'And' of two numbers
         ce.RegisterFunction("BITLSHIFT", 2, 2, Adapt(BitLShift), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a number shifted left by shift_amount bits
         ce.RegisterFunction("BITOR", 2, 2, Adapt(BitOr), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'Or' of two numbers
@@ -42,18 +42,18 @@ internal static class Engineering
         ce.RegisterFunction("BITXOR", 2, 2, Adapt(BitXor), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'Exclusive Or' of two numbers
         ce.RegisterStrictNumeric("COMPLEX", 2, 3, AdaptLastOptional(Complex, "i"), [0, 1], FunctionFlags.Scalar); // Converts real and imaginary coefficients into a complex number
         ce.RegisterStrictNumeric("CONVERT", 3, 3, Adapt(ConvertUnit), [0], FunctionFlags.Scalar); // Converts a number from one measurement system to another
-        ce.RegisterStrictNumeric("DEC2BIN", 1, 2, AdaptLastOptionalLastFirst(Dec2Bin, 0), [0, 1], FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("DEC2HEX", 1, 2, AdaptLastOptionalLastFirst(Dec2Hex, 0), [0, 1], FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("DEC2OCT", 1, 2, AdaptLastOptionalLastFirst(Dec2Oct, 0), [0, 1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DEC2BIN", 1, 2, AdaptLastOptionalLastFirst(Dec2Bin), [0, 1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DEC2HEX", 1, 2, AdaptLastOptionalLastFirst(Dec2Hex), [0, 1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("DEC2OCT", 1, 2, AdaptLastOptionalLastFirst(Dec2Oct), [0, 1], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("DELTA", 1, 2, AdaptLastOptionalLastFirst(Delta, 0), [0, 1], FunctionFlags.Scalar); // Tests whether two values are equal
         ce.RegisterStrictNumeric("ERF", 1, 2, AdaptLastOptional(Erf), [0, 1], FunctionFlags.Scalar); // Returns the error function
         ce.RegisterFunction("ERF.PRECISE", 1, 1, Adapt(ErfPrecise), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the error function
         ce.RegisterStrictNumeric("ERFC", 1, 1, Adapt(Erfc), [0], FunctionFlags.Scalar); // Returns the complementary error function
         ce.RegisterFunction("ERFC.PRECISE", 1, 1, Adapt(Erfc), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the complementary ERF function integrated between x and infinity
         ce.RegisterStrictNumeric("GESTEP", 1, 2, AdaptLastOptionalLastFirst(GeStep, 0), [0, 1], FunctionFlags.Scalar); // Tests whether a number is greater than a threshold value
-        ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin, 0), [0, 1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin), [0, 1], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("HEX2DEC", 1, 1, Adapt(Hex2Dec), [0], FunctionFlags.Scalar);
-        ce.RegisterFunction("HEX2OCT", 1, 2, AdaptLastOptional(Hex2Oct, 0), FunctionFlags.Scalar);
+        ce.RegisterFunction("HEX2OCT", 1, 2, AdaptLastOptionalLastFirst(Hex2Oct), FunctionFlags.Scalar);
         ce.RegisterFunction("IMABS", 1, 1, Adapt(ImAbs), FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number
         ce.RegisterFunction("IMAGINARY", 1, 1, Adapt(ImAginary), FunctionFlags.Scalar); // Returns the imaginary coefficient of a complex number
         ce.RegisterFunction("IMARGUMENT", 1, 1, Adapt(ImArgument), FunctionFlags.Scalar); // Returns the argument theta, an angle expressed in radians
@@ -79,9 +79,9 @@ internal static class Engineering
         ce.RegisterFunction("IMSUB", 2, 2, Adapt(ImSub), FunctionFlags.Scalar); // Returns the difference between two complex numbers
         ce.RegisterFunction("IMSUM", 1, 255, Adapt(ImSum), FunctionFlags.Scalar); // Returns the sum of complex numbers
         ce.RegisterFunction("IMTAN", 1, 1, Adapt(ImTan), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the tangent of a complex number
-        ce.RegisterFunction("OCT2BIN", 1, 2, AdaptLastOptional(Oct2Bin, 0), FunctionFlags.Scalar);
+        ce.RegisterFunction("OCT2BIN", 1, 2, AdaptLastOptionalLastFirst(Oct2Bin), FunctionFlags.Scalar);
         ce.RegisterFunction("OCT2DEC", 1, 1, Adapt(Oct2Dec), FunctionFlags.Scalar);
-        ce.RegisterFunction("OCT2HEX", 1, 2, AdaptLastOptional(Oct2Hex, 0), FunctionFlags.Scalar);
+        ce.RegisterFunction("OCT2HEX", 1, 2, AdaptLastOptionalLastFirst(Oct2Hex), FunctionFlags.Scalar);
     }
 
     #region Bessel functions
@@ -503,20 +503,24 @@ internal static class Engineering
         return result;
     }
 
-    private static ScalarValue ApplyPlaces(string result, double placesDouble)
+    /// <summary>
+    /// Only an omitted <paramref name="placesDouble"/> means "as few characters as needed". A
+    /// supplied 0, which is what a blank cell reads as, is out of range like any other value below 1.
+    /// </summary>
+    private static ScalarValue ApplyPlaces(string result, double? placesDouble)
     {
-        var places = (int)Math.Truncate(placesDouble);
-        if (places == 0)
+        if (placesDouble is null)
             return result;
 
-        if (places < 0 || places > 10)
+        var places = Math.Truncate(placesDouble.Value);
+        if (places < 1 || places > 10)
             return XLError.NumberInvalid;
 
         // Places only applies to non-negative results (no leading F's/7's/1's for padding)
         if (result.Length > places)
             return XLError.NumberInvalid;
 
-        return result.PadLeft(places, '0');
+        return result.PadLeft((int)places, '0');
     }
 
     #region BIN2*
@@ -529,7 +533,7 @@ internal static class Engineering
         return (double)value;
     }
 
-    private static ScalarValue Bin2Hex(CalcContext ctx, string number, double places)
+    private static ScalarValue Bin2Hex(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 2, 10, out var value))
             return XLError.NumberInvalid;
@@ -538,7 +542,7 @@ internal static class Engineering
         return ApplyPlaces(result, places);
     }
 
-    private static ScalarValue Bin2Oct(CalcContext ctx, string number, double places)
+    private static ScalarValue Bin2Oct(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 2, 10, out var value))
             return XLError.NumberInvalid;
@@ -551,7 +555,7 @@ internal static class Engineering
 
     #region DEC2*
 
-    private static ScalarValue Dec2Bin(CalcContext ctx, double number, double places)
+    private static ScalarValue Dec2Bin(CalcContext ctx, double number, double? places)
     {
         var value = (long)Math.Truncate(number);
         if (value < BinMin || value > BinMax)
@@ -561,7 +565,7 @@ internal static class Engineering
         return ApplyPlaces(result, places);
     }
 
-    private static ScalarValue Dec2Hex(CalcContext ctx, double number, double places)
+    private static ScalarValue Dec2Hex(CalcContext ctx, double number, double? places)
     {
         var value = (long)Math.Truncate(number);
         if (value < HexMin || value > HexMax)
@@ -571,7 +575,7 @@ internal static class Engineering
         return ApplyPlaces(result, places);
     }
 
-    private static ScalarValue Dec2Oct(CalcContext ctx, double number, double places)
+    private static ScalarValue Dec2Oct(CalcContext ctx, double number, double? places)
     {
         var value = (long)Math.Truncate(number);
         if (value < OctMin || value > OctMax)
@@ -585,7 +589,7 @@ internal static class Engineering
 
     #region HEX2*
 
-    private static ScalarValue Hex2Bin(CalcContext ctx, string number, double places)
+    private static ScalarValue Hex2Bin(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 16, 40, out var value))
             return XLError.NumberInvalid;
@@ -605,7 +609,7 @@ internal static class Engineering
         return (double)value;
     }
 
-    private static ScalarValue Hex2Oct(CalcContext ctx, string number, double places)
+    private static ScalarValue Hex2Oct(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 16, 40, out var value))
             return XLError.NumberInvalid;
@@ -621,7 +625,7 @@ internal static class Engineering
 
     #region OCT2*
 
-    private static ScalarValue Oct2Bin(CalcContext ctx, string number, double places)
+    private static ScalarValue Oct2Bin(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 8, 30, out var value))
             return XLError.NumberInvalid;
@@ -641,7 +645,7 @@ internal static class Engineering
         return (double)value;
     }
 
-    private static ScalarValue Oct2Hex(CalcContext ctx, string number, double places)
+    private static ScalarValue Oct2Hex(CalcContext ctx, string number, double? places)
     {
         if (!TryParseBase(number, 8, 30, out var value))
             return XLError.NumberInvalid;
