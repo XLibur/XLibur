@@ -75,17 +75,19 @@ public partial class XLWorkbook
 
     /// <summary>
     /// Open a package and load it, converting the package reader's own exception types into
-    /// <see cref="PartStructureException"/>. A caller of a public XLibur constructor should not
+    /// <see cref="PartStructureException"/>. A caller of a public XLibur entry point should not
     /// have to catch a <c>DocumentFormat.OpenXml</c> type to handle a malformed file. The load is
     /// inside the conversion too, because the SDK checks a part's content type only when the
-    /// part is first read (#970).
+    /// part is first read (#970), and so is <paramref name="afterLoad"/>, which a template open
+    /// needs (#1006).
     /// </summary>
-    private void LoadPackage(Func<SpreadsheetDocument> open)
+    private void LoadPackage(Func<SpreadsheetDocument> open, Action<SpreadsheetDocument>? afterLoad = null)
     {
         try
         {
             using var dSpreadsheet = open();
             LoadSpreadsheetDocument(dSpreadsheet);
+            afterLoad?.Invoke(dSpreadsheet);
         }
         catch (OpenXmlPackageException e)
         {
@@ -95,16 +97,14 @@ public partial class XLWorkbook
 
     private void LoadSheetsFromTemplate(string fileName)
     {
-        using (var dSpreadsheet = CreateFromTemplate(fileName))
+        // A save out of a template writes a new package, so a sheet XLibur keeps but does not
+        // model, such as a chartsheet, has no part to be written from unless the template's
+        // package is kept for it (#527).
+        LoadPackage(() => CreateFromTemplate(fileName), dSpreadsheet =>
         {
-            LoadSpreadsheetDocument(dSpreadsheet);
-
-            // A save out of a template writes a new package, so a sheet XLibur keeps but does not
-            // model, such as a chartsheet, has no part to be written from unless the template's
-            // package is kept for it (#527).
             if (UnsupportedSheets.Count > 0)
                 _templateSheetSource = ClonePackage(dSpreadsheet);
-        }
+        });
 
         // If we load a workbook as a template, we have to treat it as a "new" workbook.
         // The original file will NOT be copied into place before changes are applied
