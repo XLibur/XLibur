@@ -87,9 +87,11 @@ internal static class ColumnWriter
 
         WritePreColumns(ctx, minInColumnsCollection);
         var maxCol = WriteMainColumns(ctx, xlWorksheet, minInColumnsCollection, maxInColumnsCollection, sharedStyles);
-        WritePostColumns(ctx, maxCol);
-
         CollapseColumns(columns, sheetColumnsByMin, mdw);
+
+        // After the collapse, which appends every column it keeps: the range after the last column
+        // goes last, as the schema orders <col> by min (#965).
+        WritePostColumns(ctx, maxCol);
 
         if (!columns.Any())
         {
