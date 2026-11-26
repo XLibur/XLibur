@@ -98,26 +98,15 @@ internal sealed class XLSlicers : IXLSlicers
     /// </remarks>
     internal XLSlicer AddTableSlicer(XLTable table, string columnName)
     {
-        var position = 0;
-        var found = 0;
-        foreach (var field in table.Fields)
-        {
-            position++;
-            if (XLHelper.NameComparer.Equals(field.Name, columnName))
-            {
-                found = position;
-                break;
-            }
-        }
-
-        if (found == 0)
-            throw new ArgumentException($"The table '{table.Name}' has no column named '{columnName}'.", nameof(columnName));
+        var found = table.Fields.Cast<XLTableField>()
+            .FirstOrDefault(field => XLHelper.NameComparer.Equals(field.Name, columnName))
+            ?? throw new ArgumentException($"The table '{table.Name}' has no column named '{columnName}'.", nameof(columnName));
 
         var slicerCache = new XLSlicerCache(NextCacheName(columnName), columnName, XLSlicerSourceKind.Table)
         {
             IsNew = true,
             Table = table,
-            TableColumnPosition = found,
+            TableField = found,
         };
 
         return AddNew(slicerCache, columnName, XLSheetControlNames.DefaultPositionBeside(

@@ -61,8 +61,14 @@ internal static class SlicerCacheWriter
     /// </remarks>
     internal static void PrepareSlicerCaches(WorkbookPart workbookPart, XLWorkbook workbook, SaveContext context)
     {
+        var liveTables = new HashSet<XLTable>();
+        foreach (var worksheet in workbook.WorksheetsInternal)
+            liveTables.UnionWith(worksheet.Tables.Cast<XLTable>());
+
         foreach (var worksheet in workbook.WorksheetsInternal)
         {
+            RemoveOrphanedTableSlicers(worksheet.SlicersInternal, liveTables);
+
             foreach (var removed in worksheet.SlicersInternal.Removed)
                 RemoveCache(workbookPart, workbook, removed.Cache);
 
@@ -101,6 +107,26 @@ internal static class SlicerCacheWriter
 
             worksheet.SlicersInternal.Removed.Clear();
         }
+    }
+
+    /// <summary>
+    /// Removes every table slicer whose table, or whose column, is no longer in the workbook.
+    /// </summary>
+    /// <remarks>
+    /// A table, a table field or a worksheet column can each be deleted several ways, and none of
+    /// them knows about slicers, so the check is made once here. Left alone, the cache names a
+    /// <c>table/@id</c> a new table may be given, and Excel then shows the slicer on that table
+    /// (#971). A cache whose table or column never resolved on load is left as it was read.
+    /// </remarks>
+    private static void RemoveOrphanedTableSlicers(XLSlicers slicers, HashSet<XLTable> liveTables)
+    {
+        foreach (var slicer in slicers.Items.Where(IsOrphaned).ToList())
+            slicers.Remove(slicer);
+
+        bool IsOrphaned(XLSlicer slicer) =>
+            slicer.Cache.Table is { } table
+            && (!liveTables.Contains(table)
+                || (slicer.Cache.TableField is { } field && !table.Fields.Contains(field)));
     }
 
     // ── Cache parts ─────────────────────────────────────────────────────
@@ -208,9 +234,7 @@ internal static class SlicerCacheWriter
         if (cache.Table is XLTable table && context.TableIds.TryGetValue(table, out var tableId))
         {
             cache.TableId = tableId;
-            cache.TableColumnId = cache.TableColumnPosition is { } position
-                ? table.Fields.Cast<XLTableField>().ElementAtOrDefault(position - 1)?.Id
-                : null;
+            cache.TableColumnId = cache.TableField?.Id;
         }
 
         var tableSlicerCache = new X15.TableSlicerCache

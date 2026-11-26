@@ -145,7 +145,7 @@ internal static class SlicerReader
         cache.Table = entry.Table;
 
         if (cache.TableColumnId is { } columnId && entry.ColumnPositions.TryGetValue(columnId, out var position))
-            cache.TableColumnPosition = position;
+            cache.TableField = entry.Table.Fields.Cast<XLTableField>().ElementAtOrDefault(position - 1);
     }
 
     /// <summary>

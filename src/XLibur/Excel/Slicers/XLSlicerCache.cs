@@ -117,8 +117,12 @@ internal sealed class XLSlicerCache : IXLPivotDependentCache
     internal XLTable? Table { get; set; }
 
     /// <summary>
-    /// The 1-based position of the filtered column within <see cref="Table"/>, resolved from
-    /// <see cref="TableColumnId"/> while reading the table part.
+    /// The filtered column of <see cref="Table"/>, resolved from <see cref="TableColumnId"/> while
+    /// reading the table part.
     /// </summary>
-    internal int? TableColumnPosition { get; set; }
+    /// <remarks>
+    /// The field rather than its position, so that deleting a column to its left moves the binding
+    /// with it, and deleting the column itself is visible as the field leaving the table (#971).
+    /// </remarks>
+    internal XLTableField? TableField { get; set; }
 }
