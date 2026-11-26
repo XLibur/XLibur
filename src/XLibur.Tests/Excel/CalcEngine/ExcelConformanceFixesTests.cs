@@ -206,6 +206,43 @@ public class ExcelConformanceFixesTests
             await Assert.That((double)ws.Evaluate($"IRR(A1:A3,{guess})")).IsEqualTo(IrrOfMinus100_50_70).Within(1e-15);
     }
 
+    [Test]
+    public async Task Irr_of_all_zero_cash_flows_is_a_number_error()
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.AddWorksheet().Evaluate("IRR({0,0,0})")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    public async Task Irr_that_excel_iteration_does_not_reach_is_a_number_error()
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.AddWorksheet().Evaluate("IRR({-100,0,0,0,0,0,0,0,0,0,1})")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    public async Task Rate_that_is_zero_at_every_rate_is_a_number_error()
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.AddWorksheet().Evaluate("RATE(0,-100,0)")).IsEqualTo(XLError.NumberInvalid);
+    }
+
+    [Test]
+    [Arguments("-1")]
+    [Arguments("-1.5")]
+    public async Task A_rate_guess_at_or_below_minus_one_is_a_value_error(string guess)
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That(wb.AddWorksheet().Evaluate($"RATE(10,-100,1000,0,0,{guess})")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Xirr_of_tiny_cash_flows_is_solved()
+    {
+        using var wb = new XLWorkbook();
+        await Assert.That((double)wb.AddWorksheet().Evaluate("XIRR({-1E-12,2E-12},{0,365})")).IsEqualTo(1d).Within(1e-9);
+    }
+
     private static IXLWorksheet CashFlows(out XLWorkbook wb, params double[] flows)
     {
         wb = new XLWorkbook();
