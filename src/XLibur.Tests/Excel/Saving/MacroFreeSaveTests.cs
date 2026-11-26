@@ -261,6 +261,74 @@ public class MacroFreeSaveTests
         await Assert.That(ReadZ1(source.Path)).IsEqualTo("edited");
     }
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task Encrypted_SaveAs_xlsx_refuses_a_workbook_with_a_vba_project(bool fromStream)
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile();
+        using var sourceStream = fromStream ? File.OpenRead(source.Path) : null;
+        using var wb = sourceStream is null ? new XLWorkbook(source.Path) : new XLWorkbook(sourceStream);
+
+        var ex = await Assert.That(() => wb.SaveAs(target.Path, new SaveOptions { Password = EncryptionPassword }))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(ex!.Message).Contains("/xl/vbaProject.bin");
+        await Assert.That(File.Exists(target.Path)).IsFalse();
+    }
+
+    [Test]
+    public async Task Encrypted_SaveAs_xlsx_with_DiscardVbaProject_writes_a_macro_free_package()
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile();
+        using (var wb = new XLWorkbook(source.Path))
+            wb.SaveAs(target.Path, new SaveOptions { Password = EncryptionPassword, DiscardVbaProject = true });
+
+        using var package = OpenEncrypted(target.Path);
+        await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.Workbook);
+        await Assert.That(package.WorkbookPart!.VbaProjectPart).IsNull();
+    }
+
+    [Test]
+    public async Task Encrypted_SaveAs_xlsm_keeps_the_vba_project()
+    {
+        using var source = CopyFixtureToFile();
+        using var target = new TemporaryFile(TempPath("xlsm"));
+        using (var wb = new XLWorkbook(source.Path))
+            wb.SaveAs(target.Path, new SaveOptions { Password = EncryptionPassword });
+
+        using var package = OpenEncrypted(target.Path);
+        await Assert.That(package.DocumentType).IsEqualTo(SpreadsheetDocumentType.MacroEnabledWorkbook);
+        await Assert.That(package.WorkbookPart!.VbaProjectPart).IsNotNull();
+    }
+
+    [Test]
+    [Arguments("xlsm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
+    [Arguments("xltx", SpreadsheetDocumentType.Template)]
+    public async Task Encrypted_SaveAs_of_a_new_workbook_takes_the_document_type_of_the_extension(
+        string extension, SpreadsheetDocumentType expected)
+    {
+        using var target = new TemporaryFile(TempPath(extension));
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet();
+            wb.SaveAs(target.Path, new SaveOptions { Password = EncryptionPassword });
+        }
+
+        using var package = OpenEncrypted(target.Path);
+        await Assert.That(package.DocumentType).IsEqualTo(expected);
+    }
+
+    private const string EncryptionPassword = "pw";
+
+    private static SpreadsheetDocument OpenEncrypted(string path)
+    {
+        using var container = File.OpenRead(path);
+        return SpreadsheetDocument.Open(XLibur.Excel.IO.Encryption.WorkbookEncryption.Decrypt(container, EncryptionPassword), false);
+    }
+
     private static TemporaryFile PlainWorkbookFile()
     {
         var file = new TemporaryFile();
