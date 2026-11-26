@@ -1,3 +1,5 @@
+using System;
+
 namespace XLibur.Excel;
 
 /// <summary>
@@ -96,6 +98,18 @@ internal readonly record struct XLStyleKey
         }
     }
 
+    /// <summary>
+    /// The name of the named cell style (<c>&lt;cellStyle&gt;</c>) a loaded cell format is in, such as
+    /// Comma, or <c>null</c> for Normal. A save writes the style to a cell format in that style (#977).
+    /// </summary>
+    public string? CellStyleName { get; init; }
+
+    /// <summary>
+    /// The elements the loaded font of this style states, when another loaded font has the same
+    /// value, or <see cref="XLFontElements.None"/> (#978).
+    /// </summary>
+    public XLFontElements FontElements { get; init; }
+
     public override string ToString()
     {
         if (this == XLStyle.Default.Key)
@@ -125,6 +139,8 @@ internal readonly record struct XLStyleKey
             hash = (hash * 397) ^ (IncludeQuotePrefix ? 1 : 0);
             hash = (hash * 397) ^ _numberFormatHash;
             hash = (hash * 397) ^ _protectionHash;
+            hash = (hash * 397) ^ (CellStyleName is null ? 0 : StringComparer.Ordinal.GetHashCode(CellStyleName));
+            hash = (hash * 397) ^ (int)FontElements;
             return hash;
         }
     }
@@ -139,7 +155,9 @@ internal readonly record struct XLStyleKey
             || _numberFormatHash != other._numberFormatHash
             || _alignmentHash != other._alignmentHash
             || _protectionHash != other._protectionHash
-            || IncludeQuotePrefix != other.IncludeQuotePrefix)
+            || IncludeQuotePrefix != other.IncludeQuotePrefix
+            || FontElements != other.FontElements
+            || !string.Equals(CellStyleName, other.CellStyleName, StringComparison.Ordinal))
         {
             return false;
         }

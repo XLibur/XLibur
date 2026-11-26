@@ -31,6 +31,7 @@ internal static class RoundTripCensusAllowList
     private const string FalseToggle = "a toggle set to false, or to its \"none\" value, says the same as no toggle";
     private const string TrueToggle = "a toggle set to true is written as the bare element, which means true";
     private const string OutOfRange = "0 is outside the attribute's range, and Excel reads the attribute as absent";
+    private const string InvalidColor = "an invalid colour, <color rgb=\"0\"/> in InvalidColors.xlsx, is written as the colour it decodes to, so the cell's font no longer matches the loaded one";
     private const string RevisionUid = "a revision id (xr:uid) only serves Excel's change tracking, and the save does not keep it";
     private const string Ignorable = "mc:Ignorable names the namespaces of markup the save no longer writes, such as revision ids";
     private const string Count = "a count attribute restates how many children follow, and the census counts the children";
@@ -61,7 +62,6 @@ internal static class RoundTripCensusAllowList
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
 
     private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
-    private const string LostACellSNamedCellStyle = "a cell's named cell style is replaced by Normal, mostly when the sheet is written from the model";
     private const string LostAConditionalFormatSDxfLoses = "a conditional format's dxf loses the alignment, fill and font overrides the conditional format style does not model";
     private const string LostAPivotTableFormatIsGiven = "a pivot table format is given another pivot table's number format";
     private const string LostASolidFillInTheSystem = "a solid fill in the system background colour (indexed 65) written as no fill when the sheet is written from the model";
@@ -78,7 +78,6 @@ internal static class RoundTripCensusAllowList
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
     private const string LostSelectionOfAFrozenPaneDropped = "selection of a frozen pane dropped and activePane reset";
     private const string LostTableColumnDataFormatDataDxfIdDropped = "table column data format (dataDxfId) dropped";
-    private const string LostTheFontFamilyAndInOne = "the font family, and in one file the font name and size, dropped from a cell's font when the sheet is written from the model";
 
     private static readonly AllowedLoss[] Noise =
     [
@@ -117,6 +116,7 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "pageSetup@horizontalDpi=0", OutOfRange),
         new(SpreadsheetmlWorksheet, "pageSetup@scale=0", OutOfRange),
         new(SpreadsheetmlWorksheet, "pageSetup@verticalDpi=0", OutOfRange),
+        new(SpreadsheetmlWorksheet, "c@s->font", InvalidColor, 1),
         new(SpreadsheetmlComments, "comment@xr:uid", RevisionUid),
         new(SpreadsheetmlPivotTable, "pivotTableDefinition@xr:uid", RevisionUid),
         new(SpreadsheetmlTable, "autoFilter@xr:uid", RevisionUid),
@@ -340,7 +340,6 @@ internal static class RoundTripCensusAllowList
     private static readonly KnownLoss[] Known =
     [
         new(SpreadsheetmlWorksheet, "c@t=e", "#960", LostACellImageIsWrittenAs, 2),
-        new(SpreadsheetmlWorksheet, "c@s->cellStyle", "#977", LostACellSNamedCellStyle, 2829),
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->alignment", "#979", LostAConditionalFormatSDxfLoses, 1300),
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->fill", "#979", LostAConditionalFormatSDxfLoses, 1312),
         new(SpreadsheetmlWorksheet, "cfRule@dxfId->font", "#979", LostAConditionalFormatSDxfLoses, 1328),
@@ -420,7 +419,6 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->font", "#961", LostTableColumnDataFormatDataDxfIdDropped, 14),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->numFmt", "#961", LostTableColumnDataFormatDataDxfIdDropped, 56),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->protection", "#961", LostTableColumnDataFormatDataDxfIdDropped, 86),
-        new(SpreadsheetmlWorksheet, "c@s->font", "#978", LostTheFontFamilyAndInOne, 1703),
     ];
 
     internal static IEnumerable<(string ContentType, string Key)> Keys =>

@@ -41,6 +41,8 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
         IncludeQuotePrefix = key.IncludeQuotePrefix;
         NumberFormat = XLNumberFormatValue.FromKey(ref numberFormat);
         Protection = XLProtectionValue.FromKey(ref protection);
+        CellStyleName = key.CellStyleName;
+        FontElements = key.FontElements;
         _hashCode = -280332839 + Key.GetHashCode();
     }
 
@@ -203,6 +205,12 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
 
     internal XLProtectionValue Protection { get; }
 
+    /// <inheritdoc cref="XLStyleKey.CellStyleName"/>
+    internal string? CellStyleName { get; }
+
+    /// <inheritdoc cref="XLStyleKey.FontElements"/>
+    internal XLFontElements FontElements { get; }
+
     public override bool Equals(object? obj)
     {
         return ReferenceEquals(this, obj) || Equals(obj as XLStyleValue);
@@ -263,9 +271,15 @@ internal sealed class XLStyleValue : IEquatable<XLStyleValue?>
             colStyle.IncludeQuotePrefix);
         var numberFormat = GetExplicitlySet(sheetStyle.NumberFormat, rowStyle.NumberFormat, colStyle.NumberFormat);
         var protection = GetExplicitlySet(sheetStyle.Protection, rowStyle.Protection, colStyle.Protection);
+        var cellStyleName = string.Equals(sheetStyle.CellStyleName, rowStyle.CellStyleName, StringComparison.Ordinal)
+            ? colStyle.CellStyleName
+            : rowStyle.CellStyleName;
+        var fontElements = GetExplicitlySet(sheetStyle.FontElements, rowStyle.FontElements, colStyle.FontElements);
 
         var combinedStyleKey = new XLStyleKey
         {
+            CellStyleName = cellStyleName,
+            FontElements = fontElements,
             Alignment = alignment.Key,
             Border = border.Key,
             Fill = fill.Key,

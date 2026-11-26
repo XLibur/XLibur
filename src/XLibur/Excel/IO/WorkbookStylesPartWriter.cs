@@ -24,6 +24,7 @@ internal static class WorkbookStylesPartWriter
 
         var (workbookStyles, pivotCustomFormats) = CollectWorkbookStyles(workbook);
         var xlStyles = WithDefaultStyleFirst(stylesheet, workbookStyles);
+        var cellStyleNames = StylesheetData.CellStyleNames(stylesheet.CellStyles);
 
         uint fontCount = 0;
         uint fillCount = 3;
@@ -33,10 +34,13 @@ internal static class WorkbookStylesPartWriter
         // at index 0 and its columns are measured in the default font's digits (#802). The fonts of
         // the texts' phonetic properties follow, so the shared strings and the worksheets, written
         // after this part, read each one's id from the map (#801).
-        foreach (var font in xlStyles.Select(s => s.Font).Prepend(DefaultStyleValue.Font)
-                     .Concat(workbook.SharedStringTable.GetPhoneticFonts()).Distinct())
+        foreach (var font in xlStyles.Select(s => (s.Font, s.FontElements))
+                     .Prepend((DefaultStyleValue.Font, XLFontElements.None))
+                     .Concat(workbook.SharedStringTable.GetPhoneticFonts().Select(f => (f, XLFontElements.None)))
+                     .Distinct())
         {
-            context.SharedFonts.Add(font, new FontInfo { FontId = fontCount++, Font = font });
+            context.SharedFonts.Add(font,
+                new FontInfo { FontId = fontCount++, Font = font.Item1, FontElements = font.Item2 });
         }
 
         var sharedFills = xlStyles.Select(s => s.Fill).Distinct().ToDictionary(
@@ -56,10 +60,11 @@ internal static class WorkbookStylesPartWriter
         context.ReservedFillsReplaced = reservedFillsReplaced;
         var allSharedBorders = ResolveBorders(stylesheet, sharedBorders);
 
-        BuildSharedStyleMappings(context, xlStyles, allSharedNumberFormats, allSharedFills, allSharedBorders);
+        BuildSharedStyleMappings(context, xlStyles, allSharedNumberFormats, allSharedFills, allSharedBorders,
+            cellStyleNames);
 
         ResolveCellStyleFormats(stylesheet, context);
-        ResolveRest(stylesheet, context);
+        ResolveRest(stylesheet, context, cellStyleNames);
 
         if (!stylesheet.CellStyles.Elements<CellStyle>().Any(c =>
                 c.BuiltinId != null && c.BuiltinId.HasValue && c.BuiltinId.Value == 0U))
@@ -68,7 +73,7 @@ internal static class WorkbookStylesPartWriter
 
         stylesheet.CellStyles.Count = (uint)stylesheet.CellStyles.ChildElements.Count;
 
-        RemapStyleIds(stylesheet, context);
+        RemapStyleIds(stylesheet, context, cellStyleNames);
 
         AddDifferentialFormats(stylesheet, workbook, context);
     }
@@ -98,17 +103,19 @@ internal static class WorkbookStylesPartWriter
         // Only the font map outlives its loop: ResolveFonts rewrites it with the ids it assigned,
         // and the cellXf loop reads those back. The number-format and style maps the SaveContext
         // used to carry were write-only even then, which is why this overload no longer takes one.
-        var sharedFonts = new Dictionary<XLFontValue, FontInfo>();
+        var sharedFonts = new Dictionary<(XLFontValue, XLFontElements), FontInfo>();
 
         var defaultStyle = DefaultStyleValue;
-        sharedFonts.Add(defaultStyle.Font, new FontInfo { FontId = 0, Font = defaultStyle.Font });
+        sharedFonts.Add((defaultStyle.Font, defaultStyle.FontElements),
+            new FontInfo { FontId = 0, Font = defaultStyle.Font, FontElements = defaultStyle.FontElements });
 
         uint fontCount = 1;
 
         foreach (var style in orderedStyles)
         {
-            if (!sharedFonts.ContainsKey(style.Font))
-                sharedFonts.Add(style.Font, new FontInfo { FontId = fontCount++, Font = style.Font });
+            if (sharedFonts.TryAdd((style.Font, style.FontElements),
+                    new FontInfo { FontId = fontCount, Font = style.Font, FontElements = style.FontElements }))
+                fontCount++;
         }
 
         var sharedFills = new Dictionary<XLFillValue, FillInfo>();
@@ -148,7 +155,7 @@ internal static class WorkbookStylesPartWriter
             {
                 StyleId = (uint)styleId,
                 Style = style,
-                FontId = sharedFonts[style.Font].FontId,
+                FontId = sharedFonts[(style.Font, style.FontElements)].FontId,
                 FillId = allSharedFills[style.Fill].FillId,
                 BorderId = allSharedBorders[style.Border].BorderId,
                 NumberFormatId = numberFormatId,
@@ -314,8 +321,13 @@ internal static class WorkbookStylesPartWriter
         List<XLStyleValue> xlStyles,
         Dictionary<XLNumberFormatValue, NumberFormatInfo> sharedNumberFormats,
         Dictionary<XLFillValue, FillInfo> sharedFills,
-        Dictionary<XLBorderValue, BorderInfo> sharedBorders)
+        Dictionary<XLBorderValue, BorderInfo> sharedBorders,
+        Dictionary<uint, string> cellStyleNames)
     {
+        var cellStyleFormatIds = new Dictionary<string, uint>(StringComparer.Ordinal);
+        foreach (var (xfId, name) in cellStyleNames)
+            cellStyleFormatIds.TryAdd(name, xfId);
+
         uint styleCount = 1;
         foreach (var xlStyle in xlStyles)
         {
@@ -323,17 +335,28 @@ internal static class WorkbookStylesPartWriter
                 ? xlStyle.NumberFormat.NumberFormatId
                 : sharedNumberFormats[xlStyle.NumberFormat].NumberFormatId;
 
+            // A style named after a cell style the stylesheet lacks, as one copied from another
+            // workbook can be, is written in Normal.
+            var cellStyleName = xlStyle.CellStyleName;
+            if (cellStyleName is null || !cellStyleFormatIds.TryGetValue(cellStyleName, out var cellStyleFormatId))
+            {
+                cellStyleName = null;
+                cellStyleFormatId = 0;
+            }
+
             if (!context.SharedStyles.ContainsKey(xlStyle))
                 context.SharedStyles.Add(xlStyle,
                     new StyleInfo
                     {
                         StyleId = styleCount++,
                         Style = xlStyle,
-                        FontId = context.SharedFonts[xlStyle.Font].FontId,
+                        FontId = context.SharedFonts[(xlStyle.Font, xlStyle.FontElements)].FontId,
                         FillId = sharedFills[xlStyle.Fill].FillId,
                         BorderId = sharedBorders[xlStyle.Border].BorderId,
                         NumberFormatId = numberFormatId,
-                        IncludeQuotePrefix = xlStyle.IncludeQuotePrefix
+                        IncludeQuotePrefix = xlStyle.IncludeQuotePrefix,
+                        CellStyleName = cellStyleName,
+                        CellStyleFormatId = cellStyleFormatId,
                     });
         }
     }
@@ -341,7 +364,8 @@ internal static class WorkbookStylesPartWriter
     /// <summary>
     /// Match each shared style against the CellFormats in the part and assign the final style ID.
     /// </summary>
-    private static void RemapStyleIds(Stylesheet stylesheet, SaveContext context)
+    private static void RemapStyleIds(Stylesheet stylesheet, SaveContext context,
+        Dictionary<uint, string> cellStyleNames)
     {
         var newSharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
         foreach (var ss in context.SharedStyles)
@@ -351,7 +375,7 @@ internal static class WorkbookStylesPartWriter
             {
                 var f = (CellFormat)openXmlElement;
                 styleId++;
-                if (CellFormatsAreEqual(f, ss.Value, compareAlignment: true))
+                if (CellXfsAreEqual(f, ss.Value, cellStyleNames))
                     break;
             }
 
@@ -699,7 +723,8 @@ internal static class WorkbookStylesPartWriter
         { 44, "_(\"$\"* #,##0.00_);_(\"$\"* \\(#,##0.00\\);_(\"$\"* \"-\"??_);_(@_)" },
     };
 
-    private static void ResolveRest(Stylesheet stylesheet, SaveContext context)
+    private static void ResolveRest(Stylesheet stylesheet, SaveContext context,
+        Dictionary<uint, string> cellStyleNames)
     {
         stylesheet.CellFormats ??= new CellFormats();
 
@@ -708,7 +733,7 @@ internal static class WorkbookStylesPartWriter
             var info = styleInfo;
             var foundOne =
                 stylesheet.CellFormats.Cast<CellFormat>()
-                    .Any(f => CellFormatsAreEqual(f, info, compareAlignment: true));
+                    .Any(f => CellXfsAreEqual(f, info, cellStyleNames));
 
             if (foundOne) continue;
 
@@ -725,7 +750,7 @@ internal static class WorkbookStylesPartWriter
     private static CellFormat BuildCellFormat(StyleInfo styleInfo)
     {
         var cellFormat = GetCellFormat(styleInfo);
-        cellFormat.FormatId = 0;
+        cellFormat.FormatId = styleInfo.CellStyleFormatId;
         var alignment = new Alignment
         {
             Horizontal = styleInfo.Style.Alignment.Horizontal.ToOpenXml(),
@@ -852,6 +877,18 @@ internal static class WorkbookStylesPartWriter
                                && (!compareAlignment || AlignmentsAreEqual(f.Alignment, styleInfo.Style.Alignment))
                                && ProtectionsAreEqual(f.Protection, styleInfo.Style.Protection)
             ;
+    }
+
+    /// <summary>
+    /// Whether the <c>cellXf</c> <paramref name="f"/> has the style's format, alignment included, and
+    /// is in its named cell style. Two cell formats of one format in different cell styles are
+    /// different formats to Excel: a later change to the cell style reaches only the cells in it (#977).
+    /// </summary>
+    private static bool CellXfsAreEqual(CellFormat f, StyleInfo styleInfo, Dictionary<uint, string> cellStyleNames)
+    {
+        return CellFormatsAreEqual(f, styleInfo, compareAlignment: true)
+               && string.Equals(cellStyleNames.GetValueOrDefault(f.FormatId?.Value ?? 0), styleInfo.CellStyleName,
+                   StringComparison.Ordinal);
     }
 
     private static bool ProtectionsAreEqual(Protection? protection, XLProtectionValue xlProtection)
@@ -1171,34 +1208,43 @@ internal static class WorkbookStylesPartWriter
             .Equals(xlFill.Key);
     }
 
-    private static void ResolveFonts(Stylesheet stylesheet, Dictionary<XLFontValue, FontInfo> sharedFonts)
+    /// <summary>
+    /// Gives each font the id of a font in the stylesheet, appending the fonts it lacks.
+    /// </summary>
+    /// <remarks>
+    /// A font loaded from the file takes a font of its value that states the same elements, which is
+    /// the one it was loaded from. Failing that, as for a font made through the API, it takes the
+    /// first font of its value that states at least its elements. A font that leaves an element out
+    /// decodes to the default value for it, so it can have the value of one that states the default
+    /// and still not be the same font (#978).
+    /// </remarks>
+    private static void ResolveFonts(Stylesheet stylesheet,
+        Dictionary<(XLFontValue, XLFontElements), FontInfo> sharedFonts)
     {
         stylesheet.Fonts ??= new Fonts();
 
-        var newFonts = new Dictionary<XLFontValue, FontInfo>();
-        foreach (var fontInfo in sharedFonts.Values)
+        var fonts = stylesheet.Fonts.Elements<Font>()
+            .Select(f => (Key: StyleDecoder.FontKey(f, XLFontValue.Default.Key), Elements: StyleDecoder.FontElements(f)))
+            .ToList();
+
+        var newFonts = new Dictionary<(XLFontValue, XLFontElements), FontInfo>();
+        foreach (var (key, fontInfo) in sharedFonts)
         {
-            var fontId = 0;
-            var foundOne = false;
-            foreach (var openXmlElement in stylesheet.Fonts)
-            {
-                var f = (Font)openXmlElement;
-                if (FontsAreEqual(f, fontInfo.Font))
-                {
-                    foundOne = true;
-                    break;
-                }
+            var value = fontInfo.Font.Key;
+            var elements = fontInfo.FontElements;
+            var fontId = fonts.FindIndex(f => f.Elements == elements && f.Key.Equals(value));
+            if (fontId < 0)
+                fontId = fonts.FindIndex(f => (f.Elements & elements) == elements && f.Key.Equals(value));
 
-                fontId++;
-            }
-
-            if (!foundOne)
+            if (fontId < 0)
             {
                 var font = GetNewFont(fontInfo);
                 stylesheet.Fonts.AppendChild(font);
+                fontId = fonts.Count;
+                fonts.Add((StyleDecoder.FontKey(font, XLFontValue.Default.Key), StyleDecoder.FontElements(font)));
             }
 
-            newFonts.Add(fontInfo.Font, new FontInfo { Font = fontInfo.Font, FontId = (uint)fontId });
+            newFonts.Add(key, fontInfo with { FontId = (uint)fontId });
         }
 
         sharedFonts.Clear();
@@ -1270,14 +1316,6 @@ internal static class WorkbookStylesPartWriter
     private static bool ShouldAppendFontElement(bool differsFromDefault, bool ignoreMod, bool expressible = true)
     {
         return (differsFromDefault || ignoreMod) && expressible;
-    }
-
-    private static bool FontsAreEqual(Font font, XLFontValue xlFont)
-    {
-        var convertedFont = StyleDecoder.FontKey(
-            font,
-            XLFontValue.Default.Key);
-        return convertedFont.Equals(xlFont.Key);
     }
 
     private static Dictionary<XLNumberFormatValue, NumberFormatInfo> ResolveNumberFormats(

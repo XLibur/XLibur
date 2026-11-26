@@ -44,7 +44,10 @@ internal static class StyleDecoder
         if (styles.CellFormatAt(styleIndex) is not CellFormat cellFormat)
             return defaults;
 
-        return Decode(cellFormat, styles, defaults);
+        return Decode(cellFormat, styles, defaults) with
+        {
+            CellStyleName = styles.CellStyleName(cellFormat.FormatId?.Value ?? 0),
+        };
     }
 
     /// <summary>
@@ -140,7 +143,11 @@ internal static class StyleDecoder
         if (UInt32HasValue(cellFormat.FontId))
         {
             var font = (Font)styles.FontAt((int)cellFormat.FontId!.Value);
-            key = key with { Font = FontKey(font, key.Font) };
+            key = key with
+            {
+                Font = FontKey(font, key.Font),
+                FontElements = styles.FontElementsAt((int)cellFormat.FontId!.Value),
+            };
         }
 
         if (UInt32HasValue(cellFormat.NumberFormatId))
@@ -414,6 +421,35 @@ internal static class StyleDecoder
         if (fontScheme is not null)
             nf = nf with { FontScheme = fontScheme.Val?.Value.ToXLibur() ?? XLFontScheme.None };
         return nf;
+    }
+
+    /// <summary>
+    /// The children <paramref name="f"/> states, with <see cref="XLFontElements.Loaded"/>.
+    /// </summary>
+    internal static XLFontElements FontElements(Font f)
+    {
+        var elements = XLFontElements.Loaded;
+        foreach (var child in f.ChildElements)
+        {
+            elements |= child switch
+            {
+                Bold => XLFontElements.Bold,
+                Italic => XLFontElements.Italic,
+                Underline => XLFontElements.Underline,
+                Strike => XLFontElements.Strikethrough,
+                VerticalTextAlignment => XLFontElements.VerticalAlignment,
+                Shadow => XLFontElements.Shadow,
+                FontSize => XLFontElements.FontSize,
+                Color => XLFontElements.FontColor,
+                FontName => XLFontElements.FontName,
+                FontFamilyNumbering => XLFontElements.FontFamilyNumbering,
+                FontCharSet => XLFontElements.FontCharSet,
+                FontScheme => XLFontElements.FontScheme,
+                _ => XLFontElements.None,
+            };
+        }
+
+        return elements;
     }
 
     /// <summary>

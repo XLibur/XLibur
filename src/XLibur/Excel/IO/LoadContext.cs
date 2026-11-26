@@ -49,6 +49,84 @@ internal sealed record StylesheetData(
     internal OpenXmlElement? CellStyleFormatAt(int index) =>
         ChildOrDefault(Children(Stylesheet?.CellStyleFormats, ref _cellStyleFormats), index);
 
+    private Dictionary<uint, string>? _cellStyleNames;
+    private XLFontElements[]? _fontElements;
+
+    /// <summary>
+    /// The elements the <c>&lt;font&gt;</c> at <paramref name="index"/> states, when another font of
+    /// the stylesheet decodes to the same value and states other elements, or
+    /// <see cref="XLFontElements.None"/> when none does.
+    /// </summary>
+    /// <remarks>
+    /// Only such a font needs its elements recorded: the save writes a style to a font of its value
+    /// that states them, which is the one it was loaded from (#978). A font no other font shares a
+    /// value with leaves the style as one made through the API, so it stays equal to it.
+    /// </remarks>
+    internal XLFontElements FontElementsAt(int index)
+    {
+        _fontElements ??= AmbiguousFontElements(Children(Fonts, ref _fonts));
+        return (uint)index < (uint)_fontElements.Length ? _fontElements[index] : XLFontElements.None;
+    }
+
+    private static XLFontElements[] AmbiguousFontElements(OpenXmlElement[] fonts)
+    {
+        var decoded = fonts
+            .Select(f => f is Font font
+                ? (Key: StyleDecoder.FontKey(font, XLFontValue.Default.Key), Elements: StyleDecoder.FontElements(font))
+                : ((XLFontKey Key, XLFontElements Elements)?)null)
+            .ToArray();
+
+        var elementsOfValue = new Dictionary<XLFontKey, XLFontElements>();
+        var ambiguous = new HashSet<XLFontKey>();
+        foreach (var (key, elements) in decoded.OfType<(XLFontKey, XLFontElements)>())
+        {
+            if (!elementsOfValue.TryAdd(key, elements) && elementsOfValue[key] != elements)
+                ambiguous.Add(key);
+        }
+
+        return decoded
+            .Select(d => d is { } font && ambiguous.Contains(font.Key) ? font.Elements : XLFontElements.None)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The name of the cell style whose format is the <c>&lt;cellStyleXfs&gt;</c> entry at
+    /// <paramref name="xfId"/>, or <c>null</c> for Normal (<c>builtinId</c> 0) and for an entry no
+    /// cell style names.
+    /// </summary>
+    internal string? CellStyleName(uint xfId)
+    {
+        _cellStyleNames ??= CellStyleNames(Stylesheet?.CellStyles);
+        return _cellStyleNames.GetValueOrDefault(xfId);
+    }
+
+    /// <summary>
+    /// Maps each <c>xfId</c> to the first cell style that names it. Normal is left out, so a cell in
+    /// it has no name, as a cell made through the API has none. The save reads names with the same map.
+    /// </summary>
+    internal static Dictionary<uint, string> CellStyleNames(CellStyles? cellStyles)
+    {
+        var names = new Dictionary<uint, string>();
+        if (cellStyles is null)
+            return names;
+
+        var normalXfIds = cellStyles.Elements<CellStyle>()
+            .Where(c => c.BuiltinId?.Value == 0 && c.FormatId is not null)
+            .Select(c => c.FormatId!.Value)
+            .ToHashSet();
+
+        foreach (var cellStyle in cellStyles.Elements<CellStyle>())
+        {
+            if (cellStyle.FormatId?.Value is not { } xfId || normalXfIds.Contains(xfId)
+                                                         || cellStyle.Name?.Value is not { Length: > 0 } name)
+                continue;
+
+            names.TryAdd(xfId, name);
+        }
+
+        return names;
+    }
+
     /// <summary>The child of <c>&lt;fills&gt;</c> at <paramref name="index"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException">There is no such child, as <c>ElementAt</c> threw.</exception>
     internal OpenXmlElement FillAt(int index) => Child(Children(Fills, ref _fills), index);
