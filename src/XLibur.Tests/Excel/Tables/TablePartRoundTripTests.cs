@@ -334,6 +334,39 @@ public class TablePartRoundTripTests
             .IsEqualTo(Dxf(source, before.Attribute("headerRowDxfId")!.Value));
     }
 
+    [Test]
+    public async Task A_loaded_table_with_filter_buttons_sorts_through_its_autofilter()
+    {
+        using var wb = TestHelper.LoadWorkbook(Slicers);
+        var table = wb.Table("SalesTable");
+        var amounts = table.DataRange!.Column(3).Cells().Select(c => c.GetDouble()).ToArray();
+
+        table.AutoFilter.Sort(3, XLSortOrder.Descending);
+
+        await Assert.That(table.AutoFilter.IsEnabled).IsTrue();
+        await Assert.That(table.DataRange!.Column(3).Cells().Select(c => c.GetDouble()))
+            .IsEquivalentTo(amounts.OrderByDescending(a => a), TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task A_loaded_table_without_filter_buttons_keeps_its_autofilter_off_through_a_save()
+    {
+        using var source = TestHelper.OpenResource(Slicers);
+        source.RewritePart("xl/tables/table1.xml", xml => System.Text.RegularExpressions.Regex.Replace(xml, "<autoFilter [^>]*/>", ""));
+
+        bool showAutoFilter = true, isEnabled = true;
+        using var saved = source.LoadAndSave(wb =>
+        {
+            var table = wb.Table("SalesTable");
+            showAutoFilter = table.ShowAutoFilter;
+            isEnabled = table.AutoFilter.IsEnabled;
+        });
+
+        await Assert.That(showAutoFilter).IsFalse();
+        await Assert.That(isEnabled).IsFalse();
+        await Assert.That(TableXml(saved, "SalesTable").Element(Main + "autoFilter")).IsNull();
+    }
+
     private static MemoryStream TableIdFive()
     {
         var source = TestHelper.OpenResource(Slicers);

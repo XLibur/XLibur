@@ -1451,6 +1451,39 @@ public class TablesTests
     }
 
     [Test]
+    public async Task A_new_table_sorts_through_its_autofilter()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "Number";
+        ws.Cell("A2").Value = 1;
+        ws.Cell("A3").Value = 3;
+        ws.Cell("A4").Value = 2;
+        var table = ws.Range("A1:A4").CreateTable();
+
+        table.AutoFilter.Sort(1, XLSortOrder.Descending);
+
+        await Assert.That(table.AutoFilter.IsEnabled).IsTrue();
+        await Assert.That(table.DataRange!.Cells().Select(c => c.GetDouble()))
+            .IsEquivalentTo(new[] { 3.0, 2.0, 1.0 }, CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task A_table_without_filter_buttons_has_its_autofilter_off()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "Number";
+        ws.Cell("A2").Value = 1;
+        var table = ws.Range("A1:A2").CreateTable();
+
+        table.ShowAutoFilter = false;
+
+        await Assert.That(table.AutoFilter.IsEnabled).IsFalse();
+        await Assert.That(() => table.AutoFilter.Sort()).Throws<InvalidOperationException>();
+    }
+
+    [Test]
     public async Task CopyTableSameWorksheet()
     {
         var wb = new XLWorkbook();
