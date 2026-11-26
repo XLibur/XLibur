@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -224,6 +225,36 @@ public class XLCustomPropertyTests
         await Assert.That(xml.Split("name=\"Q\"").Length).IsEqualTo(2);
         await Assert.That(xml.IndexOf("name=\"A\"")).IsLessThan(xml.IndexOf("name=\"Q\""));
         await Assert.That(xml.IndexOf("name=\"Q\"")).IsLessThan(xml.IndexOf("name=\"C\""));
+    }
+
+    [Test]
+    public async Task Every_property_can_be_renamed_while_enumerating_the_collection()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.CustomProperties.Add("A", "a");
+            wb.CustomProperties.Add("B", "b");
+            wb.CustomProperties.Add("C", "c");
+
+            foreach (var p in wb.CustomProperties)
+                p.Name += "_copy";
+
+            await Assert.That(wb.CustomProperty("A_copy").Value).IsEqualTo("a");
+            await Assert.That(wb.CustomProperty("B_copy").Value).IsEqualTo("b");
+            await Assert.That(wb.CustomProperty("C_copy").Value).IsEqualTo("c");
+            await Assert.That(() => wb.CustomProperty("A")).Throws<KeyNotFoundException>();
+            await Assert.That(() => wb.CustomProperty("B")).Throws<KeyNotFoundException>();
+            await Assert.That(() => wb.CustomProperty("C")).Throws<KeyNotFoundException>();
+            wb.SaveAs(ms);
+        }
+
+        var xml = ms.ReadPart("docProps/custom.xml");
+        await Assert.That(xml).DoesNotContain("name=\"A\"");
+        await Assert.That(xml.IndexOf("name=\"A_copy\"")).IsGreaterThanOrEqualTo(0);
+        await Assert.That(xml.IndexOf("name=\"A_copy\"")).IsLessThan(xml.IndexOf("name=\"B_copy\""));
+        await Assert.That(xml.IndexOf("name=\"B_copy\"")).IsLessThan(xml.IndexOf("name=\"C_copy\""));
     }
 
     [Test]
