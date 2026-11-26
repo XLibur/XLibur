@@ -46,6 +46,22 @@ public class AutoFilterRoundTripTests
         await Assert.That(written.ShowButton!.Value).IsFalse();
     }
 
+    /// <summary>
+    /// A column that only hides its button carries no criteria at all, so it loads as
+    /// <see cref="XLFilterType.None"/>. ClosedXML#2629: ClosedXML throws
+    /// <c>NotSupportedException</c> saving it.
+    /// </summary>
+    [Test]
+    public async Task HiddenButtonWithoutCriteria_SurvivesARoundTrip()
+    {
+        var filterColumn = new FilterColumn { ColumnId = 0U, HiddenButton = true };
+
+        var written = RoundTripFilterColumn(filterColumn);
+
+        await Assert.That(written.HiddenButton!.Value).IsTrue();
+        await Assert.That(written.ChildElements.Count).IsEqualTo(0);
+    }
+
     /// <remarks>
     /// The column carries no criteria alongside it. <c>extLst</c> is one of the alternatives in
     /// the <c>CT_FilterColumn</c> choice rather than an addition to them, so a column holding
