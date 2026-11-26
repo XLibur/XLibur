@@ -77,6 +77,19 @@ public class StrictWorkbookTests
         await Assert.That(errors).IsEmpty();
     }
 
+    [Test]
+    public async Task A_saved_strict_percentage_keeps_its_value()
+    {
+        using var saved = TestHelper.LoadAndSave(StrictWorkbook);
+
+        var stops = SavedPart(saved, "xl/theme/theme1.xml").Descendants(TransitionalDrawingMain + "gs")
+            .Select(gs => gs.Attribute("pos")!.Value).Distinct();
+        await Assert.That(stops).IsEquivalentTo(["0", "50000", "100000"]);
+
+        var miter = SavedPart(saved, "xl/drawings/drawing1.xml").Descendants(TransitionalDrawingMain + "miter").Single();
+        await Assert.That(miter.Attribute("lim")!.Value).IsEqualTo("800000");
+    }
+
     private static async Task AssertSheet1Cells(IXLWorksheet ws)
     {
         await Assert.That(ws.CellsUsed(XLCellsUsedOptions.Contents).Count()).IsEqualTo(8);
