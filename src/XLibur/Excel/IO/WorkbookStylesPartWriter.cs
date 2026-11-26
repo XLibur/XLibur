@@ -12,6 +12,8 @@ using XLibur.Excel.Tables;
 using XLibur.Utils;
 using static XLibur.Excel.XLWorkbook;
 using EnumerableExtensions = XLibur.Extensions.EnumerableExtensions;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
+using X15 = DocumentFormat.OpenXml.Office2013.Excel;
 
 namespace XLibur.Excel.IO;
 
@@ -406,8 +408,9 @@ internal static class WorkbookStylesPartWriter
     /// <see cref="SaveContext.LoadedDxfIds"/> while they keep the dxf they were loaded with (#949, #979),
     /// table fields through the same map, and auto-filter colour filters through
     /// <see cref="SaveContext.ColorFilterDxfIds"/>.
-    /// Custom table styles are not in the object model: <c>&lt;tableStyles&gt;</c> is written as
-    /// loaded, so its ids are remapped onto the rebuilt collection instead (#901). A table part's
+    /// Custom table, slicer and timeline styles are not in the object model: <c>&lt;tableStyles&gt;</c>
+    /// and the <c>extLst</c> style lists are written as loaded, so their ids are remapped onto the
+    /// rebuilt collection instead (#901, #966). A table part's
     /// formats that the model does not hold are carried over from the loaded file, and
     /// <see cref="SaveContext.LoadedDxfs"/> appends each dxf they name once they are written (#904).
     /// </para>
@@ -438,24 +441,35 @@ internal static class WorkbookStylesPartWriter
             AddAutoFilterColorFilterDxfs(differentialFormats, ws, context);
         }
 
-        RemapTableStyleDxfIds(differentialFormats, stylesheet.TableStyles, loadedDxfs);
+        RemapCustomStyleDxfIds(differentialFormats, stylesheet, loadedDxfs);
 
         differentialFormats.Count = (uint)differentialFormats.ChildElements.Count;
         if (differentialFormats.Count == 0)
             stylesheet.DifferentialFormats = null;
     }
 
-    private static void RemapTableStyleDxfIds(DifferentialFormats differentialFormats, TableStyles? tableStyles,
+    /// <summary>
+    /// Custom table, slicer and timeline styles are written as loaded, so each loaded dxf they name
+    /// is appended to the rebuilt collection once and their ids are pointed at it (#901, #966).
+    /// </summary>
+    private static void RemapCustomStyleDxfIds(DifferentialFormats differentialFormats, Stylesheet stylesheet,
         List<DifferentialFormat> loadedDxfs)
     {
-        if (tableStyles is null)
-            return;
-
         var newIds = new Dictionary<uint, uint>();
-        foreach (var element in tableStyles.Descendants<TableStyleElement>())
+        foreach (var element in stylesheet.TableStyles?.Descendants<TableStyleElement>() ?? [])
+            element.FormatId = Remap(element.FormatId);
+
+        var extensions = stylesheet.StylesheetExtensionList;
+        foreach (var element in extensions?.Descendants<X14.SlicerStyleElement>() ?? [])
+            element.FormatId = Remap(element.FormatId);
+
+        foreach (var element in extensions?.Descendants<X15.TimelineStyleElement>() ?? [])
+            element.FormatId = Remap(element.FormatId);
+
+        UInt32Value? Remap(UInt32Value? formatId)
         {
-            if (element.FormatId is not { } formatId || formatId.Value >= loadedDxfs.Count)
-                continue;
+            if (formatId is null || formatId.Value >= loadedDxfs.Count)
+                return formatId;
 
             if (!newIds.TryGetValue(formatId.Value, out var newId))
             {
@@ -464,7 +478,7 @@ internal static class WorkbookStylesPartWriter
                 newIds.Add(formatId.Value, newId);
             }
 
-            element.FormatId = newId;
+            return newId;
         }
     }
 
