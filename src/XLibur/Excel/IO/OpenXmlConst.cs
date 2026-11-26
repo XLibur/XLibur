@@ -32,7 +32,8 @@ internal static class OpenXmlConst
     /// <summary>DrawingML main namespace, used by the theme part.</summary>
     public const string DrawingMain2006Ns = "http://schemas.openxmlformats.org/drawingml/2006/main";
 
-    public const string StrictDrawingMainNs = "http://purl.oclc.org/ooxml/drawingml/main";
+    /// <summary>DrawingML main namespace of ISO Strict.</summary>
+    public const string StrictDrawingMainNs = "http://purl.oclc.org/ooxml/drawingml/main"; // NOSONAR: a namespace name, never fetched
 
     /// <summary>
     /// A raw <see cref="System.Xml.XmlReader"/> sees the namespace as the file wrote it; the SDK's own
