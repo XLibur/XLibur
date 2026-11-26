@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using DocumentFormat.OpenXml.CustomProperties;
 
 namespace XLibur.Excel;
@@ -20,6 +19,7 @@ internal sealed class XLCustomProperties : IXLCustomProperties
     public void Add(IXLCustomProperty customProperty)
     {
         customProperties.Add(customProperty.Name, customProperty);
+        unmodeledProperties.Remove(customProperty.Name);
     }
     public void Add<T>(string name, T value)
     {
@@ -32,10 +32,15 @@ internal sealed class XLCustomProperties : IXLCustomProperties
         unmodeledProperties[name] = property;
     }
 
-    internal IEnumerable<CustomDocumentProperty> UnmodeledPropertiesToSave =>
-        unmodeledProperties.Where(p => !customProperties.Values.Any(cp => cp.Name == p.Key)).Select(p => p.Value);
+    /// <summary>A modelled property that takes the name of an unmodeled one replaces it.</summary>
+    internal void RemoveUnmodeled(string name)
+    {
+        unmodeledProperties.Remove(name);
+    }
 
-    internal bool HasAnyToSave => customProperties.Count > 0 || UnmodeledPropertiesToSave.Any();
+    internal IEnumerable<CustomDocumentProperty> UnmodeledPropertiesToSave => unmodeledProperties.Values;
+
+    internal bool HasAnyToSave => customProperties.Count > 0 || unmodeledProperties.Count > 0;
 
     public void Delete(string name)
     {

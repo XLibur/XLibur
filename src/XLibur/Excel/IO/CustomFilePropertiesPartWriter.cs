@@ -23,6 +23,8 @@ internal static class CustomFilePropertiesPartWriter
                 PropertyId = propertyId,
                 Name = p.Name
             };
+            if (p is XLCustomProperty { LinkTarget: { } linkTarget })
+                customDocumentProperty.LinkTarget = linkTarget;
             if (p.Type == XLCustomPropertyType.Text)
             {
                 var vTlpwstr1 = new VTLPWSTR { Text = p.GetValue<string>() };

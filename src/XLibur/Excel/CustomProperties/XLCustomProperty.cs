@@ -28,8 +28,14 @@ internal sealed class XLCustomProperty : IXLCustomProperty
                     $"This workbook already contains a custom property named '{value}'");
 
             name = value;
+            _workbook.CustomPropertiesInternal.RemoveUnmodeled(value);
         }
     }
+
+    /// <summary>
+    /// The defined name this property is linked to, kept from a loaded file so a save writes it back.
+    /// </summary>
+    internal string? LinkTarget { get; init; }
 
     public XLCustomPropertyType Type
     {
