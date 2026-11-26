@@ -62,6 +62,20 @@ public class PivotTableSaveFidelityTests
     }
 
     [Test]
+    public async Task Save_keeps_the_number_format_of_each_pivot_format()
+    {
+        const string resource = @"TryToLoad\TemplateWithTableSourcePivotTables.xlsx";
+        var source = ReadPivotTables(resource, FormatNumberFormats);
+        var saved = ReadPivotTables(LoadAndSave(resource), FormatNumberFormats);
+
+        await Assert.That(source.Values.SelectMany(f => f).Any(code => code == "0.00%")).IsTrue();
+        await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
+        foreach (var (key, sourceFormats) in source)
+            await Assert.That(saved[key]).IsEquivalentTo(sourceFormats, TUnit.Assertions.Enums.CollectionOrdering.Matching)
+                .Because(key);
+    }
+
+    [Test]
     public async Task Save_keeps_extensions_xlibur_does_not_write()
     {
         await AssertSameAfterSave(@"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx",
@@ -219,6 +233,13 @@ public class PivotTableSaveFidelityTests
     {
         return definition.Formats?.Elements<Format>()
             .Select(format => format.FormatId?.Value is { } id ? WithoutNamespaceDeclarations(dxfs[id].OuterXml) : null)
+            .ToList() ?? [];
+    }
+
+    private static List<string?> FormatNumberFormats(PivotTableDefinition definition, DifferentialFormat[] dxfs)
+    {
+        return definition.Formats?.Elements<Format>()
+            .Select(format => format.FormatId?.Value is { } id ? dxfs[id].NumberingFormat?.FormatCode?.Value : null)
             .ToList() ?? [];
     }
 

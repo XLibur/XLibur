@@ -85,6 +85,11 @@ internal static class ConditionalFormatReader
         // family, charset and alignment survive a load; see spec 28.
         var key = StyleDecoder.Decode(dxf, conditionalFormat.StyleValue.Key);
         conditionalFormat.InnerStyle = new XLStyle(conditionalFormat, key);
+
+        // A conditional format cannot apply alignment, and XLibur does not write it for one.
+        var loadedDxf = (DifferentialFormat)dxf.CloneNode(true);
+        loadedDxf.Alignment = null;
+        conditionalFormat.LoadedDxf = (conditionalFormat.StyleValue, loadedDxf.OuterXml);
     }
 
     private static void LoadConditionalFormatFormulas(ConditionalFormattingRule fr,

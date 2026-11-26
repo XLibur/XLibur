@@ -387,9 +387,8 @@ internal class StyleDecoderTests
 
     /// <summary>
     /// The inline <c>&lt;numFmt&gt;</c> a dxf states. An id below
-    /// <c>XLConstants.NumberOfBuiltInStyles</c> (164) wins over any format code present and clears
-    /// the format — that exclusivity is not arbitrary, it is what the <c>IXLNumberFormat</c>
-    /// setters enforced, and this overload reproduces it.
+    /// <c>XLConstants.NumberOfBuiltInStyles</c> (164) is kept, with the format cleared, only when the
+    /// dxf states no code or the code that id is written with; any other code is the format.
     /// </summary>
     [Test]
     [MethodDataSource(nameof(InlineNumberFormatCases))]
@@ -405,10 +404,16 @@ internal class StyleDecoderTests
     public static IEnumerable<Func<(NumberingFormat Format, int ExpectedId, string ExpectedFormat)>>
         InlineNumberFormatCases()
     {
-        // A built-in id wins and the format code is discarded.
-        yield return () => (new NumberingFormat { NumberFormatId = 5U, FormatCode = "0.00" },
-            5, string.Empty);
+        // A built-in id beside its own code, or beside no code, is kept and the code is discarded.
+        yield return () => (new NumberingFormat { NumberFormatId = 10U, FormatCode = "0.00%" },
+            10, string.Empty);
         yield return () => (new NumberingFormat { NumberFormatId = 14U }, 14, string.Empty);
+
+        // A built-in id beside another code: the code is the format (#980).
+        yield return () => (new NumberingFormat { NumberFormatId = 14U, FormatCode = "0.00%" },
+            XLNumberFormatKey.CustomFormatNumberId, "0.00%");
+        yield return () => (new NumberingFormat { NumberFormatId = 5U, FormatCode = "0.00" },
+            XLNumberFormatKey.CustomFormatNumberId, "0.00");
 
         // At and above 164 the format code wins and the key is marked custom (-1).
         yield return () => (new NumberingFormat { NumberFormatId = 164U, FormatCode = "0.000" },

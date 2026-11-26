@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using XLibur.Excel.AutoFilters;
+using XLibur.Excel.ConditionalFormats;
 using XLibur.Excel.Coordinates;
 using XLibur.Excel.Tables;
 using XLibur.Utils;
@@ -400,8 +402,10 @@ internal static class WorkbookStylesPartWriter
     /// The collection is rebuilt wholesale rather than appended to, so a dxf that nothing
     /// references any longer does not survive the save. Every <c>dxfId</c> XLibur emits is
     /// re-derived here from the object model in the same pass — conditional-format rules and
-    /// pivot formats through <see cref="SaveContext.DifferentialFormats"/>, table fields through
-    /// the same map, and auto-filter colour filters through <see cref="SaveContext.ColorFilterDxfIds"/>.
+    /// pivot formats through <see cref="SaveContext.DifferentialFormats"/>, or through
+    /// <see cref="SaveContext.LoadedDxfIds"/> while they keep the dxf they were loaded with (#949, #979),
+    /// table fields through the same map, and auto-filter colour filters through
+    /// <see cref="SaveContext.ColorFilterDxfIds"/>.
     /// Custom table styles are not in the object model: <c>&lt;tableStyles&gt;</c> is written as
     /// loaded, so its ids are remapped onto the rebuilt collection instead (#901). A table part's
     /// formats that the model does not hold are carried over from the loaded file, and
@@ -467,12 +471,40 @@ internal static class WorkbookStylesPartWriter
     private static void AddConditionalFormatDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
         SaveContext context)
     {
-        foreach (var cf in ws.ConditionalFormats)
+        foreach (var cf in ws.ConditionalFormats.Cast<XLConditionalFormat>())
         {
-            var styleValue = ((XLStyle)cf.Style).Value;
+            if (AddLoadedDxf(differentialFormats, cf.UnchangedLoadedDxfXml, context))
+                continue;
+
+            var styleValue = cf.StyleValue;
             if (!styleValue.Equals(DefaultStyleValue) && !context.DifferentialFormats.ContainsKey(styleValue))
                 AddConditionalDifferentialFormat(differentialFormats, cf, context);
         }
+    }
+
+    /// <summary>
+    /// Writes a dxf as it was loaded, once for every reference to the same XML, and tells whether
+    /// there was one.
+    /// </summary>
+    private static bool AddLoadedDxf(DifferentialFormats differentialFormats, string? dxfXml, SaveContext context)
+    {
+        if (dxfXml is null)
+            return false;
+
+        if (!context.LoadedDxfIds.ContainsKey(dxfXml))
+        {
+            // The XML of a loaded element declares the namespaces in scope where it was; the
+            // stylesheet already declares the main one.
+            var dxf = new DifferentialFormat(dxfXml);
+            foreach (var prefix in dxf.NamespaceDeclarations.Where(ns => ns.Value == differentialFormats.NamespaceUri)
+                         .Select(ns => ns.Key).ToList())
+                dxf.RemoveNamespaceDeclaration(prefix);
+
+            differentialFormats.Append(dxf);
+            context.LoadedDxfIds.Add(dxfXml, differentialFormats.ChildElements.Count - 1);
+        }
+
+        return true;
     }
 
     private static void AddTableFieldDxfs(DifferentialFormats differentialFormats, XLWorksheet ws,
@@ -528,13 +560,7 @@ internal static class WorkbookStylesPartWriter
         }
 
         foreach (var format in pt.Formats)
-        {
-            if (format.LoadedDxfXml is not { } dxfXml || context.LoadedDxfIds.ContainsKey(dxfXml))
-                continue;
-
-            differentialFormats.Append(new DifferentialFormat(dxfXml));
-            context.LoadedDxfIds.Add(dxfXml, differentialFormats.ChildElements.Count - 1);
-        }
+            AddLoadedDxf(differentialFormats, format.LoadedDxfXml, context);
     }
 
     private static void AddPivotTableConditionalFormatDxfs(DifferentialFormats differentialFormats,
@@ -542,6 +568,9 @@ internal static class WorkbookStylesPartWriter
     {
         foreach (var xlConditionalStyle in pt.ConditionalFormats)
         {
+            if (AddLoadedDxf(differentialFormats, xlConditionalStyle.Format.UnchangedLoadedDxfXml, context))
+                continue;
+
             var xlStyle = (XLStyle)xlConditionalStyle.Format.Style;
             if (!xlStyle.Value.Equals(XLStyleValue.Default) &&
                 !context.DifferentialFormats.ContainsKey(xlStyle.Value))
@@ -694,9 +723,7 @@ internal static class WorkbookStylesPartWriter
             numberFormat.NumberFormatId = (uint)(styleNumberFormat.NumberFormatId);
             if (!string.IsNullOrEmpty(styleNumberFormat.Format))
                 numberFormat.FormatCode = styleNumberFormat.Format;
-            else if (XLPredefinedFormat.FormatCodes.TryGetValue(styleNumberFormat.NumberFormatId,
-                         out var formatCode)
-                     || DifferentialOnlyFormatCodes.TryGetValue(styleNumberFormat.NumberFormatId, out formatCode))
+            else if (TryGetDifferentialFormatCode(styleNumberFormat.NumberFormatId, out var formatCode))
                 numberFormat.FormatCode = formatCode;
             else
                 // CT_NumFmt requires formatCode, and Excel refuses to open a dxf <numFmt> without
@@ -705,6 +732,16 @@ internal static class WorkbookStylesPartWriter
         }
 
         return numberFormat;
+    }
+
+    /// <summary>
+    /// The <c>formatCode</c> a dxf <c>&lt;numFmt&gt;</c> is written with for the built-in format
+    /// <paramref name="numberFormatId"/>, or <c>false</c> for an id with no known code.
+    /// </summary>
+    internal static bool TryGetDifferentialFormatCode(int numberFormatId, [NotNullWhen(true)] out string? formatCode)
+    {
+        return XLPredefinedFormat.FormatCodes.TryGetValue(numberFormatId, out formatCode)
+               || DifferentialOnlyFormatCodes.TryGetValue(numberFormatId, out formatCode);
     }
 
     /// <summary>

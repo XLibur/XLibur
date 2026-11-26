@@ -501,10 +501,18 @@ internal static class StyleDecoder
     /// </remarks>
     internal static XLNumberFormatKey NumberFormatKey(NumberingFormat inline, XLNumberFormatKey defaults)
     {
-        if (inline.NumberFormatId is { Value: var id } && id < XLConstants.NumberOfBuiltInStyles)
+        var code = inline.FormatCode?.Value is { Length: > 0 } c ? c : null;
+
+        // A dxf states its code beside the id, and the code is the format. A built-in id is kept
+        // only when the code is the one the writer puts beside it, so a dxf whose id and code
+        // disagree, such as <numFmt numFmtId="14" formatCode="0.00%"/>, keeps its code (#980).
+        if (inline.NumberFormatId is { Value: var id } && id < XLConstants.NumberOfBuiltInStyles &&
+            (code is null ||
+             (WorkbookStylesPartWriter.TryGetDifferentialFormatCode((int)id, out var builtInCode) &&
+              builtInCode == code)))
             return new XLNumberFormatKey { NumberFormatId = (int)id, Format = string.Empty };
 
-        if (inline.FormatCode?.Value is { Length: > 0 } code)
+        if (code is not null)
             return XLNumberFormatKey.ForFormat(code);
 
         return defaults;
