@@ -1015,7 +1015,7 @@ internal static class Financial
         {
             var middle = (low + high) / 2;
             var value = XNpvOf(middle, schedule);
-            if (Math.Abs(value) < 1e-9)
+            if (value == 0.0)
                 return middle;
 
             if (Math.Sign(value) == Math.Sign(lowValue))
