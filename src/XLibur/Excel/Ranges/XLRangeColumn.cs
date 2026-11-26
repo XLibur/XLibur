@@ -49,9 +49,11 @@ internal sealed class XLRangeColumn : XLStoredRangeBase, IXLRangeColumn
 
     internal void Delete(bool deleteTableField)
     {
-        if (deleteTableField && IsTableColumn())
+        // Without a header row the first cell holds data, not a field name, and the column delete
+        // below removes the field itself.
+        if (deleteTableField && IsTableColumn() && Table!.ShowHeaderRow)
         {
-            var table = (XLTable)Table!;
+            var table = (XLTable)Table;
             if (!Cell(1).Value.TryGetText(out var firstCellValue))
                 throw new InvalidOperationException("Top cell doesn't contain a text.");
 

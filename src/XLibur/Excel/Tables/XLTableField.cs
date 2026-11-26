@@ -216,13 +216,16 @@ internal sealed class XLTableField : IXLTableField
 
     internal void Delete(bool deleteUnderlyingRangeColumn)
     {
-        var fields = _table.Fields.Cast<XLTableField>().ToArray();
-
         if (deleteUnderlyingRangeColumn)
         {
+            // Deleting the column removes this field and moves the ones to its right. Read the
+            // fields now so a field kept by the caller has its new index straight away.
             _table.AsRange().ColumnQuick(Index + 1).Delete();
+            _ = _table.FieldNames;
+            return;
         }
 
+        var fields = _table.Fields.Cast<XLTableField>().ToArray();
         fields.Where(f => f.Index > Index).ForEach(f => f.Index--);
         _table.FieldNames.Remove(Name);
     }

@@ -107,6 +107,11 @@ internal sealed class XLTable : XLRange, IXLTable
             cell.SetValue(name, false, false);
     }
 
+    /// <summary>
+    /// Without a header row no cell names a field, so the fields are kept as they are and only a
+    /// column with no field gets a new one. <see cref="WorksheetRangeShiftedColumns"/> moves the
+    /// fields when columns are inserted or deleted inside the table.
+    /// </summary>
     [MemberNotNull(nameof(_fieldNames))]
     private void RescanSyntheticFieldNames()
     {
@@ -117,8 +122,53 @@ internal sealed class XLTable : XLRange, IXLTable
             if (_fieldNames.Values.All(f => f.Index != i - 1))
             {
                 var name = DefaultColumnPrefix + i;
+                for (var suffix = i + 1; _fieldNames.ContainsKey(name); suffix++)
+                    name = DefaultColumnPrefix + suffix;
+
                 _fieldNames.Add(name, new XLTableField(this, name) { Index = i - 1 });
             }
+        }
+    }
+
+    /// <summary>
+    /// With a header row the rescan finds each field by its header cell, so a deleted column's field
+    /// drops out and the others follow their columns. Without one nothing in the cells names a
+    /// field, so the fields are moved here, before the table's address changes (#1013).
+    /// </summary>
+    internal override void WorksheetRangeShiftedColumns(XLRange range, int columnsShifted)
+    {
+        if (!ShowHeaderRow && _fieldNames is not null)
+            ShiftSyntheticFields(range.RangeAddress, columnsShifted);
+
+        base.WorksheetRangeShiftedColumns(range, columnsShifted);
+    }
+
+    private void ShiftSyntheticFields(XLRangeAddress shifted, int columnsShifted)
+    {
+        var fields = FieldNames.Values.Cast<XLTableField>().ToList();
+        var first = RangeAddress.FirstAddress;
+        var last = RangeAddress.LastAddress;
+
+        // A column shift moves only the ranges whose rows it spans.
+        if (shifted.FirstAddress.RowNumber > first.RowNumber || shifted.LastAddress.RowNumber < last.RowNumber)
+            return;
+
+        var editStart = shifted.FirstAddress.ColumnNumber - first.ColumnNumber;
+        if (columnsShifted < 0)
+        {
+            var editEnd = editStart - columnsShifted;
+            foreach (var field in fields.Where(f => f.Index >= editStart && f.Index < editEnd))
+                _fieldNames!.Remove(field.Name);
+
+            var index = 0;
+            foreach (var field in _fieldNames!.Values.Cast<XLTableField>().OrderBy(f => f.Index))
+                field.Index = index++;
+        }
+        else if (editStart > 0 && editStart < ColumnCount())
+        {
+            // An insert at the first column or past the last one moves the table, or misses it.
+            foreach (var field in fields.Where(f => f.Index >= editStart))
+                field.Index += columnsShifted;
         }
     }
 
@@ -779,7 +829,7 @@ internal sealed class XLTable : XLRange, IXLTable
         }
 
         var co = 1;
-        foreach (var name in FieldNames.Values.Select(f => f.Name))
+        foreach (var name in Fields.Select(f => f.Name))
         {
             rangeRow.Cell(co).SetValue(name);
             co++;
