@@ -64,4 +64,37 @@ public class RowHeightRoundTripTests
         await Assert.That(row.Attribute("ht")?.Value).IsEqualTo("16.5");
         await Assert.That(row.Attribute("customHeight")?.Value).IsEqualTo("1");
     }
+
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserted_row_is_saved_with_the_height_of_the_row_it_copies(bool below)
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Row(1).Height = 30;
+            ws.Row(2).Height = 40;
+            if (below)
+                ws.Row(1).InsertRowsBelow(1);
+            else
+                ws.Row(2).InsertRowsAbove(1);
+            wb.SaveAs(saved);
+        }
+
+        var inserted = SavedRow(saved, 2);
+        await Assert.That(inserted.Attribute("ht")?.Value).IsEqualTo("30");
+        await Assert.That(inserted.Attribute("customHeight")?.Value).IsEqualTo("1");
+    }
+
+    [Test]
+    public async Task Row_inserted_below_an_auto_fitted_row_keeps_the_height_auto()
+    {
+        using var saved = SaveEditedFixture(ws => ws.Row(121).InsertRowsBelow(1));
+
+        var inserted = SavedRow(saved, 122);
+        await Assert.That(inserted.Attribute("ht")?.Value).IsEqualTo("16.5");
+        await Assert.That(inserted.Attribute("customHeight")).IsNull();
+    }
 }

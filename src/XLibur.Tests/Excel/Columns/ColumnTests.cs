@@ -358,4 +358,30 @@ public class ColumnTests
         await Assert.That(fromColumns).IsEquivalentTo(new[] { "A1", "C3" });
         await Assert.That(fromRows).IsEquivalentTo(new[] { "A1", "C3" });
     }
+
+    /// <summary>
+    /// The column twin of #975: an inserted row kept the copied height in memory but was saved at
+    /// the default one. An inserted column must survive a save with the copied width.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Inserted_column_is_saved_with_the_width_of_the_column_it_copies(bool after)
+    {
+        using var saved = new System.IO.MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Column(1).Width = 30;
+            ws.Column(2).Width = 40;
+            if (after)
+                ws.Column(1).InsertColumnsAfter(1);
+            else
+                ws.Column(2).InsertColumnsBefore(1);
+            wb.SaveAs(saved);
+        }
+
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet(1).Column(2).Width).IsEqualTo(30).Within(0.01);
+    }
 }

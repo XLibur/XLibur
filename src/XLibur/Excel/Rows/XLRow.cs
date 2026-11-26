@@ -213,7 +213,10 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         foreach (var newRow in newRows)
         {
             var internalRow = Worksheet.Internals.RowsCollection[newRow.RowNumber()];
+            // The flags with the height: the writer saves ht only for a row whose height changed (#975).
             internalRow._height = Height;
+            internalRow.HeightChanged = HeightChanged;
+            internalRow.HeightIsAuto = HeightIsAuto;
             internalRow.InnerStyle = InnerStyle;
             internalRow.Collapsed = Collapsed;
             internalRow.IsHidden = IsHidden;
