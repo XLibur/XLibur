@@ -489,26 +489,15 @@ internal static class Engineering
     }
 
     /// <summary>
-    /// Convert a signed value to a string in the given base using two's complement with specified bit width.
+    /// Convert a signed value to a string in the given base using two's complement with specified
+    /// bit width, padded to <paramref name="placesDouble"/> characters. Only an omitted places means
+    /// "as few characters as needed". A supplied 0, which is what a blank cell reads as, is out of
+    /// range like any other value below 1. A negative value ignores a valid places, because its
+    /// two's complement already fills all 10 characters.
     /// </summary>
-    private static string ToBaseString(long value, int toBase, int bitWidth)
+    private static ScalarValue ToBaseString(long value, int toBase, int bitWidth, double? placesDouble)
     {
-        if (value < 0)
-        {
-            // Two's complement: add 2^bitWidth to get the unsigned representation
-            value += 1L << bitWidth;
-        }
-
-        var result = Convert.ToString(value, toBase).ToUpperInvariant();
-        return result;
-    }
-
-    /// <summary>
-    /// Only an omitted <paramref name="placesDouble"/> means "as few characters as needed". A
-    /// supplied 0, which is what a blank cell reads as, is out of range like any other value below 1.
-    /// </summary>
-    private static ScalarValue ApplyPlaces(string result, double? placesDouble)
-    {
+        var result = Convert.ToString(value < 0 ? value + (1L << bitWidth) : value, toBase).ToUpperInvariant();
         if (placesDouble is null)
             return result;
 
@@ -516,7 +505,9 @@ internal static class Engineering
         if (places < 1 || places > 10)
             return XLError.NumberInvalid;
 
-        // Places only applies to non-negative results (no leading F's/7's/1's for padding)
+        if (value < 0)
+            return result;
+
         if (result.Length > places)
             return XLError.NumberInvalid;
 
@@ -538,8 +529,7 @@ internal static class Engineering
         if (!TryParseBase(number, 2, 10, out var value))
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 16, 40);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 16, 40, places);
     }
 
     private static ScalarValue Bin2Oct(CalcContext ctx, string number, double? places)
@@ -547,8 +537,7 @@ internal static class Engineering
         if (!TryParseBase(number, 2, 10, out var value))
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 8, 30);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 8, 30, places);
     }
 
     #endregion
@@ -561,8 +550,7 @@ internal static class Engineering
         if (value < BinMin || value > BinMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 2, 10);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 2, 10, places);
     }
 
     private static ScalarValue Dec2Hex(CalcContext ctx, double number, double? places)
@@ -571,8 +559,7 @@ internal static class Engineering
         if (value < HexMin || value > HexMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 16, 40);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 16, 40, places);
     }
 
     private static ScalarValue Dec2Oct(CalcContext ctx, double number, double? places)
@@ -581,8 +568,7 @@ internal static class Engineering
         if (value < OctMin || value > OctMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 8, 30);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 8, 30, places);
     }
 
     #endregion
@@ -597,8 +583,7 @@ internal static class Engineering
         if (value < BinMin || value > BinMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 2, 10);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 2, 10, places);
     }
 
     private static ScalarValue Hex2Dec(CalcContext ctx, string number)
@@ -617,8 +602,7 @@ internal static class Engineering
         if (value < OctMin || value > OctMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 8, 30);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 8, 30, places);
     }
 
     #endregion
@@ -633,8 +617,7 @@ internal static class Engineering
         if (value < BinMin || value > BinMax)
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 2, 10);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 2, 10, places);
     }
 
     private static ScalarValue Oct2Dec(CalcContext ctx, string number)
@@ -650,8 +633,7 @@ internal static class Engineering
         if (!TryParseBase(number, 8, 30, out var value))
             return XLError.NumberInvalid;
 
-        var result = ToBaseString(value, 16, 40);
-        return ApplyPlaces(result, places);
+        return ToBaseString(value, 16, 40, places);
     }
 
     #endregion
