@@ -102,6 +102,19 @@ public class MalformedPackageLoadingTests
         await Assert.That(exception!.InnerException).IsTypeOf<DocumentFormat.OpenXml.Packaging.OpenXmlPackageException>();
     }
 
+    /// <inheritdoc cref="Part_with_an_unexpected_content_type_is_rejected_from_a_stream"/>
+    [Test]
+    public async Task Part_with_an_unexpected_content_type_is_rejected_from_a_template()
+    {
+        using var file = new TemporaryFile();
+        using (var package = BuildPackageWithStylesContentTypeOnSheet())
+            File.WriteAllBytes(file.Path, package.ToArray());
+
+        var exception = await Assert.That(() => XLWorkbook.OpenFromTemplate(file.Path)).Throws<PartStructureException>();
+
+        await Assert.That(exception!.InnerException).IsTypeOf<DocumentFormat.OpenXml.Packaging.OpenXmlPackageException>();
+    }
+
     private static MemoryStream BuildPackageWithStylesContentTypeOnSheet()
     {
         var package = new MemoryStream();
