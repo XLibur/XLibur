@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using XLibur.Excel;
 using System.Threading.Tasks;
@@ -188,6 +189,66 @@ public class XLCustomPropertyTests
         var xml = saved.ReadPart("docProps/custom.xml");
         await Assert.That(xml).Contains("name=\"R\"><vt:lpwstr>replacement</vt:lpwstr>");
         await Assert.That(xml).DoesNotContain("vt:cy");
+    }
+
+    [Test]
+    public async Task A_renamed_property_is_found_by_its_new_name_and_frees_its_old_one()
+    {
+        using var wb = new XLWorkbook();
+        wb.CustomProperties.Add("P", "x");
+        wb.CustomProperty("P").Name = "Q";
+        wb.CustomProperties.Add("P", "y");
+
+        await Assert.That(wb.CustomProperty("Q").Value).IsEqualTo("x");
+        await Assert.That(wb.CustomProperty("P").Value).IsEqualTo("y");
+    }
+
+    [Test]
+    public async Task A_renamed_property_is_saved_once_under_its_new_name_in_its_old_place()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.CustomProperties.Add("A", "a");
+            wb.CustomProperties.Add("P", "x");
+            wb.CustomProperties.Add("C", "c");
+            wb.CustomProperty("P").Name = "Q";
+
+            await Assert.That(string.Join(",", wb.CustomProperties.Select(p => p.Name))).IsEqualTo("A,Q,C");
+            wb.SaveAs(ms);
+        }
+
+        var xml = ms.ReadPart("docProps/custom.xml");
+        await Assert.That(xml).DoesNotContain("name=\"P\"");
+        await Assert.That(xml.Split("name=\"Q\"").Length).IsEqualTo(2);
+        await Assert.That(xml.IndexOf("name=\"A\"")).IsLessThan(xml.IndexOf("name=\"Q\""));
+        await Assert.That(xml.IndexOf("name=\"Q\"")).IsLessThan(xml.IndexOf("name=\"C\""));
+    }
+
+    [Test]
+    public async Task Deleting_a_renamed_property_by_its_new_name_removes_it()
+    {
+        using var wb = new XLWorkbook();
+        wb.CustomProperties.Add("P", "x");
+        wb.CustomProperty("P").Name = "Q";
+        wb.CustomProperties.Delete("Q");
+
+        await Assert.That(wb.CustomProperties).IsEmpty();
+    }
+
+    [Test]
+    public async Task Renaming_onto_a_taken_name_throws_and_keeps_both_properties()
+    {
+        using var wb = new XLWorkbook();
+        wb.CustomProperties.Add("P", "x");
+        wb.CustomProperties.Add("Q", "y");
+
+        await Assert.That(() => wb.CustomProperty("P").Name = "Q").Throws<System.ArgumentException>();
+        wb.CustomProperty("P").Name = "P";
+
+        await Assert.That(wb.CustomProperty("P").Value).IsEqualTo("x");
+        await Assert.That(wb.CustomProperty("Q").Value).IsEqualTo("y");
     }
 
     [Test]
