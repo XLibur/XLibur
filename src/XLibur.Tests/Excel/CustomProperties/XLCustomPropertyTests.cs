@@ -153,6 +153,54 @@ public class XLCustomPropertyTests
         await Assert.That(xml).DoesNotContain("ansi text");
     }
 
+    [Test]
+    public async Task Renaming_a_replacement_does_not_bring_back_the_unmodeled_property_it_replaced()
+    {
+        using var source = RoundTripCustomProperties(
+            $"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\"><vt:cy>1.5</vt:cy></property>");
+        using var wb = new XLWorkbook(source);
+        wb.CustomProperties.Add("P", "replacement");
+        wb.CustomProperty("P").Name = "Q";
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        var xml = saved.ReadPart("docProps/custom.xml");
+        await Assert.That(xml).Contains("name=\"Q\"><vt:lpwstr>replacement</vt:lpwstr>");
+        await Assert.That(xml).DoesNotContain("name=\"P\"");
+        await Assert.That(xml).DoesNotContain("vt:cy");
+    }
+
+    [Test]
+    public async Task Renaming_onto_an_unmodeled_property_replaces_it_for_good()
+    {
+        using var source = RoundTripCustomProperties(
+            $"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\"><vt:cy>1.5</vt:cy></property>");
+        using var wb = new XLWorkbook(source);
+        wb.CustomProperties.Add("Q", "replacement");
+        var property = wb.CustomProperty("Q");
+        property.Name = "P";
+        property.Name = "R";
+
+        using var saved = new MemoryStream();
+        wb.SaveAs(saved);
+
+        var xml = saved.ReadPart("docProps/custom.xml");
+        await Assert.That(xml).Contains("name=\"R\"><vt:lpwstr>replacement</vt:lpwstr>");
+        await Assert.That(xml).DoesNotContain("vt:cy");
+    }
+
+    [Test]
+    [Arguments("<vt:lpwstr>cached</vt:lpwstr>")]
+    [Arguments("<vt:cy>1.5</vt:cy>")]
+    public async Task Link_target_survives_a_round_trip(string variant)
+    {
+        using var saved = RoundTripCustomProperties(
+            $"<property fmtid=\"{FormatId}\" pid=\"2\" name=\"P\" linkTarget=\"MyName\">{variant}</property>");
+
+        await Assert.That(saved.ReadPart("docProps/custom.xml")).Contains("linkTarget=\"MyName\"");
+    }
+
     private const string FormatId = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
 
     private static MemoryStream RoundTripCustomProperties(string propertiesXml)

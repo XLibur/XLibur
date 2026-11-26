@@ -355,7 +355,7 @@ public partial class XLWorkbook
         };
 
         if (value is not null)
-            CustomProperties.Add(name, value);
+            CustomProperties.Add(new XLCustomProperty(this) { Name = name, Value = value, LinkTarget = m.LinkTarget?.Value });
         else
             CustomPropertiesInternal.AddUnmodeled(name, (Op.CustomDocumentProperty)m.CloneNode(true));
     }
