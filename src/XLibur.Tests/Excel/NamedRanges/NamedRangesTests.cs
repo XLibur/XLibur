@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using XLibur.Excel;
 using XLibur.Excel.CalcEngine;
 using XLibur.Extensions;
+using XLibur.Tests.Utils;
 using System.Threading.Tasks;
 
 namespace XLibur.Tests.Excel.NamedRanges;
@@ -265,6 +267,66 @@ public class NamedRangesTests
 
         await Assert.That(action).Throws<InvalidOperationException>();
     }
+
+    [Test]
+    public async Task Copying_a_worksheet_keeps_its_hidden_names_hidden()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("S");
+        ws.DefinedNames.Add("Hid", "S!$A$1").Visible = false;
+
+        var copy = ws.CopyTo("S2");
+
+        await Assert.That(copy.DefinedName("Hid").Visible).IsFalse();
+    }
+
+    [Test]
+    public async Task Copying_a_worksheet_keeps_the_macro_attributes_of_its_names()
+    {
+        using var built = BookWithSheetScopedMacroName(_ => { });
+
+        using var saved = built.LoadAndSave(wb => wb.Worksheet("S").CopyTo("S2"));
+
+        var copied = SavedDefinedNames(saved).Single(e => (string?)e.Attribute("localSheetId") == "1");
+        await Assert.That((string?)copied.Attribute("function")).IsEqualTo("1");
+        await Assert.That((string?)copied.Attribute("vbProcedure")).IsEqualTo("1");
+        await Assert.That((string?)copied.Attribute("description")).IsEqualTo("Adds the tax");
+    }
+
+    [Test]
+    public async Task A_name_that_outlives_its_deleted_sheet_keeps_its_macro_attributes()
+    {
+        using var built = BookWithSheetScopedMacroName(wb => wb.AddWorksheet("Other").Cell("A1").FormulaA1 = "S!AddTax");
+
+        using var saved = built.LoadAndSave(wb => wb.Worksheet("S").Delete());
+
+        var adopted = SavedDefinedNames(saved).Single();
+        await Assert.That((string?)adopted.Attribute("localSheetId")).IsNull();
+        await Assert.That((string?)adopted.Attribute("function")).IsEqualTo("1");
+        await Assert.That((string?)adopted.Attribute("vbProcedure")).IsEqualTo("1");
+        await Assert.That((string?)adopted.Attribute("description")).IsEqualTo("Adds the tax");
+    }
+
+    /// <summary>
+    /// A saved workbook whose sheet <c>S</c> has the name <c>AddTax</c> with the attributes of a VBA
+    /// function, which XLibur keeps without modelling them.
+    /// </summary>
+    private static MemoryStream BookWithSheetScopedMacroName(Action<XLWorkbook> build)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("S").DefinedNames.Add("AddTax", "1");
+        build(wb);
+
+        var built = new MemoryStream();
+        wb.SaveAs(built);
+        return built.RewriteWorkbook(xml => xml.Replace("name=\"AddTax\"",
+            "name=\"AddTax\" function=\"1\" vbProcedure=\"1\" description=\"Adds the tax\""));
+    }
+
+    private static IEnumerable<XElement> SavedDefinedNames(Stream package) =>
+        XDocument.Parse(package.WorkbookXml())
+            .Descendants(XNamespace.Get("http://schemas.openxmlformats.org/spreadsheetml/2006/main") + "definedName")
+            .Where(e => (string?)e.Attribute("name") == "AddTax");
 
     [Test]
     public async Task DeleteColumnUsedInNamedRange()

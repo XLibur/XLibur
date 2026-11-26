@@ -280,7 +280,11 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
             : _formula;
 
         var copiedName = new XLDefinedName(targetSheet.DefinedNames, Name, false, copiedFormula, Comment,
-            acceptUnusableFormula: !_isFormulaUnderstood);
+            acceptUnusableFormula: !_isFormulaUnderstood)
+        {
+            Visible = Visible,
+            UnmodelledAttributes = UnmodelledAttributes,
+        };
         return targetSheet.DefinedNames.Add(Name, copiedName);
     }
 

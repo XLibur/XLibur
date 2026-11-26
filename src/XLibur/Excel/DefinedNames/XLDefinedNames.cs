@@ -312,6 +312,7 @@ internal sealed class XLDefinedNames : IXLDefinedNames, IEnumerable<XLDefinedNam
             comment: definedName.Comment, acceptUnusableFormula: true)
         {
             Visible = definedName.Visible,
+            UnmodelledAttributes = definedName.UnmodelledAttributes,
         };
         _namedRanges.Add(adopted.Name, adopted);
     }
