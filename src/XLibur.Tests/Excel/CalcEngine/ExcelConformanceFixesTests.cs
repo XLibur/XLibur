@@ -237,10 +237,12 @@ public class ExcelConformanceFixesTests
     }
 
     [Test]
-    public async Task Xirr_of_tiny_cash_flows_is_solved()
+    [Arguments("XIRR({-1E-12,2E-12},{0,365})")]
+    [Arguments("XIRR({-1E-12,2E-12},{0,365},1E15)")] // Newton fails from this guess, so bisection solves it.
+    public async Task Xirr_of_tiny_cash_flows_is_solved(string formula)
     {
         using var wb = new XLWorkbook();
-        await Assert.That((double)wb.AddWorksheet().Evaluate("XIRR({-1E-12,2E-12},{0,365})")).IsEqualTo(1d).Within(1e-9);
+        await Assert.That((double)wb.AddWorksheet().Evaluate(formula)).IsEqualTo(1d).Within(1e-9);
     }
 
     private static IXLWorksheet CashFlows(out XLWorkbook wb, params double[] flows)
