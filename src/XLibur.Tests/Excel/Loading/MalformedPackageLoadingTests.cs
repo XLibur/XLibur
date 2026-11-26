@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using XLibur.Excel;
 using XLibur.Excel.IO;
+using XLibur.Tests.Utils;
 
 namespace XLibur.Tests.Excel.Loading;
 
@@ -71,6 +72,69 @@ public class MalformedPackageLoadingTests
             ("_rels/.rels", WorkbookRelationshipXml));
 
         await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+    }
+
+    /// <summary>
+    /// A package whose content types give the worksheet part the styles content type. The SDK
+    /// opens the package and only checks the content type when the loader first reads the part,
+    /// so its exception has to be converted there as well as at the open (#970).
+    /// </summary>
+    [Test]
+    public async Task Part_with_an_unexpected_content_type_is_rejected_from_a_stream()
+    {
+        using var package = BuildPackageWithStylesContentTypeOnSheet();
+
+        var exception = await Assert.That(() => new XLWorkbook(package)).Throws<PartStructureException>();
+
+        await Assert.That(exception!.InnerException).IsTypeOf<DocumentFormat.OpenXml.Packaging.OpenXmlPackageException>();
+    }
+
+    /// <inheritdoc cref="Part_with_an_unexpected_content_type_is_rejected_from_a_stream"/>
+    [Test]
+    public async Task Part_with_an_unexpected_content_type_is_rejected_from_a_file()
+    {
+        using var file = new TemporaryFile();
+        using (var package = BuildPackageWithStylesContentTypeOnSheet())
+            File.WriteAllBytes(file.Path, package.ToArray());
+
+        var exception = await Assert.That(() => new XLWorkbook(file.Path)).Throws<PartStructureException>();
+
+        await Assert.That(exception!.InnerException).IsTypeOf<DocumentFormat.OpenXml.Packaging.OpenXmlPackageException>();
+    }
+
+    private static MemoryStream BuildPackageWithStylesContentTypeOnSheet()
+    {
+        var package = new MemoryStream();
+        using (var workbook = new XLWorkbook())
+        {
+            workbook.AddWorksheet("Sheet1").Cell("A1").Value = 1;
+            workbook.SaveAs(package);
+        }
+
+        using (var archive = new ZipArchive(package, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = archive.GetEntry("[Content_Types].xml")!;
+            string contentTypes;
+            using (var reader = new StreamReader(entry.Open()))
+                contentTypes = reader.ReadToEnd();
+
+            const string worksheetOverride =
+                "PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"";
+            if (!contentTypes.Contains(worksheetOverride, StringComparison.Ordinal))
+                throw new InvalidOperationException("The saved package does not declare sheet1.xml as expected.");
+
+            var damaged = contentTypes.Replace(
+                worksheetOverride,
+                "PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"",
+                StringComparison.Ordinal);
+
+            entry.Delete();
+            using var writer = new StreamWriter(archive.CreateEntry("[Content_Types].xml").Open());
+            writer.Write(damaged);
+        }
+
+        package.Position = 0;
+        return package;
     }
 
     /// <summary>
