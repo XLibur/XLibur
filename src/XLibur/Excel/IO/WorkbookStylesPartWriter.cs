@@ -923,8 +923,11 @@ internal static class WorkbookStylesPartWriter
                                && QuotePrefixesAreEqual(f.QuotePrefix, styleInfo.IncludeQuotePrefix)
                                && (f.ApplyFill == null && styleInfo.Style.Fill == XLFillValue.Default ||
                                    f.ApplyFill != null && f.ApplyFill == ApplyFill(styleInfo))
-                               && (f.ApplyBorder == null && styleInfo.Style.Border == XLBorderValue.Default ||
-                                   f.ApplyBorder != null && f.ApplyBorder == ApplyBorder(styleInfo))
+                               // An xf that applies its border has the border at its borderId, matched
+                               // above, even when that border is none (#965).
+                               && (f.ApplyBorder is null
+                                   ? styleInfo.Style.Border == XLBorderValue.Default
+                                   : f.ApplyBorder.Value || !ApplyBorder(styleInfo))
                                && (!compareAlignment || AlignmentsAreEqual(f.Alignment, styleInfo.Style.Alignment))
                                && ProtectionsAreEqual(f.Protection, styleInfo.Style.Protection)
             ;
