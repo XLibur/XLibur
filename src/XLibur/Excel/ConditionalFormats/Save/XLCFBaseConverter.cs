@@ -18,15 +18,19 @@ internal static class XLCFBaseConverter
     }
 
     /// <summary>
-    /// The rule as <see cref="Convert(IXLConditionalFormat, int)"/> gives it, pointing at the
-    /// differential format of the rule's style unless that style is the default one.
+    /// The rule as <see cref="Convert(IXLConditionalFormat, int)"/> gives it, pointing at the dxf
+    /// it was loaded with while its style is unchanged, else at the differential format of the
+    /// rule's style unless that style is the default one.
     /// </summary>
     public static ConditionalFormattingRule Convert(IXLConditionalFormat cf, int priority,
         XLWorkbook.SaveContext context)
     {
         var rule = Convert(cf, priority);
-        var cfStyle = ((XLStyle)cf.Style).Value;
-        if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
+        var xlCf = (XLConditionalFormat)cf;
+        var cfStyle = xlCf.StyleValue;
+        if (xlCf.UnchangedLoadedDxfXml is { } loadedDxfXml)
+            rule.FormatId = (uint)context.LoadedDxfIds[loadedDxfXml];
+        else if (!cfStyle.Equals(XLWorkbook.DefaultStyleValue))
             rule.FormatId = (uint)context.DifferentialFormats[cfStyle];
 
         return rule;

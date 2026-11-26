@@ -37,6 +37,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
             var yStyle = yy.StyleValue;
 
             return Equals(xStyle, yStyle)
+                   && xx.UnchangedLoadedDxfXml == yy.UnchangedLoadedDxfXml
                    && xx.CopyDefaultModify == yy.CopyDefaultModify
                    && xx.ConditionalFormatType == yy.ConditionalFormatType
                    && xx.TimePeriod == yy.TimePeriod
@@ -298,6 +299,20 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     /// formulas happen to read the same would change the blocks it wrote.
     /// </summary>
     internal bool IsSplitByEdit { get; set; }
+
+    /// <summary>
+    /// The dxf the rule was loaded with, without its alignment, and the style it decoded to. A dxf
+    /// states only what it overrides, so it can say what the style cannot, such as
+    /// <c>&lt;i val="0"/&gt;</c> or a <c>&lt;charset&gt;</c> (#979).
+    /// </summary>
+    internal (XLStyleValue Style, string Xml)? LoadedDxf { get; set; }
+
+    /// <summary>
+    /// The loaded dxf, while the rule still has the style it decoded to; a restyled rule is written
+    /// from its style.
+    /// </summary>
+    internal string? UnchangedLoadedDxfXml =>
+        LoadedDxf is { } loaded && loaded.Style.Equals(StyleValue) ? loaded.Xml : null;
 
     /// <summary>
     /// A copy of the format over <paramref name="areas"/>, with its priority, type, values and style:
@@ -670,6 +685,7 @@ internal sealed class XLConditionalFormat : XLStylizedBase, IXLConditionalFormat
     public void CopyFrom(IXLConditionalFormat other)
     {
         InnerStyle = other.Style;
+        LoadedDxf = ((XLConditionalFormat)other).LoadedDxf;
         ConditionalFormatType = other.ConditionalFormatType;
         TimePeriod = other.TimePeriod;
         IconSetStyle = other.IconSetStyle;
