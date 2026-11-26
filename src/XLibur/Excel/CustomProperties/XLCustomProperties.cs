@@ -63,9 +63,12 @@ internal sealed class XLCustomProperties : IXLCustomProperties
 
     private IXLCustomProperty? Find(string name) => customProperties.Find(p => p.Name == name);
 
+    /// <summary>
+    /// Enumerates a snapshot, so a caller can rename, delete or add properties inside a <c>foreach</c>.
+    /// </summary>
     public IEnumerator<IXLCustomProperty> GetEnumerator()
     {
-        return customProperties.GetEnumerator();
+        return ((IEnumerable<IXLCustomProperty>)customProperties.ToArray()).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
