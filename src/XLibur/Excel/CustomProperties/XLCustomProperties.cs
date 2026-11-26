@@ -32,10 +32,19 @@ internal sealed class XLCustomProperties : IXLCustomProperties
         unmodeledProperties[name] = property;
     }
 
-    /// <summary>A modelled property that takes the name of an unmodeled one replaces it.</summary>
-    internal void RemoveUnmodeled(string name)
+    /// <summary>
+    /// Moves a renamed property to its new key. A modelled property that takes the name of an unmodeled one
+    /// replaces it.
+    /// </summary>
+    internal void Rename(IXLCustomProperty property, string oldName, string newName)
     {
-        unmodeledProperties.Remove(name);
+        if (customProperties.TryGetValue(oldName, out var stored) && ReferenceEquals(stored, property))
+        {
+            customProperties.Remove(oldName);
+            customProperties.Add(newName, property);
+        }
+
+        unmodeledProperties.Remove(newName);
     }
 
     internal IEnumerable<CustomDocumentProperty> UnmodeledPropertiesToSave => unmodeledProperties.Values;
