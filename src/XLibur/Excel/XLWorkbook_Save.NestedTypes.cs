@@ -21,7 +21,7 @@ public partial class XLWorkbook
             DifferentialFormats = new Dictionary<XLStyleValue, int>();
             ColorFilterDxfIds = new Dictionary<(XLColorKey, bool), int>();
             RelIdGenerator = new RelIdGenerator();
-            SharedFonts = new Dictionary<XLFontValue, FontInfo>();
+            SharedFonts = new Dictionary<(XLFontValue, XLFontElements), FontInfo>();
             SharedNumberFormats = new Dictionary<XLNumberFormatValue, NumberFormatInfo>();
             SharedStyles = new Dictionary<XLStyleValue, StyleInfo>();
             TableNames = [];
@@ -38,7 +38,10 @@ public partial class XLWorkbook
         public Dictionary<string, int> LoadedDxfIds { get; } = new(StringComparer.Ordinal);
 
         public RelIdGenerator RelIdGenerator { get; private set; }
-        public Dictionary<XLFontValue, FontInfo> SharedFonts { get; private set; }
+        /// <summary>
+        /// The font id of each font, with the elements of the loaded font it came from, if any (#978).
+        /// </summary>
+        public Dictionary<(XLFontValue Font, XLFontElements Elements), FontInfo> SharedFonts { get; private set; }
         public Dictionary<XLNumberFormatValue, NumberFormatInfo> SharedNumberFormats { get; private set; }
         public Dictionary<XLStyleValue, StyleInfo> SharedStyles { get; private set; }
         public HashSet<string> TableNames { get; private set; }
@@ -288,6 +291,7 @@ public partial class XLWorkbook
     internal struct FontInfo
     {
         public XLFontValue Font;
+        public XLFontElements FontElements;
         public uint FontId;
     }
 
@@ -334,6 +338,15 @@ public partial class XLWorkbook
         public int NumberFormatId;
         public XLStyleValue Style;
         public uint StyleId;
+
+        /// <summary>
+        /// The named cell style the style is written in: its own, when the stylesheet has it, or
+        /// <c>null</c> for Normal (#977).
+        /// </summary>
+        public string? CellStyleName;
+
+        /// <summary>The <c>xfId</c> of <see cref="CellStyleName"/>, which a new cell format is written with.</summary>
+        public uint CellStyleFormatId;
     }
 
     #endregion Nested type: StyleInfo

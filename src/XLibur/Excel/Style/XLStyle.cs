@@ -561,6 +561,8 @@ internal sealed class XLStyle : IXLStyle
         internal XLNumberFormatKey NumberFormat;
         internal XLProtectionKey Protection;
         internal bool IncludeQuotePrefix;
+        internal string? CellStyleName;
+        internal XLFontElements FontElements;
 
         internal static PendingKey Rent(XLStyleValue value)
         {
@@ -593,6 +595,8 @@ internal sealed class XLStyle : IXLStyle
             NumberFormat = value.NumberFormat.Key;
             Protection = value.Protection.Key;
             IncludeQuotePrefix = value.IncludeQuotePrefix;
+            CellStyleName = value.CellStyleName;
+            FontElements = value.FontElements;
         }
 
         internal XLStyleKey ToKey() => new()
@@ -604,6 +608,8 @@ internal sealed class XLStyle : IXLStyle
             NumberFormat = NumberFormat,
             Protection = Protection,
             IncludeQuotePrefix = IncludeQuotePrefix,
+            CellStyleName = CellStyleName,
+            FontElements = FontElements,
         };
 
         internal void SetFrom(XLStyleKey key)
@@ -615,6 +621,8 @@ internal sealed class XLStyle : IXLStyle
             NumberFormat = key.NumberFormat;
             Protection = key.Protection;
             IncludeQuotePrefix = key.IncludeQuotePrefix;
+            CellStyleName = key.CellStyleName;
+            FontElements = key.FontElements;
         }
     }
 

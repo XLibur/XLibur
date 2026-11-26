@@ -62,7 +62,7 @@ internal static class TextSerializer
         SaveContext context)
     {
         // The styles part, written before the texts, registered the font and gave it its id (#801).
-        var fontId = context.SharedFonts[phoneticsProps.Font].FontId;
+        var fontId = context.SharedFonts[(phoneticsProps.Font, XLFontElements.None)].FontId;
 
         w.WriteStartElement("phoneticPr", Main2006SsNs);
         w.WriteAttribute("fontId", fontId);
