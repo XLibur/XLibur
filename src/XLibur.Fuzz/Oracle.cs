@@ -168,7 +168,7 @@ internal static class Oracle
 
     /// <summary>
     /// Guard against a rule ever being written against an OpenXml type again. The library is
-    /// supposed to convert those at its own boundary (see <c>XLWorkbook.OpenPackage</c>), so one
+    /// supposed to convert those at its own boundary (see <c>XLWorkbook.LoadPackage</c>), so one
     /// arriving here means that conversion has a hole in it, and that is itself the finding.
     /// </summary>
     public static bool IsLeakedPackageReaderType(Exception exception)
