@@ -202,16 +202,19 @@ public partial class XLWorkbook
     }
 
     /// <summary>
-    /// Rewrites each Strict DrawingML percentage, such as <c>val="120%"</c>, as the thousandths of a
-    /// percent that Transitional requires, <c>val="120000"</c>.
+    /// Rewrites each Strict DrawingML percentage in the form Transitional requires: a DrawingML main
+    /// percentage, such as <c>val="120%"</c>, as thousandths of a percent, <c>val="120000"</c>, and a
+    /// chart percentage, such as <c>c:gapWidth val="150%"</c>, as the whole number, <c>val="150"</c>.
     /// </summary>
     /// <remarks>
     /// The SDK translates a Strict part's namespaces to Transitional as it loads the part, but leaves
     /// attribute values as written. Every <c>ST_*Percentage</c> type of DrawingML main is a number
     /// with a <c>%</c> suffix in Strict and an integer of thousandths in Transitional, so the
-    /// translated theme and drawings held values their namespace does not allow (#973). Percentages
-    /// of the chart namespace, such as <c>c:gapWidth</c>, are whole numbers in Transitional and are
-    /// not converted here.
+    /// translated theme and drawings held values their namespace does not allow (#973). The chart
+    /// namespace has its own percentage types, each the <c>val</c> of one element (see
+    /// <see cref="IsChartPercentage"/>), whole numbers with a <c>%</c> suffix in Strict and without
+    /// one in Transitional (#997). Any other chart attribute, such as a <c>c:numFmt</c> format code of
+    /// <c>"0%"</c>, is text and keeps its value.
     /// Loading each root here costs nothing extra: the SDK loads and rewrites every part when it
     /// closes a Strict package.
     /// </remarks>
@@ -224,33 +227,57 @@ public partial class XLWorkbook
 
             foreach (var element in root.Descendants().Prepend(root))
             {
-                if (element.NamespaceUri != OpenXmlConst.DrawingMain2006Ns || !element.HasAttributes)
+                if (!element.HasAttributes)
                     continue;
 
-                foreach (var attribute in element.GetAttributes())
+                if (element.NamespaceUri == OpenXmlConst.DrawingMain2006Ns)
                 {
-                    if (TryParseStrictPercentage(attribute.Value, out var thousandths))
-                        element.SetAttribute(new OpenXmlAttribute(attribute.Prefix, attribute.LocalName,
-                            attribute.NamespaceUri, thousandths.ToString(CultureInfo.InvariantCulture)));
+                    foreach (var attribute in element.GetAttributes())
+                        ConvertAttribute(element, attribute, scale: 1000);
+                }
+                else if (element.NamespaceUri == OpenXmlConst.DrawingChart2006Ns && IsChartPercentage(element.LocalName))
+                {
+                    foreach (var attribute in element.GetAttributes())
+                    {
+                        if (attribute.LocalName == "val" && string.IsNullOrEmpty(attribute.NamespaceUri))
+                            ConvertAttribute(element, attribute, scale: 1);
+                    }
                 }
             }
         }
 
-        // ST_Percentage of the Strict schema: -?[0-9]+(\.[0-9]+)?%
-        static bool TryParseStrictPercentage(string? value, out int thousandths)
+        static void ConvertAttribute(OpenXmlElement element, OpenXmlAttribute attribute, int scale)
         {
-            thousandths = 0;
+            if (TryParseStrictPercentage(attribute.Value, scale, out var converted))
+                element.SetAttribute(new OpenXmlAttribute(attribute.Prefix, attribute.LocalName,
+                    attribute.NamespaceUri, converted.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        // ST_Percentage of the Strict schema: -?[0-9]+(\.[0-9]+)?%
+        static bool TryParseStrictPercentage(string? value, int scale, out int converted)
+        {
+            converted = 0;
             if (value is not [.., '%'] ||
                 !decimal.TryParse(value.AsSpan(0, value.Length - 1),
                     NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
                     CultureInfo.InvariantCulture, out var percent) ||
-                Math.Abs(percent) > int.MaxValue / 1000)
+                Math.Abs(percent) > int.MaxValue / scale)
                 return false;
 
-            thousandths = (int)Math.Round(percent * 1000, MidpointRounding.AwayFromZero);
+            converted = (int)Math.Round(percent * scale, MidpointRounding.AwayFromZero);
             return true;
         }
     }
+
+    /// <summary>
+    /// Whether the <c>val</c> of a chart-namespace element is one of the chart percentage types:
+    /// <c>ST_GapAmount</c>, <c>ST_Overlap</c>, <c>ST_HoleSize</c>, <c>ST_SecondPieSize</c>,
+    /// <c>ST_BubbleScale</c>, <c>ST_LblOffset</c>, <c>ST_DepthPercent</c>, <c>ST_HPercent</c> and
+    /// <c>ST_Thickness</c>.
+    /// </summary>
+    private static bool IsChartPercentage(string localName) =>
+        localName is "gapWidth" or "gapDepth" or "overlap" or "holeSize" or "secondPieSize" or "bubbleScale"
+            or "lblOffset" or "depthPercent" or "hPercent" or "thickness";
 
     // http://blogs.msdn.com/b/vsod/archive/2010/02/05/how-to-delete-a-worksheet-from-excel-using-open-xml-sdk-2-0.aspx
     private static void DeleteSheetAndDependencies(WorkbookPart wbPart, string sheetId)
