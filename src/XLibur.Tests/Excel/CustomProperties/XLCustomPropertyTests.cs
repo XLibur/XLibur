@@ -258,6 +258,37 @@ public class XLCustomPropertyTests
     }
 
     [Test]
+    public async Task Every_property_can_be_deleted_while_enumerating_the_collection()
+    {
+        using var wb = new XLWorkbook();
+        wb.CustomProperties.Add("A", "a");
+        wb.CustomProperties.Add("B", "b");
+        wb.CustomProperties.Add("C", "c");
+
+        foreach (var p in wb.CustomProperties)
+            wb.CustomProperties.Delete(p.Name);
+
+        await Assert.That(wb.CustomProperties.Count()).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_property_can_be_deleted_by_a_condition_while_enumerating_the_collection()
+    {
+        using var wb = new XLWorkbook();
+        wb.CustomProperties.Add("A", "a");
+        wb.CustomProperties.Add("B", "b");
+        wb.CustomProperties.Add("C", "c");
+
+        foreach (var p in wb.CustomProperties)
+        {
+            if (p.Name == "B")
+                wb.CustomProperties.Delete(p.Name);
+        }
+
+        await Assert.That(wb.CustomProperties.Select(p => p.Name).ToList()).IsEquivalentTo(new[] { "A", "C" });
+    }
+
+    [Test]
     public async Task Deleting_a_renamed_property_by_its_new_name_removes_it()
     {
         using var wb = new XLWorkbook();
