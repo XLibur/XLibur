@@ -106,14 +106,13 @@ internal static class SheetViewWriter
         SetTopLeftCell(sheetView, xlWorksheet);
 
         var loadedSelections = sheetView.Elements<Selection>().ToList();
+        var loadedActive = loadedSelections.Find(s => IsOfActivePane(s, pane?.ActivePane));
 
         // The selections the file had stay as it wrote them while the pane, the selected ranges and
-        // the active cell are the ones the load read from them (#722). Only when the load read the
-        // selection of the active pane, where Excel puts the cursor: with others before it, the
-        // model cannot tell a cursor moved to the first one from one left where it was.
-        if (loadedSelections.Count > 0 && pane?.OuterXml == loadedPane
-                                       && IsOfActivePane(loadedSelections[0], pane)
-                                       && IsSelectionAsLoaded(loadedSelections[0], xlWorksheet))
+        // the active cell are the ones the load read from the active pane's selection, where Excel
+        // puts the cursor (#722, #964).
+        if (loadedActive is not null && pane?.OuterXml == loadedPane
+                                     && IsSelectionAsLoaded(loadedActive, xlWorksheet))
         {
             svcm.SetElement(XLSheetViewContents.Selection, loadedSelections[^1]);
             SetZoomScales(sheetView, xlWorksheet);
@@ -131,6 +130,13 @@ internal static class SheetViewWriter
         sheetView.RemoveAllChildren<Selection>();
         svcm.SetElement(XLSheetViewContents.Selection, null);
 
+        // The model has only the active pane's selection. The file's selections of the view's other
+        // panes stay, one for each pane (#964).
+        foreach (var selection in loadedSelections
+                     .Where(s => !IsOfActivePane(s, pane?.ActivePane) && IsPaneOf(s, pane))
+                     .DistinctBy(CornerOf))
+            AppendSelection(sheetView, svcm, selection);
+
         if (xlWorksheet.SelectedRanges.Count > 0 || xlWorksheet.ActiveCell is not null)
             SetupSelections(sheetView, svcm, xlWorksheet, pane, deriveActiveCell);
 
@@ -139,7 +145,7 @@ internal static class SheetViewWriter
 
     /// <summary>
     /// Are the sheet's selected ranges and active cell the ones the load read from
-    /// <paramref name="selection"/>, the first selection of the file's view? Ranges are compared by
+    /// <paramref name="selection"/>, the active pane's selection in the file's view? Ranges are compared by
     /// the cells they cover, so <c>G1:G1048576</c> is the column <c>G:G</c>.
     /// </summary>
     private static bool IsSelectionAsLoaded(Selection selection, XLWorksheet xlWorksheet)
@@ -173,11 +179,29 @@ internal static class SheetViewWriter
     /// Is <paramref name="selection"/> the selection of the view's active pane? Both default to the
     /// top-left pane, which is the only one a view without a pane has.
     /// </summary>
-    private static bool IsOfActivePane(Selection selection, Pane? pane)
+    internal static bool IsOfActivePane(Selection selection, EnumValue<PaneValues>? activePane)
     {
-        var selectionPane = selection.Pane is { HasValue: true } s ? s.Value : PaneValues.TopLeft;
-        var activePane = pane?.ActivePane is { HasValue: true } a ? a.Value : PaneValues.TopLeft;
-        return selectionPane == activePane;
+        var active = activePane is { HasValue: true } a ? a.Value : PaneValues.TopLeft;
+        return CornerOf(selection) == active;
+    }
+
+    /// <summary>The pane a selection belongs to. A selection without one is the top-left pane's.</summary>
+    private static PaneValues CornerOf(Selection selection) =>
+        selection.Pane is { HasValue: true } s ? s.Value : PaneValues.TopLeft;
+
+    /// <summary>Is the pane <paramref name="selection"/> belongs to one the view has?</summary>
+    private static bool IsPaneOf(Selection selection, Pane? pane)
+    {
+        if (pane is null)
+            return false;
+
+        var corner = CornerOf(selection);
+        var right = pane.HorizontalSplit?.Value > 0;
+        var bottom = pane.VerticalSplit?.Value > 0;
+        return corner == PaneValues.TopLeft
+               || (corner == PaneValues.TopRight && right)
+               || (corner == PaneValues.BottomLeft && bottom)
+               || (corner == PaneValues.BottomRight && right && bottom);
     }
 
     private static void SetBooleanViewProperties(SheetView sheetView, XLWorksheet xlWorksheet)
@@ -278,41 +302,38 @@ internal static class SheetViewWriter
             sheetView.TopLeftCell = text;
     }
 
+    /// <summary>
+    /// Writes the active pane's selection, the only one the model has. A pane with no selection
+    /// keeps Excel's default for it.
+    /// </summary>
     private static void SetupSelections(SheetView sheetView, XLSheetViewContentManager svcm,
         XLWorksheet xlWorksheet, Pane? pane, bool deriveActiveCell)
     {
         var firstSelection = deriveActiveCell ? xlWorksheet.SelectedRanges.FirstOrDefault() : null;
+        var selection = new Selection { Pane = pane?.ActivePane };
 
-        if (pane != null)
-        {
-            PopulateSelection(new Selection
-            {
-                Pane = pane.ActivePane
-            });
-        }
+        if (xlWorksheet.ActiveCell is not null)
+            selection.ActiveCell = xlWorksheet.ActiveCell.Value.ToString();
+        else if (firstSelection != null)
+            selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
 
-        PopulateSelection(new Selection());
-        return;
+        var seqRef = new List<string>();
+        if (selection.ActiveCell is not null)
+            seqRef.Add(selection.ActiveCell.Value!);
 
-        void PopulateSelection(Selection selection)
-        {
-            if (xlWorksheet.ActiveCell is not null)
-                selection.ActiveCell = xlWorksheet.ActiveCell.Value.ToString();
-            else if (firstSelection != null)
-                selection.ActiveCell = firstSelection.RangeAddress.FirstAddress.ToStringRelative(false);
+        seqRef.AddRange(SelectedRanges(xlWorksheet));
 
-            var seqRef = new List<string>();
-            if (selection.ActiveCell is not null)
-                seqRef.Add(selection.ActiveCell.Value!);
+        selection.SequenceOfReferences = new ListValue<StringValue>
+        { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
 
-            seqRef.AddRange(SelectedRanges(xlWorksheet));
+        AppendSelection(sheetView, svcm, selection);
+    }
 
-            selection.SequenceOfReferences = new ListValue<StringValue>
-            { InnerText = string.Join(" ", seqRef.Distinct().ToArray()) };
-
-            sheetView.InsertAfter(selection, svcm.GetPreviousElementFor(XLSheetViewContents.Selection));
-            svcm.SetElement(XLSheetViewContents.Selection, selection);
-        }
+    private static void AppendSelection(SheetView sheetView, XLSheetViewContentManager svcm, Selection selection)
+    {
+        OpenXmlElement? previous = sheetView.Elements<Selection>().LastOrDefault();
+        sheetView.InsertAfter(selection, previous ?? svcm.GetPreviousElementFor(XLSheetViewContents.Selection));
+        svcm.SetElement(XLSheetViewContents.Selection, selection);
     }
 
     /// <summary>The selected ranges as a selection's <c>sqref</c> lists them.</summary>

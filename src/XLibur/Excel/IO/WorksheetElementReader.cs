@@ -187,9 +187,15 @@ internal static class WorksheetElementReader
             view.View = viewOption;
     }
 
+    /// <summary>
+    /// Reads the selection of the view's active pane, which holds the cursor. A view with a frozen
+    /// pane has a selection for each pane, and the active one is often not the first (#964).
+    /// </summary>
     private static void LoadSheetViewSelection(SheetView sheetView, XLWorksheet ws)
     {
-        var selection = sheetView.Elements<Selection>().FirstOrDefault();
+        var activePane = sheetView.Elements<Pane>().FirstOrDefault()?.ActivePane;
+        var selection = sheetView.Elements<Selection>().FirstOrDefault(s => SheetViewWriter.IsOfActivePane(s, activePane))
+                        ?? sheetView.Elements<Selection>().FirstOrDefault();
         if (selection == null) return;
 
         if (selection.SequenceOfReferences != null)

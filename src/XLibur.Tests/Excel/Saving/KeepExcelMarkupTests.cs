@@ -244,8 +244,8 @@ public class KeepExcelMarkupTests
     [Test]
     public async Task An_active_cell_set_on_a_view_whose_first_selection_is_not_the_active_panes_is_written()
     {
-        // Excel puts the cursor in the active pane's selection, here the last one. The load reads the
-        // first, so the model cannot tell setting the active cell to B1 from leaving it.
+        // Excel puts the cursor in the active pane's selection, here the last one, and B1 is the
+        // first selection's active cell.
         using var source = Source(ExcelSheet.Replace(SheetView,
             "<sheetView tabSelected=\"1\" workbookViewId=\"0\">" +
             "<pane xSplit=\"1\" ySplit=\"1\" topLeftCell=\"B2\" activePane=\"bottomRight\" state=\"frozen\"/>" +
@@ -267,7 +267,9 @@ public class KeepExcelMarkupTests
     [Test]
     public async Task A_rewritten_frozen_sheet_keeps_the_active_panes_selection()
     {
-        using var source = Source(ExcelSheet.Replace(SheetView, FrozenSheetView, StringComparison.Ordinal));
+        // LibreOffice spells out xSplit="0", which the save drops, so the view is written again.
+        using var source = Source(ExcelSheet.Replace(SheetView,
+            FrozenSheetView.Replace("<pane ", "<pane xSplit=\"0\" ", StringComparison.Ordinal), StringComparison.Ordinal));
 
         using var saved = LoadAndSave(source, wb => wb.Worksheet("Data").SetTabColor(XLColor.Red));
 
@@ -275,9 +277,11 @@ public class KeepExcelMarkupTests
         var pane = root.Descendants().Single(e => e.Name.LocalName == "pane");
         await Assert.That(pane.Attribute("activePane")!.Value).IsEqualTo("bottomLeft");
         var selections = root.Descendants().Where(e => e.Name.LocalName == "selection").ToList();
-        var active = selections.Single(e => (e.Attribute("pane")?.Value ?? "topLeft") == "bottomLeft");
-        await Assert.That(active.Attribute("activeCell")!.Value).IsEqualTo("C14");
-        await AssertOneSelectionPerPane(selections);
+        await Assert.That(selections.Select(Attributes)).IsEquivalentTo(new[]
+        {
+            "pane=topLeft activeCell=A1 sqref=A1",
+            "pane=bottomLeft activeCell=C14 sqref=C14",
+        });
         using var reloaded = Reload(saved);
         await Assert.That(reloaded.Worksheet("Data").ActiveCell!.Address.ToString()).IsEqualTo("C14");
     }
