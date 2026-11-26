@@ -181,6 +181,7 @@ public partial class XLWorkbook
         if (!opened.Package.StrictRelationshipFound)
             return opened;
 
+        ConvertStrictDrawingPercentages(opened.Package);
         opened.Package.Dispose();
         opened.Zip.Close();
         return Open(stream, level);
@@ -197,6 +198,55 @@ public partial class XLWorkbook
                 zip.Close();
                 throw;
             }
+        }
+    }
+
+    /// <summary>
+    /// Rewrites each Strict DrawingML percentage, such as <c>val="120%"</c>, as the thousandths of a
+    /// percent that Transitional requires, <c>val="120000"</c>.
+    /// </summary>
+    /// <remarks>
+    /// The SDK translates a Strict part's namespaces to Transitional as it loads the part, but leaves
+    /// attribute values as written. Every <c>ST_*Percentage</c> type of DrawingML main is a number
+    /// with a <c>%</c> suffix in Strict and an integer of thousandths in Transitional, so the
+    /// translated theme, drawings and charts held values their namespace does not allow (#973).
+    /// Loading each root here costs nothing extra: the SDK loads and rewrites every part when it
+    /// closes a Strict package.
+    /// </remarks>
+    private static void ConvertStrictDrawingPercentages(SpreadsheetDocument package)
+    {
+        foreach (var part in package.GetAllParts())
+        {
+            if (part.RootElement is not { } root)
+                continue;
+
+            foreach (var element in root.Descendants().Prepend(root))
+            {
+                if (element.NamespaceUri != OpenXmlConst.DrawingMain2006Ns || !element.HasAttributes)
+                    continue;
+
+                foreach (var attribute in element.GetAttributes())
+                {
+                    if (TryParseStrictPercentage(attribute.Value, out var thousandths))
+                        element.SetAttribute(new OpenXmlAttribute(attribute.Prefix, attribute.LocalName,
+                            attribute.NamespaceUri, thousandths.ToString(CultureInfo.InvariantCulture)));
+                }
+            }
+        }
+
+        // ST_Percentage of the Strict schema: -?[0-9]+(\.[0-9]+)?%
+        static bool TryParseStrictPercentage(string? value, out int thousandths)
+        {
+            thousandths = 0;
+            if (value is not [.., '%'] ||
+                !decimal.TryParse(value.AsSpan(0, value.Length - 1),
+                    NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                    CultureInfo.InvariantCulture, out var percent) ||
+                Math.Abs(percent) > int.MaxValue / 1000)
+                return false;
+
+            thousandths = (int)Math.Round(percent * 1000, MidpointRounding.AwayFromZero);
+            return true;
         }
     }
 
