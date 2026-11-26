@@ -322,6 +322,40 @@ public class EngineeringTests
         await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
     }
 
+    // Excel's docs (#1012): a negative number ignores a valid places and returns the
+    // 10-character two's-complement result. Not measured in Excel.
+    [Test]
+    [Arguments("DEC2BIN(-5,3)", "1111111011")]
+    [Arguments("DEC2BIN(-5,1)", "1111111011")]
+    [Arguments("DEC2BIN(-5,10)", "1111111011")]
+    [Arguments("DEC2OCT(-5,3)", "7777777773")]
+    [Arguments("DEC2HEX(-5,3)", "FFFFFFFFFB")]
+    [Arguments("BIN2OCT(\"1111111011\",3)", "7777777773")]
+    [Arguments("BIN2HEX(\"1111111011\",3)", "FFFFFFFFFB")]
+    [Arguments("OCT2BIN(\"7777777773\",3)", "1111111011")]
+    [Arguments("OCT2HEX(\"7777777773\",3)", "FFFFFFFFFB")]
+    [Arguments("HEX2BIN(\"FFFFFFFFFB\",3)", "1111111011")]
+    [Arguments("HEX2OCT(\"FFFFFFFFFB\",3)", "7777777773")]
+    public async Task BaseConversion_NegativeNumber_IgnoresValidPlaces(string formula, string expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
+    }
+
+    // An out-of-range places stays #NUM! for a negative number too (#968).
+    [Test]
+    [Arguments("DEC2BIN(-5,D2)")]
+    [Arguments("DEC2BIN(-5,0)")]
+    [Arguments("DEC2BIN(-5,11)")]
+    [Arguments("HEX2OCT(\"FFFFFFFFFB\",11)")]
+    public async Task BaseConversion_NegativeNumberOutOfRangePlaces_ReturnsNumError(string formula)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.NumberInvalid);
+    }
+
     [Test]
     [Arguments("DELTA(TRUE,#DIV/0!)", XLError.DivisionByZero)]
     [Arguments("DELTA(FALSE,#N/A)", XLError.NoValueAvailable)]
