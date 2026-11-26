@@ -209,7 +209,9 @@ public partial class XLWorkbook
     /// The SDK translates a Strict part's namespaces to Transitional as it loads the part, but leaves
     /// attribute values as written. Every <c>ST_*Percentage</c> type of DrawingML main is a number
     /// with a <c>%</c> suffix in Strict and an integer of thousandths in Transitional, so the
-    /// translated theme, drawings and charts held values their namespace does not allow (#973).
+    /// translated theme and drawings held values their namespace does not allow (#973). Percentages
+    /// of the chart namespace, such as <c>c:gapWidth</c>, are whole numbers in Transitional and are
+    /// not converted here.
     /// Loading each root here costs nothing extra: the SDK loads and rewrites every part when it
     /// closes a Strict package.
     /// </remarks>
