@@ -44,8 +44,7 @@ public partial class XLWorkbook
                 return;
         }
 
-        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(fileName, false));
-        LoadSpreadsheetDocument(dSpreadsheet);
+        LoadPackage(() => SpreadsheetDocument.Open(fileName, false));
     }
 
     private void LoadSheets(Stream stream)
@@ -53,8 +52,7 @@ public partial class XLWorkbook
         if (TryLoadFromReadOnlyPackage(stream))
             return;
 
-        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(stream, false));
-        LoadSpreadsheetDocument(dSpreadsheet);
+        LoadPackage(() => SpreadsheetDocument.Open(stream, false));
     }
 
     /// <summary>
@@ -71,21 +69,23 @@ public partial class XLWorkbook
         if (BinaryWorkbook.IsBinaryWorkbook(package))
             throw BinaryWorkbook.NotSupported();
 
-        using var dSpreadsheet = OpenPackage(() => SpreadsheetDocument.Open(package));
-        LoadSpreadsheetDocument(dSpreadsheet);
+        LoadPackage(() => SpreadsheetDocument.Open(package));
         return true;
     }
 
     /// <summary>
-    /// Open a package, converting the package reader's own exception types into
+    /// Open a package and load it, converting the package reader's own exception types into
     /// <see cref="PartStructureException"/>. A caller of a public XLibur constructor should not
-    /// have to catch a <c>DocumentFormat.OpenXml</c> type to handle a malformed file.
+    /// have to catch a <c>DocumentFormat.OpenXml</c> type to handle a malformed file. The load is
+    /// inside the conversion too, because the SDK checks a part's content type only when the
+    /// part is first read (#970).
     /// </summary>
-    private static SpreadsheetDocument OpenPackage(Func<SpreadsheetDocument> open)
+    private void LoadPackage(Func<SpreadsheetDocument> open)
     {
         try
         {
-            return open();
+            using var dSpreadsheet = open();
+            LoadSpreadsheetDocument(dSpreadsheet);
         }
         catch (OpenXmlPackageException e)
         {
