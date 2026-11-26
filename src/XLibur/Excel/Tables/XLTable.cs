@@ -200,6 +200,8 @@ internal sealed class XLTable : XLRange, IXLTable
         {
             field ??= new XLAutoFilter { IsTableAutoFilter = true };
 
+            // A table's filter is on exactly when it shows the filter buttons (#972).
+            field.IsEnabled = ShowAutoFilter;
             field.Range = ShowTotalsRow ? Range(1, 1, RowCount() - 1, ColumnCount()) : AsRange();
             return field;
         }
