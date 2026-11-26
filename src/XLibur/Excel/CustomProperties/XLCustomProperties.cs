@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using DocumentFormat.OpenXml.CustomProperties;
@@ -12,13 +13,21 @@ internal sealed class XLCustomProperties : IXLCustomProperties
         this.workbook = workbook;
     }
 
-    private readonly Dictionary<string, IXLCustomProperty> customProperties = new();
+    /// <summary>
+    /// The modelled properties in insertion order. A property's name lives only on the property, so renaming one
+    /// leaves this list untouched.
+    /// </summary>
+    private readonly List<IXLCustomProperty> customProperties = new();
 
     private readonly Dictionary<string, CustomDocumentProperty> unmodeledProperties = new();
 
     public void Add(IXLCustomProperty customProperty)
     {
-        customProperties.Add(customProperty.Name, customProperty);
+        if (Find(customProperty.Name) is not null)
+            throw new ArgumentException(
+                $"This workbook already contains a custom property named '{customProperty.Name}'");
+
+        customProperties.Add(customProperty);
         unmodeledProperties.Remove(customProperty.Name);
     }
     public void Add<T>(string name, T value)
@@ -32,19 +41,10 @@ internal sealed class XLCustomProperties : IXLCustomProperties
         unmodeledProperties[name] = property;
     }
 
-    /// <summary>
-    /// Moves a renamed property to its new key. A modelled property that takes the name of an unmodeled one
-    /// replaces it.
-    /// </summary>
-    internal void Rename(IXLCustomProperty property, string oldName, string newName)
+    /// <summary>A modelled property that takes the name of an unmodeled one replaces it.</summary>
+    internal void RemoveUnmodeled(string name)
     {
-        if (customProperties.TryGetValue(oldName, out var stored) && ReferenceEquals(stored, property))
-        {
-            customProperties.Remove(oldName);
-            customProperties.Add(newName, property);
-        }
-
-        unmodeledProperties.Remove(newName);
+        unmodeledProperties.Remove(name);
     }
 
     internal IEnumerable<CustomDocumentProperty> UnmodeledPropertiesToSave => unmodeledProperties.Values;
@@ -53,17 +53,19 @@ internal sealed class XLCustomProperties : IXLCustomProperties
 
     public void Delete(string name)
     {
-        customProperties.Remove(name);
+        customProperties.RemoveAll(p => p.Name == name);
         unmodeledProperties.Remove(name);
     }
     public IXLCustomProperty CustomProperty(string name)
     {
-        return customProperties[name];
+        return Find(name) ?? throw new KeyNotFoundException($"The workbook has no custom property named '{name}'.");
     }
+
+    private IXLCustomProperty? Find(string name) => customProperties.Find(p => p.Name == name);
 
     public IEnumerator<IXLCustomProperty> GetEnumerator()
     {
-        return customProperties.Values.GetEnumerator();
+        return customProperties.GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()

@@ -27,9 +27,8 @@ internal sealed class XLCustomProperty : IXLCustomProperty
                 throw new ArgumentException(
                     $"This workbook already contains a custom property named '{value}'");
 
-            var oldName = name;
             name = value;
-            _workbook.CustomPropertiesInternal.Rename(this, oldName, value);
+            _workbook.CustomPropertiesInternal.RemoveUnmodeled(value);
         }
     }
 
