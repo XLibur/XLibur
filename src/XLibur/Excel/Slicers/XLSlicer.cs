@@ -231,10 +231,10 @@ internal sealed class XLSlicer : IXLSlicer
     /// </remarks>
     private List<XLCellValue>? TableFilterValues()
     {
-        if (Cache.Table is not { } table || Cache.TableColumnPosition is not { } position)
+        if (Cache.Table is not { } table || Cache.TableField is not { } field)
             return null;
 
-        if (!table.AutoFilter.Columns.TryGetValue(position, out var filterColumn)
+        if (!table.AutoFilter.Columns.TryGetValue(field.Index + 1, out var filterColumn)
             || filterColumn.FilterType != XLFilterType.Regular)
         {
             return null;

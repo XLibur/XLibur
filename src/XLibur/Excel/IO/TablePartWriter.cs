@@ -41,13 +41,20 @@ internal static class TablePartWriter
     /// <summary>
     /// Gives each table the <c>table/@id</c> it is written under, unique in the workbook. A loaded
     /// table keeps its id (#903), and a new table, or one whose id an earlier table took, gets one
-    /// past every id kept.
+    /// past every id kept. An id a table slicer cache names without its table being loaded counts
+    /// as kept, so a new table is never handed that slicer (#971).
     /// </summary>
     internal static void AssignTableIds(IEnumerable<XLWorksheet> worksheets, SaveContext context)
     {
         var kept = new HashSet<uint>();
         var unassigned = new List<XLTable>();
-        uint lastId = 0;
+        uint lastId = worksheets
+            .SelectMany(ws => ws.SlicersInternal.Items)
+            .Select(slicer => slicer.Cache)
+            .Where(cache => cache.Table is null)
+            .Select(cache => cache.TableId ?? 0)
+            .DefaultIfEmpty()
+            .Max();
         foreach (var xlTable in worksheets.SelectMany(ws => ws.Tables.Cast<XLTable>()))
         {
             if (xlTable.Id is { } id && id > 0 && kept.Add(id))

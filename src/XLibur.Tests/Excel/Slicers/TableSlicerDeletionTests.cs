@@ -118,6 +118,26 @@ public class TableSlicerDeletionTests
     }
 
     [Test]
+    public async Task A_table_slicer_survives_its_column_being_renamed_and_its_table_resized()
+    {
+        using var saved = new MemoryStream();
+        using (var wb = Load())
+        {
+            var table = wb.Worksheet("Data").Table("SalesTable");
+            table.Field("Region").Name = "Area";
+            table.InsertRowsBelow(1);
+            _ = table.Fields.ToList();
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(CacheXml(saved)).Contains("tableSlicerCache tableId=\"1\" column=\"1\"");
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        await Assert.That(reloaded.Worksheet("Data").Slicers.Single().Table?.Name).IsEqualTo("SalesTable");
+    }
+
+    [Test]
     public async Task A_new_table_is_not_given_the_id_of_a_slicer_cache_whose_table_is_missing()
     {
         // A file whose table slicer cache names a table id no table has: the slicer did not bind on
