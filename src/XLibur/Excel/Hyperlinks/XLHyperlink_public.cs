@@ -57,6 +57,7 @@ public partial class XLHyperlink
         {
             _externalAddress = value;
             IsExternal = true;
+            Display = null;
         }
     }
 

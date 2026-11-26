@@ -64,6 +64,13 @@ public partial class XLHyperlink
     internal XLHyperlinks? Container { get; set; }
 
     /// <summary>
+    /// The <c>display</c> text an external hyperlink was loaded with, written back on save.
+    /// <c>null</c> when it had none, was created or copied in code, or its address has changed since.
+    /// An internal hyperlink saves its cell's current text instead.
+    /// </summary>
+    internal string? Display { get; set; }
+
+    /// <summary>
     /// The address <see cref="_relId"/> was written or loaded for. The relationship ID is only valid
     /// while the hyperlink still points at this exact <see cref="Uri"/>.
     /// </summary>

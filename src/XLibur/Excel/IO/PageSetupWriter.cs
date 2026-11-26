@@ -66,6 +66,8 @@ internal static class PageSetupWriter
             }
 
             hyperlink = new Hyperlink { Reference = hl.Cell!.Address.ToString(), Id = rId };
+            if (hl.Display is not null)
+                hyperlink.Display = hl.Display;
             worksheetPart.AddHyperlinkRelationship(hl.ExternalAddress!, true, rId);
             hl.RelId = rId;
         }

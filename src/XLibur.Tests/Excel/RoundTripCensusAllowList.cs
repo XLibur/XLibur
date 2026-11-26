@@ -68,7 +68,6 @@ internal static class RoundTripCensusAllowList
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostCommentTextRunCharsetAndIndexed = "comment text run charset and indexed colour dropped";
-    private const string LostHyperlinkDisplayTextDropped = "hyperlink display text dropped";
     private const string LostPivotCacheItemFlagsUContainsNonDate = "pivot cache item flags (u, containsNonDate) dropped";
     private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
     private const string LostRichTextRunCharsetDropped = "rich text run charset dropped";
@@ -375,7 +374,6 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlComments, "charset@val", "#957", LostCommentTextRunCharsetAndIndexed, 30),
         new(SpreadsheetmlComments, "color", "#957", LostCommentTextRunCharsetAndIndexed, 48),
         new(SpreadsheetmlComments, "color@indexed", "#957", LostCommentTextRunCharsetAndIndexed, 48),
-        new(SpreadsheetmlWorksheet, "hyperlink@display", "#963", LostHyperlinkDisplayTextDropped, 4),
         new(SpreadsheetmlPivotCacheDefinition, "d@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 3508),
         new(SpreadsheetmlPivotCacheDefinition, "m@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 4),
         new(SpreadsheetmlPivotCacheDefinition, "n@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 540),
