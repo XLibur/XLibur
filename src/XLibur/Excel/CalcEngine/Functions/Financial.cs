@@ -205,6 +205,11 @@ internal static class Financial
     /// <summary>
     /// Excel answers <c>#VALUE!</c> for a guess at or below -1 or above about 2^53 (measured: 9E15
     /// is solved, 9.0072E15 is not).
+    /// <para>
+    /// When Newton's method fails, a guess of 1 or more falls back to bisection: Excel finds
+    /// IRR(-100,50,70) = 0.123 from a guess of 5 or 1E15. A smaller guess does not, because Excel
+    /// answers <c>#NUM!</c> for IRR(-100,0,...,0,1) from the default guess of 0.1.
+    /// </para>
     /// </summary>
     private static AnyValue SolveIrr(List<double> cashflows, double guess)
     {
@@ -212,7 +217,11 @@ internal static class Financial
         if (guess <= -1 || guess > maxGuess)
             return XLError.IncompatibleValue;
 
-        if (TryNewtonRoot(rate => NpvWithDerivative(cashflows, rate), guess, out var root) || TryBisectNpv(cashflows, out root))
+        // A rate of return only exists when there is both an inflow and an outflow.
+        if (!cashflows.Exists(c => c > 0) || !cashflows.Exists(c => c < 0))
+            return XLError.NumberInvalid;
+
+        if (TryNewtonRoot(rate => NpvWithDerivative(cashflows, rate), guess, out var root) || (guess >= 1 && TryBisectNpv(cashflows, out root)))
             return root;
 
         return XLError.NumberInvalid;
@@ -330,10 +339,18 @@ internal static class Financial
     }
 
     /// <summary>
-    /// Excel answers <c>#NUM!</c> when the rate is at or below -1.
+    /// Excel answers <c>#VALUE!</c> for a guess at or below -1, and <c>#NUM!</c> for no periods or
+    /// a rate at or below -1.
     /// </summary>
     private static AnyValue SolveRate(double nper, double pmt, double pv, double fv, double type, double guess)
     {
+        if (guess <= -1)
+            return XLError.IncompatibleValue;
+
+        // With no periods the equation is pv + fv at every rate, so there is no single rate.
+        if (nper == 0)
+            return XLError.NumberInvalid;
+
         if (!TryNewtonRoot(rate => TvmEquation(rate, nper, pmt, pv, fv, type), guess, out var root) || root <= -1)
             return XLError.NumberInvalid;
 
@@ -948,11 +965,6 @@ internal static class Financial
             var value = XNpvOf(rate, schedule);
             if (!double.IsFinite(value))
                 break;
-            if (Math.Abs(value) < tolerance)
-            {
-                result = rate;
-                return true;
-            }
 
             var derivative = (XNpvOf(rate + delta, schedule) - value) / delta;
             if (derivative == 0.0 || double.IsNaN(derivative))
@@ -1003,7 +1015,7 @@ internal static class Financial
         {
             var middle = (low + high) / 2;
             var value = XNpvOf(middle, schedule);
-            if (Math.Abs(value) < 1e-9)
+            if (value == 0.0)
                 return middle;
 
             if (Math.Sign(value) == Math.Sign(lowValue))
