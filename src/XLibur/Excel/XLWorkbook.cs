@@ -499,9 +499,9 @@ public partial class XLWorkbook : IXLWorkbook
         // Build the whole package before touching the destination. When the origin is not yet
         // encrypted the destination is also the file or stream this package is being copied from,
         // so writing to it first would pull the ground out from under the copy.
-        var package = BuildPackageInMemory(options);
-
         var file = _encryptedFile ?? (_loadSource == XLLoadSource.File ? _originalFile : null);
+        var package = BuildPackageInMemory(options, file is null ? null : GetSpreadsheetDocumentType(file));
+
         if (file is not null)
         {
             using (var container = EncryptToBuffer(package, password))
@@ -623,7 +623,7 @@ public partial class XLWorkbook : IXLWorkbook
         // with Save is the point — Save puts a file back as it was, SaveAs describes a new one.
         if (!string.IsNullOrEmpty(options.Password))
         {
-            var package = BuildPackageInMemory(options);
+            var package = BuildPackageInMemory(options, GetSpreadsheetDocumentType(file));
             using (var container = EncryptToBuffer(package, options.Password))
             using (var destination = File.Create(file))
                 container.WriteTo(destination);
@@ -717,7 +717,7 @@ public partial class XLWorkbook : IXLWorkbook
 
         if (!string.IsNullOrEmpty(options.Password))
         {
-            var package = BuildPackageInMemory(options);
+            var package = BuildPackageInMemory(options, documentType: null);
             Encryptor.Encrypt(stream, package.ToArray(), options.Password);
 
             AdoptEncryptedOrigin(package, options.Password, file: null, stream);
@@ -779,26 +779,32 @@ public partial class XLWorkbook : IXLWorkbook
     /// in place. The returned stream is positioned at the start and owned by the caller, which
     /// keeps it as the workbook's new package base — see <see cref="AdoptEncryptedOrigin"/>.
     /// </summary>
-    private MemoryStream BuildPackageInMemory(SaveOptions options)
+    /// <param name="options">The save options.</param>
+    /// <param name="documentType">
+    /// The document type of the file being written, taken from its extension, so the package gets the
+    /// same check and conversion as a plain save to that file. <c>null</c> for a stream, which has no
+    /// extension and keeps the type the package already has.
+    /// </param>
+    private MemoryStream BuildPackageInMemory(SaveOptions options, SpreadsheetDocumentType? documentType)
     {
         var package = new MemoryStream();
 
         if (_loadSource == XLLoadSource.New)
         {
-            CreatePackage(package, true, _spreadsheetDocumentType, options);
+            CreatePackage(package, true, documentType ?? _spreadsheetDocumentType, options);
         }
         else if (_loadSource == XLLoadSource.File)
         {
             using (var fileStream = new FileStream(_originalFile!, FileMode.Open, FileAccess.Read))
                 CopyStream(fileStream, package);
 
-            CreatePackage(package, false, _spreadsheetDocumentType, options);
+            EditPackage(package, documentType, options);
         }
         else if (_loadSource == XLLoadSource.Stream)
         {
             _originalStream!.Position = 0;
             CopyStream(_originalStream, package);
-            CreatePackage(package, false, _spreadsheetDocumentType, options);
+            EditPackage(package, documentType, options);
         }
 
         package.Position = 0;
