@@ -218,8 +218,10 @@ internal sealed class XLTableField : IXLTableField
     {
         if (deleteUnderlyingRangeColumn)
         {
-            // Deleting the column removes this field and moves the ones to its right.
+            // Deleting the column removes this field and moves the ones to its right. Read the
+            // fields now so a field kept by the caller has its new index straight away.
             _table.AsRange().ColumnQuick(Index + 1).Delete();
+            _ = _table.FieldNames;
             return;
         }
 

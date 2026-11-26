@@ -108,6 +108,21 @@ public class TableColumnShiftTests
     }
 
     [Test]
+    public async Task A_kept_field_follows_its_column_as_soon_as_another_field_is_deleted()
+    {
+        using var wb = TestHelper.LoadWorkbook(Fixture);
+        var ws = wb.Worksheet("Data");
+        var table = ws.Table("SalesTable");
+        var amount = table.Field("Amount");
+
+        table.Field("Date").Delete();
+        amount.Name = "Total";
+
+        await Assert.That(ws.Cell("B1").GetText()).IsEqualTo("Total");
+        await Assert.That(ws.Cell("C1").IsEmpty()).IsTrue();
+    }
+
+    [Test]
     public async Task Deleting_a_table_column_of_a_headerless_table_removes_its_field()
     {
         using var wb = TestHelper.LoadWorkbook(Fixture);
