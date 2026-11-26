@@ -74,7 +74,6 @@ internal static class RoundTripCensusAllowList
     private const string LostRichValueDetailOfAVALUE = "rich-value detail of a #VALUE! error (subType, argument) dropped";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
-    private const string LostSelectionOfAFrozenPaneDropped = "selection of a frozen pane dropped and activePane reset";
     private const string LostTableColumnDataFormatDataDxfIdDropped = "table column data format (dataDxfId) dropped";
 
     private static readonly AllowedLoss[] Noise =
@@ -407,7 +406,6 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "row@s", "#958", LostRowStyleCustomFormatSDroppedWhen, 94),
         new(SpreadsheetmlWorksheet, "row@thickBot", "#959", LostRowThickBotAndThickTopDroppedWhen, 108),
         new(SpreadsheetmlWorksheet, "row@thickTop", "#959", LostRowThickBotAndThickTopDroppedWhen, 30),
-        new(SpreadsheetmlWorksheet, "selection@pane", "#964", LostSelectionOfAFrozenPaneDropped, 4),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId", "#961", LostTableColumnDataFormatDataDxfIdDropped, 8),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->alignment", "#961", LostTableColumnDataFormatDataDxfIdDropped, 98),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->border", "#961", LostTableColumnDataFormatDataDxfIdDropped, 14),

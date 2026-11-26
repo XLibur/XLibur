@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -48,6 +49,16 @@ public class KeepExcelMarkupTests
 
     private const string SheetView = "<sheetView tabSelected=\"1\" workbookViewId=\"0\"/>";
 
+    /// <summary>
+    /// A frozen header row with the cursor on C14, below it, as LibreOffice writes one: the top-left
+    /// pane's selection comes first and the active pane's second (#964).
+    /// </summary>
+    private const string FrozenSheetView =
+        "<sheetView tabSelected=\"1\" workbookViewId=\"0\">" +
+        "<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>" +
+        "<selection pane=\"topLeft\" activeCell=\"A1\" sqref=\"A1\"/>" +
+        "<selection pane=\"bottomLeft\" activeCell=\"C14\" sqref=\"C14\"/></sheetView>";
+
     /// <summary>Columns B and D with a width Excel spells with eight decimals, and C between them with none.</summary>
     private const string GappedColumns =
         "<cols><col min=\"2\" max=\"2\" width=\"14.85546875\" customWidth=\"1\"/>" +
@@ -73,6 +84,7 @@ public class KeepExcelMarkupTests
     [Arguments("rightToLeft=\"0\"", SheetView, "<sheetView tabSelected=\"1\" rightToLeft=\"0\" workbookViewId=\"0\"/>")]
     [Arguments("a selected column spelled by its cells", SheetView, "<sheetView tabSelected=\"1\" workbookViewId=\"0\"><selection activeCell=\"B1\" sqref=\"B1:B1048576\"/></sheetView>")]
     [Arguments("a frozen pane with one selection", SheetView, "<sheetView tabSelected=\"1\" workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/><selection pane=\"bottomLeft\" activeCell=\"A2\" sqref=\"A2\"/></sheetView>")]
+    [Arguments("a frozen pane whose active selection is not the first", SheetView, FrozenSheetView)]
     [Arguments("a margin with seventeen digits", "header=\"0.3\"", "header=\"0.51180555555555496\"")]
     [Arguments("a resolution past int.MaxValue", "</worksheet>", "<pageSetup orientation=\"portrait\" horizontalDpi=\"4294967294\"/></worksheet>")]
     [Arguments("a protection that protects nothing", "<pageMargins", "<sheetProtection selectLockedCells=\"1\"/><pageMargins")]
@@ -232,8 +244,8 @@ public class KeepExcelMarkupTests
     [Test]
     public async Task An_active_cell_set_on_a_view_whose_first_selection_is_not_the_active_panes_is_written()
     {
-        // Excel puts the cursor in the active pane's selection, here the last one. The load reads the
-        // first, so the model cannot tell setting the active cell to B1 from leaving it.
+        // Excel puts the cursor in the active pane's selection, here the last one, and B1 is the
+        // first selection's active cell.
         using var source = Source(ExcelSheet.Replace(SheetView,
             "<sheetView tabSelected=\"1\" workbookViewId=\"0\">" +
             "<pane xSplit=\"1\" ySplit=\"1\" topLeftCell=\"B2\" activePane=\"bottomRight\" state=\"frozen\"/>" +
@@ -250,6 +262,53 @@ public class KeepExcelMarkupTests
         var active = root.Descendants()
             .Single(e => e.Name.LocalName == "selection" && (e.Attribute("pane")?.Value ?? "topLeft") == activePane);
         await Assert.That(active.Attribute("activeCell")!.Value).IsEqualTo("B1");
+    }
+
+    [Test]
+    public async Task A_rewritten_frozen_sheet_keeps_the_active_panes_selection()
+    {
+        // LibreOffice spells out xSplit="0", which the save drops, so the view is written again.
+        using var source = Source(ExcelSheet.Replace(SheetView,
+            FrozenSheetView.Replace("<pane ", "<pane xSplit=\"0\" ", StringComparison.Ordinal), StringComparison.Ordinal));
+
+        using var saved = LoadAndSave(source, wb => wb.Worksheet("Data").SetTabColor(XLColor.Red));
+
+        var root = Root(saved);
+        var pane = root.Descendants().Single(e => e.Name.LocalName == "pane");
+        await Assert.That(pane.Attribute("activePane")!.Value).IsEqualTo("bottomLeft");
+        var selections = root.Descendants().Where(e => e.Name.LocalName == "selection").ToList();
+        await Assert.That(selections.Select(Attributes)).IsEquivalentTo(new[]
+        {
+            "pane=topLeft activeCell=A1 sqref=A1",
+            "pane=bottomLeft activeCell=C14 sqref=C14",
+        });
+        using var reloaded = Reload(saved);
+        await Assert.That(reloaded.Worksheet("Data").ActiveCell!.Address.ToString()).IsEqualTo("C14");
+    }
+
+    [Test]
+    [Arguments("A1")]
+    [Arguments("C14")]
+    public async Task A_frozen_sheet_has_at_most_one_selection_for_each_pane(string activeCell)
+    {
+        using var saved = Save(wb =>
+        {
+            var ws = wb.AddWorksheet("Data");
+            ws.SheetView.FreezeRows(1);
+            ws.Cell(activeCell).SetActive();
+        });
+
+        await AssertOneSelectionPerPane(Root(saved).Descendants().Where(e => e.Name.LocalName == "selection").ToList());
+        using var reloaded = Reload(saved);
+        await Assert.That(reloaded.Worksheet("Data").ActiveCell!.Address.ToString()).IsEqualTo(activeCell);
+    }
+
+    /// <summary>A selection with no <c>pane</c> is the top-left pane's, so it counts as one.</summary>
+    private static async Task AssertOneSelectionPerPane(List<XElement> selections)
+    {
+        var panes = selections.Select(e => e.Attribute("pane")?.Value ?? "topLeft").ToList();
+        await Assert.That(panes.Distinct().Count()).IsEqualTo(panes.Count)
+            .Because($"each pane has at most one selection, but the panes were {string.Join(", ", panes)}");
     }
 
     [Test]
