@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using TUnit.Assertions.Enums;
 
 namespace XLibur.Tests.Excel.Saving;
 
@@ -639,6 +640,58 @@ public class SavingTests
         using var ms = new MemoryStream();
         await Assert.That(() => wb.SaveAs(ms, false)).ThrowsNothing();
     }
+
+    [Test]
+    public async Task An_untouched_save_keeps_the_columns_of_a_file_whose_xf_0_states_applyBorder()
+    {
+        // The file's cellXfs 0 is the default style with applyBorder="1" and no border. Its columns
+        // 1 to 68 have widths and no style (#965).
+        using var source = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\EmptyFill.xlsx"));
+        using var original = new MemoryStream();
+        source.CopyTo(original);
+        using var wb = new XLWorkbook(original);
+        using var saved = new MemoryStream();
+
+        wb.SaveAs(saved);
+
+        await Assert.That(ColumnsOfSheet1(saved)).IsEquivalentTo(ColumnsOfSheet1(original), CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task The_columns_of_a_sheet_with_its_own_style_are_written_in_order()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Data");
+        ws.Style.Font.Bold = true;
+        ws.Column(2).Width = 20;
+        using var saved = new MemoryStream();
+
+        wb.SaveAs(saved);
+
+        // The schema orders <col> by min. The range after the last column used to come first (#965).
+        var columns = ColumnsOfSheet1(saved);
+        await Assert.That(columns.Select(c => c.Number)).IsEquivalentTo(Enumerable.Range(1, XLHelper.MaxColumnNumber),
+            CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    /// Each column a <c>&lt;col&gt;</c> of sheet 1 covers, in the order the part lists them, as its
+    /// number, width and style. A save may join adjacent columns that are alike, so the columns are
+    /// compared rather than the elements.
+    /// </summary>
+    private static (int Number, string Width, string? Style)[] ColumnsOfSheet1(Stream package) =>
+        System.Xml.Linq.XDocument.Parse(package.Sheet1Xml()).Descendants()
+            .Where(e => e.Name.LocalName == "col")
+            .SelectMany(e =>
+            {
+                var min = int.Parse(e.Attribute("min")!.Value, CultureInfo.InvariantCulture);
+                var max = int.Parse(e.Attribute("max")!.Value, CultureInfo.InvariantCulture);
+                var width = double.Parse(e.Attribute("width")!.Value, CultureInfo.InvariantCulture)
+                    .ToString("0.######", CultureInfo.InvariantCulture);
+                var style = e.Attribute("style")?.Value;
+                return Enumerable.Range(min, max - min + 1).Select(n => (n, width, style));
+            })
+            .ToArray();
 
     [Test]
     public async Task CanSaveSingleRowAutoFilter()
