@@ -473,8 +473,8 @@ internal static class WorkbookStylesPartWriter
 
             if (!newIds.TryGetValue(formatId.Value, out var newId))
             {
+                newId = (uint)differentialFormats.ChildElements.Count;
                 differentialFormats.Append(loadedDxfs[(int)formatId.Value]);
-                newId = (uint)differentialFormats.ChildElements.Count - 1;
                 newIds.Add(formatId.Value, newId);
             }
 
