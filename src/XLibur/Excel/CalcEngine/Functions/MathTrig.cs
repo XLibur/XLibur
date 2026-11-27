@@ -1289,6 +1289,13 @@ internal static class MathTrig
         if (areas.Length < 1)
             return XLError.IncompatibleValue;
 
+        // An error argument is the result before any size check: SUMPRODUCT(A1:A3,#N/A) is #N/A.
+        foreach (var area in areas)
+        {
+            if (area.Width == 1 && area.Height == 1 && area[0, 0].TryPickError(out var error))
+                return error;
+        }
+
         if (!ValidateSumProductDimensions(areas, out var width, out var height))
             return XLError.IncompatibleValue;
 
