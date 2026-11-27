@@ -92,27 +92,31 @@ internal static class Financial
         if (rate == 0.0)
             return -(presentValue + futureValue) / numberOfPayments;
 
-        var (_, oneMinusDiscount) = DiscountFactor(rate, numberOfPayments);
-        var payment = -rate * (AmortizedValue(presentValue, futureValue, oneMinusDiscount) - futureValue);
+        var (oneMinusDiscount, growthMinusOne) = DiscountFactor(rate, numberOfPayments);
+        if (Overflows(presentValue, futureValue, oneMinusDiscount))
+            return double.NaN;
+
+        var payment = -rate * (presentValue / oneMinusDiscount + futureValue / growthMinusOne);
         return payment / (1 + rate * PaymentTiming(type));
     }
 
     /// <summary>
-    /// <c>(pv + fv) / (1 - v)</c>, the term PMT and PPMT share. Excel computes it before scaling by the
-    /// rate, so it overflows to <c>#NUM!</c> for PMT(0.05,10,9E307) and PMT(0.05,10,1000,9E307).
+    /// Excel forms <c>(pv + fv) / (1 - v)</c> before it scales by the rate, so PMT(0.05,10,9E307) and
+    /// PMT(0.05,10,1000,9E307) are <c>#NUM!</c> although the payment itself would fit in a double.
     /// </summary>
-    private static double AmortizedValue(double presentValue, double futureValue, double oneMinusDiscount)
-        => (presentValue + futureValue) / oneMinusDiscount;
+    private static bool Overflows(double presentValue, double futureValue, double oneMinusDiscount)
+        => !double.IsFinite((presentValue + futureValue) / oneMinusDiscount);
 
     /// <summary>
-    /// The discount factor <c>v = (1+rate)^-n</c> and <c>1 - v</c>, both from <c>n·ln(1+rate)</c>, so that
-    /// <c>1 - v</c> keeps its digits for a tiny rate (PMT(1E-10,10,1000) is -100.000000055) and a
-    /// growth that overflows only drives <c>v</c> to zero (PMT(0.05,1000000,1000) is -50).
+    /// <c>1 - v</c> and <c>(1+rate)^n - 1</c>, with <c>v = (1+rate)^-n</c>, both from <c>n·ln(1+rate)</c>.
+    /// They keep their digits for a tiny rate (PMT(1E-10,10,1000) is -100.000000055), and a growth that
+    /// overflows only drives a quotient to zero (PMT(0.05,1000000,1000) is -50). Dividing by them, rather
+    /// than subtracting <c>fv</c> from <c>(pv + fv) / (1 - v)</c>, keeps PMT(0.05,1000,0,1E20) from cancelling.
     /// </summary>
-    private static (double Discount, double OneMinusDiscount) DiscountFactor(double rate, double numberOfPayments)
+    private static (double OneMinusDiscount, double GrowthMinusOne) DiscountFactor(double rate, double numberOfPayments)
     {
         var logGrowth = numberOfPayments * LogOnePlus(rate);
-        return (Math.Exp(-logGrowth), -ExpMinusOne(-logGrowth));
+        return (-ExpMinusOne(-logGrowth), ExpMinusOne(logGrowth));
     }
 
     private static AnyValue Pv(double rate, double numberOfPayments, double pmt, double futureValue, double type)
@@ -163,11 +167,15 @@ internal static class Financial
         if (annuityDue && period == 1)
             return PmtInternal(rate, numberOfPayments, presentValue, futureValue, type);
 
-        // Principal grows by (1+rate) a period from the first end-of-period payment's -r(pv+fv)v/(1-v).
-        // Computed directly rather than as PMT - IPMT, which cancels: PPMT(1E15,1,10,1000) is
-        // -1E-132 and PPMT(9E307,1,10,1000) is 0. An annuity-due's later periods are a period behind.
-        var (discount, oneMinusDiscount) = DiscountFactor(rate, numberOfPayments);
-        var firstPrincipal = -AmortizedValue(presentValue, futureValue, oneMinusDiscount) * discount * rate;
+        // Principal grows by (1+rate) a period from the first end-of-period payment's
+        // -(pv+fv)·r/((1+r)^n - 1). Computed directly rather than as PMT - IPMT, which cancels:
+        // PPMT(1E15,1,10,1000) is -1E-132, PPMT(9E307,1,10,1000) is 0 and PPMT(-0.5,1,2000,1000) is -500.
+        // An annuity-due's later periods are a period behind.
+        var (oneMinusDiscount, growthMinusOne) = DiscountFactor(rate, numberOfPayments);
+        if (Overflows(presentValue, futureValue, oneMinusDiscount))
+            return XLError.NumberInvalid;
+
+        var firstPrincipal = -(presentValue + futureValue) * (rate / growthMinusOne);
         return firstPrincipal * Math.Pow(1 + rate, period - (annuityDue ? 2 : 1));
     }
 

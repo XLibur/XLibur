@@ -161,6 +161,8 @@ public class FinancialTests
     [Arguments("PMT(0.1,2,0,4)", -1.90476190476)] // No principal, but future value
     [Arguments("PMT(0,2,-1000)", 500)] // Negative principal - money is paid to us
     [Arguments("PMT(0.000001,1000,1000)", -1.00050058333321)] // Small number and high number of periods, check for stability
+    [Arguments("PMT(0.05,1000,0,1E20)", -0.003233485623802187)] // 1-v rounds to 1, so pv+fv over it must not cancel fv
+    [Arguments("PPMT(-0.5,1,2000,1000)", -500)] // (1+r)^-n overflows for a negative rate
     public async Task Pmt_EdgeCases(string formula, double expectedResult)
     {
         var actual = (double)XLWorkbook.EvaluateExpr(formula);

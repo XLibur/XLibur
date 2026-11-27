@@ -14,7 +14,7 @@ internal static class Lookup
     {
         ce.RegisterFunction("ADDRESS", 2, 5, Address, FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
         //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
-        ce.RegisterFunction("CHOOSE", 2, 254, Choose, FunctionFlags.Range, AllowRange.Except, 0); // Chooses a value from a list of values
+        ce.RegisterFunction("CHOOSE", 2, 254, Choose, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Chooses a value from a list of values
         ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the column number of a reference
         ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range, AllowRange.All); // Returns the number of columns in a reference
         //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
@@ -770,13 +770,13 @@ internal static class Lookup
 
     private static AnyValue Address(CalcContext ctx, Span<AnyValue> p)
     {
-        if (!ArgumentNumber(p[0], ctx).TryPickT0(out var rowNumber, out var rowError))
+        if (!p[0].TryReduceToNumber(ctx, out var rowNumber, out var rowError))
             return rowError;
-        if (!ArgumentNumber(p[1], ctx).TryPickT0(out var columnNumber, out var columnError))
+        if (!p[1].TryReduceToNumber(ctx, out var columnNumber, out var columnError))
             return columnError;
 
         var absNumber = 1d;
-        if (p.Length > 2 && !p[2].IsBlank && !ArgumentNumber(p[2], ctx).TryPickT0(out absNumber, out var absError))
+        if (p.Length > 2 && !p[2].IsBlank && !p[2].TryReduceToNumber(ctx, out absNumber, out var absError))
             return absError;
 
         var isA1 = true;
@@ -828,12 +828,20 @@ internal static class Lookup
     /// </summary>
     private static AnyValue Choose(CalcContext ctx, Span<AnyValue> p)
     {
-        if (!p[0].TryPickScalar(out _, out var indexCollection)
-            && indexCollection.TryPickT0(out var indexArray, out _)
-            && (indexArray.Width > 1 || indexArray.Height > 1))
-            return ChooseEach(ctx, indexArray, p[1..]);
+        if (!p[0].TryPickScalar(out _, out var indexCollection))
+        {
+            if (indexCollection.TryPickT0(out var indexArray, out var indexReference))
+            {
+                if (indexArray.Width > 1 || indexArray.Height > 1)
+                    return ChooseEach(ctx, indexArray, p[1..]);
+            }
+            else if (ctx.IsArrayCalculation && indexReference.AreaCount == 1 && indexReference[0].NumberOfCells > 1)
+            {
+                return ChooseEach(ctx, new ReferenceArray(indexReference[0], ctx), p[1..]);
+            }
+        }
 
-        if (!ArgumentNumber(p[0], ctx).TryPickT0(out var indexNumber, out var indexError))
+        if (!p[0].TryReduceToNumber(ctx, out var indexNumber, out var indexError))
             return indexError;
 
         indexNumber = Math.Truncate(indexNumber);
@@ -914,8 +922,8 @@ internal static class Lookup
     /// </summary>
     private static AnyValue LookupVectorOrArray(CalcContext ctx, Span<AnyValue> p)
     {
-        if (!p[0].TryPickScalar(out var lookupArgument, out _))
-            return XLError.IncompatibleValue;
+        if (!p[0].TryReduceToScalar(ctx, out var lookupArgument, out var argumentError))
+            return argumentError;
 
         if (!NormalizeLookupValue(lookupArgument).TryPickT0(out var lookupValue, out var lookupError))
             return lookupError;
@@ -948,18 +956,5 @@ internal static class Lookup
             return XLError.NoValueAvailable;
 
         return (result.Height == 1 ? result[0, index] : result[index, 0]).ToAnyValue();
-    }
-
-    private static OneOf<double, XLError> ArgumentNumber(in AnyValue value, CalcContext ctx)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-            return scalar.ToNumber(ctx.Culture);
-
-        if (collection.TryPickT0(out var array, out var reference))
-            return array[0, 0].ToNumber(ctx.Culture);
-
-        return reference.TryGetSingleCellValue(out var cellValue, ctx)
-            ? cellValue.ToNumber(ctx.Culture)
-            : XLError.IncompatibleValue;
     }
 }

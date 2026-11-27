@@ -1398,6 +1398,41 @@ public class LookupTests
     }
 
     [Test]
+    public async Task Choose_keeps_the_size_of_a_chosen_range_in_a_dynamic_formula()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("A3").Value = 3;
+        sheet.Cell("B1").Value = "x";
+        sheet.Cell("B2").Value = "y";
+        sheet.Cell("B3").Value = "z";
+
+        sheet.Cell("D1").SetDynamicFormulaA1("CHOOSE(1,A1:A3)");
+        sheet.Cell("F1").SetDynamicFormulaA1("CHOOSE({2,1},A1:A3,B1:B3)");
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(sheet.Cell("D3").Value).IsEqualTo(3);
+        await Assert.That(sheet.Cell("F3").Value).IsEqualTo("z");
+        await Assert.That(sheet.Cell("G3").Value).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task Lookup_reads_the_lookup_value_from_a_cell()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 2;
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+        sheet.Cell("C1").Value = "one";
+        sheet.Cell("C2").Value = "two";
+
+        await Assert.That(sheet.Evaluate("LOOKUP(A1,B1:B2,C1:C2)")).IsEqualTo("two");
+    }
+
+    [Test]
     public async Task Choose_and_Address_read_numbers_from_cell_references()
     {
         using var wb = new XLWorkbook();
