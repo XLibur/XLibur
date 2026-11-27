@@ -172,7 +172,7 @@ public class ErrorValueSavingTests
         }
 
         var xml = output.Sheet1Xml();
-        await Assert.That(xml).Contains("<x:c r=\"B1\" vm=\"1\">");
+        await Assert.That(xml).Contains("<x:c r=\"B1\" t=\"e\" vm=\"1\">");
         await Assert.That(output.ReadPart(RichDataPartName(output, RichDataWriter.RichValueStructureRelType)))
             .Contains("_webImage");
 
