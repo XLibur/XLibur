@@ -1178,10 +1178,12 @@ public partial class XLWorkbook
             .Where(e => e.Name.LocalName == "shapetype" && e.Attribute("id")?.Value == XLConstants.Comment.ShapeTypeId)
             .Remove();
 
+        // A shape of the comment shape type goes with that shape type, note or not, or it would
+        // name a type the part no longer has.
         xdoc.Root
             .Elements()
-            .Where(e => e.Name.LocalName == "shape" &&
-                        e.Attribute("type")?.Value == "#" + XLConstants.Comment.ShapeTypeId)
+            .Where(e => DrawingPartReader.IsNoteShape(e) ||
+                        (e.Name.LocalName == "shape" && e.Attribute("type")?.Value == "#" + XLConstants.Comment.ShapeTypeId))
             .Remove();
 
         vmlStream.SetLength(0);

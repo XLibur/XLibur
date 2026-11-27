@@ -112,6 +112,12 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 
     public IXLDrawingPosition Position { get; private set; } = null!;
 
+    /// <summary>
+    /// The <c>&lt;x:Anchor&gt;</c> the file gave this note, kept so a save can write it back while
+    /// nothing that places the note has changed (#953). Null for a note made in code or copied.
+    /// </summary>
+    internal LoadedNoteAnchor? LoadedAnchor { get; set; }
+
     public int ZOrder { get; set; }
 
     public IXLComment SetZOrder(int zOrder)
@@ -236,3 +242,13 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
         ShapeId = shapeId.Value;
     }
 }
+
+/// <summary>
+/// A note's anchor as the file wrote it, and the anchor the VML writer computed from the note's
+/// position, size and the grid under it just after the load. Excel places a note by its anchor,
+/// and the writer's computation does not reproduce Excel's, so a save writes <see cref="FromFile"/>
+/// for as long as the writer still computes <see cref="Computed"/>: any change that would move or
+/// resize the note in the writer's eyes (its position or size, its text when it sizes to fit, a
+/// row or column shifted or resized under it) changes the computed anchor.
+/// </summary>
+internal sealed record LoadedNoteAnchor(string FromFile, string Computed);

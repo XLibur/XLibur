@@ -61,12 +61,14 @@ internal static class RoundTripCensusAllowList
     private const string FirstPageNumber = "useFirstPageNumber is written with firstPageNumber; without one it means what no attribute means";
     private const string TwoDimensionalTable = "dtr applies only to a one-dimensional data table";
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
+    private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
 
     private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
     private const string LostASolidFillInTheSystem = "a solid fill in the system background colour (indexed 65) written as no fill when the sheet is written from the model";
     private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
+    private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
     private const string LostCommentTextRunCharsetAndIndexed = "comment text run charset and indexed colour dropped";
     private const string LostPivotCacheItemFlagsUContainsNonDate = "pivot cache item flags (u, containsNonDate) dropped";
     private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
@@ -335,6 +337,25 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:shapetype[@id=_x0000_t202]@path", CommentShape),
         new(VmlDrawing, "v:stroke", CommentShape),
         new(VmlDrawing, "v:stroke@joinstyle", CommentShape),
+        new(VmlDrawing, "v:f", ForeignNoteShape, 100),
+        new(VmlDrawing, "v:f@eqn", ForeignNoteShape, 100),
+        new(VmlDrawing, "v:formulas", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:h", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@polar", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@position", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@radiusrange", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:handles", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:path@o:connectlocs", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:path@textboxrect", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@adj", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@coordsize", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@id", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@o:spid", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@path", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@strokecolor", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@style", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@type", ForeignNoteShape, 2),
     ];
 
     private static readonly KnownLoss[] Known =
@@ -367,8 +388,17 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlComments, "xdr:row", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
         new(SpreadsheetmlComments, "xdr:rowOff", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
         new(SpreadsheetmlComments, "xdr:to", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
-        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
+        new(VmlDrawing, "v:fill@color", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:fill@detectmouseclick", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:fill@type", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@color", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@startarrow", "#953", LostForeignNoteFillAndStroke, 4),
+        new(VmlDrawing, "v:stroke@startarrowlength", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@startarrowwidth", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:wrap", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
+        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
         new(SpreadsheetmlComments, "charset", "#957", LostCommentTextRunCharsetAndIndexed, 30),
         new(SpreadsheetmlComments, "charset@val", "#957", LostCommentTextRunCharsetAndIndexed, 30),
         new(SpreadsheetmlComments, "color", "#957", LostCommentTextRunCharsetAndIndexed, 48),

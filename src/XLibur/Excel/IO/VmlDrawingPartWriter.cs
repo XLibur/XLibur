@@ -89,20 +89,15 @@ internal static class VmlDrawingPartWriter
         var rowNumber = c.Address.RowNumber;
         var columnNumber = c.Address.ColumnNumber;
 
+        // Unique per cell (workbook?), e.g.: "_x0000_s1026"
         var shapeId = string.Concat("_x0000_s", comment.ShapeId);
 
-        // When AutomaticSize is enabled, calculate dimensions that fit the text.
-        // Width stays in column-width units, height in points.
-        var effectiveWidth = comment.Style.Size.Width;
-        var effectiveHeight = comment.Style.Size.Height;
-        if (comment.Style.Alignment.AutomaticSize)
+        var (effectiveWidth, effectiveHeight) = EffectiveSize(c, comment);
+        var computed = GetAnchor(c, comment, effectiveWidth, effectiveHeight);
+        var anchor = new Anchor
         {
-            var autoHeight = EstimateAutoSizeHeight(c, effectiveWidth * 7.5, comment);
-            effectiveHeight = Math.Max(effectiveHeight, autoHeight);
-        }
-
-        // Unique per cell (workbook?), e.g.: "_x0000_s1026"
-        var anchor = GetAnchor(c, comment, effectiveWidth, effectiveHeight);
+            Text = comment.LoadedAnchor is { } loaded && loaded.Computed == computed ? loaded.FromFile : computed
+        };
         var textBox = GetTextBox(comment.Style);
         var fill = new Vml.Fill { Color2 = string.Concat("#", comment.Style.ColorsAndLines.FillColor.Color.ToHex().AsSpan(2)) };
         if (comment.Style.ColorsAndLines.FillTransparency < 1)
@@ -221,7 +216,7 @@ internal static class VmlDrawingPartWriter
     /// and a sheet saved with comments could not keep its loaded cells (#702). A line that is not
     /// materialised has the sheet's default size, which is what materialising it would give it.
     /// </remarks>
-    private static Anchor GetAnchor(XLCell cell, XLComment c, double cWidth, double cHeight)
+    private static string GetAnchor(XLCell cell, XLComment c, double cWidth, double cHeight)
     {
         var worksheet = cell.Worksheet;
 
@@ -250,15 +245,36 @@ internal static class VmlDrawingPartWriter
 
         var lrNumber = lastRow - 1;
         var lrOffset = Convert.ToInt32(RowHeight(worksheet, lastRow) - (heightFromRows - cHeight));
-        return new Anchor
-        {
-            Text = string.Concat(
-                fcNumber, ", ", fcOffset, ", ",
-                frNumber, ", ", frOffset, ", ",
-                lcNumber, ", ", lcOffset, ", ",
-                lrNumber, ", ", lrOffset
-            )
-        };
+        return string.Concat(
+            fcNumber, ", ", fcOffset, ", ",
+            frNumber, ", ", frOffset, ", ",
+            lcNumber, ", ", lcOffset, ", ",
+            lrNumber, ", ", lrOffset
+        );
+    }
+
+    /// <summary>
+    /// The anchor a save would write for the note from the model alone, for the loader to record
+    /// next to the file's anchor (see <see cref="LoadedNoteAnchor"/>).
+    /// </summary>
+    internal static string ComputeAnchor(XLCell cell, XLComment comment)
+    {
+        var (width, height) = EffectiveSize(cell, comment);
+        return GetAnchor(cell, comment, width, height);
+    }
+
+    /// <summary>
+    /// The note's size, grown to fit its text when it sizes automatically. Width stays in
+    /// column-width units, height in points.
+    /// </summary>
+    private static (double Width, double Height) EffectiveSize(XLCell cell, XLComment comment)
+    {
+        var width = comment.Style.Size.Width;
+        var height = comment.Style.Size.Height;
+        if (comment.Style.Alignment.AutomaticSize)
+            height = Math.Max(height, EstimateAutoSizeHeight(cell, width * 7.5, comment));
+
+        return (width, height);
     }
 
     private static StringValue GetCommentStyle(XLComment c, double widthInColumns, double heightPt)
