@@ -185,7 +185,7 @@ internal static class PivotTableDefinitionPartReader
         {
             var action = format.Action?.Value.ToXLibur() ?? XLPivotFormatAction.Formatting;
             var dxfStyleValue = XLStyleValue.Default;
-            string? loadedDxfXml = null;
+            (XLStyleValue, string)? loadedDxf = null;
             if (format.FormatId is not null)
             {
                 var df = differentialFormats[checked((int)format.FormatId.Value)];
@@ -196,8 +196,7 @@ internal static class PivotTableDefinitionPartReader
                 // than through a throwaway XLStyle, because the value is all this needs.
                 var key = StyleDecoder.Decode(df, XLStyle.Default.Key);
                 dxfStyleValue = XLStyleValue.FromKey(ref key);
-                if (dxfStyleValue.Equals(XLStyleValue.Default))
-                    loadedDxfXml = df.OuterXml;
+                loadedDxf = (dxfStyleValue, df.OuterXml);
             }
 
             var pivotArea = format.PivotArea ?? throw PartStructureException.ExpectedElementNotFound();
@@ -206,7 +205,7 @@ internal static class PivotTableDefinitionPartReader
             {
                 Action = action,
                 DxfStyleValue = dxfStyleValue,
-                LoadedDxfXml = loadedDxfXml,
+                LoadedDxf = loadedDxf,
             };
             xlPivotTable.AddFormat(xlFormat);
         }

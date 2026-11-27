@@ -59,14 +59,13 @@ internal static class RoundTripCensusAllowList
     private const string LegacyCellImage = "a cell image XLibur wrote before #739 is rewritten in the form Excel writes";
     private const string FirstPageNumber = "useFirstPageNumber is written with firstPageNumber; without one it means what no attribute means";
     private const string TwoDimensionalTable = "dtr applies only to a one-dimensional data table";
-    private const string ColumnDataFormat = "a table column whose data cells share one style takes that style as its data format (dataDxfId), written without the defaults the loaded dxf spelled out (#513, #961)";
+    private const string ColumnDataFormat = "a table column whose data cells share one style takes that style as its data format (dataDxfId), written from the style model: without the defaults the loaded dxf spelled out, and without readingOrder or the vertical and horizontal border sides; the loaded dxf it replaces is pruned (#513, #961)";
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
     private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
 
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
-    private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
 
@@ -115,6 +114,11 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->fill", ColumnDataFormat, 86),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->numFmt", ColumnDataFormat, 50),
         new(SpreadsheetmlTable, "tableColumn@dataDxfId->protection", ColumnDataFormat, 86),
+        new(SpreadsheetmlStyles, "alignment@readingOrder", ColumnDataFormat, 190),
+        new(SpreadsheetmlStyles, "horizontal", ColumnDataFormat, 52),
+        new(SpreadsheetmlStyles, "horizontal@style", ColumnDataFormat, 34),
+        new(SpreadsheetmlStyles, "vertical", ColumnDataFormat, 48),
+        new(SpreadsheetmlStyles, "vertical@style", ColumnDataFormat, 34),
         new(SpreadsheetmlWorksheet, "autoFilter@xr:uid", RevisionUid),
         new(SpreadsheetmlWorksheet, "dataValidation@xr:uid", RevisionUid),
         new(SpreadsheetmlWorksheet, "hyperlink@xr:uid", RevisionUid),
@@ -151,9 +155,9 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlStyles, "bottom@style", StylesPruned, 36),
         new(SpreadsheetmlStyles, "charset", StylesPruned, 6),
         new(SpreadsheetmlStyles, "charset@val", StylesPruned, 6),
-        new(SpreadsheetmlStyles, "color", StylesPruned, 226),
+        new(SpreadsheetmlStyles, "color", StylesPruned, 218),
         new(SpreadsheetmlStyles, "color@auto", StylesPruned, 8),
-        new(SpreadsheetmlStyles, "color@indexed", StylesPruned, 212),
+        new(SpreadsheetmlStyles, "color@indexed", StylesPruned, 204),
         new(SpreadsheetmlStyles, "color@theme", StylesPruned, 16),
         new(SpreadsheetmlStyles, "color@tint", StylesPruned, 2),
         new(SpreadsheetmlStyles, "dxf", StylesPruned, 1172),
@@ -370,13 +374,6 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
         new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
         new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-        new(SpreadsheetmlPivotTable, "format@dxfId->alignment", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 32),
-        new(SpreadsheetmlPivotTable, "format@dxfId->border", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 14),
-        new(SpreadsheetmlStyles, "alignment@readingOrder", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 194),
-        new(SpreadsheetmlStyles, "horizontal", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 56),
-        new(SpreadsheetmlStyles, "horizontal@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 38),
-        new(SpreadsheetmlStyles, "vertical", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 52),
-        new(SpreadsheetmlStyles, "vertical@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 38),
         new(SpreadsheetmlWorksheet, "row@customFormat", "#958", LostRowStyleCustomFormatSDroppedWhen, 100),
         new(SpreadsheetmlWorksheet, "row@s", "#958", LostRowStyleCustomFormatSDroppedWhen, 94),
         new(SpreadsheetmlWorksheet, "row@thickBot", "#959", LostRowThickBotAndThickTopDroppedWhen, 108),
