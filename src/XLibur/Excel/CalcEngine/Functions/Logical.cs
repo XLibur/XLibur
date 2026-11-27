@@ -22,32 +22,42 @@ internal static class Logical
 
     private static AnyValue And(CalcContext ctx, Span<AnyValue> args)
     {
-        var aggResult = args.Aggregate(
+        var aggResult = args.Aggregate<bool?>(
             ctx,
-            true,
+            null,
             XLError.IncompatibleValue,
-            static (acc, val) => acc && val,
-            static (v, _) =>
-            {
-                // Skip values that can't be converted, but aren't errors, like "text"
-                if (v.IsError)
-                    return v.GetError();
-                if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var _))
-                    return true;
-                return logical;
-            },
+            static (acc, val) => val is null ? acc : (acc ?? true) && val.Value,
+            ToLogicalOrSkip,
             IsLogicalNumberOrError);
 
-        if (!aggResult.TryPickT0(out var value, out var error))
-            return error;
-
-        return value;
+        return ToLogicalResult(aggResult);
     }
 
     // Collection filter for AND and OR. Elements of an array or reference are not converted from
     // text (text is skipped) and blanks in references are ignored. Errors must pass the filter so
     // the convert step returns them: in Excel an error element wins over any logical result.
     private static bool IsLogicalNumberOrError(ScalarValue v) => v.IsLogical || v.IsNumber || v.IsError;
+
+    /// <summary>
+    /// A value of AND and OR, or null for a text argument other than <c>TRUE</c> and <c>FALSE</c>,
+    /// which is skipped as text in a range is: <c>AND("x",TRUE)</c> is TRUE, and <c>OR("5")</c>,
+    /// with no value left, is <c>#VALUE!</c>.
+    /// </summary>
+    private static OneOf<bool?, XLError> ToLogicalOrSkip(ScalarValue v, CalcContext _)
+    {
+        if (v.IsError)
+            return v.GetError();
+
+        return v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var _) ? logical : null;
+    }
+
+    private static AnyValue ToLogicalResult(OneOf<bool?, XLError> aggResult)
+    {
+        if (!aggResult.TryPickT0(out var value, out var error))
+            return error;
+
+        return value is { } logical ? logical : XLError.IncompatibleValue;
+    }
 
     // FALSE() and TRUE() are zero-argument Excel functions. They are registered through Adapt as
     // method groups, so they have to stay methods; a constant cannot be converted to the delegate.
@@ -144,26 +154,15 @@ internal static class Logical
 
     private static AnyValue Or(CalcContext ctx, Span<AnyValue> args)
     {
-        var aggResult = args.Aggregate(
+        var aggResult = args.Aggregate<bool?>(
             ctx,
-            false,
+            null,
             XLError.IncompatibleValue,
-            static (acc, val) => acc || val,
-            static (v, _) =>
-            {
-                // Skip values that can't be converted, but aren't errors, like "text"
-                if (v.IsError)
-                    return v.GetError();
-                if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var _))
-                    return false;
-                return logical;
-            },
+            static (acc, val) => val is null ? acc : (acc ?? false) || val.Value,
+            ToLogicalOrSkip,
             IsLogicalNumberOrError);
 
-        if (!aggResult.TryPickT0(out var value, out var error))
-            return error;
-
-        return value;
+        return ToLogicalResult(aggResult);
     }
 
     // See the note on False(): registered as a method group, so it cannot become a constant.
