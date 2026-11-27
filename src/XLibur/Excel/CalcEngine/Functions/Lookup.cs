@@ -122,6 +122,11 @@ internal static class Lookup
         if (rowNumber > height || colNumber > width)
             return XLError.CellReference;
 
+        // One index picks a row or column only when the data is a single column or row.
+        // INDEX(A1:B3,2) is #REF!, even with an index of 0.
+        if (p.Count == 1 && width > 1 && height > 1)
+            return XLError.CellReference;
+
         return data.TryPickT0(out var area, out var array)
             ? IndexArea(area, rowNumber, colNumber)
             : IndexArray(array, rowNumber, colNumber);
@@ -607,7 +612,7 @@ internal static class Lookup
         var colNumber = 0;
         if (p.Count == 1)
         {
-            if (width == 1)
+            if (width == 1 || height > 1)
                 rowNumber = p[0];
 
             if (height == 1)
