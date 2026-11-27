@@ -427,8 +427,10 @@ internal static class Lookup
     /// </summary>
     private static OneOf<Array, XLError> ResolveRangeToArray(AnyValue rangeValue, CalcContext ctx)
     {
-        if (rangeValue.TryPickScalar(out _, out var range))
-            return XLError.NoValueAvailable;
+        // A table that is neither a reference nor an array is read as a number and never searched:
+        // HLOOKUP(2,"5",2) is #N/A, HLOOKUP(2,"x",2) is #VALUE!.
+        if (rangeValue.TryPickScalar(out var scalar, out var range))
+            return scalar.ToNumber(ctx.Culture).TryPickT0(out _, out var tableError) ? XLError.NoValueAvailable : tableError;
 
         if (!range.TryPickT0(out var array, out var reference))
         {

@@ -731,9 +731,12 @@ public class LookupTests
         // Text value can't be over 255 chars
         await Assert.That(ws.Evaluate($"=VLOOKUP(\"{new string('A', 256)}\",B2:I71,1)")).IsEqualTo(XLError.IncompatibleValue);
 
-        // Range can only be array or a reference. If other type, it returns the error #N/A
+        // A table that is not an array or a reference is read as a number, then gives #N/A.
+        // Text that is not a number is #VALUE!.
         await Assert.That(ws.Evaluate("=VLOOKUP(1,1,1)")).IsEqualTo(XLError.NoValueAvailable);
         await Assert.That(ws.Evaluate("=VLOOKUP(1,TRUE,1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,\"5\",1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,\"x\",1)")).IsEqualTo(XLError.IncompatibleValue);
 
         // If range is a non-contiguous range, #N/A
         await Assert.That(ws.Evaluate("=VLOOKUP(1,(B2:I5,B6:I10),1)")).IsEqualTo(XLError.NoValueAvailable);

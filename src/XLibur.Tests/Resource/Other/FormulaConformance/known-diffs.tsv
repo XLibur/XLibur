@@ -47,8 +47,6 @@ ERF	ERF#17	error:#NUM!	number:1	An out-of-range magnitude or count: Excel return
 ERF	ERF#32	error:#NUM!	number:0.1572992070502851	An out-of-range magnitude or count: Excel returns number:0.1572992070502851; XLibur returns #NUM!	
 ERFC	ERFC#16	error:#NUM!	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur returns #NUM!	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
-HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
