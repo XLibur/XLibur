@@ -36,9 +36,6 @@ DDB	DDB#47	number:0.0019999999999527063	number:0.002	Last digits differ: Excel n
 DDB	DDB#74	number:1.0000007932831068E-08	number:1E-08	Excel returns number:1E-08; XLibur returns number:1.0000007932831068E-08	
 DDB	DDB#76	number:900	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:900	
 EFFECT	EFFECT#31	number:0.05127109497591076	number:0.0512710949426225	Last digits differ: Excel number:0.0512710949426225, XLibur number:0.05127109497591076	
-ERF	ERF#17	error:#NUM!	number:1	An out-of-range magnitude or count: Excel returns number:1; XLibur returns #NUM!	
-ERF	ERF#32	error:#NUM!	number:0.1572992070502851	An out-of-range magnitude or count: Excel returns number:0.1572992070502851; XLibur returns #NUM!	
-ERFC	ERFC#16	error:#NUM!	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur returns #NUM!	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
