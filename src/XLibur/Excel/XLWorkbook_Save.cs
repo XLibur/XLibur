@@ -403,7 +403,9 @@ public partial class XLWorkbook
                 GeneratePivotTables(workbookPart, worksheetPart, worksheet, context);
         }
 
-        if (context.FormulaWrittenWithoutValue)
+        // A formula still dirty here was saved with no cached value, whether its sheet was written
+        // or kept from the last save.
+        if (orderedWorksheets.Exists(static ws => ws.Internals.CellsCollection.FormulaSlice.HasDirtyFormula()))
             WorkbookPartWriter.RequestFullCalculationOnLoad(workbookPart);
 
         // After the worksheets: the writer numbers an error as it writes the cell.

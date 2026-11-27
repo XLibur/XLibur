@@ -54,12 +54,6 @@ public partial class XLWorkbook
         public bool FormulasRecalculated { get; set; }
 
         /// <summary>
-        /// Whether a sheet of this save wrote a formula with no cached value, which Excel must
-        /// recalculate when it opens the file (ADR 0001, #1028).
-        /// </summary>
-        public bool FormulaWrittenWithoutValue { get; set; }
-
-        /// <summary>
         /// The id each pivot cache is written under, assigned while the <c>pivotCaches</c>
         /// element of workbook.xml is rebuilt and read back when each pivot table part writes
         /// its <c>cacheId</c> attribute. The id is a position in that rebuilt element, so it

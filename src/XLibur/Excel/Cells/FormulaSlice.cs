@@ -170,6 +170,18 @@ internal sealed class FormulaSlice : ISlice
         return new Slice<XLCellFormula>.Enumerator(_formulas!, range);
     }
 
+    internal bool HasDirtyFormula()
+    {
+        using var enumerator = GetForwardEnumerator(Area.Full);
+        while (enumerator.MoveNext())
+        {
+            if (enumerator.Current.IsDirty())
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Mark all formulas in a range as explicitly dirty.
     /// </summary>

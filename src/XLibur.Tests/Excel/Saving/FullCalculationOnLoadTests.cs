@@ -81,6 +81,31 @@ public class FullCalculationOnLoadTests
         await Assert.That(FullCalculationOnLoad(stream)).IsTrue();
     }
 
+    /// <summary>
+    /// A second save keeps the sheet the first one wrote, so no formula is written again, yet the
+    /// formula still has no cached value.
+    /// </summary>
+    [Test]
+    public async Task A_second_save_that_keeps_the_sheet_still_marks_the_workbook_for_recalculation()
+    {
+        using var package = new MemoryStream();
+        using (var created = new XLWorkbook())
+        {
+            created.AddWorksheet("Sheet1").Cell("B1").Value = 1;
+            created.SaveAs(package);
+        }
+
+        using (var wb = new XLWorkbook(package))
+        {
+            wb.Worksheet(1).Cell("A1").FormulaA1 = Unevaluable;
+            wb.Save();
+            await Assert.That(FullCalculationOnLoad(package)).IsTrue();
+            wb.Save();
+        }
+
+        await Assert.That(FullCalculationOnLoad(package)).IsTrue();
+    }
+
     private static bool FullCalculationOnLoad(Stream package)
     {
         package.Position = 0;
