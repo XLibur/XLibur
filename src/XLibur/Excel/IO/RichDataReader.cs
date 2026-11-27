@@ -45,9 +45,7 @@ internal static class RichDataReader
         // 3. Parse metadata.xml to map vm (1-based) -> rv index (0-based). An error is read whatever
         // else the rich data holds: the cell says #VALUE!, and its rich value names the error.
         var vmToRvIndex = ParseValueMetadata(workbookPart);
-        var richValueErrors = MapValueMetadataToErrors(vmToRvIndex, richValues);
-        if (richValueErrors.Count > 0)
-            context.RichValueErrors = richValueErrors;
+        workbook.ErrorRichValues = MapValueMetadataToErrors(vmToRvIndex, richValues);
 
         // 4. Parse richValueRel to get image relationship IDs in order
         var imageRelIds = richValueRelPart is null ? [] : ParseRichValueRel(richValueRelPart);
@@ -139,11 +137,11 @@ internal static class RichDataReader
                richValueRelPart.TryGetPartById(imageRelIds[value.RelIndex], out _);
     }
 
-    /// <summary>The error each vm (1-based) whose rich value is an error names.</summary>
-    private static Dictionary<uint, XLError> MapValueMetadataToErrors(Dictionary<uint, int> vmToRvIndex,
+    /// <summary>The rich value of each vm (1-based) whose rich value is an error.</summary>
+    private static Dictionary<uint, ErrorRichValue> MapValueMetadataToErrors(Dictionary<uint, int> vmToRvIndex,
         List<LoadedRichValue?> richValues)
     {
-        var errors = new Dictionary<uint, XLError>();
+        var errors = new Dictionary<uint, ErrorRichValue>();
         foreach (var (vm, rvIndex) in vmToRvIndex)
         {
             if (rvIndex >= 0 && rvIndex < richValues.Count && richValues[rvIndex] is { Error: { } error })
@@ -171,15 +169,17 @@ internal static class RichDataReader
     /// <param name="RelKey">Position of the image's index into richValueRel.xml, or -1 for an error.</param>
     /// <param name="TextKey">Position of the alt text, or -1 if the structure has none.</param>
     /// <param name="ErrorTypeKey">Position of an error's <c>errorType</c>, or -1 for an image.</param>
-    private readonly record struct StructureLayout(int RelKey, int TextKey, int ErrorTypeKey);
+    /// <param name="ErrorKeys">An error's keys, in order, or null for an image.</param>
+    private readonly record struct StructureLayout(int RelKey, int TextKey, int ErrorTypeKey,
+        IReadOnlyList<ErrorRichValueKey>? ErrorKeys = null);
 
     /// <summary>
     /// A rich value XLibur reads: a local image, or an error.
     /// </summary>
     /// <param name="RelIndex">The image's index into richValueRel.xml.</param>
     /// <param name="AltText">The image's alt text.</param>
-    /// <param name="Error">The error, or null for an image.</param>
-    private readonly record struct LoadedRichValue(int RelIndex, string AltText, XLError? Error);
+    /// <param name="Error">The error's rich value, or null for an image.</param>
+    private readonly record struct LoadedRichValue(int RelIndex, string AltText, ErrorRichValue? Error);
 
     /// <summary>
     /// Find every _localImage and _error structure in rdrichvaluestructure.xml, by 0-based structure
@@ -213,20 +213,16 @@ internal static class RichDataReader
 
     private static StructureLayout? ReadErrorLayout(XmlReader reader)
     {
-        var keyIndex = 0;
+        var keys = new List<ErrorRichValueKey>();
         using var structureReader = reader.ReadSubtree();
         while (structureReader.Read())
         {
-            if (structureReader.NodeType != XmlNodeType.Element || structureReader.LocalName != "k")
-                continue;
-
-            if (structureReader.GetAttribute("n") == RichDataWriter.ErrorTypeKey)
-                return new StructureLayout(-1, -1, keyIndex);
-
-            keyIndex++;
+            if (structureReader.NodeType == XmlNodeType.Element && structureReader.LocalName == "k")
+                keys.Add(new ErrorRichValueKey(structureReader.GetAttribute("n") ?? string.Empty, structureReader.GetAttribute("t")));
         }
 
-        return null;
+        var errorTypeKey = keys.FindIndex(k => k.Name == RichDataWriter.ErrorTypeKey);
+        return errorTypeKey >= 0 ? new StructureLayout(-1, -1, errorTypeKey, keys) : null;
     }
 
     private static StructureLayout? ReadLocalImageLayout(XmlReader reader)
@@ -343,7 +339,7 @@ internal static class RichDataReader
 
     /// <summary>
     /// An error, by its <c>errorType</c>, which [MS-XLSX] 2.3.6.1.3 numbers as <see cref="XLError"/> is
-    /// numbered. An error type XLibur does not know is not read.
+    /// numbered, with every key and value of its rich value. An error type XLibur does not know is not read.
     /// </summary>
     private static LoadedRichValue? ReadError(List<string> values, StructureLayout layout)
     {
@@ -352,7 +348,7 @@ internal static class RichDataReader
             !Enum.IsDefined((XLError)errorType))
             return null;
 
-        return new LoadedRichValue(-1, string.Empty, (XLError)errorType);
+        return new LoadedRichValue(-1, string.Empty, new ErrorRichValue((XLError)errorType, layout.ErrorKeys!, values));
     }
 
     /// <summary>

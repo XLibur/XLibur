@@ -404,7 +404,15 @@ public partial class XLWorkbook
         }
 
         // After the worksheets: the writer numbers an error as it writes the cell.
-        context.RichValues?.Write(InCellImages);
+        if (context.RichValues is { } richValues)
+        {
+            richValues.Write(InCellImages);
+
+            // The next save reads a cell's error rich value by the index this one gave it. Kept rich
+            // data keeps its indexes, and each cell its own.
+            if (!KeepsLoadedRichData)
+                ErrorRichValues = richValues.ErrorsByIndex;
+        }
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
@@ -813,7 +821,7 @@ public partial class XLWorkbook
 
         // Rich data XLibur does not know is kept as loaded, and so is each cell's vm index; a new
         // error's rich value is added after the kept ones.
-        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData);
+        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData, ErrorRichValues);
         context.RichValues = plan;
         if (KeepsLoadedRichData)
             return;
@@ -824,16 +832,18 @@ public partial class XLWorkbook
             var (cell, image) = cellsWithImages[i];
             cell.ValueMetaIndex = plan.AddImage(new RichDataWriter.RichValueEntry(image.WorkbookImageIndex, image.AltText));
 
-            // The rv index as a number. It is the save's own bookkeeping, not an edit, so it is
-            // written to the value slice directly: the cell's setter marks formulas dirty, and a
-            // formula whose precedents are unknown then lost its cached value on every save.
-            // A cell that already holds it is left alone, as the setter of ValueMetaIndex leaves
-            // an index that does not move: a sheet whose cells this save does not change can then
-            // keep them as the file had them (#702, #721).
+            // #VALUE!, as Excel writes an image cell and reads it over COM; the index of its rich
+            // value, written before, was a 0 to a reader that does not know in-cell images (#960).
+            // It is the save's own bookkeeping, not an edit, so it is written to the value slice
+            // directly: the cell's setter marks formulas dirty, and a formula whose precedents are
+            // unknown then lost its cached value on every save. A cell that already holds it is
+            // left alone, as the setter of ValueMetaIndex leaves an index that does not move: a
+            // sheet whose cells this save does not change can then keep them as the file had them
+            // (#702, #721).
             var values = cell.Worksheet.Internals.CellsCollection.ValueSlice;
-            XLCellValue richValueIndex = (double)i;
-            if (!values.GetCellValue(cell.SheetPoint).Equals(richValueIndex))
-                values.SetCellValue(cell.SheetPoint, richValueIndex);
+            XLCellValue imageValue = XLError.IncompatibleValue;
+            if (!values.GetCellValue(cell.SheetPoint).Equals(imageValue))
+                values.SetCellValue(cell.SheetPoint, imageValue);
         }
 
         plan.NumberCellsWithIndexes(WorksheetsInternal.Cast<XLWorksheet>());
