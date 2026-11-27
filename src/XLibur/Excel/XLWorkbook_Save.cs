@@ -404,7 +404,15 @@ public partial class XLWorkbook
         }
 
         // After the worksheets: the writer numbers an error as it writes the cell.
-        context.RichValues?.Write(InCellImages);
+        if (context.RichValues is { } richValues)
+        {
+            richValues.Write(InCellImages);
+
+            // The next save reads a cell's error rich value by the index this one gave it. Kept rich
+            // data keeps its indexes, and each cell its own.
+            if (!KeepsLoadedRichData)
+                ErrorRichValues = richValues.ErrorsByIndex;
+        }
 
         GenerateSupplementaryParts(document, workbookPart, options, context);
 
@@ -813,7 +821,7 @@ public partial class XLWorkbook
 
         // Rich data XLibur does not know is kept as loaded, and so is each cell's vm index; a new
         // error's rich value is added after the kept ones.
-        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData);
+        var plan = new RichValuePlan(workbookPart, context, KeepsLoadedRichData, ErrorRichValues);
         context.RichValues = plan;
         if (KeepsLoadedRichData)
             return;

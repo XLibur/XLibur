@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -82,13 +83,13 @@ internal static class RichDataWriter
     /// <param name="workbookPart">Workbook part to add extended parts to.</param>
     /// <param name="imageStore">Workbook-level image blob store.</param>
     /// <param name="entries">One entry per cell with an in-cell image.</param>
-    /// <param name="errors">One entry per error newer than Excel 2007 that a cell holds.</param>
+    /// <param name="errors">The rich values of the errors cells hold, each once.</param>
     /// <param name="relIdGenerator">Generator for unique relationship IDs.</param>
     internal static void WriteRichDataParts(
         WorkbookPart workbookPart,
         XLInCellImageStore imageStore,
         IReadOnlyList<RichValueEntry> entries,
-        IReadOnlyList<XLError> errors,
+        IReadOnlyList<ErrorRichValue> errors,
         XLWorkbook.RelIdGenerator relIdGenerator)
     {
         // Collect unique image indices in order of first appearance
@@ -134,13 +135,26 @@ internal static class RichDataWriter
         var richValuePart = workbookPart.AddExtendedPart(
             RichValueRelType, RichValueContentType,
             ".xml", relIdGenerator.GetNext(XLWorkbook.RelType.Workbook));
-        WriteRichValueXml(richValuePart, entries, errors, imageIndexToRelIndex);
+        // An error's structure is one per set of keys, after the image's, as Excel writes them.
+        var errorStructures = new List<IReadOnlyList<ErrorRichValueKey>>();
+        var errorStructureIndexes = errors.Select(error =>
+        {
+            var index = errorStructures.FindIndex(keys => keys.SequenceEqual(error.Keys));
+            if (index < 0)
+            {
+                index = errorStructures.Count;
+                errorStructures.Add(error.Keys);
+            }
+
+            return index + (entries.Count > 0 ? 1 : 0);
+        }).ToList();
+        WriteRichValueXml(richValuePart, entries, errors, errorStructureIndexes, imageIndexToRelIndex);
 
         // 3. rdrichvaluestructure.xml
         var richValueStructurePart = workbookPart.AddExtendedPart(
             RichValueStructureRelType, RichValueStructureContentType,
             ".xml", relIdGenerator.GetNext(XLWorkbook.RelType.Workbook));
-        WriteRichValueStructureXml(richValueStructurePart, entries.Count > 0, errors.Count > 0);
+        WriteRichValueStructureXml(richValueStructurePart, entries.Count > 0, errorStructures);
 
         // 4. rdRichValueTypes.xml
         var richValueTypesPart = workbookPart.AddExtendedPart(
@@ -202,7 +216,7 @@ internal static class RichDataWriter
 
     /// <summary>
     /// rdrichvalue.xml - one rv entry per cell with in-cell image, then one per error. An error is
-    /// its <c>errorType</c>, in the <c>_error</c> structure, which follows the image's when there is one.
+    /// the value of each key of its <c>_error</c> structure, at <paramref name="errorStructureIndexes"/>.
     /// <code>
     /// &lt;rvData xmlns="..." count="N"&gt;
     ///   &lt;rv s="0"&gt;
@@ -218,7 +232,8 @@ internal static class RichDataWriter
     private static void WriteRichValueXml(
         OpenXmlPart part,
         IReadOnlyList<RichValueEntry> entries,
-        IReadOnlyList<XLError> errors,
+        IReadOnlyList<ErrorRichValue> errors,
+        IReadOnlyList<int> errorStructureIndexes,
         Dictionary<int, int> imageIndexToRelIndex)
     {
         using var w = PartXmlWriter.Create(part);
@@ -245,12 +260,12 @@ internal static class RichDataWriter
             w.WriteEndElement(); // rv
         }
 
-        var errorStructure = (entries.Count > 0 ? 1 : 0).ToString(CultureInfo.InvariantCulture);
-        foreach (var error in errors)
+        for (var i = 0; i < errors.Count; i++)
         {
             w.WriteStartElement("rv", OpenXmlConst.RichDataNs);
-            w.WriteAttributeString("s", errorStructure);
-            w.WriteElementString("v", OpenXmlConst.RichDataNs, ((int)error).ToString(CultureInfo.InvariantCulture));
+            w.WriteAttributeString("s", errorStructureIndexes[i].ToString(CultureInfo.InvariantCulture));
+            foreach (var value in errors[i].Values)
+                w.WriteElementString("v", OpenXmlConst.RichDataNs, value);
             w.WriteEndElement(); // rv
         }
 
@@ -258,7 +273,7 @@ internal static class RichDataWriter
     }
 
     /// <summary>
-    /// rdrichvaluestructure.xml - defines the _localImage structure schema, and the _error one.
+    /// rdrichvaluestructure.xml - defines the _localImage structure schema, and an _error one per set of keys.
     /// Unlike the types part, it is in the <c>richdata</c> namespace, as the rich values are.
     /// <code>
     /// &lt;rvStructures xmlns="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata" count="2"&gt;
@@ -269,13 +284,14 @@ internal static class RichDataWriter
     /// &lt;/rvStructures&gt;
     /// </code>
     /// </summary>
-    private static void WriteRichValueStructureXml(OpenXmlPart part, bool hasImages, bool hasErrors)
+    private static void WriteRichValueStructureXml(OpenXmlPart part, bool hasImages,
+        IReadOnlyList<IReadOnlyList<ErrorRichValueKey>> errorStructures)
     {
         using var w = PartXmlWriter.Create(part);
 
         w.WriteStartDocument(true);
         w.WriteStartElement("rvStructures", OpenXmlConst.RichDataNs);
-        w.WriteAttributeString("count", ((hasImages ? 1 : 0) + (hasErrors ? 1 : 0)).ToString(CultureInfo.InvariantCulture));
+        w.WriteAttributeString("count", ((hasImages ? 1 : 0) + errorStructures.Count).ToString(CultureInfo.InvariantCulture));
 
         if (hasImages)
         {
@@ -292,22 +308,24 @@ internal static class RichDataWriter
             w.WriteEndElement(); // s
         }
 
-        if (hasErrors)
+        foreach (var keys in errorStructures)
         {
             w.WriteStartElement("s", OpenXmlConst.RichDataNs);
             w.WriteAttributeString("t", ErrorStructureType);
-            WriteStructureKey(w, ErrorTypeKey, "i");
+            foreach (var key in keys)
+                WriteStructureKey(w, key.Name, key.Type);
             w.WriteEndElement(); // s
         }
 
         w.WriteEndElement(); // rvStructures
     }
 
-    private static void WriteStructureKey(XmlWriter w, string name, string type)
+    private static void WriteStructureKey(XmlWriter w, string name, string? type)
     {
         w.WriteStartElement("k", OpenXmlConst.RichDataNs);
         w.WriteAttributeString("n", name);
-        w.WriteAttributeString("t", type);
+        if (type is not null)
+            w.WriteAttributeString("t", type);
         w.WriteEndElement(); // k
     }
 
