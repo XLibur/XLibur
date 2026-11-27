@@ -2104,6 +2104,13 @@ public class MathTrigTests
         await Assert.That(XLWorkbook.EvaluateExpr("ROMAN(999)")).IsEqualTo("CMXCIX");
     }
 
+    /// <summary>Excel documents a logical form: TRUE is classic (form 0) and FALSE is simplified (form 4).</summary>
+    [Test]
+    public async Task Roman_false_form_is_the_simplified_form_4()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("ROMAN(1999, FALSE)")).IsEqualTo("MIM");
+    }
+
     [Test]
     public async Task Roman_form_must_be_between_0_and_4()
     {

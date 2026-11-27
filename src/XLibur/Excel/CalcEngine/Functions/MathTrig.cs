@@ -97,7 +97,7 @@ internal static class MathTrig
         ce.RegisterFunction("RADIANS", 1, 1, Adapt(Radians), FunctionFlags.Scalar);
         ce.RegisterFunction("RAND", 0, 0, Adapt(Rand), FunctionFlags.Scalar | FunctionFlags.Volatile);
         ce.RegisterFunction("RANDBETWEEN", 2, 2, Adapt(RandBetween), FunctionFlags.Scalar | FunctionFlags.Volatile);
-        ce.RegisterFunction("ROMAN", 1, 2, AdaptLastOptional(Roman, 0), FunctionFlags.Scalar);
+        ce.RegisterFunction("ROMAN", 1, 2, AdaptLastOptional(Roman), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUND", 2, 2, Adapt(Round), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUNDDOWN", 2, 2, Adapt(RoundDown), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUNDUP", 2, 2, Adapt(RoundUp), FunctionFlags.Scalar);
@@ -983,15 +983,29 @@ internal static class MathTrig
         return lowerBound + Math.Round(Random.Shared.NextDouble() * range, MidpointRounding.AwayFromZero);
     }
 
-    private static ScalarValue Roman(CalcContext ctx, double number, double formValue)
+    /// <summary>
+    /// <c>ROMAN(number, [form])</c>. The form is a number from 0 (classic) to 4 (simplified), or a
+    /// logical: TRUE is the classic form 0 and FALSE the simplified form 4, so <c>ROMAN(1999,TRUE)</c>
+    /// is MCMXCIX, not form 1.
+    /// </summary>
+    private static ScalarValue Roman(CalcContext ctx, ScalarValue numberValue, ScalarValue formValue)
     {
+        if (!numberValue.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+            return numberError;
+
+        double formNumber;
+        if (formValue.TryPickLogical(out var classic))
+            formNumber = classic ? 0 : 4;
+        else if (!formValue.ToNumber(ctx.Culture).TryPickT0(out formNumber, out var formError))
+            return formError;
+
         if (number == 0)
             return string.Empty;
 
         if (number is < 0 or > 3999)
             return XLError.IncompatibleValue;
 
-        var form = (int)Math.Truncate(formValue);
+        var form = (int)Math.Truncate(formNumber);
         if (form is < 0 or > 4)
             return XLError.IncompatibleValue;
 
