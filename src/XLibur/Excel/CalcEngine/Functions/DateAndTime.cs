@@ -910,30 +910,65 @@ internal static class DateAndTime
         if (basis is < 0 or >= 5)
             return XLError.NumberInvalid;
 
+        // The order of the dates does not matter: YEARFRAC(2958465,44197) is 7979, as YEARFRAC(44197,2958465) is.
+        if (startDate > endDate)
+            (startDate, endDate) = (endDate, startDate);
+
         var option = checked((int)Math.Truncate(basis));
-        var yearFrac = option switch
+        return option switch
         {
-            0 => Days360(ctx, startDate, endDate, false) / 360.0,                 // US 30/360
-            1 => (endDate - startDate) / GetYearAverage(ctx, startDate, endDate), // Actual/Actual
+            0 => UsDays360(DateParts.From(ctx, startDate), DateParts.From(ctx, endDate)) / 360.0, // US 30/360
+            1 => (endDate - startDate) / ActualYearLength(DateParts.From(ctx, startDate), DateParts.From(ctx, endDate)), // Actual/Actual
             2 => (endDate - startDate) / 360.0,                                   // Actual/360
             3 => (endDate - startDate) / 365.0,                                   // Actual/365
             _ => Days360(ctx, startDate, endDate, true) / 360.0,                  // EU 30/360
         };
 
-        return Math.Abs(yearFrac);
-
-        static double GetYearAverage(CalcContext ctx, int startDate, int endDate)
+        // YEARFRAC's US 30/360 is not the DAYS360 rule. A 31st start becomes the 30th, and a 31st end
+        // becomes the 30th only after a start on the 30th or 31st. The last day of February counts as
+        // the 30th for a start, and for an end that follows a start on the last day of February.
+        // February's last day follows the Gregorian calendar, so 1900-02-29 (serial 60) stays the 29th,
+        // where DAYS360 makes it the 30th.
+        static int UsDays360(DateParts start, DateParts end)
         {
-            var startYear = DateParts.From(ctx, startDate).Year;
-            var endYear = DateParts.From(ctx, endDate).Year;
+            var (startDay, endDay) = (start.Day, end.Day);
+            if (startDay == 31 && endDay == 31)
+                (startDay, endDay) = (30, 30);
+            else if (startDay == 31)
+                startDay = 30;
+            else if (startDay == 30 && endDay == 31)
+                endDay = 30;
+            else if (start.IsLastDayOfFebruary() && end.IsLastDayOfFebruary())
+                (startDay, endDay) = (30, 30);
+            else if (start.IsLastDayOfFebruary())
+                startDay = 30;
+
+            return 360 * (end.Year - start.Year) + 30 * (end.Month - start.Month) + (endDay - startDay);
+        }
+
+        // Actual/actual: dates no more than a year apart divide by 366 when the span takes in a
+        // 29 February and by 365 otherwise. Dates further apart divide by the average length of the
+        // calendar years they touch.
+        static double ActualYearLength(DateParts start, DateParts end)
+        {
+            var withinAYear = start.Year == end.Year
+                              || (start.Year + 1 == end.Year && (start.Month, start.Day).CompareTo((end.Month, end.Day)) >= 0);
+            if (withinAYear)
+            {
+                var takesInLeapDay = (DateTime.IsLeapYear(start.Year) && start.Month <= 2)
+                                     || (DateTime.IsLeapYear(end.Year) && end.Month >= 3)
+                                     || end is { Month: 2, Day: 29 };
+                return takesInLeapDay ? 366 : 365;
+            }
+
             var totalDays = 0;
-            for (var year = startYear; year <= endYear; year++)
+            for (var year = start.Year; year <= end.Year; year++)
             {
                 // For purposes of average year, 1900 is not counted as a leap year
                 totalDays += DateTime.IsLeapYear(year) ? 366 : 365;
             }
 
-            return totalDays / (double)(endYear - startYear + 1);
+            return totalDays / (double)(end.Year - start.Year + 1);
         }
     }
 
@@ -1082,6 +1117,9 @@ internal static class DateAndTime
 
             return Day == DateTime.DaysInMonth(Year, Month);
         }
+
+        /// <summary>The 28th or 29th of February by the Gregorian calendar, which has no 1900-02-29.</summary>
+        internal bool IsLastDayOfFebruary() => Month == 2 && Day == DaysInMonth(Year, 2);
 
         internal DateParts AddMonths(int months)
         {
