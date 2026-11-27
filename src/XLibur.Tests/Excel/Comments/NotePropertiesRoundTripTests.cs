@@ -74,6 +74,48 @@ public class NotePropertiesRoundTripTests
         await Assert.That(saved).IsEmpty();
     }
 
+    [Test]
+    public async Task A_note_keeps_its_text_box_alignment()
+    {
+        var saved = ReadNoteShapes(Save(@"TryToLoad\CommentAndButton.xlsx", _ => { }));
+
+        await Assert.That(saved).Count().IsEqualTo(1);
+        await Assert.That(TextBoxDivStyle(saved[0])).IsEqualTo("text-align:right");
+    }
+
+    [Test]
+    [Arguments(XLDrawingHorizontalAlignment.Left, "text-align:left")]
+    [Arguments(XLDrawingHorizontalAlignment.Center, "text-align:center")]
+    [Arguments(XLDrawingHorizontalAlignment.Justify, "text-align:justify")]
+    public async Task A_new_note_states_its_alignment_in_its_text_box(XLDrawingHorizontalAlignment alignment, string style)
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var note = wb.AddWorksheet().Cell("B2").GetComment();
+            note.AddText("note");
+            note.Style.Alignment.SetHorizontal(alignment);
+            wb.SaveAs(saved);
+        }
+
+        var shapes = ReadNoteShapes(saved);
+
+        await Assert.That(shapes).Count().IsEqualTo(1);
+        await Assert.That(TextBoxDivStyle(shapes[0])).IsEqualTo(style);
+    }
+
+    private static readonly XNamespace Vml = "urn:schemas-microsoft-com:vml";
+    private static readonly XNamespace ExcelVml = "urn:schemas-microsoft-com:office:excel";
+
+    private static List<XElement> ReadNoteShapes(MemoryStream ms) =>
+        ReadParts<VmlDrawingPart>(ms)
+            .SelectMany(d => d.Descendants(Vml + "shape"))
+            .Where(s => s.Element(ExcelVml + "ClientData")?.Attribute("ObjectType")?.Value == "Note")
+            .ToList();
+
+    private static string? TextBoxDivStyle(XElement shape) =>
+        shape.Element(Vml + "textbox")?.Elements().SingleOrDefault(e => e.Name.LocalName == "div")?.Attribute("style")?.Value;
+
     private static MemoryStream Load(string fixture)
     {
         var ms = new MemoryStream();
