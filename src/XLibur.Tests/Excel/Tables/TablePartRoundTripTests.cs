@@ -153,6 +153,47 @@ public class TablePartRoundTripTests
     }
 
     [Test]
+    public async Task A_save_keeps_the_data_format_of_a_column_whose_cells_differ_in_style()
+    {
+        using var source = TestHelper.OpenResource(ImageReference);
+        var before = TableXmls(source).SelectMany(t => ColumnsOf(t).Select(c => (Table: t.Attribute("displayName")!.Value, Column: c)))
+            .Where(x => x.Column.Attribute("dataDxfId") is not null)
+            .ToArray();
+
+        using var saved = source.LoadAndSave();
+
+        await Assert.That(before.Length).IsEqualTo(4);
+        foreach (var (table, column) in before)
+        {
+            var name = column.Attribute("name")!.Value;
+            var dxfId = Column(TableXml(saved, table), name).Attribute("dataDxfId")?.Value;
+            await Assert.That(dxfId).IsNotNull().Because($"{table}[{name}] must keep its data format");
+            await Assert.That(Dxf(saved, dxfId!)).IsEqualTo(Dxf(source, column.Attribute("dataDxfId")!.Value));
+        }
+    }
+
+    [Test]
+    public async Task A_column_whose_cells_share_a_style_takes_that_style_as_its_data_format()
+    {
+        using var source = TestHelper.OpenResource(ImageReference);
+        var (tableName, columnName, loadedDxfId) = TableXmls(source)
+            .SelectMany(t => ColumnsOf(t).Select(c => (t.Attribute("displayName")!.Value, c.Attribute("name")!.Value, c.Attribute("dataDxfId")?.Value)))
+            .First(x => x.Item3 is not null);
+
+        using var saved = source.LoadAndSave(wb =>
+        {
+            var cells = wb.Table(tableName).Field(columnName).DataCells;
+            cells.Style = XLWorkbook.DefaultStyle;
+            cells.Style.Fill.SetBackgroundColor(XLColor.Red);
+        });
+
+        var dxfId = Column(TableXml(saved, tableName), columnName).Attribute("dataDxfId")?.Value;
+        await Assert.That(dxfId).IsNotNull();
+        await Assert.That(Dxf(saved, dxfId!)).IsNotEqualTo(Dxf(source, loadedDxfId!))
+            .Because("A style every data cell of the column shares is the model's format and replaces the loaded one.");
+    }
+
+    [Test]
     public async Task A_save_keeps_the_header_format_of_a_table_slicer_fixture()
     {
         using var source = TestHelper.OpenResource(Slicers);
