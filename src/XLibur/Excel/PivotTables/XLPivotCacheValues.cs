@@ -255,18 +255,18 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
         _longText = _longText || text.Length > 255;
     }
 
-    private void AdjustStatsForBooleanOrError()
-    {
-        // [MS-OI29500]: In Office, boolean and error are considered strings in the context of the containsString attribute.
-        _containsString = true;
-        _containsNonDate = true;
-    }
-
     private void AdjustStats(DateTime dateTime)
     {
         _containsDate = true;
         var dateTicks = dateTime.Ticks;
         _minDateTicks = _minDateTicks is null ? dateTicks : Math.Min(_minDateTicks.Value, dateTicks);
         _maxDateTicks = _maxDateTicks is null ? dateTicks : Math.Max(_maxDateTicks.Value, dateTicks);
+    }
+
+    private void AdjustStatsForBooleanOrError()
+    {
+        // [MS-OI29500]: In Office, boolean and error are considered strings in the context of the containsString attribute.
+        _containsString = true;
+        _containsNonDate = true;
     }
 }
