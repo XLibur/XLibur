@@ -69,17 +69,16 @@ internal static class Financial
 
     private static AnyValue Ipmt(double rate, double period, double numberOfPayments, double presentValue, double futureValue, double type)
     {
-        if (numberOfPayments <= 0 || rate <= -1)
-            return XLError.NumberInvalid;
-
-        numberOfPayments = Math.Ceiling(numberOfPayments);
-
-        if (period < 1 || period > numberOfPayments)
+        if (!IsPaymentPeriod(rate, period, numberOfPayments))
             return XLError.NumberInvalid;
 
         // InterestOfPeriod ignores the future value; the payment passed in carries it.
-        return InterestOfPeriod(rate, period, presentValue, type, PmtInternal(rate, numberOfPayments, presentValue, futureValue, type));
+        return InterestOfPeriod(rate, period, presentValue, type, PmtInternal(rate, Math.Ceiling(numberOfPayments), presentValue, futureValue, type));
     }
+
+    /// <summary>IPMT and PPMT accept a period from 1 to the number of payments rounded up.</summary>
+    private static bool IsPaymentPeriod(double rate, double period, double numberOfPayments)
+        => numberOfPayments > 0 && rate > -1 && period >= 1 && period <= Math.Ceiling(numberOfPayments);
 
     private static AnyValue Pmt(double rate, double numberOfPayments, double presentValue, double futureValue, double type)
     {
@@ -94,12 +93,27 @@ internal static class Financial
         if (rate == 0.0)
             return -(presentValue + futureValue) / numberOfPayments;
 
-        const int paymentAtTheEndOfPeriod = 0;
-        const int paymentAtTheBeginningOfPeriod = 1;
-        var timingOffset = type != 0.0 ? paymentAtTheBeginningOfPeriod : paymentAtTheEndOfPeriod;
+        var (_, oneMinusDiscount) = DiscountFactor(rate, numberOfPayments);
+        var payment = -rate * (AmortizedValue(presentValue, futureValue, oneMinusDiscount) - futureValue);
+        return payment / (1 + rate * PaymentTiming(type));
+    }
 
-        return (-futureValue - presentValue * Math.Pow(1.0 + rate, numberOfPayments)) /
-               (1 + rate * timingOffset) / ((Math.Pow(1.0 + rate, numberOfPayments) - 1) / rate);
+    /// <summary>
+    /// <c>(pv + fv) / (1 - v)</c>, the term PMT and PPMT share. Excel computes it before scaling by the
+    /// rate, so it overflows to <c>#NUM!</c> for PMT(0.05,10,9E307) and PMT(0.05,10,1000,9E307).
+    /// </summary>
+    private static double AmortizedValue(double presentValue, double futureValue, double oneMinusDiscount)
+        => (presentValue + futureValue) / oneMinusDiscount;
+
+    /// <summary>
+    /// The discount factor <c>v = (1+rate)^-n</c> and <c>1 - v</c>, both from <c>n·ln(1+rate)</c>, so that
+    /// <c>1 - v</c> keeps its digits for a tiny rate (PMT(1E-10,10,1000) is -100.000000055) and a
+    /// growth that overflows only drives <c>v</c> to zero (PMT(0.05,1000000,1000) is -50).
+    /// </summary>
+    private static (double Discount, double OneMinusDiscount) DiscountFactor(double rate, double numberOfPayments)
+    {
+        var logGrowth = numberOfPayments * LogOnePlus(rate);
+        return (Math.Exp(-logGrowth), -ExpMinusOne(-logGrowth));
     }
 
     private static AnyValue Pv(double rate, double numberOfPayments, double pmt, double futureValue, double type)
@@ -138,13 +152,23 @@ internal static class Financial
 
     private static AnyValue Ppmt(double rate, double period, double numberOfPayments, double presentValue, double futureValue, double type)
     {
-        // Principal = total payment - interest payment. Ipmt validates period/nper/rate.
-        var ipmt = Ipmt(rate, period, numberOfPayments, presentValue, futureValue, type);
-        if (!ipmt.TryPickScalar(out var ipmtScalar, out _) || !ipmtScalar.TryPickNumber(out var ipmtValue))
-            return ipmt;
+        if (!IsPaymentPeriod(rate, period, numberOfPayments))
+            return XLError.NumberInvalid;
 
-        var pmt = PmtInternal(rate, numberOfPayments, presentValue, futureValue, type);
-        return pmt - ipmtValue;
+        if (rate == 0.0)
+            return -(presentValue + futureValue) / numberOfPayments;
+
+        // The first payment of an annuity-due carries no interest, so all of it is principal.
+        var annuityDue = type != 0.0;
+        if (annuityDue && period == 1)
+            return PmtInternal(rate, numberOfPayments, presentValue, futureValue, type);
+
+        // Principal grows by (1+rate) a period from the first end-of-period payment's -r(pv+fv)v/(1-v).
+        // Computed directly rather than as PMT - IPMT, which cancels: PPMT(1E15,1,10,1000) is
+        // -1E-132 and PPMT(9E307,1,10,1000) is 0. An annuity-due's later periods are a period behind.
+        var (discount, oneMinusDiscount) = DiscountFactor(rate, numberOfPayments);
+        var firstPrincipal = -AmortizedValue(presentValue, futureValue, oneMinusDiscount) * discount * rate;
+        return firstPrincipal * Math.Pow(1 + rate, period - (annuityDue ? 2 : 1));
     }
 
     private static AnyValue Npv(CalcContext ctx, Span<AnyValue> args)
@@ -431,12 +455,15 @@ internal static class Financial
 
     /// <summary>
     /// <c>e^x-1</c> accurate for small <c>x</c>; <see cref="double.ExpM1"/> is <c>Math.Exp(x) - 1</c>, which
-    /// cancels.
+    /// cancels. Only a small <c>x</c> needs the correction, and a large one would turn it into 0/0.
     /// </summary>
     private static double ExpMinusOne(double x)
     {
         var u = Math.Exp(x);
-        return u == 1 ? x : (u - 1) * x / Math.Log(u);
+        if (u == 1)
+            return x;
+
+        return Math.Abs(x) < 1 ? (u - 1) * x / Math.Log(u) : u - 1;
     }
 
     #region Depreciation
