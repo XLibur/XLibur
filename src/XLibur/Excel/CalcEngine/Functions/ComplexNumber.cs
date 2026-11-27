@@ -216,10 +216,10 @@ internal readonly record struct ComplexNumber(double Real, double Imaginary, cha
     }
 
     /// <summary>
-    /// Excel writes the components of a complex number with 15 significant digits, which is also
-    /// what hides the last-bit noise of the trigonometric identities — IMSQRT("3+4i") comes out as
-    /// "2+i" rather than "2.00000000000000018+i".
+    /// Excel writes the components of a complex number as it converts any number to text, with 15
+    /// significant digits, which is also what hides the last-bit noise of the trigonometric
+    /// identities — IMSQRT("3+4i") comes out as "2+i" rather than "2.00000000000000018+i".
     /// </summary>
     private static string FormatComponent(double value)
-        => value.ToString("G15", CultureInfo.InvariantCulture);
+        => NumberToText.Format(value, CultureInfo.InvariantCulture);
 }

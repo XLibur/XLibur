@@ -520,6 +520,20 @@ public class TextTests
     }
 
     [Test]
+    [Arguments("1E-18", "0.000000000000000001")]
+    [Arguments("1E-19", "1E-19")]
+    [Arguments("1.5E-18", "1.5E-18")]
+    [Arguments("12345678901234500000", "12345678901234500000")]
+    [Arguments("1E20", "1E+20")]
+    [Arguments("1.23456789012345678E25", "1.23456789012346E+25")]
+    [Arguments("-(0.1+0.2)", "-0.3")]
+    [Arguments("9.9999999999999995", "10")]
+    public async Task Number_to_text_uses_plain_form_up_to_20_characters(string number, string expected)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(number + "&\"\"").GetText()).IsEqualTo(expected);
+    }
+
+    [Test]
     [Arguments("", 0)]
     [Arguments("word", 4)]
     [Arguments("A\r\n", 3)]
