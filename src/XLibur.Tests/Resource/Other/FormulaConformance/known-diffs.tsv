@@ -107,8 +107,6 @@ SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur retu
 SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
 SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
 SYD	SYD#46	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
-TIME	TIME#27	error:#NUM!	number:0.49930555555555556	Excel returns number:0.49930555555555556; XLibur returns error:#NUM!	
-TIME	TIME#41	error:#NUM!	number:0.5208217592592592	Excel returns number:0.5208217592592592; XLibur returns error:#NUM!	
 WEEKDAY	WEEKDAY#20	number:4	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:4	
 YEARFRAC	YEARFRAC#14	number:120.83611111111111	number:120.83888888888889	Excel returns number:120.83888888888889; XLibur returns number:120.83611111111111	
 YEARFRAC	YEARFRAC#16	number:7978.997222222222	number:7979	Excel returns number:7979; XLibur returns number:7978.997222222222	

@@ -736,13 +736,18 @@ internal static class DateAndTime
         if (!TryGetComponent(second, out var secondFloored))
             return XLError.NumberInvalid;
 
-        var serialDate = new TimeSpan(hourFloored, minuteFloored, secondFloored).ToSerialDateTime();
-        return serialDate % 1.0;
+        // A negative minute or second borrows from the larger unit, so TIME(12,-1,0) is 11:59. Only a
+        // time that adds up to less than zero is #NUM!, as TIME(-1,30,0) is.
+        var time = new TimeSpan(hourFloored, minuteFloored, secondFloored);
+        if (time < TimeSpan.Zero)
+            return XLError.NumberInvalid;
+
+        return time.ToSerialDateTime() % 1.0;
 
         static bool TryGetComponent(double value, out int truncated)
         {
             value = Math.Floor(value);
-            if (value is < 0 or > 32767)
+            if (value is < short.MinValue or > short.MaxValue)
             {
                 truncated = default;
                 return false;
