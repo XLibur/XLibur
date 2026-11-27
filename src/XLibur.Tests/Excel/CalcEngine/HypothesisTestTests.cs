@@ -275,6 +275,28 @@ public class HypothesisTestTests
     }
 
     [Test]
+    public async Task Rank_takes_a_reference_in_array_and_dynamic_formulas_and_rejects_an_array_in_a_cell_formula()
+    {
+        var ws = NewSheet(out var wb);
+        using (wb)
+        {
+            ws.Cell("A1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("A3").Value = 3;
+            ws.Range("C1:C1").FormulaArrayA1 = "RANK(3,A1:A3)";
+            ws.Cell("C2").SetDynamicFormulaA1("RANK.EQ(3,A1:A3)");
+            ws.Cell("C3").SetDynamicFormulaA1("RANK.AVG(3,A1:A3)");
+            ws.Cell("C4").FormulaA1 = "RANK(3,{1,2,3})";
+            wb.RecalculateAllFormulas();
+
+            await Assert.That(ws.Cell("C1").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C2").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C3").Value).IsEqualTo(1);
+            await Assert.That(ws.Cell("C4").Value).IsEqualTo(XLError.IncompatibleValue);
+        }
+    }
+
+    [Test]
     public async Task ModeMult_ReturnsEveryTiedMode()
     {
         var ws = NewSheet(out var wb);

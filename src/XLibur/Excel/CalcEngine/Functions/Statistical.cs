@@ -617,8 +617,9 @@ internal static class Statistical
             return numberError;
 
         // ref is "a reference to a list of numbers": Excel refuses an array constant at entry, so any
-        // value that is not a reference is #VALUE!. A reference may have several areas.
-        if (!args[1].TryPickReference(out _, out var notReferenceError))
+        // value that is not a reference is #VALUE!. A reference may have several areas. An array
+        // calculation hands a reference over as an array, so the check applies only outside one.
+        if (!ctx.IsArrayCalculation && !args[1].TryPickReference(out _, out var notReferenceError))
             return notReferenceError;
 
         if (!TryGetNumbers(ctx, args[1], out var numbers, out var refError))
