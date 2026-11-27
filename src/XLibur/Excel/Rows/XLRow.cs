@@ -117,6 +117,46 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     }
 
     /// <summary>
+    /// Is the row formatted (<c>customFormat</c>)? A cell of a formatted row that has no record of its
+    /// own takes the row's style alone, not the column's. A row whose style differs from the sheet's
+    /// is formatted, and so is a row the file formatted with the sheet's own style (#958).
+    /// </summary>
+    internal bool IsFormatted => _flags.HasFlag(XlRowFlags.CustomFormat) || StyleValue != Worksheet.StyleValue;
+
+    /// <summary>
+    /// Marks the row formatted even when its style is the sheet's, as a file's <c>customFormat</c> does.
+    /// </summary>
+    internal void MarkFormatted() => _flags |= XlRowFlags.CustomFormat;
+
+    /// <summary>
+    /// Does the row make room for a thick top border (<c>thickTop</c>)? Excel sets it for a row with a
+    /// medium, thick or double top border, and draws the row taller for it; it does not work it out
+    /// from the borders on load (#959).
+    /// </summary>
+    internal bool ThickTop
+    {
+        get => _flags.HasFlag(XlRowFlags.ThickTop);
+        set => SetFlag(XlRowFlags.ThickTop, value);
+    }
+
+    /// <summary>
+    /// Does the row make room for a thick bottom border (<c>thickBot</c>)? See <see cref="ThickTop"/>.
+    /// </summary>
+    internal bool ThickBottom
+    {
+        get => _flags.HasFlag(XlRowFlags.ThickBottom);
+        set => SetFlag(XlRowFlags.ThickBottom, value);
+    }
+
+    private void SetFlag(XlRowFlags flag, bool value)
+    {
+        if (value)
+            _flags |= flag;
+        else
+            _flags &= ~flag;
+    }
+
+    /// <summary>
     /// Does row have an individual height or is it derived from the worksheet <see cref="XLWorksheet.RowHeight"/>?
     /// </summary>
     public bool HeightChanged
@@ -218,6 +258,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
             internalRow.HeightChanged = HeightChanged;
             internalRow.HeightIsAuto = HeightIsAuto;
             internalRow.InnerStyle = InnerStyle;
+            CopyFormatFlagsTo(internalRow);
             internalRow.Collapsed = Collapsed;
             internalRow.IsHidden = IsHidden;
             // Through the property, not the field: the worksheet counts outline levels, and a copy
@@ -606,6 +647,7 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         target.HeightChanged = HeightChanged;
         target.HeightIsAuto = HeightIsAuto;
         target.InnerStyle = GetStyle();
+        CopyFormatFlagsTo(target);
         target.IsHidden = IsHidden;
     }
 
@@ -763,6 +805,14 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         IsHidden = 2,
         ShowPhonetic = 4,
         HeightChanged = 8,
-        HeightIsAuto = 16
+        HeightIsAuto = 16,
+        CustomFormat = 32,
+        ThickTop = 64,
+        ThickBottom = 128
     }
+
+    /// <summary>The flags a copy of the row's formatting carries.</summary>
+    private const XlRowFlags FormatFlags = XlRowFlags.CustomFormat | XlRowFlags.ThickTop | XlRowFlags.ThickBottom;
+
+    private void CopyFormatFlagsTo(XLRow target) => target._flags = (target._flags & ~FormatFlags) | (_flags & FormatFlags);
 }

@@ -97,6 +97,11 @@ internal static class WorksheetSheetDataReader
         /// dictionary lookups into <c>RowsCollection</c>.
         /// </summary>
         public XLStyleValue? CachedRowInheritedStyle;
+
+        /// <summary>
+        /// Is the current row formatted? A cell of a formatted row inherits the row's style alone.
+        /// </summary>
+        public bool CachedRowIsFormatted;
     }
 
     /// <summary>
@@ -113,11 +118,13 @@ internal static class WorksheetSheetDataReader
         int? OutlineLevel,
         bool ShowPhonetic,
         bool CustomFormat,
-        int? StyleIndex)
+        int? StyleIndex,
+        bool ThickTop,
+        bool ThickBottom)
     {
         public bool HasCustomProps =>
             Height is not null || DyDescent is not null || Hidden || Collapsed
-            || OutlineLevel > 0 || ShowPhonetic || CustomFormat;
+            || OutlineLevel > 0 || ShowPhonetic || CustomFormat || ThickTop || ThickBottom;
     }
 
     /// <summary>
@@ -241,11 +248,12 @@ internal static class WorksheetSheetDataReader
         double? height = null;
         double? dyDescent = null;
         bool customHeight = false, hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
+        bool thickTop = false, thickBottom = false;
         int? outlineLevel = null;
         int? styleIndex = null;
 
         if (!reader.HasAttributes)
-            return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+            return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex, thickTop, thickBottom);
 
         while (reader.MoveToNextAttribute())
         {
@@ -292,11 +300,17 @@ internal static class WorksheetSheetDataReader
                 case "s":
                     styleIndex = int.Parse(value, CultureInfo.InvariantCulture);
                     break;
+                case "thickTop":
+                    thickTop = ParseXmlBool(value);
+                    break;
+                case "thickBot":
+                    thickBottom = ParseXmlBool(value);
+                    break;
             }
         }
 
         reader.MoveToElement();
-        return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
+        return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex, thickTop, thickBottom);
     }
 
     /// <summary>
@@ -307,7 +321,7 @@ internal static class WorksheetSheetDataReader
     {
         return ns.Length == 0
             ? localName is "r" or "ht" or "customHeight" or "hidden" or "collapsed" or "outlineLevel"
-                or "ph" or "customFormat" or "s"
+                or "ph" or "customFormat" or "s" or "thickTop" or "thickBot"
             : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
     }
 
@@ -328,10 +342,9 @@ internal static class WorksheetSheetDataReader
 
         var ws = context.Worksheet;
         var sheetStyle = ws.StyleValue;
-        var rowStyle = ws.Internals.RowsCollection.TryGetValue(rowIndex, out var r)
-            ? r.StyleValue
-            : sheetStyle;
-        state.CachedRowInheritedStyle = rowStyle;
+        var hasRow = ws.Internals.RowsCollection.TryGetValue(rowIndex, out var r);
+        state.CachedRowInheritedStyle = hasRow ? r!.StyleValue : sheetStyle;
+        state.CachedRowIsFormatted = hasRow && r!.IsFormatted;
         state.LastColumnNumber = 0;
 
         if (isEmptyRow)
@@ -371,7 +384,7 @@ internal static class WorksheetSheetDataReader
 
         var ws = context.Worksheet;
         var cellsCollection = ws.Internals.CellsCollection;
-        var inherited = GetInheritedStyleFast(ws, state.CachedRowInheritedStyle!, cellAddress.Column, context.HasColumnStyles);
+        var inherited = GetInheritedStyleFast(ws, state.CachedRowInheritedStyle!, state.CachedRowIsFormatted, cellAddress.Column, context.HasColumnStyles);
         var styleMatchesInherited = ReferenceEquals(cellStyleValue, inherited);
         if (!styleMatchesInherited)
             cellsCollection.StyleSlice.SetNonDefault(cellAddress.Row, cellAddress.Column, cellStyleValue);
@@ -841,17 +854,15 @@ internal static class WorksheetSheetDataReader
     /// custom column styles (the common case for data sheets), returns the row style directly,
     /// avoiding a per-cell dictionary lookup into <c>ColumnsCollection</c>.
     /// </summary>
-    private static XLStyleValue GetInheritedStyleFast(XLWorksheet ws, XLStyleValue rowStyle, int column, bool hasColumnStyles)
+    private static XLStyleValue GetInheritedStyleFast(XLWorksheet ws, XLStyleValue rowStyle, bool rowIsFormatted,
+        int column, bool hasColumnStyles)
     {
-        if (!hasColumnStyles)
+        if (rowIsFormatted || !hasColumnStyles)
             return rowStyle;
 
-        var sheetStyle = ws.StyleValue;
-        var colStyle = ws.Internals.ColumnsCollection.TryGetValue(column, out var c)
+        return ws.Internals.ColumnsCollection.TryGetValue(column, out var c)
             ? c.StyleValue
-            : sheetStyle;
-
-        return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);
+            : ws.StyleValue;
     }
 
     /// <summary>
@@ -1144,6 +1155,9 @@ internal static class WorksheetSheetDataReader
         if (props.ShowPhonetic)
             xlRow.ShowPhonetic = true;
 
+        xlRow.ThickTop = props.ThickTop;
+        xlRow.ThickBottom = props.ThickBottom;
+
         if (props.CustomFormat)
             ApplyRowCustomFormat(xlRow, props.StyleIndex, ws, styles);
     }
@@ -1158,6 +1172,8 @@ internal static class WorksheetSheetDataReader
         {
             xlRow.Style = ws.Style;
         }
+
+        xlRow.MarkFormatted();
     }
 
     /// <summary>

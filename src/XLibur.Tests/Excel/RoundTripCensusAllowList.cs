@@ -66,8 +66,6 @@ internal static class RoundTripCensusAllowList
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
-    private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
-    private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
 
     private static readonly AllowedLoss[] Noise =
     [
@@ -374,10 +372,6 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
         new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
         new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-        new(SpreadsheetmlWorksheet, "row@customFormat", "#958", LostRowStyleCustomFormatSDroppedWhen, 100),
-        new(SpreadsheetmlWorksheet, "row@s", "#958", LostRowStyleCustomFormatSDroppedWhen, 94),
-        new(SpreadsheetmlWorksheet, "row@thickBot", "#959", LostRowThickBotAndThickTopDroppedWhen, 108),
-        new(SpreadsheetmlWorksheet, "row@thickTop", "#959", LostRowThickBotAndThickTopDroppedWhen, 30),
     ];
 
     internal static IEnumerable<(string ContentType, string Key)> Keys =>

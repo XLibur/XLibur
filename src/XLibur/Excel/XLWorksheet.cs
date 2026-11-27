@@ -2031,17 +2031,20 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// Compute the style a cell at (<paramref name="row"/>, <paramref name="column"/>) would
     /// inherit from its row, column, and the worksheet — without consulting the StyleSlice.
     /// </summary>
+    /// <remarks>
+    /// As in Excel, a formatted row gives its style to each of its cells that has no record, ahead of
+    /// the column (#958). That is also what Excel shows for such a cell once the sheet is saved, as
+    /// the save writes no record for it. Creating a row or a column gives the cells where it meets
+    /// existing columns or rows a record, but styling a row or column that already exists does not.
+    /// </remarks>
     internal XLStyleValue GetInheritedStyleValue(int row, int column)
     {
-        var sheetStyle = StyleValue;
-        var rowStyle = Internals.RowsCollection.TryGetValue(row, out var r)
-            ? r.StyleValue
-            : sheetStyle;
-        var colStyle = Internals.ColumnsCollection.TryGetValue(column, out var c)
-            ? c.StyleValue
-            : sheetStyle;
+        if (Internals.RowsCollection.TryGetValue(row, out var r) && r.IsFormatted)
+            return r.StyleValue;
 
-        return XLStyleValue.Combine(sheetStyle, rowStyle, colStyle);
+        return Internals.ColumnsCollection.TryGetValue(column, out var c)
+            ? c.StyleValue
+            : StyleValue;
     }
 
     // Cache for auto-formatted date/time styles to avoid repeated slice access + key computation.
