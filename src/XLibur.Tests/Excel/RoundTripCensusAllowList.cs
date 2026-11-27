@@ -45,6 +45,7 @@ internal static class RoundTripCensusAllowList
     private const string ValidationsMerged = "data validations with the same rule are written as one (SaveOptions.ConsolidateDataValidationRanges), and a rule moves between the main and the x14 form as its formula needs";
     private const string ConditionalAlignment = "a conditional format cannot apply alignment, so its dxf is written without one";
     private const string SharedFormulas = "a shared formula is written as a formula in each cell";
+    private const string DirtyFormula = "a formula an edit left dirty, which XLibur cannot evaluate, is written with no cached value and no t, so Excel recalculates it (ADR 0001, #962)";
     private const string Volatile = "ca and aca mark a volatile formula, which Excel works out from the formula when it loads the file";
     private const string CalcChain = "the calculation chain is a cache, rebuilt from the formulas the save writes";
     private const string Spans = "spans is an optional hint, written only for the rows the save writes from the model";
@@ -61,7 +62,6 @@ internal static class RoundTripCensusAllowList
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
     private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
 
-    private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
@@ -272,6 +272,8 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "f@t=shared", SharedFormulas),
         new(SpreadsheetmlWorksheet, "f@aca", Volatile),
         new(SpreadsheetmlWorksheet, "f@ca", Volatile),
+        new(SpreadsheetmlWorksheet, "f/v", DirtyFormula, 1),
+        new(SpreadsheetmlWorksheet, "c@t=e", DirtyFormula, 1),
         new(SpreadsheetmlCalcChain, "c", CalcChain),
         new(SpreadsheetmlCalcChain, "c@a", CalcChain),
         new(SpreadsheetmlCalcChain, "c@i", CalcChain),
@@ -352,7 +354,6 @@ internal static class RoundTripCensusAllowList
 
     private static readonly KnownLoss[] Known =
     [
-        new(SpreadsheetmlWorksheet, "f/v", "#962", LostCachedValueOfAFormulaXLibur, 1),
         new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
         new(SpreadsheetmlComments, "anchor@moveWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
         new(SpreadsheetmlComments, "anchor@sizeWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
