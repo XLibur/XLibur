@@ -142,7 +142,7 @@ internal static class TextSerializer
         if ((statedProperties & XLStatedRunProperties.FontFamilyNumbering) != 0)
             WriteRunProperty(w, "family", (int)font.FontFamilyNumbering);
 
-        if (font.FontCharSet != XLFontCharSet.Default)
+        if (font.FontCharSet != XLFontCharSet.Default || (statedProperties & XLStatedRunProperties.CharSet) != 0)
             WriteRunProperty(w, "charset", (int)font.FontCharSet);
 
         if (font.FontScheme != XLFontScheme.None)

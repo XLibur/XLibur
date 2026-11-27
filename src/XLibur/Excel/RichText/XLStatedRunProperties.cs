@@ -4,8 +4,8 @@ namespace XLibur.Excel.RichText;
 
 /// <summary>
 /// Which of a run's <c>&lt;rPr&gt;</c> properties the source actually stated, for those whose value
-/// cannot be told apart from the one the run would take anyway. A run whose <c>&lt;rPr&gt;</c> omits
-/// <c>&lt;vertAlign&gt;</c> or <c>&lt;family&gt;</c> inherits the cell font's value for it, so writing
+/// cannot be told apart from the one the run would take anyway, or from the default. A run whose
+/// <c>&lt;rPr&gt;</c> omits <c>&lt;vertAlign&gt;</c> or <c>&lt;family&gt;</c> inherits the cell font's value for it, so writing
 /// that value back out would turn an inherited default into formatting the source never asked for -
 /// the same trap as an explicit black for an automatic colour (issue #219).
 /// <para>
@@ -24,6 +24,14 @@ internal enum XLStatedRunProperties
 
     /// <summary>The run stated <c>&lt;family&gt;</c>.</summary>
     FontFamilyNumbering = 1 << 1,
+
+    /// <summary>
+    /// The run stated <c>&lt;charset&gt;</c>. A charset other than the default is written anyway;
+    /// this only keeps an explicit <c>&lt;charset val="1"/&gt;</c>, which Excel writes on every note
+    /// run (#957). It is not part of <see cref="All"/>, so a run built or edited through the API
+    /// still omits the default charset.
+    /// </summary>
+    CharSet = 1 << 2,
 
     All = VerticalAlignment | FontFamilyNumbering
 }
