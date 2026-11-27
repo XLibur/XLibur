@@ -231,6 +231,24 @@ public sealed partial class XLColor
         }
     }
 
+    /// <summary>
+    /// The default Windows value of an indexed system color, an index outside
+    /// <see cref="IndexedColors"/>. The indexes are the MS-XLS Icv system colors: 65 and 78 are
+    /// window backgrounds, 80 is the tooltip background, and the rest (77 and 79 for charts, 81 for
+    /// tooltip text, 32767 for an automatic font) are window text. An index the format does not
+    /// define resolves to window text too.
+    /// </summary>
+    private static Color SystemColor(int index)
+    {
+        var entry = index switch
+        {
+            65 or 78 => "Window",
+            80 => "InfoBackground",
+            _ => "WindowText",
+        };
+        return _paletteEntries.Value[entry].Color;
+    }
+
     internal static bool IsNullOrTransparent(XLColor color)
     {
         return color == null

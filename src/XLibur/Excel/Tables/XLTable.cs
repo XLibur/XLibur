@@ -143,6 +143,20 @@ internal sealed class XLTable : XLRange, IXLTable
         base.WorksheetRangeShiftedColumns(range, columnsShifted);
     }
 
+    /// <summary>
+    /// The new leading columns take indexes 0 onwards, so the header-less fields move past them and
+    /// the next rescan gives each new column a field (#1017). With a header row the rescan finds the
+    /// fields by their header cells.
+    /// </summary>
+    internal override void OnExpandingLeadingColumns(int count)
+    {
+        if (ShowHeaderRow || _fieldNames is null)
+            return;
+
+        foreach (var field in _fieldNames.Values.Cast<XLTableField>())
+            field.Index += count;
+    }
+
     private void ShiftSyntheticFields(XLRangeAddress shifted, int columnsShifted)
     {
         var fields = FieldNames.Values.Cast<XLTableField>().ToList();
