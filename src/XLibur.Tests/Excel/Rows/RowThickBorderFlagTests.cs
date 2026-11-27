@@ -56,6 +56,33 @@ public class RowThickBorderFlagTests
         await Assert.That(Flags(saved, 3)).IsEqualTo("thickTop");
     }
 
+    /// <summary>
+    /// A loaded cell whose style is its column's has no style record of its own in the model, yet
+    /// the save writes it with that style.
+    /// </summary>
+    [Test]
+    public async Task A_loaded_cell_with_its_columns_thick_border_sets_the_flags()
+    {
+        using var source = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Column(2).Style.Border.BottomBorder = XLBorderStyleValues.Thick;
+            ws.Cell("B2").Value = 1;
+            wb.SaveAs(source);
+        }
+
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(source))
+        {
+            wb.Worksheet(1).Cell("C5").Value = 2;
+            wb.SaveAs(saved);
+        }
+
+        await Assert.That(Flags(saved, 2)).IsEqualTo("thickBot");
+        await Assert.That(Flags(saved, 3)).IsEqualTo("thickTop");
+    }
+
     [Test]
     public async Task Removing_a_thick_border_clears_the_flags_the_file_had()
     {

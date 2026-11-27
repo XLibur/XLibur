@@ -18,8 +18,9 @@ namespace XLibur.Excel.IO;
 /// <item><c>thickTop</c>: a cell of the row has a thick or double top border, or a cell of the row
 /// above has such a bottom border.</item>
 /// </list>
-/// The cells read are those with a style record and, for a formatted row, the row's own style. A cell
-/// without a record that takes a column's border is not read.
+/// The cells read are those the save writes, with the style it writes for each, and, for a formatted
+/// row, the row's own style. A cell the save does not write, such as one with nothing but a column's
+/// border, is not read.
 /// </remarks>
 internal sealed class RowThickBorders
 {
@@ -39,14 +40,12 @@ internal sealed class RowThickBorders
     internal static RowThickBorders Of(XLWorksheet worksheet)
     {
         var borders = new RowThickBorders();
-        using (var styles = new Slice<XLStyleValue?>.Enumerator(worksheet.Internals.CellsCollection.StyleSlice, Area.Full))
-        {
-            while (styles.MoveNext())
-            {
-                if (styles.Current is { } style)
-                    borders.Add(styles.Point.Row, style);
-            }
-        }
+
+        // The cells the sheet-data writer visits, with the style it writes for each: a loaded cell
+        // whose style is its column's has no style record of its own.
+        var cells = new XLCellsCollection.SlicesEnumerator(Area.Full, worksheet.Internals.CellsCollection);
+        while (cells.MoveNext())
+            borders.Add(cells.Current.Row, worksheet.GetStyleValue(cells.Current));
 
         foreach (var (rowNumber, row) in worksheet.Internals.RowsCollection)
         {
