@@ -12,7 +12,6 @@ TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 1
 VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
 REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
-TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
 BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
