@@ -297,7 +297,7 @@ internal static class PivotTableDefinitionPartWriter2
                     xml.WriteAttribute("action", ToAttr(format.Action.ToOpenXml()));
 
                 // DxfId is optional.
-                if (format.LoadedDxfXml is { } loadedDxfXml)
+                if (format.UnchangedLoadedDxfXml is { } loadedDxfXml)
                     xml.WriteAttribute("dxfId", context.LoadedDxfIds[loadedDxfXml]);
                 else if (format.DxfStyleValue != XLStyleValue.Default)
                     xml.WriteAttribute("dxfId", context.DifferentialFormats[format.DxfStyleValue]);
