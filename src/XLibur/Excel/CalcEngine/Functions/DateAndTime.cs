@@ -78,10 +78,10 @@ internal static class DateAndTime
         year += yearAdjustment;
         month -= yearAdjustment * 12;
 
-        // Year 1 is earliest allowable in both date system. Also avoid the double
-        // to int conversion problems when double is too small.
+        // A month that moves the year back before 1900 is #NUM!, though the day would bring the
+        // date back into range: DATE(1900,0,31) is #NUM! while DATE(1900,1,0) is serial 0.
         // DateTime only accepts years 1-9999, so year 10000+ must return an error.
-        if (year < 1 || year > 9999)
+        if (year < 1900 || year > 9999)
             return XLError.NumberInvalid;
 
         var startOfMonth = new DateTime((int)year, (int)month, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime();
