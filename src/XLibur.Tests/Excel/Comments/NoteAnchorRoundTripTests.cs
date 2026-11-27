@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -58,6 +59,27 @@ public class NoteAnchorRoundTripTests
 
         await Assert.That(saved).ContainsKey("Comments!B5");
         await Assert.That(saved["Comments!B5"]).IsNotEqualTo(loaded["Comments!B3"]);
+    }
+
+    [Test]
+    [Timeout(60_000)]
+    public async Task A_note_on_a_sheet_of_zero_height_rows_loads_and_saves(CancellationToken cancellationToken)
+    {
+        using var saved = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").GetComment().AddText("note");
+            ws.RowHeight = 0;
+            ws.ColumnWidth = 0;
+            wb.SaveAs(saved);
+        }
+
+        using var reloaded = new XLWorkbook(saved);
+        using var resaved = new MemoryStream();
+        reloaded.SaveAs(resaved);
+
+        await Assert.That(ReadAnchors(resaved)).ContainsKey("Sheet1!B2");
     }
 
     private static MemoryStream Load(string fixture)

@@ -224,7 +224,8 @@ internal static class VmlDrawingPartWriter
         var fcOffset = Convert.ToInt32(c.Position.ColumnOffset * 7.5);
         var lastColumn = c.Position.Column;
         var widthFromColumns = ColumnWidth(worksheet, lastColumn) - c.Position.ColumnOffset;
-        while (widthFromColumns <= cWidth)
+        // Bounded by the sheet's edge: columns or rows of zero size never cover the note.
+        while (widthFromColumns <= cWidth && lastColumn < XLHelper.MaxColumnNumber)
         {
             lastColumn++;
             widthFromColumns += ColumnWidth(worksheet, lastColumn);
@@ -237,7 +238,7 @@ internal static class VmlDrawingPartWriter
         var frOffset = Convert.ToInt32(c.Position.RowOffset);
         var lastRow = c.Position.Row;
         var heightFromRows = RowHeight(worksheet, lastRow) - c.Position.RowOffset;
-        while (heightFromRows <= cHeight)
+        while (heightFromRows <= cHeight && lastRow < XLHelper.MaxRowNumber)
         {
             lastRow++;
             heightFromRows += RowHeight(worksheet, lastRow);
