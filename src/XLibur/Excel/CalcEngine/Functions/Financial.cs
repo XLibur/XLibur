@@ -414,10 +414,41 @@ internal static class Financial
         if (nper == 0)
             return XLError.NumberInvalid;
 
-        if (!TryNewtonRoot(rate => TvmEquation(rate, nper, pmt, pv, fv, type), guess, out var root) || root <= -1)
-            return XLError.NumberInvalid;
+        if (TryNewtonRoot(rate => TvmEquation(rate, nper, pmt, pv, fv, type), guess, out var root) && root > -1)
+            return root;
 
-        return root;
+        // With no simple root above -1, as for RATE(10,0,800) whose ten-fold root is -1, Excel's
+        // answer is the point where its own iteration stops.
+        return TryExcelRateSecant(rate => TvmEquation(rate, nper, pmt, pv, fv, type).Value, guess, out root) ? root : XLError.NumberInvalid;
+    }
+
+    /// <summary>
+    /// Excel's RATE iteration: the secant method from <paramref name="guess"/> and <c>guess - 0.001</c>,
+    /// stopping on a step under 1e-7 and failing on a rate at or below -1. It reproduces every RATE
+    /// answer in the conformance corpus to about 1e-14, including Excel's guess-dependent answers for a
+    /// multiple root. It needs about 190 steps for RATE(10,0,800), so Excel does not stop at the 20
+    /// iterations its documentation names; the cap here is only a bound on non-convergence.
+    /// </summary>
+    private static bool TryExcelRateSecant(Func<double, double> function, double guess, out double root)
+    {
+        const int maxIterations = 1000;
+        const double stepTolerance = 1e-7;
+        double previous = guess, current = guess - 0.001;
+        double previousValue = function(previous), currentValue = function(current);
+        for (var iteration = 0; iteration < maxIterations; iteration++)
+        {
+            root = current - currentValue * (current - previous) / (currentValue - previousValue);
+            if (!double.IsFinite(root) || root <= -1)
+                break;
+
+            if (Math.Abs(root - current) < stepTolerance)
+                return true;
+
+            (previous, previousValue, current, currentValue) = (current, currentValue, root, function(root));
+        }
+
+        root = default;
+        return false;
     }
 
     private static (double Value, double Derivative) TvmEquation(double rate, double nper, double pmt, double pv, double fv, double type)
