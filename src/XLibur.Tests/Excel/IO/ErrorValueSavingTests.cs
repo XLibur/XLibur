@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -177,6 +178,112 @@ public class ErrorValueSavingTests
 
         using var reloaded = new XLWorkbook(output);
         await Assert.That(reloaded.Worksheet(1).Cell("A1").Value).IsEqualTo(XLError.Calc);
+    }
+
+    private const string LambdaFormulas = @"Other\ExcelAuthored\LambdaFormulas.xlsx";
+
+    /// <summary>The cells of <see cref="LambdaFormulas"/> whose error has a rich value, which Excel 365 wrote.</summary>
+    private static readonly string[] LambdaErrorCells = ["D1", "D29", "D33", "D65", "D145"];
+
+    /// <summary>
+    /// Excel 365 writes an error of a LAMBDA with a rich value that says more than its type: a
+    /// <c>subType</c>, and for some an <c>argument</c>. The save kept a rich value only for an error newer
+    /// than Excel 2007, and wrote it with its <c>errorType</c> alone, so a <c>#VALUE!</c> lost its record
+    /// and its vm index, and a <c>#CALC!</c> its <c>subType</c> (#954).
+    /// </summary>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task A_loaded_errors_rich_value_is_saved_as_the_file_had_it(bool edited)
+    {
+        using var original = TestHelper.OpenResource(LambdaFormulas);
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            if (edited)
+                wb.Worksheet(1).Cell("Z1").Value = 1;
+            wb.SaveAs(output);
+        }
+
+        foreach (var cell in LambdaErrorCells)
+            await Assert.That(ErrorRichValueOf(output, cell)).IsEqualTo(ErrorRichValueOf(original, cell)).Because(cell);
+    }
+
+    [Test]
+    public async Task A_second_save_keeps_a_loaded_errors_rich_value()
+    {
+        using var original = TestHelper.OpenResource(LambdaFormulas);
+        using var wb = new XLWorkbook(original);
+        using var first = new MemoryStream();
+        wb.SaveAs(first);
+        wb.Worksheet(1).Cell("Z1").Value = 1;
+        using var second = new MemoryStream();
+        wb.SaveAs(second);
+
+        foreach (var cell in LambdaErrorCells)
+            await Assert.That(ErrorRichValueOf(second, cell)).IsEqualTo(ErrorRichValueOf(original, cell)).Because(cell);
+    }
+
+    [Test]
+    public async Task A_cell_that_no_longer_holds_its_loaded_error_does_not_keep_its_rich_value()
+    {
+        using var original = TestHelper.OpenResource(LambdaFormulas);
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(original))
+        {
+            var ws = wb.Worksheet(1);
+            ws.Cell("D29").Value = XLError.DivisionByZero;
+            ws.Cell("D33").Value = XLError.Calc;
+            wb.SaveAs(output);
+        }
+
+        await Assert.That(ErrorRichValueOf(output, "D29")).IsNull();
+        await Assert.That(ErrorRichValueOf(output, "D33")).IsEqualTo("_error errorType=13");
+        await Assert.That(ErrorRichValueOf(output, "D65")).IsEqualTo(ErrorRichValueOf(original, "D65"));
+    }
+
+    /// <summary>
+    /// The rich value the vm index of <paramref name="cellReference"/> on the first sheet names, as its
+    /// structure's type and each key with its value, or null when the cell has no rich value.
+    /// </summary>
+    private static string? ErrorRichValueOf(Stream package, string cellReference)
+    {
+        package.Position = 0;
+        using var document = SpreadsheetDocument.Open(package, false);
+        var workbookPart = document.WorkbookPart!;
+        var cell = Load(workbookPart.WorksheetParts.First(p => workbookPart.GetIdOfPart(p) ==
+                       workbookPart.Workbook!.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().First().Id!.Value))
+            .Descendants().Single(e => e.Name.LocalName == "c" && (string?)e.Attribute("r") == cellReference);
+        if ((string?)cell.Attribute("vm") is not { } vm)
+            return null;
+
+        var metadata = Load(workbookPart.CellMetadataPart!);
+        var types = Children(metadata, "metadataTypes").Select(t => (string?)t.Attribute("name")).ToList();
+        var record = Children(metadata, "valueMetadata").ElementAt(int.Parse(vm) - 1).Elements().Single();
+        if (types[(int)record.Attribute("t")! - 1] != "XLRICHVALUE")
+            return null;
+
+        var block = metadata.Elements().Single(e => e.Name.LocalName == "futureMetadata" && (string?)e.Attribute("name") == "XLRICHVALUE")
+            .Elements().ElementAt((int)record.Attribute("v")!);
+        var richValueIndex = (int)block.Descendants().Single(e => e.Name.LocalName == "rvb").Attribute("i")!;
+        var richValue = Load(PartByRelType(workbookPart, RichDataWriter.RichValueRelType)).Elements().ElementAt(richValueIndex);
+        var structure = Load(PartByRelType(workbookPart, RichDataWriter.RichValueStructureRelType)).Elements()
+            .ElementAt((int)richValue.Attribute("s")!);
+        var keys = structure.Elements().Select(k => (string)k.Attribute("n")!);
+        var values = richValue.Elements().Select(v => v.Value);
+        return string.Join(" ", [(string)structure.Attribute("t")!, .. keys.Zip(values, (k, v) => $"{k}={v}")]);
+
+        static XElement Load(OpenXmlPart part)
+        {
+            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+            return XDocument.Load(stream).Root!;
+        }
+
+        static IEnumerable<XElement> Children(XElement metadata, string name) =>
+            metadata.Elements().Single(e => e.Name.LocalName == name).Elements();
+
+        static OpenXmlPart PartByRelType(WorkbookPart workbookPart, string relationshipType) =>
+            workbookPart.Parts.Single(p => p.OpenXmlPart.RelationshipType == relationshipType).OpenXmlPart;
     }
 
     private static string RichDataPartName(Stream package, string relationshipType)
