@@ -104,6 +104,32 @@ public class NotePropertiesRoundTripTests
         await Assert.That(TextBoxDivStyle(shapes[0])).IsEqualTo(style);
     }
 
+    [Test]
+    public async Task A_LibreOffice_note_loads_the_fill_and_line_colour_it_gives_itself()
+    {
+        using var source = Load(LibreOffice);
+        source.Position = 0;
+        using var wb = new XLWorkbook(source);
+
+        var colors = wb.Worksheet(1).Cell("H3").GetComment().Style.ColorsAndLines;
+
+        await Assert.That(colors.FillColor.Color.ToArgb()).IsEqualTo(unchecked((int)0xFFFFFFC0));
+        await Assert.That(colors.LineColor.Color.ToArgb()).IsEqualTo(unchecked((int)0xFF808080));
+    }
+
+    [Test]
+    [Arguments(LibreOffice, "block,medium,medium")]
+    [Arguments(LibreOfficeStrict, "block,,")]
+    public async Task A_LibreOffice_note_keeps_its_start_arrow(string fixture, string arrow)
+    {
+        var shapes = ReadNoteShapes(Save(fixture, _ => { }));
+
+        await Assert.That(shapes).Count().IsEqualTo(1);
+        var stroke = shapes[0].Element(Vml + "stroke")!;
+        await Assert.That(string.Join(",", stroke.Attribute("startarrow")?.Value,
+            stroke.Attribute("startarrowlength")?.Value, stroke.Attribute("startarrowwidth")?.Value)).IsEqualTo(arrow);
+    }
+
     private static readonly XNamespace Vml = "urn:schemas-microsoft-com:vml";
     private static readonly XNamespace ExcelVml = "urn:schemas-microsoft-com:office:excel";
 
