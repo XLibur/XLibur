@@ -116,6 +116,9 @@ internal static class Financial
 
     private static AnyValue Nper(double rate, double pmt, double presentValue, double futureValue, double type)
     {
+        if (rate <= -1)
+            return XLError.NumberInvalid;
+
         if (rate == 0.0)
         {
             if (pmt == 0.0)
@@ -434,7 +437,7 @@ internal static class Financial
 
     private static ScalarValue Syd(CalcContext ctx, double cost, double salvage, double life, double period)
     {
-        if (life <= 0)
+        if (life <= 0 || salvage < 0)
             return XLError.NumberInvalid;
         if (period <= 0 || period > life)
             return XLError.NumberInvalid;

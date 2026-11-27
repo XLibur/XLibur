@@ -75,7 +75,6 @@ MODE	MODE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns er
 MODE	MODE#16	number:1	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:1	
 MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
-NPER	NPER#13	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 NPV	NPV#12	error:#NUM!	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns error:#NUM!	
 NPV	NPV#16	number:-1.1111111111111111E-306	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns number:-1.1111111111111111E-306	
 NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454545; XLibur returns number:0	
@@ -111,7 +110,6 @@ RATE	RATE#27	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10
 SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
-SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
 SYD	SYD#46	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
 TIME	TIME#27	error:#NUM!	number:0.49930555555555556	Excel returns number:0.49930555555555556; XLibur returns error:#NUM!	
 TIME	TIME#41	error:#NUM!	number:0.5208217592592592	Excel returns number:0.5208217592592592; XLibur returns error:#NUM!	
