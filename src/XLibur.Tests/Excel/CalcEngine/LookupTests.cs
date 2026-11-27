@@ -535,6 +535,7 @@ public class LookupTests
     [Arguments("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
     [Arguments("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
     [Arguments("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
+    [Arguments("MATCH(\"zzz\",{\"a\";\"b\";1;2},1)", 2)] // The last text, not the numbers after it
     public async Task Match_from_ascending(string formula, object result)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
