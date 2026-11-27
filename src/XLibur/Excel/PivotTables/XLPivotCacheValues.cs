@@ -44,6 +44,9 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
 
     private long? _maxDateTicks;
 
+    /// <inheritdoc cref="XLPivotCacheValuesStats.ContainsNonDate"/>
+    private bool _containsNonDate;
+
     internal XLPivotCacheValues(ValueSlice valueSlice, int column, Area area)
     {
         _sharedItems = new XLPivotCacheSharedItems();
@@ -71,6 +74,7 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
         _containsDate = stats.ContainsDate;
         _minDateTicks = stats.MinDate?.Ticks;
         _maxDateTicks = stats.MaxDate?.Ticks;
+        _containsNonDate = stats.ContainsNonDate;
     }
 
     internal XLPivotCacheValuesStats Stats
@@ -92,6 +96,7 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
                 ContainsDate = _containsDate,
                 MinDate = minDate,
                 MaxDate = maxDate,
+                ContainsNonDate = _containsNonDate,
             };
         }
     }
@@ -117,17 +122,13 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
     public void AddBoolean(bool boolean)
     {
         _values.Add(XLPivotCacheValue.ForBoolean(boolean));
-
-        // [MS-OI29500]: In Office, boolean and error are considered strings in the context of the containsString attribute.
-        _containsString = true;
+        AdjustStatsForBooleanOrError();
     }
 
     public void AddError(XLError error)
     {
         _values.Add(XLPivotCacheValue.ForError(error));
-
-        // [MS-OI29500]: In Office, boolean and error are considered strings in the context of the containsString attribute.
-        _containsString = true;
+        AdjustStatsForBooleanOrError();
     }
 
     public void AddString(string text)
@@ -160,10 +161,8 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
                 AdjustStats(cacheValue.GetNumber());
                 break;
             case XLPivotCacheValueType.Boolean:
-                _containsString = true;
-                break;
             case XLPivotCacheValueType.Error:
-                _containsString = true;
+                AdjustStatsForBooleanOrError();
                 break;
             case XLPivotCacheValueType.String:
                 AdjustStats(_sharedItems.GetStringValue(index));
@@ -244,6 +243,7 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
             // Subsequent number is an integer.
             (_containsInteger && number == Math.Truncate(number));
         _containsNumber = true;
+        _containsNonDate = true;
         _minValue = _minValue is null ? number : Math.Min(_minValue.Value, number);
         _maxValue = _maxValue is null ? number : Math.Max(_maxValue.Value, number);
     }
@@ -251,7 +251,15 @@ internal sealed class XLPivotCacheValues : IXLPivotCacheValueSink
     private void AdjustStats(string text)
     {
         _containsString = true;
+        _containsNonDate = true;
         _longText = _longText || text.Length > 255;
+    }
+
+    private void AdjustStatsForBooleanOrError()
+    {
+        // [MS-OI29500]: In Office, boolean and error are considered strings in the context of the containsString attribute.
+        _containsString = true;
+        _containsNonDate = true;
     }
 
     private void AdjustStats(DateTime dateTime)
