@@ -348,7 +348,7 @@ internal static class PivotTableCacheDefinitionPartWriter
         {
             var value = xlSharedItems.GetValue(index);
             var text = value.Type == XLPivotCacheValueType.String ? xlSharedItems.GetStringValue(index) : null;
-            sharedItems.AppendChild(PivotCacheValueCodec.ToSharedItem(value, text));
+            sharedItems.AppendChild(PivotCacheValueCodec.ToSharedItem(value, text, xlSharedItems.IsUnused(index)));
         }
     }
 
@@ -371,8 +371,7 @@ internal static class PivotTableCacheDefinitionPartWriter
         sharedItems.ContainsMixedTypes = OpenXmlHelper.GetBooleanValue(CountTypes(stats) > 1, false);
 
         // ISO29500: Specifies a boolean value that indicates that the field contains at least one value that is not a date.
-        var containsNonDate = stats.ContainsString || stats.ContainsNumber;
-        sharedItems.ContainsNonDate = OpenXmlHelper.GetBooleanValue(containsNonDate, true);
+        sharedItems.ContainsNonDate = OpenXmlHelper.GetBooleanValue(stats.ContainsNonDate, true);
 
         // Excel will have to repair the cache definition, if both @containsNumber and @containsDate are specified. Likely because
         // ultimately they are both numbers, but date has preference.

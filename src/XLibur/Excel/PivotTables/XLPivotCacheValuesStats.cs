@@ -40,4 +40,10 @@ internal readonly struct XLPivotCacheValuesStats
     internal DateTime? MinDate { get; init; }
 
     internal DateTime? MaxDate { get; init; }
+
+    /// <summary>
+    /// Does the field hold any value that is not a date or a blank? Excel sets it from the records, so
+    /// a field whose records are all blank has it false although its unused items hold text.
+    /// </summary>
+    internal bool ContainsNonDate { get; init; }
 }
