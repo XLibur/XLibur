@@ -6,8 +6,8 @@ namespace XLibur.Excel.CalcEngine;
 /// <summary>
 /// A parser of the plain number formats used by Excel during coercion from text to number. It is
 /// <see cref="double.TryParse(string, NumberStyles, IFormatProvider, out double)" /> with
-/// <see cref="NumberStyles.Any" />, narrowed by two rules that method is deliberately lenient about
-/// and Excel is not:
+/// <see cref="NumberStyles.Any" /> without a trailing sign, narrowed by rules that method is
+/// deliberately lenient about and Excel is not:
 /// <list type="bullet">
 ///     <item>Group separators must actually group. .NET accepts a separator anywhere in the integer
 ///           part, so <c>1,00</c> and <c>1,00,000</c> both parse as numbers under en-US, while Excel
@@ -20,9 +20,14 @@ namespace XLibur.Excel.CalcEngine;
 /// </summary>
 internal static class NumberParser
 {
+    /// <summary>
+    /// Excel takes a leading sign and not a trailing one, so <c>5-</c> is not a number.
+    /// </summary>
+    private const NumberStyles Styles = NumberStyles.Any & ~NumberStyles.AllowTrailingSign;
+
     public static bool TryParse(string text, CultureInfo culture, out double number)
     {
-        if (double.TryParse(text, NumberStyles.Any, culture, out number) &&
+        if (double.TryParse(text, Styles, culture, out number) &&
             double.IsFinite(number) &&
             HasValidGroupSeparators(text, culture) &&
             HasValidCurrencyPosition(text, culture))
