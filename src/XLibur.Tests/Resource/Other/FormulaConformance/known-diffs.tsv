@@ -1,6 +1,5 @@
 # Spec 59 known differences: a case XLibur is known to answer differently from Excel. function, case id, xlibur answer, excel answer, reason, issue.
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
-AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibur	
 DATE	DATE#38	number:0	error:#NUM!	DATE(1900,0,31) is #NUM! in Excel and serial 0 in XLibur	
 LEFT	LEFT#19	text:0.300	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
 LEN	LEN#9	number:18	number:17	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (1/3 is 17 characters in Excel, 18 in XLibur)	
@@ -17,10 +16,6 @@ VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel
 GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
-OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-OR	OR#5	bool:FALSE	error:#VALUE!	=OR("x") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-OR	OR#6	bool:FALSE	error:#VALUE!	=OR("") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
