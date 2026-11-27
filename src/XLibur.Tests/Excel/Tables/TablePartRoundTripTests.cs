@@ -194,6 +194,21 @@ public class TablePartRoundTripTests
     }
 
     [Test]
+    public async Task A_column_whose_cells_are_cleared_to_the_default_style_loses_its_data_format()
+    {
+        using var source = TestHelper.OpenResource(ImageReference);
+        var (tableName, columnName) = TableXmls(source)
+            .SelectMany(t => ColumnsOf(t).Where(c => c.Attribute("dataDxfId") is not null)
+                .Select(c => (t.Attribute("displayName")!.Value, c.Attribute("name")!.Value)))
+            .First();
+
+        using var saved = source.LoadAndSave(wb =>
+            wb.Table(tableName).Field(columnName).DataCells.Style = XLWorkbook.DefaultStyle);
+
+        await Assert.That(Column(TableXml(saved, tableName), columnName).Attribute("dataDxfId")).IsNull();
+    }
+
+    [Test]
     public async Task A_save_keeps_the_header_format_of_a_table_slicer_fixture()
     {
         using var source = TestHelper.OpenResource(Slicers);

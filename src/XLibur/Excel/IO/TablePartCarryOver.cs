@@ -20,10 +20,6 @@ namespace XLibur.Excel.IO;
 /// a renamed or moved column keeps what it had and a removed one takes it away.
 /// </para>
 /// <para>
-/// A column's <c>dataDxfId</c> comes from the model when every data cell of the column shares one
-/// style other than the default, and the loaded one is kept otherwise (#961).
-/// </para>
-/// <para>
 /// What depends on where the columns are is dropped once the model changed them, rather than written
 /// over a table it no longer describes. The sort state and the insert row need the same range and the
 /// same columns in the same order, since a sort condition names its column by cell reference. The
@@ -41,7 +37,7 @@ internal static class TablePartCarryOver
     private static readonly HashSet<string> ModelTableAttributes =
         ["id", "name", "displayName", "ref", "headerRowCount", "totalsRowCount", "totalsRowShown"];
 
-    private static readonly HashSet<string> ModelColumnAttributes = ["id", "name"];
+    private static readonly HashSet<string> ModelColumnAttributes = ["id", "name", "dataDxfId"];
 
     private static readonly HashSet<string> ShownTotalsRowAttributes = ["totalsRowFunction", "totalsRowLabel"];
 

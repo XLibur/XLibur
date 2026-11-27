@@ -140,9 +140,19 @@ internal static class TablePartWriter
         var fields = xlTable.Fields.Cast<XLTableField>().ToList();
         AssignColumnIds(fields, loaded);
 
+        var loadedColumns = new Dictionary<uint, TableColumn>();
+        foreach (var column in loaded?.TableColumns?.Elements<TableColumn>() ?? [])
+        {
+            if (column.Id?.Value is { } loadedId)
+                loadedColumns.TryAdd(loadedId, column);
+        }
+
         var tableColumns = new TableColumns { Count = (uint)fields.Count };
         foreach (var xlField in fields)
-            tableColumns.AppendChild(BuildTableColumn(xlField, xlField.Id!.Value, xlTable, context));
+        {
+            var id = xlField.Id!.Value;
+            tableColumns.AppendChild(BuildTableColumn(xlField, id, xlTable, loadedColumns.GetValueOrDefault(id), context));
+        }
 
         return tableColumns;
     }
@@ -169,7 +179,8 @@ internal static class TablePartWriter
             field.Id = ++lastId;
     }
 
-    private static TableColumn BuildTableColumn(XLTableField xlField, uint columnId, XLTable xlTable, SaveContext context)
+    private static TableColumn BuildTableColumn(XLTableField xlField, uint columnId, XLTable xlTable,
+        TableColumn? loadedColumn, SaveContext context)
     {
         var fieldName = xlField.Name;
         var tableColumn = new TableColumn
@@ -178,7 +189,7 @@ internal static class TablePartWriter
             Name = fieldName.Replace("_x000a_", "_x005f_x000a_").Replace(Environment.NewLine, "_x000a_")
         };
 
-        ApplyColumnDataFormat(tableColumn, xlField, xlTable, context);
+        ApplyColumnDataFormat(tableColumn, xlField, xlTable, loadedColumn, context);
         ApplyColumnFormula(tableColumn, xlField, xlTable);
 
         if (xlTable.ShowTotalsRow)
@@ -187,9 +198,14 @@ internal static class TablePartWriter
         return tableColumn;
     }
 
-    private static void ApplyColumnDataFormat(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable, SaveContext context)
+    /// <summary>
+    /// Writes the column's data format. When every data cell shares one style, the model decides:
+    /// that style, or none for the default style (#513). Otherwise the cells say nothing, and the
+    /// loaded <c>dataDxfId</c> is kept, pointed at its dxf in the rebuilt collection (#961).
+    /// </summary>
+    private static void ApplyColumnDataFormat(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable,
+        TableColumn? loadedColumn, SaveContext context)
     {
-        // https://github.com/XLibur/XLibur/issues/513
         if (xlField.IsConsistentStyle())
         {
             var style = ((XLStyle)xlField.Column.Cells()
@@ -200,6 +216,8 @@ internal static class TablePartWriter
             if (!DefaultStyleValue.Equals(style) && context.DifferentialFormats.TryGetValue(style, out int id))
                 tableColumn.DataFormatId = UInt32Value.FromUInt32(Convert.ToUInt32(id));
         }
+        else if (loadedColumn?.DataFormatId?.Value is { } loadedId && context.LoadedDxfs?.WrittenIndexOf(loadedId) is { } writtenId)
+            tableColumn.DataFormatId = writtenId;
     }
 
     private static void ApplyColumnFormula(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable)
