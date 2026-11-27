@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Xml.Linq;
+using XLibur.Excel.IO;
 using XLibur.Excel.RichText;
 
 namespace XLibur.Excel;
@@ -24,6 +27,8 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
         : base(defaultComment, defaultFont)
     {
         Initialize(cell, style);
+        if (defaultComment is XLComment source)
+            StartArrow = source.StartArrow;
     }
 
     public XLComment(XLCell cell, string text, IXLFontBase defaultFont)
@@ -117,6 +122,16 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
     /// nothing that places the note has changed (#953). Null for a note made in code or copied.
     /// </summary>
     internal LoadedNoteAnchor? LoadedAnchor { get; set; }
+
+    /// <summary>
+    /// What the comments part said about this note besides its text: its <c>commentPr</c>, which
+    /// LibreOffice wraps in an <c>mc:AlternateContent</c> (#1027). Null for a note made in code or
+    /// copied, and for a note whose file gave it none, which is every note Excel writes.
+    /// </summary>
+    internal LoadedCommentProperties? LoadedProperties { get; set; }
+
+    /// <summary>The start arrow the file gave the note's line, kept for the save (#1027).</summary>
+    internal NoteStartArrow? StartArrow { get; set; }
 
     public int ZOrder { get; set; }
 
@@ -252,3 +267,38 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
 /// row or column shifted or resized under it) changes the computed anchor.
 /// </summary>
 internal sealed record LoadedNoteAnchor(string FromFile, string Computed);
+
+/// <summary>
+/// A note's <c>commentPr</c> markup as the file wrote it, each element carrying the namespace
+/// declarations it needs, and the note as the model held it just after the load. The markup
+/// restates the note's anchor, placement, alignment and protection, which the model owns, so a
+/// save writes it back only while <see cref="NoteProperties.Of"/> still gives <see cref="AtLoad"/>.
+/// Once any of them changes the markup would contradict the VML, so the save leaves it out.
+/// </summary>
+internal sealed record LoadedCommentProperties(IReadOnlyList<XElement> Markup, NoteProperties AtLoad);
+
+/// <summary>
+/// A <c>v:stroke</c>'s <c>startarrow</c>, <c>startarrowlength</c> and <c>startarrowwidth</c>, as
+/// the file wrote them.
+/// </summary>
+internal sealed record NoteStartArrow(string Arrow, string? Length, string? Width);
+
+/// <summary>What a note's <c>commentPr</c> can say that the model also owns.</summary>
+internal readonly record struct NoteProperties(
+    string Anchor,
+    XLDrawingAnchor Positioning,
+    XLDrawingHorizontalAlignment Horizontal,
+    XLDrawingVerticalAlignment Vertical,
+    bool Locked,
+    bool LockText,
+    string? AlternateText)
+{
+    internal static NoteProperties Of(XLCell cell, XLComment comment) => new(
+        VmlDrawingPartWriter.ComputeAnchor(cell, comment),
+        comment.Anchor,
+        comment.Style.Alignment.Horizontal,
+        comment.Style.Alignment.Vertical,
+        comment.Style.Protection.Locked,
+        comment.Style.Protection.LockText,
+        comment.Style.Web.AlternateText);
+}

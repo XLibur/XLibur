@@ -160,6 +160,15 @@ internal static class VmlDrawingPartWriter
         if (comment.Style.ColorsAndLines.LineTransparency < 1)
             stroke.Opacity =
                 Math.Round(Convert.ToDouble(comment.Style.ColorsAndLines.LineTransparency), 2).ToInvariantString();
+        if (comment.StartArrow is { } arrow)
+        {
+            stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrow", string.Empty, arrow.Arrow));
+            if (arrow.Length is not null)
+                stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrowlength", string.Empty, arrow.Length));
+            if (arrow.Width is not null)
+                stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrowwidth", string.Empty, arrow.Width));
+        }
+
         return stroke;
     }
 
@@ -184,7 +193,7 @@ internal static class VmlDrawingPartWriter
         if (a.AutomaticSize)
             sb.Append("mso-fit-shape-to-text:t;");
 
-        var tb = new Vml.TextBox();
+        var tb = new Vml.TextBox(TextBoxDiv(a.Horizontal));
 
         if (sb.Length > 0)
             tb.Style = sb.ToString();
@@ -198,6 +207,25 @@ internal static class VmlDrawingPartWriter
                 dm.Bottom.ToInvariantString(), "in");
 
         return tb;
+    }
+
+    /// <summary>
+    /// The empty <c>&lt;div style='text-align:...'&gt;</c> Excel writes in every note's text box,
+    /// aligned as the note's <c>x:TextHAlign</c> says (#1027). CSS has no distributed alignment,
+    /// so a distributed note says justify.
+    /// </summary>
+    private static OpenXmlUnknownElement TextBoxDiv(XLDrawingHorizontalAlignment horizontal)
+    {
+        var align = horizontal switch
+        {
+            XLDrawingHorizontalAlignment.Center => "center",
+            XLDrawingHorizontalAlignment.Right => "right",
+            XLDrawingHorizontalAlignment.Justify or XLDrawingHorizontalAlignment.Distributed => "justify",
+            _ => "left",
+        };
+        var div = new OpenXmlUnknownElement(string.Empty, "div", string.Empty);
+        div.SetAttribute(new OpenXmlAttribute(string.Empty, "style", string.Empty, "text-align:" + align));
+        return div;
     }
 
     private static double ColumnWidth(XLWorksheet worksheet, int column) =>

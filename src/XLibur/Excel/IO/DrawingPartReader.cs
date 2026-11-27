@@ -361,13 +361,37 @@ internal static class DrawingPartReader
     {
         LoadShapeColors(drawing, shape);
 
+        // A v:fill or v:stroke colour overrides the shape's own. Excel writes only the shape's;
+        // LibreOffice writes only these (#1027).
         var fill = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "fill");
         if (fill != null)
+        {
+            if (fill.Attribute("color") is { } fillColor)
+                drawing.Style.ColorsAndLines.FillColor = XLColor.FromVmlColor(fillColor.Value);
+
             LoadFillOpacity(drawing, fill);
+        }
 
         var stroke = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "stroke");
         if (stroke != null)
+        {
+            if (stroke.Attribute("color") is { } strokeColor)
+                drawing.Style.ColorsAndLines.LineColor = XLColor.FromVmlColor(strokeColor.Value);
+
             LoadStrokeProperties(drawing, stroke);
+        }
+    }
+
+    /// <summary>
+    /// The start arrow a note's <c>v:stroke</c> names, as written. LibreOffice draws its note's
+    /// pointer with one; Excel writes none and the model has no place for one.
+    /// </summary>
+    internal static NoteStartArrow? ReadNoteStartArrow(XElement shape)
+    {
+        var stroke = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "stroke");
+        return stroke?.Attribute("startarrow")?.Value is { } arrow
+            ? new NoteStartArrow(arrow, stroke.Attribute("startarrowlength")?.Value, stroke.Attribute("startarrowwidth")?.Value)
+            : null;
     }
 
     internal static void LoadTextBox<T>(IXLDrawing<T> xlDrawing, XElement textBox, double dpiX, double dpiY)

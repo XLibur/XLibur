@@ -62,10 +62,8 @@ internal static class RoundTripCensusAllowList
     private const string ColumnDataFormat = "a table column whose data cells share one style takes that style as its data format (dataDxfId), written from the style model: without the defaults the loaded dxf spelled out, and without readingOrder or the vertical and horizontal border sides; the loaded dxf it replaces is pruned (#513, #961)";
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
     private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
-
-    private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
-    private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
-    private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
+    private const string ForeignNoteColour = "a LibreOffice note's v:fill and v:stroke colour is read as the note's fill and line colour, and written as the shape's fillcolor and strokecolor, which VML reads the same (#1027)";
+    private const string NotVml = "LibreOffice writes a note's detectmouseclick without the o: prefix and its wrap as v:wrap, but VML has neither: Office's are o:detectmouseclick and Word's w10:wrap, so nothing reads them";
 
     private static readonly AllowedLoss[] Noise =
     [
@@ -332,47 +330,15 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:shape@strokecolor", ForeignNoteShape, 2),
         new(VmlDrawing, "v:shape@style", ForeignNoteShape, 4),
         new(VmlDrawing, "v:shape@type", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:fill@color", ForeignNoteColour, 2),
+        new(VmlDrawing, "v:stroke@color", ForeignNoteColour, 2),
+        new(VmlDrawing, "v:fill@type=solid", SchemaDefault),
+        new(VmlDrawing, "v:fill@detectmouseclick", NotVml, 2),
+        new(VmlDrawing, "v:wrap", NotVml, 2),
+        new(VmlDrawing, "v:wrap@v:type", NotVml, 2),
     ];
 
-    private static readonly KnownLoss[] Known =
-    [
-        new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "anchor@moveWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "anchor@sizeWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "commentPr@autoFill", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "commentPr@autoLine", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@autoScale", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@colHidden", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@defaultSize", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@locked", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@rowHidden", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@textHAlign", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "commentPr@textVAlign", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "from", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "mc:AlternateContent", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "mc:Choice", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "mc:Choice@Requires", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "mc:Fallback", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
-        new(SpreadsheetmlComments, "to", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "xdr:col", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
-        new(SpreadsheetmlComments, "xdr:colOff", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
-        new(SpreadsheetmlComments, "xdr:from", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(SpreadsheetmlComments, "xdr:row", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
-        new(SpreadsheetmlComments, "xdr:rowOff", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
-        new(SpreadsheetmlComments, "xdr:to", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(VmlDrawing, "v:fill@color", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:fill@detectmouseclick", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:fill@type", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:stroke@color", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:stroke@startarrow", "#953", LostForeignNoteFillAndStroke, 4),
-        new(VmlDrawing, "v:stroke@startarrowlength", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:stroke@startarrowwidth", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:wrap", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-    ];
+    private static readonly KnownLoss[] Known = [];
 
     internal static IEnumerable<(string ContentType, string Key)> Keys =>
         Noise.Select(n => (n.ContentType, n.Key)).Concat(Known.Select(k => (k.ContentType, k.Key)));

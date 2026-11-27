@@ -70,6 +70,13 @@ internal static class CommentPartWriter
                 TextSerializer.WriteRun(xml, richText, run);
 
             xml.WriteEndElement(); // text
+
+            if (comment.LoadedProperties is { } kept && kept.AtLoad == NoteProperties.Of(entry.Cell, comment))
+            {
+                foreach (var markup in kept.Markup)
+                    markup.WriteTo(xml);
+            }
+
             xml.WriteEndElement(); // comment
         }
 
