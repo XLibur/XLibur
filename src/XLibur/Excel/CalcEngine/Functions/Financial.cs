@@ -172,6 +172,17 @@ internal static class Financial
     /// </summary>
     private static bool TryAddDiscountedValues(CalcContext ctx, in AnyValue arg, double rate, ref double npv, ref int period, out XLError error)
     {
+        // A value given directly coerces like any number argument: NPV(0.1,"5") discounts 5 and
+        // NPV(0.1,"x") is #VALUE!.
+        if (arg.TryPickScalar(out var direct, out _))
+        {
+            if (!direct.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
+                return false;
+
+            AddDiscounted(number, rate, ref npv, ref period);
+            return true;
+        }
+
         foreach (var scalar in EnumerateScalars(ctx, arg))
         {
             if (scalar.IsError)
@@ -180,17 +191,20 @@ internal static class Financial
                 return false;
             }
 
-            // NPV ignores blanks, text and logicals in references; each number is discounted by
-            // its sequential position.
-            if (!scalar.IsNumber)
-                continue;
-
-            npv += scalar.GetNumber() / Math.Pow(1 + rate, period);
-            period++;
+            // NPV ignores blanks, text and logicals in references and arrays.
+            if (scalar.IsNumber)
+                AddDiscounted(scalar.GetNumber(), rate, ref npv, ref period);
         }
 
         error = default;
         return true;
+    }
+
+    /// <summary>Each value is discounted by its sequential position.</summary>
+    private static void AddDiscounted(double value, double rate, ref double npv, ref int period)
+    {
+        npv += value / Math.Pow(1 + rate, period);
+        period++;
     }
 
     private static AnyValue Irr(CalcContext ctx, Span<AnyValue> args)

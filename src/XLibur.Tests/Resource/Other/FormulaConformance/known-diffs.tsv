@@ -77,10 +77,6 @@ MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error
 MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 NPV	NPV#12	error:#NUM!	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns error:#NUM!	
 NPV	NPV#16	number:-1.1111111111111111E-306	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns number:-1.1111111111111111E-306	
-NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454545; XLibur returns number:0	
-NPV	NPV#19	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
-NPV	NPV#20	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
-NPV	NPV#21	number:0	number:0.9090909090909091	Excel returns number:0.9090909090909091; XLibur returns number:0	
 OCT2DEC	OCT2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 OCT2DEC	OCT2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 PMT	PMT#15	number:-99.99999182596359	number:-100.000000055	Excel returns number:-100.000000055; XLibur returns number:-99.99999182596359	
