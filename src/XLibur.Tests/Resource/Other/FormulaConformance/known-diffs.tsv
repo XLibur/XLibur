@@ -25,18 +25,10 @@ REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one charact
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
-BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2HEX	BIN2HEX#9	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 COMPLEX	COMPLEX#14	text:1E-10+4i	text:0.0000000001+4i	Excel returns text:0.0000000001+4i; XLibur returns text:1E-10+4i	
 COMPLEX	COMPLEX#15	text:1E+15+4i	text:1000000000000000+4i	Excel returns text:1000000000000000+4i; XLibur returns text:1E+15+4i	
 COMPLEX	COMPLEX#29	text:3+1E-10i	text:3+0.0000000001i	Excel returns text:3+0.0000000001i; XLibur returns text:3+1E-10i	
 COMPLEX	COMPLEX#30	text:3+1E+15i	text:3+1000000000000000i	Excel returns text:3+1000000000000000i; XLibur returns text:3+1E+15i	
-CONVERT	CONVERT#21	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#23	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#38	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 DB	DB#17	error:#NUM!	number:9E+307	An out-of-range magnitude or count: Excel returns number:9E+307; XLibur returns #NUM!	
@@ -52,8 +44,6 @@ HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur 
 HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
-IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
@@ -88,8 +78,6 @@ NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454
 NPV	NPV#19	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
 NPV	NPV#20	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
 NPV	NPV#21	number:0	number:0.9090909090909091	Excel returns number:0.9090909090909091; XLibur returns number:0	
-OCT2DEC	OCT2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-OCT2DEC	OCT2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 PMT	PMT#15	number:-99.99999182596359	number:-100.000000055	Excel returns number:-100.000000055; XLibur returns number:-99.99999182596359	
 PMT	PMT#32	error:#NUM!	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur returns #NUM!	
 PMT	PMT#47	number:-1.1655411746891096E+307	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.1655411746891096E+307	

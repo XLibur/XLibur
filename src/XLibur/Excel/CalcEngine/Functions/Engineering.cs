@@ -32,8 +32,8 @@ internal static class Engineering
         ce.RegisterFunction("BESSELJ", 2, 2, Adapt(BesselJ), FunctionFlags.Scalar); // Returns the Bessel function Jn(x)
         ce.RegisterFunction("BESSELK", 2, 2, Adapt(BesselK), FunctionFlags.Scalar); // Returns the modified Bessel function Kn(x)
         ce.RegisterFunction("BESSELY", 2, 2, Adapt(BesselY), FunctionFlags.Scalar); // Returns the Bessel function Yn(x)
-        ce.RegisterFunction("BIN2DEC", 1, 1, Adapt(Bin2Dec), FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("BIN2HEX", 1, 2, AdaptLastOptionalLastFirst(Bin2Hex), [1], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("BIN2DEC", 1, 1, Adapt(Bin2Dec), [0], FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("BIN2HEX", 1, 2, AdaptLastOptionalLastFirst(Bin2Hex), [1, 0], FunctionFlags.Scalar);
         ce.RegisterFunction("BIN2OCT", 1, 2, AdaptLastOptionalLastFirst(Bin2Oct), FunctionFlags.Scalar);
         ce.RegisterFunction("BITAND", 2, 2, Adapt(BitAnd), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'And' of two numbers
         ce.RegisterFunction("BITLSHIFT", 2, 2, Adapt(BitLShift), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a number shifted left by shift_amount bits
@@ -41,7 +41,7 @@ internal static class Engineering
         ce.RegisterFunction("BITRSHIFT", 2, 2, Adapt(BitRShift), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a number shifted right by shift_amount bits
         ce.RegisterFunction("BITXOR", 2, 2, Adapt(BitXor), FunctionFlags.Scalar | FunctionFlags.Future); // Returns a bitwise 'Exclusive Or' of two numbers
         ce.RegisterStrictNumeric("COMPLEX", 2, 3, AdaptLastOptional(Complex, "i"), [0, 1], FunctionFlags.Scalar); // Converts real and imaginary coefficients into a complex number
-        ce.RegisterStrictNumeric("CONVERT", 3, 3, Adapt(ConvertUnit), [0], FunctionFlags.Scalar); // Converts a number from one measurement system to another
+        ce.RegisterStrictNumeric("CONVERT", 3, 3, Adapt(ConvertUnit), [0, 1, 2], FunctionFlags.Scalar); // Converts a number from one measurement system to another
         ce.RegisterStrictNumeric("DEC2BIN", 1, 2, AdaptLastOptionalLastFirst(Dec2Bin), [1, 0], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("DEC2HEX", 1, 2, AdaptLastOptionalLastFirst(Dec2Hex), [1, 0], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("DEC2OCT", 1, 2, AdaptLastOptionalLastFirst(Dec2Oct), [1, 0], FunctionFlags.Scalar);
@@ -54,7 +54,7 @@ internal static class Engineering
         ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin), [1, 0], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("HEX2DEC", 1, 1, Adapt(Hex2Dec), [0], FunctionFlags.Scalar);
         ce.RegisterFunction("HEX2OCT", 1, 2, AdaptLastOptionalLastFirst(Hex2Oct), FunctionFlags.Scalar);
-        ce.RegisterFunction("IMABS", 1, 1, Adapt(ImAbs), FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number
+        ce.RegisterStrictNumeric("IMABS", 1, 1, Adapt(ImAbs), [0], FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number
         ce.RegisterFunction("IMAGINARY", 1, 1, Adapt(ImAginary), FunctionFlags.Scalar); // Returns the imaginary coefficient of a complex number
         ce.RegisterFunction("IMARGUMENT", 1, 1, Adapt(ImArgument), FunctionFlags.Scalar); // Returns the argument theta, an angle expressed in radians
         ce.RegisterFunction("IMCONJUGATE", 1, 1, Adapt(ImConjugate), FunctionFlags.Scalar); // Returns the complex conjugate of a complex number
@@ -80,7 +80,7 @@ internal static class Engineering
         ce.RegisterFunction("IMSUM", 1, 255, Adapt(ImSum), FunctionFlags.Scalar); // Returns the sum of complex numbers
         ce.RegisterFunction("IMTAN", 1, 1, Adapt(ImTan), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the tangent of a complex number
         ce.RegisterFunction("OCT2BIN", 1, 2, AdaptLastOptionalLastFirst(Oct2Bin), FunctionFlags.Scalar);
-        ce.RegisterFunction("OCT2DEC", 1, 1, Adapt(Oct2Dec), FunctionFlags.Scalar);
+        ce.RegisterStrictNumeric("OCT2DEC", 1, 1, Adapt(Oct2Dec), [0], FunctionFlags.Scalar);
         ce.RegisterFunction("OCT2HEX", 1, 2, AdaptLastOptionalLastFirst(Oct2Hex), FunctionFlags.Scalar);
     }
 
