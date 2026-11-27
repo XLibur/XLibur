@@ -69,12 +69,12 @@ internal static class RoundTripCensusAllowList
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostCommentTextRunCharsetAndIndexed = "comment text run charset and indexed colour dropped";
     private const string LostPivotCacheItemFlagsUContainsNonDate = "pivot cache item flags (u, containsNonDate) dropped";
-    private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
     private const string LostRichTextRunCharsetDropped = "rich text run charset dropped";
     private const string LostRichValueDetailOfAVALUE = "rich-value detail of a #VALUE! error (subType, argument) dropped";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
     private const string LostTableColumnDataFormatDataDxfIdDropped = "table column data format (dataDxfId) dropped";
+    private const string LostRebuiltTableColumnDxfsDropReadingOrder = "rebuilt table column dxfs (dataDxfId) drop readingOrder and the vertical and horizontal border sides, and unreferenced dxfs are pruned";
 
     private static readonly AllowedLoss[] Noise =
     [
@@ -156,9 +156,9 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlStyles, "bottom@style", StylesPruned, 50),
         new(SpreadsheetmlStyles, "charset", StylesPruned, 6),
         new(SpreadsheetmlStyles, "charset@val", StylesPruned, 6),
-        new(SpreadsheetmlStyles, "color", StylesPruned, 256),
+        new(SpreadsheetmlStyles, "color", StylesPruned, 248),
         new(SpreadsheetmlStyles, "color@auto", StylesPruned, 32),
-        new(SpreadsheetmlStyles, "color@indexed", StylesPruned, 212),
+        new(SpreadsheetmlStyles, "color@indexed", StylesPruned, 204),
         new(SpreadsheetmlStyles, "color@theme", StylesPruned, 26),
         new(SpreadsheetmlStyles, "color@tint", StylesPruned, 8),
         new(SpreadsheetmlStyles, "condense", StylesPruned, 6),
@@ -378,13 +378,11 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlPivotCacheDefinition, "n@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 540),
         new(SpreadsheetmlPivotCacheDefinition, "s@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 624),
         new(SpreadsheetmlPivotCacheDefinition, "sharedItems@containsNonDate", "#955", LostPivotCacheItemFlagsUContainsNonDate, 72),
-        new(SpreadsheetmlPivotTable, "format@dxfId->alignment", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 32),
-        new(SpreadsheetmlPivotTable, "format@dxfId->border", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 14),
-        new(SpreadsheetmlStyles, "alignment@readingOrder", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 196),
-        new(SpreadsheetmlStyles, "horizontal", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 70),
-        new(SpreadsheetmlStyles, "horizontal@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 46),
-        new(SpreadsheetmlStyles, "vertical", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 66),
-        new(SpreadsheetmlStyles, "vertical@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 46),
+        new(SpreadsheetmlStyles, "alignment@readingOrder", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 192),
+        new(SpreadsheetmlStyles, "horizontal", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 66),
+        new(SpreadsheetmlStyles, "horizontal@style", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 42),
+        new(SpreadsheetmlStyles, "vertical", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 62),
+        new(SpreadsheetmlStyles, "vertical@style", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 42),
         new(SpreadsheetmlSharedStrings, "charset", "#957", LostRichTextRunCharsetDropped, 6),
         new(SpreadsheetmlSharedStrings, "charset@val", "#957", LostRichTextRunCharsetDropped, 6),
         new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rv", "#954", LostRichValueDetailOfAVALUE, 14),
