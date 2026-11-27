@@ -657,7 +657,43 @@ internal static class Statistical
 
     private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
     {
-        return Mode(ctx, args, TallyNumbers.Default);
+        if (!TryReadModeArguments(ctx, args, out var arrays, out var error))
+            return error;
+
+        return Mode(ctx, arrays, TallyNumbers.Default);
+    }
+
+    /// <summary>
+    /// MODE reads every argument as an array: a value given directly is a one-element array, so
+    /// text in it is skipped rather than converted and MODE(A1:A5,"x") is the mode of A1:A5. A
+    /// single blank cell is <c>#VALUE!</c>.
+    /// </summary>
+    private static bool TryReadModeArguments(CalcContext ctx, Span<AnyValue> args, out AnyValue[] arrays, out XLError error)
+    {
+        arrays = new AnyValue[args.Length];
+        error = default;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (IsBlankCell(ctx, args[i]))
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            arrays[i] = args[i].TryPickScalar(out var scalar, out _) && !scalar.IsError
+                ? new ScalarArray(scalar, 1, 1)
+                : args[i];
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the argument is a reference to one cell, and that cell is blank.</summary>
+    internal static bool IsBlankCell(CalcContext ctx, in AnyValue arg)
+    {
+        return arg.TryPickReference(out var reference, out _)
+               && reference!.TryGetSingleCellValue(out var value, ctx)
+               && value.IsBlank;
     }
 
     internal static AnyValue Mode(CalcContext ctx, Span<AnyValue> args, ITally tally)
@@ -697,7 +733,10 @@ internal static class Statistical
     /// </summary>
     private static AnyValue ModeMult(CalcContext ctx, Span<AnyValue> args)
     {
-        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        if (!TryReadModeArguments(ctx, args, out var arrays, out var argumentError))
+            return argumentError;
+
+        var result = TallyNumbers.Default.Tally(ctx, arrays, new ValuesState([]));
         if (!result.TryPickT0(out var state, out var error))
             return error;
 

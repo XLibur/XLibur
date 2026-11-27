@@ -54,12 +54,6 @@ IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur retu
 IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 IPMT	IPMT#45	error:#NUM!	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur returns #NUM!	
 IPMT	IPMT#60	number:-4.5000000000000006E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-4.5000000000000006E+306	
-MODE	MODE#3	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-MODE	MODE#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-MODE	MODE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-MODE	MODE#16	number:1	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:1	
-MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
-MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 NPER	NPER#13	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 NPER	NPER#64	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
 NPER	NPER#71	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
