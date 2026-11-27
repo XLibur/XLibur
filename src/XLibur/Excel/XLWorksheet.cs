@@ -2033,8 +2033,9 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// </summary>
     /// <remarks>
     /// As in Excel, a formatted row gives its style to each of its cells that has no record, ahead of
-    /// the column (#958). A cell where a formatted row meets a styled column gets a record of its own
-    /// when either is styled, so the row's style alone is what such a cell shows.
+    /// the column (#958). That is also what Excel shows for such a cell once the sheet is saved, as
+    /// the save writes no record for it. Creating a row or a column gives the cells where it meets
+    /// existing columns or rows a record, but styling a row or column that already exists does not.
     /// </remarks>
     internal XLStyleValue GetInheritedStyleValue(int row, int column)
     {
