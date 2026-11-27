@@ -587,11 +587,20 @@ internal static class MathTrig
         return FloorMath(number, significance, 0);
     }
 
+    /// <summary>
+    /// GCD, and <see cref="Lcm(CalcContext, List{Array})"/>, skip an argument that is one empty cell:
+    /// <c>LCM(4,A1)</c> is 4, and <c>GCD(A1)</c>, with no number left, is <c>#VALUE!</c>. An empty cell
+    /// in a larger range is 0, so <c>LCM(A1:A3)</c> with A3 empty is 0.
+    /// </summary>
     private static ScalarValue Gcd(CalcContext ctx, List<Array> arrays)
     {
         var result = 0d;
+        var hasOperand = false;
         foreach (var array in arrays)
         {
+            if (IsSingleBlankCell(array, array.Width, array.Height))
+                continue;
+
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
@@ -599,10 +608,11 @@ internal static class MathTrig
                     return error;
 
                 result = Gcd(number, Math.Truncate(result));
+                hasOperand = true;
             }
         }
 
-        return result;
+        return hasOperand ? result : XLError.IncompatibleValue;
     }
 
     private static double Gcd(double a, double b)
@@ -670,8 +680,12 @@ internal static class MathTrig
     private static ScalarValue Lcm(CalcContext ctx, List<Array> arrays)
     {
         var result = 1d;
+        var hasOperand = false;
         foreach (var array in arrays)
         {
+            if (IsSingleBlankCell(array, array.Width, array.Height))
+                continue;
+
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
@@ -679,10 +693,11 @@ internal static class MathTrig
                     return error;
 
                 result = Lcm(result, Math.Truncate(number));
+                hasOperand = true;
             }
         }
 
-        return result;
+        return hasOperand ? result : XLError.IncompatibleValue;
     }
 
     private static double Lcm(double a, double b)

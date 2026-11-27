@@ -13,9 +13,6 @@ SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM
 TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
 VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
-GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
-LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
-LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
 REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
