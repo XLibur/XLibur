@@ -27,6 +27,8 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
         : base(defaultComment, defaultFont)
     {
         Initialize(cell, style);
+        if (defaultComment is XLComment source)
+            StartArrow = source.StartArrow;
     }
 
     public XLComment(XLCell cell, string text, IXLFontBase defaultFont)

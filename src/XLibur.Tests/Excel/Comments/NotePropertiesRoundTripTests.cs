@@ -130,6 +130,82 @@ public class NotePropertiesRoundTripTests
             stroke.Attribute("startarrowlength")?.Value, stroke.Attribute("startarrowwidth")?.Value)).IsEqualTo(arrow);
     }
 
+    [Test]
+    public async Task A_copied_LibreOffice_note_keeps_its_start_arrow()
+    {
+        var shapes = ReadNoteShapes(Save(LibreOffice, wb =>
+        {
+            var noted = wb.Worksheets.SelectMany(w => w.CellsUsed(XLCellsUsedOptions.Comments, c => c.HasComment)).First();
+            noted.CopyTo(noted.Worksheet.Cell("Z100"));
+        }));
+
+        await Assert.That(shapes).Count().IsEqualTo(2);
+        foreach (var shape in shapes)
+            await Assert.That(shape.Element(Vml + "stroke")?.Attribute("startarrow")?.Value).IsEqualTo("block");
+    }
+
+    /// <summary>
+    /// The prefix an <c>mc:Choice</c> requires may be declared on the comment rather than on the
+    /// part's root, and the kept markup still needs it.
+    /// </summary>
+    [Test]
+    public async Task A_note_keeps_comment_properties_whose_prefix_the_comment_declares()
+    {
+        using var source = Load(LibreOffice);
+        MoveRequiredPrefixesOntoComments(source);
+        var loaded = ReadCommentProperties(source);
+        await Assert.That(loaded).IsNotEmpty();
+
+        var saved = new MemoryStream();
+        source.Position = 0;
+        using (var wb = new XLWorkbook(source))
+            wb.SaveAs(saved);
+
+        await Assert.That(ReadCommentProperties(saved)).IsEquivalentTo(loaded);
+
+        XNamespace mc = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        var unresolved = ReadParts<WorksheetCommentsPart>(saved)
+            .SelectMany(d => d.Descendants(mc + "Choice"))
+            .Where(choice => choice.GetNamespaceOfPrefix(choice.Attribute("Requires")!.Value) is null)
+            .ToList();
+        await Assert.That(unresolved).IsEmpty();
+    }
+
+    private static void MoveRequiredPrefixesOntoComments(MemoryStream xlsx)
+    {
+        XNamespace mc = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        xlsx.Position = 0;
+        using var document = SpreadsheetDocument.Open(xlsx, isEditable: true);
+        foreach (var part in document.WorkbookPart!.WorksheetParts.Select(p => p.WorksheetCommentsPart).OfType<WorksheetCommentsPart>())
+        {
+            XDocument xml;
+            using (var read = part.GetStream())
+                xml = XDocument.Load(read);
+
+            var root = xml.Root!;
+            var prefixes = root.Descendants(mc + "Choice").Select(c => c.Attribute("Requires")!.Value).Distinct().ToList();
+            foreach (var prefix in prefixes)
+            {
+                var declaration = root.Attribute(XNamespace.Xmlns + prefix)!;
+                declaration.Remove();
+                if (root.Attribute(mc + "Ignorable") is { } ignorable)
+                {
+                    var rest = string.Join(" ", ignorable.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(p => p != prefix));
+                    if (rest.Length == 0)
+                        ignorable.Remove();
+                    else
+                        ignorable.Value = rest;
+                }
+
+                foreach (var comment in root.Descendants(root.Name.Namespace + "comment"))
+                    comment.Add(new XAttribute(XNamespace.Xmlns + prefix, declaration.Value));
+            }
+
+            using var write = part.GetStream(FileMode.Create);
+            xml.Save(write);
+        }
+    }
+
     private static readonly XNamespace Vml = "urn:schemas-microsoft-com:vml";
     private static readonly XNamespace ExcelVml = "urn:schemas-microsoft-com:office:excel";
 

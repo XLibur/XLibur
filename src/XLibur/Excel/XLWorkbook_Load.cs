@@ -1089,8 +1089,8 @@ public partial class XLWorkbook
     /// <summary>
     /// Every element of a comment besides its text: a <c>commentPr</c>, or the
     /// <c>mc:AlternateContent</c> LibreOffice wraps one in. An <c>mc:Choice</c> names in its
-    /// <c>Requires</c> a prefix the part declares on its root, and markup compatibility rejects a
-    /// prefix nothing declares, so each element takes the root's declarations along.
+    /// <c>Requires</c> a prefix the comment or the part's root declares, and markup compatibility
+    /// rejects a prefix nothing declares, so each element takes the declarations in scope along.
     /// </summary>
     private static List<XElement> ReadCommentPropertiesMarkup(Comment c)
     {
@@ -1098,7 +1098,7 @@ public partial class XLWorkbook
         foreach (var element in c.ChildElements.Where(e => e is not CommentText))
         {
             var kept = XElement.Parse(element.OuterXml);
-            for (var ancestor = c.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            for (OpenXmlElement? ancestor = c; ancestor is not null; ancestor = ancestor.Parent)
             {
                 foreach (var (prefix, uri) in ancestor.NamespaceDeclarations)
                 {
