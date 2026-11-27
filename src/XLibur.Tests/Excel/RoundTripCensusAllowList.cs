@@ -47,6 +47,7 @@ internal static class RoundTripCensusAllowList
     private const string ValidationsMerged = "data validations with the same rule are written as one (SaveOptions.ConsolidateDataValidationRanges), and a rule moves between the main and the x14 form as its formula needs";
     private const string ConditionalAlignment = "a conditional format cannot apply alignment, so its dxf is written without one";
     private const string SharedFormulas = "a shared formula is written as a formula in each cell";
+    private const string DirtyFormula = "a formula an edit left dirty, which XLibur cannot evaluate, is written with no cached value and no t, so Excel recalculates it (ADR 0001, #962)";
     private const string Volatile = "ca and aca mark a volatile formula, which Excel works out from the formula when it loads the file";
     private const string CalcChain = "the calculation chain is a cache, rebuilt from the formulas the save writes";
     private const string Spans = "spans is an optional hint, written only for the rows the save writes from the model";
@@ -64,7 +65,6 @@ internal static class RoundTripCensusAllowList
 
     private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
     private const string LostASolidFillInTheSystem = "a solid fill in the system background colour (indexed 65) written as no fill when the sheet is written from the model";
-    private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostCommentTextRunCharsetAndIndexed = "comment text run charset and indexed colour dropped";
@@ -278,6 +278,7 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "f@t=shared", SharedFormulas),
         new(SpreadsheetmlWorksheet, "f@aca", Volatile),
         new(SpreadsheetmlWorksheet, "f@ca", Volatile),
+        new(SpreadsheetmlWorksheet, "f/v", DirtyFormula, 1),
         new(SpreadsheetmlCalcChain, "c", CalcChain),
         new(SpreadsheetmlCalcChain, "c@a", CalcChain),
         new(SpreadsheetmlCalcChain, "c@i", CalcChain),
@@ -339,9 +340,10 @@ internal static class RoundTripCensusAllowList
 
     private static readonly KnownLoss[] Known =
     [
-        new(SpreadsheetmlWorksheet, "c@t=e", "#960", LostACellImageIsWrittenAs, 2),
+        // Bound 3: two are #960; the third is the t="e" of the edited bug-fixes.xlsx's averageif cell,
+        // which goes with its cached value (DirtyFormula, f/v). Lower it to 1 when #960 is fixed.
+        new(SpreadsheetmlWorksheet, "c@t=e", "#960", LostACellImageIsWrittenAs, 3),
         new(SpreadsheetmlWorksheet, "c@s->fill", "#957", LostASolidFillInTheSystem, 2),
-        new(SpreadsheetmlWorksheet, "f/v", "#962", LostCachedValueOfAFormulaXLibur, 1),
         new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
         new(SpreadsheetmlComments, "anchor@moveWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
         new(SpreadsheetmlComments, "anchor@sizeWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
