@@ -63,7 +63,6 @@ internal static class RoundTripCensusAllowList
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
     private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
 
-    private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
 
     private static readonly AllowedLoss[] Noise =
@@ -344,8 +343,6 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:stroke@startarrowwidth", "#953", LostForeignNoteFillAndStroke, 2),
         new(VmlDrawing, "v:wrap", "#953", LostForeignNoteFillAndStroke, 2),
         new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
-        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
     ];
 
     internal static IEnumerable<(string ContentType, string Key)> Keys =>
