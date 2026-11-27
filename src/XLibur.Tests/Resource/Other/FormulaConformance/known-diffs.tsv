@@ -76,12 +76,6 @@ MODE	MODE#16	number:1	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns 
 MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 NPER	NPER#13	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
-NPER	NPER#64	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
-NPER	NPER#71	number:10.469848430762868	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:10.469848430762868	
-NPER	NPER#72	number:15.314857298602103	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:15.314857298602103	
-NPER	NPER#74	number:12.047236874648158	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:12.047236874648158	
-NPER	NPER#75	number:0.7591954712781256	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:0.7591954712781256	
-NPER	NPER#76	number:0.00020495626879943595	number:13.253227898138054	Excel returns number:13.253227898138054; XLibur returns number:0.00020495626879943595	
 NPV	NPV#12	error:#NUM!	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns error:#NUM!	
 NPV	NPV#16	number:-1.1111111111111111E-306	error:#DIV/0!	Excel returns error:#DIV/0!; XLibur returns number:-1.1111111111111111E-306	
 NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454545; XLibur returns number:0	
@@ -103,12 +97,6 @@ PPMT	PPMT#44	number:-0.0001975606550601583	number:-0.00019756065505475442	Last d
 PPMT	PPMT#45	error:#NUM!	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur returns #NUM!	
 PPMT	PPMT#60	number:-7.155411746891095E+306	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-7.155411746891095E+306	
 PV	PV#13	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
-PV	PV#64	number:965.2168661481021	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:965.2168661481021	
-PV	PV#71	number:965.2168661481021	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:965.2168661481021	
-PV	PV#72	number:733.5648182725574	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:733.5648182725574	
-PV	PV#74	number:868.6951795332918	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:868.6951795332918	
-PV	PV#75	number:10617.385527629123	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:10617.385527629123	
-PV	PV#76	number:38609446.819417	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:38609446.819417	
 RANK	RANK#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
 RANK	RANK#9	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
 RANK	RANK#10	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	

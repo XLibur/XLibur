@@ -108,8 +108,11 @@ internal static class Financial
             return -(futureValue + pmt * numberOfPayments);
 
         var pow = Math.Pow(1 + rate, numberOfPayments);
-        return -(futureValue + pmt * (1 + rate * type) * (pow - 1) / rate) / pow;
+        return -(futureValue + pmt * (1 + rate * PaymentTiming(type)) * (pow - 1) / rate) / pow;
     }
+
+    /// <summary>Excel reads any nonzero type as payments at the beginning of the period.</summary>
+    private static double PaymentTiming(double type) => type != 0.0 ? 1 : 0;
 
     private static AnyValue Nper(double rate, double pmt, double presentValue, double futureValue, double type)
     {
@@ -121,7 +124,7 @@ internal static class Financial
             return -(presentValue + futureValue) / pmt;
         }
 
-        var timing = pmt * (1 + rate * type);
+        var timing = pmt * (1 + rate * PaymentTiming(type));
         var numerator = timing - futureValue * rate;
         var denominator = presentValue * rate + timing;
         if (denominator == 0.0 || numerator / denominator <= 0.0)
