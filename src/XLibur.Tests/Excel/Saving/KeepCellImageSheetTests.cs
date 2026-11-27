@@ -13,8 +13,8 @@ namespace XLibur.Tests.Excel.Saving;
 /// when neither the sheet nor the numbering of the workbook's images has changed (#702, #721).
 /// </summary>
 /// <remarks>
-/// An image cell names its image through a <c>vm</c> index into the value metadata and holds the
-/// index of its rich value. A save writes both again for every image in the workbook, numbered in
+/// An image cell names its image through a <c>vm</c> index into the value metadata and holds
+/// <c>#VALUE!</c>. A save writes both again for every image in the workbook, numbered in
 /// the order of the sheets and of the cells in them, before it writes any sheet. A change elsewhere
 /// that renumbers the images changes the indices of this sheet's cells without anyone editing them,
 /// and the sheet must then be written.
@@ -97,18 +97,19 @@ public class KeepCellImageSheetTests
     }
 
     [Test]
-    public async Task An_image_cell_holding_an_error_as_Excel_writes_it_makes_the_save_write_the_sheet()
+    public async Task An_image_cell_holding_its_rich_value_index_makes_the_save_write_the_sheet()
     {
-        // Excel writes an image cell as #VALUE!. The save gives the cell its rich value index as a
-        // number, so a rewrite writes the cell otherwise than the file had it.
+        // Before #960 XLibur wrote an image cell as the index of its rich value. The save gives it the
+        // #VALUE! Excel writes, so a rewrite writes the cell otherwise than the file had it.
         using var source = Source();
-        source.RewritePart(Sheet2, xml => xml.Replace("vm=\"2\"><x:v>1</x:v>", "t=\"e\" vm=\"2\"><x:v>#VALUE!</x:v>",
+        source.RewritePart(Sheet2, xml => xml.Replace("t=\"e\" vm=\"2\"><x:v>#VALUE!</x:v>", "vm=\"2\"><x:v>1</x:v>",
             StringComparison.Ordinal));
-        await Assert.That(source.ReadPart(Sheet2)).Contains("#VALUE!");
+        await Assert.That(source.ReadPart(Sheet2)).DoesNotContain("#VALUE!");
 
         using var saved = source.LoadAndSave();
 
         await Assert.That(saved.IsWrittenFromModel(Sheet2)).IsTrue();
+        await Assert.That(saved.ReadPart(Sheet2)).Contains("t=\"e\" vm=\"2\"><x:v>#VALUE!</x:v>");
         await AssertImage(saved, "Data", "C1", 2);
     }
 
