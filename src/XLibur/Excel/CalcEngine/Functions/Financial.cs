@@ -122,6 +122,11 @@ internal static class Financial
             return -(futureValue + pmt * numberOfPayments);
 
         var pow = Math.Pow(1 + rate, numberOfPayments);
+
+        // PV(-1,10,-100) discounts by 0^10.
+        if (pow == 0.0)
+            return XLError.DivisionByZero;
+
         return -(futureValue + pmt * (1 + rate * PaymentTiming(type)) * (pow - 1) / rate) / pow;
     }
 
@@ -176,7 +181,7 @@ internal static class Financial
         // NPV(rate, value1, [value2], ...). rate is a scalar (marked param 0), values may be ranges.
         if (!args[0].TryReduceToNumber(ctx, out var rate, out var rateError))
             return rateError;
-        if (rate <= -1)
+        if (rate < -1)
             return XLError.NumberInvalid;
 
         double npv = 0;
@@ -203,8 +208,7 @@ internal static class Financial
             if (!direct.ToNumber(ctx.Culture).TryPickT0(out var number, out error))
                 return false;
 
-            AddDiscounted(number, rate, ref npv, ref period);
-            return true;
+            return TryAddDiscounted(number, rate, ref npv, ref period, out error);
         }
 
         foreach (var scalar in EnumerateScalars(ctx, arg))
@@ -216,19 +220,31 @@ internal static class Financial
             }
 
             // NPV ignores blanks, text and logicals in references and arrays.
-            if (scalar.IsNumber)
-                AddDiscounted(scalar.GetNumber(), rate, ref npv, ref period);
+            if (scalar.IsNumber && !TryAddDiscounted(scalar.GetNumber(), rate, ref npv, ref period, out error))
+                return false;
         }
 
         error = default;
         return true;
     }
 
-    /// <summary>Each value is discounted by its sequential position.</summary>
-    private static void AddDiscounted(double value, double rate, ref double npv, ref int period)
+    /// <summary>
+    /// Discount a value by its sequential position. A divisor of zero (rate -1) or one that overflows
+    /// (NPV(9E307,...) at the second period) is <c>#DIV/0!</c> in Excel.
+    /// </summary>
+    private static bool TryAddDiscounted(double value, double rate, ref double npv, ref int period, out XLError error)
     {
-        npv += value / Math.Pow(1 + rate, period);
+        var divisor = Math.Pow(1 + rate, period);
+        if (divisor == 0.0 || double.IsInfinity(divisor))
+        {
+            error = XLError.DivisionByZero;
+            return false;
+        }
+
+        npv += value / divisor;
         period++;
+        error = default;
+        return true;
     }
 
     private static AnyValue Irr(CalcContext ctx, Span<AnyValue> args)
@@ -483,7 +499,12 @@ internal static class Financial
         if (period <= 0 || period > life)
             return XLError.NumberInvalid;
 
-        return (cost - salvage) * (life - period + 1) * 2 / (life * (life + 1));
+        // A sum of the years' digits that overflows is #DIV/0! in Excel, as SYD(1000,100,9E307,1) is.
+        var yearsDigits = life * (life + 1);
+        if (double.IsInfinity(yearsDigits))
+            return XLError.DivisionByZero;
+
+        return (cost - salvage) * (life - period + 1) * 2 / yearsDigits;
     }
 
     /// <summary>
