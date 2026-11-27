@@ -579,13 +579,17 @@ internal static class Statistical
         return numbers[^k];
     }
 
-    /// <summary>The k-th smallest of a materialized list, as SMALL and AGGREGATE function 15 return it.</summary>
+    /// <summary>
+    /// The k-th smallest of a materialized list, as SMALL and AGGREGATE function 15 return it.
+    /// SMALL truncates a fractional k, where LARGE rounds it up: SMALL(A1:A5,2.5) is the second
+    /// smallest and LARGE(A1:A5,2.5) the third largest.
+    /// </summary>
     internal static AnyValue NthSmallest(List<double> numbers, double kParam)
     {
         if (kParam < 1)
             return XLError.NumberInvalid;
 
-        var k = (int)Math.Ceiling(kParam);
+        var k = (int)Math.Truncate(kParam);
         if (k > numbers.Count)
             return XLError.NumberInvalid;
 
@@ -605,21 +609,19 @@ internal static class Statistical
 
     private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args, bool averageTies)
     {
-        // RANK(number, ref, [order]). number/order are scalars (implicitly intersected); ref is the
-        // range/array (marked param 1). order = 0 or omitted ranks descending, non-zero ascending.
-        if (!TryPickScalarNumber(ctx, args[0], out var number, out var numberError))
+        // RANK(number, ref, [order]). number and order are scalars: a single-cell reference reads
+        // the cell and an array its first element. number coerces text, even from a cell, as "5"
+        // ranks as 5. order is a logical, so text, even "5", is #VALUE! and a blank cell is FALSE.
+        // FALSE ranks descending, TRUE ascending.
+        if (!ToNumber(args[0], ctx).TryPickT0(out var number, out var numberError))
             return numberError;
 
         if (!TryGetNumbers(ctx, args[1], out var numbers, out var refError))
             return refError;
 
         var ascending = false;
-        if (args.Length > 2)
-        {
-            if (!TryPickScalarNumber(ctx, args[2], out var order, out var orderError))
-                return orderError;
-            ascending = order != 0;
-        }
+        if (args.Length > 2 && !CoerceToLogical(args[2], ctx).TryPickT0(out ascending, out var orderError))
+            return orderError;
 
         if (!numbers.Contains(number))
             return XLError.NoValueAvailable;
@@ -655,7 +657,43 @@ internal static class Statistical
 
     private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
     {
-        return Mode(ctx, args, TallyNumbers.Default);
+        if (!TryReadModeArguments(ctx, args, out var arrays, out var error))
+            return error;
+
+        return Mode(ctx, arrays, TallyNumbers.Default);
+    }
+
+    /// <summary>
+    /// MODE reads every argument as an array: a value given directly is a one-element array, so
+    /// text in it is skipped rather than converted and MODE(A1:A5,"x") is the mode of A1:A5. A
+    /// single blank cell is <c>#VALUE!</c>.
+    /// </summary>
+    private static bool TryReadModeArguments(CalcContext ctx, Span<AnyValue> args, out AnyValue[] arrays, out XLError error)
+    {
+        arrays = new AnyValue[args.Length];
+        error = default;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (IsBlankCell(ctx, args[i]))
+            {
+                error = XLError.IncompatibleValue;
+                return false;
+            }
+
+            arrays[i] = args[i].TryPickScalar(out var scalar, out _) && !scalar.IsError
+                ? new ScalarArray(scalar, 1, 1)
+                : args[i];
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the argument is a reference to one cell, and that cell is blank.</summary>
+    internal static bool IsBlankCell(CalcContext ctx, in AnyValue arg)
+    {
+        return arg.TryPickReference(out var reference, out _)
+               && reference!.TryGetSingleCellValue(out var value, ctx)
+               && value.IsBlank;
     }
 
     internal static AnyValue Mode(CalcContext ctx, Span<AnyValue> args, ITally tally)
@@ -695,7 +733,10 @@ internal static class Statistical
     /// </summary>
     private static AnyValue ModeMult(CalcContext ctx, Span<AnyValue> args)
     {
-        var result = TallyNumbers.Default.Tally(ctx, args, new ValuesState([]));
+        if (!TryReadModeArguments(ctx, args, out var arrays, out var argumentError))
+            return argumentError;
+
+        var result = TallyNumbers.Default.Tally(ctx, arrays, new ValuesState([]));
         if (!result.TryPickT0(out var state, out var error))
             return error;
 

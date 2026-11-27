@@ -4,7 +4,6 @@ AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibu
 POWER	POWER#5	error:#NUM!	number:-1.9999999999999998	Excel returns the real cube root for a negative base with exponent 1/3; XLibur returns #NUM!	
 ROUND	ROUND#3	number:1	number:1.01	Excel rounds 1.005 to 1.01; XLibur rounds the binary value to 1 (Excel probably rounds the 15-digit decimal form)	
 SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue	
-VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
 GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#18	number:0	number:4	=LCM(4,A1) with an empty cell reference: Excel returns number:4; XLibur returns number:0	
@@ -15,41 +14,8 @@ OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel re
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
-CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
-HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
-INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#13	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#16	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#18	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#19	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#20	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#21	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#23	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#24	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#25	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-INDEX	INDEX#26	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
-MODE	MODE#3	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-MODE	MODE#5	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-MODE	MODE#6	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-MODE	MODE#16	number:1	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:1	
-MODE	MODE#18	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
-MODE	MODE#19	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
-RANK	RANK#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-RANK	RANK#9	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#10	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#11	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 RANK	RANK#25	number:1	rejected:	Excel refuses =RANK(3,{1,2,3}) at entry; XLibur accepts it and returns number:1	
-RANK	RANK#27	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
-RANK	RANK#28	number:3	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:3	
-RANK	RANK#33	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#34	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
 RATE	RATE#18	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
 RATE	RATE#27	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
-SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
