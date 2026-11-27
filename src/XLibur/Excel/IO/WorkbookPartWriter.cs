@@ -461,8 +461,17 @@ internal static class WorkbookPartWriter
 
         if (xlWorkbook.CalculationOnSave) workbook.CalculationProperties.CalculationOnSave = xlWorkbook.CalculationOnSave;
         if (xlWorkbook.ForceFullCalculation) workbook.CalculationProperties.ForceFullCalculation = xlWorkbook.ForceFullCalculation;
-        if (xlWorkbook.FullCalculationOnLoad) workbook.CalculationProperties.FullCalculationOnLoad = xlWorkbook.FullCalculationOnLoad;
+        // Cleared when off: an earlier save may have set it for a formula it wrote with no value.
+        workbook.CalculationProperties.FullCalculationOnLoad = xlWorkbook.FullCalculationOnLoad ? true : null;
         if (xlWorkbook.FullPrecision) workbook.CalculationProperties.FullPrecision = xlWorkbook.FullPrecision;
     }
+
+    /// <summary>
+    /// Asks Excel to recalculate on open, because a sheet wrote a formula with no cached value and a
+    /// <c>calcId</c> loaded from current Excel would not make it (ADR 0001, #1028). Only the file gets
+    /// the flag, not <see cref="XLWorkbook.FullCalculationOnLoad"/>.
+    /// </summary>
+    internal static void RequestFullCalculationOnLoad(WorkbookPart workbookPart) =>
+        workbookPart.Workbook!.CalculationProperties!.FullCalculationOnLoad = true;
 
 }

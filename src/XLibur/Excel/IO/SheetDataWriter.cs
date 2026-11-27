@@ -363,6 +363,8 @@ internal static class SheetDataWriter
         // value, so it comes from the same value or is left out with it (#962). Spilled (non-master)
         // array-formula cells take this path too, so their cached values round-trip.
         var writtenValue = formula.IsClean() ? cellsCollection.ValueSlice.GetCellValue(point) : Blank.Value;
+        if (formula.IsDirty())
+            saveContext.FormulaWrittenWithoutValue = true;
         var dataType = writtenValue.Type != XLDataType.Blank ? CellXmlWriter.GetFormulaCellType(writtenValue.Type) : null;
 
         Span<char> cellRefSpan = ctx.CellRef;

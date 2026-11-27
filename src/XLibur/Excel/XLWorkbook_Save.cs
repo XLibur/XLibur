@@ -403,6 +403,9 @@ public partial class XLWorkbook
                 GeneratePivotTables(workbookPart, worksheetPart, worksheet, context);
         }
 
+        if (context.FormulaWrittenWithoutValue)
+            WorkbookPartWriter.RequestFullCalculationOnLoad(workbookPart);
+
         // After the worksheets: the writer numbers an error as it writes the cell.
         if (context.RichValues is { } richValues)
         {
