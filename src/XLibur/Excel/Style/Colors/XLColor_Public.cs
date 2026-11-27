@@ -32,7 +32,10 @@ public enum XLColorType
 
     /// <summary>
     /// An indexed color into the legacy palette, from the days when a fixed palette was the norm.
-    /// The only semi-current uses are the system foreground (64) and background (65) colors.
+    /// Indexes 0-63 are the palette itself. Indexes from 64 up are system colors (MS-XLS Icv), such
+    /// as the system foreground (64), background (65) and tooltip text (81). Excel takes those from
+    /// the Windows color scheme. <see cref="XLColor.Color"/> returns transparent for 64 and the
+    /// default Windows value for an index above it.
     /// </summary>
     Indexed
 }
@@ -73,7 +76,9 @@ public sealed partial class XLColor : IEquatable<XLColor>
                 return Key.Color;
 
             if (ColorType == XLColorType.Indexed)
-                return IndexedColors[Indexed].Color;
+                return IndexedColors.TryGetValue(Indexed, out var paletteColor)
+                    ? paletteColor.Color
+                    : SystemColor(Indexed);
 
             throw new InvalidOperationException($"Cannot convert {ColorType} color to Color.");
         }

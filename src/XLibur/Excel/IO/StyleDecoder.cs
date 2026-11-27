@@ -685,7 +685,7 @@ internal static class StyleDecoder
 
     /// <summary>
     /// The properties of a run's font that its <c>rPr</c> states, of those a run records as stated
-    /// or not: the family and the vertical alignment.
+    /// or not: the family, the vertical alignment and the charset.
     /// </summary>
     internal static XLStatedRunProperties StatedRunProperties(RunProperties runProperties)
     {
@@ -695,6 +695,9 @@ internal static class StyleDecoder
 
         if (runProperties.Elements<VerticalTextAlignment>().Any())
             stated |= XLStatedRunProperties.VerticalAlignment;
+
+        if (runProperties.Elements<RunPropertyCharSet>().Any(c => c.Val is not null))
+            stated |= XLStatedRunProperties.CharSet;
 
         return stated;
     }

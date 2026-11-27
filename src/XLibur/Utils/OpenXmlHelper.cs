@@ -114,8 +114,10 @@ internal static class OpenXmlHelper
             var thisColor = ColorStringParser.ParseFromArgb(openXMLColor.Rgb.Value.AsSpan());
             retVal = XLColor.FromColor(thisColor);
         }
-        else if (openXMLColor.Indexed is not null && openXMLColor.Indexed <= 64)
-            retVal = XLColor.FromIndex((int)openXMLColor.Indexed.Value);
+        // Every index is kept, including the system colours above 64 (#957). One too large for an
+        // int is not a colour any writer can state, so it is read as automatic, as before.
+        else if (openXMLColor.Indexed?.Value is { } index && index <= int.MaxValue)
+            retVal = XLColor.FromIndex((int)index);
         else if (openXMLColor.Theme is not null)
         {
             retVal = openXMLColor.Tint is not null
