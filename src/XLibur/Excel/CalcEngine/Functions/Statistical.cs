@@ -579,13 +579,17 @@ internal static class Statistical
         return numbers[^k];
     }
 
-    /// <summary>The k-th smallest of a materialized list, as SMALL and AGGREGATE function 15 return it.</summary>
+    /// <summary>
+    /// The k-th smallest of a materialized list, as SMALL and AGGREGATE function 15 return it.
+    /// SMALL truncates a fractional k, where LARGE rounds it up: SMALL(A1:A5,2.5) is the second
+    /// smallest and LARGE(A1:A5,2.5) the third largest.
+    /// </summary>
     internal static AnyValue NthSmallest(List<double> numbers, double kParam)
     {
         if (kParam < 1)
             return XLError.NumberInvalid;
 
-        var k = (int)Math.Ceiling(kParam);
+        var k = (int)Math.Truncate(kParam);
         if (k > numbers.Count)
             return XLError.NumberInvalid;
 

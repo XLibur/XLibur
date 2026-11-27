@@ -122,7 +122,6 @@ RATE	RATE#18	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10
 RATE	RATE#27	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
 SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
 SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
 SYD	SYD#46	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
 TIME	TIME#27	error:#NUM!	number:0.49930555555555556	Excel returns number:0.49930555555555556; XLibur returns error:#NUM!	
