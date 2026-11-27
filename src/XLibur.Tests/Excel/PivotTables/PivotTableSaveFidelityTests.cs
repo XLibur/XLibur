@@ -39,26 +39,69 @@ public class PivotTableSaveFidelityTests
         await Assert.That(names.Values.Single()).IsEqualTo("PivotStyleMedium2");
     }
 
+    // An untouched format keeps the dxf it was loaded with: properties the style model cannot
+    // hold, such as the inside vertical and horizontal borders (#956), and the ones that clear
+    // a property (#949).
     [Test]
     [Arguments(@"Other\Lion\PivotTables\PivotWithStyles.xlsx")]
     [Arguments(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx")]
-    public async Task Save_keeps_formats_whose_dxf_clears_a_property(string resource)
+    [Arguments(@"TryToLoad\PivotTableWithBorder.xlsx")]
+    public async Task Save_keeps_the_dxf_of_each_untouched_format(string resource)
     {
         var source = ReadPivotTables(resource, FormatDxfs);
         var saved = ReadPivotTables(LoadAndSave(resource), FormatDxfs);
 
         await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
         foreach (var (key, sourceDxfs) in source)
+            await Assert.That(saved[key]).IsEquivalentTo(sourceDxfs, TUnit.Assertions.Enums.CollectionOrdering.Matching)
+                .Because(key);
+    }
+
+    [Test]
+    public async Task Save_keeps_the_inside_borders_of_a_pivot_format()
+    {
+        const string resource = @"TryToLoad\PivotTableWithBorder.xlsx";
+        var saved = ReadPivotTables(LoadAndSave(resource), FormatDxfs).Values.SelectMany(dxfs => dxfs).ToList();
+
+        await Assert.That(saved.Any(dxf => dxf is not null
+                                           && dxf.Contains("<vertical style=\"thin\"")
+                                           && dxf.Contains("<horizontal style=\"thin\""))).IsTrue();
+    }
+
+    [Test]
+    public async Task A_loaded_format_changed_in_code_is_written_from_the_model()
+    {
+        var loaded = new MemoryStream();
+        using (var wb = new XLWorkbook())
         {
-            var savedDxfs = saved[key];
-            await Assert.That(savedDxfs.Count).IsEqualTo(sourceDxfs.Count);
-            for (var i = 0; i < sourceDxfs.Count; i++)
+            var dataRange = wb.AddWorksheet().Cell("A1").InsertData(new object[]
             {
-                await Assert.That(savedDxfs[i] is null).IsEqualTo(sourceDxfs[i] is null);
-                if (sourceDxfs[i] is { } sourceDxf && Clears(sourceDxf))
-                    await Assert.That(savedDxfs[i]).IsEqualTo(sourceDxf);
-            }
+                ("Name", "Price"),
+                ("Cake", 9),
+                ("Pie", 7),
+            });
+            var pt = dataRange!.CreatePivotTable(wb.AddWorksheet().Cell("A1"), "pivot table");
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Price");
+            GrandTotalStyle(pt).Border.LeftBorder = XLBorderStyleValues.Thin;
+            wb.SaveAs(loaded);
         }
+
+        loaded.Position = 0;
+        var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(loaded))
+        {
+            GrandTotalStyle(wb.Worksheet(2).PivotTables.PivotTable("pivot table")).Font.Bold = true;
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        var dxf = ReadPivotTables(saved, FormatDxfs).Values.Single().Single();
+        await Assert.That(dxf).Contains("<b />");
+        await Assert.That(dxf).Contains("<left style=\"thin\"");
+
+        static IXLStyle GrandTotalStyle(IXLPivotTable pt)
+            => pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style;
     }
 
     [Test]
@@ -133,12 +176,11 @@ public class PivotTableSaveFidelityTests
         await Assert.That(Mismatches(firstSaved, ReadDxfReferences(second))).IsEmpty();
     }
 
-    // A pivot format that sets a property, and a table column's dataDxfId, are written again from
-    // the style model, which renumbers custom number formats and drops readingOrder="0". The save
-    // also adds a dataDxfId to a column whose cells share one style.
+    // A table column's dataDxfId is written again from the style model, which renumbers custom
+    // number formats and drops readingOrder="0". The save also adds a dataDxfId to a column whose
+    // cells share one style.
     private static bool IsCarriedVerbatim(string key, string dxf) => key.Split(' ')[0] switch
     {
-        "pivotFormat" => Clears(dxf),
         "table" => !key.EndsWith(" dataDxfId", System.StringComparison.Ordinal),
         _ => true,
     };
@@ -242,9 +284,6 @@ public class PivotTableSaveFidelityTests
             .Select(format => format.FormatId?.Value is { } id ? dxfs[id].NumberingFormat?.FormatCode?.Value : null)
             .ToList() ?? [];
     }
-
-    private static bool Clears(string dxf)
-        => dxf.Contains("patternType=\"none\"") || dxf.Contains("<right />") || dxf.Contains("<left />");
 
     private static Dictionary<string, T> ReadPivotTables<T>(string resource,
         System.Func<PivotTableDefinition, DifferentialFormat[], T> read)
