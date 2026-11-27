@@ -200,8 +200,6 @@ internal static class TablePartWriter
             if (!DefaultStyleValue.Equals(style) && context.DifferentialFormats.TryGetValue(style, out int id))
                 tableColumn.DataFormatId = UInt32Value.FromUInt32(Convert.ToUInt32(id));
         }
-        else
-            tableColumn.DataFormatId = null;
     }
 
     private static void ApplyColumnFormula(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable)
