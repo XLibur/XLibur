@@ -13,9 +13,9 @@ internal static class Lookup
 {
     public static void Register(FunctionRegistry ce)
     {
-        //ce.RegisterFunction("ADDRESS", , Address); // Returns a reference as text to a single cell in a worksheet
+        ce.RegisterFunction("ADDRESS", 2, 5, Address, FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
         //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
-        //ce.RegisterFunction("CHOOSE", , Choose); // Chooses a value from a list of values
+        ce.RegisterFunction("CHOOSE", 2, 254, Choose, FunctionFlags.Range, AllowRange.Except, 0); // Chooses a value from a list of values
         ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the column number of a reference
         ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range, AllowRange.All); // Returns the number of columns in a reference
         //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
@@ -24,7 +24,7 @@ internal static class Lookup
         ce.RegisterFunction("HYPERLINK", 1, 2, Adapt(Hyperlink), FunctionFlags.Scalar | FunctionFlags.SideEffect); // Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet
         ce.RegisterFunction("INDEX", 2, 4, AdaptIndex(Index), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.Only, 0); // Uses an index to choose a value from a reference or array
         ce.RegisterFunction("INDIRECT", 1, 2, Indirect, FunctionFlags.Range | FunctionFlags.Volatile); // Returns a reference indicated by a text value
-        //ce.RegisterFunction("LOOKUP", , Lookup); // Looks up values in a vector or array
+        ce.RegisterFunction("LOOKUP", 2, 3, LookupVectorOrArray, FunctionFlags.Range, AllowRange.Only, 1, 2); // Looks up values in a vector or array
         ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
         //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
         ce.RegisterFunction("ROW", 0, 1, Row, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the row number of a reference
@@ -863,4 +863,135 @@ internal static class Lookup
     // A defined name holds formula text, which has no leading '='.
     private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
         => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx);
+
+    /// <summary>
+    /// <c>ADDRESS(row_num, column_num, [abs_num], [a1], [sheet_text])</c>. Row and column are
+    /// truncated, <c>abs_num</c> 1 to 4 picks which of the two are absolute, and a sheet name is
+    /// quoted when a formula needs it quoted.
+    /// </summary>
+    private static AnyValue Address(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!ArgumentNumber(p[0], ctx).TryPickT0(out var rowNumber, out var rowError))
+            return rowError;
+        if (!ArgumentNumber(p[1], ctx).TryPickT0(out var columnNumber, out var columnError))
+            return columnError;
+
+        var absNumber = 1d;
+        if (p.Length > 2 && !p[2].IsBlank && !ArgumentNumber(p[2], ctx).TryPickT0(out absNumber, out var absError))
+            return absError;
+
+        var isA1 = true;
+        if (p.Length > 3 && !p[3].IsBlank && !CoerceToLogical(p[3], ctx).TryPickT0(out isA1, out var a1Error))
+            return a1Error;
+
+        string? sheetName = null;
+        if (p.Length > 4 && !p[4].IsBlank)
+        {
+            if (!ToText(p[4], ctx).TryPickT0(out sheetName, out var sheetError))
+                return sheetError;
+        }
+
+        rowNumber = Math.Truncate(rowNumber);
+        columnNumber = Math.Truncate(columnNumber);
+        absNumber = Math.Truncate(absNumber);
+        if (rowNumber < 1 || rowNumber > XLHelper.MaxRowNumber
+            || columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber
+            || absNumber < 1 || absNumber > 4)
+            return XLError.IncompatibleValue;
+
+        var row = (int)rowNumber;
+        var column = (int)columnNumber;
+        var rowIsAbsolute = absNumber is 1 or 2;
+        var columnIsAbsolute = absNumber is 1 or 3;
+
+        string cell;
+        if (isA1)
+        {
+            cell = string.Concat(
+                columnIsAbsolute ? "$" : "",
+                XLHelper.GetColumnLetterFromNumber(column),
+                rowIsAbsolute ? "$" : "",
+                row.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            cell = string.Concat(
+                rowIsAbsolute ? $"R{row}" : $"R[{row}]",
+                columnIsAbsolute ? $"C{column}" : $"C[{column}]");
+        }
+
+        return sheetName is null ? cell : string.Concat(sheetName.EscapeSheetName(), "!", cell);
+    }
+
+    /// <summary>
+    /// <c>CHOOSE(index_num, value1, [value2], ...)</c>. The chosen argument is returned as it came, so
+    /// a reference stays a reference and <c>SUM(CHOOSE(2,A1:A2,B1:B2))</c> reads the range.
+    /// </summary>
+    private static AnyValue Choose(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!ArgumentNumber(p[0], ctx).TryPickT0(out var indexNumber, out var indexError))
+            return indexError;
+
+        indexNumber = Math.Truncate(indexNumber);
+        if (indexNumber < 1 || indexNumber >= p.Length)
+            return XLError.IncompatibleValue;
+
+        return p[(int)indexNumber];
+    }
+
+    /// <summary>
+    /// <c>LOOKUP(lookup_value, lookup_vector, [result_vector])</c> and the array form
+    /// <c>LOOKUP(lookup_value, array)</c>. Both find the last value not greater than the lookup value
+    /// by the binary search VLOOKUP uses for an approximate match. The array form searches the first
+    /// row of a wide array and the first column of a tall or square one, and returns from the last
+    /// column or row.
+    /// </summary>
+    private static AnyValue LookupVectorOrArray(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!p[0].TryPickScalar(out var lookupArgument, out _))
+            return XLError.IncompatibleValue;
+
+        if (!NormalizeLookupValue(lookupArgument).TryPickT0(out var lookupValue, out var lookupError))
+            return lookupError;
+
+        if (!ResolveRangeToArray(p[1], ctx).TryPickT0(out var array, out var rangeError))
+            return rangeError;
+
+        if (p.Length == 2)
+        {
+            var isWide = array.Width > array.Height;
+            var found = Bisection(isWide ? new TransposedArray(array) : array, lookupValue);
+            if (found == -1)
+                return XLError.NoValueAvailable;
+
+            return (isWide ? array[array.Height - 1, found] : array[found, array.Width - 1]).ToAnyValue();
+        }
+
+        if (array.Height != 1 && array.Width != 1)
+            return XLError.NoValueAvailable;
+
+        if (!ResolveRangeToArray(p[2], ctx).TryPickT0(out var result, out var resultError))
+            return resultError;
+
+        var index = Bisection(array.Height == 1 ? new TransposedArray(array) : array, lookupValue);
+        if (index == -1)
+            return XLError.NoValueAvailable;
+
+        var resultLength = result.Height * result.Width;
+        if (result.Height != 1 && result.Width != 1 || index >= resultLength)
+            return XLError.NoValueAvailable;
+
+        return (result.Height == 1 ? result[0, index] : result[index, 0]).ToAnyValue();
+    }
+
+    /// <summary>A numeric argument that arrives as one value, or the first element of an array.</summary>
+    private static OneOf<double, XLError> ArgumentNumber(in AnyValue value, CalcContext ctx)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+            return scalar.ToNumber(ctx.Culture);
+
+        return collection.TryPickT0(out var array, out _)
+            ? array[0, 0].ToNumber(ctx.Culture)
+            : XLError.IncompatibleValue;
+    }
 }
