@@ -969,9 +969,21 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     {
         var retVal = InsertColumnsBefore(false, numberOfColumns);
         if (expandRange)
+        {
+            OnExpandingLeadingColumns(numberOfColumns);
             ExpandBy<ColumnAxis>(numberOfColumns, atLeadingEdge: true);
+        }
 
         return retVal;
+    }
+
+    /// <summary>
+    /// Called just before the range grows by <paramref name="count"/> columns at its first column.
+    /// No column shift reports this growth, so a range whose state is indexed by column moves it
+    /// here (#1017).
+    /// </summary>
+    internal virtual void OnExpandingLeadingColumns(int count)
+    {
     }
 
     public IXLRangeColumns InsertColumnsBefore(bool onlyUsedCells, int numberOfColumns, bool formatFromLeft = true)
