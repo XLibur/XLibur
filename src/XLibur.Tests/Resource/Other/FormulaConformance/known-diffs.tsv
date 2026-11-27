@@ -40,8 +40,6 @@ HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur retur
 HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
-IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
-IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#13	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	

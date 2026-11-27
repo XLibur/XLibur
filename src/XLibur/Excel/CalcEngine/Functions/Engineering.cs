@@ -28,6 +28,7 @@ internal static class Engineering
 
     public static void Register(FunctionRegistry ce)
     {
+        Func<CalcContext, ScalarValue, ScalarValue> imAbs = ImAbs;
         ce.RegisterFunction("BESSELI", 2, 2, Adapt(BesselI), FunctionFlags.Scalar); // Returns the modified Bessel function In(x)
         ce.RegisterFunction("BESSELJ", 2, 2, Adapt(BesselJ), FunctionFlags.Scalar); // Returns the Bessel function Jn(x)
         ce.RegisterFunction("BESSELK", 2, 2, Adapt(BesselK), FunctionFlags.Scalar); // Returns the modified Bessel function Kn(x)
@@ -54,7 +55,7 @@ internal static class Engineering
         ce.RegisterStrictNumeric("HEX2BIN", 1, 2, AdaptLastOptionalLastFirst(Hex2Bin), [1, 0], FunctionFlags.Scalar);
         ce.RegisterStrictNumeric("HEX2DEC", 1, 1, Adapt(Hex2Dec), [0], FunctionFlags.Scalar);
         ce.RegisterFunction("HEX2OCT", 1, 2, AdaptLastOptionalLastFirst(Hex2Oct), FunctionFlags.Scalar);
-        ce.RegisterStrictNumeric("IMABS", 1, 1, Adapt(ImAbs), [0], FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number
+        ce.RegisterStrictNumeric("IMABS", 1, 1, Adapt(imAbs), [0], FunctionFlags.Scalar); // Returns the absolute value(modulus) of a complex number
         ce.RegisterFunction("IMAGINARY", 1, 1, Adapt(ImAginary), FunctionFlags.Scalar); // Returns the imaginary coefficient of a complex number
         ce.RegisterFunction("IMARGUMENT", 1, 1, Adapt(ImArgument), FunctionFlags.Scalar); // Returns the argument theta, an angle expressed in radians
         ce.RegisterFunction("IMCONJUGATE", 1, 1, Adapt(ImConjugate), FunctionFlags.Scalar); // Returns the complex conjugate of a complex number
@@ -232,8 +233,23 @@ internal static class Engineering
         return new ComplexNumber(real, imaginary, suffix[0]).ToString();
     }
 
-    private static ScalarValue ImAbs(CalcContext ctx, string number)
-        => WithComplex(number, static z => z.Modulus);
+    /// <summary>
+    /// A blank cell is zero, but text of nothing but spaces is no complex number: IMABS(A1) is 0
+    /// and IMABS("") is #NUM! in Excel.
+    /// </summary>
+    private static ScalarValue ImAbs(CalcContext ctx, ScalarValue number)
+    {
+        if (number.IsBlank)
+            return 0d;
+
+        if (!number.ToText(ctx.Culture).TryPickT0(out var text, out var error))
+            return error;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return XLError.NumberInvalid;
+
+        return WithComplex(text, static z => z.Modulus);
+    }
 
     private static ScalarValue ImReal(CalcContext ctx, string number)
         => WithComplex(number, static z => z.Real);
