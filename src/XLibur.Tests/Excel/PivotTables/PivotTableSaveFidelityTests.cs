@@ -39,26 +39,69 @@ public class PivotTableSaveFidelityTests
         await Assert.That(names.Values.Single()).IsEqualTo("PivotStyleMedium2");
     }
 
+    // An untouched format keeps the dxf it was loaded with: properties the style model cannot
+    // hold, such as the inside vertical and horizontal borders (#956), and the ones that clear
+    // a property (#949).
     [Test]
     [Arguments(@"Other\Lion\PivotTables\PivotWithStyles.xlsx")]
     [Arguments(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx")]
-    public async Task Save_keeps_formats_whose_dxf_clears_a_property(string resource)
+    [Arguments(@"TryToLoad\PivotTableWithBorder.xlsx")]
+    public async Task Save_keeps_the_dxf_of_each_untouched_format(string resource)
     {
         var source = ReadPivotTables(resource, FormatDxfs);
         var saved = ReadPivotTables(LoadAndSave(resource), FormatDxfs);
 
         await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
         foreach (var (key, sourceDxfs) in source)
+            await Assert.That(saved[key]).IsEquivalentTo(sourceDxfs, TUnit.Assertions.Enums.CollectionOrdering.Matching)
+                .Because(key);
+    }
+
+    [Test]
+    public async Task Save_keeps_the_inside_borders_of_a_pivot_format()
+    {
+        const string resource = @"TryToLoad\PivotTableWithBorder.xlsx";
+        var saved = ReadPivotTables(LoadAndSave(resource), FormatDxfs).Values.SelectMany(dxfs => dxfs).ToList();
+
+        await Assert.That(saved.Any(dxf => dxf is not null
+                                           && dxf.Contains("<vertical style=\"thin\"")
+                                           && dxf.Contains("<horizontal style=\"thin\""))).IsTrue();
+    }
+
+    [Test]
+    public async Task A_loaded_format_changed_in_code_is_written_from_the_model()
+    {
+        var loaded = new MemoryStream();
+        using (var wb = new XLWorkbook())
         {
-            var savedDxfs = saved[key];
-            await Assert.That(savedDxfs.Count).IsEqualTo(sourceDxfs.Count);
-            for (var i = 0; i < sourceDxfs.Count; i++)
+            var dataRange = wb.AddWorksheet().Cell("A1").InsertData(new object[]
             {
-                await Assert.That(savedDxfs[i] is null).IsEqualTo(sourceDxfs[i] is null);
-                if (sourceDxfs[i] is { } sourceDxf && Clears(sourceDxf))
-                    await Assert.That(savedDxfs[i]).IsEqualTo(sourceDxf);
-            }
+                ("Name", "Price"),
+                ("Cake", 9),
+                ("Pie", 7),
+            });
+            var pt = dataRange!.CreatePivotTable(wb.AddWorksheet().Cell("A1"), "pivot table");
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Price");
+            GrandTotalStyle(pt).Border.LeftBorder = XLBorderStyleValues.Thin;
+            wb.SaveAs(loaded);
         }
+
+        loaded.Position = 0;
+        var saved = new MemoryStream();
+        using (var wb = new XLWorkbook(loaded))
+        {
+            GrandTotalStyle(wb.Worksheet(2).PivotTables.PivotTable("pivot table")).Font.Bold = true;
+            wb.SaveAs(saved);
+        }
+
+        saved.Position = 0;
+        var dxf = ReadPivotTables(saved, FormatDxfs).Values.Single().Single();
+        await Assert.That(dxf).Contains("<b />");
+        await Assert.That(dxf).Contains("<left style=\"thin\"");
+
+        static IXLStyle GrandTotalStyle(IXLPivotTable pt)
+            => pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style;
     }
 
     [Test]
@@ -110,6 +153,70 @@ public class PivotTableSaveFidelityTests
     }
 
     [Test]
+    public async Task Save_keeps_the_unused_flag_of_each_shared_item_and_contains_non_date()
+    {
+        const string resource = @"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx";
+        var source = ReadCacheDefinitions(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)), SharedItemFlags);
+        var saved = ReadCacheDefinitions(LoadAndSave(resource), SharedItemFlags);
+
+        await Assert.That(source.Values.SelectMany(fields => fields).Count(field => field.Contains("@u"))).IsGreaterThan(0);
+        await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
+        foreach (var (relId, sourceFields) in source)
+            await Assert.That(saved[relId]).IsEquivalentTo(sourceFields, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task Save_keeps_the_shared_item_each_record_indexes()
+    {
+        const string resource = @"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx";
+        var source = ReadCacheDefinitions(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)), RecordItems);
+        var saved = ReadCacheDefinitions(LoadAndSave(resource), RecordItems);
+
+        await Assert.That(source.Values.SelectMany(records => records).Any()).IsTrue();
+        await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
+        foreach (var (relId, sourceRecords) in source)
+            await Assert.That(saved[relId]).IsEquivalentTo(sourceRecords, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    // One line per cache field: its name, containsNonDate as written, and each shared item with its u flag.
+    private static List<string> SharedItemFlags(PivotTableCacheDefinitionPart part)
+    {
+        return part.PivotCacheDefinition!.CacheFields!.Elements<CacheField>()
+            .Select(field => $"{field.Name!.Value} containsNonDate={field.SharedItems?.ContainsNonDate?.Value}: " +
+                             string.Join(" ", field.SharedItems?.Elements().Select(item =>
+                                 item.LocalName + (item.GetAttributes().Any(a => a.LocalName == "u" && a.Value is "1" or "true") ? "@u" : "")) ?? []))
+            .ToList();
+    }
+
+    // One line per record: the value each field holds, an index resolved to the shared item it names.
+    private static List<string> RecordItems(PivotTableCacheDefinitionPart part)
+    {
+        var sharedItems = part.PivotCacheDefinition!.CacheFields!.Elements<CacheField>()
+            .Select(field => field.SharedItems?.Elements().Select(ItemValue).ToArray() ?? [])
+            .ToArray();
+        return part.PivotTableCacheRecordsPart?.PivotCacheRecords?.Elements<PivotCacheRecord>()
+            .Select(record => string.Join(" ", record.Elements().Select((item, fieldIdx) => item is FieldItem index
+                ? sharedItems[fieldIdx][index.Val!.Value]
+                : ItemValue(item))))
+            .ToList() ?? [];
+
+        static string ItemValue(DocumentFormat.OpenXml.OpenXmlElement item)
+            => $"{item.LocalName}:{item.GetAttributes().FirstOrDefault(a => a.LocalName == "v").Value}";
+    }
+
+    private static Dictionary<string, List<string>> ReadCacheDefinitions(Stream stream,
+        System.Func<PivotTableCacheDefinitionPart, List<string>> read)
+    {
+        var result = new Dictionary<string, List<string>>();
+        using var document = SpreadsheetDocument.Open(stream, false);
+        var workbookPart = document.WorkbookPart!;
+        foreach (var pivotCache in workbookPart.Workbook!.PivotCaches?.Elements<PivotCache>() ?? [])
+            result.Add(pivotCache.Id!.Value!, read((PivotTableCacheDefinitionPart)workbookPart.GetPartById(pivotCache.Id.Value!)));
+
+        return result;
+    }
+
+    [Test]
     public async Task Every_dxf_reference_names_the_dxf_it_had_after_two_saves()
     {
         var source = WithCustomTableStyle(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx", dxfIds: [4, 5, 365]);
@@ -133,12 +240,11 @@ public class PivotTableSaveFidelityTests
         await Assert.That(Mismatches(firstSaved, ReadDxfReferences(second))).IsEmpty();
     }
 
-    // A pivot format that sets a property, and a table column's dataDxfId, are written again from
-    // the style model, which renumbers custom number formats and drops readingOrder="0". The save
-    // also adds a dataDxfId to a column whose cells share one style.
+    // A table column's dataDxfId is written again from the style model, which renumbers custom
+    // number formats and drops readingOrder="0". The save also adds a dataDxfId to a column whose
+    // cells share one style.
     private static bool IsCarriedVerbatim(string key, string dxf) => key.Split(' ')[0] switch
     {
-        "pivotFormat" => Clears(dxf),
         "table" => !key.EndsWith(" dataDxfId", System.StringComparison.Ordinal),
         _ => true,
     };
@@ -242,9 +348,6 @@ public class PivotTableSaveFidelityTests
             .Select(format => format.FormatId?.Value is { } id ? dxfs[id].NumberingFormat?.FormatCode?.Value : null)
             .ToList() ?? [];
     }
-
-    private static bool Clears(string dxf)
-        => dxf.Contains("patternType=\"none\"") || dxf.Contains("<right />") || dxf.Contains("<left />");
 
     private static Dictionary<string, T> ReadPivotTables<T>(string resource,
         System.Func<PivotTableDefinition, DifferentialFormat[], T> read)

@@ -359,11 +359,11 @@ internal static class SheetDataWriter
         if (ctx.SaveOptions.EvaluateFormulasBeforeSaving && formula.IsDirty())
             EvaluateFormulaForSave(xlWorksheet, formula, point, saveContext);
 
-        // Determine cell type from cached value (preserves type round-trip for formulas
-        // whose evaluation is unsupported).
-        var cachedValue = cellsCollection.ValueSlice.GetCellValue(point);
-        var cachedValueType = cachedValue.Type;
-        var dataType = cachedValueType != XLDataType.Blank ? CellXmlWriter.GetFormulaCellType(cachedValueType) : null;
+        // A dirty formula is written with no cached value (ADR 0001). The t attribute describes the
+        // value, so it comes from the same value or is left out with it (#962). Spilled (non-master)
+        // array-formula cells take this path too, so their cached values round-trip.
+        var writtenValue = formula.IsClean() ? cellsCollection.ValueSlice.GetCellValue(point) : Blank.Value;
+        var dataType = writtenValue.Type != XLDataType.Blank ? CellXmlWriter.GetFormulaCellType(writtenValue.Type) : null;
 
         Span<char> cellRefSpan = ctx.CellRef;
         var cellRefLen = point.Format(cellRefSpan);
@@ -376,16 +376,12 @@ internal static class SheetDataWriter
             cmIndex = saveContext.DynamicArrayMetaIndex.Value;
 
         WriteStartCellDirect(xml, ctx.CellRef, cellRefLen, dataType, cellStyleId,
-            Meta(ref ctx, in misc, formula.IsClean() ? cachedValue : Blank.Value, point, cmIndex));
+            Meta(ref ctx, in misc, writtenValue, point, cmIndex));
 
         WriteFormulaElement(xml, xlWorksheet, formula, point, ctx.SharedFormulas);
 
-        // Write cached value if present and the formula isn't dirty. Spilled (non-master)
-        // array-formula cells also fall through here so their cached values round-trip.
-        if (cachedValueType != XLDataType.Blank && formula.IsClean())
-        {
-            WriteCachedFormulaValue(xml, cachedValue, ctx.Use1904DateSystem);
-        }
+        if (writtenValue.Type != XLDataType.Blank)
+            WriteCachedFormulaValue(xml, writtenValue, ctx.Use1904DateSystem);
 
         xml.WriteEndElement(); // cell
     }

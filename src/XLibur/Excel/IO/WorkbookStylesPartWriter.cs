@@ -565,16 +565,15 @@ internal static class WorkbookStylesPartWriter
     private static void AddPivotTableFormatDxfs(DifferentialFormats differentialFormats,
         XLPivotTable pt, SaveContext context)
     {
-        foreach (var xlStyleValue in pt.Formats
-                     .Select(f => f.DxfStyleValue)
-                     .Where(s => !s.Equals(XLStyleValue.Default) &&
-                                 !context.DifferentialFormats.ContainsKey(s)))
-        {
-            AddStyleAsDifferentialFormat(differentialFormats, xlStyleValue, context);
-        }
-
         foreach (var format in pt.Formats)
-            AddLoadedDxf(differentialFormats, format.LoadedDxfXml, context);
+        {
+            if (AddLoadedDxf(differentialFormats, format.UnchangedLoadedDxfXml, context))
+                continue;
+
+            var styleValue = format.DxfStyleValue;
+            if (!styleValue.Equals(XLStyleValue.Default) && !context.DifferentialFormats.ContainsKey(styleValue))
+                AddStyleAsDifferentialFormat(differentialFormats, styleValue, context);
+        }
     }
 
     private static void AddPivotTableConditionalFormatDxfs(DifferentialFormats differentialFormats,
