@@ -16,15 +16,18 @@ public partial class XLWorkbook
 {
     /// <summary>
     /// The rich values a save writes, in the order of their vm (value metadata) indexes: one for each
-    /// cell with an in-cell image, and then one for each error newer than Excel 2007 that a cell holds,
-    /// shared by every cell with that error, as Excel shares it (#847).
+    /// cell with an in-cell image, and then one for each error rich value a cell holds, shared by every
+    /// cell with that rich value, as Excel shares it (#847).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A file holds such an error as <c>#VALUE!</c> with a vm index whose rich value names the error
-    /// (<see cref="XLErrorExtensions.IsRichValue"/>). An error's index is given when a cell with it is
-    /// written, as the result of a formula is known only once the writer has calculated it, and a cell
-    /// whose index is not the one it had is given it once the sheets are written.
+    /// A file holds an error newer than Excel 2007 as <c>#VALUE!</c> with a vm index whose rich value
+    /// names the error (<see cref="XLErrorExtensions.IsRichValue"/>). Excel 365 also gives other errors,
+    /// such as a LAMBDA's <c>#VALUE!</c>, a rich value that says more about them, and any error's rich
+    /// value can have keys beyond <c>errorType</c>. A cell keeps the rich value it was loaded or last
+    /// saved with while it holds the error that rich value names (#954). An error's index is given when
+    /// a cell with it is written, as the result of a formula is known only once the writer has
+    /// calculated it, and a cell whose index is not the one it had is given it once the sheets are written.
     /// </para>
     /// <para>
     /// A save copies a sheet it does not change as the file, or the last save, had it (#702, #719),
@@ -44,7 +47,11 @@ public partial class XLWorkbook
     {
         private readonly WorkbookPart _workbookPart;
         private readonly SaveContext _context;
-        private readonly Dictionary<XLError, uint> _errorIndexes = [];
+
+        /// <summary>The error rich values by the vm index the file or the last save gave each.</summary>
+        private readonly IReadOnlyDictionary<uint, ErrorRichValue> _savedErrors;
+
+        private readonly Dictionary<ErrorRichValue, uint> _errorIndexes = [];
         private readonly List<(XLCellsCollection Cells, Point Point, uint? Index)> _corrections = [];
         private readonly HashSet<uint> _richValueIndexes;
         private uint _richValueTypeIndex;
@@ -70,11 +77,13 @@ public partial class XLWorkbook
         /// </summary>
         private readonly Queue<(uint Index, MetadataRecord Record)> _freeRecords = [];
 
-        internal RichValuePlan(WorkbookPart workbookPart, SaveContext context, bool keepsLoadedRichData)
+        internal RichValuePlan(WorkbookPart workbookPart, SaveContext context, bool keepsLoadedRichData,
+            IReadOnlyDictionary<uint, ErrorRichValue> savedErrors)
         {
             _workbookPart = workbookPart;
             _context = context;
             _keepsLoadedRichData = keepsLoadedRichData;
+            _savedErrors = savedErrors;
             _richValueIndexes = RichValueIndexesOf(workbookPart.CellMetadataPart);
             if (keepsLoadedRichData)
             {
@@ -86,8 +95,11 @@ public partial class XLWorkbook
         /// <summary>The images, in the order of their rich values.</summary>
         internal List<RichDataWriter.RichValueEntry> Images { get; } = [];
 
-        /// <summary>The errors, in the order of their rich values, which follow the images'.</summary>
-        internal List<XLError> Errors { get; } = [];
+        /// <summary>The errors' rich values, in their order, which follows the images'.</summary>
+        internal List<ErrorRichValue> Errors { get; } = [];
+
+        /// <summary>The errors' rich values by the vm index this save gives each.</summary>
+        internal Dictionary<uint, ErrorRichValue> ErrorsByIndex { get; } = [];
 
         /// <summary>The metadata part's root, once there is a rich value to write.</summary>
         internal Metadata? Metadata { get; private set; }
@@ -101,34 +113,52 @@ public partial class XLWorkbook
         }
 
         /// <summary>
-        /// Numbers every cell that has a vm index and no image, on every sheet: the index of its error,
-        /// or none. Called once the images are numbered and before any sheet is written.
+        /// Numbers every cell that has a vm index and no image, on every sheet: the index of its error's
+        /// rich value, or none. Called once the images are numbered and before any sheet is written.
         /// </summary>
         internal void NumberCellsWithIndexes(IEnumerable<XLWorksheet> worksheets)
         {
-            var cells = new List<(XLCellsCollection Cells, Point Point, XLError? Error)>();
+            var cells = new List<(XLCellsCollection Cells, Point Point, uint Index, ErrorRichValue? RichValue)>();
             foreach (var worksheet in worksheets)
             {
                 var cellsCollection = worksheet.Internals.CellsCollection;
                 foreach (var point in cellsCollection.GetValueMetaPoints())
                 {
                     ref readonly var misc = ref cellsCollection.MiscSlice[point];
-                    if (misc.CellImage is not null || !_richValueIndexes.Contains(misc.ValueMetaIndex!.Value))
+                    var index = misc.ValueMetaIndex!.Value;
+                    if (misc.CellImage is not null || !_richValueIndexes.Contains(index))
                         continue;
 
                     var value = cellsCollection.ValueSlice.GetCellValue(point);
-                    cells.Add((cellsCollection, point,
-                        value.IsError && value.GetError().IsRichValue() ? value.GetError() : null));
+                    cells.Add((cellsCollection, point, index, RichValueOf(index, value, _savedErrors)));
                 }
             }
 
-            // In a fixed order, so a save that has the same errors as the last one gives them the same
-            // indexes, and a sheet it does not change can stay as that save wrote it.
-            foreach (var error in cells.Where(c => c.Error is not null).Select(c => c.Error!.Value).Distinct().Order())
-                ErrorIndex(error);
+            // In the order of the indexes the cells had, so a save that has the same errors as the last
+            // one gives them the same indexes, and a sheet it does not change can stay as that save wrote it.
+            foreach (var cell in cells.Where(c => c.RichValue is not null).OrderBy(c => c.Index))
+                ErrorIndex(cell.RichValue!);
 
-            foreach (var (cellsCollection, point, error) in cells)
-                cellsCollection.GetCell(point).ValueMetaIndex = error is { } e ? _errorIndexes[e] : null;
+            foreach (var (cellsCollection, point, _, richValue) in cells)
+                cellsCollection.GetCell(point).ValueMetaIndex = richValue is not null ? _errorIndexes[richValue] : null;
+        }
+
+        /// <summary>
+        /// The rich value a cell with the vm index <paramref name="index"/> and <paramref name="value"/>
+        /// is written with: the one its index names in <paramref name="errorsByIndex"/> while it holds
+        /// that error, else that of an error newer than Excel 2007, else none.
+        /// </summary>
+        private static ErrorRichValue? RichValueOf(uint? index, in XLCellValue value,
+            IReadOnlyDictionary<uint, ErrorRichValue> errorsByIndex)
+        {
+            if (!value.IsError)
+                return null;
+
+            var error = value.GetError();
+            if (index is { } i && errorsByIndex.TryGetValue(i, out var richValue) && richValue.Error == error)
+                return richValue;
+
+            return error.IsRichValue() ? ErrorRichValue.Of(error) : null;
         }
 
         /// <summary>
@@ -141,7 +171,9 @@ public partial class XLWorkbook
             if (misc.CellImage is not null || (misc.ValueMetaIndex is { } other && (_keepsLoadedRichData || !_richValueIndexes.Contains(other))))
                 return misc.ValueMetaIndex;
 
-            uint? index = value.IsError && value.GetError().IsRichValue() ? ErrorIndex(value.GetError()) : null;
+            // A cell with an index was given it by NumberCellsWithIndexes, so it names this save's rich value.
+            var richValue = RichValueOf(misc.ValueMetaIndex, value, ErrorsByIndex);
+            var index = richValue is not null ? ErrorIndex(richValue) : null;
             if (index != misc.ValueMetaIndex)
                 _corrections.Add((cells, point, index));
 
@@ -177,10 +209,10 @@ public partial class XLWorkbook
         }
 
         /// <summary>
-        /// The vm index of <paramref name="error"/>'s rich value, given at its first cell. Null when the
-        /// workbook keeps rich data that has no rich values or structures part to add it to.
+        /// The vm index of an error's rich value, given at its first cell. Null when the workbook keeps
+        /// rich data that has no rich values or structures part to add it to.
         /// </summary>
-        private uint? ErrorIndex(XLError error)
+        private uint? ErrorIndex(ErrorRichValue error)
         {
             if (_errorIndexes.TryGetValue(error, out var index))
                 return index;
@@ -196,12 +228,15 @@ public partial class XLWorkbook
             index = AppendValueMetadata((_keepsLoadedRichData ? _keptFutureBlockCount : Images.Count) + Errors.Count);
             Errors.Add(error);
             _errorIndexes[error] = index;
+            ErrorsByIndex[index] = error;
             return index;
         }
 
         /// <summary>
         /// Adds the rich value of each error after the kept ones: an <c>_error</c> structure after the
-        /// structures, the rich values after theirs, and their future metadata blocks after theirs.
+        /// structures, the rich values after theirs, and their future metadata blocks after theirs. Each
+        /// is that of an error newer than Excel 2007 a cell without an index holds, its <c>errorType</c>
+        /// alone, as every cell with an index keeps it.
         /// </summary>
         private void AddErrorsToKeptRichData(Metadata metadata)
         {
@@ -209,7 +244,7 @@ public partial class XLWorkbook
                 [new XElement(ns + "s", new XAttribute("t", RichDataWriter.ErrorStructureType),
                     new XElement(ns + "k", new XAttribute("n", RichDataWriter.ErrorTypeKey), new XAttribute("t", "i")))]);
             AppendElements(_keptRichValuePart!, "rv", ns => Errors.Select(error =>
-                new XElement(ns + "rv", new XAttribute("s", structureIndex), new XElement(ns + "v", (int)error))));
+                new XElement(ns + "rv", new XAttribute("s", structureIndex), new XElement(ns + "v", (int)error.Error))));
 
             var futureMetadata = metadata.Elements<FutureMetadata>().FirstOrDefault(fm => fm.Name?.Value == RichValueMetadataName);
             if (futureMetadata is null)

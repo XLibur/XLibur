@@ -132,8 +132,8 @@ internal sealed class LoadedSheetData : IDisposable
     /// </para>
     /// <para>
     /// Nor is a cell image (#721). The save numbers the images of the workbook again, and gives each
-    /// image cell its <c>vm</c> index and rich value index, before it writes any sheet. It changes a
-    /// cell only where the number moves, so <see cref="XLWorksheet.CellsChangedSinceLoad"/> sees every
+    /// image cell its <c>vm</c> index and the value <c>#VALUE!</c>, before it writes any sheet. It
+    /// changes a cell only where either differs, so <see cref="XLWorksheet.CellsChangedSinceLoad"/> sees every
     /// cell whose <c>vm</c> or value a rewrite would write differently, and a sheet whose numbers
     /// all stayed keeps cells that name the metadata and rich values this save writes.
     /// </para>

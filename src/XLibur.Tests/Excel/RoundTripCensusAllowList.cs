@@ -10,7 +10,6 @@ internal static class RoundTripCensusAllowList
     private const string CustomProperties = "custom-properties";
     private const string Drawing = "drawing";
     private const string ExtendedProperties = "extended-properties";
-    private const string MsExcelRdrichvalue = "ms-excel.rdrichvalue";
     private const string MsExcelRdrichvaluestructure = "ms-excel.rdrichvaluestructure";
     private const string MsExcelRdrichvaluetypes = "ms-excel.rdrichvaluetypes";
     private const string MsExcelRichValueRel = "ms-excel.richValueRel";
@@ -21,7 +20,6 @@ internal static class RoundTripCensusAllowList
     private const string SpreadsheetmlPivotTable = "spreadsheetml.pivotTable";
     private const string SpreadsheetmlSharedStrings = "spreadsheetml.sharedStrings";
     private const string SpreadsheetmlSheetMain = "spreadsheetml.sheet.main";
-    private const string SpreadsheetmlSheetMetadata = "spreadsheetml.sheetMetadata";
     private const string SpreadsheetmlStyles = "spreadsheetml.styles";
     private const string SpreadsheetmlTable = "spreadsheetml.table";
     private const string SpreadsheetmlWorksheet = "spreadsheetml.worksheet";
@@ -47,6 +45,7 @@ internal static class RoundTripCensusAllowList
     private const string ValidationsMerged = "data validations with the same rule are written as one (SaveOptions.ConsolidateDataValidationRanges), and a rule moves between the main and the x14 form as its formula needs";
     private const string ConditionalAlignment = "a conditional format cannot apply alignment, so its dxf is written without one";
     private const string SharedFormulas = "a shared formula is written as a formula in each cell";
+    private const string DirtyFormula = "a formula an edit left dirty, which XLibur cannot evaluate, is written with no cached value and no t, so Excel recalculates it (ADR 0001, #962)";
     private const string Volatile = "ca and aca mark a volatile formula, which Excel works out from the formula when it loads the file";
     private const string CalcChain = "the calculation chain is a cache, rebuilt from the formulas the save writes";
     private const string Spans = "spans is an optional hint, written only for the rows the save writes from the model";
@@ -61,14 +60,13 @@ internal static class RoundTripCensusAllowList
     private const string FirstPageNumber = "useFirstPageNumber is written with firstPageNumber; without one it means what no attribute means";
     private const string TwoDimensionalTable = "dtr applies only to a one-dimensional data table";
     private const string ColumnDataFormat = "a table column whose data cells share one style takes that style as its data format (dataDxfId), written without the defaults the loaded dxf spelled out (#513, #961)";
-    private const string CommentShape ="comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
+    private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
+    private const string ForeignNoteShape = "a note shape another producer wrote (LibreOffice: no #_x0000_t202 type, its own geometry) is replaced by the Excel note shape the save writes for the note, which the census keys as v:shape[@type=#_x0000_t202]; until #953 the save kept it beside that shape, so the sheet held the note twice";
 
-    private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
-    private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
+    private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
     private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
-    private const string LostRichValueDetailOfAVALUE = "rich-value detail of a #VALUE! error (subType, argument) dropped";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
 
@@ -254,6 +252,8 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlWorksheet, "f@t=shared", SharedFormulas),
         new(SpreadsheetmlWorksheet, "f@aca", Volatile),
         new(SpreadsheetmlWorksheet, "f@ca", Volatile),
+        new(SpreadsheetmlWorksheet, "f/v", DirtyFormula, 1),
+        new(SpreadsheetmlWorksheet, "c@t=e", DirtyFormula, 1),
         new(SpreadsheetmlCalcChain, "c", CalcChain),
         new(SpreadsheetmlCalcChain, "c@a", CalcChain),
         new(SpreadsheetmlCalcChain, "c@i", CalcChain),
@@ -311,12 +311,29 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:shapetype[@id=_x0000_t202]@path", CommentShape),
         new(VmlDrawing, "v:stroke", CommentShape),
         new(VmlDrawing, "v:stroke@joinstyle", CommentShape),
+        new(VmlDrawing, "v:f", ForeignNoteShape, 100),
+        new(VmlDrawing, "v:f@eqn", ForeignNoteShape, 100),
+        new(VmlDrawing, "v:formulas", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:h", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@polar", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@position", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:h@radiusrange", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:handles", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:path@o:connectlocs", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:path@textboxrect", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@adj", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@coordsize", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@id", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@o:spid", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@path", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@strokecolor", ForeignNoteShape, 2),
+        new(VmlDrawing, "v:shape@style", ForeignNoteShape, 4),
+        new(VmlDrawing, "v:shape@type", ForeignNoteShape, 2),
     ];
 
     private static readonly KnownLoss[] Known =
     [
-        new(SpreadsheetmlWorksheet, "c@t=e", "#960", LostACellImageIsWrittenAs, 2),
-        new(SpreadsheetmlWorksheet, "f/v", "#962", LostCachedValueOfAFormulaXLibur, 1),
         new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
         new(SpreadsheetmlComments, "anchor@moveWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
         new(SpreadsheetmlComments, "anchor@sizeWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
@@ -342,8 +359,17 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlComments, "xdr:row", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
         new(SpreadsheetmlComments, "xdr:rowOff", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 8),
         new(SpreadsheetmlComments, "xdr:to", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
-        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
-        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
+        new(VmlDrawing, "v:fill@color", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:fill@detectmouseclick", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:fill@type", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@color", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@startarrow", "#953", LostForeignNoteFillAndStroke, 4),
+        new(VmlDrawing, "v:stroke@startarrowlength", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:stroke@startarrowwidth", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:wrap", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
+        new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
+        new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
         new(SpreadsheetmlPivotTable, "format@dxfId->alignment", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 32),
         new(SpreadsheetmlPivotTable, "format@dxfId->border", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 14),
         new(SpreadsheetmlStyles, "alignment@readingOrder", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 194),
@@ -351,21 +377,6 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlStyles, "horizontal@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 38),
         new(SpreadsheetmlStyles, "vertical", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 52),
         new(SpreadsheetmlStyles, "vertical@style", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 38),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rv", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rv@s", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}v", "#954", LostRichValueDetailOfAVALUE, 50),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k@n", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k@t", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}s", "#954", LostRichValueDetailOfAVALUE, 4),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}s@t", "#954", LostRichValueDetailOfAVALUE, 4),
-        new(SpreadsheetmlSheetMetadata, "bk", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "ext", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "ext@uri", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "extLst", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rvb", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rvb@i", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlWorksheet, "c@vm", "#954", LostRichValueDetailOfAVALUE, 16),
         new(SpreadsheetmlWorksheet, "row@customFormat", "#958", LostRowStyleCustomFormatSDroppedWhen, 100),
         new(SpreadsheetmlWorksheet, "row@s", "#958", LostRowStyleCustomFormatSDroppedWhen, 94),
         new(SpreadsheetmlWorksheet, "row@thickBot", "#959", LostRowThickBotAndThickTopDroppedWhen, 108),

@@ -8,6 +8,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using XLibur.Excel.CalcEngine;
 using XLibur.Excel.Coordinates;
+using XLibur.Excel.IO;
 using XLibur.Excel.Rows;
 using XLibur.Excel.Tables;
 using XLibur.Extensions;
@@ -171,6 +172,13 @@ public partial class XLWorkbook : IXLWorkbook
     /// cannot be added to such a workbook without losing the other rich values.
     /// </summary>
     internal bool KeepsLoadedRichData { get; set; }
+
+    /// <summary>
+    /// The rich value of each error, by the 1-based vm index that names it, as the file or the last
+    /// save wrote them. A cell holds an error newer than Excel 2007, such as <c>#CALC!</c>, as
+    /// <c>#VALUE!</c> with such an index, and any error may have one that says more about it (#954).
+    /// </summary>
+    internal IReadOnlyDictionary<uint, ErrorRichValue> ErrorRichValues { get; set; } = new Dictionary<uint, ErrorRichValue>();
 
     /// <summary>
     /// Throws if an in-cell image cannot be written to this workbook. See

@@ -106,6 +106,50 @@ public class CellImageExcelFormatTests
         await Assert.That(image!.AltText).IsEqualTo("Sample image");
     }
 
+    /// <summary>
+    /// Excel writes an image cell as the error <c>#VALUE!</c>, and reads it so over COM. The save wrote the
+    /// index of the image's rich value as the cell's number, so a reader that does not know in-cell
+    /// pictures saw 0 (#960).
+    /// </summary>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task An_image_cell_is_saved_as_the_VALUE_error_Excel_writes(bool edited)
+    {
+        using var source = TestHelper.LoadWorkbook(ExcelFile);
+        if (edited)
+            source.Worksheet(1).Cell("D4").Value = "edited";
+        using var saved = new MemoryStream();
+        source.SaveAs(saved);
+
+        saved.Position = 0;
+        using (var document = SpreadsheetDocument.Open(saved, false))
+        {
+            var b2 = SheetCells(document)["B2"];
+            await Assert.That(b2.Attribute("t")?.Value).IsEqualTo("e");
+            await Assert.That(b2.Elements().Single(e => e.Name.LocalName == "v").Value).IsEqualTo("#VALUE!");
+            await Assert.That(b2.Attribute("vm")?.Value).IsEqualTo("1");
+        }
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var cell = (XLCell)reloaded.Worksheet(1).Cell("B2");
+        await Assert.That(cell.CellImage?.AltText).IsEqualTo("Sample image");
+        await Assert.That(cell.Value).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task A_new_image_cell_is_saved_as_the_VALUE_error_Excel_writes()
+    {
+        using var saved = SaveWithImage();
+        using var document = SpreadsheetDocument.Open(saved, false);
+
+        var b2 = SheetCells(document)["B2"];
+
+        await Assert.That(b2.Attribute("t")?.Value).IsEqualTo("e");
+        await Assert.That(b2.Elements().Single(e => e.Name.LocalName == "v").Value).IsEqualTo("#VALUE!");
+    }
+
     [Test]
     public async Task Metadata_part_keeps_schema_order_with_dynamic_arrays_and_images()
     {

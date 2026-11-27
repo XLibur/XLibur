@@ -970,8 +970,8 @@ internal sealed class XLCell : XLStylizedBase, IXLCell, IXLStylized
 
         CellImage = null;
 
-        // An image cell holds the index of its rich value, or #VALUE! as Excel writes it. Neither
-        // is a value of the cell's own, and with the image gone it would show.
+        // An image cell holds #VALUE!, as Excel writes it. It is not a value of the cell's own,
+        // and with the image gone it would show.
         SliceCellValue = Blank.Value;
     }
 
