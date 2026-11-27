@@ -768,11 +768,6 @@ internal static class Lookup
     private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
         => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx);
 
-    /// <summary>
-    /// <c>ADDRESS(row_num, column_num, [abs_num], [a1], [sheet_text])</c>. Row and column are
-    /// truncated, <c>abs_num</c> 1 to 4 picks which of the two are absolute, and a sheet name is
-    /// quoted when a formula needs it quoted.
-    /// </summary>
     private static AnyValue Address(CalcContext ctx, Span<AnyValue> p)
     {
         if (!ArgumentNumber(p[0], ctx).TryPickT0(out var rowNumber, out var rowError))
@@ -833,6 +828,11 @@ internal static class Lookup
     /// </summary>
     private static AnyValue Choose(CalcContext ctx, Span<AnyValue> p)
     {
+        if (!p[0].TryPickScalar(out _, out var indexCollection)
+            && indexCollection.TryPickT0(out var indexArray, out _)
+            && (indexArray.Width > 1 || indexArray.Height > 1))
+            return ChooseEach(ctx, indexArray, p[1..]);
+
         if (!ArgumentNumber(p[0], ctx).TryPickT0(out var indexNumber, out var indexError))
             return indexError;
 
@@ -841,6 +841,68 @@ internal static class Lookup
             return XLError.IncompatibleValue;
 
         return p[(int)indexNumber];
+    }
+
+    /// <summary>
+    /// CHOOSE with an array index chooses for each element, so <c>CHOOSE({1,2},A1:A9,B1:B9)</c> is
+    /// the two columns side by side. A dimension of 1 is repeated, as in array arithmetic, and an
+    /// element past the end of a smaller argument is #N/A.
+    /// </summary>
+    private static AnyValue ChooseEach(CalcContext ctx, Array index, Span<AnyValue> values)
+    {
+        var choices = new Array[values.Length];
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (values[i].TryPickScalar(out var scalar, out var collection))
+                choices[i] = new ScalarArray(scalar, 1, 1);
+            else if (collection.TryPickT0(out var array, out var reference))
+                choices[i] = array;
+            else if (reference.AreaCount == 1)
+                choices[i] = new ReferenceArray(reference[0], ctx);
+            else
+                return XLError.IncompatibleValue;
+        }
+
+        return new ChosenArray(index, choices, ctx);
+    }
+
+    private sealed class ChosenArray(Array index, Array[] choices, CalcContext ctx) : Array
+    {
+        public override int Width { get; } = choices.Append(index).Max(a => a.Width);
+
+        public override int Height { get; } = choices.Append(index).Max(a => a.Height);
+
+        public override ScalarValue this[int y, int x]
+        {
+            get
+            {
+                if (!TryGet(index, y, x, out var indexValue))
+                    return XLError.NoValueAvailable;
+
+                if (!indexValue.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    return error;
+
+                number = Math.Truncate(number);
+                if (number < 1 || number > choices.Length)
+                    return XLError.IncompatibleValue;
+
+                return TryGet(choices[(int)number - 1], y, x, out var value) ? value : XLError.NoValueAvailable;
+            }
+        }
+
+        private static bool TryGet(Array array, int y, int x, out ScalarValue value)
+        {
+            var row = array.Height == 1 ? 0 : y;
+            var column = array.Width == 1 ? 0 : x;
+            if (row >= array.Height || column >= array.Width)
+            {
+                value = default;
+                return false;
+            }
+
+            value = array[row, column];
+            return true;
+        }
     }
 
     /// <summary>
@@ -888,14 +950,16 @@ internal static class Lookup
         return (result.Height == 1 ? result[0, index] : result[index, 0]).ToAnyValue();
     }
 
-    /// <summary>A numeric argument that arrives as one value, or the first element of an array.</summary>
     private static OneOf<double, XLError> ArgumentNumber(in AnyValue value, CalcContext ctx)
     {
         if (value.TryPickScalar(out var scalar, out var collection))
             return scalar.ToNumber(ctx.Culture);
 
-        return collection.TryPickT0(out var array, out _)
-            ? array[0, 0].ToNumber(ctx.Culture)
+        if (collection.TryPickT0(out var array, out var reference))
+            return array[0, 0].ToNumber(ctx.Culture);
+
+        return reference.TryGetSingleCellValue(out var cellValue, ctx)
+            ? cellValue.ToNumber(ctx.Culture)
             : XLError.IncompatibleValue;
     }
 }

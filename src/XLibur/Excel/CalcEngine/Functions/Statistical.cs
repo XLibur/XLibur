@@ -688,7 +688,6 @@ internal static class Statistical
         return true;
     }
 
-    /// <summary>Whether the argument is a reference to one cell, and that cell is blank.</summary>
     internal static bool IsBlankCell(CalcContext ctx, in AnyValue arg)
     {
         return arg.TryPickReference(out var reference, out _)

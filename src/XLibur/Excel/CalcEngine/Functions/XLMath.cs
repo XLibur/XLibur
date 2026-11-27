@@ -480,7 +480,6 @@ public static class XLMath
         if (x == 0)
             return 0;
 
-        // erf is 1 to double precision long before x² overflows (from |x| ≈ 6).
         if (double.IsInfinity(x * x))
             return Math.Sign(x);
 
@@ -497,7 +496,6 @@ public static class XLMath
         if (x == 0)
             return 1;
 
-        // erfc underflows to 0 (and reaches 2 on the left) long before x² overflows.
         if (double.IsInfinity(x * x))
             return x > 0 ? 0 : 2;
 

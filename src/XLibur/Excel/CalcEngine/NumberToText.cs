@@ -13,7 +13,7 @@ namespace XLibur.Excel.CalcEngine;
 /// <c>0.1+0.2</c> is <c>0.3</c> and <c>1E15</c> is <c>1000000000000000</c>. Scientific form is used
 /// only when the plain form, without its sign, would be longer than 20 characters, so
 /// <c>1E-10</c> is <c>0.0000000001</c> and <c>1E21</c> is <c>1E+21</c>. The rule is the one Apache POI's
-/// <c>NumberToTextConverter</c> measured in Excel, and it agrees with every case in the
+/// <c>NumberToTextConverter</c> uses, and it agrees with every case in the
 /// conformance corpus.
 /// </remarks>
 internal static class NumberToText
@@ -29,7 +29,6 @@ internal static class NumberToText
         if (!double.IsFinite(number))
             return number.ToString(culture);
 
-        // "d.ddddddddddddddE+ddd": the 15 rounded significant digits and the decimal exponent.
         Span<char> scientific = stackalloc char[32];
         Math.Abs(number).TryFormat(scientific, out var written, "E14", CultureInfo.InvariantCulture);
         Span<char> digits = stackalloc char[SignificantDigits];
@@ -42,8 +41,6 @@ internal static class NumberToText
         var format = culture.NumberFormat;
         var sign = number < 0 ? format.NegativeSign : string.Empty;
         var separator = format.NumberDecimalSeparator;
-        // With at most 15 digits, a number of 1 or more has no fraction once its integer part
-        // is long enough to matter, so its plain length is the integer part's.
         var plainLength = exponent < 0
             ? "0.".Length + (-exponent - 1) + digits.Length
             : exponent + 1;

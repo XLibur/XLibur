@@ -76,7 +76,6 @@ internal static class Financial
         return InterestOfPeriod(rate, period, presentValue, type, PmtInternal(rate, Math.Ceiling(numberOfPayments), presentValue, futureValue, type));
     }
 
-    /// <summary>IPMT and PPMT accept a period from 1 to the number of payments rounded up.</summary>
     private static bool IsPaymentPeriod(double rate, double period, double numberOfPayments)
         => numberOfPayments > 0 && rate > -1 && period >= 1 && period <= Math.Ceiling(numberOfPayments);
 
@@ -122,15 +121,12 @@ internal static class Financial
             return -(futureValue + pmt * numberOfPayments);
 
         var pow = Math.Pow(1 + rate, numberOfPayments);
-
-        // PV(-1,10,-100) discounts by 0^10.
         if (pow == 0.0)
             return XLError.DivisionByZero;
 
         return -(futureValue + pmt * (1 + rate * PaymentTiming(type)) * (pow - 1) / rate) / pow;
     }
 
-    /// <summary>Excel reads any nonzero type as payments at the beginning of the period.</summary>
     private static double PaymentTiming(double type) => type != 0.0 ? 1 : 0;
 
     private static AnyValue Nper(double rate, double pmt, double presentValue, double futureValue, double type)
@@ -163,7 +159,6 @@ internal static class Financial
         if (rate == 0.0)
             return -(presentValue + futureValue) / numberOfPayments;
 
-        // The first payment of an annuity-due carries no interest, so all of it is principal.
         var annuityDue = type != 0.0;
         if (annuityDue && period == 1)
             return PmtInternal(rate, numberOfPayments, presentValue, futureValue, type);
@@ -471,7 +466,7 @@ internal static class Financial
 
     /// <summary>
     /// <c>e^x-1</c> accurate for small <c>x</c>; <see cref="double.ExpM1"/> is <c>Math.Exp(x) - 1</c>, which
-    /// cancels. Only a small <c>x</c> needs the correction, and a large one would turn it into 0/0.
+    /// cancels.
     /// </summary>
     private static double ExpMinusOne(double x)
     {

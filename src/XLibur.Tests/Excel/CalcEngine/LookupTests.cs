@@ -731,8 +731,6 @@ public class LookupTests
         // Text value can't be over 255 chars
         await Assert.That(ws.Evaluate($"=VLOOKUP(\"{new string('A', 256)}\",B2:I71,1)")).IsEqualTo(XLError.IncompatibleValue);
 
-        // A table that is not an array or a reference is read as a number, then gives #N/A.
-        // Text that is not a number is #VALUE!.
         await Assert.That(ws.Evaluate("=VLOOKUP(1,1,1)")).IsEqualTo(XLError.NoValueAvailable);
         await Assert.That(ws.Evaluate("=VLOOKUP(1,TRUE,1)")).IsEqualTo(XLError.NoValueAvailable);
         await Assert.That(ws.Evaluate("=VLOOKUP(1,\"5\",1)")).IsEqualTo(XLError.NoValueAvailable);
@@ -1381,6 +1379,34 @@ public class LookupTests
     public async Task Choose_index_out_of_range_is_value_error(string formula)
     {
         await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Choose_with_an_array_index_chooses_for_each_element()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("B1").Value = "x";
+        sheet.Cell("B2").Value = "y";
+
+        await Assert.That(sheet.Evaluate("SUM(CHOOSE({1,2},A1,A2))")).IsEqualTo(3);
+        await Assert.That(sheet.Evaluate("VLOOKUP(\"y\",CHOOSE({1,2},B1:B2,A1:A2),2,FALSE)")).IsEqualTo(2);
+        await Assert.That(sheet.Evaluate("INDEX(CHOOSE({1,2},\"a\",\"b\"),1,2)")).IsEqualTo("b");
+        await Assert.That(sheet.Evaluate("INDEX(CHOOSE({1,3},\"a\",\"b\"),1,2)")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Choose_and_Address_read_numbers_from_cell_references()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 2;
+        sheet.Cell("B1").Value = 3;
+
+        await Assert.That(sheet.Evaluate("CHOOSE(A1,\"a\",\"b\")")).IsEqualTo("b");
+        await Assert.That(sheet.Evaluate("ADDRESS(A1,B1)")).IsEqualTo("$C$2");
     }
 
     [Test]

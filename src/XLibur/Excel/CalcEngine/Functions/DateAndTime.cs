@@ -910,7 +910,6 @@ internal static class DateAndTime
         if (basis is < 0 or >= 5)
             return XLError.NumberInvalid;
 
-        // The order of the dates does not matter: YEARFRAC(2958465,44197) is 7979, as YEARFRAC(44197,2958465) is.
         if (startDate > endDate)
             (startDate, endDate) = (endDate, startDate);
 

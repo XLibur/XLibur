@@ -919,7 +919,7 @@ internal static class MathTrig
     private static ScalarValue Power(CalcContext ctx, double x, double y)
     {
         // A negative x with a fractional y has no real power, so it is #NUM!, except an odd root:
-        // when y is 1/n for an odd n, the real root is negative, and POWER(-8,1/3) is -2.
+        // when y is 1/n for an odd n, the real root is negative, and POWER(-8,1/3) is -1.9999999999999998.
         var isPowerFraction = y % 1 != 0;
         if (x < 0 && isPowerFraction)
             return IsOddRoot(y) ? -Math.Pow(-x, y) : XLError.NumberInvalid;
@@ -937,7 +937,6 @@ internal static class MathTrig
         return power;
     }
 
-    /// <summary>Is <paramref name="y"/> exactly <c>1/n</c> for an odd whole number n?</summary>
     private static bool IsOddRoot(double y)
     {
         var n = Math.Round(1 / y);
