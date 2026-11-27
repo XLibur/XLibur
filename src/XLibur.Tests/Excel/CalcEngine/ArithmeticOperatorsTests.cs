@@ -232,6 +232,23 @@ public class ArithmeticOperatorsTests
         await Assert.That(Evaluate(formula)).IsEqualTo(ExpectedCellValue.From(expectedValue));
     }
 
+    [Test]
+    [Arguments("0.1+0.2-0.3", 0.0)]
+    [Arguments("0.3-(0.1+0.2)", 0.0)]
+    [Arguments("-0.3+(0.1+0.2)", 0.0)]
+    [Arguments("1*(0.5-0.4-0.1)", -2.7755575615628914E-17)]
+    [Arguments("1-0.9", 0.09999999999999998)]
+    public async Task AdditionAndSubtraction_LastOperationNearZeroIsZero(string formula, double expected)
+    {
+        // Excel sets a + or - that is the last operation of a formula to 0 when the result is at or
+        // very near zero (KB 78113). A nested one keeps its residue.
+        using var wb = new XLWorkbook();
+        var cell = wb.AddWorksheet().Cell("A1");
+        cell.FormulaA1 = formula;
+
+        await Assert.That(cell.Value.GetNumber()).IsEqualTo(expected);
+    }
+
     #endregion
 
     #region Array Operations

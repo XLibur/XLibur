@@ -1,6 +1,5 @@
 # Spec 59 known differences: a case XLibur is known to answer differently from Excel. function, case id, xlibur answer, excel answer, reason, issue.
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
-SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue. Excel snaps a + or - result near zero to 0 (KB 78113), but its threshold and which operations it covers (not 1*(0.5-0.4-0.1)) are undocumented, and this is the one corpus row that tests it	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 RATE	RATE#18	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915

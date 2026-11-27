@@ -991,7 +991,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     {
         try
         {
-            var result = formula.AstRoot.Accept(ctx, _visitor);
+            var result = _visitor.VisitRoot(ctx, formula.AstRoot);
             return result.IsLambda ? XLError.Calc : result;
         }
         catch (LambdaDepthException)

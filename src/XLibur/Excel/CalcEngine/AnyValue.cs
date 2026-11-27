@@ -583,6 +583,47 @@ internal readonly struct AnyValue
             }, context);
     }
 
+    /// <summary>
+    /// The <c>+</c> at the root of a cell formula, where a sum at or very near zero is exactly 0
+    /// (see <see cref="SubtractToZero"/>).
+    /// </summary>
+    public static AnyValue RootBinaryPlus(in AnyValue left, in AnyValue right, CalcContext context)
+    {
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => SubtractToZero(lhs, -rhs), ctx);
+            }, context);
+    }
+
+    /// <summary>
+    /// The <c>-</c> at the root of a cell formula, where a difference at or very near zero is
+    /// exactly 0 (see <see cref="SubtractToZero"/>).
+    /// </summary>
+    public static AnyValue RootBinaryMinus(in AnyValue left, in AnyValue right, CalcContext context)
+    {
+        return BinaryOperation(in left, in right,
+            static (in leftItem, in rightItem, ctx) =>
+            {
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => SubtractToZero(lhs, rhs), ctx);
+            }, context);
+    }
+
+    /// <summary>
+    /// <c>lhs - rhs</c>, or 0 when the two differ by less than 2^-48 of the larger magnitude.
+    /// Excel 97 and later set the result of an addition or subtraction that is the last operation
+    /// of a formula to 0 when it is at or very close to zero (KB 78113), so <c>=0.1+0.2-0.3</c> is 0
+    /// while <c>=1*(0.5-0.4-0.1)</c> keeps its residue. The 2^-48 relative threshold is the one
+    /// LibreOffice uses for this Excel compatibility in <c>rtl::math::approxSub</c>. Operands of
+    /// opposite sign never qualify, as their difference is at least the larger magnitude.
+    /// </summary>
+    private static double SubtractToZero(double lhs, double rhs)
+    {
+        const double threshold = 1.0 / (1L << 48);
+        var difference = lhs - rhs;
+        return Math.Abs(difference) < Math.Max(Math.Abs(lhs), Math.Abs(rhs)) * threshold ? 0 : difference;
+    }
+
     public static AnyValue BinaryMult(in AnyValue left, in AnyValue right, CalcContext context)
     {
         return BinaryOperation(in left, in right,
