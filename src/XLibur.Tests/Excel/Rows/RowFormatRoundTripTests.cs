@@ -11,7 +11,8 @@ namespace XLibur.Tests.Excel.Rows;
 
 /// <summary>
 /// Row attributes the file carries that the model has to keep: a formatted row (<c>customFormat</c>,
-/// #958) and the thick border flags (<c>thickTop</c>, <c>thickBot</c>, #959).
+/// #958) and the thick border flags (<c>thickTop</c>, <c>thickBot</c>, #959), which the save works out
+/// from the borders (#1031, <see cref="RowThickBorderFlagTests"/>).
 /// </summary>
 public class RowFormatRoundTripTests
 {
@@ -60,22 +61,6 @@ public class RowFormatRoundTripTests
         await Assert.That(row).IsNotNull();
         await Assert.That(row!.Attribute("customFormat")?.Value).IsEqualTo("1");
         await Assert.That(row.Attribute("s")).IsNotNull();
-    }
-
-    [Test]
-    public async Task Thick_border_flags_are_saved_after_an_edit()
-    {
-        using var source = ThickRowSource();
-        using var saved = LoadAndSave(source, ws => ws.Cell("A1").Value = "edit");
-
-        var withCells = SavedRow(saved, 1, 1);
-        await Assert.That(withCells!.Attribute("thickBot")?.Value).IsEqualTo("1");
-        await Assert.That(withCells.Attribute("thickTop")?.Value).IsEqualTo("1");
-
-        var empty = SavedRow(saved, 1, 3);
-        await Assert.That(empty).IsNotNull();
-        await Assert.That(empty!.Attribute("thickTop")?.Value).IsEqualTo("1");
-        await Assert.That(empty.Attribute("thickBot")).IsNull();
     }
 
     [Test]
@@ -199,24 +184,6 @@ public class RowFormatRoundTripTests
 
         return stream.RewriteSheet1(xml => xml.Replace("</x:sheetData>",
             """<x:row r="2" s="0" customFormat="1" /></x:sheetData>""", StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// Row 1 holds A1 and has both thick border flags, and row 3 has no cells and only
-    /// <c>thickTop</c>.
-    /// </summary>
-    private static MemoryStream ThickRowSource()
-    {
-        var stream = new MemoryStream();
-        using (var wb = new XLWorkbook())
-        {
-            wb.AddWorksheet().Cell("A1").Value = "text";
-            wb.SaveAs(stream);
-        }
-
-        return stream.RewriteSheet1(xml => xml
-            .Replace("""<x:row r="1" """, """<x:row r="1" thickTop="1" thickBot="1" """, StringComparison.Ordinal)
-            .Replace("</x:sheetData>", """<x:row r="3" thickTop="1" /></x:sheetData>""", StringComparison.Ordinal));
     }
 
     private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)

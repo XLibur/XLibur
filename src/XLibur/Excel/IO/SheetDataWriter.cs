@@ -37,7 +37,7 @@ internal static class SheetDataWriter
 
         // A rather complicated state machine, so rows and cells can be written in a single loop
         var rowState = new RowWriterState();
-        var rows = GetSortedRowNumbers(xlWorksheet);
+        var rows = GetSortedRows(xlWorksheet);
         var cellCtx = new CellWriteContext
         {
             CellsCollection = xlWorksheet.Internals.CellsCollection,
@@ -60,7 +60,7 @@ internal static class SheetDataWriter
             if (currentRowNumber != rowState.OpenedRowNumber)
                 rawCells?.Flush(xml);
 
-            WriteIntermediateRows(xml, xlWorksheet, rows, currentRowNumber, maxColumn, context, ref rowState);
+            WriteIntermediateRows(xml, rows, currentRowNumber, maxColumn, context, ref rowState);
 
             // Resolve the value and its share-string flag once for both the blank-and-empty check
             // and the value write below, avoiding a second ValueSlice traversal per cell.
@@ -73,7 +73,7 @@ internal static class SheetDataWriter
                 if (rowState.IsRowOpened)
                     xml.WriteEndElement(); // row
 
-                var row = TakeRowProps(xlWorksheet, currentRowNumber, ref rowState.RowPropIndex);
+                var row = TakeRowProps(rows, currentRowNumber, ref rowState.RowPropIndex);
                 WriteStartRow(xml, row, currentRowNumber, maxColumn, context);
 
                 rowState.IsRowOpened = true;
@@ -95,7 +95,7 @@ internal static class SheetDataWriter
         if (rowState.IsRowOpened)
             xml.WriteEndElement(); // row
 
-        WriteTrailingRows(xml, xlWorksheet, rows, rowState.RowPropIndex, context);
+        WriteTrailingRows(xml, rows, rowState.RowPropIndex, context);
 
         xml.WriteEndElement(); // SheetData
     }
@@ -191,22 +191,34 @@ internal static class SheetDataWriter
         return false;
     }
 
-    private static List<int> GetSortedRowNumbers(XLWorksheet xlWorksheet)
+    /// <summary>
+    /// The rows that can have attributes, in order: every row of the model, and every row the thick
+    /// border flags are set on (<see cref="RowThickBorders"/>), which need not be in the model.
+    /// </summary>
+    private static List<RowToWrite> GetSortedRows(XLWorksheet xlWorksheet)
     {
-        if (xlWorksheet.Internals.RowsCollection.Count <= 0)
-            return [];
+        var thickBorders = RowThickBorders.Of(xlWorksheet);
+        var rowsCollection = xlWorksheet.Internals.RowsCollection;
+        var numbers = new SortedSet<int>(rowsCollection.Keys);
+        numbers.UnionWith(thickBorders.RowsWithFlags());
 
-        var rows = xlWorksheet.Internals.RowsCollection.Keys.ToList();
-        rows.Sort();
+        var rows = new List<RowToWrite>(numbers.Count);
+        foreach (var number in numbers)
+        {
+            var (thickTop, thickBottom) = thickBorders.FlagsOf(number);
+            rows.Add(new RowToWrite(number, rowsCollection.TryGetValue(number, out var row) ? row : null,
+                thickTop, thickBottom));
+        }
+
         return rows;
     }
 
     private static void WriteIntermediateRows(
-        XmlWriter xml, XLWorksheet xlWorksheet, List<int> rows,
+        XmlWriter xml, List<RowToWrite> rows,
         int currentRowNumber, int maxColumn, SaveContext context,
         ref RowWriterState state)
     {
-        while (state.RowPropIndex < rows.Count && rows[state.RowPropIndex] < currentRowNumber)
+        while (state.RowPropIndex < rows.Count && rows[state.RowPropIndex].Number < currentRowNumber)
         {
             if (state.IsRowOpened)
             {
@@ -214,39 +226,26 @@ internal static class SheetDataWriter
                 state.IsRowOpened = false;
             }
 
-            var rowNumber = rows[state.RowPropIndex];
-            var xlRow = xlWorksheet.Internals.RowsCollection[rowNumber];
-            if (RowHasCustomProps(xlRow))
+            var row = rows[state.RowPropIndex];
+            if (row.HasCustomProps)
             {
-                WriteStartRow(xml, xlRow, rowNumber, maxColumn, context);
+                WriteStartRow(xml, row, row.Number, maxColumn, context);
                 state.IsRowOpened = true;
-                state.OpenedRowNumber = rowNumber;
+                state.OpenedRowNumber = row.Number;
             }
 
             state.RowPropIndex++;
         }
     }
 
-    private static bool RowHasCustomProps(XLRow xlRow)
-    {
-        return xlRow.HeightChanged ||
-               xlRow.IsHidden ||
-               WritesRowStyle(xlRow) ||
-               xlRow.Collapsed ||
-               xlRow.OutlineLevel > 0 ||
-               xlRow.ThickTop ||
-               xlRow.ThickBottom;
-    }
-
     private static bool WritesRowStyle(XLRow xlRow) => xlRow.IsFormatted;
 
-    private static XLRow? TakeRowProps(XLWorksheet xlWorksheet, int rowNumber, ref int rowPropIndex)
+    private static RowToWrite? TakeRowProps(List<RowToWrite> rows, int rowNumber, ref int rowPropIndex)
     {
-        if (!xlWorksheet.Internals.RowsCollection.TryGetValue(rowNumber, out var row))
+        if (rowPropIndex >= rows.Count || rows[rowPropIndex].Number != rowNumber)
             return null;
 
-        rowPropIndex++;
-        return row;
+        return rows[rowPropIndex++];
     }
 
     private static bool IsBlankAndEmpty(XLCellValue cellValue, XLCellsCollection cellsCollection, Point point)
@@ -566,16 +565,14 @@ internal static class SheetDataWriter
         xml.WriteEndElement(); // cell
     }
 
-    private static void WriteTrailingRows(XmlWriter xml, XLWorksheet xlWorksheet,
-        List<int> rows, int rowPropIndex, SaveContext context)
+    private static void WriteTrailingRows(XmlWriter xml, List<RowToWrite> rows, int rowPropIndex, SaveContext context)
     {
         while (rowPropIndex < rows.Count)
         {
-            var rowNumber = rows[rowPropIndex];
-            var xlRow = xlWorksheet.Internals.RowsCollection[rowNumber];
-            if (RowHasCustomProps(xlRow))
+            var row = rows[rowPropIndex];
+            if (row.HasCustomProps)
             {
-                WriteStartRow(xml, xlRow, rowNumber, 0, context);
+                WriteStartRow(xml, row, row.Number, 0, context);
                 xml.WriteEndElement(); // row
             }
 
@@ -583,16 +580,30 @@ internal static class SheetDataWriter
         }
     }
 
-    private static void WriteStartRow(XmlWriter w, XLRow? xlRow, int rowNumber, int maxColumn, SaveContext context)
+    private static void WriteStartRow(XmlWriter w, RowToWrite? row, int rowNumber, int maxColumn, SaveContext context)
     {
         CellXmlWriter.WriteRowStart(w, rowNumber, maxColumn);
 
-        if (xlRow is null)
+        if (row is not { } props)
             return;
 
-        WriteRowAttributes(w, xlRow, context);
+        if (props.Row is { } xlRow)
+            WriteRowAttributes(w, xlRow, context);
+
+        if (props.ThickTop)
+            w.WriteAttributeString("thickTop", TrueValue);
+
+        if (props.ThickBottom)
+            w.WriteAttributeString("thickBot", TrueValue);
+
+        if (props.Row?.DyDescent is { } dyDescent)
+            w.WriteAttribute("dyDescent", X14Ac2009SsNs, dyDescent);
     }
 
+    /// <summary>
+    /// The attributes of a row from the model, but for the thick border flags and <c>dyDescent</c>,
+    /// which <see cref="WriteStartRow"/> writes after them.
+    /// </summary>
     private static void WriteRowAttributes(XmlWriter w, XLRow xlRow, SaveContext context)
     {
         if (xlRow.HeightChanged)
@@ -624,15 +635,6 @@ internal static class SheetDataWriter
 
         if (xlRow.ShowPhonetic)
             w.WriteAttributeString("ph", TrueValue);
-
-        if (xlRow.ThickTop)
-            w.WriteAttributeString("thickTop", TrueValue);
-
-        if (xlRow.ThickBottom)
-            w.WriteAttributeString("thickBot", TrueValue);
-
-        if (xlRow.DyDescent is not null)
-            w.WriteAttribute("dyDescent", X14Ac2009SsNs, xlRow.DyDescent.Value);
     }
 
     private static void WriteDataTableFormula(XmlWriter xml, XLCellFormula xlFormula)
@@ -711,6 +713,17 @@ internal static class SheetDataWriter
         w.WriteStartElement("is", Main2006SsNs);
         TextSerializer.WriteRichTextElements(w, richText, context);
         w.WriteEndElement(); // is
+    }
+
+    /// <summary>
+    /// A row the save may write attributes for: a row of the model, a row with a thick border flag, or
+    /// both.
+    /// </summary>
+    private readonly record struct RowToWrite(int Number, XLRow? Row, bool ThickTop, bool ThickBottom)
+    {
+        /// <summary>Is the row written even when it has no cells?</summary>
+        public bool HasCustomProps => ThickTop || ThickBottom || Row is { } row
+            && (row.HeightChanged || row.IsHidden || WritesRowStyle(row) || row.Collapsed || row.OutlineLevel > 0);
     }
 
     private struct RowWriterState

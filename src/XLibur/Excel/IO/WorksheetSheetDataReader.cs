@@ -118,13 +118,11 @@ internal static class WorksheetSheetDataReader
         int? OutlineLevel,
         bool ShowPhonetic,
         bool CustomFormat,
-        int? StyleIndex,
-        bool ThickTop,
-        bool ThickBottom)
+        int? StyleIndex)
     {
         public bool HasCustomProps =>
             Height is not null || DyDescent is not null || Hidden || Collapsed
-            || OutlineLevel > 0 || ShowPhonetic || CustomFormat || ThickTop || ThickBottom;
+            || OutlineLevel > 0 || ShowPhonetic || CustomFormat;
     }
 
     /// <summary>
@@ -248,12 +246,11 @@ internal static class WorksheetSheetDataReader
         double? height = null;
         double? dyDescent = null;
         bool customHeight = false, hidden = false, collapsed = false, showPhonetic = false, customFormat = false;
-        bool thickTop = false, thickBottom = false;
         int? outlineLevel = null;
         int? styleIndex = null;
 
         if (!reader.HasAttributes)
-            return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex, thickTop, thickBottom);
+            return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
 
         while (reader.MoveToNextAttribute())
         {
@@ -300,17 +297,11 @@ internal static class WorksheetSheetDataReader
                 case "s":
                     styleIndex = int.Parse(value, CultureInfo.InvariantCulture);
                     break;
-                case "thickTop":
-                    thickTop = ParseXmlBool(value);
-                    break;
-                case "thickBot":
-                    thickBottom = ParseXmlBool(value);
-                    break;
             }
         }
 
         reader.MoveToElement();
-        return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex, thickTop, thickBottom);
+        return new RowProperties(height, customHeight, dyDescent, hidden, collapsed, outlineLevel, showPhonetic, customFormat, styleIndex);
     }
 
     /// <summary>
@@ -321,7 +312,7 @@ internal static class WorksheetSheetDataReader
     {
         return ns.Length == 0
             ? localName is "r" or "ht" or "customHeight" or "hidden" or "collapsed" or "outlineLevel"
-                or "ph" or "customFormat" or "s" or "thickTop" or "thickBot"
+                or "ph" or "customFormat" or "s"
             : localName == "dyDescent" && ns == OpenXmlConst.X14Ac2009SsNs;
     }
 
@@ -1154,9 +1145,6 @@ internal static class WorksheetSheetDataReader
 
         if (props.ShowPhonetic)
             xlRow.ShowPhonetic = true;
-
-        xlRow.ThickTop = props.ThickTop;
-        xlRow.ThickBottom = props.ThickBottom;
 
         if (props.CustomFormat)
             ApplyRowCustomFormat(xlRow, props.StyleIndex, ws, styles);
