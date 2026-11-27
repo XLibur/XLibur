@@ -908,15 +908,15 @@ internal static class Text
 
     private static AnyValue Find(CalcContext ctx, string findText, string withinText, OneOf<double, Blank> startNum)
     {
-        var startIndex = startNum.TryPickT0(out var startNumber, out _) ? (int)Math.Truncate(startNumber) - 1 : 0;
-        if (startIndex < 0 || startIndex > withinText.Length)
+        var start = startNum.TryPickT0(out var startNumber, out _) ? Math.Truncate(startNumber) - 1 : 0;
+        if (start < 0 || start > CountCodePoints(withinText, withinText.Length))
             return XLError.IncompatibleValue;
 
-        var text = withinText.AsSpan(startIndex);
-        var index = text.IndexOf(findText.AsSpan());
+        var startIndex = SkipCodePoints(withinText, 0, start);
+        var index = withinText.AsSpan(startIndex).IndexOf(findText.AsSpan());
         return index == -1
             ? XLError.IncompatibleValue
-            : index + startIndex + 1;
+            : CountCodePoints(withinText, startIndex + index) + 1;
     }
 
     private static ScalarValue Fixed(CalcContext ctx, double number, double numDecimals, bool suppressComma)
@@ -956,7 +956,7 @@ internal static class Text
 
     /// <summary>
     /// The index in <paramref name="text"/> after <paramref name="count"/> characters from
-    /// <paramref name="index"/>. LEFT, LEN, MID and REPLACE count code points, so a surrogate
+    /// <paramref name="index"/>. The text functions count code points, so a surrogate
     /// pair is one character, not a grapheme: a family emoji of 4 emoji and 3 zero width joiners
     /// is 7 characters. An unpaired surrogate is one character.
     /// </summary>
@@ -971,14 +971,16 @@ internal static class Text
         return index;
     }
 
-    private static ScalarValue Len(CalcContext ctx, string text)
+    private static int CountCodePoints(string text, int end)
     {
-        var length = 0;
-        for (var i = 0; i < text.Length; i = SkipCodePoints(text, i, 1))
-            length++;
+        var count = 0;
+        for (var i = 0; i < end; i = SkipCodePoints(text, i, 1))
+            count++;
 
-        return length;
+        return count;
     }
+
+    private static ScalarValue Len(CalcContext ctx, string text) => CountCodePoints(text, text.Length);
 
     private static ScalarValue Lower(CalcContext ctx, string text)
     {
@@ -1008,7 +1010,6 @@ internal static class Text
 
     private static ScalarValue Mid(CalcContext ctx, string text, double startPos, double numChars)
     {
-        // Spec has parameters at wrong places.
         if (startPos is < 1 or >= int.MaxValue + 1d || numChars is < 0 or >= int.MaxValue + 1d)
             return XLError.IncompatibleValue;
 
@@ -1097,18 +1098,16 @@ internal static class Text
         if (withinText.Length == 0)
             return XLError.IncompatibleValue;
 
-        var startIndex = startNum.TryPickT0(out var startNumber, out _) ? (int)Math.Truncate(startNumber) : 1;
-        startIndex -= 1;
-        if (startIndex < 0 || startIndex >= withinText.Length)
+        var start = startNum.TryPickT0(out var startNumber, out _) ? Math.Truncate(startNumber) - 1 : 0;
+        if (start < 0 || start >= CountCodePoints(withinText, withinText.Length))
             return XLError.IncompatibleValue;
 
-        var wildcard = new Wildcard(findText);
-        ReadOnlySpan<char> text = withinText.AsSpan().Slice(startIndex);
-        var firstIdx = wildcard.Search(text);
+        var startIndex = SkipCodePoints(withinText, 0, start);
+        var firstIdx = new Wildcard(findText).Search(withinText.AsSpan(startIndex));
         if (firstIdx < 0)
             return XLError.IncompatibleValue;
 
-        return firstIdx + startIndex + 1;
+        return CountCodePoints(withinText, startIndex + firstIdx) + 1;
     }
 
     private static ScalarValue Substitute(CalcContext ctx, string text, string oldText, string newText,

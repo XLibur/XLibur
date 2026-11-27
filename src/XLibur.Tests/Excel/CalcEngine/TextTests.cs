@@ -627,6 +627,18 @@ public class TextTests
     }
 
     [Test]
+    public async Task Find_and_Search_use_code_points()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("x","😊x")""")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("""SEARCH("X","😊x")""")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("x","😊x😊x",3)""")).IsEqualTo(4);
+        await Assert.That(XLWorkbook.EvaluateExpr("""SEARCH("x","😊x😊x",3)""")).IsEqualTo(4);
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊x",FIND("x","😊x"),1)""")).IsEqualTo("x");
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("","😊😊",3)""")).IsEqualTo(3);
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("","😊😊",4)""")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
     [Arguments("", 0d)]
     [Arguments("+ 1", 1d)]
     [Arguments("+1", 1d)]
