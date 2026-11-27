@@ -195,7 +195,15 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is XLPivotStyleFormatBase)
+            {
+                // Each edge setter skips an unchanged edge, so a no-op adds no pivot format (#1029).
+                TopBorder = value;
+                BottomBorder = value;
+                LeftBorder = value;
+                RightBorder = value;
+            }
+            else if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {
@@ -222,7 +230,15 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is XLPivotStyleFormatBase)
+            {
+                // Each edge setter holds a colour for an edge with no style rather than adding a format.
+                TopBorderColor = value;
+                BottomBorderColor = value;
+                LeftBorderColor = value;
+                RightBorderColor = value;
+            }
+            else if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
             {
                 Modify(k => k with
                 {

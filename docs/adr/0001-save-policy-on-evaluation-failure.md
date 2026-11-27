@@ -9,3 +9,5 @@ On save, a dirty formula is evaluated so its cached value can be written. If tha
 ## Consequences
 
 A gap that XLibur knows it has must be raised as an unsupported feature, not as `NotImplementedException`; otherwise saves start to fail. The first such gap is the argument converter's array branch. It is reclassified as unsupported until spec 30 implements array application.
+
+A save that writes any formula with no cached value also writes `fullCalcOnLoad="1"` in the workbook's `calcPr`, so Excel recalculates on open. Without it, a workbook loaded from current Excel keeps that Excel's `calcId`, and nothing asks Excel to recalculate (#1028). The flag is written only to the file. `XLWorkbook.FullCalculationOnLoad` keeps the value the user set.
