@@ -224,6 +224,9 @@ internal sealed class SheetDataBaseline
         int OutlineLevel,
         bool ShowPhonetic,
         double? DyDescent,
+        bool Formatted,
+        bool ThickTop,
+        bool ThickBottom,
         XLStyleValue Style)
     {
         internal static RowAttributes Of(int rowNumber, XLRow row) => new(
@@ -236,6 +239,9 @@ internal sealed class SheetDataBaseline
             row.OutlineLevel,
             row.ShowPhonetic,
             row.DyDescent,
+            row.IsFormatted,
+            row.ThickTop,
+            row.ThickBottom,
             row.StyleValue);
 
         /// <summary>
@@ -243,7 +249,7 @@ internal sealed class SheetDataBaseline
         /// </summary>
         internal bool IsPlain(XLStyleValue sheetStyle) =>
             !HeightChanged && !Hidden && !Collapsed && OutlineLevel == 0 && !ShowPhonetic
-            && DyDescent is null && Style == sheetStyle;
+            && DyDescent is null && !Formatted && !ThickTop && !ThickBottom && Style == sheetStyle;
     }
 
     private sealed class RowNumberComparer : IComparer<RowAttributes>

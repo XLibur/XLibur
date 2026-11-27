@@ -233,10 +233,12 @@ internal static class SheetDataWriter
                xlRow.IsHidden ||
                WritesRowStyle(xlRow) ||
                xlRow.Collapsed ||
-               xlRow.OutlineLevel > 0;
+               xlRow.OutlineLevel > 0 ||
+               xlRow.ThickTop ||
+               xlRow.ThickBottom;
     }
 
-    private static bool WritesRowStyle(XLRow xlRow) => xlRow.StyleValue != xlRow.Worksheet.StyleValue;
+    private static bool WritesRowStyle(XLRow xlRow) => xlRow.IsFormatted;
 
     private static XLRow? TakeRowProps(XLWorksheet xlWorksheet, int rowNumber, ref int rowPropIndex)
     {
@@ -627,13 +629,14 @@ internal static class SheetDataWriter
         if (xlRow.ShowPhonetic)
             w.WriteAttributeString("ph", TrueValue);
 
+        if (xlRow.ThickTop)
+            w.WriteAttributeString("thickTop", TrueValue);
+
+        if (xlRow.ThickBottom)
+            w.WriteAttributeString("thickBot", TrueValue);
+
         if (xlRow.DyDescent is not null)
             w.WriteAttribute("dyDescent", X14Ac2009SsNs, xlRow.DyDescent.Value);
-
-        // thickBot and thickTop attributes are not written, because Excel seems to determine adjustments
-        // from cell borders on its own, and it would be rather costly to check each cell in each row.
-        // If the row was adjusted when the cell had its border modified, then it would be fine to write
-        // the thickBot/thickBot attributes.
     }
 
     private static void WriteDataTableFormula(XmlWriter xml, XLCellFormula xlFormula)
