@@ -977,6 +977,11 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
         return retVal;
     }
 
+    public IXLRangeColumns InsertColumnsBefore(bool onlyUsedCells, int numberOfColumns, bool formatFromLeft = true)
+    {
+        return InsertColumnsBeforeInternal(onlyUsedCells, numberOfColumns, formatFromLeft)!;
+    }
+
     /// <summary>
     /// Called just before the range grows by <paramref name="count"/> columns at its first column.
     /// No column shift reports this growth, so a range whose state is indexed by column moves it
@@ -984,11 +989,6 @@ internal abstract class XLRangeBase : XLStylizedBase, IXLRangeBase, IXLStylized
     /// </summary>
     internal virtual void OnExpandingLeadingColumns(int count)
     {
-    }
-
-    public IXLRangeColumns InsertColumnsBefore(bool onlyUsedCells, int numberOfColumns, bool formatFromLeft = true)
-    {
-        return InsertColumnsBeforeInternal(onlyUsedCells, numberOfColumns, formatFromLeft)!;
     }
 
     public void InsertColumnsBeforeVoid(bool onlyUsedCells, int numberOfColumns, bool formatFromLeft = true)
