@@ -7,7 +7,7 @@ LEN	LEN#11	number:5	number:7	Number to text: Excel gives the 15-significant-digi
 LEN	LEN#12	number:22	number:18	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (18 characters in Excel, 22 in XLibur)	
 LEN	LEN#13	number:2	number:1	Excel counts an emoji (surrogate pair) as one character; XLibur counts UTF-16 units. LEFT and FIND in XLibur already treat the pair as one	
 MID	MID#18	text:\uDE00	text:a	Excel indexes an emoji (surrogate pair) as one character; XLibur indexes UTF-16 units and splits the pair	
-SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue	
+SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue. Excel snaps a + or - result near zero to 0 (KB 78113), but its threshold and which operations it covers (not 1*(0.5-0.4-0.1)) are undocumented, and this is the one corpus row that tests it	
 TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
 VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
