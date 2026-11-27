@@ -656,6 +656,14 @@ public class InformationTests
     }
 
     [Test]
+    public async Task Type_ReferenceToNonSingleCell_is_an_array_when_evaluated_without_a_formula_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate("TYPE(A1:A2)")).IsEqualTo(64.0);
+    }
+
+    [Test]
     public async Task Type_ReferenceToSingleCell_ReturnsTypeOfCell()
     {
         using var wb = new XLWorkbook();

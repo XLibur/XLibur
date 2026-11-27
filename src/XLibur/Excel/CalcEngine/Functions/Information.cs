@@ -162,7 +162,7 @@ internal static class Information
             if (!reference.TryGetSingleCellValue(out scalar, ctx))
             {
                 // The intersection is one cell or #VALUE!, so the call does not come back here.
-                return ctx.IsArrayCalculation ? 64 : Type(ctx, value.ImplicitIntersection(ctx));
+                return ctx.IsArrayCalculation || !ctx.HasFormulaCell ? 64 : Type(ctx, value.ImplicitIntersection(ctx));
             }
         }
 
