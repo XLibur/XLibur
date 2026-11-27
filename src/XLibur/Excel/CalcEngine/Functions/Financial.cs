@@ -651,7 +651,28 @@ internal static class Financial
         if (nominalRate <= 0 || periodsPerYear < 1)
             return XLError.NumberInvalid;
 
-        return Math.Pow(1 + nominalRate / periodsPerYear, periodsPerYear) - 1;
+        return PowerBySquaring(1 + nominalRate / periodsPerYear, periodsPerYear) - 1;
+    }
+
+    /// <summary>
+    /// <c>x^n</c> for a whole <paramref name="n"/> by right-to-left binary exponentiation. EFFECT rounds
+    /// the way this does, not the way <see cref="Math.Pow"/> does: EFFECT(0.05,4) is
+    /// 0.050945336914062445 and EFFECT(0.05,1000000) is 0.0512710949426225 in Excel.
+    /// </summary>
+    private static double PowerBySquaring(double x, double n)
+    {
+        var result = 1d;
+        while (n > 0)
+        {
+            if (n % 2 == 1)
+                result *= x;
+
+            n = Math.Floor(n / 2);
+            if (n > 0)
+                x *= x;
+        }
+
+        return result;
     }
 
     private static ScalarValue Nominal(CalcContext ctx, double effectiveRate, double periodsPerYear)

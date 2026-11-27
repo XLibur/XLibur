@@ -39,7 +39,6 @@ CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur 
 CONVERT	CONVERT#38	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-EFFECT	EFFECT#31	number:0.05127109497591076	number:0.0512710949426225	Last digits differ: Excel number:0.0512710949426225, XLibur number:0.05127109497591076	
 ERF	ERF#17	error:#NUM!	number:1	An out-of-range magnitude or count: Excel returns number:1; XLibur returns #NUM!	
 ERF	ERF#32	error:#NUM!	number:0.1572992070502851	An out-of-range magnitude or count: Excel returns number:0.1572992070502851; XLibur returns #NUM!	
 ERFC	ERFC#16	error:#NUM!	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur returns #NUM!	
