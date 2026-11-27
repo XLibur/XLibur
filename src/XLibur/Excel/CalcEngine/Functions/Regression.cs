@@ -241,11 +241,18 @@ internal static class Regression
 
     /// <summary>
     /// Excel reads a single value given for an array as a one-element array, so SLOPE(5,6) is
-    /// #DIV/0! and COVAR(5,6) is 0. An error stays an error.
+    /// #DIV/0! and COVAR(5,6) is 0. An error stays an error. A single blank cell is #VALUE!.
     /// </summary>
     private static bool TryPickPairArray(CalcContext ctx, in AnyValue arg, out Array? array, out XLError error)
     {
         error = default;
+        if (Statistical.IsBlankCell(ctx, arg))
+        {
+            array = null;
+            error = XLError.IncompatibleValue;
+            return false;
+        }
+
         if (arg.TryPickCollectionArray(out array, ctx))
             return true;
 

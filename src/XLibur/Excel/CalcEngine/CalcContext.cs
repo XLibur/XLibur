@@ -257,6 +257,8 @@ internal sealed class CalcContext : IStructuredReferenceScope
     /// <exception cref="MissingContextException">The formula is evaluated without a cell.</exception>
     internal Point FormulaSheetPoint => _formulaPoint != NoCell ? _formulaPoint : throw new MissingContextException();
 
+    internal bool HasFormulaCell => _formulaPoint != NoCell;
+
     /// <inheritdoc />
     /// <remarks>
     /// Both this and <see cref="IStructuredReferenceScope.Worksheet"/> throw

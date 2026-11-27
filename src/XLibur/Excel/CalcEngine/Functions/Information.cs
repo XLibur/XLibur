@@ -146,6 +146,10 @@ internal static class Information
         return XLError.NoValueAvailable;
     }
 
+    /// <summary>
+    /// <c>TYPE(value)</c>. A multi-cell range is an array (64) in an array formula. A legacy formula
+    /// takes its implicitly intersected cell, as Excel does: <c>TYPE(A1:A3)</c> in K1 is the type of A1.
+    /// </summary>
     private static AnyValue Type(CalcContext ctx, AnyValue value)
     {
         if (!value.TryPickScalar(out var scalar, out var collection))
@@ -156,7 +160,7 @@ internal static class Information
             if (reference!.AreaCount > 1)
                 return 16;
             if (!reference.TryGetSingleCellValue(out scalar, ctx))
-                return 64;
+                return ctx.IsArrayCalculation || !ctx.HasFormulaCell ? 64 : Type(ctx, value.ImplicitIntersection(ctx));
         }
 
         return ScalarTypeCode(scalar);

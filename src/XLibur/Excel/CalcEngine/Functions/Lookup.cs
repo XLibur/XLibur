@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using XLibur.Excel.Coordinates;
@@ -13,9 +12,9 @@ internal static class Lookup
 {
     public static void Register(FunctionRegistry ce)
     {
-        //ce.RegisterFunction("ADDRESS", , Address); // Returns a reference as text to a single cell in a worksheet
+        ce.RegisterFunction("ADDRESS", 2, 5, Address, FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
         //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
-        //ce.RegisterFunction("CHOOSE", , Choose); // Chooses a value from a list of values
+        ce.RegisterFunction("CHOOSE", 2, 254, Choose, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Chooses a value from a list of values
         ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the column number of a reference
         ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range, AllowRange.All); // Returns the number of columns in a reference
         //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
@@ -24,7 +23,7 @@ internal static class Lookup
         ce.RegisterFunction("HYPERLINK", 1, 2, Adapt(Hyperlink), FunctionFlags.Scalar | FunctionFlags.SideEffect); // Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet
         ce.RegisterFunction("INDEX", 2, 4, AdaptIndex(Index), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.Only, 0); // Uses an index to choose a value from a reference or array
         ce.RegisterFunction("INDIRECT", 1, 2, Indirect, FunctionFlags.Range | FunctionFlags.Volatile); // Returns a reference indicated by a text value
-        //ce.RegisterFunction("LOOKUP", , Lookup); // Looks up values in a vector or array
+        ce.RegisterFunction("LOOKUP", 2, 3, LookupVectorOrArray, FunctionFlags.Range, AllowRange.Only, 1, 2); // Looks up values in a vector or array
         ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
         //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
         ce.RegisterFunction("ROW", 0, 1, Row, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the row number of a reference
@@ -76,8 +75,7 @@ internal static class Lookup
 
         if (approximateSearchFlag)
         {
-            var transposedArray = new TransposedArray(array);
-            var foundColumn = Bisection(transposedArray, lookupValue);
+            var foundColumn = MatchAscending(lookupValue, new TransposedArray(array), ScalarValueComparer.SortIgnoreCase);
             if (foundColumn == -1)
                 return XLError.NoValueAvailable;
 
@@ -120,6 +118,11 @@ internal static class Lookup
             return XLError.IncompatibleValue;
 
         if (rowNumber > height || colNumber > width)
+            return XLError.CellReference;
+
+        // One index picks a row or column only when the data is a single column or row.
+        // INDEX(A1:B3,2) is #REF!, even with an index of 0.
+        if (p.Count == 1 && width > 1 && height > 1)
             return XLError.CellReference;
 
         return data.TryPickT0(out var area, out var array)
@@ -212,7 +215,11 @@ internal static class Lookup
         return index + 1;
     }
 
-    /// <summary>MATCH with a positive match type: data in ascending order, found by bisection.</summary>
+    /// <summary>
+    /// MATCH with a positive match type, and the approximate VLOOKUP and HLOOKUP: data in ascending
+    /// order, found by bisection. Excel runs the same search for all three, so unsorted data gives
+    /// the element the bisection lands on: VLOOKUP(2,{3;1;2},1) is 2.
+    /// </summary>
     private static int MatchAscending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
     {
         var index = Bisection(target, data, comparer);
@@ -301,69 +308,6 @@ internal static class Lookup
         return FindLastNotGreaterDownFrom(low, target, data, comparer);
     }
 
-    private static int Bisection(Array range, ScalarValue lookupValue)
-    {
-        // Bisection is predicated on the fact that values of the same type are sorted.
-        // If they are not, results are unpredictable.
-        // Invariants:
-        // * Low row has a value that is less or equal than lookup value
-        // * High row has a value that is greater than lookup value
-        var lowRow = 0;
-        var highRow = range.Height - 1;
-
-        lowRow = FindSameTypeRow(range, highRow, 1, lowRow, in lookupValue);
-        if (lowRow == -1)
-            return -1; // Range doesn't contain even one element of same type
-
-        // Sanity check for unsorted ranges. For bisection to work, lowRow always
-        // has to have a value that is less or equal to the lookup value.
-        var lowValue = range[lowRow, 0];
-        var lowCompare = ScalarValueComparer.SortIgnoreCase.Compare(lowValue, lookupValue);
-
-        // Ensure invariants before the main loop. If even if the lowest value in the range is greater than lookup value,
-        // then there can't be any row that matches lookup value/lower.
-        if (lowCompare > 0)
-            return -1;
-
-        // Since we already know that there is at least one element of the same type as lookup value,
-        // high row will find something, though it might be the same row as lowRow.
-        highRow = FindSameTypeRow(range, lowRow, -1, highRow, in lookupValue);
-
-        // Sanity check for unsorted ranges. For bisection to work, highRow always
-        // has to have a value that is greater than the lookup value
-        var highValue = range[highRow, 0];
-        var highCompare = ScalarValueComparer.SortIgnoreCase.Compare(highValue, lookupValue);
-
-        // Ensure invariants before the main loop. If the lookup value is greater/equal than
-        // the greatest value of the range, it is the result.
-        if (highCompare <= 0)
-            return highRow;
-
-        // Now we have two borders with actual values, and we know the lookup value is less than high and greater/equal to lower
-        while (true)
-        {
-            // The FindMiddle method returns only values [lowRow, highRow),
-            // so in each loop it decreases the interval. The lowRow value is
-            // the last one checked during search of a middle.
-            var middleRow = FindMiddle(range, lowRow, highRow, in lookupValue);
-
-            // A condition for "if an exact match is not found, the next
-            // largest value that is less than lookup-value is returned".
-            // At this time, lowRow is less than lookup value and highRow
-            // is more than lookup value.
-            if (middleRow == lowRow)
-                return lowRow;
-
-            var middleValue = range[middleRow, 0];
-            var middleCompare = ScalarValueComparer.SortIgnoreCase.Compare(middleValue, lookupValue);
-
-            if (middleCompare <= 0)
-                lowRow = middleRow;
-            else
-                highRow = middleRow;
-        }
-    }
-
     private static (int Middle, int Comparison) FindMiddleAbove(int low, int high, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
     {
         var initial = (low + high) / 2;
@@ -384,6 +328,9 @@ internal static class Lookup
     {
         for (var i = start; i >= 0; --i)
         {
+            if (!data[i, 0].HaveSameType(target))
+                continue;
+
             var compare = comparer.Compare(data[i, 0], target);
             if (compare <= 0) // data[i] <= target
                 return i;
@@ -442,7 +389,7 @@ internal static class Lookup
 
         if (approximateSearchFlag)
         {
-            var foundRow = Bisection(array, lookupValue);
+            var foundRow = MatchAscending(lookupValue, array, ScalarValueComparer.SortIgnoreCase);
             if (foundRow == -1)
                 return XLError.NoValueAvailable;
 
@@ -480,8 +427,10 @@ internal static class Lookup
     /// </summary>
     private static OneOf<Array, XLError> ResolveRangeToArray(AnyValue rangeValue, CalcContext ctx)
     {
-        if (rangeValue.TryPickScalar(out _, out var range))
-            return XLError.NoValueAvailable;
+        // A table that is neither a reference nor an array is read as a number and never searched:
+        // HLOOKUP(2,"5",2) is #N/A, HLOOKUP(2,"x",2) is #VALUE!.
+        if (rangeValue.TryPickScalar(out var scalar, out var range))
+            return scalar.ToNumber(ctx.Culture).TryPickT0(out _, out var tableError) ? XLError.NoValueAvailable : tableError;
 
         if (!range.TryPickT0(out var array, out var reference))
         {
@@ -607,7 +556,7 @@ internal static class Lookup
         var colNumber = 0;
         if (p.Count == 1)
         {
-            if (width == 1)
+            if (width == 1 || height > 1)
                 rowNumber = p[0];
 
             if (height == 1)
@@ -621,51 +570,6 @@ internal static class Lookup
         }
 
         return (rowNumber, colNumber);
-    }
-
-    /// <summary>
-    /// Find a row with a value of the same type as <paramref name="lookupValue"/>
-    /// between values <paramref name="low"/> and <c><paramref name="high"/> - 1</c>.
-    /// We know that both <paramref name="low"/> and <paramref name="high"/>
-    /// contain value of the same type, so we always get a valid row.
-    /// </summary>
-    private static int FindMiddle(Array range, int low, int high, in ScalarValue lookupValue)
-    {
-        Debug.Assert(low < high);
-        var middleRow = (low + high) / 2;
-
-        // Since low is < high, it's always possible to skip high row for determining middle row
-        var higherIndex = FindSameTypeRow(range, high - 1, 1, middleRow, in lookupValue);
-        if (higherIndex != -1)
-            return higherIndex;
-
-        // We can't skip low like we did for high, because there might be only different type
-        // Cells between low row and high row.
-        var lowerIndex = FindSameTypeRow(range, low, -1, middleRow, in lookupValue);
-        return lowerIndex;
-    }
-
-    /// <summary>
-    /// Find the row index of an element with the same type as the lookup value. Go from
-    /// <paramref name="startRow"/> to the <paramref name="limitRow"/> by a step
-    /// of <paramref name="delta"/>. If there isn't any such row, return <c>-1</c>.
-    /// </summary>
-    private static int FindSameTypeRow(Array range, int limitRow, int delta, int startRow, in ScalarValue lookupValue)
-    {
-        // Although the spec says that elements must be sorted in
-        // "ascending order", as follows: ..., -2, -1, 0, 1, 2, ..., A-Z, FALSE, TRUE.
-        // In reality, comparison ignores elements of the different type than lookupValue.
-        // E.g. search for 2.5 in the {"1", 2, "3", #DIV/0!, 3 } will find the second element 2
-        // Elements with incompatible type are just skipped.
-        int currentRow;
-        for (currentRow = startRow; !lookupValue.HaveSameType(range[currentRow, 0]); currentRow += delta)
-        {
-            // Don't move beyond limitRow
-            if (currentRow == limitRow)
-                return -1;
-        }
-
-        return currentRow;
     }
 
     private static AnyValue RowsOrColumns(AnyValue value, bool rows)
@@ -863,4 +767,194 @@ internal static class Lookup
     // A defined name holds formula text, which has no leading '='.
     private static AnyValue EvaluateDefinedName(CalcContext ctx, IXLDefinedName definedName)
         => ctx.CalcEngine.EvaluateName(definedName.RefersTo, ctx);
+
+    private static AnyValue Address(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!p[0].TryReduceToNumber(ctx, out var rowNumber, out var rowError))
+            return rowError;
+        if (!p[1].TryReduceToNumber(ctx, out var columnNumber, out var columnError))
+            return columnError;
+
+        var absNumber = 1d;
+        if (p.Length > 2 && !p[2].IsBlank && !p[2].TryReduceToNumber(ctx, out absNumber, out var absError))
+            return absError;
+
+        var isA1 = true;
+        if (p.Length > 3 && !p[3].IsBlank && !CoerceToLogical(p[3], ctx).TryPickT0(out isA1, out var a1Error))
+            return a1Error;
+
+        string? sheetName = null;
+        if (p.Length > 4 && !p[4].IsBlank)
+        {
+            if (!ToText(p[4], ctx).TryPickT0(out sheetName, out var sheetError))
+                return sheetError;
+        }
+
+        rowNumber = Math.Truncate(rowNumber);
+        columnNumber = Math.Truncate(columnNumber);
+        absNumber = Math.Truncate(absNumber);
+        if (rowNumber < 1 || rowNumber > XLHelper.MaxRowNumber
+            || columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber
+            || absNumber < 1 || absNumber > 4)
+            return XLError.IncompatibleValue;
+
+        var row = (int)rowNumber;
+        var column = (int)columnNumber;
+        var rowIsAbsolute = absNumber is 1 or 2;
+        var columnIsAbsolute = absNumber is 1 or 3;
+
+        string cell;
+        if (isA1)
+        {
+            cell = string.Concat(
+                columnIsAbsolute ? "$" : "",
+                XLHelper.GetColumnLetterFromNumber(column),
+                rowIsAbsolute ? "$" : "",
+                row.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            cell = string.Concat(
+                rowIsAbsolute ? $"R{row}" : $"R[{row}]",
+                columnIsAbsolute ? $"C{column}" : $"C[{column}]");
+        }
+
+        return sheetName is null ? cell : string.Concat(sheetName.EscapeSheetName(), "!", cell);
+    }
+
+    /// <summary>
+    /// <c>CHOOSE(index_num, value1, [value2], ...)</c>. The chosen argument is returned as it came, so
+    /// a reference stays a reference and <c>SUM(CHOOSE(2,A1:A2,B1:B2))</c> reads the range.
+    /// </summary>
+    private static AnyValue Choose(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!p[0].TryPickScalar(out _, out var indexCollection))
+        {
+            if (indexCollection.TryPickT0(out var indexArray, out var indexReference))
+            {
+                if (indexArray.Width > 1 || indexArray.Height > 1)
+                    return ChooseEach(ctx, indexArray, p[1..]);
+            }
+            else if (ctx.IsArrayCalculation && indexReference.AreaCount == 1 && indexReference[0].NumberOfCells > 1)
+            {
+                return ChooseEach(ctx, new ReferenceArray(indexReference[0], ctx), p[1..]);
+            }
+        }
+
+        if (!p[0].TryReduceToNumber(ctx, out var indexNumber, out var indexError))
+            return indexError;
+
+        indexNumber = Math.Truncate(indexNumber);
+        if (indexNumber < 1 || indexNumber >= p.Length)
+            return XLError.IncompatibleValue;
+
+        return p[(int)indexNumber];
+    }
+
+    /// <summary>
+    /// CHOOSE with an array index chooses for each element, so <c>CHOOSE({1,2},A1:A9,B1:B9)</c> is
+    /// the two columns side by side. A dimension of 1 is repeated, as in array arithmetic, and an
+    /// element past the end of a smaller argument is #N/A.
+    /// </summary>
+    private static AnyValue ChooseEach(CalcContext ctx, Array index, Span<AnyValue> values)
+    {
+        var choices = new Array[values.Length];
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (values[i].TryPickScalar(out var scalar, out var collection))
+                choices[i] = new ScalarArray(scalar, 1, 1);
+            else if (collection.TryPickT0(out var array, out var reference))
+                choices[i] = array;
+            else if (reference.AreaCount == 1)
+                choices[i] = new ReferenceArray(reference[0], ctx);
+            else
+                return XLError.IncompatibleValue;
+        }
+
+        return new ChosenArray(index, choices, ctx);
+    }
+
+    private sealed class ChosenArray(Array index, Array[] choices, CalcContext ctx) : Array
+    {
+        public override int Width { get; } = choices.Append(index).Max(a => a.Width);
+
+        public override int Height { get; } = choices.Append(index).Max(a => a.Height);
+
+        public override ScalarValue this[int y, int x]
+        {
+            get
+            {
+                if (!TryGet(index, y, x, out var indexValue))
+                    return XLError.NoValueAvailable;
+
+                if (!indexValue.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    return error;
+
+                number = Math.Truncate(number);
+                if (number < 1 || number > choices.Length)
+                    return XLError.IncompatibleValue;
+
+                return TryGet(choices[(int)number - 1], y, x, out var value) ? value : XLError.NoValueAvailable;
+            }
+        }
+
+        private static bool TryGet(Array array, int y, int x, out ScalarValue value)
+        {
+            var row = array.Height == 1 ? 0 : y;
+            var column = array.Width == 1 ? 0 : x;
+            if (row >= array.Height || column >= array.Width)
+            {
+                value = default;
+                return false;
+            }
+
+            value = array[row, column];
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// <c>LOOKUP(lookup_value, lookup_vector, [result_vector])</c> and the array form
+    /// <c>LOOKUP(lookup_value, array)</c>. Both find the last value not greater than the lookup value
+    /// by the binary search VLOOKUP uses for an approximate match. The array form searches the first
+    /// row of a wide array and the first column of a tall or square one, and returns from the last
+    /// column or row.
+    /// </summary>
+    private static AnyValue LookupVectorOrArray(CalcContext ctx, Span<AnyValue> p)
+    {
+        if (!p[0].TryReduceToScalar(ctx, out var lookupArgument, out var argumentError))
+            return argumentError;
+
+        if (!NormalizeLookupValue(lookupArgument).TryPickT0(out var lookupValue, out var lookupError))
+            return lookupError;
+
+        if (!ResolveRangeToArray(p[1], ctx).TryPickT0(out var array, out var rangeError))
+            return rangeError;
+
+        if (p.Length == 2)
+        {
+            var isWide = array.Width > array.Height;
+            var found = MatchAscending(lookupValue, isWide ? new TransposedArray(array) : array, ScalarValueComparer.SortIgnoreCase);
+            if (found == -1)
+                return XLError.NoValueAvailable;
+
+            return (isWide ? array[array.Height - 1, found] : array[found, array.Width - 1]).ToAnyValue();
+        }
+
+        if (array.Height != 1 && array.Width != 1)
+            return XLError.NoValueAvailable;
+
+        if (!ResolveRangeToArray(p[2], ctx).TryPickT0(out var result, out var resultError))
+            return resultError;
+
+        var index = MatchAscending(lookupValue, array.Height == 1 ? new TransposedArray(array) : array, ScalarValueComparer.SortIgnoreCase);
+        if (index == -1)
+            return XLError.NoValueAvailable;
+
+        var resultLength = result.Height * result.Width;
+        if (result.Height != 1 && result.Width != 1 || index >= resultLength)
+            return XLError.NoValueAvailable;
+
+        return (result.Height == 1 ? result[0, index] : result[index, 0]).ToAnyValue();
+    }
 }

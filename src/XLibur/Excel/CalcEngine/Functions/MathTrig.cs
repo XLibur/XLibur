@@ -97,7 +97,7 @@ internal static class MathTrig
         ce.RegisterFunction("RADIANS", 1, 1, Adapt(Radians), FunctionFlags.Scalar);
         ce.RegisterFunction("RAND", 0, 0, Adapt(Rand), FunctionFlags.Scalar | FunctionFlags.Volatile);
         ce.RegisterFunction("RANDBETWEEN", 2, 2, Adapt(RandBetween), FunctionFlags.Scalar | FunctionFlags.Volatile);
-        ce.RegisterFunction("ROMAN", 1, 2, AdaptLastOptional(Roman, 0), FunctionFlags.Scalar);
+        ce.RegisterFunction("ROMAN", 1, 2, AdaptLastOptional(Roman), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUND", 2, 2, Adapt(Round), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUNDDOWN", 2, 2, Adapt(RoundDown), FunctionFlags.Scalar);
         ce.RegisterFunction("ROUNDUP", 2, 2, Adapt(RoundUp), FunctionFlags.Scalar);
@@ -587,11 +587,20 @@ internal static class MathTrig
         return FloorMath(number, significance, 0);
     }
 
+    /// <summary>
+    /// GCD, and <see cref="Lcm(CalcContext, List{Array})"/>, skip an argument that is one empty cell:
+    /// <c>LCM(4,A1)</c> is 4, and <c>GCD(A1)</c>, with no number left, is <c>#VALUE!</c>. An empty cell
+    /// in a larger range is 0, so <c>LCM(A1:A3)</c> with A3 empty is 0.
+    /// </summary>
     private static ScalarValue Gcd(CalcContext ctx, List<Array> arrays)
     {
         var result = 0d;
+        var hasOperand = false;
         foreach (var array in arrays)
         {
+            if (IsSingleBlankCell(array, array.Width, array.Height))
+                continue;
+
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
@@ -599,10 +608,11 @@ internal static class MathTrig
                     return error;
 
                 result = Gcd(number, Math.Truncate(result));
+                hasOperand = true;
             }
         }
 
-        return result;
+        return hasOperand ? result : XLError.IncompatibleValue;
     }
 
     private static double Gcd(double a, double b)
@@ -670,8 +680,12 @@ internal static class MathTrig
     private static ScalarValue Lcm(CalcContext ctx, List<Array> arrays)
     {
         var result = 1d;
+        var hasOperand = false;
         foreach (var array in arrays)
         {
+            if (IsSingleBlankCell(array, array.Width, array.Height))
+                continue;
+
             foreach (var scalar in array)
             {
                 ctx.ThrowIfCancelled();
@@ -679,10 +693,11 @@ internal static class MathTrig
                     return error;
 
                 result = Lcm(result, Math.Truncate(number));
+                hasOperand = true;
             }
         }
 
-        return result;
+        return hasOperand ? result : XLError.IncompatibleValue;
     }
 
     private static double Lcm(double a, double b)
@@ -903,10 +918,11 @@ internal static class MathTrig
 
     private static ScalarValue Power(CalcContext ctx, double x, double y)
     {
-        // The value of x is negative and y is not a whole number, #NUM! is returned.
+        // A negative x with a fractional y has no real power, so it is #NUM!, except an odd root:
+        // when y is 1/n for an odd n, the real root is negative, and POWER(-8,1/3) is -1.9999999999999998.
         var isPowerFraction = y % 1 != 0;
         if (x < 0 && isPowerFraction)
-            return XLError.NumberInvalid;
+            return IsOddRoot(y) ? -Math.Pow(-x, y) : XLError.NumberInvalid;
 
         if (x == 0 && y == 0)
             return XLError.NumberInvalid;
@@ -919,6 +935,12 @@ internal static class MathTrig
             return XLError.NumberInvalid;
 
         return power;
+    }
+
+    private static bool IsOddRoot(double y)
+    {
+        var n = Math.Round(1 / y);
+        return 1 / n == y && Math.Abs(n % 2) == 1;
     }
 
     private static AnyValue Product(CalcContext ctx, Span<AnyValue> args)
@@ -968,15 +990,29 @@ internal static class MathTrig
         return lowerBound + Math.Round(Random.Shared.NextDouble() * range, MidpointRounding.AwayFromZero);
     }
 
-    private static ScalarValue Roman(CalcContext ctx, double number, double formValue)
+    /// <summary>
+    /// <c>ROMAN(number, [form])</c>. The form is a number from 0 (classic) to 4 (simplified), or a
+    /// logical: TRUE is the classic form 0 and FALSE the simplified form 4, so <c>ROMAN(1999,TRUE)</c>
+    /// is MCMXCIX, not form 1.
+    /// </summary>
+    private static ScalarValue Roman(CalcContext ctx, ScalarValue numberValue, ScalarValue formValue)
     {
+        if (!numberValue.ToNumber(ctx.Culture).TryPickT0(out var number, out var numberError))
+            return numberError;
+
+        double formNumber;
+        if (formValue.TryPickLogical(out var classic))
+            formNumber = classic ? 0 : 4;
+        else if (!formValue.ToNumber(ctx.Culture).TryPickT0(out formNumber, out var formError))
+            return formError;
+
         if (number == 0)
             return string.Empty;
 
         if (number is < 0 or > 3999)
             return XLError.IncompatibleValue;
 
-        var form = (int)Math.Truncate(formValue);
+        var form = (int)Math.Truncate(formNumber);
         if (form is < 0 or > 4)
             return XLError.IncompatibleValue;
 
@@ -996,9 +1032,23 @@ internal static class MathTrig
         return result.ToString();
     }
 
+    /// <summary>
+    /// Excel rounds the 15-significant-digit decimal form of the value, the number it shows, not the
+    /// binary double: 1.005 is stored as 1.00499999999999989..., but <c>ROUND(1.005,2)</c> is 1.01.
+    /// </summary>
     private static ScalarValue Round(CalcContext ctx, double value, double digits)
     {
-        return XLMath.Round(value, digits);
+        digits = Math.Truncate(digits);
+        var magnitude = Math.Abs(value);
+
+        // Decimal holds 28 decimal places, so the form has all 15 digits from 1e-13 up; from 1e15
+        // the form has no fraction to round.
+        if (digits < 0 || magnitude is < 1e-13 or >= 1e15)
+            return XLMath.Round(value, digits);
+
+        var placesOf15Digits = 14 - (int)Math.Floor(Math.Log10(magnitude));
+        var shown = Math.Round((decimal)value, placesOf15Digits, MidpointRounding.AwayFromZero);
+        return (double)Math.Round(shown, (int)Math.Min(digits, 28), MidpointRounding.AwayFromZero);
     }
 
     private static ScalarValue RoundDown(CalcContext ctx, double value, double digits)
@@ -1259,6 +1309,13 @@ internal static class MathTrig
     {
         if (areas.Length < 1)
             return XLError.IncompatibleValue;
+
+        // An error argument is the result before any size check: SUMPRODUCT(A1:A3,#N/A) is #N/A.
+        foreach (var area in areas)
+        {
+            if (area.Width == 1 && area.Height == 1 && area[0, 0].TryPickError(out var error))
+                return error;
+        }
 
         if (!ValidateSumProductDimensions(areas, out var width, out var height))
             return XLError.IncompatibleValue;

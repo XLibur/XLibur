@@ -535,6 +535,7 @@ public class LookupTests
     [Arguments("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
     [Arguments("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
     [Arguments("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
+    [Arguments("MATCH(\"zzz\",{\"a\";\"b\";1;2},1)", 2)] // The last text, not the numbers after it
     public async Task Match_from_ascending(string formula, object result)
     {
         var actual = XLWorkbook.EvaluateExpr(formula);
@@ -730,9 +731,10 @@ public class LookupTests
         // Text value can't be over 255 chars
         await Assert.That(ws.Evaluate($"=VLOOKUP(\"{new string('A', 256)}\",B2:I71,1)")).IsEqualTo(XLError.IncompatibleValue);
 
-        // Range can only be array or a reference. If other type, it returns the error #N/A
         await Assert.That(ws.Evaluate("=VLOOKUP(1,1,1)")).IsEqualTo(XLError.NoValueAvailable);
         await Assert.That(ws.Evaluate("=VLOOKUP(1,TRUE,1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,\"5\",1)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(ws.Evaluate("=VLOOKUP(1,\"x\",1)")).IsEqualTo(XLError.IncompatibleValue);
 
         // If range is a non-contiguous range, #N/A
         await Assert.That(ws.Evaluate("=VLOOKUP(1,(B2:I5,B6:I10),1)")).IsEqualTo(XLError.NoValueAvailable);
@@ -1323,6 +1325,211 @@ public class LookupTests
         sheet.Cell("A1").Value = "B2";
         sheet.Cell("B2").Value = 100;
         await Assert.That(sheet.Evaluate("INDIRECT(A1)")).IsEqualTo(100);
+    }
+
+    #endregion
+
+    #region ADDRESS, CHOOSE and LOOKUP, with the values of Microsoft's function pages
+
+    // https://support.microsoft.com/office/address-function-d0c26c0d-3991-446b-8de4-ab46431d4f89
+    [Test]
+    [Arguments("ADDRESS(2,3)", "$C$2")]
+    [Arguments("ADDRESS(2,3,2)", "C$2")]
+    [Arguments("ADDRESS(2,3,3)", "$C2")]
+    [Arguments("ADDRESS(2,3,4)", "C2")]
+    [Arguments("ADDRESS(2,3,2,FALSE)", "R2C[3]")]
+    [Arguments("ADDRESS(2,3,1,FALSE)", "R2C3")]
+    [Arguments("ADDRESS(2,3,3,FALSE)", "R[2]C3")]
+    [Arguments("ADDRESS(2,3,4,FALSE)", "R[2]C[3]")]
+    [Arguments("ADDRESS(2,3,1,FALSE,\"[Book1]Sheet1\")", "[Book1]Sheet1!R2C3")]
+    [Arguments("ADDRESS(2,3,1,FALSE,\"EXCEL SHEET\")", "'EXCEL SHEET'!R2C3")]
+    [Arguments("ADDRESS(1,1,1,TRUE,\"Sheet1\")", "Sheet1!$A$1")]
+    [Arguments("ADDRESS(1,1,1,TRUE,\"O'Kelly\")", "'O''Kelly'!$A$1")]
+    [Arguments("ADDRESS(1048576,16384)", "$XFD$1048576")]
+    [Arguments("ADDRESS(2.9,3.9)", "$C$2")]
+    public async Task Address_returns_the_text_of_the_cell(string formula, string expected)
+    {
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("ADDRESS(0,1)")]
+    [Arguments("ADDRESS(1,0)")]
+    [Arguments("ADDRESS(1048577,1)")]
+    [Arguments("ADDRESS(1,16385)")]
+    [Arguments("ADDRESS(1,1,0)")]
+    [Arguments("ADDRESS(1,1,5)")]
+    public async Task Address_outside_the_sheet_or_abs_num_is_value_error(string formula)
+    {
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    // https://support.microsoft.com/office/choose-function-fc5c184f-cb62-4ec7-a46e-38653b98f5bc
+    [Test]
+    public async Task Choose_returns_the_chosen_value()
+    {
+        await Assert.That(ws.Evaluate("CHOOSE(2,\"1st\",\"2nd\",\"3rd\")")).IsEqualTo("2nd");
+        await Assert.That(ws.Evaluate("CHOOSE(3.9,10,20,30)")).IsEqualTo(30);
+    }
+
+    [Test]
+    [Arguments("CHOOSE(0,1,2)")]
+    [Arguments("CHOOSE(3,1,2)")]
+    [Arguments("CHOOSE(\"x\",1,2)")]
+    public async Task Choose_index_out_of_range_is_value_error(string formula)
+    {
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Choose_with_an_array_index_chooses_for_each_element()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("B1").Value = "x";
+        sheet.Cell("B2").Value = "y";
+
+        await Assert.That(sheet.Evaluate("SUM(CHOOSE({1,2},A1,A2))")).IsEqualTo(3);
+        await Assert.That(sheet.Evaluate("VLOOKUP(\"y\",CHOOSE({1,2},B1:B2,A1:A2),2,FALSE)")).IsEqualTo(2);
+        await Assert.That(sheet.Evaluate("INDEX(CHOOSE({1,2},\"a\",\"b\"),1,2)")).IsEqualTo("b");
+        await Assert.That(sheet.Evaluate("INDEX(CHOOSE({1,3},\"a\",\"b\"),1,2)")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Choose_keeps_the_size_of_a_chosen_range_in_a_dynamic_formula()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("A3").Value = 3;
+        sheet.Cell("B1").Value = "x";
+        sheet.Cell("B2").Value = "y";
+        sheet.Cell("B3").Value = "z";
+
+        sheet.Cell("D1").SetDynamicFormulaA1("CHOOSE(1,A1:A3)");
+        sheet.Cell("F1").SetDynamicFormulaA1("CHOOSE({2,1},A1:A3,B1:B3)");
+        wb.RecalculateAllFormulas();
+
+        await Assert.That(sheet.Cell("D3").Value).IsEqualTo(3);
+        await Assert.That(sheet.Cell("F3").Value).IsEqualTo("z");
+        await Assert.That(sheet.Cell("G3").Value).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task Lookup_reads_the_lookup_value_from_a_cell()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 2;
+        sheet.Cell("B1").Value = 1;
+        sheet.Cell("B2").Value = 2;
+        sheet.Cell("C1").Value = "one";
+        sheet.Cell("C2").Value = "two";
+
+        await Assert.That(sheet.Evaluate("LOOKUP(A1,B1:B2,C1:C2)")).IsEqualTo("two");
+    }
+
+    [Test]
+    public async Task Choose_and_Address_read_numbers_from_cell_references()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 2;
+        sheet.Cell("B1").Value = 3;
+
+        await Assert.That(sheet.Evaluate("CHOOSE(A1,\"a\",\"b\")")).IsEqualTo("b");
+        await Assert.That(sheet.Evaluate("ADDRESS(A1,B1)")).IsEqualTo("$C$2");
+    }
+
+    [Test]
+    public async Task Choose_returns_a_reference_when_the_chosen_value_is_one()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("A2").Value = 2;
+        sheet.Cell("B1").Value = 10;
+        sheet.Cell("B2").Value = 20;
+
+        await Assert.That(sheet.Evaluate("SUM(CHOOSE(2,A1:A2,B1:B2))")).IsEqualTo(30);
+        await Assert.That(sheet.Evaluate("SUM(A1:CHOOSE(2,B1,B2))")).IsEqualTo(33);
+    }
+
+    [Test]
+    public async Task Choose_recalculates_when_a_cell_of_the_chosen_range_changes()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("B1").Value = 10;
+        sheet.Cell("C1").FormulaA1 = "SUM(CHOOSE(2,A1,B1))";
+
+        await Assert.That(sheet.Cell("C1").Value).IsEqualTo(10);
+
+        sheet.Cell("B1").Value = 15;
+
+        await Assert.That(sheet.Cell("C1").Value).IsEqualTo(15);
+    }
+
+    // https://support.microsoft.com/office/lookup-function-446d94af-663b-451d-8251-369d5e3864cb
+    [Test]
+    [Arguments(4.19, "orange")]
+    [Arguments(5.75, "yellow")]
+    [Arguments(7.66, "blue")]
+    [Arguments(4.14, "red")]
+    public async Task Lookup_vector_form_finds_the_largest_value_not_above(double lookup, string expected)
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        double[] keys = [4.14, 4.19, 5.17, 5.77, 6.39];
+        string[] colors = ["red", "orange", "yellow", "green", "blue"];
+        for (var i = 0; i < keys.Length; i++)
+        {
+            sheet.Cell(i + 1, 1).Value = keys[i];
+            sheet.Cell(i + 1, 2).Value = colors[i];
+        }
+
+        await Assert.That(sheet.Evaluate($"LOOKUP({lookup.ToString(System.Globalization.CultureInfo.InvariantCulture)},A1:A5,B1:B5)")).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Lookup_vector_form_below_the_first_value_is_not_available()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 4.14;
+        sheet.Cell("A2").Value = 4.19;
+        sheet.Cell("B1").Value = "red";
+        sheet.Cell("B2").Value = "orange";
+
+        await Assert.That(sheet.Evaluate("LOOKUP(0,A1:A2,B1:B2)")).IsEqualTo(XLError.NoValueAvailable);
+    }
+
+    [Test]
+    public async Task Lookup_vector_form_reads_a_row_vector_and_a_column_result()
+    {
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("B1").Value = 5;
+        sheet.Cell("C1").Value = 9;
+        sheet.Cell("A3").Value = "one";
+        sheet.Cell("A4").Value = "five";
+        sheet.Cell("A5").Value = "nine";
+
+        await Assert.That(sheet.Evaluate("LOOKUP(6,A1:C1,A3:A5)")).IsEqualTo("five");
+    }
+
+    // The array form examples of the same page.
+    [Test]
+    [Arguments("LOOKUP(\"C\",{\"a\",\"b\",\"c\",\"d\";5,2,3,4})", 3)]
+    [Arguments("LOOKUP(\"bump\",{\"a\",1;\"b\",2;\"c\",3})", 2)]
+    public async Task Lookup_array_form(string formula, int expected)
+    {
+        await Assert.That(ws.Evaluate(formula)).IsEqualTo(expected);
     }
 
     #endregion

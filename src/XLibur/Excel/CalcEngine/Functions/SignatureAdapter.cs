@@ -1328,7 +1328,7 @@ internal static class SignatureAdapter
         return logical;
     }
 
-    private static OneOf<double, XLError> ToNumber(in AnyValue value, CalcContext ctx)
+    internal static OneOf<double, XLError> ToNumber(in AnyValue value, CalcContext ctx)
     {
         if (value.TryPickScalar(out var scalar, out var collection))
             return scalar.ToNumber(ctx.Culture);

@@ -188,7 +188,7 @@ internal readonly struct ScalarValue
         {
             BlankValue => string.Empty,
             LogicalValue => _logical ? "TRUE" : "FALSE",
-            NumberValue => _number.ToString(culture),
+            NumberValue => NumberToText.Format(_number, culture),
             TextValue => Text,
             ErrorValue => _error,
             _ => throw new InvalidOperationException()

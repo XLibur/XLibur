@@ -634,12 +634,33 @@ public class InformationTests
     [Test]
     [Arguments("A1:A2")]
     // [TestCase("(A1:A3 A2:B3)")] Not implemented // Intersection results in a 1x2 block
-    public async Task Type_ReferenceToNonSingleCell_BehavesLikeArray(string reference)
+    public async Task Type_ReferenceToNonSingleCell_BehavesLikeArray_in_a_dynamic_formula(string reference)
     {
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
-        ws.Cell("C1").FormulaA1 = $"TYPE({reference})";
+        ws.Cell("C1").SetDynamicFormulaA1($"TYPE({reference})");
         await Assert.That(ws.Cell("C1").Value).IsEqualTo(64.0);
+    }
+
+    /// <summary>A legacy formula intersects the range: in C2 it is A2, and row 5 misses the range, which is #VALUE! (16).</summary>
+    [Test]
+    [Arguments("C2", 2.0)]
+    [Arguments("C5", 16.0)]
+    public async Task Type_ReferenceToNonSingleCell_takes_the_intersected_cell_in_a_legacy_formula(string formulaCell, double expected)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A2").Value = "text";
+        ws.Cell(formulaCell).FormulaA1 = "TYPE(A1:A3)";
+        await Assert.That(ws.Cell(formulaCell).Value).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Type_ReferenceToNonSingleCell_is_an_array_when_evaluated_without_a_formula_cell()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        await Assert.That(ws.Evaluate("TYPE(A1:A2)")).IsEqualTo(64.0);
     }
 
     [Test]

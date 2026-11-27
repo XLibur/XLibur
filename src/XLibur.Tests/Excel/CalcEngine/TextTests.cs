@@ -520,13 +520,27 @@ public class TextTests
     }
 
     [Test]
+    [Arguments("1E-18", "0.000000000000000001")]
+    [Arguments("1E-19", "1E-19")]
+    [Arguments("1.5E-18", "1.5E-18")]
+    [Arguments("12345678901234500000", "12345678901234500000")]
+    [Arguments("1E20", "1E+20")]
+    [Arguments("1.23456789012345678E25", "1.23456789012346E+25")]
+    [Arguments("-(0.1+0.2)", "-0.3")]
+    [Arguments("9.9999999999999995", "10")]
+    public async Task Number_to_text_uses_plain_form_up_to_20_characters(string number, string expected)
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr(number + "&\"\"").GetText()).IsEqualTo(expected);
+    }
+
+    [Test]
     [Arguments("", 0)]
     [Arguments("word", 4)]
     [Arguments("A\r\n", 3)]
     [Arguments("H", 1)]
-    [Arguments("\ud83d\ude0a", 2)] // Smile emoji
-    [Arguments("Smile: \ud83d\ude0a!", 10)] // Smile emoji
-    public async Task Len_returns_number_of_code_units(string text, double expected)
+    [Arguments("\ud83d\ude0a", 1)] // Smile emoji
+    [Arguments("Smile: \ud83d\ude0a!", 9)] // Smile emoji
+    public async Task Len_returns_number_of_code_points(string text, double expected)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"""LEN("{text}")""").GetNumber()).IsEqualTo(expected);
     }
@@ -595,7 +609,8 @@ public class TextTests
     [Arguments("", 1, 1, "")]
     [Arguments("ABC", 2, 2, "BC")]
     [Arguments("ABC", 2, 0, "")]
-    [Arguments("ABC", 3, 5, "")]
+    [Arguments("ABC", 3, 5, "C")]
+    [Arguments("ABC", 4, 5, "")]
     [Arguments("abcdef", 3, 2, "cd")]
     [Arguments("abcdef", 4, 5, "def")]
     public async Task Mid_returns_substring(string text, double start, double length, string expected)
@@ -604,13 +619,23 @@ public class TextTests
     }
 
     [Test]
-    public async Task Mid_uses_code_units()
+    public async Task Mid_uses_code_points()
     {
-        // MID returns unpaired surrogates
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,3)""")).IsEqualTo("😊\uD83D");
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,4)""")).IsEqualTo("😊😊");
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",2,4)""")).IsEqualTo("\uDE0A😊\uD83D");
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,2)""")).IsEqualTo("😊😊");
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",2,4)""")).IsEqualTo("😊😊");
         await Assert.That(XLWorkbook.EvaluateExpr("""LEN(MID("😊😊😊",1,3))""")).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task Find_and_Search_use_code_points()
+    {
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("x","😊x")""")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("""SEARCH("X","😊x")""")).IsEqualTo(2);
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("x","😊x😊x",3)""")).IsEqualTo(4);
+        await Assert.That(XLWorkbook.EvaluateExpr("""SEARCH("x","😊x😊x",3)""")).IsEqualTo(4);
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊x",FIND("x","😊x"),1)""")).IsEqualTo("x");
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("","😊😊",3)""")).IsEqualTo(3);
+        await Assert.That(XLWorkbook.EvaluateExpr("""FIND("","😊😊",4)""")).IsEqualTo(XLError.IncompatibleValue);
     }
 
     [Test]

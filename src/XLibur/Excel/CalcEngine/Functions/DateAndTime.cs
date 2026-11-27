@@ -39,7 +39,9 @@ internal static class DateAndTime
         ce.RegisterFunction("TIME", 3, 3, Adapt(Time), FunctionFlags.Scalar); // Returns the serial number of a particular time
         ce.RegisterFunction("TIMEVALUE", 1, 1, Adapt(timeValue), FunctionFlags.Scalar); // Converts a time in the form of text to a serial number
         ce.RegisterFunction("TODAY", 0, 0, Adapt(Today), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of today's date
-        ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
+        // An omitted return_type is 1, but a blank cell is 0, which is #NUM!: WEEKDAY(43831,A1).
+        var weekday = AdaptLastOptional(Weekday);
+        ce.RegisterFunction("WEEKDAY", 1, 2, (ctx, args) => args.Length > 1 ? weekday(ctx, args) : weekday(ctx, [args[0], 1d]), FunctionFlags.Scalar); // Converts a serial number to a day of the week
         ce.RegisterStrictNumeric("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), [0, 1], FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
         ce.RegisterStrictNumeric("WORKDAY", 2, 3, AdaptLastOptional(Workday), [0, 1], FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
         ce.RegisterFunction("WORKDAY.INTL", 2, 4, WorkdayIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // The date a number of workdays away, with a configurable weekend
@@ -78,10 +80,10 @@ internal static class DateAndTime
         year += yearAdjustment;
         month -= yearAdjustment * 12;
 
-        // Year 1 is earliest allowable in both date system. Also avoid the double
-        // to int conversion problems when double is too small.
+        // A month that moves the year back before 1900 is #NUM!, though the day would bring the
+        // date back into range: DATE(1900,0,31) is #NUM! while DATE(1900,1,0) is serial 0.
         // DateTime only accepts years 1-9999, so year 10000+ must return an error.
-        if (year < 1 || year > 9999)
+        if (year < 1900 || year > 9999)
             return XLError.NumberInvalid;
 
         var startOfMonth = new DateTime((int)year, (int)month, 1, 0, 0, 0, DateTimeKind.Unspecified).ToSerialDateTime();
@@ -736,13 +738,18 @@ internal static class DateAndTime
         if (!TryGetComponent(second, out var secondFloored))
             return XLError.NumberInvalid;
 
-        var serialDate = new TimeSpan(hourFloored, minuteFloored, secondFloored).ToSerialDateTime();
-        return serialDate % 1.0;
+        // A negative minute or second borrows from the larger unit, so TIME(12,-1,0) is 11:59. Only a
+        // time that adds up to less than zero is #NUM!, as TIME(-1,30,0) is.
+        var time = new TimeSpan(hourFloored, minuteFloored, secondFloored);
+        if (time < TimeSpan.Zero)
+            return XLError.NumberInvalid;
+
+        return time.ToSerialDateTime() % 1.0;
 
         static bool TryGetComponent(double value, out int truncated)
         {
             value = Math.Floor(value);
-            if (value is < 0 or > 32767)
+            if (value is < short.MinValue or > short.MaxValue)
             {
                 truncated = default;
                 return false;
@@ -775,9 +782,7 @@ internal static class DateAndTime
         if (!TryGetDate(ctx, date, out var serialDate, out var dateError, acceptLogical: true))
             return dateError;
 
-        var flagValue = 1d;
-        // Caller provided a value for optional parameter
-        if (!flag.IsBlank && !flag.ToNumber(ctx.Culture).TryPickT0(out flagValue, out var flagError))
+        if (!flag.ToNumber(ctx.Culture).TryPickT0(out var flagValue, out var flagError))
             return flagError;
 
         var result = Weekday(serialDate, (int)Math.Truncate(flagValue));
@@ -905,30 +910,64 @@ internal static class DateAndTime
         if (basis is < 0 or >= 5)
             return XLError.NumberInvalid;
 
+        if (startDate > endDate)
+            (startDate, endDate) = (endDate, startDate);
+
         var option = checked((int)Math.Truncate(basis));
-        var yearFrac = option switch
+        return option switch
         {
-            0 => Days360(ctx, startDate, endDate, false) / 360.0,                 // US 30/360
-            1 => (endDate - startDate) / GetYearAverage(ctx, startDate, endDate), // Actual/Actual
+            0 => UsDays360(DateParts.From(ctx, startDate), DateParts.From(ctx, endDate)) / 360.0, // US 30/360
+            1 => (endDate - startDate) / ActualYearLength(DateParts.From(ctx, startDate), DateParts.From(ctx, endDate)), // Actual/Actual
             2 => (endDate - startDate) / 360.0,                                   // Actual/360
             3 => (endDate - startDate) / 365.0,                                   // Actual/365
             _ => Days360(ctx, startDate, endDate, true) / 360.0,                  // EU 30/360
         };
 
-        return Math.Abs(yearFrac);
-
-        static double GetYearAverage(CalcContext ctx, int startDate, int endDate)
+        // YEARFRAC's US 30/360 is not the DAYS360 rule. A 31st start becomes the 30th, and a 31st end
+        // becomes the 30th only after a start on the 30th or 31st. The last day of February counts as
+        // the 30th for a start, and for an end that follows a start on the last day of February.
+        // February's last day follows the Gregorian calendar, so 1900-02-29 (serial 60) stays the 29th,
+        // where DAYS360 makes it the 30th.
+        static int UsDays360(DateParts start, DateParts end)
         {
-            var startYear = DateParts.From(ctx, startDate).Year;
-            var endYear = DateParts.From(ctx, endDate).Year;
+            var (startDay, endDay) = (start.Day, end.Day);
+            if (startDay == 31 && endDay == 31)
+                (startDay, endDay) = (30, 30);
+            else if (startDay == 31)
+                startDay = 30;
+            else if (startDay == 30 && endDay == 31)
+                endDay = 30;
+            else if (start.IsLastDayOfFebruary() && end.IsLastDayOfFebruary())
+                (startDay, endDay) = (30, 30);
+            else if (start.IsLastDayOfFebruary())
+                startDay = 30;
+
+            return 360 * (end.Year - start.Year) + 30 * (end.Month - start.Month) + (endDay - startDay);
+        }
+
+        // Actual/actual: dates no more than a year apart divide by 366 when the span takes in a
+        // 29 February and by 365 otherwise. Dates further apart divide by the average length of the
+        // calendar years they touch.
+        static double ActualYearLength(DateParts start, DateParts end)
+        {
+            var withinAYear = start.Year == end.Year
+                              || (start.Year + 1 == end.Year && (start.Month, start.Day).CompareTo((end.Month, end.Day)) >= 0);
+            if (withinAYear)
+            {
+                var takesInLeapDay = (DateTime.IsLeapYear(start.Year) && start.Month <= 2)
+                                     || (DateTime.IsLeapYear(end.Year) && end.Month >= 3)
+                                     || end is { Month: 2, Day: 29 };
+                return takesInLeapDay ? 366 : 365;
+            }
+
             var totalDays = 0;
-            for (var year = startYear; year <= endYear; year++)
+            for (var year = start.Year; year <= end.Year; year++)
             {
                 // For purposes of average year, 1900 is not counted as a leap year
                 totalDays += DateTime.IsLeapYear(year) ? 366 : 365;
             }
 
-            return totalDays / (double)(endYear - startYear + 1);
+            return totalDays / (double)(end.Year - start.Year + 1);
         }
     }
 
@@ -1077,6 +1116,9 @@ internal static class DateAndTime
 
             return Day == DateTime.DaysInMonth(Year, Month);
         }
+
+        /// <summary>The 28th or 29th of February by the Gregorian calendar, which has no 1900-02-29.</summary>
+        internal bool IsLastDayOfFebruary() => Month == 2 && Day == DaysInMonth(Year, 2);
 
         internal DateParts AddMonths(int months)
         {
