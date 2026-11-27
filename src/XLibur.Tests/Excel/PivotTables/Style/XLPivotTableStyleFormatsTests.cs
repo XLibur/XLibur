@@ -94,6 +94,56 @@ internal class XLPivotTableStyleFormatsTests
     }
 
     /// <summary>
+    /// The outside-border shorthand sets all four edges of a pivot area, as setting each edge
+    /// does (#1029).
+    /// </summary>
+    [Test]
+    public async Task Outside_border_in_pivot_format_survives_round_trip()
+    {
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var dataSheet = wb.AddWorksheet();
+            var dataRange = dataSheet.Cell("A1").InsertData(new object[]
+            {
+                ("Name", "Price"),
+                ("Cake", 9),
+                ("Pie", 7),
+            });
+
+            var ptSheet = wb.AddWorksheet();
+            var pt = dataRange!.CreatePivotTable(ptSheet.Cell("A1"), "pivot table");
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Price");
+
+            pt.StyleFormats.RowGrandTotalFormats
+                .ForElement(XLPivotStyleFormatElement.All).Style
+                .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
+                .Border.SetOutsideBorderColor(XLColor.Red);
+
+            wb.SaveAs(ms);
+        }
+
+        ms.Seek(0, SeekOrigin.Begin);
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var pt = (XLPivotTable)wb.Worksheet(2).PivotTables.PivotTable("pivot table");
+
+            await Assert.That(pt.Formats.Count).IsEqualTo(1);
+            var border = pt.Formats[0].DxfStyleValue.Border;
+            await Assert.That(border.LeftBorder).IsEqualTo(XLBorderStyleValues.Thin);
+            await Assert.That(border.RightBorder).IsEqualTo(XLBorderStyleValues.Thin);
+            await Assert.That(border.TopBorder).IsEqualTo(XLBorderStyleValues.Thin);
+            await Assert.That(border.BottomBorder).IsEqualTo(XLBorderStyleValues.Thin);
+            await Assert.That(border.LeftBorderColor).IsEqualTo(XLColor.Red);
+            await Assert.That(border.RightBorderColor).IsEqualTo(XLColor.Red);
+            await Assert.That(border.TopBorderColor).IsEqualTo(XLColor.Red);
+            await Assert.That(border.BottomBorderColor).IsEqualTo(XLColor.Red);
+        }
+    }
+
+    /// <summary>
     /// A pivot area's style is its own, so a value it already holds is skipped rather than
     /// written. Writing it would add a format to the pivot table whose differential style changes
     /// nothing, and a save would write that format out (#505 review).
@@ -132,6 +182,12 @@ internal class XLPivotTableStyleFormatsTests
         // An indent the area already holds - none - changes nothing either.
         var area = pt.StyleFormats.RowGrandTotalFormats.ForElement(XLPivotStyleFormatElement.All).Style;
         area.Alignment.Indent = 0;
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
+        // The outside-border shorthand behaves as its four edges do (#1029).
+        area.Border.OutsideBorder = XLBorderStyleValues.None;
+        area.Border.OutsideBorderColor = XLColor.Red;
 
         await Assert.That(pt.Formats.Count).IsEqualTo(0);
 
