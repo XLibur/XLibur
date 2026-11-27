@@ -1033,9 +1033,23 @@ internal static class MathTrig
         return result.ToString();
     }
 
+    /// <summary>
+    /// Excel rounds the 15-significant-digit decimal form of the value, the number it shows, not the
+    /// binary double: 1.005 is stored as 1.00499999999999989..., but <c>ROUND(1.005,2)</c> is 1.01.
+    /// </summary>
     private static ScalarValue Round(CalcContext ctx, double value, double digits)
     {
-        return XLMath.Round(value, digits);
+        digits = Math.Truncate(digits);
+        var magnitude = Math.Abs(value);
+
+        // Decimal holds 28 decimal places, so the form has all 15 digits from 1e-13 up; from 1e15
+        // the form has no fraction to round.
+        if (digits < 0 || magnitude is < 1e-13 or >= 1e15)
+            return XLMath.Round(value, digits);
+
+        var placesOf15Digits = 14 - (int)Math.Floor(Math.Log10(magnitude));
+        var shown = Math.Round((decimal)value, placesOf15Digits, MidpointRounding.AwayFromZero);
+        return (double)Math.Round(shown, (int)Math.Min(digits, 28), MidpointRounding.AwayFromZero);
     }
 
     private static ScalarValue RoundDown(CalcContext ctx, double value, double digits)
