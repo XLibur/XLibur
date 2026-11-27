@@ -538,9 +538,9 @@ public class TextTests
     [Arguments("word", 4)]
     [Arguments("A\r\n", 3)]
     [Arguments("H", 1)]
-    [Arguments("\ud83d\ude0a", 2)] // Smile emoji
-    [Arguments("Smile: \ud83d\ude0a!", 10)] // Smile emoji
-    public async Task Len_returns_number_of_code_units(string text, double expected)
+    [Arguments("\ud83d\ude0a", 1)] // Smile emoji
+    [Arguments("Smile: \ud83d\ude0a!", 9)] // Smile emoji
+    public async Task Len_returns_number_of_code_points(string text, double expected)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"""LEN("{text}")""").GetNumber()).IsEqualTo(expected);
     }
@@ -609,7 +609,8 @@ public class TextTests
     [Arguments("", 1, 1, "")]
     [Arguments("ABC", 2, 2, "BC")]
     [Arguments("ABC", 2, 0, "")]
-    [Arguments("ABC", 3, 5, "")]
+    [Arguments("ABC", 3, 5, "C")]
+    [Arguments("ABC", 4, 5, "")]
     [Arguments("abcdef", 3, 2, "cd")]
     [Arguments("abcdef", 4, 5, "def")]
     public async Task Mid_returns_substring(string text, double start, double length, string expected)
@@ -618,12 +619,10 @@ public class TextTests
     }
 
     [Test]
-    public async Task Mid_uses_code_units()
+    public async Task Mid_uses_code_points()
     {
-        // MID returns unpaired surrogates
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,3)""")).IsEqualTo("😊\uD83D");
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,4)""")).IsEqualTo("😊😊");
-        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",2,4)""")).IsEqualTo("\uDE0A😊\uD83D");
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",1,2)""")).IsEqualTo("😊😊");
+        await Assert.That(XLWorkbook.EvaluateExpr("""MID("😊😊😊",2,4)""")).IsEqualTo("😊😊");
         await Assert.That(XLWorkbook.EvaluateExpr("""LEN(MID("😊😊😊",1,3))""")).IsEqualTo(3);
     }
 

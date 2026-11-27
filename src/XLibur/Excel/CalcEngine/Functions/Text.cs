@@ -951,28 +951,33 @@ internal static class Text
         if (numChars >= text.Length)
             return text;
 
-        // StringInfo.LengthInTextElements returns a length in graphemes, regardless of
-        // how is grapheme stored (e.g. denormalized family emoji is 7 code points long,
-        // with 4 emoji and 3 zero width joiners).
-        // Generally we should return number of codepoints, at least that's how Excel and
-        // LibreOffice do it (at least for LEFT).
-        var i = 0;
-        while (numChars > 0 && i < text.Length)
+        return text[..SkipCodePoints(text, 0, numChars)];
+    }
+
+    /// <summary>
+    /// The index in <paramref name="text"/> after <paramref name="count"/> characters from
+    /// <paramref name="index"/>. LEFT, LEN, MID and REPLACE count code points, so a surrogate
+    /// pair is one character, not a grapheme: a family emoji of 4 emoji and 3 zero width joiners
+    /// is 7 characters. An unpaired surrogate is one character.
+    /// </summary>
+    private static int SkipCodePoints(string text, int index, double count)
+    {
+        while (count > 0 && index < text.Length)
         {
-            // Most C# text API will happily ignore invalid surrogate pairs, so do we
-            i += char.IsSurrogatePair(text, i) ? 2 : 1;
-            numChars--;
+            index += char.IsSurrogatePair(text, index) ? 2 : 1;
+            count--;
         }
 
-        return text[..i];
+        return index;
     }
 
     private static ScalarValue Len(CalcContext ctx, string text)
     {
-        // Excel counts code units, not codepoints, e.g. it returns 2 for emoji in astral
-        // plane. LibreOffice returns 1 and most other functions (e.g. LEFT) use codepoints,
-        // not code units. Sanity says count codepoints, but compatibility says code units.
-        return text.Length;
+        var length = 0;
+        for (var i = 0; i < text.Length; i = SkipCodePoints(text, i, 1))
+            length++;
+
+        return length;
     }
 
     private static ScalarValue Lower(CalcContext ctx, string text)
@@ -1003,20 +1008,13 @@ internal static class Text
 
     private static ScalarValue Mid(CalcContext ctx, string text, double startPos, double numChars)
     {
-        // Unlike LEFT, MID uses code units and even cuts off half of surrogates,
-        // e.g. LEN(MID("😊😊",1,3)) = 3. Also, spec has parameters at wrong places.
+        // Spec has parameters at wrong places.
         if (startPos is < 1 or >= int.MaxValue + 1d || numChars is < 0 or >= int.MaxValue + 1d)
             return XLError.IncompatibleValue;
 
-        var start = checked((int)Math.Truncate(startPos)) - 1;
-        var length = checked((int)Math.Truncate(numChars));
-        if (start >= text.Length - 1)
-            return string.Empty;
-
-        if (start + length >= text.Length)
-            return text[start..];
-
-        return text.Substring(start, length);
+        var start = SkipCodePoints(text, 0, Math.Truncate(startPos) - 1);
+        var end = SkipCodePoints(text, start, Math.Truncate(numChars));
+        return text[start..end];
     }
 
     private static ScalarValue Proper(CalcContext ctx, string text)
@@ -1048,22 +1046,10 @@ internal static class Text
         if (numChars is < 0 or >= XLHelper.CellTextLimit + 1)
             return XLError.IncompatibleValue;
 
-        var prefixLength = checked((int)startPos) - 1;
-        if (prefixLength > oldText.Length)
-            prefixLength = oldText.Length;
-
-        var deletedLength = checked((int)numChars);
-        if (prefixLength + deletedLength > oldText.Length)
-            deletedLength = oldText.Length - prefixLength;
-
-        // Excel does everything is in code units, produces invalid surrogate pairs and everything.
-        var sb = new StringBuilder(oldText.Length - deletedLength + replacement.Length);
+        var prefixEnd = SkipCodePoints(oldText, 0, Math.Truncate(startPos) - 1);
+        var suffixStart = SkipCodePoints(oldText, prefixEnd, Math.Truncate(numChars));
         var text = oldText.AsSpan();
-        sb.Append(text[..prefixLength]);
-        sb.Append(replacement);
-        sb.Append(text[(prefixLength + deletedLength)..]);
-
-        return sb.ToString();
+        return string.Concat(text[..prefixEnd], replacement, text[suffixStart..]);
     }
 
     private static ScalarValue Rept(string text, double replicationCount)
@@ -1089,7 +1075,6 @@ internal static class Text
 
     private static ScalarValue Right(CalcContext ctx, string text, double numChars)
     {
-        // Unlike MID, RIGHT uses codepoint semantic
         if (numChars < 0)
             return XLError.IncompatibleValue;
 

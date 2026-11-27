@@ -2,8 +2,6 @@
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
 AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibur	
 DATE	DATE#38	number:0	error:#NUM!	DATE(1900,0,31) is #NUM! in Excel and serial 0 in XLibur	
-LEN	LEN#13	number:2	number:1	Excel counts an emoji (surrogate pair) as one character; XLibur counts UTF-16 units. LEFT and FIND in XLibur already treat the pair as one	
-MID	MID#18	text:\uDE00	text:a	Excel indexes an emoji (surrogate pair) as one character; XLibur indexes UTF-16 units and splits the pair	
 POWER	POWER#5	error:#NUM!	number:-1.9999999999999998	Excel returns the real cube root for a negative base with exponent 1/3; XLibur returns #NUM!	
 ROUND	ROUND#3	number:1	number:1.01	Excel rounds 1.005 to 1.01; XLibur rounds the binary value to 1 (Excel probably rounds the 15-digit decimal form)	
 SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue	
@@ -16,7 +14,6 @@ OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel ret
 OR	OR#5	bool:FALSE	error:#VALUE!	=OR("x") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#6	bool:FALSE	error:#VALUE!	=OR("") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
