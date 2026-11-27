@@ -39,7 +39,9 @@ internal static class DateAndTime
         ce.RegisterFunction("TIME", 3, 3, Adapt(Time), FunctionFlags.Scalar); // Returns the serial number of a particular time
         ce.RegisterFunction("TIMEVALUE", 1, 1, Adapt(timeValue), FunctionFlags.Scalar); // Converts a time in the form of text to a serial number
         ce.RegisterFunction("TODAY", 0, 0, Adapt(Today), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of today's date
-        ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
+        // An omitted return_type is 1, but a blank cell is 0, which is #NUM!: WEEKDAY(43831,A1).
+        var weekday = AdaptLastOptional(Weekday);
+        ce.RegisterFunction("WEEKDAY", 1, 2, (ctx, args) => args.Length > 1 ? weekday(ctx, args) : weekday(ctx, [args[0], 1d]), FunctionFlags.Scalar); // Converts a serial number to a day of the week
         ce.RegisterStrictNumeric("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), [0, 1], FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
         ce.RegisterStrictNumeric("WORKDAY", 2, 3, AdaptLastOptional(Workday), [0, 1], FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
         ce.RegisterFunction("WORKDAY.INTL", 2, 4, WorkdayIntl, FunctionFlags.Range | FunctionFlags.Future, AllowRange.Only, 3); // The date a number of workdays away, with a configurable weekend
@@ -780,9 +782,7 @@ internal static class DateAndTime
         if (!TryGetDate(ctx, date, out var serialDate, out var dateError, acceptLogical: true))
             return dateError;
 
-        var flagValue = 1d;
-        // Caller provided a value for optional parameter
-        if (!flag.IsBlank && !flag.ToNumber(ctx.Culture).TryPickT0(out flagValue, out var flagError))
+        if (!flag.ToNumber(ctx.Culture).TryPickT0(out var flagValue, out var flagError))
             return flagError;
 
         var result = Weekday(serialDate, (int)Math.Truncate(flagValue));
