@@ -195,7 +195,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLPivotStyleFormatBase or XLCell)
             {
                 Modify(k => k with
                 {
@@ -222,7 +222,7 @@ internal sealed class XLBorder : IXLBorder
     {
         set
         {
-            if (_container is null or XLWorksheet or XLConditionalFormat or XLCell)
+            if (_container is null or XLWorksheet or XLConditionalFormat or XLPivotStyleFormatBase or XLCell)
             {
                 Modify(k => k with
                 {
