@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using XLibur.Excel;
 using XLibur.Tests.Utils;
+using XLibur.Utils;
 
 namespace XLibur.Tests.Excel.Styles;
 
@@ -27,6 +28,14 @@ public class IndexedSystemColorTests
             await Assert.That((string?)rPr.Element(Main + "color")?.Attribute("indexed")).IsEqualTo("81");
             await Assert.That((string?)rPr.Element(Main + "charset")?.Attribute("val")).IsEqualTo("1");
         }
+    }
+
+    [Test]
+    public async Task An_index_too_large_for_an_int_reads_as_automatic()
+    {
+        var color = new DocumentFormat.OpenXml.Spreadsheet.Color { Indexed = uint.MaxValue }.ToXLiburColor();
+
+        await Assert.That(color).IsEqualTo(XLColor.Automatic);
     }
 
     [Test]
