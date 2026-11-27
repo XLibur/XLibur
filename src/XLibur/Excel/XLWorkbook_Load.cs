@@ -1075,6 +1075,7 @@ public partial class XLWorkbook
             if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
 
             DrawingPartReader.LoadColorsAndLines(xlComment, shape);
+            xlComment.StartArrow = DrawingPartReader.ReadNoteStartArrow(shape);
 
             // Last, once the note's position, size and text are all loaded: they decide the anchor.
             if (DrawingPartReader.ReadNoteAnchor(clientData) is { } fileAnchor)

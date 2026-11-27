@@ -160,6 +160,15 @@ internal static class VmlDrawingPartWriter
         if (comment.Style.ColorsAndLines.LineTransparency < 1)
             stroke.Opacity =
                 Math.Round(Convert.ToDouble(comment.Style.ColorsAndLines.LineTransparency), 2).ToInvariantString();
+        if (comment.StartArrow is { } arrow)
+        {
+            stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrow", string.Empty, arrow.Arrow));
+            if (arrow.Length is not null)
+                stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrowlength", string.Empty, arrow.Length));
+            if (arrow.Width is not null)
+                stroke.SetAttribute(new OpenXmlAttribute(string.Empty, "startarrowwidth", string.Empty, arrow.Width));
+        }
+
         return stroke;
     }
 

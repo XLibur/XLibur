@@ -128,6 +128,9 @@ internal sealed class XLComment : XLFormattedText<IXLComment>, IXLComment
     /// </summary>
     internal LoadedCommentProperties? LoadedProperties { get; set; }
 
+    /// <summary>The start arrow the file gave the note's line, kept for the save (#1027).</summary>
+    internal NoteStartArrow? StartArrow { get; set; }
+
     public int ZOrder { get; set; }
 
     public IXLComment SetZOrder(int zOrder)
@@ -271,6 +274,12 @@ internal sealed record LoadedNoteAnchor(string FromFile, string Computed);
 /// Once any of them changes the markup would contradict the VML, so the save leaves it out.
 /// </summary>
 internal sealed record LoadedCommentProperties(IReadOnlyList<XElement> Markup, NoteProperties AtLoad);
+
+/// <summary>
+/// A <c>v:stroke</c>'s <c>startarrow</c>, <c>startarrowlength</c> and <c>startarrowwidth</c>, as
+/// the file wrote them.
+/// </summary>
+internal sealed record NoteStartArrow(string Arrow, string? Length, string? Width);
 
 /// <summary>What a note's <c>commentPr</c> can say that the model also owns.</summary>
 internal readonly record struct NoteProperties(
