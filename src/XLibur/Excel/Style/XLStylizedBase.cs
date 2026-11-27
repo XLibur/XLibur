@@ -198,6 +198,25 @@ internal abstract class XLStylizedBase : IXLStylized
         return points;
     }
 
+    /// <summary>
+    /// Adds to <paramref name="points"/> each of <paramref name="meetings"/> it does not hold yet.
+    /// </summary>
+    /// <remarks>
+    /// A row or column styles the cells where it meets a styled column or a formatted row as well as
+    /// its used cells, as Excel does. Without a record, such a cell would show only one of the two
+    /// styles once the row is formatted (#1030).
+    /// </remarks>
+    private protected static void AddMeetingPoints(List<Point> points, IEnumerable<Point> meetings)
+    {
+        HashSet<Point>? held = null;
+        foreach (var meeting in meetings)
+        {
+            held ??= [.. points];
+            if (held.Add(meeting))
+                points.Add(meeting);
+        }
+    }
+
     private static HashSet<XLStylizedBase> GetChildrenRecursively(XLStylizedBase parent)
     {
         var results = new HashSet<XLStylizedBase>();
