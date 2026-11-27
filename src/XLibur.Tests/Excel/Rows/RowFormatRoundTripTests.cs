@@ -11,7 +11,8 @@ namespace XLibur.Tests.Excel.Rows;
 
 /// <summary>
 /// Row attributes the file carries that the model has to keep: a formatted row (<c>customFormat</c>,
-/// #958) and the thick border flags (<c>thickTop</c>, <c>thickBot</c>, #959).
+/// #958) and the thick border flags (<c>thickTop</c>, <c>thickBot</c>, #959), which the save works out
+/// from the borders (#1031, <see cref="RowThickBorderFlagTests"/>).
 /// </summary>
 public class RowFormatRoundTripTests
 {
@@ -63,22 +64,6 @@ public class RowFormatRoundTripTests
     }
 
     [Test]
-    public async Task Thick_border_flags_are_saved_after_an_edit()
-    {
-        using var source = ThickRowSource();
-        using var saved = LoadAndSave(source, ws => ws.Cell("A1").Value = "edit");
-
-        var withCells = SavedRow(saved, 1, 1);
-        await Assert.That(withCells!.Attribute("thickBot")?.Value).IsEqualTo("1");
-        await Assert.That(withCells.Attribute("thickTop")?.Value).IsEqualTo("1");
-
-        var empty = SavedRow(saved, 1, 3);
-        await Assert.That(empty).IsNotNull();
-        await Assert.That(empty!.Attribute("thickTop")?.Value).IsEqualTo("1");
-        await Assert.That(empty.Attribute("thickBot")).IsNull();
-    }
-
-    [Test]
     [Arguments(13, "thickBot")]
     [Arguments(24, "thickTop")]
     [Arguments(26, "thickTop")]
@@ -94,6 +79,92 @@ public class RowFormatRoundTripTests
 
         var row = SavedRow(saved, 1, rowNumber);
         await Assert.That(row!.Attribute(attribute)?.Value).IsEqualTo("1");
+    }
+
+    [Test]
+    public async Task Styling_an_existing_row_gives_the_cell_where_it_meets_a_styled_column_both_styles()
+    {
+        using var source = RowWithHeightSource();
+        using var saved = LoadAndSave(source, ws =>
+        {
+            ws.Row(2).Style.Font.Bold = true;
+        });
+
+        await Assert.That(SavedCell(saved, 2, "B2")).IsNotNull();
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var style = reloaded.Worksheet(1).Cell("B2").Style;
+        await Assert.That(style.Font.Bold).IsTrue();
+        await Assert.That(style.NumberFormat.Format).IsEqualTo(DateFormat);
+    }
+
+    [Test]
+    public async Task Styling_an_existing_column_gives_the_cell_where_it_meets_a_formatted_row_both_styles()
+    {
+        using var source = BoldRowAndPlainColumnSource();
+        using var saved = LoadAndSave(source, ws =>
+        {
+            ws.Column(2).Style.NumberFormat.Format = DateFormat;
+        });
+
+        await Assert.That(SavedCell(saved, 2, "B2")).IsNotNull();
+
+        saved.Position = 0;
+        using var reloaded = new XLWorkbook(saved);
+        var style = reloaded.Worksheet(1).Cell("B2").Style;
+        await Assert.That(style.Font.Bold).IsTrue();
+        await Assert.That(style.NumberFormat.Format).IsEqualTo(DateFormat);
+    }
+
+    /// <summary>
+    /// Column B has the date format, A1 holds text, and row 2 has a height and no cells, so the row
+    /// exists on load without a B2 record.
+    /// </summary>
+    private static MemoryStream RowWithHeightSource()
+    {
+        var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Column(2).Style.NumberFormat.Format = DateFormat;
+            ws.Cell("A1").Value = "text";
+            wb.SaveAs(stream);
+        }
+
+        return stream.RewriteSheet1(xml => xml.Replace("</x:sheetData>",
+            """<x:row r="2" ht="20" customHeight="1" /></x:sheetData>""", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Column B exists with a width and no style, A1 is bold, and row 2 is formatted with A1's bold
+    /// style and has no cells, so B2 has no record on load.
+    /// </summary>
+    private static MemoryStream BoldRowAndPlainColumnSource()
+    {
+        var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            ws.Column(2).Width = 20;
+            ws.Cell("A1").Value = "text";
+            ws.Cell("A1").Style.Font.Bold = true;
+            wb.SaveAs(stream);
+        }
+
+        return stream.RewriteSheet1(xml =>
+        {
+            var boldStyle = System.Text.RegularExpressions.Regex.Match(xml, """<x:c r="A1" s="(\d+)" """).Groups[1].Value;
+            return xml.Replace("</x:sheetData>",
+                $"""<x:row r="2" s="{boldStyle}" customFormat="1" /></x:sheetData>""", StringComparison.Ordinal);
+        });
+    }
+
+    private static XElement? SavedCell(Stream xlsx, int rowNumber, string reference)
+    {
+        var row = SavedRow(xlsx, 1, rowNumber);
+        return row?.Elements(row.Name.Namespace + "c")
+            .SingleOrDefault(c => c.Attribute("r")?.Value == reference);
     }
 
     /// <summary>
@@ -113,24 +184,6 @@ public class RowFormatRoundTripTests
 
         return stream.RewriteSheet1(xml => xml.Replace("</x:sheetData>",
             """<x:row r="2" s="0" customFormat="1" /></x:sheetData>""", StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// Row 1 holds A1 and has both thick border flags, and row 3 has no cells and only
-    /// <c>thickTop</c>.
-    /// </summary>
-    private static MemoryStream ThickRowSource()
-    {
-        var stream = new MemoryStream();
-        using (var wb = new XLWorkbook())
-        {
-            wb.AddWorksheet().Cell("A1").Value = "text";
-            wb.SaveAs(stream);
-        }
-
-        return stream.RewriteSheet1(xml => xml
-            .Replace("""<x:row r="1" """, """<x:row r="1" thickTop="1" thickBot="1" """, StringComparison.Ordinal)
-            .Replace("</x:sheetData>", """<x:row r="3" thickTop="1" /></x:sheetData>""", StringComparison.Ordinal));
     }
 
     private static MemoryStream LoadAndSave(MemoryStream source, Action<IXLWorksheet> edit)

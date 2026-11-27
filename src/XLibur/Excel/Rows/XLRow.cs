@@ -63,13 +63,19 @@ internal sealed class XLRow : XLRangeBase, IXLRow
 
     /// <summary>
     /// A row styles only its <em>used</em> cells, not all 16,384 columns — so the inherited
-    /// rectangle walk from <see cref="XLRangeBase"/> would be wrong here, not merely slower.
+    /// rectangle walk from <see cref="XLRangeBase"/> would be wrong here, not merely slower. It also
+    /// styles the cells where it meets a styled column.
     /// </summary>
     private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
     {
         var worksheet = Worksheet;
-        var range = new Area(RowNumber(), 1, RowNumber(), XLHelper.MaxColumnNumber);
-        ApplyToCellStyles(worksheet, UsedPoints(worksheet, range), transform);
+        var row = RowNumber();
+        var points = UsedPoints(worksheet, new Area(row, 1, row, XLHelper.MaxColumnNumber));
+        var sheetStyle = worksheet.StyleValue;
+        AddMeetingPoints(points, worksheet.Internals.ColumnsCollection
+            .Where(column => column.Value.StyleValue != sheetStyle)
+            .Select(column => new Point(row, column.Key)));
+        ApplyToCellStyles(worksheet, points, transform);
         return true;
     }
 
@@ -127,34 +133,6 @@ internal sealed class XLRow : XLRangeBase, IXLRow
     /// Marks the row formatted even when its style is the sheet's, as a file's <c>customFormat</c> does.
     /// </summary>
     internal void MarkFormatted() => _flags |= XlRowFlags.CustomFormat;
-
-    /// <summary>
-    /// Does the row make room for a thick top border (<c>thickTop</c>)? Excel sets it for a row with a
-    /// medium, thick or double top border, and draws the row taller for it; it does not work it out
-    /// from the borders on load (#959).
-    /// </summary>
-    internal bool ThickTop
-    {
-        get => _flags.HasFlag(XlRowFlags.ThickTop);
-        set => SetFlag(XlRowFlags.ThickTop, value);
-    }
-
-    /// <summary>
-    /// Does the row make room for a thick bottom border (<c>thickBot</c>)? See <see cref="ThickTop"/>.
-    /// </summary>
-    internal bool ThickBottom
-    {
-        get => _flags.HasFlag(XlRowFlags.ThickBottom);
-        set => SetFlag(XlRowFlags.ThickBottom, value);
-    }
-
-    private void SetFlag(XlRowFlags flag, bool value)
-    {
-        if (value)
-            _flags |= flag;
-        else
-            _flags &= ~flag;
-    }
 
     /// <summary>
     /// Does row have an individual height or is it derived from the worksheet <see cref="XLWorksheet.RowHeight"/>?
@@ -806,13 +784,11 @@ internal sealed class XLRow : XLRangeBase, IXLRow
         ShowPhonetic = 4,
         HeightChanged = 8,
         HeightIsAuto = 16,
-        CustomFormat = 32,
-        ThickTop = 64,
-        ThickBottom = 128
+        CustomFormat = 32
     }
 
     /// <summary>The flags a copy of the row's formatting carries.</summary>
-    private const XlRowFlags FormatFlags = XlRowFlags.CustomFormat | XlRowFlags.ThickTop | XlRowFlags.ThickBottom;
+    private const XlRowFlags FormatFlags = XlRowFlags.CustomFormat;
 
     private void CopyFormatFlagsTo(XLRow target) => target._flags = (target._flags & ~FormatFlags) | (_flags & FormatFlags);
 }

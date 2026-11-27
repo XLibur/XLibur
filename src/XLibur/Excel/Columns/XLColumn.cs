@@ -59,13 +59,18 @@ internal sealed class XLColumn : XLRangeBase, IXLColumn
 
     /// <summary>
     /// A column styles only its <em>used</em> cells, not all 1,048,576 rows — so the inherited
-    /// rectangle walk from <see cref="XLRangeBase"/> would be wrong here, not merely slower.
+    /// rectangle walk from <see cref="XLRangeBase"/> would be wrong here, not merely slower. It also
+    /// styles the cells where it meets a formatted row.
     /// </summary>
     private protected override bool TryApplyToCellStyles(Func<XLStyleValue, XLStyleValue> transform)
     {
         var worksheet = Worksheet;
-        var range = new Area(1, ColumnNumber(), XLHelper.MaxRowNumber, ColumnNumber());
-        ApplyToCellStyles(worksheet, UsedPoints(worksheet, range), transform);
+        var column = ColumnNumber();
+        var points = UsedPoints(worksheet, new Area(1, column, XLHelper.MaxRowNumber, column));
+        AddMeetingPoints(points, worksheet.Internals.RowsCollection
+            .Where(row => row.Value.IsFormatted)
+            .Select(row => new Point(row.Key, column)));
+        ApplyToCellStyles(worksheet, points, transform);
         return true;
     }
 
