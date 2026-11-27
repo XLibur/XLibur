@@ -507,7 +507,8 @@ internal static class Financial
 
         var rate = Math.Round(1 - Math.Pow(salvage / cost, 1 / life), 3, MidpointRounding.AwayFromZero);
 
-        var firstPeriod = cost * rate * month / 12;
+        // Excel scales by the fraction of a year, so DB(9E307,100,10,1) is 9E307 rather than an overflow.
+        var firstPeriod = cost * rate * (month / 12);
         if (period == 1)
             return firstPeriod;
 
@@ -537,27 +538,24 @@ internal static class Financial
 
     /// <summary>
     /// Declining-balance depreciation of a single period, expressed in closed form so that a
-    /// fractional <paramref name="period"/> works the same way Excel's does.
+    /// fractional <paramref name="period"/> works the same way Excel's does. The charge is the opening
+    /// book value times the rate, not the difference of two book values, which cancels
+    /// (DDB(1000,100,10,1,1E-10) is 1E-08).
     /// </summary>
     private static double DdbPeriod(double cost, double salvage, double life, double period, double factor)
     {
         var rate = factor / life;
-        double openingValue;
-        if (rate >= 1)
-        {
-            rate = 1;
-            openingValue = period == 1 ? cost : 0;
-        }
-        else
-        {
-            openingValue = cost * Math.Pow(1 - rate, period - 1);
-        }
+        var openingValue = rate >= 1
+            ? period == 1 ? cost : 0
+            : cost * Math.Pow(1 - rate, period - 1);
 
-        var closingValue = cost * Math.Pow(1 - rate, period);
+        // Excel charges the uncapped rate before the salvage cap, so DDB(1000,100,10,1,9E307) overflows.
+        var charge = openingValue * rate;
+        if (double.IsInfinity(charge))
+            return charge;
 
         // Depreciation stops once the book value would drop below the salvage value.
-        var depreciation = closingValue < salvage ? openingValue - salvage : openingValue - closingValue;
-        return Math.Max(depreciation, 0);
+        return Math.Max(Math.Min(charge, openingValue - salvage), 0);
     }
 
     /// <summary>
