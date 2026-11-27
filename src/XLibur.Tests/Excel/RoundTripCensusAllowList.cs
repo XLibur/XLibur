@@ -10,7 +10,6 @@ internal static class RoundTripCensusAllowList
     private const string CustomProperties = "custom-properties";
     private const string Drawing = "drawing";
     private const string ExtendedProperties = "extended-properties";
-    private const string MsExcelRdrichvalue = "ms-excel.rdrichvalue";
     private const string MsExcelRdrichvaluestructure = "ms-excel.rdrichvaluestructure";
     private const string MsExcelRdrichvaluetypes = "ms-excel.rdrichvaluetypes";
     private const string MsExcelRichValueRel = "ms-excel.richValueRel";
@@ -21,7 +20,6 @@ internal static class RoundTripCensusAllowList
     private const string SpreadsheetmlPivotTable = "spreadsheetml.pivotTable";
     private const string SpreadsheetmlSharedStrings = "spreadsheetml.sharedStrings";
     private const string SpreadsheetmlSheetMain = "spreadsheetml.sheet.main";
-    private const string SpreadsheetmlSheetMetadata = "spreadsheetml.sheetMetadata";
     private const string SpreadsheetmlStyles = "spreadsheetml.styles";
     private const string SpreadsheetmlTable = "spreadsheetml.table";
     private const string SpreadsheetmlWorksheet = "spreadsheetml.worksheet";
@@ -62,15 +60,9 @@ internal static class RoundTripCensusAllowList
     private const string TwoDimensionalTable = "dtr applies only to a one-dimensional data table";
     private const string CommentShape = "comment shapes are written from the comments, so a comment shape with no comment is removed; other VML shapes are kept as they are";
 
-    private const string LostACellImageIsWrittenAs = "a cell image is written as its rich value index, not as the #VALUE! Excel writes";
-    private const string LostASolidFillInTheSystem = "a solid fill in the system background colour (indexed 65) written as no fill when the sheet is written from the model";
     private const string LostCachedValueOfAFormulaXLibur = "cached value of a formula XLibur cannot evaluate (#NAME?) dropped when the sheet is written";
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
-    private const string LostCommentTextRunCharsetAndIndexed = "comment text run charset and indexed colour dropped";
-    private const string LostPivotCacheItemFlagsUContainsNonDate = "pivot cache item flags (u, containsNonDate) dropped";
-    private const string LostRichTextRunCharsetDropped = "rich text run charset dropped";
-    private const string LostRichValueDetailOfAVALUE = "rich-value detail of a #VALUE! error (subType, argument) dropped";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
     private const string LostRowThickBotAndThickTopDroppedWhen = "row thickBot and thickTop dropped when the sheet is written from the model";
     private const string LostTableColumnDataFormatDataDxfIdDropped = "table column data format (dataDxfId) dropped";
@@ -339,8 +331,6 @@ internal static class RoundTripCensusAllowList
 
     private static readonly KnownLoss[] Known =
     [
-        new(SpreadsheetmlWorksheet, "c@t=e", "#960", LostACellImageIsWrittenAs, 2),
-        new(SpreadsheetmlWorksheet, "c@s->fill", "#957", LostASolidFillInTheSystem, 2),
         new(SpreadsheetmlWorksheet, "f/v", "#962", LostCachedValueOfAFormulaXLibur, 1),
         new(SpreadsheetmlComments, "anchor", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 4),
         new(SpreadsheetmlComments, "anchor@moveWithCells", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
@@ -369,37 +359,11 @@ internal static class RoundTripCensusAllowList
         new(SpreadsheetmlComments, "xdr:to", "#953", LostCommentPropertiesCommentPrAndItsAnchor, 2),
         new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
         new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 70),
-        new(SpreadsheetmlComments, "charset", "#957", LostCommentTextRunCharsetAndIndexed, 30),
-        new(SpreadsheetmlComments, "charset@val", "#957", LostCommentTextRunCharsetAndIndexed, 30),
-        new(SpreadsheetmlComments, "color", "#957", LostCommentTextRunCharsetAndIndexed, 48),
-        new(SpreadsheetmlComments, "color@indexed", "#957", LostCommentTextRunCharsetAndIndexed, 48),
-        new(SpreadsheetmlPivotCacheDefinition, "d@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 3508),
-        new(SpreadsheetmlPivotCacheDefinition, "m@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 4),
-        new(SpreadsheetmlPivotCacheDefinition, "n@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 540),
-        new(SpreadsheetmlPivotCacheDefinition, "s@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 624),
-        new(SpreadsheetmlPivotCacheDefinition, "sharedItems@containsNonDate", "#955", LostPivotCacheItemFlagsUContainsNonDate, 72),
         new(SpreadsheetmlStyles, "alignment@readingOrder", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 192),
         new(SpreadsheetmlStyles, "horizontal", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 66),
         new(SpreadsheetmlStyles, "horizontal@style", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 42),
         new(SpreadsheetmlStyles, "vertical", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 62),
         new(SpreadsheetmlStyles, "vertical@style", "#961", LostRebuiltTableColumnDxfsDropReadingOrder, 42),
-        new(SpreadsheetmlSharedStrings, "charset", "#957", LostRichTextRunCharsetDropped, 6),
-        new(SpreadsheetmlSharedStrings, "charset@val", "#957", LostRichTextRunCharsetDropped, 6),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rv", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rv@s", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(MsExcelRdrichvalue, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}v", "#954", LostRichValueDetailOfAVALUE, 50),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k@n", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}k@t", "#954", LostRichValueDetailOfAVALUE, 24),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}s", "#954", LostRichValueDetailOfAVALUE, 4),
-        new(MsExcelRdrichvaluestructure, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}s@t", "#954", LostRichValueDetailOfAVALUE, 4),
-        new(SpreadsheetmlSheetMetadata, "bk", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "ext", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "ext@uri", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "extLst", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rvb", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlSheetMetadata, "{http://schemas.microsoft.com/office/spreadsheetml/2017/richdata}rvb@i", "#954", LostRichValueDetailOfAVALUE, 14),
-        new(SpreadsheetmlWorksheet, "c@vm", "#954", LostRichValueDetailOfAVALUE, 16),
         new(SpreadsheetmlWorksheet, "row@customFormat", "#958", LostRowStyleCustomFormatSDroppedWhen, 100),
         new(SpreadsheetmlWorksheet, "row@s", "#958", LostRowStyleCustomFormatSDroppedWhen, 94),
         new(SpreadsheetmlWorksheet, "row@thickBot", "#959", LostRowThickBotAndThickTopDroppedWhen, 108),

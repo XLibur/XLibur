@@ -153,6 +153,70 @@ public class PivotTableSaveFidelityTests
     }
 
     [Test]
+    public async Task Save_keeps_the_unused_flag_of_each_shared_item_and_contains_non_date()
+    {
+        const string resource = @"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx";
+        var source = ReadCacheDefinitions(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)), SharedItemFlags);
+        var saved = ReadCacheDefinitions(LoadAndSave(resource), SharedItemFlags);
+
+        await Assert.That(source.Values.SelectMany(fields => fields).Count(field => field.Contains("@u"))).IsGreaterThan(0);
+        await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
+        foreach (var (relId, sourceFields) in source)
+            await Assert.That(saved[relId]).IsEquivalentTo(sourceFields, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task Save_keeps_the_shared_item_each_record_indexes()
+    {
+        const string resource = @"TryToLoad\load_pivottable_renamedcolumns_2591.xlsx";
+        var source = ReadCacheDefinitions(TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(resource)), RecordItems);
+        var saved = ReadCacheDefinitions(LoadAndSave(resource), RecordItems);
+
+        await Assert.That(source.Values.SelectMany(records => records).Any()).IsTrue();
+        await Assert.That(saved.Keys).IsEquivalentTo(source.Keys);
+        foreach (var (relId, sourceRecords) in source)
+            await Assert.That(saved[relId]).IsEquivalentTo(sourceRecords, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    // One line per cache field: its name, containsNonDate as written, and each shared item with its u flag.
+    private static List<string> SharedItemFlags(PivotTableCacheDefinitionPart part)
+    {
+        return part.PivotCacheDefinition!.CacheFields!.Elements<CacheField>()
+            .Select(field => $"{field.Name!.Value} containsNonDate={field.SharedItems?.ContainsNonDate?.Value}: " +
+                             string.Join(" ", field.SharedItems?.Elements().Select(item =>
+                                 item.LocalName + (item.GetAttributes().Any(a => a.LocalName == "u" && a.Value is "1" or "true") ? "@u" : "")) ?? []))
+            .ToList();
+    }
+
+    // One line per record: the value each field holds, an index resolved to the shared item it names.
+    private static List<string> RecordItems(PivotTableCacheDefinitionPart part)
+    {
+        var sharedItems = part.PivotCacheDefinition!.CacheFields!.Elements<CacheField>()
+            .Select(field => field.SharedItems?.Elements().Select(ItemValue).ToArray() ?? [])
+            .ToArray();
+        return part.PivotTableCacheRecordsPart?.PivotCacheRecords?.Elements<PivotCacheRecord>()
+            .Select(record => string.Join(" ", record.Elements().Select((item, fieldIdx) => item is FieldItem index
+                ? sharedItems[fieldIdx][index.Val!.Value]
+                : ItemValue(item))))
+            .ToList() ?? [];
+
+        static string ItemValue(DocumentFormat.OpenXml.OpenXmlElement item)
+            => $"{item.LocalName}:{item.GetAttributes().FirstOrDefault(a => a.LocalName == "v").Value}";
+    }
+
+    private static Dictionary<string, List<string>> ReadCacheDefinitions(Stream stream,
+        System.Func<PivotTableCacheDefinitionPart, List<string>> read)
+    {
+        var result = new Dictionary<string, List<string>>();
+        using var document = SpreadsheetDocument.Open(stream, false);
+        var workbookPart = document.WorkbookPart!;
+        foreach (var pivotCache in workbookPart.Workbook!.PivotCaches?.Elements<PivotCache>() ?? [])
+            result.Add(pivotCache.Id!.Value!, read((PivotTableCacheDefinitionPart)workbookPart.GetPartById(pivotCache.Id.Value!)));
+
+        return result;
+    }
+
+    [Test]
     public async Task Every_dxf_reference_names_the_dxf_it_had_after_two_saves()
     {
         var source = WithCustomTableStyle(@"TryToLoad\TemplateWithTableSourcePivotTables.xlsx", dxfIds: [4, 5, 365]);

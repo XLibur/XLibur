@@ -564,7 +564,7 @@ public partial class XLWorkbook
             LoadWorksheetElements(worksheetPart, ws, sharedStrings, context);
 
             // Before the cells are recorded as the file had them: the error is what the file holds.
-            LoadRichValueErrors(context, ws);
+            LoadRichValueErrors(ws);
 
             // Before anything else writes a cell: loading a table, for one, names empty header cells
             // after their fields, and the file's cells do not hold those names.
@@ -829,17 +829,18 @@ public partial class XLWorkbook
     /// value names the error, as Excel writes <c>#CALC!</c> or <c>#SPILL!</c>. The cell keeps the index,
     /// which the save numbers again.
     /// </summary>
-    private static void LoadRichValueErrors(LoadContext context, XLWorksheet ws)
+    private static void LoadRichValueErrors(XLWorksheet ws)
     {
-        if (context.RichValueErrors is not { } errors)
+        var errors = ws.Workbook.ErrorRichValues;
+        if (errors.Count == 0)
             return;
 
         var cellsCollection = ws.Internals.CellsCollection;
         foreach (var point in cellsCollection.GetValueMetaPoints())
         {
             var vm = cellsCollection.MiscSlice[point].ValueMetaIndex!.Value;
-            if (errors.TryGetValue(vm, out var error) && cellsCollection.ValueSlice.GetCellValue(point).IsError)
-                cellsCollection.ValueSlice.SetCellValue(point, error);
+            if (errors.TryGetValue(vm, out var richValue) && cellsCollection.ValueSlice.GetCellValue(point).IsError)
+                cellsCollection.ValueSlice.SetCellValue(point, richValue.Error);
         }
     }
 

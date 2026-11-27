@@ -31,9 +31,20 @@ internal sealed class XLPivotCacheSharedItems : IXLPivotCacheValueSink
     /// </summary>
     private readonly Dictionary<string, int> _stringMap = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Indexes of the items that are no longer in the source data (<c>u</c> attribute). Excel keeps
+    /// such items after a refresh, by default, so filters and the field's item list still know them.
+    /// A refresh by XLibur rebuilds the items from the source, so none of them is unused.
+    /// </summary>
+    private readonly HashSet<int> _unusedIndexes = new();
+
     internal XLCellValue this[uint index] => GetValue(index).GetCellValue(_stringStorage, this);
 
     internal int Count => _values.Count;
+
+    internal void MarkUnused(int index) => _unusedIndexes.Add(index);
+
+    internal bool IsUnused(uint index) => _unusedIndexes.Contains(checked((int)index));
 
     public void AddMissing()
     {
