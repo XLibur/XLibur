@@ -1,7 +1,6 @@
 # Spec 59 known differences: a case XLibur is known to answer differently from Excel. function, case id, xlibur answer, excel answer, reason, issue.
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
 AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibur	
-DATE	DATE#38	number:0	error:#NUM!	DATE(1900,0,31) is #NUM! in Excel and serial 0 in XLibur	
 POWER	POWER#5	error:#NUM!	number:-1.9999999999999998	Excel returns the real cube root for a negative base with exponent 1/3; XLibur returns #NUM!	
 ROUND	ROUND#3	number:1	number:1.01	Excel rounds 1.005 to 1.01; XLibur rounds the binary value to 1 (Excel probably rounds the 15-digit decimal form)	
 SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue	
@@ -16,14 +15,6 @@ OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel re
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
-BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-BIN2HEX	BIN2HEX#9	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-CONVERT	CONVERT#21	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#23	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
-CONVERT	CONVERT#38	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CORREL	CORREL#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 DB	DB#17	error:#NUM!	number:9E+307	An out-of-range magnitude or count: Excel returns number:9E+307; XLibur returns #NUM!	
@@ -31,17 +22,10 @@ DDB	DDB#47	number:0.0019999999999527063	number:0.002	Last digits differ: Excel n
 DDB	DDB#74	number:1.0000007932831068E-08	number:1E-08	Excel returns number:1E-08; XLibur returns number:1.0000007932831068E-08	
 DDB	DDB#76	number:900	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:900	
 EFFECT	EFFECT#31	number:0.05127109497591076	number:0.0512710949426225	Last digits differ: Excel number:0.0512710949426225, XLibur number:0.05127109497591076	
-ERF	ERF#17	error:#NUM!	number:1	An out-of-range magnitude or count: Excel returns number:1; XLibur returns #NUM!	
-ERF	ERF#32	error:#NUM!	number:0.1572992070502851	An out-of-range magnitude or count: Excel returns number:0.1572992070502851; XLibur returns #NUM!	
-ERFC	ERFC#16	error:#NUM!	number:0	An out-of-range magnitude or count: Excel returns number:0; XLibur returns #NUM!	
 HLOOKUP	HLOOKUP#16	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
 HLOOKUP	HLOOKUP#18	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#19	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 HLOOKUP	HLOOKUP#24	error:#REF!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#REF!	
-IMABS	IMABS#5	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
-IMABS	IMABS#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-IMABS	IMABS#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-IMABS	IMABS#11	number:0	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:0	
 INDEX	INDEX#1	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#12	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
 INDEX	INDEX#13	error:#VALUE!	error:#REF!	Excel returns error:#REF!; XLibur returns error:#VALUE!	
@@ -75,8 +59,6 @@ NPV	NPV#18	number:0	number:4.545454545454545	Excel returns number:4.545454545454
 NPV	NPV#19	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
 NPV	NPV#20	number:0	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:0	
 NPV	NPV#21	number:0	number:0.9090909090909091	Excel returns number:0.9090909090909091; XLibur returns number:0	
-OCT2DEC	OCT2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-OCT2DEC	OCT2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 PMT	PMT#15	number:-99.99999182596359	number:-100.000000055	Excel returns number:-100.000000055; XLibur returns number:-99.99999182596359	
 PMT	PMT#32	error:#NUM!	number:-50	An out-of-range magnitude or count: Excel returns number:-50; XLibur returns #NUM!	
 PMT	PMT#47	number:-1.1655411746891096E+307	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:-1.1655411746891096E+307	
@@ -112,10 +94,3 @@ SLOPE	SLOPE#11	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur retu
 SMALL	SMALL#23	number:3	number:1	Excel returns number:1; XLibur returns number:3	
 SYD	SYD#27	number:182	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:182	
 SYD	SYD#46	error:#NUM!	error:#DIV/0!	An out-of-range magnitude or count: Excel returns error:#DIV/0!; XLibur returns #NUM!	
-TIME	TIME#27	error:#NUM!	number:0.49930555555555556	Excel returns number:0.49930555555555556; XLibur returns error:#NUM!	
-TIME	TIME#41	error:#NUM!	number:0.5208217592592592	Excel returns number:0.5208217592592592; XLibur returns error:#NUM!	
-WEEKDAY	WEEKDAY#20	number:4	error:#NUM!	Excel returns error:#NUM!; XLibur returns number:4	
-YEARFRAC	YEARFRAC#14	number:120.83611111111111	number:120.83888888888889	Excel returns number:120.83888888888889; XLibur returns number:120.83611111111111	
-YEARFRAC	YEARFRAC#16	number:7978.997222222222	number:7979	Excel returns number:7979; XLibur returns number:7978.997222222222	
-YEARFRAC	YEARFRAC#44	number:1.0013679890560876	number:1	Excel returns number:1; XLibur returns number:1.0013679890560876	
-YEARFRAC	YEARFRAC#47	number:1.0013679890560876	number:1	Excel returns number:1; XLibur returns number:1.0013679890560876	

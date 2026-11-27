@@ -620,7 +620,7 @@ public class DateAndTimeTests
     [Arguments(0, 32768, 0)]
     [Arguments(0, 0, -0.1)]
     [Arguments(0, 0, 32768)]
-    public async Task Time_components_must_be_in_zero_to_32767_interval(double hour, double minute, double second)
+    public async Task Time_components_must_be_at_most_32767_and_add_up_to_no_less_than_zero(double hour, double minute, double second)
     {
         await Assert.That(XLWorkbook.EvaluateExpr($"TIME({hour},{minute},{second})")).IsEqualTo(XLError.NumberInvalid);
     }
