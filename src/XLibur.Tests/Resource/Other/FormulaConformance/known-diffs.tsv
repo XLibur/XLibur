@@ -109,15 +109,7 @@ PV	PV#72	number:733.5648182725574	number:810.7821675644054	Excel returns number:
 PV	PV#74	number:868.6951795332918	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:868.6951795332918	
 PV	PV#75	number:10617.385527629123	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:10617.385527629123	
 PV	PV#76	number:38609446.819417	number:810.7821675644054	Excel returns number:810.7821675644054; XLibur returns number:38609446.819417	
-RANK	RANK#3	error:#VALUE!	error:#N/A	Excel returns error:#N/A; XLibur returns error:#VALUE!	
-RANK	RANK#9	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#10	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#11	error:#VALUE!	number:1	Excel returns number:1; XLibur returns error:#VALUE!	
 RANK	RANK#25	number:1	rejected:	Excel refuses =RANK(3,{1,2,3}) at entry; XLibur accepts it and returns number:1	
-RANK	RANK#27	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
-RANK	RANK#28	number:3	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns number:3	
-RANK	RANK#33	error:#VALUE!	number:4	Excel returns number:4; XLibur returns error:#VALUE!	
-RANK	RANK#34	error:#VALUE!	number:3	Excel returns number:3; XLibur returns error:#VALUE!	
 RATE	RATE#18	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
 RATE	RATE#27	error:#NUM!	number:-0.999998742518659	RATE(10,0,800) is 800(1+r)^10=0, whose only root is r=-1 (ten-fold), so XLibur gives #NUM! like any rate at or below -1. Excel stops short of -1 where its step rule fires, and the answer moves with the guess: -0.999998742518659 by default, -0.9999987245009726 from -0.5, -0.9999987194570075 from 0.5 (Excel 16.0)	#915
 SLOPE	SLOPE#2	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	

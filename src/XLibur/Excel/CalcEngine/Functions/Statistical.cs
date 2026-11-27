@@ -609,21 +609,19 @@ internal static class Statistical
 
     private static AnyValue Rank(CalcContext ctx, Span<AnyValue> args, bool averageTies)
     {
-        // RANK(number, ref, [order]). number/order are scalars (implicitly intersected); ref is the
-        // range/array (marked param 1). order = 0 or omitted ranks descending, non-zero ascending.
-        if (!TryPickScalarNumber(ctx, args[0], out var number, out var numberError))
+        // RANK(number, ref, [order]). number and order are scalars: a single-cell reference reads
+        // the cell and an array its first element. number coerces text, even from a cell, as "5"
+        // ranks as 5. order is a logical, so text, even "5", is #VALUE! and a blank cell is FALSE.
+        // FALSE ranks descending, TRUE ascending.
+        if (!ToNumber(args[0], ctx).TryPickT0(out var number, out var numberError))
             return numberError;
 
         if (!TryGetNumbers(ctx, args[1], out var numbers, out var refError))
             return refError;
 
         var ascending = false;
-        if (args.Length > 2)
-        {
-            if (!TryPickScalarNumber(ctx, args[2], out var order, out var orderError))
-                return orderError;
-            ascending = order != 0;
-        }
+        if (args.Length > 2 && !CoerceToLogical(args[2], ctx).TryPickT0(out ascending, out var orderError))
+            return orderError;
 
         if (!numbers.Contains(number))
             return XLError.NoValueAvailable;
