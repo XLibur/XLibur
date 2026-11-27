@@ -185,6 +185,12 @@ internal class XLPivotTableStyleFormatsTests
 
         await Assert.That(pt.Formats.Count).IsEqualTo(0);
 
+        // The outside-border shorthand behaves as its four edges do (#1029).
+        area.Border.OutsideBorder = XLBorderStyleValues.None;
+        area.Border.OutsideBorderColor = XLColor.Red;
+
+        await Assert.That(pt.Formats.Count).IsEqualTo(0);
+
         pt.StyleFormats.RowGrandTotalFormats
             .ForElement(XLPivotStyleFormatElement.All).Style
             .Font.SetBold(true);
