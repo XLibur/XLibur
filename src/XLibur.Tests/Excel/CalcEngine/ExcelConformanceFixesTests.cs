@@ -156,6 +156,15 @@ public class ExcelConformanceFixesTests
     }
 
     [Test]
+    [Arguments("RATE(10,0,800)", -0.999998742518659)]
+    [Arguments("RATE(10,0,800,0,0,-0.5)", -0.9999987245009726)]
+    [Arguments("RATE(10,0,800,0,0,0.5)", -0.9999987194570075)]
+    public async Task A_multiple_root_at_minus_one_gives_the_rate_where_excel_iteration_stops(string formula, double excel)
+    {
+        await Assert.That((double)XLWorkbook.EvaluateExpr(formula)).IsEqualTo(excel).Within(1e-15);
+    }
+
+    [Test]
     public async Task A_typical_loan_rate_is_accurate_to_the_last_digits()
     {
         await Assert.That((double)XLWorkbook.EvaluateExpr("RATE(360,-1073.64,200000)")).IsEqualTo(0.004166644536345542).Within(1e-17);

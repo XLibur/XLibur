@@ -89,6 +89,23 @@ internal sealed class CalculationVisitor : IFormulaVisitor<CalcContext, AnyValue
         };
     }
 
+    /// <summary>
+    /// Evaluate the root of a cell formula. A root <c>+</c> or <c>-</c> sets a result at or very
+    /// near zero to exactly 0, as Excel does for the last operation of a formula; a nested one
+    /// does not (<see cref="AnyValue.RootBinaryMinus"/>).
+    /// </summary>
+    public AnyValue VisitRoot(CalcContext context, ValueNode root)
+    {
+        if (root is not BinaryNode { Operation: BinaryOp.Add or BinaryOp.Sub } node)
+            return root.Accept(context, this);
+
+        var leftArg = node.LeftExpression.Accept(context, this);
+        var rightArg = node.RightExpression.Accept(context, this);
+        return node.Operation == BinaryOp.Add
+            ? AnyValue.RootBinaryPlus(leftArg, rightArg, context)
+            : AnyValue.RootBinaryMinus(leftArg, rightArg, context);
+    }
+
     public AnyValue Visit(CalcContext context, FunctionNode node)
     {
         // LET and LAMBDA are special forms: their arguments are names, and values evaluated in a
