@@ -2,17 +2,9 @@
 # A row must carry a reason. The runner fails on a row that now agrees, and on one whose XLibur answer changed.
 AND	AND#18	bool:TRUE	error:#VALUE!	AND("") is #VALUE! in Excel and TRUE in XLibur	
 DATE	DATE#38	number:0	error:#NUM!	DATE(1900,0,31) is #NUM! in Excel and serial 0 in XLibur	
-LEFT	LEFT#19	text:0.300	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
-LEN	LEN#9	number:18	number:17	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (1/3 is 17 characters in Excel, 18 in XLibur)	
-LEN	LEN#11	number:5	number:7	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (1E-5 is 0.00001, 7 characters in Excel, 5 in XLibur)	
-LEN	LEN#12	number:22	number:18	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (18 characters in Excel, 22 in XLibur)	
-LEN	LEN#13	number:2	number:1	Excel counts an emoji (surrogate pair) as one character; XLibur counts UTF-16 units. LEFT and FIND in XLibur already treat the pair as one	
-MID	MID#18	text:\uDE00	text:a	Excel indexes an emoji (surrogate pair) as one character; XLibur indexes UTF-16 units and splits the pair	
 POWER	POWER#5	error:#NUM!	number:-1.9999999999999998	Excel returns the real cube root for a negative base with exponent 1/3; XLibur returns #NUM!	
 ROUND	ROUND#3	number:1	number:1.01	Excel rounds 1.005 to 1.01; XLibur rounds the binary value to 1 (Excel probably rounds the 15-digit decimal form)	
 SUM	SUM#13	number:5.551115123125783E-17	number:0	Excel returns exactly 0 for SUM(0.1,0.2)-0.3; XLibur returns the IEEE residue	
-TRIM	TRIM#18	text:0.30000000000000004	text:0.3	Number to text: Excel gives the 15-significant-digit plain decimal form; XLibur gives a different form (0.1+0.2 is 0.3 in Excel, 0.30000000000000004 in XLibur)	
-VALUE	VALUE#12	number:-5	error:#VALUE!	VALUE("5-") is #VALUE! in Excel; XLibur parses it as -5	
 VLOOKUP	VLOOKUP#18	error:#N/A	text:c	Approximate VLOOKUP on unsorted data: Excel returns the row for 2, XLibur returns #N/A	
 GCD	GCD#3	number:0	error:#VALUE!	=GCD(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
 LCM	LCM#3	number:0	error:#VALUE!	=LCM(A1) with an empty cell reference: Excel returns error:#VALUE!; XLibur returns number:0	
@@ -21,7 +13,6 @@ OR	OR#4	bool:FALSE	error:#VALUE!	=OR("5") with a direct text argument: Excel ret
 OR	OR#5	bool:FALSE	error:#VALUE!	=OR("x") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#6	bool:FALSE	error:#VALUE!	=OR("") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
 OR	OR#14	bool:FALSE	error:#VALUE!	=OR("0") with a direct text argument: Excel returns #VALUE!; XLibur returns FALSE	
-REPLACE	REPLACE#14	text:\uD83DX	text:😀X	Surrogate pair counted as one character by Excel; XLibur splits the emoji	
 ROMAN	ROMAN#22	text:MLMVLIV	text:MCMXCIX	ROMAN(1999,TRUE) is MCMXCIX in Excel and MLMVLIV in XLibur: the boolean form argument is read differently	
 SUMPRODUCT	SUMPRODUCT#17	error:#VALUE!	error:#N/A	SUMPRODUCT of a range and an error: Excel returns #N/A; XLibur returns #VALUE!	
 TYPE	TYPE#8	number:64	number:1	TYPE of a multi-cell range in a single cell: Excel returns 1 (the intersected cell); XLibur returns 64 (array)	
@@ -29,10 +20,6 @@ BIN2DEC	BIN2DEC#6	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur 
 BIN2DEC	BIN2DEC#8	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2HEX	BIN2HEX#7	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
 BIN2HEX	BIN2HEX#9	error:#NUM!	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#NUM!	
-COMPLEX	COMPLEX#14	text:1E-10+4i	text:0.0000000001+4i	Excel returns text:0.0000000001+4i; XLibur returns text:1E-10+4i	
-COMPLEX	COMPLEX#15	text:1E+15+4i	text:1000000000000000+4i	Excel returns text:1000000000000000+4i; XLibur returns text:1E+15+4i	
-COMPLEX	COMPLEX#29	text:3+1E-10i	text:3+0.0000000001i	Excel returns text:3+0.0000000001i; XLibur returns text:3+1E-10i	
-COMPLEX	COMPLEX#30	text:3+1E+15i	text:3+1000000000000000i	Excel returns text:3+1000000000000000i; XLibur returns text:3+1E+15i	
 CONVERT	CONVERT#21	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CONVERT	CONVERT#23	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
 CONVERT	CONVERT#36	error:#N/A	error:#VALUE!	Excel returns error:#VALUE!; XLibur returns error:#N/A	
