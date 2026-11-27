@@ -50,6 +50,24 @@ internal static class PivotCacheValueCodec
         }
     }
 
+    /// <summary>
+    /// Whether a shared item is flagged as no longer in the source data (<c>u</c>).
+    /// </summary>
+    internal static bool IsUnused(OpenXmlElement item)
+    {
+        var unused = item switch
+        {
+            MissingItem missingItem => missingItem.Unused,
+            NumberItem numberItem => numberItem.Unused,
+            BooleanItem booleanItem => booleanItem.Unused,
+            ErrorItem errorItem => errorItem.Unused,
+            StringItem stringItem => stringItem.Unused,
+            DateTimeItem dateTimeItem => dateTimeItem.Unused,
+            _ => null,
+        };
+        return unused?.Value ?? false;
+    }
+
     private static XLError GetErrorValue(ErrorItem errorItem)
     {
         var errorText = errorItem.Val?.Value ?? throw PartStructureException.MissingAttribute();
@@ -66,16 +84,18 @@ internal static class PivotCacheValueCodec
     /// </summary>
     /// <param name="value">The value of the shared item. Not an index.</param>
     /// <param name="text">The text of <paramref name="value"/>, when it is a string.</param>
-    internal static OpenXmlElement ToSharedItem(XLPivotCacheValue value, string? text)
+    /// <param name="unused">Whether the item is no longer in the source data.</param>
+    internal static OpenXmlElement ToSharedItem(XLPivotCacheValue value, string? text, bool unused)
     {
+        BooleanValue? u = unused ? true : null;
         return value.Type switch
         {
-            XLPivotCacheValueType.Missing => new MissingItem(),
-            XLPivotCacheValueType.Boolean => new BooleanItem { Val = value.GetBoolean() },
-            XLPivotCacheValueType.Number => new NumberItem { Val = value.GetNumber() },
-            XLPivotCacheValueType.String => new StringItem { Val = text },
-            XLPivotCacheValueType.Error => new ErrorItem { Val = value.GetError().ToDisplayString() },
-            XLPivotCacheValueType.DateTime => new DateTimeItem { Val = value.GetDateTime() },
+            XLPivotCacheValueType.Missing => new MissingItem { Unused = u },
+            XLPivotCacheValueType.Boolean => new BooleanItem { Val = value.GetBoolean(), Unused = u },
+            XLPivotCacheValueType.Number => new NumberItem { Val = value.GetNumber(), Unused = u },
+            XLPivotCacheValueType.String => new StringItem { Val = text, Unused = u },
+            XLPivotCacheValueType.Error => new ErrorItem { Val = value.GetError().ToDisplayString(), Unused = u },
+            XLPivotCacheValueType.DateTime => new DateTimeItem { Val = value.GetDateTime(), Unused = u },
             _ => throw new InvalidOperationException(),
         };
     }

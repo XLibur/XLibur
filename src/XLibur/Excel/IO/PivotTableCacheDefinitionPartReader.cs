@@ -297,8 +297,9 @@ internal static class PivotTableCacheDefinitionPartReader
         var maxDate = sharedItems?.MaxDate?.Value;
         var containsString = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsString, true);
         var longText = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.LongText, false);
+        var containsNonDate = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsNonDate, true);
 
-        // The containsMixedTypes, containsNonDate and containsSemiMixedTypes are derived from primary stats.
+        // The containsMixedTypes and containsSemiMixedTypes are derived from primary stats.
         return new XLPivotCacheValuesStats
         {
             ContainsBlank = containsBlank,
@@ -311,6 +312,7 @@ internal static class PivotTableCacheDefinitionPartReader
             ContainsDate = containsDate,
             MinDate = minDate,
             MaxDate = maxDate,
+            ContainsNonDate = containsNonDate,
         };
     }
 
@@ -327,7 +329,12 @@ internal static class PivotTableCacheDefinitionPartReader
         {
             // Shared items can't contain element of type index (`x`),
             // because index references shared items.
+            var index = sharedItems.Count;
             PivotCacheValueCodec.ReadValue(sharedItems, item);
+
+            // A string that differs from an earlier one only in case is not added.
+            if (sharedItems.Count > index && PivotCacheValueCodec.IsUnused(item))
+                sharedItems.MarkUnused(index);
         }
 
         return sharedItems;

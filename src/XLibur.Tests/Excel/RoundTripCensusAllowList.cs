@@ -68,7 +68,6 @@ internal static class RoundTripCensusAllowList
     private const string LostCommentPropertiesCommentPrAndItsAnchor = "comment properties (commentPr and its anchor) dropped";
     private const string LostCommentTextBoxAlignmentVMLDiv = "comment text box alignment (VML div style) dropped";
     private const string LostForeignNoteFillAndStroke = "a LibreOffice note's v:fill colour, stroke colour and arrow, and v:wrap, dropped when the note is rewritten as an Excel note shape";
-    private const string LostPivotCacheItemFlagsUContainsNonDate = "pivot cache item flags (u, containsNonDate) dropped";
     private const string LostRebuiltPivotFormatDxfsDropReadingOrder = "rebuilt pivot format dxfs drop readingOrder and the vertical and horizontal border sides";
     private const string LostRichValueDetailOfAVALUE = "rich-value detail of a #VALUE! error (subType, argument) dropped";
     private const string LostRowStyleCustomFormatSDroppedWhen = "row style (customFormat, s) dropped when the sheet is written from the model";
@@ -395,11 +394,6 @@ internal static class RoundTripCensusAllowList
         new(VmlDrawing, "v:wrap@v:type", "#953", LostForeignNoteFillAndStroke, 2),
         new(VmlDrawing, "div", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
         new(VmlDrawing, "div@style", "#953", LostCommentTextBoxAlignmentVMLDiv, 72),
-        new(SpreadsheetmlPivotCacheDefinition, "d@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 3508),
-        new(SpreadsheetmlPivotCacheDefinition, "m@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 4),
-        new(SpreadsheetmlPivotCacheDefinition, "n@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 540),
-        new(SpreadsheetmlPivotCacheDefinition, "s@u", "#955", LostPivotCacheItemFlagsUContainsNonDate, 624),
-        new(SpreadsheetmlPivotCacheDefinition, "sharedItems@containsNonDate", "#955", LostPivotCacheItemFlagsUContainsNonDate, 72),
         new(SpreadsheetmlPivotTable, "format@dxfId->alignment", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 32),
         new(SpreadsheetmlPivotTable, "format@dxfId->border", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 14),
         new(SpreadsheetmlStyles, "alignment@readingOrder", "#956", LostRebuiltPivotFormatDxfsDropReadingOrder, 196),
