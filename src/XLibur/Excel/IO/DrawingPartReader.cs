@@ -314,6 +314,28 @@ internal static class DrawingPartReader
         );
     }
 
+    /// <summary>
+    /// A note's VML shape is the one whose client data says it is a note. Its shape type does not
+    /// say: Excel uses <c>#_x0000_t202</c>, POI <c>#_xssf_cell_comment</c> and LibreOffice one of
+    /// its own (<c>shapetype_75</c>). A LibreOffice note matched by type was neither loaded nor
+    /// removed on save, so the saved file held it twice (#953).
+    /// </summary>
+    internal static bool IsNoteShape(XElement element) =>
+        element.Name == XName.Get("shape", "urn:schemas-microsoft-com:vml") &&
+        element.Elements().Any(e => e.Name.LocalName == "ClientData" && e.Attribute("ObjectType")?.Value == "Note");
+
+    /// <summary>The 1-based cell a note's shape names in its client data, if it names one.</summary>
+    internal static (int Row, int Column)? ReadNoteCell(XElement shape)
+    {
+        var clientData = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "ClientData");
+        var row = clientData?.Elements().FirstOrDefault(e => e.Name.LocalName == "Row")?.Value;
+        var column = clientData?.Elements().FirstOrDefault(e => e.Name.LocalName == "Column")?.Value;
+        return int.TryParse(row, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r) &&
+               int.TryParse(column, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c)
+            ? (r + 1, c + 1)
+            : null;
+    }
+
     internal static IList<XElement> GetCommentShapes(WorksheetPart worksheetPart)
     {
         // Cannot get this to return Vml.Shape elements
@@ -326,13 +348,7 @@ internal static class DrawingPartReader
 
             var root = xdoc.Root?.Element("xml") ?? xdoc.Root;
 
-            var shapes = root?.Elements(XName.Get("shape", "urn:schemas-microsoft-com:vml"))
-                .Where(e => new[]
-                {
-                    "#" + XLConstants.Comment.ShapeTypeId,
-                    "#" + XLConstants.Comment.AlternateShapeTypeId
-                }.Contains(e.Attribute("type")?.Value))
-                .ToList();
+            var shapes = root?.Elements().Where(IsNoteShape).ToList();
 
             if (shapes != null)
                 return shapes;
@@ -483,6 +499,23 @@ internal static class DrawingPartReader
             drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveAndSizeWithCells;
         else
             drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
+    }
+
+    /// <summary>
+    /// The note's <c>&lt;x:Anchor&gt;</c> as written, or null when it is not eight whole numbers
+    /// (from column, offset, row, offset, then the same for the far corner), so that a save never
+    /// writes a malformed one back.
+    /// </summary>
+    internal static string? ReadNoteAnchor(XElement clientData)
+    {
+        var anchor = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "Anchor")?.Value.Trim();
+        if (anchor is null)
+            return null;
+
+        var parts = anchor.Split(',');
+        return parts.Length == 8 && parts.All(p => int.TryParse(p, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            ? anchor
+            : null;
     }
 
     private static void LoadClientDataAnchor<T>(IXLDrawing<T> drawing, XElement anchor)

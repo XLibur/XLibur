@@ -29,7 +29,6 @@ public static class XLConstants
 
     internal static class Comment
     {
-        internal const string AlternateShapeTypeId = "_xssf_cell_comment";
         internal const string ShapeTypeId = "_x0000_t202";
     }
 

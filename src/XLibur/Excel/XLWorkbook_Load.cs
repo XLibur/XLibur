@@ -1003,12 +1003,25 @@ public partial class XLWorkbook
             var authors = root.GetFirstChild<Authors>()!.ChildElements.OfType<Author>().ToList();
             var comments = root.GetFirstChild<CommentList>()!.ChildElements.OfType<Comment>().ToList();
 
-            // **** MAYBE FUTURE SHAPE SIZE SUPPORT
             var shapes = DrawingPartReader.GetCommentShapes(worksheetPart);
+
+            // A note's shape names its cell. The two parts need not list notes in the same order
+            // (EditingComments.xlsx lists comments by row and shapes by column), so pairing them by
+            // position gave C1 the box of B3. A shape that names no cell still pairs by position.
+            var shapesByCell = new Dictionary<(int Row, int Column), XElement>();
+            foreach (var shape in shapes)
+            {
+                if (DrawingPartReader.ReadNoteCell(shape) is { } cell)
+                    shapesByCell.TryAdd(cell, shape);
+            }
 
             for (var i = 0; i < comments.Count; i++)
             {
-                var shape = i < shapes.Count ? shapes[i] : null;
+                var address = ws.Cell(comments[i].Reference!)!.Address;
+                var shape = shapesByCell.GetValueOrDefault((address.RowNumber, address.ColumnNumber));
+                if (shape is null && i < shapes.Count && DrawingPartReader.ReadNoteCell(shapes[i]) is null)
+                    shape = shapes[i];
+
                 LoadSingleComment(comments[i], shape, authors, ws);
             }
         }
@@ -1062,6 +1075,10 @@ public partial class XLWorkbook
             if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
 
             DrawingPartReader.LoadColorsAndLines(xlComment, shape);
+
+            // Last, once the note's position, size and text are all loaded: they decide the anchor.
+            if (DrawingPartReader.ReadNoteAnchor(clientData) is { } fileAnchor)
+                xlComment.LoadedAnchor = new LoadedNoteAnchor(fileAnchor, VmlDrawingPartWriter.ComputeAnchor(cell, xlComment));
         }
     }
 
