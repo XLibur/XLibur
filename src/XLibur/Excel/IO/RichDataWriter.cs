@@ -233,7 +233,7 @@ internal static class RichDataWriter
         OpenXmlPart part,
         IReadOnlyList<RichValueEntry> entries,
         IReadOnlyList<ErrorRichValue> errors,
-        IReadOnlyList<int> errorStructureIndexes,
+        List<int> errorStructureIndexes,
         Dictionary<int, int> imageIndexToRelIndex)
     {
         using var w = PartXmlWriter.Create(part);
@@ -285,7 +285,7 @@ internal static class RichDataWriter
     /// </code>
     /// </summary>
     private static void WriteRichValueStructureXml(OpenXmlPart part, bool hasImages,
-        IReadOnlyList<IReadOnlyList<ErrorRichValueKey>> errorStructures)
+        List<IReadOnlyList<ErrorRichValueKey>> errorStructures)
     {
         using var w = PartXmlWriter.Create(part);
 
