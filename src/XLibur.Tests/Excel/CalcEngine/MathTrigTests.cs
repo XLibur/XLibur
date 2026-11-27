@@ -1950,6 +1950,7 @@ public class MathTrigTests
     [Arguments(2, 0.5, 1.414213562373)]
     [Arguments(-1.234, 5.0, -2.861381721051)]
     [Arguments(1.234, 5.1, 2.9221823578798)]
+    [Arguments(-32, 0.2, -2)] // An odd root of a negative base is real
     public async Task Power(double x, double y, double expected)
     {
         await Assert.That((double)XLWorkbook.EvaluateExpr($"POWER({x}, {y})")).IsEqualTo(expected).Within(1e-12);
