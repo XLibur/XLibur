@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Validation;
 using XLibur.Excel;
 
 namespace XLibur.Tests.Excel.Comments;
@@ -30,6 +32,46 @@ public class NotePropertiesRoundTripTests
         var saved = ReadCommentProperties(Save(fixture, _ => { }));
 
         await Assert.That(saved).IsEquivalentTo(loaded);
+    }
+
+    [Test]
+    [Arguments(LibreOffice)]
+    [Arguments(LibreOfficeStrict)]
+    public async Task A_note_saved_with_its_comment_properties_passes_validation(string fixture)
+    {
+        using var saved = Save(fixture, _ => { });
+        saved.Position = 0;
+        using var document = SpreadsheetDocument.Open(saved, isEditable: false);
+
+        var validator = new OpenXmlValidator(FileFormatVersions.Office2010);
+        var errors = document.WorkbookPart!.WorksheetParts
+            .Select(wsp => wsp.WorksheetCommentsPart).OfType<WorksheetCommentsPart>()
+            .SelectMany(part => validator.Validate(part))
+            .Select(e => $"{e.Path?.XPath}: {e.Description}")
+            .ToList();
+
+        await Assert.That(errors).IsEmpty();
+    }
+
+    [Test]
+    public async Task A_resized_note_drops_the_comment_properties_that_no_longer_describe_it()
+    {
+        var saved = ReadCommentProperties(Save(LibreOffice, wb =>
+        {
+            var note = wb.Worksheet(1).Cell("H3").GetComment();
+            note.Style.Size.SetWidth(note.Style.Size.Width * 2);
+        }));
+
+        await Assert.That(saved).IsEmpty();
+    }
+
+    [Test]
+    public async Task A_realigned_note_drops_the_comment_properties_that_no_longer_describe_it()
+    {
+        var saved = ReadCommentProperties(Save(LibreOffice, wb =>
+            wb.Worksheet(1).Cell("H3").GetComment().Style.Alignment.SetHorizontal(XLDrawingHorizontalAlignment.Center)));
+
+        await Assert.That(saved).IsEmpty();
     }
 
     private static MemoryStream Load(string fixture)

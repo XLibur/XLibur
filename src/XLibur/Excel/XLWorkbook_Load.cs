@@ -1080,6 +1080,36 @@ public partial class XLWorkbook
             if (DrawingPartReader.ReadNoteAnchor(clientData) is { } fileAnchor)
                 xlComment.LoadedAnchor = new LoadedNoteAnchor(fileAnchor, VmlDrawingPartWriter.ComputeAnchor(cell, xlComment));
         }
+
+        if (ReadCommentPropertiesMarkup(c) is { Count: > 0 } markup)
+            xlComment.LoadedProperties = new LoadedCommentProperties(markup, NoteProperties.Of(cell, xlComment));
+    }
+
+    /// <summary>
+    /// Every element of a comment besides its text: a <c>commentPr</c>, or the
+    /// <c>mc:AlternateContent</c> LibreOffice wraps one in. An <c>mc:Choice</c> names in its
+    /// <c>Requires</c> a prefix the part declares on its root, and markup compatibility rejects a
+    /// prefix nothing declares, so each element takes the root's declarations along.
+    /// </summary>
+    private static List<XElement> ReadCommentPropertiesMarkup(Comment c)
+    {
+        var markup = new List<XElement>();
+        foreach (var element in c.ChildElements.Where(e => e is not CommentText))
+        {
+            var kept = XElement.Parse(element.OuterXml);
+            for (var ancestor = c.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            {
+                foreach (var (prefix, uri) in ancestor.NamespaceDeclarations)
+                {
+                    if (prefix.Length > 0 && kept.GetNamespaceOfPrefix(prefix) is null)
+                        kept.Add(new XAttribute(XNamespace.Xmlns + prefix, uri));
+                }
+            }
+
+            markup.Add(kept);
+        }
+
+        return markup;
     }
 
     /// <summary>
