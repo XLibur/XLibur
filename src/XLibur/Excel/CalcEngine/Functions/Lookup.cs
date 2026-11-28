@@ -70,23 +70,17 @@ internal static class Lookup
         var rowIndex = (int)Math.Truncate(rowNumber) - 1;
         if (rowIndex < 0)
             return XLError.IncompatibleValue;
+
+        var column = approximateSearchFlag
+            ? MatchAscending(lookupValue, new TransposedArray(array), ScalarValueComparer.SortIgnoreCase)
+            : ExactSearchColumn(array, lookupValue);
+        if (column == -1)
+            return XLError.NoValueAvailable;
+
         if (rowIndex >= array.Height)
             return XLError.CellReference;
 
-        if (approximateSearchFlag)
-        {
-            var foundColumn = MatchAscending(lookupValue, new TransposedArray(array), ScalarValueComparer.SortIgnoreCase);
-            if (foundColumn == -1)
-                return XLError.NoValueAvailable;
-
-            return array[rowIndex, foundColumn].ToAnyValue();
-        }
-
-        var exactColumn = ExactSearchColumn(array, lookupValue);
-        if (exactColumn == -1)
-            return XLError.NoValueAvailable;
-
-        return array[rowIndex, exactColumn].ToAnyValue();
+        return array[rowIndex, column].ToAnyValue();
     }
 
     private static AnyValue Hyperlink(CalcContext ctx, string linkLocation, ScalarValue? friendlyName)
@@ -384,23 +378,17 @@ internal static class Lookup
         var columnIdx = (int)Math.Truncate(columnNumber) - 1;
         if (columnIdx < 0)
             return XLError.IncompatibleValue;
+
+        var row = approximateSearchFlag
+            ? MatchAscending(lookupValue, array, ScalarValueComparer.SortIgnoreCase)
+            : ExactSearchRow(array, lookupValue);
+        if (row == -1)
+            return XLError.NoValueAvailable;
+
         if (columnIdx >= array.Width)
             return XLError.CellReference;
 
-        if (approximateSearchFlag)
-        {
-            var foundRow = MatchAscending(lookupValue, array, ScalarValueComparer.SortIgnoreCase);
-            if (foundRow == -1)
-                return XLError.NoValueAvailable;
-
-            return array[foundRow, columnIdx].ToAnyValue();
-        }
-
-        var exactRow = ExactSearchRow(array, lookupValue);
-        if (exactRow == -1)
-            return XLError.NoValueAvailable;
-
-        return array[exactRow, columnIdx].ToAnyValue();
+        return array[row, columnIdx].ToAnyValue();
     }
 
     /// <summary>
