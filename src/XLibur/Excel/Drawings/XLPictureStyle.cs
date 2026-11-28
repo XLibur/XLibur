@@ -59,23 +59,24 @@ internal sealed class XLPictureStyle
     /// <summary>The properties that hold a value, or say there is none: what a copy of the picture assigns.</summary>
     internal XLPictureStyleProperties Held()
     {
-        var held = XLPictureStyleProperties.None;
-        if (BorderColor is not null) held |= XLPictureStyleProperties.BorderColor;
-        if (BorderWidthPt is not null) held |= XLPictureStyleProperties.BorderWidth;
-        if (BorderDash is not null) held |= XLPictureStyleProperties.BorderDash;
-        if (NoBorder) held |= XLPictureStyleProperties.NoBorder;
-        if (FillColor is not null) held |= XLPictureStyleProperties.FillColor;
-        if (NoFill) held |= XLPictureStyleProperties.NoFill;
-        if (Rotation is not null) held |= XLPictureStyleProperties.Rotation;
-        if (FlipHorizontal is not null) held |= XLPictureStyleProperties.FlipHorizontal;
-        if (FlipVertical is not null) held |= XLPictureStyleProperties.FlipVertical;
-        if (Transparency is not null) held |= XLPictureStyleProperties.Transparency;
-        if (Recolor is not null and not XLPictureRecolor.Custom) held |= XLPictureStyleProperties.Recolor;
-        if (Brightness is not null) held |= XLPictureStyleProperties.Brightness;
-        if (Contrast is not null) held |= XLPictureStyleProperties.Contrast;
-        if (Crop is not null) held |= XLPictureStyleProperties.Crop;
-        if (Shadow is not null) held |= XLPictureStyleProperties.Shadow;
-        return held;
+        return If(BorderColor is not null, XLPictureStyleProperties.BorderColor)
+               | If(BorderWidthPt is not null, XLPictureStyleProperties.BorderWidth)
+               | If(BorderDash is not null, XLPictureStyleProperties.BorderDash)
+               | If(NoBorder, XLPictureStyleProperties.NoBorder)
+               | If(FillColor is not null, XLPictureStyleProperties.FillColor)
+               | If(NoFill, XLPictureStyleProperties.NoFill)
+               | If(Rotation is not null, XLPictureStyleProperties.Rotation)
+               | If(FlipHorizontal is not null, XLPictureStyleProperties.FlipHorizontal)
+               | If(FlipVertical is not null, XLPictureStyleProperties.FlipVertical)
+               | If(Transparency is not null, XLPictureStyleProperties.Transparency)
+               | If(Recolor is not null and not XLPictureRecolor.Custom, XLPictureStyleProperties.Recolor)
+               | If(Brightness is not null, XLPictureStyleProperties.Brightness)
+               | If(Contrast is not null, XLPictureStyleProperties.Contrast)
+               | If(Crop is not null, XLPictureStyleProperties.Crop)
+               | If(Shadow is not null, XLPictureStyleProperties.Shadow);
+
+        static XLPictureStyleProperties If(bool holds, XLPictureStyleProperties property) =>
+            holds ? property : XLPictureStyleProperties.None;
     }
 
     internal XLPictureStyle Clone() => (XLPictureStyle)MemberwiseClone();

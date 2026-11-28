@@ -46,7 +46,7 @@ public partial class XLWorkbook
             Thread.CurrentThread.CurrentCulture = backupCulture;
         }
 
-        if (!errors.Any()) return;
+        if (errors.Count == 0) return;
         var message = string.Join("\r\n",
             errors.Select(e => $"Part {e.Part?.Uri}, Path {e.Path?.XPath}: {e.Description}").ToArray());
         throw new InvalidOperationException(message);
@@ -226,23 +226,26 @@ public partial class XLWorkbook
                 continue;
 
             foreach (var element in root.Descendants().Prepend(root))
-            {
-                if (!element.HasAttributes)
-                    continue;
+                ConvertElementPercentages(element);
+        }
+    }
 
-                if (element.NamespaceUri == OpenXmlConst.DrawingMain2006Ns)
-                {
-                    foreach (var attribute in element.GetAttributes())
-                        ConvertAttribute(element, attribute, scale: 1000);
-                }
-                else if (element.NamespaceUri == OpenXmlConst.DrawingChart2006Ns && IsChartPercentage(element.LocalName))
-                {
-                    foreach (var attribute in element.GetAttributes())
-                    {
-                        if (attribute.LocalName == "val" && string.IsNullOrEmpty(attribute.NamespaceUri))
-                            ConvertAttribute(element, attribute, scale: 1);
-                    }
-                }
+    private static void ConvertElementPercentages(OpenXmlElement element)
+    {
+        if (!element.HasAttributes)
+            return;
+
+        if (element.NamespaceUri == OpenXmlConst.DrawingMain2006Ns)
+        {
+            foreach (var attribute in element.GetAttributes())
+                ConvertAttribute(element, attribute, scale: 1000);
+        }
+        else if (element.NamespaceUri == OpenXmlConst.DrawingChart2006Ns && IsChartPercentage(element.LocalName))
+        {
+            foreach (var attribute in element.GetAttributes())
+            {
+                if (attribute.LocalName == "val" && string.IsNullOrEmpty(attribute.NamespaceUri))
+                    ConvertAttribute(element, attribute, scale: 1);
             }
         }
 

@@ -248,7 +248,7 @@ internal static class XLCellCopyHelper
         var sparkline = otherCell.Sparkline!;
         // A sparkline loaded with a data reference that named no range has no source data to copy.
         if (!sparkline.IsValid) return;
-        var sourceDataAddress = sparkline.SourceData.RangeAddress.ToString()!;
+        var sourceDataAddress = sparkline.SourceData.RangeAddress.ToString();
         var shiftedRangeAddress = XLCellFormula.GetCopiedA1(sourceDataAddress, otherCell.SheetPoint, target.SheetPoint);
         var sourceDataWorksheet = otherCell.Worksheet == sparkline.SourceData.Worksheet
             ? target.Worksheet
@@ -269,7 +269,7 @@ internal static class XLCellCopyHelper
                     otherCell.Worksheet == sparkline.SparklineGroup.DateRange.Worksheet
                         ? target.Worksheet
                         : sparkline.SparklineGroup.DateRange.Worksheet;
-                var dateRangeAddress = sparkline.SparklineGroup.DateRange.RangeAddress.ToString()!;
+                var dateRangeAddress = sparkline.SparklineGroup.DateRange.RangeAddress.ToString();
                 var shiftedDateRangeAddress =
                     XLCellFormula.GetCopiedA1(dateRangeAddress, otherCell.SheetPoint, target.SheetPoint);
                 group.SetDateRange(dateRangeWorksheet.Range(shiftedDateRangeAddress));

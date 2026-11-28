@@ -200,7 +200,9 @@ internal static partial class XLCellFormulaShifter
     /// The sheet as <see cref="IXLWorksheet"/>, so that <c>Range(string)</c> keeps raising its own
     /// exception for an address it cannot read rather than handing back null.
     /// </returns>
+#pragma warning disable CA1859 // Deliberately typed as the interface: see the remarks above
     private static IXLWorksheet ReferencedSheet(XLRange shiftedRange) => shiftedRange.Worksheet;
+#pragma warning restore CA1859
 
     private static void AppendShiftedRowMatch(StringBuilder sb, string matchString, string sheetName, bool useSheetName,
         XLWorksheet worksheetInAction, XLRange shiftedRange, int rowsShifted)

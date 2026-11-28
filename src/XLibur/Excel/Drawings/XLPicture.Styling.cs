@@ -215,18 +215,16 @@ internal sealed partial class XLPicture
         get => Style.Crop;
         set
         {
-            if (value is { } crop)
-            {
-                if (!double.IsFinite(crop.Left) || !double.IsFinite(crop.Top) ||
-                    !double.IsFinite(crop.Right) || !double.IsFinite(crop.Bottom) ||
-                    crop.Left >= 100 || crop.Top >= 100 || crop.Right >= 100 || crop.Bottom >= 100 ||
-                    crop.Left < MinCropPercent || crop.Top < MinCropPercent ||
-                    crop.Right < MinCropPercent || crop.Bottom < MinCropPercent ||
-                    crop.Left + crop.Right >= 100 || crop.Top + crop.Bottom >= 100)
-                    throw new ArgumentOutOfRangeException(nameof(value), value,
-                        "A crop leaves part of the image: each edge, and each pair of opposite edges, under 100 percent, " +
-                        $"and no edge below {MinCropPercent} percent.");
-            }
+            if (value is { } crop &&
+                (!double.IsFinite(crop.Left) || !double.IsFinite(crop.Top) ||
+                 !double.IsFinite(crop.Right) || !double.IsFinite(crop.Bottom) ||
+                 crop.Left >= 100 || crop.Top >= 100 || crop.Right >= 100 || crop.Bottom >= 100 ||
+                 crop.Left < MinCropPercent || crop.Top < MinCropPercent ||
+                 crop.Right < MinCropPercent || crop.Bottom < MinCropPercent ||
+                 crop.Left + crop.Right >= 100 || crop.Top + crop.Bottom >= 100))
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "A crop leaves part of the image: each edge, and each pair of opposite edges, under 100 percent, " +
+                    $"and no edge below {MinCropPercent} percent.");
 
             Style.Crop = value;
             Assign(XLPictureStyleProperties.Crop);
@@ -240,7 +238,9 @@ internal sealed partial class XLPicture
         {
             if (value is { } shadow)
             {
+#pragma warning disable S3236 // nameof(value) names the property's value, not the shadow.Color expression that CallerArgumentExpression would report
                 ArgumentNullException.ThrowIfNull(shadow.Color, nameof(value));
+#pragma warning restore S3236
                 if (!double.IsFinite(shadow.TransparencyPct) || shadow.TransparencyPct < 0 || shadow.TransparencyPct > 100)
                     throw new ArgumentOutOfRangeException(nameof(value), value, "A shadow's transparency is 0 to 100 percent.");
                 if (!double.IsFinite(shadow.BlurPt) || shadow.BlurPt < 0 || shadow.BlurPt > MaxShadowLengthPt ||

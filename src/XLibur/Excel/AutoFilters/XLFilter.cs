@@ -194,12 +194,12 @@ internal sealed class XLFilter
 
     internal static XLFilter CreateTopBottom(bool takeTop, int percentsOrItemCount)
     {
-        bool TopFilter(IXLCell cell, XLFilterColumn filterColumn)
+        static bool TopFilter(IXLCell cell, XLFilterColumn filterColumn)
         {
             var cachedValue = cell.CachedValue;
             return cachedValue.IsUnifiedNumber && cachedValue.GetUnifiedNumber() >= filterColumn.TopBottomFilterValue;
         }
-        bool BottomFilter(IXLCell cell, XLFilterColumn filterColumn)
+        static bool BottomFilter(IXLCell cell, XLFilterColumn filterColumn)
         {
             var cachedValue = cell.CachedValue;
             return cachedValue.IsUnifiedNumber && cachedValue.GetUnifiedNumber() <= filterColumn.TopBottomFilterValue;
@@ -229,13 +229,13 @@ internal sealed class XLFilter
 
     internal static XLFilter CreateAverage(double initialAverage, bool aboveAverage)
     {
-        bool AboveAverage(IXLCell cell, XLFilterColumn filterColumn)
+        static bool AboveAverage(IXLCell cell, XLFilterColumn filterColumn)
         {
             var cachedValue = cell.CachedValue;
             var average = filterColumn.DynamicValue;
             return cachedValue.IsUnifiedNumber && cachedValue.GetUnifiedNumber() > average;
         }
-        bool BelowAverage(IXLCell cell, XLFilterColumn filterColumn)
+        static bool BelowAverage(IXLCell cell, XLFilterColumn filterColumn)
         {
             var cachedValue = cell.CachedValue;
             var average = filterColumn.DynamicValue;

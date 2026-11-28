@@ -122,8 +122,9 @@ internal sealed class XLTable : XLRange, IXLTable
             if (_fieldNames.Values.All(f => f.Index != i - 1))
             {
                 var name = DefaultColumnPrefix + i;
-                for (var suffix = i + 1; _fieldNames.ContainsKey(name); suffix++)
-                    name = DefaultColumnPrefix + suffix;
+                var suffix = i + 1;
+                while (_fieldNames.ContainsKey(name))
+                    name = DefaultColumnPrefix + suffix++;
 
                 _fieldNames.Add(name, new XLTableField(this, name) { Index = i - 1 });
             }

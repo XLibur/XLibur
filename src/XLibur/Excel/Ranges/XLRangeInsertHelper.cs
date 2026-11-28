@@ -182,7 +182,7 @@ internal static class XLRangeInsertHelper
             axis.CopyLineSize(range.Worksheet, i, i + count);
     }
 
-    private static void ApplyFormatting<TAxis>(XLRangeBase range, IXLRange rangeToReturn,
+    private static void ApplyFormatting<TAxis>(XLRangeBase range, XLRange rangeToReturn,
         bool formatFromPrevious, XLCellsUsedOptions contentFlags)
         where TAxis : struct, IGridAxis
     {

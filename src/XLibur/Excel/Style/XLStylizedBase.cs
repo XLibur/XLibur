@@ -224,7 +224,7 @@ internal abstract class XLStylizedBase : IXLStylized
 
         return results;
 
-        void Collect(XLStylizedBase root, HashSet<XLStylizedBase> collector)
+        static void Collect(XLStylizedBase root, HashSet<XLStylizedBase> collector)
         {
             collector.Add(root);
             foreach (var child in root.Children)

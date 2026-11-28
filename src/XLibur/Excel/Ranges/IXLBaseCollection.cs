@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace XLibur.Excel;
 
+#pragma warning disable S1133 // Deprecated public interface, kept for source compatibility until the next major version
 /// <summary>
 /// Unused. No type in XLibur implements or extends this interface, and nothing consumes it —
 /// the collections it looks like it should describe (<see cref="IXLColumns"/>,
@@ -87,3 +88,4 @@ public interface IXLBaseCollection<out TSingle, TMultiple> : IEnumerable<TSingle
     /// <param name="clearOptions">Specify what you want to clear.</param>
     TMultiple Clear(XLClearOptions clearOptions = XLClearOptions.All);
 }
+#pragma warning restore S1133

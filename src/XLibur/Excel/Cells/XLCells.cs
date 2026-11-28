@@ -66,6 +66,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
+#pragma warning disable CA1859 // Callers hold the public IXLRangeAddress of IXLRange.RangeAddress, not the concrete type
     private static IEnumerable<Point> GetAllCellsInRange(IXLRangeAddress rangeAddress)
     {
         if (!rangeAddress.IsValid)
@@ -81,6 +82,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
             }
         }
     }
+#pragma warning restore CA1859
 
     /// <summary>
     /// The option flags that make <see cref="GetUsedCellsCandidates"/> contribute cells from

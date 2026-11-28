@@ -711,10 +711,12 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     internal XLTables Tables { get; }
 
+#pragma warning disable S4136 // Ordered with the other table members of IXLWorksheet, not regrouped by overload name
     public IXLTable Table(int index)
     {
         return Tables.Table(index);
     }
+#pragma warning restore S4136
 
     public IXLTable Table(string name)
     {
@@ -1746,6 +1748,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     // Frozen pane     -> set the pane's top-left to the target (clamped out of the frozen band),
     //                    resetting any single-axis orthogonal scroll to its origin, and reset the
     //                    overall view scroll to A1 so a residual sideways scroll is cleared.
+#pragma warning disable CA1859 // The only caller holds the public IXLCell.Address, an IXLAddress
     private void ScrollIntoView(IXLAddress target)
     {
         // The splits count frozen lines only when the pane is frozen. An unfrozen split states its
@@ -1779,6 +1782,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             fixedRow: false, fixedColumn: false);
         SheetView.TopLeftCellAddress = new XLAddress(this, 1, 1, fixedRow: false, fixedColumn: false);
     }
+#pragma warning restore CA1859
 
     private XLCalcEngine CalcEngine => Workbook.CalcEngine;
 
@@ -2089,6 +2093,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// evaluated first, exactly as <see cref="XLCell.Value"/> does.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The coordinates are outside the sheet.</exception>
+#pragma warning disable S4136 // Kept beside SetCellValue, its write twin, rather than grouped with the other GetCellValue overload
     internal XLCellValue GetCellValue(int row, int column)
     {
         ValidateCellCoordinates(row, column);
@@ -2096,6 +2101,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         EvaluateIfDirty(point);
         return Internals.CellsCollection.ValueSlice.GetCellValue(point);
     }
+#pragma warning restore S4136
 
     /// <summary>
     /// Evaluates the formula of the cell at <paramref name="point"/> if it has one and it needs

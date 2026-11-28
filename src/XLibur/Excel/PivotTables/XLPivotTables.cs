@@ -20,7 +20,7 @@ internal sealed class XLPivotTables : IXLPivotTables, IEnumerable<XLPivotTable>
     public void Add(XLPivotTable pivotTable)
     {
         var pivotCache = pivotTable.PivotCache;
-        if (!pivotCache.FieldNames.Any())
+        if (pivotCache.FieldNames.Count == 0)
             pivotCache.Refresh();
 
         _pivotTables.Add(pivotTable.Name, pivotTable);
