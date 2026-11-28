@@ -26,8 +26,6 @@ public class TopBottomAutoFilter : IXLExample
         // Add filters
         ws.RangeUsed()!.SetAutoFilter().Column(1).Top(2);
 
-        // Sort the filtered list
-        //ws.AutoFilter.Sort(1);
         #endregion
 
         #region Multi Column
@@ -61,8 +59,6 @@ public class TopBottomAutoFilter : IXLExample
         // Add filters
         ws.RangeUsed()!.SetAutoFilter().Column(2).Bottom(50, XLTopBottomType.Percent);
 
-        // Sort the filtered list
-        //ws.AutoFilter.Sort(3);
         #endregion
 
         using (var ms = new MemoryStream())
@@ -72,11 +68,9 @@ public class TopBottomAutoFilter : IXLExample
             var workbook = new XLWorkbook(ms);
 
             #region Single Column Numbers
-            //workbook.Worksheet(singleColumnNumbers).AutoFilter.Sort(1, XLSortOrder.Descending);
             #endregion
 
             #region Multi Column
-            //workbook.Worksheet(multiColumn).AutoFilter.Sort(3, XLSortOrder.Descending);
             #endregion
 
             workbook.SaveAs(filePath);

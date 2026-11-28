@@ -146,7 +146,7 @@ internal static class StyleDecoder
             key = key with
             {
                 Font = FontKey(font, key.Font),
-                FontElements = styles.FontElementsAt((int)cellFormat.FontId!.Value),
+                FontElements = styles.FontElementsAt((int)cellFormat.FontId.Value),
             };
         }
 

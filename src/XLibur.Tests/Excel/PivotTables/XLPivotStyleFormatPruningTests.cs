@@ -305,7 +305,7 @@ internal class XLPivotStyleFormatPruningTests
     /// </summary>
     private static int DataFieldCount(string pivotTableXml)
     {
-        return Regex.Matches(pivotTableXml, "<dataField[ /]").Count;
+        return Regex.Count(pivotTableXml, "<dataField[ /]");
     }
 
     private static int FormatCount(string pivotTableXml)

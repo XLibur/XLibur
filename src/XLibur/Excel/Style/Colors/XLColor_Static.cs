@@ -280,6 +280,7 @@ public sealed partial class XLColor
     /// </summary>
     public static XLColor Automatic { get; } = new();
 
+#pragma warning disable S1133 // Deprecated public alias, kept for source compatibility until the next major version
     /// <summary>
     /// An alias for <see cref="Automatic"/>. Some Excel color pickers (sheet tab color, fill
     /// background) label the same value "No Color" rather than "Automatic"; that is only a GUI
@@ -287,6 +288,7 @@ public sealed partial class XLColor
     /// </summary>
     [Obsolete($"Use {nameof(Automatic)} instead. NoColor is the label some Excel pickers use for the same value.")]
     public static XLColor NoColor => Automatic;
+#pragma warning restore S1133
 
     public static XLColor AliceBlue => FromColor(Color.AliceBlue);
 

@@ -105,6 +105,51 @@ internal static class RequestBinder
                 _lists[property] = list = [];
             list.Add(item);
         }
+
+        private static PropertyInfo? Find(List<PropertyInfo> properties, string kebab)
+            => properties.FirstOrDefault(p => Kebab(p.Name) == kebab);
+
+        private static (string Name, string? Inline) SplitOption(string option)
+        {
+            var equals = option.IndexOf('=');
+            return equals < 0 ? (option, null) : (option[..equals], option[(equals + 1)..]);
+        }
+
+        private static string Next(Queue<string> rest, string option)
+            => rest.TryDequeue(out var value) ? value : throw Usage($"{option} needs a value.");
+
+        private static bool ParseBool(string text, string option)
+            => bool.TryParse(text, out var value) ? value : throw Usage($"{option} takes true or false.");
+
+        private static object MakeList(Type listType, IEnumerable<object> items)
+        {
+            var element = ElementType(listType)!;
+            var list = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(element))!;
+            foreach (var item in items)
+                list.Add(item);
+            return list;
+        }
+
+        private static object? Convert(Type type, string raw, PropertyInfo property)
+        {
+            var target = Unwrap(type);
+            try
+            {
+                if (target == typeof(string))
+                    return raw;
+                if (target == typeof(int))
+                    return int.Parse(raw, CultureInfo.InvariantCulture);
+                if (target == typeof(double))
+                    return double.Parse(raw, CultureInfo.InvariantCulture);
+                if (target.IsEnum)
+                    return Enum.Parse(target, raw, ignoreCase: true);
+                return JsonSerializer.Deserialize(raw, type, Rendering.JsonOptions);
+            }
+            catch (Exception e) when (e is FormatException or OverflowException or ArgumentException or JsonException)
+            {
+                throw Usage($"{Spelling(property)}: '{raw}' is not valid ({e.Message}).");
+            }
+        }
     }
 
     internal static string Help(IOperation operation)
@@ -137,9 +182,6 @@ internal static class RequestBinder
     private static List<PropertyInfo> Properties(Type type)
         => type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite && p.Name != "EqualityContract").ToList();
 
-    private static PropertyInfo? Find(List<PropertyInfo> properties, string kebab)
-        => properties.FirstOrDefault(p => Kebab(p.Name) == kebab);
-
     private static bool IsRequired(PropertyInfo property) => property.GetCustomAttribute<RequiredMemberAttribute>() is not null;
 
     private static string Spelling(PropertyInfo property)
@@ -158,52 +200,10 @@ internal static class RequestBinder
         return text.ToString();
     }
 
-    private static (string Name, string? Inline) SplitOption(string option)
-    {
-        var equals = option.IndexOf('=');
-        return equals < 0 ? (option, null) : (option[..equals], option[(equals + 1)..]);
-    }
-
-    private static string Next(Queue<string> rest, string option)
-        => rest.TryDequeue(out var value) ? value : throw Usage($"{option} needs a value.");
-
-    private static bool ParseBool(string text, string option)
-        => bool.TryParse(text, out var value) ? value : throw Usage($"{option} takes true or false.");
-
     private static Type Unwrap(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
     private static Type? ElementType(Type type)
         => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyList<>) ? type.GetGenericArguments()[0] : null;
-
-    private static object MakeList(Type listType, IEnumerable<object> items)
-    {
-        var element = ElementType(listType)!;
-        var list = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(element))!;
-        foreach (var item in items)
-            list.Add(item);
-        return list;
-    }
-
-    private static object? Convert(Type type, string raw, PropertyInfo property)
-    {
-        var target = Unwrap(type);
-        try
-        {
-            if (target == typeof(string))
-                return raw;
-            if (target == typeof(int))
-                return int.Parse(raw, CultureInfo.InvariantCulture);
-            if (target == typeof(double))
-                return double.Parse(raw, CultureInfo.InvariantCulture);
-            if (target.IsEnum)
-                return Enum.Parse(target, raw, ignoreCase: true);
-            return JsonSerializer.Deserialize(raw, type, Rendering.JsonOptions);
-        }
-        catch (Exception e) when (e is FormatException or OverflowException or ArgumentException or JsonException)
-        {
-            throw Usage($"{Spelling(property)}: '{raw}' is not valid ({e.Message}).");
-        }
-    }
 
     private static OperationException Usage(string message) => OperationException.BadInput("usage", message);
 }

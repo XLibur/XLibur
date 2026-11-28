@@ -214,7 +214,7 @@ internal static class Lookup
     /// order, found by bisection. Excel runs the same search for all three, so unsorted data gives
     /// the element the bisection lands on: VLOOKUP(2,{3;1;2},1) is 2.
     /// </summary>
-    private static int MatchAscending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    private static int MatchAscending(ScalarValue target, Array data, ScalarValueComparer comparer)
     {
         var index = Bisection(target, data, comparer);
         if (index == -1)
@@ -242,7 +242,7 @@ internal static class Lookup
     }
 
     /// <summary>MATCH with a negative match type: data in descending order, scanned linearly.</summary>
-    private static int MatchDescending(ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+    private static int MatchDescending(ScalarValue target, Array data, ScalarValueComparer comparer)
     {
         // Data should be in descending order, but Excel doesn't use bisection.
         var found = -1;
@@ -763,20 +763,8 @@ internal static class Lookup
         if (!p[1].TryReduceToNumber(ctx, out var columnNumber, out var columnError))
             return columnError;
 
-        var absNumber = 1d;
-        if (p.Length > 2 && !p[2].IsBlank && !p[2].TryReduceToNumber(ctx, out absNumber, out var absError))
-            return absError;
-
-        var isA1 = true;
-        if (p.Length > 3 && !p[3].IsBlank && !CoerceToLogical(p[3], ctx).TryPickT0(out isA1, out var a1Error))
-            return a1Error;
-
-        string? sheetName = null;
-        if (p.Length > 4 && !p[4].IsBlank)
-        {
-            if (!ToText(p[4], ctx).TryPickT0(out sheetName, out var sheetError))
-                return sheetError;
-        }
+        if (!TryReadAddressOptions(ctx, p, out var absNumber, out var isA1, out var sheetName, out var optionError))
+            return optionError;
 
         rowNumber = Math.Truncate(rowNumber);
         columnNumber = Math.Truncate(columnNumber);
@@ -786,28 +774,48 @@ internal static class Lookup
             || absNumber < 1 || absNumber > 4)
             return XLError.IncompatibleValue;
 
-        var row = (int)rowNumber;
-        var column = (int)columnNumber;
+        var cell = FormatAddressCell((int)rowNumber, (int)columnNumber, absNumber, isA1);
+        return sheetName is null ? cell : string.Concat(sheetName.EscapeSheetName(), "!", cell);
+    }
+
+    /// <summary>
+    /// Reads the optional <c>abs_num</c>, <c>a1</c> and <c>sheet_text</c> arguments of ADDRESS, in that
+    /// order, so the first one that is an error decides the result.
+    /// </summary>
+    private static bool TryReadAddressOptions(CalcContext ctx, Span<AnyValue> p, out double absNumber, out bool isA1,
+        out string? sheetName, out XLError error)
+    {
+        absNumber = 1d;
+        isA1 = true;
+        sheetName = null;
+        error = default;
+
+        if (p.Length > 2 && !p[2].IsBlank && !p[2].TryReduceToNumber(ctx, out absNumber, out error))
+            return false;
+
+        if (p.Length > 3 && !p[3].IsBlank && !CoerceToLogical(p[3], ctx).TryPickT0(out isA1, out error))
+            return false;
+
+        return !(p.Length > 4 && !p[4].IsBlank && !ToText(p[4], ctx).TryPickT0(out sheetName, out error));
+    }
+
+    private static string FormatAddressCell(int row, int column, double absNumber, bool isA1)
+    {
         var rowIsAbsolute = absNumber is 1 or 2;
         var columnIsAbsolute = absNumber is 1 or 3;
 
-        string cell;
         if (isA1)
         {
-            cell = string.Concat(
+            return string.Concat(
                 columnIsAbsolute ? "$" : "",
                 XLHelper.GetColumnLetterFromNumber(column),
                 rowIsAbsolute ? "$" : "",
                 row.ToString(CultureInfo.InvariantCulture));
         }
-        else
-        {
-            cell = string.Concat(
-                rowIsAbsolute ? $"R{row}" : $"R[{row}]",
-                columnIsAbsolute ? $"C{column}" : $"C[{column}]");
-        }
 
-        return sheetName is null ? cell : string.Concat(sheetName.EscapeSheetName(), "!", cell);
+        return string.Concat(
+            rowIsAbsolute ? $"R{row}" : $"R[{row}]",
+            columnIsAbsolute ? $"C{column}" : $"C[{column}]");
     }
 
     /// <summary>
@@ -920,14 +928,7 @@ internal static class Lookup
             return rangeError;
 
         if (p.Length == 2)
-        {
-            var isWide = array.Width > array.Height;
-            var found = MatchAscending(lookupValue, isWide ? new TransposedArray(array) : array, ScalarValueComparer.SortIgnoreCase);
-            if (found == -1)
-                return XLError.NoValueAvailable;
-
-            return (isWide ? array[array.Height - 1, found] : array[found, array.Width - 1]).ToAnyValue();
-        }
+            return LookupInArray(lookupValue, array);
 
         if (array.Height != 1 && array.Width != 1)
             return XLError.NoValueAvailable;
@@ -944,5 +945,16 @@ internal static class Lookup
             return XLError.NoValueAvailable;
 
         return (result.Height == 1 ? result[0, index] : result[index, 0]).ToAnyValue();
+    }
+
+    /// <summary>The array form of LOOKUP: search the first row or column, return from the last.</summary>
+    private static AnyValue LookupInArray(ScalarValue lookupValue, Array array)
+    {
+        var isWide = array.Width > array.Height;
+        var found = MatchAscending(lookupValue, isWide ? new TransposedArray(array) : array, ScalarValueComparer.SortIgnoreCase);
+        if (found == -1)
+            return XLError.NoValueAvailable;
+
+        return (isWide ? array[array.Height - 1, found] : array[found, array.Width - 1]).ToAnyValue();
     }
 }

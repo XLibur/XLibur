@@ -53,7 +53,6 @@ public static class XLMath
 
     public static double ACoth(double x)
     {
-        //return (Math.Log((x + 1.0) / (x - 1.0)) / 2.0);
         return ATanh(1.0 / x);
     }
 

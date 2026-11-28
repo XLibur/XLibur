@@ -352,6 +352,7 @@ public static partial class XLHelper
         return true;
     }
 
+#pragma warning disable S4136 // Kept beside the scan helpers it drives, apart from the IXLRangeAddress overload
     public static bool IsValidRangeAddress(string rangeAddress)
     {
         if (string.IsNullOrWhiteSpace(rangeAddress))
@@ -366,72 +367,81 @@ public static partial class XLHelper
         // The regex's '\Z' also let the address end in one line feed. INDIRECT relied on that to
         // read "A1:B2"&CHAR(10) as Excel does, and now drops the whitespace itself (#820).
         var index = 0;
-        TrySkipSheetName(rangeAddress, ref index);
+        SkipSheetName(rangeAddress, ref index);
         return TrySkipRange(rangeAddress, ref index) && index == rangeAddress.Length;
     }
+#pragma warning restore S4136
 
     /// <summary>
     /// Skips a sheet name and its '!': either written in apostrophes, where an apostrophe in the
     /// name is doubled and the characters <c>[ ] * / \ ? :</c> are not allowed, as in
     /// <c>'Bob''s'!</c>, or a run of word characters, as in <c>Sheet_1!</c>.
     /// </summary>
-    /// <returns><c>false</c>, with <paramref name="index"/> unchanged, if there is no sheet name.
-    /// The sheet name is optional, so that is not an error here. A malformed one returns <c>false</c> too,
-    /// deliberately: it mirrors the regex's optional sheet group, and the range itself can start with
-    /// word characters, as in <c>A1:B2</c>, so the range check is what refuses what is left.</returns>
-    private static bool TrySkipSheetName(string address, ref int index)
+    /// <remarks>
+    /// <paramref name="index"/> is unchanged if there is no sheet name. The sheet name is optional, so
+    /// that is not an error here. A malformed one leaves it unchanged too, deliberately: it mirrors the
+    /// regex's optional sheet group, and the range itself can start with word characters, as in
+    /// <c>A1:B2</c>, so the range check is what refuses what is left.
+    /// </remarks>
+    private static void SkipSheetName(string address, ref int index)
     {
         var position = index;
-        if (address[position] == '\'')
-        {
-            position++;
-            var nameStart = position;
-            while (position < address.Length)
-            {
-                var c = address[position];
-                if (c == '\'')
-                {
-                    // A doubled apostrophe is part of the name, a single one closes it. The
-                    // closing one has to be followed by '!', so there is nothing to back out of.
-                    if (position + 1 == address.Length || address[position + 1] != '\'')
-                        break;
+        var named = address[position] == '\''
+            ? TrySkipQuotedName(address, ref position)
+            : TrySkipPlainName(address, ref position);
 
-                    position += 2;
-                }
-                else if (c is '[' or ']' or '*' or '/' or '\\' or '?' or ':')
-                {
-                    return false;
-                }
-                else
-                {
-                    position++;
-                }
-            }
-
-            // The name cannot be empty, and the closing apostrophe has to be there.
-            if (position == nameStart || position == address.Length)
-                return false;
-
-            position++;
-        }
-        else
-        {
-            // Each apostrophe is required or absent as a pair, never one on its own, so
-            // 'Data!A1 and Data'!A1 are not addresses (#560). The quoted form of a name of word
-            // characters, as in 'Data'!A1, is read by the branch above.
-            var nameStart = position;
-            while (position < address.Length && IsWordChar(address[position]))
-                position++;
-
-            if (position == nameStart)
-                return false;
-        }
-
-        if (position == address.Length || address[position] != '!')
-            return false;
+        if (!named || position == address.Length || address[position] != '!')
+            return;
 
         index = position + 1;
+    }
+
+    /// <summary>Skips a name in apostrophes, with the apostrophes, stopping at what follows it.</summary>
+    private static bool TrySkipQuotedName(string address, ref int position)
+    {
+        position++;
+        var nameStart = position;
+        while (position < address.Length)
+        {
+            var c = address[position];
+            if (c == '\'')
+            {
+                // A doubled apostrophe is part of the name, a single one closes it. The
+                // closing one has to be followed by '!', so there is nothing to back out of.
+                if (position + 1 == address.Length || address[position + 1] != '\'')
+                    break;
+
+                position += 2;
+            }
+            else if (c is '[' or ']' or '*' or '/' or '\\' or '?' or ':')
+            {
+                return false;
+            }
+            else
+            {
+                position++;
+            }
+        }
+
+        // The name cannot be empty, and the closing apostrophe has to be there.
+        if (position == nameStart || position == address.Length)
+            return false;
+
+        position++;
         return true;
+    }
+
+    /// <summary>Skips a run of word characters.</summary>
+    private static bool TrySkipPlainName(string address, ref int position)
+    {
+        // Each apostrophe is required or absent as a pair, never one on its own, so
+        // 'Data!A1 and Data'!A1 are not addresses (#560). The quoted form of a name of word
+        // characters, as in 'Data'!A1, is read by TrySkipQuotedName.
+        var nameStart = position;
+        while (position < address.Length && IsWordChar(address[position]))
+            position++;
+
+        return position != nameStart;
     }
 
     /// <summary>

@@ -4,7 +4,6 @@ internal sealed class XLDrawingStyle : IXLDrawingStyle
 {
     public XLDrawingStyle()
     {
-        //Font = new XLDrawingFont(this);
         Alignment = new XLDrawingAlignment(this);
         ColorsAndLines = new XLDrawingColorsAndLines(this);
         Size = new XLDrawingSize(this);
@@ -14,7 +13,6 @@ internal sealed class XLDrawingStyle : IXLDrawingStyle
         Web = new XLDrawingWeb(this);
     }
 
-    //public IXLDrawingFont Font { get; private set; }
     public IXLDrawingAlignment Alignment { get; private set; }
 
     public IXLDrawingColorsAndLines ColorsAndLines { get; private set; }

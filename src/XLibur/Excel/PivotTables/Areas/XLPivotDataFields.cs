@@ -113,6 +113,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
 
     #endregion
 
+#pragma warning disable S4136 // The by-name entry point sits with the other add/remove members; the loader overload below is documented apart on purpose
     internal XLPivotDataField AddField(string sourceName, string? customName)
     {
         if (!_pivotTable.TryGetSourceNameFieldIndex(sourceName, out var fieldIndex))
@@ -134,6 +135,7 @@ internal sealed class XLPivotDataFields : IXLPivotValues, IReadOnlyCollection<XL
 
         return dataField;
     }
+#pragma warning restore S4136
 
     /// <summary>
     /// Add the 'data' field (the <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> sentinel)

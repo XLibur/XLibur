@@ -61,8 +61,8 @@ internal static class XLRangeShiftHelper
 
         var destroyedByShift = newTrailingEdge < newLeadingEdge;
 
-        var firstAddress = (XLAddress)thisFirst;
-        var lastAddress = (XLAddress)thisLast;
+        var firstAddress = thisFirst;
+        var lastAddress = thisLast;
 
         if (destroyedByShift)
         {

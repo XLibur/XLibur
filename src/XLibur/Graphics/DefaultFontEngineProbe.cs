@@ -32,7 +32,9 @@ internal static class DefaultFontEngineProbe
     private const string BootstrapTypeName = "XLibur.Fonts.SkiaSharp.SkiaSharpFontBootstrap";
     private const string FactoryMethodName = "CreateDefault";
 
+#pragma warning disable S9422 // System.Threading.Lock needs .NET 9; this library also targets net8.0
     private static readonly object Gate = new();
+#pragma warning restore S9422
     private static bool _probed;
     private static IXLFontEngine? _cached;
 

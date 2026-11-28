@@ -64,7 +64,7 @@ internal static class PictureStyleReader
             effects.ChildElements.ToList() is not [A.OuterShadow shadow])
             return null;
 
-        var color = shadow.ChildElements.FirstOrDefault();
+        var color = shadow.FirstChild;
         return new XLPictureShadow(
             DrawingColorReader.ReadColor(color) ?? XLColor.Black,
             DrawingColorReader.ReadTransparency(color),

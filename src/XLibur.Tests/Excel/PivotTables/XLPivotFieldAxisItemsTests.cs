@@ -587,7 +587,7 @@ internal class XLPivotFieldAxisItemsTests
         return (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
     }
 
-    private static IXLPivotFields Fields(IXLPivotTable pt, string axis) => axis switch
+    private static IXLPivotFields Fields(XLPivotTable pt, string axis) => axis switch
     {
         "rows" => pt.RowLabels,
         "columns" => pt.ColumnLabels,

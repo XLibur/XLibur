@@ -55,7 +55,7 @@ internal sealed class XLCFDataBarConverterExtension : IXLCFConverterExtension
             ? GetCFType(contentType1.ToOpenXml())
             : ConditionalFormattingValueObjectTypeValues.AutoMin;
         var cfMin = new ConditionalFormattingValueObject { Type = cfMinType };
-        if (cf.Values.Any() && cf.Values[1]?.Value != null)
+        if (cf.Values.Count > 0 && cf.Values[1]?.Value != null)
         {
             cfMin.Type = ConditionalFormattingValueObjectTypeValues.Numeric;
             cfMin.Append(new Formula { Text = cf.Values[1].Value });

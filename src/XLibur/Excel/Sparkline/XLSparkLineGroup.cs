@@ -173,7 +173,7 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
         if (sparklineGroup.DateRange is { } dateRange)
         {
             DateRange = dateRange.Worksheet == sparklineGroup.Worksheet
-                ? _worksheet.Range(dateRange.RangeAddress.ToString()!)
+                ? _worksheet.Range(dateRange.RangeAddress.ToString())
                 : dateRange;
         }
 
@@ -210,7 +210,7 @@ internal sealed class XLSparklineGroup : IXLSparklineGroup
 
             var location = targetSheet.Cell(sparkline.Location.Address.WithoutWorksheet());
             var sourceData = sparkline.SourceData.Worksheet == Worksheet
-                ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString()!)!
+                ? targetSheet.Range(sparkline.SourceData.RangeAddress.ToString())!
                 : sparkline.SourceData;
 
             copy.Add(location, sourceData);

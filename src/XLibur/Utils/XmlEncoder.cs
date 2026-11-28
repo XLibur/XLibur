@@ -65,20 +65,25 @@ internal static class XmlEncoder
             }
             else
             {
-                // The escape starts with an underscore, which may close "_xHHHH" written just
-                // before it as plain characters into a different escape. Escape that opener.
-                if (literalUnderscore >= 0 && EndsWithEscapeBody(sb, literalUnderscore))
-                {
-                    sb.Remove(literalUnderscore, 1);
-                    sb.Insert(literalUnderscore, "_x005F_");
-                }
-
-                sb.Append("_x").Append(((int)currentChar).ToString("X4")).Append('_');
+                AppendEscape(sb, currentChar, literalUnderscore);
                 i++;
             }
         }
 
         return sb.ToString();
+    }
+
+    private static void AppendEscape(StringBuilder sb, char currentChar, int literalUnderscore)
+    {
+        // The escape starts with an underscore, which may close "_xHHHH" written just
+        // before it as plain characters into a different escape. Escape that opener.
+        if (literalUnderscore >= 0 && EndsWithEscapeBody(sb, literalUnderscore))
+        {
+            sb.Remove(literalUnderscore, 1);
+            sb.Insert(literalUnderscore, "_x005F_");
+        }
+
+        sb.Append("_x").Append(((int)currentChar).ToString("X4")).Append('_');
     }
 
     /// <summary>

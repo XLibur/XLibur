@@ -45,44 +45,47 @@ internal static class CommentPartWriter
         var refBuffer = new char[10];
         xml.WriteStartElement("commentList", Main2006SsNs);
         foreach (var entry in entries)
-        {
-            var comment = entry.Comment;
-            xml.WriteStartElement("comment", Main2006SsNs);
-
-            var refLen = entry.Cell.SheetPoint.Format(refBuffer);
-            xml.WriteStartAttribute("ref");
-            xml.WriteRaw(refBuffer, 0, refLen);
-            xml.WriteEndAttribute(); // ref
-
-            xml.WriteAttribute("authorId", authorsDict[comment.Author]);
-
-            // Excel specifies @guid is optional if the workbook is not shared.
-            // Excel ignores the shapeId attribute, and the strict schema the OpenXML SDK validates
-            // against does not declare it at all, so it is left out even though Excel writes it.
-            // What actually pairs a fallback note with its thread is the uid below, matching the
-            // thread root's id, together with the "tc={rootId}" author.
-            if (entry.Thread is { } thread)
-                xml.WriteAttributeString("xr", "uid", RevisionNs, CommentWriteSource.FormatId(thread.Id));
-
-            xml.WriteStartElement("text", Main2006SsNs);
-            var richText = XLImmutableRichText.Create(comment);
-            foreach (var run in richText.Runs)
-                TextSerializer.WriteRun(xml, richText, run);
-
-            xml.WriteEndElement(); // text
-
-            if (comment.LoadedProperties is { } kept && kept.AtLoad == NoteProperties.Of(entry.Cell, comment))
-            {
-                foreach (var markup in kept.Markup)
-                    markup.WriteTo(xml);
-            }
-
-            xml.WriteEndElement(); // comment
-        }
+            WriteComment(xml, entry, authorsDict[entry.Comment.Author], refBuffer);
 
         xml.WriteEndElement(); // commentList
         xml.WriteEndElement(); // comments
 
         xml.Close();
+    }
+
+    private static void WriteComment(XmlWriter xml, CommentWriteEntry entry, int authorId, char[] refBuffer)
+    {
+        var comment = entry.Comment;
+        xml.WriteStartElement("comment", Main2006SsNs);
+
+        var refLen = entry.Cell.SheetPoint.Format(refBuffer);
+        xml.WriteStartAttribute("ref");
+        xml.WriteRaw(refBuffer, 0, refLen);
+        xml.WriteEndAttribute(); // ref
+
+        xml.WriteAttribute("authorId", authorId);
+
+        // Excel specifies @guid is optional if the workbook is not shared.
+        // Excel ignores the shapeId attribute, and the strict schema the OpenXML SDK validates
+        // against does not declare it at all, so it is left out even though Excel writes it.
+        // What actually pairs a fallback note with its thread is the uid below, matching the
+        // thread root's id, together with the "tc={rootId}" author.
+        if (entry.Thread is { } thread)
+            xml.WriteAttributeString("xr", "uid", RevisionNs, CommentWriteSource.FormatId(thread.Id));
+
+        xml.WriteStartElement("text", Main2006SsNs);
+        var richText = XLImmutableRichText.Create(comment);
+        foreach (var run in richText.Runs)
+            TextSerializer.WriteRun(xml, richText, run);
+
+        xml.WriteEndElement(); // text
+
+        if (comment.LoadedProperties is { } kept && kept.AtLoad == NoteProperties.Of(entry.Cell, comment))
+        {
+            foreach (var markup in kept.Markup)
+                markup.WriteTo(xml);
+        }
+
+        xml.WriteEndElement(); // comment
     }
 }

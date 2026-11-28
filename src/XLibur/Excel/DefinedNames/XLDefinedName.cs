@@ -152,7 +152,9 @@ internal sealed class XLDefinedName : IXLDefinedName, IWorkbookListener
     {
         // paramName, not the implicit "value": this rejection names the caller's parameter like the
         // ones below it, rather than the local it happens to have been assigned to.
+#pragma warning disable S3236 // paramName is the caller's own parameter name, which CallerArgumentExpression would not report
         ArgumentNullException.ThrowIfNull(value, paramName);
+#pragma warning restore S3236
 
         var formula = value.TrimFormulaEqual();
 

@@ -453,7 +453,7 @@ internal readonly struct AnyValue
 
         return reference.ImplicitIntersection(context.FormulaSheetPoint)
             .TryPickT0(out var singleCellReference, out var error)
-            ? singleCellReference!
+            ? singleCellReference
             : error;
     }
 

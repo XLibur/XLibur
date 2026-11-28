@@ -42,7 +42,7 @@ internal sealed class SharedFormulaGroup(string r1c1)
     {
         if (!_parsed)
         {
-            engine.TryParseR1C1(R1C1, out _ast);
+            _ = engine.TryParseR1C1(R1C1, out _ast); // A refusal leaves _ast null, which is what is checked below
             _parsed = true;
         }
 

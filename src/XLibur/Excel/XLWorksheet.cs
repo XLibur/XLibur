@@ -726,30 +726,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         return Table(range, TableNameGenerator.GetNewTableName(Workbook), addToTables, setAutofilter);
     }
 
-    /// <summary>
-    /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
-    /// declares it or as a copy of such a table has it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
-    /// the first row of such a table holds data, not field names, and a table of one row gets no
-    /// row inserted below it (#750).
-    /// </summary>
-    internal XLTable LoadTableWithoutHeaderRow(XLRange range, string name)
-    {
-        var rangeKey = new XLRangeKey(XLRangeType.Table, range.RangeAddress);
-        var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
-
-        // Before the table joins Tables, which names empty header cells after the fields.
-        table.HydrateShowHeaderRow(false);
-
-        if (table.Name != name)
-            table.Name = name;
-
-        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
-        if (!Tables.Contains(name))
-            Tables.Add(table);
-
-        return table;
-    }
-
     public IXLTable Table(XLRange range, string name, bool addToTables, bool setAutofilter = true, bool validateOverlap = true)
     {
         if (validateOverlap)
@@ -776,6 +752,30 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         if (setAutofilter && !table.ShowAutoFilter)
             table.InitializeAutoFilter();
+
+        return table;
+    }
+
+    /// <summary>
+    /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
+    /// declares it or as a copy of such a table has it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
+    /// the first row of such a table holds data, not field names, and a table of one row gets no
+    /// row inserted below it (#750).
+    /// </summary>
+    internal XLTable LoadTableWithoutHeaderRow(XLRange range, string name)
+    {
+        var rangeKey = new XLRangeKey(XLRangeType.Table, range.RangeAddress);
+        var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
+
+        // Before the table joins Tables, which names empty header cells after the fields.
+        table.HydrateShowHeaderRow(false);
+
+        if (table.Name != name)
+            table.Name = name;
+
+        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
+        if (!Tables.Contains(name))
+            Tables.Add(table);
 
         return table;
     }
@@ -1746,7 +1746,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     // Frozen pane     -> set the pane's top-left to the target (clamped out of the frozen band),
     //                    resetting any single-axis orthogonal scroll to its origin, and reset the
     //                    overall view scroll to A1 so a residual sideways scroll is cleared.
-    private void ScrollIntoView(IXLAddress target)
+    private void ScrollIntoView(XLAddress target)
     {
         // The splits count frozen lines only when the pane is frozen. An unfrozen split states its
         // position in twentieths of a point, which names no cell to anchor a pane to, so such a
@@ -2089,6 +2089,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     /// evaluated first, exactly as <see cref="XLCell.Value"/> does.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The coordinates are outside the sheet.</exception>
+#pragma warning disable S4136 // Kept beside SetCellValue, its write twin, rather than grouped with the other GetCellValue overload
     internal XLCellValue GetCellValue(int row, int column)
     {
         ValidateCellCoordinates(row, column);
@@ -2096,6 +2097,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
         EvaluateIfDirty(point);
         return Internals.CellsCollection.ValueSlice.GetCellValue(point);
     }
+#pragma warning restore S4136
 
     /// <summary>
     /// Evaluates the formula of the cell at <paramref name="point"/> if it has one and it needs

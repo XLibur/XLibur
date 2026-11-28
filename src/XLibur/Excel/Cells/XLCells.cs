@@ -66,7 +66,7 @@ internal sealed class XLCells : XLStylizedBase, IXLCells, IXLStylized, IEnumerab
         }
     }
 
-    private static IEnumerable<Point> GetAllCellsInRange(IXLRangeAddress rangeAddress)
+    private static IEnumerable<Point> GetAllCellsInRange(XLRangeAddress rangeAddress)
     {
         if (!rangeAddress.IsValid)
             yield break;

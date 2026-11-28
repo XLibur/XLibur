@@ -600,9 +600,11 @@ internal static class Financial
     private static double DdbPeriod(double cost, double salvage, double life, double period, double factor)
     {
         var rate = factor / life;
-        var openingValue = rate >= 1
-            ? period == 1 ? cost : 0
-            : cost * Math.Pow(1 - rate, period - 1);
+        double openingValue;
+        if (rate >= 1)
+            openingValue = period == 1 ? cost : 0;
+        else
+            openingValue = cost * Math.Pow(1 - rate, period - 1);
 
         // Excel charges the uncapped rate before the salvage cap, so DDB(1000,100,10,1,9E307) overflows.
         var charge = openingValue * rate;

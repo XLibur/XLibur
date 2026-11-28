@@ -134,7 +134,7 @@ public static class FirstEditProfile
         var allocBefore = GC.GetTotalAllocatedBytes(precise: true);
         var watch = Stopwatch.StartNew();
         foreach (var text in texts)
-            engine.TryParse(text, out _);
+            _ = engine.TryParse(text, out _);
         watch.Stop();
         var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocBefore;
         return new Probe(allocated, 0, watch.Elapsed.TotalMilliseconds);
@@ -315,7 +315,9 @@ public static class FirstEditProfile
     private sealed class AllocationSampler : EventListener
     {
         private const EventKeywords GcKeyword = (EventKeywords)0x1;
+#pragma warning disable S9422 // System.Threading.Lock does not exist on net8.0, which this project also targets.
         private readonly object _gate = new();
+#pragma warning restore S9422
         private readonly Dictionary<string, long> _bytesByType = new();
         private volatile bool _recording;
 

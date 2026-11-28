@@ -399,7 +399,9 @@ public class A1TemplateTests
         return formulas;
     }
 
+#pragma warning disable CA1859 // Dictionary<,>.ValueCollection would leak the lookup's shape; the caller only enumerates.
     private static IEnumerable<(string Text, List<Point> Cells)> ReadSharedFormulas(Stream part)
+#pragma warning restore CA1859
     {
         var byIndex = new Dictionary<string, (string Text, List<Point> Cells)>(StringComparer.Ordinal);
         using var reader = XmlReader.Create(part);

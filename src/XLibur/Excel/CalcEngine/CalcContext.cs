@@ -393,6 +393,26 @@ internal sealed class CalcContext : IStructuredReferenceScope
     }
 
     /// <summary>
+    /// This method should be used mostly for range arguments. If a value is scalar,
+    /// return a single value enumerable.
+    /// </summary>
+    internal IEnumerable<ScalarValue> GetNonBlankValues(AnyValue value)
+    {
+        if (value.TryPickScalar(out var scalar, out var collection))
+        {
+            if (scalar.IsBlank)
+                return [];
+
+            return new ScalarArray(scalar, 1, 1);
+        }
+
+        if (collection.TryPickT0(out var array, out var reference))
+            return array.Where(x => !x.IsBlank);
+
+        return GetNonBlankValues(reference);
+    }
+
+    /// <summary>
     /// The values of <see cref="GetNonBlankValues(Reference)"/>, as a struct enumerator that
     /// allocates nothing. The tally functions (SUM, COUNT, AVERAGE and the like) read every
     /// reference argument through it, so an evaluation of <c>SUM(D1:H1)</c> does not allocate an
@@ -600,26 +620,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
     }
 
     /// <summary>
-    /// This method should be used mostly for range arguments. If a value is scalar,
-    /// return a single value enumerable.
-    /// </summary>
-    internal IEnumerable<ScalarValue> GetNonBlankValues(AnyValue value)
-    {
-        if (value.TryPickScalar(out var scalar, out var collection))
-        {
-            if (scalar.IsBlank)
-                return [];
-
-            return new ScalarArray(scalar, 1, 1);
-        }
-
-        if (collection.TryPickT0(out var array, out var reference))
-            return array.Where(x => !x.IsBlank);
-
-        return GetNonBlankValues(reference);
-    }
-
-    /// <summary>
     /// Return all points in the <paramref name="areaReference" /> that satisfy the <paramref name="criteria" />.
     /// </summary>
     internal IEnumerable<Point> GetCriteriaPoints(XLRangeAddress areaReference, Criteria criteria)
@@ -705,8 +705,6 @@ internal sealed class CalcContext : IStructuredReferenceScope
                     yield return scalarValue;
             }
         }
-
-        yield break;
     }
 
     /// <summary>

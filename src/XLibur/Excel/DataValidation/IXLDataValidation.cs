@@ -43,8 +43,6 @@ public interface IXLDataValidation
 
     bool ShowErrorMessage { get; set; }
 
-    //void Delete();
-    //void CopyFrom(IXLDataValidation dataValidation);
     bool ShowInputMessage { get; set; }
 
     XLTextLengthCriteria TextLength { get; }

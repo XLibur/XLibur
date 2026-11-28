@@ -92,8 +92,10 @@ internal sealed class FunctionRegistry
     /// first of them that is a logical value or an error decides the result, so an error that
     /// <paramref name="fn"/> meets first wins over a logical value after it.
     /// </summary>
+#pragma warning disable S107 // The RegisterFunction parameters plus the list of numeric parameters
     public void RegisterStrictNumeric(string functionName, int minParams, int maxParams, CalcEngineFunction fn,
         int[] numericParams, FunctionFlags flags, AllowRange allowRanges = AllowRange.None, params int[] markedParams)
+#pragma warning restore S107
     {
         _func.Add(functionName, new FunctionDefinition(minParams, maxParams, RejectLogical(fn, numericParams), flags,
             allowRanges, markedParams, numericParams));

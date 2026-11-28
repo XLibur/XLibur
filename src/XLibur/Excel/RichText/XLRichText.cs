@@ -32,7 +32,7 @@ internal sealed class XLRichText : XLFormattedText<IXLRichText>, IXLRichText
                 originalRun.InheritsCellFont, originalRun.StatedProperties));
         }
 
-        var hasPhonetics = original.PhoneticRuns.Any() || original.PhoneticsProperties.HasValue;
+        var hasPhonetics = original.PhoneticRuns.Count > 0 || original.PhoneticsProperties.HasValue;
         if (hasPhonetics)
         {
             // Access to phonetics instantiate a new instance.

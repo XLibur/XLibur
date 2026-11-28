@@ -9,10 +9,8 @@ internal static class Information
 {
     public static void Register(FunctionRegistry ce)
     {
-        //ce.RegisterFunction("CELL", 1, 1, Adapt(Cell), FunctionFlags.Range, AllowRange.All);
         // A function value is no error (#868): Excel gives #N/A, FALSE, FALSE and 128 for LAMBDA(x,x).
         ce.RegisterFunction("ERROR.TYPE", 1, 1, WithFunctionValue(Adapt(ErrorType), XLError.NoValueAvailable), FunctionFlags.TakesFunctionValue);
-        //ce.RegisterFunction("INFO", 1, 1, Adapt(Info), FunctionFlags.Scalar);
         ce.RegisterFunction("ISBLANK", 1, 1, Adapt(IsBlank), FunctionFlags.Scalar);
         ce.RegisterFunction("ISERR", 1, 1, WithFunctionValue(Adapt(IsErr), false), FunctionFlags.TakesFunctionValue);
         ce.RegisterFunction("ISERROR", 1, 1, WithFunctionValue(Adapt(IsError), false), FunctionFlags.TakesFunctionValue);

@@ -179,7 +179,7 @@ public class RangeIndexTest
             child.MaximumRow == 24576 &&
             child.Y == 2)).IsEqualTo(2);
 
-        await Assert.That(level0.Children[0].Children!.Any()).IsTrue();
+        await Assert.That(level0.Children[0].Children!.Count > 0).IsTrue();
         await Assert.That(level0.Children.Skip(1).All(child => child.Children == null)).IsTrue();
 
         var level8 = level0

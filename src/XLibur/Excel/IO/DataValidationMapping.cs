@@ -54,7 +54,7 @@ internal static class DataValidationMapping
         settings = settings with { MinValue = minValue, MaxValue = maxValue };
 
         var sqref = string.Join(" ", dataValidation.Ranges.Select(x => x.RangeAddress));
-        resolved = new Resolved(settings, sqref, NeedsExtension(settings, minOnAnotherSheet || maxOnAnotherSheet));
+        resolved = new Resolved(settings, sqref, RequiresExtension(settings, minOnAnotherSheet || maxOnAnotherSheet));
         return true;
     }
 
@@ -62,7 +62,7 @@ internal static class DataValidationMapping
     /// The standard element holds neither a formula that refers to another sheet nor one longer than
     /// <see cref="MaxStandardFormulaLength"/>, so a rule with either is written as an extension.
     /// </summary>
-    private static bool NeedsExtension(in DataValidationSettings settings, bool refersToAnotherSheet) =>
+    private static bool RequiresExtension(in DataValidationSettings settings, bool refersToAnotherSheet) =>
         refersToAnotherSheet
         || settings.MinValue.Length > MaxStandardFormulaLength
         || settings.MaxValue.Length > MaxStandardFormulaLength;
