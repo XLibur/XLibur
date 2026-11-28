@@ -10,281 +10,328 @@ Comparisons with other libraries, on the published NuGet package, live in [XLBen
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 66.22 ms | 25.51 MB | +0.0% | -12.5% |  |
 | 0.800.0 | 75.64 ms | 25.51 MB | - | - | new |
 
 ### DemandDrivenReadBenchmarks.ReadOnDemand
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 1.49 ms | 65.54 KB | +0.0% | -13.6% |  |
 | 0.800.0 | 1.72 ms | 65.54 KB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.Load(Shape=10000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 23.99 ms | 5.44 MB | +0.0% | +0.2% |  |
 | 0.800.0 | 23.93 ms | 5.44 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.Load(Shape=10000x8shared)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 103.04 ms | 20.18 MB | +0.0% | -13.1% |  |
 | 0.800.0 | 118.54 ms | 20.17 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.Load(Shape=1000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 2.35 ms | 951.17 KB | +0.7% | -16.4% |  |
 | 0.800.0 | 2.8 ms | 944.21 KB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadAndEditOneCell(Shape=10000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 64.01 ms | 14.56 MB | +0.1% | -7.3% |  |
 | 0.800.0 | 69.09 ms | 14.55 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadAndEditOneCell(Shape=10000x8shared)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 181.04 ms | 53.14 MB | +0.0% | -11.5% |  |
 | 0.800.0 | 204.61 ms | 53.12 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadAndEditOneCell(Shape=1000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 6.38 ms | 1.88 MB | +0.4% | -16.7% |  |
 | 0.800.0 | 7.66 ms | 1.87 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadEditOneCellAndSave(Shape=10000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 141.17 ms | 38.41 MB | +0.1% | -8.3% |  |
 | 0.800.0 | 154 ms | 38.39 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadEditOneCellAndSave(Shape=10000x8shared)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 476.64 ms | 142.21 MB | +0.0% | -4.1% |  |
 | 0.800.0 | 497.14 ms | 142.18 MB | - | - | new |
 
 ### FirstEditAfterLoadBenchmarks.LoadEditOneCellAndSave(Shape=1000x2)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 13.3 ms | 4.78 MB | +0.3% | -14.5% |  |
 | 0.800.0 | 15.56 ms | 4.77 MB | - | - | new |
 
 ### FormulaEvaluationBenchmarks.SharedCrossSheet
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 21.12 ms | 760 B | +0.0% | +1.4% |  |
 | 0.800.0 | 20.83 ms | 760 B | - | - | new |
 
 ### FormulaEvaluationBenchmarks.SharedSameSheet
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 20.29 ms | 672 B | +0.0% | +2.0% |  |
 | 0.800.0 | 19.9 ms | 672 B | - | - | new |
 
 ### FormulaEvaluationBenchmarks.UniqueSameSheet
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 20.36 ms | 672 B | +0.0% | +3.2% |  |
 | 0.800.0 | 19.73 ms | 672 B | - | - | new |
 
 ### PropertiesRoundTripBenchmarks.Open
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 3.29 ms | 708.66 KB | +1.0% | -15.7% |  |
 | 0.800.0 | 3.9 ms | 701.82 KB | - | - | new |
 
 ### PropertiesRoundTripBenchmarks.OpenAmendPropertiesAndSave
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 4.32 ms | 1.36 MB | +0.9% | -19.1% |  |
 | 0.800.0 | 5.34 ms | 1.35 MB | - | - | new |
 
 ### PropertiesRoundTripBenchmarks.OpenAmendPropertiesAndSaveTwice
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 5.24 ms | 1.86 MB | +1.0% | -22.5% |  |
 | 0.800.0 | 6.76 ms | 1.84 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutput(Fixture=FillDown20k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 49.16 ms | 10.7 MB | +0.1% | -8.5% |  |
 | 0.800.0 | 53.71 ms | 10.69 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutput(Fixture=FillDown20k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 54.01 ms | 11.17 MB | +0.1% | -5.2% |  |
 | 0.800.0 | 56.98 ms | 11.16 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutput(Fixture=Orders10k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 71.52 ms | 21.46 MB | +0.1% | -0.1% |  |
 | 0.800.0 | 71.57 ms | 21.45 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutput(Fixture=Orders10k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 77.5 ms | 22.71 MB | +0.0% | -3.6% |  |
 | 0.800.0 | 80.42 ms | 22.7 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutputAndRecalculate(Fixture=FillDown20k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 126.87 ms | 26.28 MB | +0.0% | -6.8% |  |
 | 0.800.0 | 136.12 ms | 26.27 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutputAndRecalculate(Fixture=FillDown20k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 95.2 ms | 21.78 MB | +0.1% | -3.3% |  |
 | 0.800.0 | 98.41 ms | 21.77 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutputAndRecalculate(Fixture=Orders10k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 3.91 s | 95.51 MB | +0.0% | -31.2% |  |
 | 0.800.0 | 5.68 s | 95.5 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.LoadOutputAndRecalculate(Fixture=Orders10k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 3.99 s | 78.4 MB | +0.0% | -29.8% |  |
 | 0.800.0 | 5.68 s | 78.38 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.RoundTrip(Fixture=FillDown20k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 178.35 ms | 43.42 MB | +0.0% | -4.7% |  |
 | 0.800.0 | 187.13 ms | 43.4 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.RoundTrip(Fixture=FillDown20k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 177.07 ms | 43.36 MB | +0.0% | -6.1% |  |
 | 0.800.0 | 188.54 ms | 43.35 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.RoundTrip(Fixture=Orders10k&Shared=False)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 338.61 ms | 107.76 MB | +0.0% | +4.3% |  |
 | 0.800.0 | 324.52 ms | 107.75 MB | - | - | new |
 
 ### SharedFormulaWriteBenchmarks.RoundTrip(Fixture=Orders10k&Shared=True)
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 340.6 ms | 105.83 MB | +0.0% | +6.0% |  |
 | 0.800.0 | 321.25 ms | 105.81 MB | - | - | new |
 
 ### StreamingWriteBenchmarks.StreamingWrite
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 158.23 ms | 13.59 MB | +0.0% | -6.8% |  |
 | 0.800.0 | 169.8 ms | 13.59 MB | - | - | new |
 
 ### StreamingWriteBenchmarks.StreamingWriteFastestCompression
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 76.38 ms | 17.75 MB | +0.0% | -8.8% |  |
 | 0.800.0 | 83.73 ms | 17.75 MB | - | - | new |
 
 ### StreamingWriteBenchmarks.StreamingWriteInlineStrings
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 131.57 ms | 8.7 MB | +0.0% | -10.8% |  |
 | 0.800.0 | 147.51 ms | 8.69 MB | - | - | new |
 
 ### TemplateRoundTripBenchmarks.LoadRowHeavy
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 249.34 ms | 54.2 MB | +0.0% | -8.5% |  |
 | 0.800.0 | 272.64 ms | 54.19 MB | - | - | new |
 
 ### TemplateRoundTripBenchmarks.Open
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 1.72 ms | 1.37 MB | +1.6% | -16.9% |  |
 | 0.800.0 | 2.07 ms | 1.35 MB | - | - | new |
 
 ### TemplateRoundTripBenchmarks.OpenAndSaveRowHeavyUnchanged
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 339.7 ms | 83.89 MB | +0.0% | -3.2% |  |
 | 0.800.0 | 350.99 ms | 83.87 MB | - | - | new |
 
 ### TemplateRoundTripBenchmarks.OpenAndSaveUnchanged
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 3.62 ms | 2.67 MB | +1.1% | -18.0% |  |
 | 0.800.0 | 4.42 ms | 2.64 MB | - | - | new |
 
 ### TemplateRoundTripBenchmarks.RefreshLookupColumn
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 5.77 ms | 3.41 MB | +1.1% | -14.1% |  |
 | 0.800.0 | 6.72 ms | 3.38 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.EarlyExit_CellsUsedFirst
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 233.16 ns | 976 B | +0.0% | -23.3% |  |
 | 0.800.0 | 303.94 ns | 976 B | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.EarlyExit_EnumerateFirst
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 30.01 ns | 88 B | +0.0% | +10.5% |  |
 | 0.800.0 | 27.17 ns | 88 B | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L1_SliceOnly
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 2.14 ms | 126 B | +0.0% | -6.4% |  |
 | 0.800.0 | 2.29 ms | 126 B | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L2_PlusWrapper
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 3.7 ms | 9.16 MB | +0.0% | -14.7% |  |
 | 0.800.0 | 4.34 ms | 9.16 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L3_PlusIsEmptyFilter
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 6.17 ms | 9.16 MB | +0.0% | -1.1% |  |
 | 0.800.0 | 6.24 ms | 9.16 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L4_PlusSort
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 28.72 ms | 12.98 MB | +0.0% | +0.6% |  |
 | 0.800.0 | 28.54 ms | 12.98 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L5_PlusHashSet
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 39.09 ms | 29.7 MB | +0.0% | +2.6% |  |
 | 0.800.0 | 38.08 ms | 29.7 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.L6_CellsUsed
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 6.84 ms | 9.16 MB | +0.0% | -4.7% |  |
 | 0.800.0 | 7.19 ms | 9.16 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.Shape_TenDisjointRanges
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 48.24 ms | 12.99 MB | +0.0% | -9.7% |  |
 | 0.800.0 | 53.41 ms | 12.99 MB | - | - | new |
 
 ### UsedCellEnumerationBenchmarks.Shape_TenOverlappingRanges
 
 | Release | Mean | Allocated | Allocated vs previous | Time vs median of last 5 (indicative) | Flag |
 |---|---:|---:|---:|---:|---|
+| 0.900.0 | 54.02 ms | 12.99 MB | +0.0% | -9.4% |  |
 | 0.800.0 | 59.65 ms | 12.99 MB | - | - | new |
 
