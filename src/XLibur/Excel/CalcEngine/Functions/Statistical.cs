@@ -21,7 +21,6 @@ internal static class Statistical
 
     public static void Register(FunctionRegistry ce)
     {
-        //ce.RegisterFunction("AVEDEV", AveDev, 1, int.MaxValue);
         ce.RegisterFunction("AVERAGE", 1, int.MaxValue, Average, FunctionFlags.Range, AllowRange.All); // Returns the average (arithmetic mean) of the arguments
         ce.RegisterFunction("AVERAGEA", 1, int.MaxValue, AverageA, FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("AVERAGEIF", 2, 3, AdaptLastOptional(AverageIf), FunctionFlags.Range, AllowRange.Only, 0, 2); // Returns the average of cells that meet a criterion

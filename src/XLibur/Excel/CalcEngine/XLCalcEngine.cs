@@ -545,10 +545,12 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// <see cref="TryEvaluateSingleCell"/>.
     /// </summary>
     /// <remarks>
-    /// Declared <c>public</c> to satisfy S3871, which asks that a thrown exception be visible. The
-    /// engine is internal, so the type is not part of the library's API.
+    /// S3871 asks that a thrown exception be public. The engine is internal, so the type is not part
+    /// of the library's API whatever its modifier says, and Sonar still reports a nested public one.
     /// </remarks>
-    public sealed class DemandFallbackException : Exception;
+#pragma warning disable S3871
+    private sealed class DemandFallbackException : Exception;
+#pragma warning restore S3871
 
     /// <summary>
     /// Calculates a dirty precedent that a formula being calculated on demand has just read, so the
@@ -807,6 +809,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     /// <returns><c>true</c> when the cell is done with, calculated or left dirty. <c>false</c> when
     /// the chain has moved a precedent to the front, which has to be calculated first.</returns>
+#pragma warning disable S107 // One parameter per piece of chain-step state; a parameter object cannot hold the ref leftDirty
     private bool TryCalculateCurrentFormula(
         XLCalculationChain chain,
         XLCellFormula cellFormula,
@@ -816,6 +819,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
         uint? recalculateSheetId,
         EvaluationEntryPoint entry,
         ref Dictionary<SheetPoint, StoppedBy>? leftDirty)
+#pragma warning restore S107
     {
         try
         {

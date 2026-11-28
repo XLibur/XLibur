@@ -695,7 +695,7 @@ internal static class DynamicArray
     }
 
     /// <summary>Compare two rows by each SORTBY key in turn; the first key that differs decides.</summary>
-    private static int CompareBySortKeys(List<(Array By, int Order)> keys, IComparer<ScalarValue> comparer, int a, int b)
+    private static int CompareBySortKeys(List<(Array By, int Order)> keys, ScalarValueComparer comparer, int a, int b)
     {
         foreach (var (by, order) in keys)
         {
@@ -902,7 +902,7 @@ internal static class DynamicArray
     /// closer approximate match than the best so far? Match mode -1 wants the largest value below
     /// the target, match mode 1 the smallest value above it; other modes take no approximate match.
     /// </summary>
-    private static bool IsBetterApproximateMatch(IComparer<ScalarValue> comparer, int matchMode, int compare, bool noneYet, ScalarValue value, ScalarValue bestValue)
+    private static bool IsBetterApproximateMatch(ScalarValueComparer comparer, int matchMode, int compare, bool noneYet, ScalarValue value, ScalarValue bestValue)
     {
         if (matchMode == -1 && compare < 0)
             return noneYet || comparer.Compare(value, bestValue) > 0;

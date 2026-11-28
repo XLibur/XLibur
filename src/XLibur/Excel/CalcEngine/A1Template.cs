@@ -82,10 +82,8 @@ internal sealed class A1Template
         if (_slots.Length == 0)
             return _literals[0];
 
-        char[]? rented = null;
-        Span<char> buffer = _maxLength <= StackLimit
-            ? stackalloc char[StackLimit]
-            : rented = ArrayPool<char>.Shared.Rent(_maxLength);
+        var rented = _maxLength <= StackLimit ? null : ArrayPool<char>.Shared.Rent(_maxLength);
+        Span<char> buffer = rented is null ? stackalloc char[StackLimit] : rented;
 
         var literal = _literals[0];
         literal.CopyTo(buffer);

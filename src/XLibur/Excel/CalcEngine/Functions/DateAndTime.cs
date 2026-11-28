@@ -611,11 +611,9 @@ internal static class DateAndTime
     private static bool TryCoerceSingleHoliday(CalcContext ctx, in AnyValue holidays, out XLError error)
     {
         error = default;
-        if (!holidays.TryPickScalar(out var holiday, out var collection))
-        {
-            if (collection.TryPickT0(out _, out var reference) || !reference.TryGetSingleCellValue(out holiday, ctx))
-                return true;
-        }
+        if (!holidays.TryPickScalar(out var holiday, out var collection)
+            && (collection.TryPickT0(out _, out var reference) || !reference.TryGetSingleCellValue(out holiday, ctx)))
+            return true;
 
         if (holiday.IsBlank)
             return true;

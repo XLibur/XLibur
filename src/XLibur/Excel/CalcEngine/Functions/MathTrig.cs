@@ -115,9 +115,6 @@ internal static class MathTrig
         ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, SumIfsAllowedRangeParams);
         ce.RegisterFunction("SUMPRODUCT", 1, 30, Adapt(SumProduct), FunctionFlags.Range, AllowRange.All);
         ce.RegisterFunction("SUMSQ", 1, 255, SumSq, FunctionFlags.Range, AllowRange.All);
-        //ce.RegisterFunction("SUMX2MY2", SumX2MY2, 1);
-        //ce.RegisterFunction("SUMX2PY2", SumX2PY2, 1);
-        //ce.RegisterFunction("SUMXMY2", SumXMY2, 1);
         ce.RegisterFunction("TAN", 1, 1, Adapt(Tan), FunctionFlags.Scalar);
         ce.RegisterFunction("TANH", 1, 1, Adapt(Tanh), FunctionFlags.Scalar);
         ce.RegisterFunction("TRUNC", 1, 2, AdaptLastOptional(Trunc, 0), FunctionFlags.Scalar);
@@ -1070,35 +1067,54 @@ internal static class MathTrig
         if (places > 27 || (places >= 0 && Math.Abs(value) >= 1e15))
             return value;
 
-        try
-        {
-            var exact = (decimal)value;
-
-            // A magnitude below a decimal's 28 places converts to 0; the binary path still rounds it.
-            if (exact != 0 || value == 0)
-            {
-                var factor = 1m;
-                for (var i = 0; i < Math.Abs(places); i++)
-                    factor *= 10m;
-
-                var scaled = places >= 0 ? exact * factor : exact / factor;
-                var rounded = !awayFromZero ? decimal.Truncate(scaled)
-                    : scaled >= 0 ? decimal.Ceiling(scaled)
-                    : decimal.Floor(scaled);
-
-                return (double)(places >= 0 ? rounded / factor : rounded * factor);
-            }
-        }
-        catch (OverflowException)
-        {
-            // Too large for a decimal: fall through to the binary path.
-        }
+        if (TryRoundAsDecimal(value, places, awayFromZero, out var result))
+            return result;
 
         var coef = Math.Pow(10, places);
         if (!awayFromZero)
             return Math.Truncate(value * coef) / coef;
 
         return (value >= 0 ? Math.Ceiling(value * coef) : Math.Floor(value * coef)) / coef;
+    }
+
+    /// <summary>
+    /// The decimal path of <see cref="RoundTowards"/>. It gives <c>false</c> when the value has no
+    /// decimal form to round: too large for a decimal, or so small that it converts to 0.
+    /// </summary>
+    private static bool TryRoundAsDecimal(double value, double places, bool awayFromZero, out double result)
+    {
+        result = 0;
+        try
+        {
+            var exact = (decimal)value;
+
+            // A magnitude below a decimal's 28 places converts to 0; the binary path still rounds it.
+            if (exact == 0 && value != 0)
+                return false;
+
+            var factor = 1m;
+            for (var i = 0; i < Math.Abs(places); i++)
+                factor *= 10m;
+
+            var scaled = places >= 0 ? exact * factor : exact / factor;
+            var rounded = RoundDecimalTowards(scaled, awayFromZero);
+
+            result = (double)(places >= 0 ? rounded / factor : rounded * factor);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            // Too large for a decimal: the caller takes the binary path.
+            return false;
+        }
+    }
+
+    private static decimal RoundDecimalTowards(decimal scaled, bool awayFromZero)
+    {
+        if (!awayFromZero)
+            return decimal.Truncate(scaled);
+
+        return scaled >= 0 ? decimal.Ceiling(scaled) : decimal.Floor(scaled);
     }
 
     private static ScalarValue Sec(double angle)

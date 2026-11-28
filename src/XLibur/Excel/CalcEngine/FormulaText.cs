@@ -644,9 +644,11 @@ internal static class FormulaText
     /// quoted sheet name, was never replaced. The placeholder is a character the text does not hold
     /// itself, so a column name that really holds that character keeps it (#557).
     /// </summary>
+#pragma warning disable S2436 // Forwards every member of IAstFactory<TScalar, TNode, TContext>, so it takes the same three type parameters
     private sealed class ColonRestoringFactory<TScalar, TNode, TContext>(
         IAstFactory<TScalar, TNode, TContext> inner, char placeholder)
         : IAstFactory<TScalar, TNode, TContext>
+#pragma warning restore S2436
     {
         public TNode StructureReference(TContext context, SymbolRange range, StructuredReferenceArea area,
             string? firstColumn, string? lastColumn)
