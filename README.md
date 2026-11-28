@@ -8,7 +8,7 @@
 [![SonarCloud Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=XLibur_XLibur&metric=alert_status)](https://sonarcloud.io/dashboard?id=XLibur_XLibur)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-XLibur is a .NET library for reading, manipulating, and writing Excel 2007+ (.xlsx, .xlsm) files.
+XLibur is a .NET library for reading, manipulating, and writing Excel 2007+, Excel 365 (.xlsx, .xlsm) files.
 
 📖 **[Documentation](https://xlibur.github.io/XLibur/)** ·
 [Getting Started](https://xlibur.github.io/XLibur/getting-started) ·
