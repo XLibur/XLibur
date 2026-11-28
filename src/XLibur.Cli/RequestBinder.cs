@@ -150,6 +150,13 @@ internal static class RequestBinder
                 throw Usage($"{Spelling(property)}: '{raw}' is not valid ({e.Message}).");
             }
         }
+
+        private static Type Unwrap(Type type) => Nullable.GetUnderlyingType(type) ?? type;
+
+        private static Type? ElementType(Type type)
+            => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyList<>) ? type.GetGenericArguments()[0] : null;
+
+        private static OperationException Usage(string message) => OperationException.BadInput("usage", message);
     }
 
     internal static string Help(IOperation operation)
@@ -199,11 +206,4 @@ internal static class RequestBinder
 
         return text.ToString();
     }
-
-    private static Type Unwrap(Type type) => Nullable.GetUnderlyingType(type) ?? type;
-
-    private static Type? ElementType(Type type)
-        => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyList<>) ? type.GetGenericArguments()[0] : null;
-
-    private static OperationException Usage(string message) => OperationException.BadInput("usage", message);
 }

@@ -294,7 +294,7 @@ public class XLRangeAddressTests
         var ws = (XLWorksheet)new XLWorkbook().AddWorksheet();
 
         var range = ws.Range("B3:E5")!;
-        var rangeAddress = range.RangeAddress as IXLRangeAddress;
+        var rangeAddress = range.RangeAddress;
         await Assert.That(rangeAddress.ColumnSpan).IsEqualTo(4);
         await Assert.That(rangeAddress.RowSpan).IsEqualTo(3);
         await Assert.That(rangeAddress.NumberOfCells).IsEqualTo(12);
@@ -336,7 +336,7 @@ public class XLRangeAddressTests
         return address;
     }
 
-    private static IXLRangeAddress ProduceInvalidAddressOnDeletedWorksheet()
+    private static XLRangeAddress ProduceInvalidAddressOnDeletedWorksheet()
     {
         var address = ProduceInvalidAddress();
         address.Worksheet!.Delete();

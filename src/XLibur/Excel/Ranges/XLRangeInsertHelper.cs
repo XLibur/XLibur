@@ -215,7 +215,7 @@ internal static class XLRangeInsertHelper
 
     /// <summary>Styles the inserted block from the sheet's existing cross-axis lines, falling back to
     /// the worksheet style for a line that carries none.</summary>
-    private static void ApplyFormattingFromExistingCrossLines<TAxis>(XLRangeBase range, IXLRange rangeToReturn, XLCellsUsedOptions contentFlags)
+    private static void ApplyFormattingFromExistingCrossLines<TAxis>(XLRangeBase range, XLRange rangeToReturn, XLCellsUsedOptions contentFlags)
         where TAxis : struct, IGridAxis
     {
         var axis = default(TAxis);

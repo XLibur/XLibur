@@ -34,7 +34,7 @@ public partial class XLWorkbook
     {
         var backupCulture = Thread.CurrentThread.CurrentCulture;
 
-        IList<ValidationErrorInfo> errors;
+        ValidationErrorInfo[] errors;
         try
         {
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
@@ -46,7 +46,7 @@ public partial class XLWorkbook
             Thread.CurrentThread.CurrentCulture = backupCulture;
         }
 
-        if (errors.Count == 0) return;
+        if (errors.Length == 0) return;
         var message = string.Join("\r\n",
             errors.Select(e => $"Part {e.Part?.Uri}, Path {e.Path?.XPath}: {e.Description}").ToArray());
         throw new InvalidOperationException(message);
