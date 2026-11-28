@@ -78,7 +78,7 @@ internal static class ConditionalFormattingWriter
     {
         // The explicit type argument disambiguates XLPivotTables' two IEnumerable<T> implementations.
         return xlWorksheet.ConditionalFormats.Any() ||
-               xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Any());
+               xlWorksheet.PivotTables.Any<XLPivotTable>(pt => pt.ConditionalFormats.Count > 0);
     }
 
     private static void RemoveConditionalFormatting(Worksheet worksheet, XLWorksheetContentManager cm)
@@ -180,7 +180,7 @@ internal static class ConditionalFormattingWriter
     /// </para>
     /// </remarks>
     private static void NumberRules(Worksheet worksheet, XLWorksheet xlWorksheet,
-        IReadOnlyList<XLConditionalFormat> modelled)
+        List<XLConditionalFormat> modelled)
     {
         var extensionList = worksheet.Elements<WorksheetExtensionList>().FirstOrDefault();
         if (extensionList is null && modelled.Count == 0)
@@ -626,7 +626,7 @@ internal static class ConditionalFormattingWriter
                 Formula = new OfficeExcel.Formula(
                     xlSparkline.SourceData?.RangeAddress.ToString(XLReferenceStyle.A1, true) ?? "#REF!"),
                 ReferenceSequence =
-                    new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString()!)
+                    new OfficeExcel.ReferenceSequence(xlSparkline.Location.Address.ToString())
             })
         );
 

@@ -654,7 +654,7 @@ internal static class WorkbookStylesPartWriter
     /// XLibur has never written it for one.
     /// </summary>
     private static void AddConditionalDifferentialFormat(DifferentialFormats differentialFormats,
-        IXLConditionalFormat cf,
+        XLConditionalFormat cf,
         SaveContext context)
     {
         var styleValue = ((XLStyle)cf.Style).Value;

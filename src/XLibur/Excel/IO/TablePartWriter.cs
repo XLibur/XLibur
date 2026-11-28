@@ -203,7 +203,7 @@ internal static class TablePartWriter
     /// that style, or none for the default style (#513). Otherwise the cells say nothing, and the
     /// loaded <c>dataDxfId</c> is kept, pointed at its dxf in the rebuilt collection (#961).
     /// </summary>
-    private static void ApplyColumnDataFormat(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable,
+    private static void ApplyColumnDataFormat(TableColumn tableColumn, XLTableField xlField, XLTable xlTable,
         TableColumn? loadedColumn, SaveContext context)
     {
         if (xlField.IsConsistentStyle())
@@ -220,7 +220,7 @@ internal static class TablePartWriter
             tableColumn.DataFormatId = writtenId;
     }
 
-    private static void ApplyColumnFormula(TableColumn tableColumn, IXLTableField xlField, XLTable xlTable)
+    private static void ApplyColumnFormula(TableColumn tableColumn, XLTableField xlField, XLTable xlTable)
     {
         if (xlField.IsConsistentFormula())
         {
@@ -239,7 +239,7 @@ internal static class TablePartWriter
             tableColumn.CalculatedColumnFormula = null;
     }
 
-    private static void ApplyColumnTotalsRow(TableColumn tableColumn, IXLTableField xlField)
+    private static void ApplyColumnTotalsRow(TableColumn tableColumn, XLTableField xlField)
     {
         if (xlField.TotalsRowFunction != XLTotalsRowFunction.None)
         {

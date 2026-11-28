@@ -48,6 +48,18 @@ public sealed class PartStructureException : Exception
         return new PartStructureException($"XML doesn't contain a required attribute '{attributeName}'.");
     }
 
+    /// <summary>
+    /// Create a new exception for an element that omits an attribute the format requires.
+    /// </summary>
+    /// <param name="elementName">The element as it appears in the XML, such as <c>&lt;sheet&gt;</c>.</param>
+    /// <param name="attributeName">The attribute that is missing.</param>
+    /// <param name="position">Which occurrence of the element it was, counting from one.</param>
+    internal static PartStructureException MissingAttribute(string elementName, string attributeName, int position)
+    {
+        return new PartStructureException(
+            $"The {elementName} element at position {position} has no '{attributeName}' attribute, which the format requires.");
+    }
+
     internal static Exception IncorrectAttributeFormat()
     {
         return new PartStructureException("The attribute has a value in an incorrect format.");
@@ -104,18 +116,6 @@ public sealed class PartStructureException : Exception
     internal static PartStructureException InvalidSheetName(string reason)
     {
         return new PartStructureException($"The workbook declares a sheet with an invalid name. {reason}");
-    }
-
-    /// <summary>
-    /// Create a new exception for an element that omits an attribute the format requires.
-    /// </summary>
-    /// <param name="elementName">The element as it appears in the XML, such as <c>&lt;sheet&gt;</c>.</param>
-    /// <param name="attributeName">The attribute that is missing.</param>
-    /// <param name="position">Which occurrence of the element it was, counting from one.</param>
-    internal static PartStructureException MissingAttribute(string elementName, string attributeName, int position)
-    {
-        return new PartStructureException(
-            $"The {elementName} element at position {position} has no '{attributeName}' attribute, which the format requires.");
     }
 
     /// <summary>

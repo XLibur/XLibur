@@ -255,42 +255,12 @@ internal static class ShapePropertiesWriter
         var effects = shapeProperties.Elements<A.EffectList>().FirstOrDefault();
         if (shadow is not { } value)
         {
-            if (effects is null)
-                return;
-
-            foreach (var existing in effects.Elements<A.OuterShadow>().ToList())
-                existing.Remove();
-
-            if (!effects.HasChildren)
-                effects.Remove();
-
+            RemoveOuterShadows(effects);
             return;
         }
 
-        if (effects is null)
-        {
-            effects = new A.EffectList();
-            var anchor = shapeProperties.ChildElements.FirstOrDefault(IsAfterEffects);
-            if (anchor != null)
-                shapeProperties.InsertBefore(effects, anchor);
-            else
-                shapeProperties.Append(effects);
-        }
-
-        var outerShadow = effects.Elements<A.OuterShadow>().FirstOrDefault();
-        if (outerShadow is null)
-        {
-            // Excel writes rotWithShape="0" on the shadows its gallery makes.
-            outerShadow = new A.OuterShadow { RotateWithShape = false };
-
-            // CT_EffectList is a sequence: blur, fillOverlay, glow, innerShdw, outerShdw, prstShdw,
-            // reflection, softEdge.
-            var after = effects.ChildElements.FirstOrDefault(e => e is A.PresetShadow or A.Reflection or A.SoftEdge);
-            if (after != null)
-                effects.InsertBefore(outerShadow, after);
-            else
-                effects.Append(outerShadow);
-        }
+        effects ??= AddEffectList(shapeProperties);
+        var outerShadow = effects.Elements<A.OuterShadow>().FirstOrDefault() ?? AddOuterShadow(effects);
 
         outerShadow.BlurRadius = DrawingUnits.PointsToEmu(value.BlurPt);
         outerShadow.Distance = DrawingUnits.PointsToEmu(value.DistancePt);
@@ -304,6 +274,47 @@ internal static class ShapePropertiesWriter
             shadowColor.AppendChild(new A.Alpha { Val = DrawingUnits.PercentToThousandths(100 - value.TransparencyPct) });
 
         outerShadow.Append(shadowColor);
+    }
+
+    /// <summary>Removes every outer shadow from <paramref name="effects"/>, and the list when that leaves it empty.</summary>
+    private static void RemoveOuterShadows(A.EffectList? effects)
+    {
+        if (effects is null)
+            return;
+
+        foreach (var existing in effects.Elements<A.OuterShadow>().ToList())
+            existing.Remove();
+
+        if (!effects.HasChildren)
+            effects.Remove();
+    }
+
+    private static A.EffectList AddEffectList(OpenXmlCompositeElement shapeProperties)
+    {
+        var effects = new A.EffectList();
+        var anchor = shapeProperties.ChildElements.FirstOrDefault(IsAfterEffects);
+        if (anchor != null)
+            shapeProperties.InsertBefore(effects, anchor);
+        else
+            shapeProperties.Append(effects);
+
+        return effects;
+    }
+
+    private static A.OuterShadow AddOuterShadow(A.EffectList effects)
+    {
+        // Excel writes rotWithShape="0" on the shadows its gallery makes.
+        var outerShadow = new A.OuterShadow { RotateWithShape = false };
+
+        // CT_EffectList is a sequence: blur, fillOverlay, glow, innerShdw, outerShdw, prstShdw,
+        // reflection, softEdge.
+        var after = effects.ChildElements.FirstOrDefault(e => e is A.PresetShadow or A.Reflection or A.SoftEdge);
+        if (after != null)
+            effects.InsertBefore(outerShadow, after);
+        else
+            effects.Append(outerShadow);
+
+        return outerShadow;
     }
 
     // ── The CT_ShapeProperties sequence ─────────────────────────────────

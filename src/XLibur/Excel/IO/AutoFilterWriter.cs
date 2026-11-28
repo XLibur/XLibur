@@ -237,9 +237,9 @@ internal static class AutoFilterWriter
 
         if (filterRange.FirstCell().Address.RowNumber < filterRange.LastCell().Address.RowNumber)
             reference = filterRange.Range(filterRange.FirstCell().CellBelow(), filterRange.LastCell()).RangeAddress
-                .ToString()!;
+                .ToString();
         else
-            reference = filterRange.RangeAddress.ToString()!;
+            reference = filterRange.RangeAddress.ToString();
 
         var sortState = new SortState
         {

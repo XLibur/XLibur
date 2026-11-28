@@ -211,15 +211,7 @@ internal static class SharedStringReader
         {
             if (reader.NodeType == XmlNodeType.Element)
             {
-                OpenXmlElement? child = !IsMainNamespace(reader) ? null : reader.LocalName switch
-                {
-                    "r" => ReadRun(reader),
-                    "rPh" => ReadElement(reader, new PhoneticRun(), static (r, _) =>
-                        r.LocalName == "t" ? new Text() : null),
-                    "phoneticPr" => ReadElement(reader, new PhoneticProperties(), static (_, _) => null),
-                    "t" => ReadText(reader),
-                    _ => null,
-                };
+                var child = ReadRichChild(reader);
 
                 if (child is null)
                     reader.Skip();
@@ -238,6 +230,27 @@ internal static class SharedStringReader
 
         return SharedStringEntry.Rich(item);
     }
+
+    /// <summary>
+    /// The child of a rich item the reader is on, or null when it is not one the item keeps. The
+    /// reader returns past the child when one is made.
+    /// </summary>
+    private static OpenXmlElement? ReadRichChild(XmlReader reader)
+    {
+        if (!IsMainNamespace(reader))
+            return null;
+
+        return reader.LocalName switch
+        {
+            "r" => ReadRun(reader),
+            "rPh" => ReadElement(reader, new PhoneticRun(), static (r, _) => PhoneticRunChild(r)),
+            "phoneticPr" => ReadElement(reader, new PhoneticProperties(), static (_, _) => null),
+            "t" => ReadText(reader),
+            _ => null,
+        };
+    }
+
+    private static Text? PhoneticRunChild(XmlReader reader) => reader.LocalName == "t" ? new Text() : null;
 
     /// <summary>A run: its properties, each child element of them, and its text.</summary>
     private static Run ReadRun(XmlReader reader) =>
@@ -294,26 +307,7 @@ internal static class SharedStringReader
         {
             if (reader.NodeType == XmlNodeType.Element)
             {
-                var child = IsMainNamespace(reader)
-                    ? element is RunProperties ? RunPropertyElement(reader.LocalName) : childOf(reader, element)
-                    : null;
-
-                switch (child)
-                {
-                    case null:
-                        reader.Skip();
-                        break;
-                    case Text text:
-                        element.AppendChild(ReadText(reader, text));
-                        break;
-                    case RunProperties properties:
-                        element.AppendChild(ReadElement(reader, properties, childOf));
-                        break;
-                    default:
-                        element.AppendChild(ReadElement(reader, child, static (_, _) => null));
-                        break;
-                }
-
+                ReadChild(reader, element, childOf);
                 continue;
             }
 
@@ -325,6 +319,35 @@ internal static class SharedStringReader
 
             if (!reader.Read())
                 return element;
+        }
+    }
+
+    /// <summary>
+    /// Reads the child element the reader is on into <paramref name="element"/>, or skips it when
+    /// <paramref name="childOf"/> makes none for it. Only the children of a <see cref="RunProperties"/>
+    /// are made by name, as <see cref="RunPropertyElement"/> has them.
+    /// </summary>
+    private static void ReadChild(XmlReader reader, OpenXmlElement element,
+        Func<XmlReader, OpenXmlElement, OpenXmlElement?> childOf)
+    {
+        OpenXmlElement? child = null;
+        if (IsMainNamespace(reader))
+            child = element is RunProperties ? RunPropertyElement(reader.LocalName) : childOf(reader, element);
+
+        switch (child)
+        {
+            case null:
+                reader.Skip();
+                break;
+            case Text text:
+                element.AppendChild(ReadText(reader, text));
+                break;
+            case RunProperties properties:
+                element.AppendChild(ReadElement(reader, properties, childOf));
+                break;
+            default:
+                element.AppendChild(ReadElement(reader, child, static (_, _) => null));
+                break;
         }
     }
 
