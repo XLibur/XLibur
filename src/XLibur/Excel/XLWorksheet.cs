@@ -711,12 +711,10 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
     internal XLTables Tables { get; }
 
-#pragma warning disable S4136 // Ordered with the other table members of IXLWorksheet, not regrouped by overload name
     public IXLTable Table(int index)
     {
         return Tables.Table(index);
     }
-#pragma warning restore S4136
 
     public IXLTable Table(string name)
     {
@@ -726,30 +724,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     public IXLTable Table(XLRange range, bool addToTables, bool setAutofilter = true)
     {
         return Table(range, TableNameGenerator.GetNewTableName(Workbook), addToTables, setAutofilter);
-    }
-
-    /// <summary>
-    /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
-    /// declares it or as a copy of such a table has it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
-    /// the first row of such a table holds data, not field names, and a table of one row gets no
-    /// row inserted below it (#750).
-    /// </summary>
-    internal XLTable LoadTableWithoutHeaderRow(XLRange range, string name)
-    {
-        var rangeKey = new XLRangeKey(XLRangeType.Table, range.RangeAddress);
-        var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
-
-        // Before the table joins Tables, which names empty header cells after the fields.
-        table.HydrateShowHeaderRow(false);
-
-        if (table.Name != name)
-            table.Name = name;
-
-        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
-        if (!Tables.Contains(name))
-            Tables.Add(table);
-
-        return table;
     }
 
     public IXLTable Table(XLRange range, string name, bool addToTables, bool setAutofilter = true, bool validateOverlap = true)
@@ -778,6 +752,30 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
 
         if (setAutofilter && !table.ShowAutoFilter)
             table.InitializeAutoFilter();
+
+        return table;
+    }
+
+    /// <summary>
+    /// Creates a table that has no header row over exactly <paramref name="range"/>, as a file
+    /// declares it or as a copy of such a table has it. Unlike <see cref="Table(XLRange, string, bool, bool, bool)"/>, it writes no cell:
+    /// the first row of such a table holds data, not field names, and a table of one row gets no
+    /// row inserted below it (#750).
+    /// </summary>
+    internal XLTable LoadTableWithoutHeaderRow(XLRange range, string name)
+    {
+        var rangeKey = new XLRangeKey(XLRangeType.Table, range.RangeAddress);
+        var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
+
+        // Before the table joins Tables, which names empty header cells after the fields.
+        table.HydrateShowHeaderRow(false);
+
+        if (table.Name != name)
+            table.Name = name;
+
+        // By name, a dictionary lookup: the Name setter has refused a name another table holds.
+        if (!Tables.Contains(name))
+            Tables.Add(table);
 
         return table;
     }
@@ -1748,8 +1746,7 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
     // Frozen pane     -> set the pane's top-left to the target (clamped out of the frozen band),
     //                    resetting any single-axis orthogonal scroll to its origin, and reset the
     //                    overall view scroll to A1 so a residual sideways scroll is cleared.
-#pragma warning disable CA1859 // The only caller holds the public IXLCell.Address, an IXLAddress
-    private void ScrollIntoView(IXLAddress target)
+    private void ScrollIntoView(XLAddress target)
     {
         // The splits count frozen lines only when the pane is frozen. An unfrozen split states its
         // position in twentieths of a point, which names no cell to anchor a pane to, so such a
@@ -1782,7 +1779,6 @@ internal sealed class XLWorksheet : XLStoredRangeBase, IXLWorksheet
             fixedRow: false, fixedColumn: false);
         SheetView.TopLeftCellAddress = new XLAddress(this, 1, 1, fixedRow: false, fixedColumn: false);
     }
-#pragma warning restore CA1859
 
     private XLCalcEngine CalcEngine => Workbook.CalcEngine;
 

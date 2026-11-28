@@ -587,9 +587,7 @@ internal class XLPivotFieldAxisItemsTests
         return (XLPivotTable)ws.PivotTables.Add("pt", ws.Cell("E1"), range!);
     }
 
-#pragma warning disable CA1859 // Callers hold the public IXLPivotTable; the helper takes it as the API exposes it.
-    private static IXLPivotFields Fields(IXLPivotTable pt, string axis) => axis switch
-#pragma warning restore CA1859
+    private static IXLPivotFields Fields(XLPivotTable pt, string axis) => axis switch
     {
         "rows" => pt.RowLabels,
         "columns" => pt.ColumnLabels,

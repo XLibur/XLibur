@@ -243,14 +243,12 @@ internal static class SharedStringReader
         return reader.LocalName switch
         {
             "r" => ReadRun(reader),
-            "rPh" => ReadElement(reader, new PhoneticRun(), static (r, _) => PhoneticRunChild(r)),
+            "rPh" => ReadElement(reader, new PhoneticRun(), static (r, _) => r.LocalName == "t" ? new Text() : null),
             "phoneticPr" => ReadElement(reader, new PhoneticProperties(), static (_, _) => null),
             "t" => ReadText(reader),
             _ => null,
         };
     }
-
-    private static Text? PhoneticRunChild(XmlReader reader) => reader.LocalName == "t" ? new Text() : null;
 
     /// <summary>A run: its properties, each child element of them, and its text.</summary>
     private static Run ReadRun(XmlReader reader) =>

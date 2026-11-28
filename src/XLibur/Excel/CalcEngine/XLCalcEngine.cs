@@ -809,7 +809,7 @@ internal sealed class XLCalcEngine : ISheetListener, IWorkbookListener
     /// </summary>
     /// <returns><c>true</c> when the cell is done with, calculated or left dirty. <c>false</c> when
     /// the chain has moved a precedent to the front, which has to be calculated first.</returns>
-#pragma warning disable S107 // One parameter per piece of chain-step state; a parameter object cannot hold the ref leftDirty
+#pragma warning disable S107 // One parameter per piece of chain-step state; a parameter object is not worth adding for one private call site
     private bool TryCalculateCurrentFormula(
         XLCalculationChain chain,
         XLCellFormula cellFormula,
