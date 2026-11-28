@@ -215,10 +215,10 @@ public class ExcelAuthoredFixtureTests
         var definition = saved.ReadPartUnder("xl/pivotCache/pivotCacheDefinition");
         var records = saved.ReadPartUnder("xl/pivotCache/pivotCacheRecords");
 
-        var fieldCount = Regex.Matches(definition, "<x:cacheField ").Count;
-        var nonDatabase = Regex.Matches(definition, "<x:cacheField [^>]*databaseField=\"0\"").Count;
+        var fieldCount = Regex.Count(definition, "<x:cacheField ");
+        var nonDatabase = Regex.Count(definition, "<x:cacheField [^>]*databaseField=\"0\"");
         var firstRecord = Regex.Match(records, "<r>(.*?)</r>", RegexOptions.Singleline).Groups[1].Value;
-        var columns = Regex.Matches(firstRecord, "<[a-z] ").Count;
+        var columns = Regex.Count(firstRecord, "<[a-z] ");
         await Assert.That(columns).IsEqualTo(fieldCount - nonDatabase);
     }
 

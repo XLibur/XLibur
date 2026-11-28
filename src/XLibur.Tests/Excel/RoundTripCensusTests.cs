@@ -100,7 +100,7 @@ public class RoundTripCensusTests
     }
 
     /// <summary>The losses the census reports when <paramref name="damage"/> edits one part of a copy of a fixture.</summary>
-    private static IEnumerable<string> CensusOfDamage(string fixture, string part, Action<XDocument> damage)
+    private static List<string> CensusOfDamage(string fixture, string part, Action<XDocument> damage)
     {
         var qualified = new HashSet<(string, string)> { ("spreadsheetml.worksheet", "col@customWidth=false") };
         using var original = TestHelper.OpenResource(fixture);

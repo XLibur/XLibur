@@ -18,7 +18,7 @@ public class BinaryWorkbookLoadingTests
     {
         using var stream = BuildPackage("workbook.bin", BinaryWorkbookContentType);
 
-        await AssertRefusedAsXlsb(() => new XLWorkbook(stream));
+        await AssertRefusedAsXlsb(() => { using var workbook = new XLWorkbook(stream); });
     }
 
     [Test]
@@ -28,7 +28,7 @@ public class BinaryWorkbookLoadingTests
     {
         using var file = WriteToFile(BuildPackage("workbook.bin", BinaryWorkbookContentType), extension);
 
-        await AssertRefusedAsXlsb(() => new XLWorkbook(file.Path));
+        await AssertRefusedAsXlsb(() => { using var workbook = new XLWorkbook(file.Path); });
     }
 
     [Test]

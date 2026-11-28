@@ -703,7 +703,7 @@ public class XLRichStringTests
         static async Task AssertRichText(IXLRichText richText)
         {
             await Assert.That(richText).IsNotNull();
-            await Assert.That(richText.Any()).IsTrue();
+            await Assert.That(richText.Count > 0).IsTrue();
             await Assert.That(richText.ElementAt(2).Text).IsEqualTo("3");
             await Assert.That(richText.ElementAt(2).FontColor).IsEqualTo(XLColor.Red);
         }

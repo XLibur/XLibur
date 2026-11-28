@@ -11,7 +11,7 @@ namespace XLibur.Fonts.Tests;
 public static class TestDefaults
 {
     [Before(HookType.Assembly)]
-    public static void PinCulture()
+    public static void PinCulture(AssemblyHookContext context)
     {
         var enUs = CultureInfo.GetCultureInfo("en-US");
         CultureInfo.DefaultThreadCurrentCulture = enUs;

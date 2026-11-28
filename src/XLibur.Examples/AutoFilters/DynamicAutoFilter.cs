@@ -25,8 +25,6 @@ public class DynamicAutoFilter : IXLExample
         // Add filters
         ws.RangeUsed()!.SetAutoFilter().Column(1).AboveAverage();
 
-        // Sort the filtered list
-        //ws.AutoFilter.Sort(1);
         #endregion
 
         #region Multi Column
@@ -60,8 +58,6 @@ public class DynamicAutoFilter : IXLExample
         // Add filters
         ws.RangeUsed()!.SetAutoFilter().Column(2).BelowAverage();
 
-        // Sort the filtered list
-        //ws.AutoFilter.Sort(3);
         #endregion
 
         using (var ms = new MemoryStream())
@@ -71,11 +67,9 @@ public class DynamicAutoFilter : IXLExample
             var workbook = new XLWorkbook(ms);
 
             #region Single Column Numbers
-            //workbook.Worksheet(singleColumnNumbers).AutoFilter.Sort(1, XLSortOrder.Descending);
             #endregion
 
             #region Multi Column
-            //workbook.Worksheet(multiColumn).AutoFilter.Sort(3, XLSortOrder.Descending);
             #endregion
 
             workbook.SaveAs(filePath);

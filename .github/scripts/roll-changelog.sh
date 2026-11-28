@@ -68,7 +68,8 @@ fi
 # Headings are compared as fixed strings, ignoring trailing whitespace — the file
 # is checked out with CRLF endings, so every line carries a trailing \r.
 has_line() {
-  awk -v want="$1" '
+  local want="$1"
+  awk -v want="$want" '
     { line = $0; sub(/[[:space:]]+$/, "", line) }
     line == want { found = 1; exit }
     END { exit !found }
@@ -76,7 +77,8 @@ has_line() {
 }
 
 has_prefix() {
-  awk -v want="$1" '
+  local want="$1"
+  awk -v want="$want" '
     index($0, want) == 1 { found = 1; exit }
     END { exit !found }
   ' "$changelog"

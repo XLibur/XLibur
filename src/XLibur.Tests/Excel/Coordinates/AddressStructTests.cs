@@ -82,7 +82,9 @@ public class AddressStructTests
         var ws = wb.AddWorksheet("Sheet1");
 
         // Boxed once here, outside the measurement: the parameters are still interfaces.
+#pragma warning disable CA1859 // The test measures the interface calls, so the variable stays IXLRangeAddress.
         IXLRangeAddress range = ws.Range("B2:D5").RangeAddress;
+#pragma warning restore CA1859
         IXLRangeAddress other = ws.Range("C3:F9").RangeAddress;
         IXLRangeAddress source = ws.Range("A1:A1").RangeAddress;
         IXLRangeAddress target = ws.Range("K10:K10").RangeAddress;
@@ -145,7 +147,9 @@ public class AddressStructTests
     {
         using var wb = new XLWorkbook();
         // Row and column both from 300 up, which .NET's cache of small numbers' text does not cover.
+#pragma warning disable CA1859 // The test measures the interface calls, so the variable stays IXLAddress.
         IXLAddress address = wb.AddWorksheet("Sheet1").Cell(1000, 400).Address;
+#pragma warning restore CA1859
         Func<string> format = form switch
         {
             "ToString(A1)" => () => address.ToString(XLReferenceStyle.A1),
@@ -220,7 +224,9 @@ public class AddressStructTests
         var ws = wb.AddWorksheet("Sheet1");
 
         IXLAddress address = ws.Cell("B3").Address;
+#pragma warning disable CA1859 // The test exercises the interface surface, so the variable stays IXLRangeAddress.
         IXLRangeAddress rangeAddress = ws.Range("B2:D5").RangeAddress;
+#pragma warning restore CA1859
 
         await Assert.That(address.ToString()).IsEqualTo("B3");
         await Assert.That(address.Worksheet).IsSameReferenceAs(ws);

@@ -45,13 +45,12 @@ public static class PropertiesRoundTripProfile
             + $"{GC.CollectionCount(0) - gcBefore} gen0");
     }
 
-    private static long RoundTrip(byte[] bytes)
+    private static void RoundTrip(byte[] bytes)
     {
         using var wb = new XLWorkbook(new MemoryStream(bytes));
         wb.Properties.Title = PropertiesFixture.Title;
         wb.Properties.Category = PropertiesFixture.Category;
         using var output = new MemoryStream();
         wb.SaveAs(output);
-        return output.Length;
     }
 }

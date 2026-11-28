@@ -238,6 +238,33 @@ internal static class Delimited
             _rows.Add([.. _row]);
             _row.Clear();
         }
+
+        private static string Unescape(string raw)
+        {
+            if (!raw.Contains('\\'))
+                return raw;
+            var result = new StringBuilder(raw.Length);
+            var next = 0;
+            while (next < raw.Length)
+            {
+                var c = raw[next++];
+                if (c != '\\' || next == raw.Length)
+                {
+                    result.Append(c);
+                    continue;
+                }
+
+                result.Append(raw[next++] switch
+                {
+                    't' => '\t',
+                    'n' => '\n',
+                    'r' => '\r',
+                    var other => other,
+                });
+            }
+
+            return result.ToString();
+        }
     }
 
     private static XLCellValue Unquoted(string text)
@@ -249,33 +276,6 @@ internal static class Delimited
         if (text is "TRUE" or "FALSE")
             return text == "TRUE";
         return text;
-    }
-
-    private static string Unescape(string text)
-    {
-        if (!text.Contains('\\'))
-            return text;
-        var result = new StringBuilder(text.Length);
-        var next = 0;
-        while (next < text.Length)
-        {
-            var c = text[next++];
-            if (c != '\\' || next == text.Length)
-            {
-                result.Append(c);
-                continue;
-            }
-
-            result.Append(text[next++] switch
-            {
-                't' => '\t',
-                'n' => '\n',
-                'r' => '\r',
-                var other => other,
-            });
-        }
-
-        return result.ToString();
     }
 
     internal static string Write(List<XLCellValue[]> grid, char separator)

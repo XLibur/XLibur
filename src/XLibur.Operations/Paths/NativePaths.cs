@@ -141,7 +141,7 @@ internal static partial class NativePaths
             }
             finally
             {
-                Close(descriptor);
+                _ = Close(descriptor);
             }
         }
 

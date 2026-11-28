@@ -38,7 +38,9 @@ public class CellReadBenchmarks
     private XLWorksheet _sheet = null!;
 
     // The public member, reached the way a caller reaches it: through the interface.
+#pragma warning disable CA1859 // The benchmark measures the call through the interface, so the field must stay IXLWorksheet.
     private IXLWorksheet _worksheet = null!;
+#pragma warning restore CA1859
 
     [GlobalSetup]
     public void Setup()

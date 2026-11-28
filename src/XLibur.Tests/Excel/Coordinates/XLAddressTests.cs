@@ -160,7 +160,7 @@ public class XLAddressTests
 
     #region Private Methods
 
-    private static IXLAddress ProduceInvalidAddress()
+    private static XLAddress ProduceInvalidAddress()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var range = ws.Range("A1:B2");
@@ -169,7 +169,7 @@ public class XLAddressTests
         return range.RangeAddress.FirstAddress;
     }
 
-    private static IXLAddress ProduceAddressOnDeletedWorksheet()
+    private static XLAddress ProduceAddressOnDeletedWorksheet()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var address = ws.Cell("A1").Address;

@@ -318,7 +318,7 @@ public class XLRangeAddressTests
 
     #region Private Methods
 
-    private static IXLRangeAddress ProduceInvalidAddress()
+    private static XLRangeAddress ProduceInvalidAddress()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var range = ws.Range("A1:B2");
@@ -327,7 +327,7 @@ public class XLRangeAddressTests
         return range.RangeAddress;
     }
 
-    private static IXLRangeAddress ProduceAddressOnDeletedWorksheet()
+    private static XLRangeAddress ProduceAddressOnDeletedWorksheet()
     {
         var ws = new XLWorkbook().Worksheets.Add("Sheet 1");
         var address = ws.Range("A1:B2").RangeAddress;
