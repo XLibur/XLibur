@@ -224,10 +224,33 @@ public class LookupTests
         await Assert.That(ws.Evaluate(@"HLOOKUP(""Units"",(B2:I5,B6:I10),1)")).IsEqualTo(XLError.NoValueAvailable);
 
         // The row index number must be at most the same as height of the range. It is 5 here, but range is 4 cell high.
-        await Assert.That(ws.Evaluate(@"HLOOKUP(""value"",B2:I5,5,FALSE)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(ws.Evaluate(@"HLOOKUP(""Units"",B2:I5,5,FALSE)")).IsEqualTo(XLError.CellReference);
 
         // The row index number must be at least 1. It is 0 here.
         await Assert.That(XLWorkbook.EvaluateExpr("HLOOKUP(1,{1,2},0,FALSE)")).IsEqualTo(XLError.IncompatibleValue);
+    }
+
+    [Test]
+    public async Task Lookup_searches_before_it_checks_the_index_is_inside_the_table()
+    {
+        // Recorded in Excel: a missing value is #N/A even when the index is past the table.
+        using var wb = new XLWorkbook();
+        var sheet = wb.AddWorksheet();
+        sheet.Cell("A1").Value = 1;
+        sheet.Cell("B1").Value = 2;
+        sheet.Cell("C1").Value = 3;
+        sheet.Cell("A2").Value = "a";
+        sheet.Cell("B2").Value = "b";
+        sheet.Cell("C2").Value = "c";
+        sheet.Cell("E1").Value = "5";
+
+        await Assert.That(sheet.Evaluate("HLOOKUP(0,A1:C2,5)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(sheet.Evaluate("HLOOKUP(99,A1:C2,5,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(sheet.Evaluate("HLOOKUP(2,A1:C2,5)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(sheet.Evaluate("HLOOKUP(2,B1,2)")).IsEqualTo(XLError.CellReference);
+        await Assert.That(sheet.Evaluate("HLOOKUP(2,J10,2)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(sheet.Evaluate("HLOOKUP(2,E1,2)")).IsEqualTo(XLError.NoValueAvailable);
+        await Assert.That(sheet.Evaluate("VLOOKUP(99,A1:C2,5,FALSE)")).IsEqualTo(XLError.NoValueAvailable);
     }
 
     [Test]
